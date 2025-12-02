@@ -221,44 +221,43 @@ test.describe('Multi Select Field', () => {
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'multiselect_field',
-                type: 'multi-select',
-                options: ['opt1', 'opt2', 'opt3', 'opt4'],
-                required: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with multi-select field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'multiselect_field',
+                  type: 'multi-select',
+                  options: ['opt1', 'opt2', 'opt3', 'opt4'],
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (multiselect_field) VALUES (ARRAY['opt1', 'opt3'])")
-      // WHEN: executing query
-      const stored = await executeQuery('SELECT multiselect_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.multiselect_field).toContain('opt1')
-      // THEN: assertion
-      expect(stored.multiselect_field).toContain('opt3')
+      await test.step('Insert and verify multi-select values', async () => {
+        await executeQuery("INSERT INTO data (multiselect_field) VALUES (ARRAY['opt1', 'opt3'])")
+        const stored = await executeQuery('SELECT multiselect_field FROM data WHERE id = 1')
+        expect(stored.multiselect_field).toContain('opt1')
+        expect(stored.multiselect_field).toContain('opt3')
+      })
 
-      // Query using array contains operator
-      const matching = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE multiselect_field @> ARRAY['opt1']"
-      )
-      // THEN: assertion
-      expect(matching.count).toBe(1)
+      await test.step('Query using array contains operator', async () => {
+        const matching = await executeQuery(
+          "SELECT COUNT(*) as count FROM data WHERE multiselect_field @> ARRAY['opt1']"
+        )
+        expect(matching.count).toBe(1)
+      })
     }
   )
 })

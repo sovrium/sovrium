@@ -270,42 +270,44 @@ test.describe('User Field', () => {
     'APP-TABLES-FIELD-TYPES-USER-006: user can complete full user-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: users created via Better Auth
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 4,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'assignee', type: 'user', required: true, indexed: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      let alice: any
+
+      await test.step('Setup: Start server with user field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 4,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'assignee', type: 'user', required: true, indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-      // Create second user to ensure multiple users work in Better Auth context
-      await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      await test.step('Create authenticated users', async () => {
+        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      })
 
-      // WHEN: inserting data with user reference
-      await executeQuery(`INSERT INTO data (assignee) VALUES ('${alice.user.id}')`)
+      await test.step('Insert data with user reference', async () => {
+        await executeQuery(`INSERT INTO data (assignee) VALUES ('${alice.user.id}')`)
+        const assigned = await executeQuery('SELECT assignee FROM data WHERE id = 1')
+        expect(assigned.assignee).toBe(alice.user.id)
+      })
 
-      // WHEN: querying assigned data
-      const assigned = await executeQuery('SELECT assignee FROM data WHERE id = 1')
-      // THEN: should return user id
-      expect(assigned.assignee).toBe(alice.user.id)
-
-      // WHEN: joining to get user info
-      const userInfo = await executeQuery(
-        'SELECT d.id, u.name, u.email FROM data d JOIN users u ON d.assignee = u.id WHERE d.id = 1'
-      )
-      // THEN: should return user profile
-      expect(userInfo.name).toBe('Alice')
-      expect(userInfo.email).toBe('alice@example.com')
+      await test.step('Verify user info via JOIN', async () => {
+        const userInfo = await executeQuery(
+          'SELECT d.id, u.name, u.email FROM data d JOIN users u ON d.assignee = u.id WHERE d.id = 1'
+        )
+        expect(userInfo.name).toBe('Alice')
+        expect(userInfo.email).toBe('alice@example.com')
+      })
     }
   )
 })

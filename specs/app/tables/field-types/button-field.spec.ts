@@ -195,40 +195,43 @@ test.describe('Button Field', () => {
     'APP-TABLES-FIELD-TYPES-BUTTON-006: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'items',
-            fields: [
-              {
-                id: 1,
-                name: 'status',
-                type: 'status',
-                options: [{ value: 'draft' }, { value: 'published' }],
-                default: 'draft',
-              },
-              {
-                id: 2,
-                name: 'publish_button',
-                type: 'button',
-                label: 'Publish',
-                action: 'publish',
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with button field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'items',
+              fields: [
+                {
+                  id: 1,
+                  name: 'status',
+                  type: 'status',
+                  options: [{ value: 'draft' }, { value: 'published' }],
+                  default: 'draft',
+                },
+                {
+                  id: 2,
+                  name: 'publish_button',
+                  type: 'button',
+                  label: 'Publish',
+                  action: 'publish',
+                },
+              ],
+            },
+          ],
+        })
       })
-      // WHEN: executing query
-      await executeQuery('INSERT INTO items DEFAULT VALUES')
-      // WHEN: executing query
-      await executeQuery("UPDATE items SET status = 'published' WHERE id = 1")
-      // WHEN: executing query
-      const item = await executeQuery('SELECT status FROM items WHERE id = 1')
-      // THEN: assertion
-      expect(item.status).toBe('published')
+
+      await test.step('Insert item with default status', async () => {
+        await executeQuery('INSERT INTO items DEFAULT VALUES')
+      })
+
+      await test.step('Trigger publish action', async () => {
+        await executeQuery("UPDATE items SET status = 'published' WHERE id = 1")
+        const item = await executeQuery('SELECT status FROM items WHERE id = 1')
+        expect(item.status).toBe('published')
+      })
     }
   )
 })

@@ -191,34 +191,34 @@ test.describe('Duration Field', () => {
     'APP-TABLES-FIELD-TYPES-DURATION-006: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'duration_field',
-                type: 'duration',
-                required: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with duration field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'duration_field',
+                  type: 'duration',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (duration_field) VALUES ('2 hours 15 minutes')")
-      // WHEN: querying the database
-      const stored = await executeQuery('SELECT duration_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.duration_field).toBeTruthy()
+      await test.step('Insert and verify duration value', async () => {
+        await executeQuery("INSERT INTO data (duration_field) VALUES ('2 hours 15 minutes')")
+        const stored = await executeQuery('SELECT duration_field FROM data WHERE id = 1')
+        expect(stored.duration_field).toBeTruthy()
+      })
     }
   )
 })
