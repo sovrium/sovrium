@@ -414,52 +414,54 @@ test.describe('Delete record', () => {
     'API-TABLES-RECORDS-DELETE-011: user can complete full record deletion workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with representative table and permission configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 11,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'email', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with users table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 11,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email', required: true },
+                { id: 2, name: 'organization_id', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
       })
-      await executeQuery(`
-        INSERT INTO users (id, email, organization_id) VALUES
-          (1, 'admin@example.com', 'org_123'),
-          (2, 'member@example.com', 'org_123')
-      `)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Setup: Insert test records', async () => {
+        await executeQuery(`
+          INSERT INTO users (id, email, organization_id) VALUES
+            (1, 'admin@example.com', 'org_123'),
+            (2, 'member@example.com', 'org_123')
+        `)
+      })
 
-      // Test successful deletion (admin with permission)
-      const successResponse = await request.delete('/api/tables/1/records/1', {})
-      // THEN: assertion
-      expect(successResponse.status()).toBe(204)
+      await test.step('Delete record successfully', async () => {
+        const successResponse = await request.delete('/api/tables/1/records/1', {})
+        expect(successResponse.status()).toBe(204)
+      })
 
-      // Verify deletion
-      const verifyDelete = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
-      // THEN: assertion
-      expect(verifyDelete.rows[0].count).toBe(0)
+      await test.step('Verify deletion in database', async () => {
+        const verifyDelete = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
+        expect(verifyDelete.rows[0].count).toBe(0)
+      })
 
-      // Test record not found
-      const notFoundResponse = await request.delete('/api/tables/1/records/9999', {})
-      // THEN: assertion
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify delete non-existent record fails', async () => {
+        const notFoundResponse = await request.delete('/api/tables/1/records/9999', {})
+        expect(notFoundResponse.status()).toBe(404)
+      })
 
-      // Test permission denied
-      const forbiddenResponse = await request.delete('/api/tables/1/records/2', {})
-      // THEN: assertion
-      expect(forbiddenResponse.status()).toBe(403)
+      await test.step('Verify unauthorized delete fails', async () => {
+        const forbiddenResponse = await request.delete('/api/tables/1/records/2', {})
+        expect(forbiddenResponse.status()).toBe(403)
+      })
 
-      // Test unauthorized
-      const unauthorizedResponse = await request.delete('/api/tables/1/records/2')
-      // THEN: assertion
-      expect(unauthorizedResponse.status()).toBe(401)
+      await test.step('Verify unauthenticated delete fails', async () => {
+        const unauthorizedResponse = await request.delete('/api/tables/1/records/2')
+        expect(unauthorizedResponse.status()).toBe(401)
+      })
     }
   )
 })

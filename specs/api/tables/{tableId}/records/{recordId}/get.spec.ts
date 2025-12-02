@@ -410,36 +410,39 @@ test.describe('Get record by ID', () => {
     'API-TABLES-RECORDS-GET-011: user can complete full get record workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with record and permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 11,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'email', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with users table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 11,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
       })
-      await executeQuery(`
-        INSERT INTO users (email, name)
-        VALUES ('test@example.com', 'Test User')
-      `)
 
-      // WHEN/THEN: Fetch record by ID
-      const response = await request.get('/api/tables/1/records/1', {})
+      await test.step('Setup: Insert test record', async () => {
+        await executeQuery(`
+          INSERT INTO users (email, name)
+          VALUES ('test@example.com', 'Test User')
+        `)
+      })
 
-      // THEN: assertion
-      expect(response.status()).toBe(200)
+      await test.step('Fetch record by ID', async () => {
+        const response = await request.get('/api/tables/1/records/1', {})
 
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.id).toBe(1)
-      expect(data.email).toBe('test@example.com')
-      expect(data.name).toBe('Test User')
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.id).toBe(1)
+        expect(data.email).toBe('test@example.com')
+        expect(data.name).toBe('Test User')
+      })
     }
   )
 })
