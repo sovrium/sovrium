@@ -32,7 +32,7 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-001: should return 200 OK and revoke the specified session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -46,6 +46,12 @@ test.describe('Revoke specific session', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
+      })
+
+      // Sign in again to create a second session
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
       })
 
       // Get all sessions

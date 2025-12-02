@@ -78,7 +78,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-002: should return 200 OK with new token and revoke other sessions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -87,11 +87,17 @@ test.describe('Change password', () => {
         },
       })
 
-      // Create user and sign in multiple times
+      // Create user and sign in multiple times to create multiple sessions
       await signUp({
         email: 'test@example.com',
         password: 'CurrentPass123!',
         name: 'Test User',
+      })
+
+      // Sign in again to create a second session
+      await signIn({
+        email: 'test@example.com',
+        password: 'CurrentPass123!',
       })
 
       // Verify multiple sessions
