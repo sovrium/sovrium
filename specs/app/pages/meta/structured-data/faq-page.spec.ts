@@ -477,105 +477,106 @@ test.describe('FAQ Page Schema', () => {
     'APP-PAGES-FAQPAGE-011: user can complete full FAQ Page workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                faqPage: {
-                  '@context': 'https://schema.org',
-                  '@type': 'FAQPage',
-                  mainEntity: [
-                    {
-                      '@type': 'Question',
-                      name: 'What is the refund policy?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'We offer a 30-day money-back guarantee on all purchases',
+      await test.step('Setup: Start server with FAQPage schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      {
+                        '@type': 'Question',
+                        name: 'What is the refund policy?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'We offer a 30-day money-back guarantee on all purchases',
+                        },
                       },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'How long is shipping?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Standard shipping takes 5-7 business days',
+                      {
+                        '@type': 'Question',
+                        name: 'How long is shipping?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'Standard shipping takes 5-7 business days',
+                        },
                       },
-                    },
-                    {
-                      '@type': 'Question',
-                      name: 'Do you ship internationally?',
-                      acceptedAnswer: {
-                        '@type': 'Answer',
-                        text: 'Yes, we ship to over 100 countries worldwide',
+                      {
+                        '@type': 'Question',
+                        name: 'Do you ship internationally?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'Yes, we ship to over 100 countries worldwide',
+                        },
                       },
-                    },
-                  ],
+                    ],
+                  },
                 },
-              },
             },
             sections: [],
           },
         ],
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+      let jsonLd: any
+      let scriptContent: string | null
 
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
-
-      // Validate JSON-LD structure
-      // THEN: assertion
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'FAQPage')
-      expect(jsonLd).toHaveProperty('mainEntity')
-      expect(Array.isArray(jsonLd.mainEntity)).toBe(true)
-      expect(jsonLd.mainEntity).toHaveLength(3)
-
-      // Validate Question 1: Refund policy
-      expect(jsonLd.mainEntity[0]).toMatchObject({
-        '@type': 'Question',
-        name: 'What is the refund policy?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'We offer a 30-day money-back guarantee on all purchases',
-        },
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
       })
 
-      // Validate Question 2: Shipping time
-      expect(jsonLd.mainEntity[1]).toMatchObject({
-        '@type': 'Question',
-        name: 'How long is shipping?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Standard shipping takes 5-7 business days',
-        },
-      })
+      await test.step('Verify FAQPage structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'FAQPage')
+        expect(jsonLd).toHaveProperty('mainEntity')
+        expect(Array.isArray(jsonLd.mainEntity)).toBe(true)
+        expect(jsonLd.mainEntity).toHaveLength(3)
 
-      // Validate Question 3: International shipping
-      expect(jsonLd.mainEntity[2]).toMatchObject({
-        '@type': 'Question',
-        name: 'Do you ship internationally?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Yes, we ship to over 100 countries worldwide',
-        },
-      })
+        // Validate Question 1: Refund policy
+        expect(jsonLd.mainEntity[0]).toMatchObject({
+          '@type': 'Question',
+          name: 'What is the refund policy?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'We offer a 30-day money-back guarantee on all purchases',
+          },
+        })
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"FAQPage"')
-      expect(scriptContent).toContain('refund policy')
-      expect(scriptContent).toContain('shipping')
+        // Validate Question 2: Shipping time
+        expect(jsonLd.mainEntity[1]).toMatchObject({
+          '@type': 'Question',
+          name: 'How long is shipping?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Standard shipping takes 5-7 business days',
+          },
+        })
+
+        // Validate Question 3: International shipping
+        expect(jsonLd.mainEntity[2]).toMatchObject({
+          '@type': 'Question',
+          name: 'Do you ship internationally?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes, we ship to over 100 countries worldwide',
+          },
+        })
+
+        // Backwards compatibility: string containment checks
+        expect(scriptContent).toContain('"@type":"FAQPage"')
+        expect(scriptContent).toContain('refund policy')
+        expect(scriptContent).toContain('shipping')
+      })
     }
   )
 })
