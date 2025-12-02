@@ -123,19 +123,34 @@ git push origin main               # Triggers release ONLY with "release:" type
 
 ## Smart Testing Strategy
 
-The `bun run quality` command includes smart E2E detection to prevent timeouts during development and TDD automation.
+The `bun run quality` command includes **smart E2E detection** to prevent timeouts during development and TDD automation. It runs @regression tests ONLY for spec files affected by your changes.
 
-### How It Works
+### What `bun run quality` Runs
+
+1. **ESLint** - Code linting with caching
+2. **TypeScript** - Type checking (incremental)
+3. **Unit Tests** - All `.test.ts` files in `src/` and `scripts/`
+4. **Coverage Check** - Verifies domain layer has unit tests
+5. **Smart E2E Detection** - Identifies affected @regression specs and runs them
+
+### How Smart E2E Detection Works
 
 | Environment | Detection Mode | What's Compared |
 |-------------|----------------|-----------------|
 | **Local dev** | uncommitted | Staged + unstaged + untracked files |
 | **CI/PR branches** | branch diff | Changes since merge-base with main |
+| **GitHub Actions** | auto-detect | Uses CI mode when `GITHUB_ACTIONS=true` |
+
+**Mapping Rules** - Changed files are mapped to related specs:
+- `specs/**/*.spec.ts` → Runs that spec directly
+- `src/domain/models/app/version.ts` → `specs/app/version.spec.ts`
+- `src/infrastructure/auth/**` → All `specs/api/auth/**/*.spec.ts`
+- `src/infrastructure/server/route-setup/auth-routes.ts` → All auth specs
 
 ### When E2E Tests Run
 
 - Direct spec file changes (`specs/**/*.spec.ts`)
-- Source files with mapped specs (e.g., `src/domain/models/app/version.ts` → `specs/app/version.spec.ts`)
+- Source files with mapped specs
 - Auth infrastructure changes trigger all auth specs
 - Database changes trigger migration and table specs
 
@@ -145,6 +160,31 @@ The `bun run quality` command includes smart E2E detection to prevent timeouts d
 - Unit test file changes (`.test.ts`)
 - Script file changes (`scripts/`)
 - No related specs found for changed source files
+
+**Example Output (no E2E needed)**:
+```
+→ ESLint... ✓ (2341ms)
+→ TypeScript... ✓ (4521ms)
+→ Unit Tests... ✓ (12034ms)
+→ Coverage Check... ✓
+→ Analyzing changed files... (3 files, mode: local)
+⏭ Skipping E2E: no modified specs or related sources
+─────────────────────────────────────────────
+✅ All quality checks passed! (18896ms)
+```
+
+**Example Output (E2E runs for affected specs)**:
+```
+→ ESLint... ✓ (2341ms)
+→ TypeScript... ✓ (4521ms)
+→ Unit Tests... ✓ (12034ms)
+→ Coverage Check... ✓
+→ Analyzing changed files... (5 files, mode: ci)
+→ E2E will run: 2 specs (@regression only)
+   - specs/app/version.spec.ts
+   - specs/api/auth/sign-up/email/post.spec.ts
+→ E2E Regression Tests... ✓ (45231ms)
+```
 
 ### Unit Test Coverage Enforcement
 
@@ -165,14 +205,19 @@ bun run quality --skip-coverage  # Skip coverage check (gradual adoption)
 
 ```bash
 bun run quality              # Smart detection (default)
-bun run quality --skip-e2e   # Force skip E2E tests
+bun run quality --skip-e2e   # Force skip E2E tests entirely
 bun run quality --skip-coverage  # Skip coverage enforcement
 ```
 
 ### CI vs Local Behavior
 
-- **CI (`test.yml`)**: Always runs full E2E regression suite
-- **`bun run quality`**: Uses smart detection (local dev + TDD automation)
+| Context | Command | E2E Behavior |
+|---------|---------|--------------|
+| **CI merge to main** | `test.yml` | Runs ALL @regression specs (full suite) |
+| **TDD automation** | `bun run quality` | Smart detection - affected @regression only |
+| **Local development** | `bun run quality` | Smart detection - affected @regression only |
+
+**Important**: The `test.yml` CI workflow always runs the full E2E regression suite before merging to main. The smart detection in `bun run quality` is for faster feedback during development and TDD automation.
 
 ## Coding Standards (Critical Rules)
 
