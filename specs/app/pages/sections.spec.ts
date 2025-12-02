@@ -562,88 +562,89 @@ test.describe('Page Sections', () => {
     'APP-PAGES-SECTIONS-014: user can complete full Page Sections workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            sections: [
-              {
-                type: 'section',
-                props: {
-                  id: 'hero',
-                  className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100',
+      await test.step('Setup: Start server with sections', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'section',
+                  props: {
+                    id: 'hero',
+                    className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100',
+                  },
+                  children: [
+                    {
+                      type: 'container',
+                      props: { className: 'max-w-7xl' },
+                      children: [
+                        {
+                          type: 'heading',
+                          props: { className: 'text-6xl font-bold' },
+                          content: 'Welcome to Our Platform',
+                        },
+                        {
+                          type: 'single-line-text',
+                          props: { 'data-testid': 'subtitle' },
+                          content: 'Build amazing applications with ease',
+                        },
+                      ],
+                    },
+                  ],
                 },
-                children: [
-                  {
-                    type: 'container',
-                    props: { className: 'max-w-7xl' },
-                    children: [
-                      {
-                        type: 'heading',
-                        props: { className: 'text-6xl font-bold' },
-                        content: 'Welcome to Our Platform',
-                      },
-                      {
-                        type: 'single-line-text',
-                        props: { 'data-testid': 'subtitle' },
-                        content: 'Build amazing applications with ease',
-                      },
-                    ],
-                  },
-                ],
-              },
-              {
-                type: 'section',
-                props: { id: 'features' },
-                children: [
-                  {
-                    type: 'grid',
-                    props: { className: 'grid-cols-3' },
-                    children: [
-                      {
-                        type: 'card',
-                        children: [
-                          { type: 'h3', content: 'Fast' },
-                          { type: 'single-line-text', content: 'Lightning-fast performance' },
-                        ],
-                      },
-                      {
-                        type: 'card',
-                        children: [
-                          { type: 'h3', content: 'Secure' },
-                          { type: 'single-line-text', content: 'Enterprise-grade security' },
-                        ],
-                      },
-                      {
-                        type: 'card',
-                        children: [
-                          { type: 'h3', content: 'Flexible' },
-                          { type: 'single-line-text', content: 'Highly customizable' },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+                {
+                  type: 'section',
+                  props: { id: 'features' },
+                  children: [
+                    {
+                      type: 'grid',
+                      props: { className: 'grid-cols-3' },
+                      children: [
+                        {
+                          type: 'card',
+                          children: [
+                            { type: 'h3', content: 'Fast' },
+                            { type: 'single-line-text', content: 'Lightning-fast performance' },
+                          ],
+                        },
+                        {
+                          type: 'card',
+                          children: [
+                            { type: 'h3', content: 'Secure' },
+                            { type: 'single-line-text', content: 'Enterprise-grade security' },
+                          ],
+                        },
+                        {
+                          type: 'card',
+                          children: [
+                            { type: 'h3', content: 'Flexible' },
+                            { type: 'single-line-text', content: 'Highly customizable' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // Verify hero section
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Welcome to Our Platform')
-      await expect(page.locator('[data-testid="subtitle"]')).toContainText('Build amazing')
+      await test.step('Navigate to page and verify hero section', async () => {
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Welcome to Our Platform')
+        await expect(page.locator('[data-testid="subtitle"]')).toContainText('Build amazing')
+      })
 
-      // Verify features section with grid of cards
-      await expect(page.locator('h3').first()).toHaveText('Fast')
-      await expect(page.locator('section#features')).toBeVisible()
+      await test.step('Verify features section with grid', async () => {
+        await expect(page.locator('h3').first()).toHaveText('Fast')
+        await expect(page.locator('section#features')).toBeVisible()
+      })
     }
   )
 })

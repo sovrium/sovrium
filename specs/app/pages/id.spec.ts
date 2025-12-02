@@ -217,51 +217,50 @@ test.describe('Page ID', () => {
     'APP-PAGES-ID-007: user can complete full page ID workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with pages using various ID formats
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            id: 'home-page',
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home', description: 'Home' },
-            sections: [],
-          },
-          {
-            id: '550e8400-e29b-41d4-a716-446655440000',
-            name: 'about',
-            path: '/about',
-            meta: { lang: 'en-US', title: 'About', description: 'About' },
-            sections: [],
-          },
-          {
-            name: 'contact',
-            path: '/contact',
-            meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
-            sections: [],
-          },
-        ],
+      await test.step('Setup: Start server with various page ID formats', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              id: 'home-page',
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              sections: [],
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440000',
+              name: 'about',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About', description: 'About' },
+              sections: [],
+            },
+            {
+              name: 'contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
-      // THEN: assertion
-      await expect(page.locator('[data-page-id="home-page"]')).toBeVisible()
+      await test.step('Verify custom string ID renders', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-page-id="home-page"]')).toBeVisible()
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/about')
-      // THEN: assertion
-      await expect(
-        page.locator('[data-page-id="550e8400-e29b-41d4-a716-446655440000"]')
-      ).toBeVisible()
+      await test.step('Verify UUID ID renders', async () => {
+        await page.goto('/about')
+        await expect(
+          page.locator('[data-page-id="550e8400-e29b-41d4-a716-446655440000"]')
+        ).toBeVisible()
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/contact')
-      // THEN: assertion
-      await expect(page.locator('[data-testid="page-contact"]')).toBeVisible()
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify auto-generated ID renders', async () => {
+        await page.goto('/contact')
+        await expect(page.locator('[data-testid="page-contact"]')).toBeVisible()
+      })
     }
   )
 })
