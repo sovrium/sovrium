@@ -153,28 +153,28 @@ test.describe('Multiple Attachments Field', () => {
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [{ id: 1, name: 'files', type: 'multiple-attachments' }],
-          },
-        ],
+      await test.step('Setup: Start server with multiple-attachments field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [{ id: 1, name: 'files', type: 'multiple-attachments' }],
+            },
+          ],
+        })
       })
 
-      // WHEN: querying the database
-      await executeQuery(
-        'INSERT INTO data (files) VALUES (\'[{"url": "a.pdf"}, {"url": "b.jpg"}]\')'
-      )
-      // WHEN: querying the database
-      const files = await executeQuery(
-        'SELECT jsonb_array_length(files) as count FROM data WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(files.count).toBe(2)
+      await test.step('Insert and verify multiple attachments', async () => {
+        await executeQuery(
+          'INSERT INTO data (files) VALUES (\'[{"url": "a.pdf"}, {"url": "b.jpg"}]\')'
+        )
+        const files = await executeQuery(
+          'SELECT jsonb_array_length(files) as count FROM data WHERE id = 1'
+        )
+        expect(files.count).toBe(2)
+      })
     }
   )
 })

@@ -142,29 +142,29 @@ test.describe('Single Attachment Field', () => {
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'files',
-            fields: [
-              { id: 1, name: 'url', type: 'single-attachment' },
-              { id: 2, name: 'metadata', type: 'json' },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with single-attachment field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'files',
+              fields: [
+                { id: 1, name: 'url', type: 'single-attachment' },
+                { id: 2, name: 'metadata', type: 'json' },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN: querying the database
-      await executeQuery(
-        "INSERT INTO files (url, metadata) VALUES ('https://example.com/file.pdf', '{\"size\": 1024}')"
-      )
-      // WHEN: querying the database
-      const file = await executeQuery('SELECT url, metadata FROM files WHERE id = 1')
-      // THEN: assertion
-      expect(file.url).toBe('https://example.com/file.pdf')
+      await test.step('Insert and verify attachment', async () => {
+        await executeQuery(
+          "INSERT INTO files (url, metadata) VALUES ('https://example.com/file.pdf', '{\"size\": 1024}')"
+        )
+        const file = await executeQuery('SELECT url, metadata FROM files WHERE id = 1')
+        expect(file.url).toBe('https://example.com/file.pdf')
+      })
     }
   )
 })

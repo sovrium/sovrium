@@ -343,49 +343,46 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-006: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'base_price', type: 'decimal' },
-              { id: 3, name: 'tax_rate', type: 'decimal' },
-              {
-                id: 4,
-                name: 'total_price',
-                type: 'formula',
-                formula: 'base_price * (1 + tax_rate)',
-                resultType: 'number',
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with formula field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'base_price', type: 'decimal' },
+                { id: 3, name: 'tax_rate', type: 'decimal' },
+                {
+                  id: 4,
+                  name: 'total_price',
+                  type: 'formula',
+                  formula: 'base_price * (1 + tax_rate)',
+                  resultType: 'number',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery('INSERT INTO data (base_price, tax_rate) VALUES (100.00, 0.10)')
-      // WHEN: executing query
-      const computed = await executeQuery(
-        'SELECT base_price, tax_rate, total_price FROM data WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(computed.base_price).toBe('100.00')
-      // THEN: assertion
-      expect(computed.tax_rate).toBe('0.10')
-      // THEN: assertion
-      expect(computed.total_price).toBe('110.00')
+      await test.step('Insert data and verify formula calculation', async () => {
+        await executeQuery('INSERT INTO data (base_price, tax_rate) VALUES (100.00, 0.10)')
+        const computed = await executeQuery(
+          'SELECT base_price, tax_rate, total_price FROM data WHERE id = 1'
+        )
+        expect(computed.base_price).toBe('100.00')
+        expect(computed.tax_rate).toBe('0.10')
+        expect(computed.total_price).toBe('110.00')
+      })
 
-      // WHEN: executing query
-      await executeQuery('UPDATE data SET tax_rate = 0.20 WHERE id = 1')
-      // WHEN: executing query
-      const recomputed = await executeQuery('SELECT total_price FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(recomputed.total_price).toBe('120.00')
+      await test.step('Update value and verify formula recalculation', async () => {
+        await executeQuery('UPDATE data SET tax_rate = 0.20 WHERE id = 1')
+        const recomputed = await executeQuery('SELECT total_price FROM data WHERE id = 1')
+        expect(recomputed.total_price).toBe('120.00')
+      })
     }
   )
 })
