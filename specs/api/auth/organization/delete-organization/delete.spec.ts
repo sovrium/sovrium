@@ -49,10 +49,6 @@ test.describe('Delete organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       // Create organization
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -95,10 +91,6 @@ test.describe('Delete organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // WHEN: Owner submits request without organizationId
@@ -157,10 +149,6 @@ test.describe('Delete organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -222,10 +210,6 @@ test.describe('Delete organization', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User attempts to delete non-existent organization
       const response = await page.request.delete('/api/auth/organization/delete', {
@@ -261,10 +245,6 @@ test.describe('Delete organization', () => {
         password: 'Owner1Pass123!',
         name: 'Owner 1',
       })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
-      })
 
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'Org A', slug: 'org-a' },
@@ -275,10 +255,6 @@ test.describe('Delete organization', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -335,10 +311,6 @@ test.describe('Delete organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create organization

@@ -48,10 +48,6 @@ test.describe('Set active organization', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // Create first organization
       await page.request.post('/api/auth/organization/create', {
@@ -96,10 +92,6 @@ test.describe('Set active organization', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User submits request without organizationId
@@ -157,10 +149,6 @@ test.describe('Set active organization', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to set non-existent organization as active
@@ -263,10 +251,6 @@ test.describe('Set active organization', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Create two organizations

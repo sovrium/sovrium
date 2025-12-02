@@ -97,7 +97,6 @@ test.describe('Admin: Revoke user session', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -163,7 +162,6 @@ test.describe('Admin: Revoke user session', () => {
       })
 
       await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
 
       // WHEN: Regular user attempts to revoke another user's session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -192,7 +190,6 @@ test.describe('Admin: Revoke user session', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke session for non-existent user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -222,8 +219,6 @@ test.describe('Admin: Revoke user session', () => {
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke non-existent session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -257,7 +252,6 @@ test.describe('Admin: Revoke user session', () => {
 
       await signIn({ email: 'user1@example.com', password: 'User1Pass123!' })
       await signIn({ email: 'user2@example.com', password: 'User2Pass123!' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke session belonging to different user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -289,7 +283,6 @@ test.describe('Admin: Revoke user session', () => {
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
 
       await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // First revoke
       await page.request.post('/api/auth/admin/revoke-user-session', {

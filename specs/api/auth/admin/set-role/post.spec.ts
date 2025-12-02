@@ -58,11 +58,6 @@ test.describe('Admin: Set user role', () => {
         name: 'Target User',
       })
 
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
-
       // WHEN: Admin updates user role to member
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
@@ -94,7 +89,6 @@ test.describe('Admin: Set user role', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/set-role', {
@@ -124,8 +118,6 @@ test.describe('Admin: Set user role', () => {
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with invalid role value
       const response = await page.request.post('/api/auth/admin/set-role', {
@@ -192,10 +184,6 @@ test.describe('Admin: Set user role', () => {
         password: 'TargetPass123!',
         name: 'Target User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to set another user's role
       const response = await page.request.post('/api/auth/admin/set-role', {
@@ -224,7 +212,6 @@ test.describe('Admin: Set user role', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to set role for non-existent user
       const response = await page.request.post('/api/auth/admin/set-role', {
@@ -259,8 +246,6 @@ test.describe('Admin: Set user role', () => {
         name: 'Future Admin',
       })
 
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-
       // WHEN: Admin promotes member to admin role
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
@@ -293,8 +278,6 @@ test.describe('Admin: Set user role', () => {
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // First set role to member
       await page.request.post('/api/auth/admin/set-role', {

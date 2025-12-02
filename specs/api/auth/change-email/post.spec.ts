@@ -102,10 +102,6 @@ test.describe('Change email address', () => {
         password: 'TestPassword123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // WHEN: User submits request without newEmail field
       const response = await page.request.post('/api/auth/change-email', {
@@ -136,10 +132,6 @@ test.describe('Change email address', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User submits request with invalid email format
@@ -242,10 +234,6 @@ test.describe('Change email address', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User attempts to change to their current email

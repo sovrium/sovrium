@@ -45,11 +45,6 @@ test.describe('List API Keys', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create two API keys
       await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -98,11 +93,6 @@ test.describe('List API Keys', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -167,11 +157,6 @@ test.describe('List API Keys', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'user1@example.com',
-        password: 'ValidPassword123!',
-      })
-
       await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'User 1 Key',
@@ -181,11 +166,6 @@ test.describe('List API Keys', () => {
       // Create second user with API key
       await signUp({
         name: 'User Two',
-        email: 'user2@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'user2@example.com',
         password: 'ValidPassword123!',
       })
@@ -230,11 +210,6 @@ test.describe('List API Keys', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })

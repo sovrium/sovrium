@@ -47,10 +47,6 @@ test.describe('Change password', () => {
         password: 'CurrentPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
-      })
 
       // WHEN: User submits correct current password and valid new password
       const response = await page.request.post('/api/auth/change-password', {
@@ -96,10 +92,6 @@ test.describe('Change password', () => {
         email: 'test@example.com',
         password: 'CurrentPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
       })
       await signIn({
         email: 'test@example.com',
@@ -151,10 +143,6 @@ test.describe('Change password', () => {
         password: 'CurrentPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
-      })
 
       // WHEN: User submits request without newPassword field
       const response = await page.request.post('/api/auth/change-password', {
@@ -188,10 +176,6 @@ test.describe('Change password', () => {
         password: 'CurrentPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
-      })
 
       // WHEN: User submits request without currentPassword field
       const response = await page.request.post('/api/auth/change-password', {
@@ -224,10 +208,6 @@ test.describe('Change password', () => {
         email: 'test@example.com',
         password: 'CurrentPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
       })
 
       // WHEN: User submits new password shorter than minimum length (8 characters)
@@ -288,10 +268,6 @@ test.describe('Change password', () => {
         password: 'CurrentPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
-      })
 
       // WHEN: User submits incorrect current password
       const response = await page.request.post('/api/auth/change-password', {
@@ -325,10 +301,6 @@ test.describe('Change password', () => {
         email: 'test@example.com',
         password: 'CurrentPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
       })
 
       // WHEN: User attempts to change password to the same password
@@ -375,10 +347,6 @@ test.describe('Change password', () => {
         email: 'workflow@example.com',
         password: 'WorkflowPass123!',
         name: 'Workflow User',
-      })
-      await signIn({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
       })
 
       // Test 2: Change password fails with wrong current password

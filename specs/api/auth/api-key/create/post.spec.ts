@@ -45,11 +45,6 @@ test.describe('Create API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User creates an API key via Better Auth endpoint
       const response = await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -85,11 +80,6 @@ test.describe('Create API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -166,11 +156,6 @@ test.describe('Create API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User creates API key without name (name is optional in Better Auth)
       const response = await page.request.post('/api/auth/api-key/create', {
         data: {},
@@ -202,11 +187,6 @@ test.describe('Create API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -253,11 +233,6 @@ test.describe('Create API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User attempts to create API key when plugin is disabled
       const response = await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -291,11 +266,6 @@ test.describe('Create API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })

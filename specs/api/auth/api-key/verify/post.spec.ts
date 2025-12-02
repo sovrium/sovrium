@@ -45,11 +45,6 @@ test.describe('Verify API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create API key
       const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -132,11 +127,6 @@ test.describe('Verify API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create API key with 1 second expiration
       const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -184,11 +174,6 @@ test.describe('Verify API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -243,11 +228,6 @@ test.describe('Verify API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create API key with read-only permission
       const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -294,11 +274,6 @@ test.describe('Verify API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -357,11 +332,6 @@ test.describe('Verify API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })

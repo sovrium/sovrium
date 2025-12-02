@@ -47,10 +47,6 @@ test.describe('List user organizations', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // Create multiple organizations
       await page.request.post('/api/auth/organization/create', {
@@ -89,10 +85,6 @@ test.describe('List user organizations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests list of their organizations
@@ -147,10 +139,6 @@ test.describe('List user organizations', () => {
         password: 'User1Pass123!',
         name: 'User 1',
       })
-      await signIn({
-        email: 'user1@example.com',
-        password: 'User1Pass123!',
-      })
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'User 1 Org', slug: 'user1-org' },
       })
@@ -160,10 +148,6 @@ test.describe('List user organizations', () => {
         email: 'user2@example.com',
         password: 'User2Pass123!',
         name: 'User 2',
-      })
-      await signIn({
-        email: 'user2@example.com',
-        password: 'User2Pass123!',
       })
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'User 2 Org', slug: 'user2-org' },
@@ -204,10 +188,6 @@ test.describe('List user organizations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Create organizations
@@ -255,10 +235,6 @@ test.describe('List user organizations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Test 2: List returns empty array for new user

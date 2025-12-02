@@ -58,11 +58,6 @@ test.describe('Admin: Get user by ID', () => {
         name: 'Target User',
       })
 
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
-
       // WHEN: Admin requests user details by ID
       const response = await page.request.get('/api/auth/admin/get-user?userId=2')
 
@@ -91,7 +86,6 @@ test.describe('Admin: Get user by ID', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user without userId parameter
       const response = await page.request.get('/api/auth/admin/get-user')
@@ -148,10 +142,6 @@ test.describe('Admin: Get user by ID', () => {
         password: 'TargetPass123!',
         name: 'Target User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to get another user's details
       const response = await page.request.get('/api/auth/admin/get-user?userId=2')
@@ -175,7 +165,6 @@ test.describe('Admin: Get user by ID', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user with non-existent ID
       const response = await page.request.get('/api/auth/admin/get-user?userId=999')
@@ -200,8 +189,6 @@ test.describe('Admin: Get user by ID', () => {
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user details
       const response = await page.request.get('/api/auth/admin/get-user?userId=2')

@@ -58,11 +58,6 @@ test.describe('Admin: Unban user', () => {
         name: 'Target User',
       })
 
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
-
       // Ban the user first
       await page.request.post('/api/auth/admin/ban-user', {
         data: { userId: '2', banReason: 'Previously banned' },
@@ -98,7 +93,6 @@ test.describe('Admin: Unban user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without userId
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -161,10 +155,6 @@ test.describe('Admin: Unban user', () => {
         password: 'TargetPass123!',
         name: 'Target User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to unban another user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -192,7 +182,6 @@ test.describe('Admin: Unban user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to unban non-existent user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -221,8 +210,6 @@ test.describe('Admin: Unban user', () => {
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin unbans already unbanned user
       const response = await page.request.post('/api/auth/admin/unban-user', {

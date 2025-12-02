@@ -52,10 +52,6 @@ test.describe('Refresh session token', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
 
       // Get initial session
       const initialSession = await page.request.get('/api/auth/get-session')
@@ -143,10 +139,6 @@ test.describe('Refresh session token', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
       await page.request.post('/api/auth/sign-out')
 
       // WHEN: User attempts to refresh after sign-out
@@ -172,10 +164,6 @@ test.describe('Refresh session token', () => {
       // Create user and sign in
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -215,10 +203,6 @@ test.describe('Refresh session token', () => {
       // Create user and sign in
       await signUp({
         name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
-      })
-      await signIn({
         email: 'regression@example.com',
         password: 'SecurePass123!',
       })

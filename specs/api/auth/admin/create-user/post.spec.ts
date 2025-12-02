@@ -52,10 +52,6 @@ test.describe('Admin: Create user', () => {
         password: 'AdminPass123!',
         name: 'Admin User',
       })
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
 
       // WHEN: Admin creates a new user with valid data
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -92,7 +88,6 @@ test.describe('Admin: Create user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin creates user with emailVerified: true
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -127,7 +122,6 @@ test.describe('Admin: Create user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -156,7 +150,6 @@ test.describe('Admin: Create user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with invalid email format
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -189,7 +182,6 @@ test.describe('Admin: Create user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -253,10 +245,6 @@ test.describe('Admin: Create user', () => {
         password: 'UserPass123!',
         name: 'Regular User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to create user
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -292,8 +280,6 @@ test.describe('Admin: Create user', () => {
         name: 'Existing User',
       })
 
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-
       // WHEN: Admin attempts to create user with existing email
       const response = await page.request.post('/api/auth/admin/create-user', {
         data: {
@@ -322,7 +308,6 @@ test.describe('Admin: Create user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits name with XSS payload
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -357,7 +342,6 @@ test.describe('Admin: Create user', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin creates user with Unicode characters in name
       const response = await page.request.post('/api/auth/admin/create-user', {

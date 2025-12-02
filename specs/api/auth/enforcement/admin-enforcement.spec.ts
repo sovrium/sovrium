@@ -88,10 +88,6 @@ test.describe('Admin Permission Enforcement', () => {
         password: 'UserPass123!',
         name: 'Regular User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user accesses admin endpoints
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -121,10 +117,6 @@ test.describe('Admin Permission Enforcement', () => {
         password: 'AdminPass123!',
         name: 'Admin User',
       })
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
 
       // WHEN: Admin accesses admin endpoints
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -151,10 +143,6 @@ test.describe('Admin Permission Enforcement', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Regular User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to set their own role to admin
@@ -293,10 +281,6 @@ test.describe('Admin Permission Enforcement', () => {
         password: 'AdminPass123!',
         name: 'Admin User',
       })
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
 
       // WHEN: Exceeding rate limit
       const requests = []
@@ -339,10 +323,6 @@ test.describe('Admin Permission Enforcement', () => {
         password: 'UserPass123!',
         name: 'Regular User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // Test 2: Regular user - 403
       const userResponse = await page.request.get('/api/auth/admin/list-users')
@@ -353,10 +333,6 @@ test.describe('Admin Permission Enforcement', () => {
         email: 'admin@example.com',
         password: 'AdminPass123!',
         name: 'Admin User',
-      })
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
       })
 
       // Test 3: Admin - 200

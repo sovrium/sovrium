@@ -47,10 +47,6 @@ test.describe('Get current session', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
 
       // WHEN: User requests current session information
       const response = await page.request.get('/api/auth/get-session')
@@ -140,10 +136,6 @@ test.describe('Get current session', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
       await page.request.post('/api/auth/sign-out')
 
       // WHEN: User requests session after sign-out
@@ -173,10 +165,6 @@ test.describe('Get current session', () => {
       // Create user and sign in
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -220,10 +208,6 @@ test.describe('Get current session', () => {
       // Create user and sign in
       await signUp({
         name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
-      })
-      await signIn({
         email: 'regression@example.com',
         password: 'SecurePass123!',
       })

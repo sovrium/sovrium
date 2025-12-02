@@ -47,10 +47,6 @@ test.describe('List organization members', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -207,10 +203,6 @@ test.describe('List organization members', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Private Org', slug: 'private-org' },
@@ -222,10 +214,6 @@ test.describe('List organization members', () => {
         email: 'nonmember@example.com',
         password: 'NonMemberPass123!',
         name: 'Non Member',
-      })
-      await signIn({
-        email: 'nonmember@example.com',
-        password: 'NonMemberPass123!',
       })
 
       // WHEN: Non-member attempts to list organization members
@@ -258,10 +246,6 @@ test.describe('List organization members', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -333,10 +317,6 @@ test.describe('List organization members', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -357,10 +337,6 @@ test.describe('List organization members', () => {
         email: 'outsider@example.com',
         password: 'OutsiderPass123!',
         name: 'Outsider',
-      })
-      await signIn({
-        email: 'outsider@example.com',
-        password: 'OutsiderPass123!',
       })
 
       const outsiderResponse = await page.request.get(

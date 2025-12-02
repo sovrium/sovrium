@@ -50,10 +50,6 @@ test.describe('Remove member from organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       // Create organization
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -121,10 +117,6 @@ test.describe('Remove member from organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -187,10 +179,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -258,10 +246,6 @@ test.describe('Remove member from organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -301,10 +285,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -346,10 +326,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -407,10 +383,6 @@ test.describe('Remove member from organization', () => {
         password: 'Owner1Pass123!',
         name: 'Owner 1',
       })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
-      })
 
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'Org One', slug: 'org-one' },
@@ -421,10 +393,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse2 = await page.request.post('/api/auth/organization/create', {
@@ -493,10 +461,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {

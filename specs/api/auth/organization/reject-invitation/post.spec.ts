@@ -48,10 +48,6 @@ test.describe('Reject organization invitation', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -257,10 +253,6 @@ test.describe('Reject organization invitation', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -282,10 +274,6 @@ test.describe('Reject organization invitation', () => {
         email: 'other@example.com',
         password: 'OtherPass123!',
         name: 'Other User',
-      })
-      await signIn({
-        email: 'other@example.com',
-        password: 'OtherPass123!',
       })
 
       // WHEN: User attempts to reject invitation not addressed to them
@@ -321,10 +309,6 @@ test.describe('Reject organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -410,11 +394,6 @@ test.describe('Reject organization invitation', () => {
         email: 'invitee@example.com',
         password: 'InviteePass123!',
         name: 'Invitee User',
-      })
-
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {

@@ -142,10 +142,6 @@ test.describe('Session Permission Enforcement', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // Verify session is valid
       const sessionResponse = await page.request.get('/api/auth/get-session')
@@ -200,10 +196,6 @@ test.describe('Session Permission Enforcement', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // Get current session info
       const initialSession = await page.request.get('/api/auth/get-session')
@@ -247,10 +239,6 @@ test.describe('Session Permission Enforcement', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User revokes all other sessions
       const response = await page.request.post('/api/auth/session/revoke-others')
@@ -278,10 +266,6 @@ test.describe('Session Permission Enforcement', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: Request from different IP/user-agent
@@ -318,10 +302,6 @@ test.describe('Session Permission Enforcement', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Test 1: Valid session - success

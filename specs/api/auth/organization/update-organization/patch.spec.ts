@@ -47,10 +47,6 @@ test.describe('Update organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       // Create organization
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -96,10 +92,6 @@ test.describe('Update organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       // Create organization
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -141,10 +133,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // WHEN: Owner submits request without organizationId
@@ -206,10 +194,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -273,10 +257,6 @@ test.describe('Update organization', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User attempts to update non-existent organization
       const response = await page.request.patch('/api/auth/organization/update', {
@@ -311,10 +291,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create first organization
@@ -372,10 +348,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create organization

@@ -49,10 +49,6 @@ test.describe('Update user profile', () => {
         password: 'TestPassword123!',
         name: 'Old Name',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // WHEN: User updates their profile information (Better Auth uses POST)
       const response = await page.request.post('/api/auth/update-user', {
@@ -92,10 +88,6 @@ test.describe('Update user profile', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Old Name',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User updates only name field (Better Auth uses POST)
@@ -163,10 +155,6 @@ test.describe('Update user profile', () => {
         password: 'TestPassword123!',
         name: 'Old Name',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // WHEN: User submits name with special characters (Better Auth uses POST)
       const response = await page.request.post('/api/auth/update-user', {
@@ -202,10 +190,6 @@ test.describe('Update user profile', () => {
         password: 'TestPassword123!',
         name: 'Old Name',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // WHEN: User updates name with Unicode characters (Better Auth uses POST)
       const response = await page.request.post('/api/auth/update-user', {
@@ -240,10 +224,6 @@ test.describe('Update user profile', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User sets image to null (removes profile image) (Better Auth uses POST)
@@ -290,10 +270,6 @@ test.describe('Update user profile', () => {
         email: 'workflow@example.com',
         password: 'WorkflowPass123!',
         name: 'Original Name',
-      })
-      await signIn({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
       })
 
       // Test 2: Update name succeeds (Better Auth uses POST)

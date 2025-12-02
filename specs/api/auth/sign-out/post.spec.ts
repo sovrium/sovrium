@@ -47,10 +47,6 @@ test.describe('Sign out user', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
 
       // WHEN: User requests to sign out
       const response = await page.request.post('/api/auth/sign-out')
@@ -102,10 +98,6 @@ test.describe('Sign out user', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
 
       // Verify session is valid before sign-out
       const sessionBefore = await page.request.get('/api/auth/get-session')
@@ -140,10 +132,6 @@ test.describe('Sign out user', () => {
       // Create user, sign in, then sign out
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -183,10 +171,6 @@ test.describe('Sign out user', () => {
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
 
       // WHEN: User signs out multiple times
       const firstSignOut = await page.request.post('/api/auth/sign-out')
@@ -217,10 +201,6 @@ test.describe('Sign out user', () => {
       // Create user and authenticate
       await signUp({
         name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
-      })
-      await signIn({
         email: 'regression@example.com',
         password: 'SecurePass123!',
       })

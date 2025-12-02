@@ -47,10 +47,6 @@ test.describe('Revoke specific session', () => {
         password: 'TestPassword123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // Get all sessions
       const sessionsResponse = await page.request.get('/api/auth/list-sessions')
@@ -99,10 +95,6 @@ test.describe('Revoke specific session', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User submits request without token field
@@ -156,10 +148,6 @@ test.describe('Revoke specific session', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User attempts to revoke non-existent session
@@ -233,10 +221,6 @@ test.describe('Revoke specific session', () => {
         password: 'TestPassword123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // Get current session
       const sessionResponse = await page.request.get('/api/auth/get-session')
@@ -293,7 +277,6 @@ test.describe('Revoke specific session', () => {
         password: 'WorkflowPass123!',
         name: 'Workflow User',
       })
-      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
 
       // Get sessions list
       const sessionsResponse = await page.request.get('/api/auth/list-sessions')

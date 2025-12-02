@@ -45,11 +45,6 @@ test.describe('Delete Expired API Keys', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create expired API key (1 second expiration)
       await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -109,11 +104,6 @@ test.describe('Delete Expired API Keys', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create two valid API keys with future expiration
       await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -159,11 +149,6 @@ test.describe('Delete Expired API Keys', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -247,11 +232,6 @@ test.describe('Delete Expired API Keys', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })

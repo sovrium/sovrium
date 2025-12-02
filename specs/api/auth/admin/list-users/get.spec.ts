@@ -102,8 +102,6 @@ test.describe('Admin: List users', () => {
       await signUp({ email: 'user2@example.com', password: 'UserPass123!', name: 'User Two' })
       await signUp({ email: 'user3@example.com', password: 'UserPass123!', name: 'User Three' })
 
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-
       // WHEN: Admin requests users with limit and offset
       const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1')
 
@@ -133,8 +131,6 @@ test.describe('Admin: List users', () => {
       await signUp({ email: 'charlie@example.com', password: 'UserPass123!', name: 'Charlie' })
       await signUp({ email: 'alice@example.com', password: 'UserPass123!', name: 'Alice' })
       await signUp({ email: 'bob@example.com', password: 'UserPass123!', name: 'Bob' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests users sorted by email ascending
       const response = await page.request.get(
@@ -188,10 +184,6 @@ test.describe('Admin: List users', () => {
         password: 'UserPass123!',
         name: 'Regular User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to list users
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -216,8 +208,6 @@ test.describe('Admin: List users', () => {
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests list of users
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -249,7 +239,6 @@ test.describe('Admin: List users', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests list of users
       const response = await page.request.get('/api/auth/admin/list-users')

@@ -58,11 +58,6 @@ test.describe('Admin: Set user password', () => {
         name: 'Target User',
       })
 
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-      })
-
       // WHEN: Admin sets new password for user
       const response = await page.request.post('/api/auth/admin/set-user-password', {
         data: {
@@ -112,8 +107,6 @@ test.describe('Admin: Set user password', () => {
       await signIn({ email: 'target@example.com', password: 'OldPassword123!' })
       await signIn({ email: 'target@example.com', password: 'OldPassword123!' })
 
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-
       // WHEN: Admin sets password with revokeOtherSessions enabled
       const response = await page.request.post('/api/auth/admin/set-user-password', {
         data: {
@@ -145,7 +138,6 @@ test.describe('Admin: Set user password', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -179,8 +171,6 @@ test.describe('Admin: Set user password', () => {
         password: 'OldPassword123!',
         name: 'Target User',
       })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -247,10 +237,6 @@ test.describe('Admin: Set user password', () => {
         password: 'OldPassword123!',
         name: 'Target User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to set another user's password
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -279,7 +265,6 @@ test.describe('Admin: Set user password', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to set password for non-existent user
       const response = await page.request.post('/api/auth/admin/set-user-password', {

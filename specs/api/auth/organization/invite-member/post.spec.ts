@@ -109,10 +109,6 @@ test.describe('Invite member to organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -148,10 +144,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -221,10 +213,6 @@ test.describe('Invite member to organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -287,10 +275,6 @@ test.describe('Invite member to organization', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User attempts to invite to non-existent organization
       const response = await page.request.post('/api/auth/organization/invite-member', {
@@ -326,10 +310,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -393,10 +373,6 @@ test.describe('Invite member to organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -446,10 +422,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -523,10 +495,6 @@ test.describe('Invite member to organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -541,7 +509,7 @@ test.describe('Invite member to organization', () => {
           role: 'member',
         },
       })
-      expect(inviteResponse.status()).toBe(201)
+      expect(inviteResponse.status()).toBe(200)
 
       // Test 3: Duplicate invite fails
       const duplicateResponse = await page.request.post('/api/auth/organization/invite-member', {

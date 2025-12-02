@@ -47,10 +47,6 @@ test.describe('Get organization details', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // Create organization (user becomes owner)
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -90,10 +86,6 @@ test.describe('Get organization details', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests organization without organizationId parameter
@@ -148,10 +140,6 @@ test.describe('Get organization details', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User requests non-existent organization
       const response = await page.request.get(
@@ -185,10 +173,6 @@ test.describe('Get organization details', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Private Org', slug: 'private-org' },
@@ -200,10 +184,6 @@ test.describe('Get organization details', () => {
         email: 'other@example.com',
         password: 'OtherPass123!',
         name: 'Other User',
-      })
-      await signIn({
-        email: 'other@example.com',
-        password: 'OtherPass123!',
       })
 
       // WHEN: User attempts to get organization details
@@ -247,10 +227,6 @@ test.describe('Get organization details', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Create organization

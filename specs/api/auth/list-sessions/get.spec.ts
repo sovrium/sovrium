@@ -47,10 +47,6 @@ test.describe('List user sessions', () => {
         password: 'TestPassword123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // WHEN: User requests list of their sessions
       const response = await page.request.get('/api/auth/list-sessions')
@@ -82,10 +78,6 @@ test.describe('List user sessions', () => {
         email: 'single@example.com',
         password: 'SinglePass123!',
         name: 'Single Session User',
-      })
-      await signIn({
-        email: 'single@example.com',
-        password: 'SinglePass123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -137,10 +129,6 @@ test.describe('List user sessions', () => {
         email: 'metadata@example.com',
         password: 'MetadataPass123!',
         name: 'Metadata User',
-      })
-      await signIn({
-        email: 'metadata@example.com',
-        password: 'MetadataPass123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -218,10 +206,6 @@ test.describe('List user sessions', () => {
         password: 'SignoutPass123!',
         name: 'Signout User',
       })
-      await signIn({
-        email: 'signout@example.com',
-        password: 'SignoutPass123!',
-      })
 
       // Verify sessions exist before sign-out
       const beforeSignOut = await page.request.get('/api/auth/list-sessions')
@@ -255,10 +239,6 @@ test.describe('List user sessions', () => {
         email: 'time@example.com',
         password: 'TimePass123!',
         name: 'Time User',
-      })
-      await signIn({
-        email: 'time@example.com',
-        password: 'TimePass123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -302,7 +282,6 @@ test.describe('List user sessions', () => {
         password: 'WorkflowPass123!',
         name: 'Workflow User',
       })
-      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
 
       // Test 2: List sessions succeeds with auth
       const authResponse = await page.request.get('/api/auth/list-sessions')

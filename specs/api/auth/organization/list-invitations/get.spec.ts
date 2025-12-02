@@ -47,10 +47,6 @@ test.describe('List organization invitations', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -97,10 +93,6 @@ test.describe('List organization invitations', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -145,10 +137,6 @@ test.describe('List organization invitations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests invitations without organizationId parameter
@@ -203,10 +191,6 @@ test.describe('List organization invitations', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
@@ -260,10 +244,6 @@ test.describe('List organization invitations', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User requests invitations for non-existent organization
       const response = await page.request.get(
@@ -297,10 +277,6 @@ test.describe('List organization invitations', () => {
         password: 'Owner1Pass123!',
         name: 'Owner 1',
       })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
-      })
 
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'Org One', slug: 'org-one' },
@@ -311,10 +287,6 @@ test.describe('List organization invitations', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse2 = await page.request.post('/api/auth/organization/create', {
@@ -358,10 +330,6 @@ test.describe('List organization invitations', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -411,10 +379,6 @@ test.describe('List organization invitations', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {

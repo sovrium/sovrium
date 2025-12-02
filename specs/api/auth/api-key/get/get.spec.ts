@@ -45,11 +45,6 @@ test.describe('Get API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Create API key
       const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
@@ -125,11 +120,6 @@ test.describe('Get API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User attempts to retrieve non-existent API key
       const response = await page.request.get('/api/auth/api-key?id=non-existent-id')
 
@@ -158,11 +148,6 @@ test.describe('Get API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -200,11 +185,6 @@ test.describe('Get API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'user1@example.com',
-        password: 'ValidPassword123!',
-      })
-
       const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'User 1 Key',
@@ -216,11 +196,6 @@ test.describe('Get API Key', () => {
       // User 2 signs in
       await signUp({
         name: 'User Two',
-        email: 'user2@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'user2@example.com',
         password: 'ValidPassword123!',
       })
@@ -254,11 +229,6 @@ test.describe('Get API Key', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })

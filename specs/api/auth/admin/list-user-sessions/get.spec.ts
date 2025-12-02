@@ -94,7 +94,6 @@ test.describe('Admin: List user sessions', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests sessions without userId parameter
       const response = await page.request.get('/api/auth/admin/list-user-sessions')
@@ -151,10 +150,6 @@ test.describe('Admin: List user sessions', () => {
         password: 'TargetPass123!',
         name: 'Target User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to list another user's sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
@@ -178,7 +173,6 @@ test.describe('Admin: List user sessions', () => {
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests sessions for non-existent user
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=999')
@@ -237,7 +231,6 @@ test.describe('Admin: List user sessions', () => {
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
 
       await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests list of user sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
