@@ -51,7 +51,7 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "prepare": "effect-language-service patch",
+    "prepare": "effect-language-service patch > /dev/null 2>&1",
     "start": "bun run src/cli.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -124,7 +124,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "semantic-release": "^25.0.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.48.0"
+    "typescript-eslint": "^8.48.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
