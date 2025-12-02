@@ -168,20 +168,15 @@ export const createServer = (
         Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
       )
 
-    // Run Drizzle migrations for Better Auth tables (if DATABASE_URL is configured)
-    yield* Console.log(`[createServer] DATABASE_URL: ${databaseUrl ? 'present' : 'missing'}`)
-    yield* Console.log(`[createServer] app.auth: ${app.auth ? 'configured' : 'not configured'}`)
+    // Run Better Auth table creation (if DATABASE_URL is configured and auth is enabled)
     if (databaseUrl && app.auth) {
-      yield* Console.log('[createServer] Running migrations...')
       yield* runMigrations(databaseUrl).pipe(
         Effect.catchAll((error) => {
-          // Log error but don't fail - allow server to start even if migrations fail
+          // Log error but don't fail - allow server to start even if table creation fails
           // This is useful for development where the database might not be ready yet
-          return Console.error(`Migration warning: ${error.message}`)
+          return Console.error(`Better Auth table creation warning: ${error.message}`)
         })
       )
-    } else {
-      yield* Console.log('[createServer] Skipping migrations (no DATABASE_URL or no auth config)')
     }
 
     // Initialize database schema from app configuration
