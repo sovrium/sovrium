@@ -610,42 +610,43 @@ test.describe('Sign up with email and password', () => {
     'API-AUTH-SIGN-UP-EMAIL-016: user can complete full sign-up workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // WHEN: User signs up with valid credentials
-      const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
-        data: {
-          name: 'Regression User',
-          email: 'regression@example.com',
-          password: 'SecurePass123!',
-        },
+      await test.step('Sign up with valid credentials', async () => {
+        const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            name: 'Regression User',
+            email: 'regression@example.com',
+            password: 'SecurePass123!',
+          },
+        })
+
+        expect(signUpResponse.status()).toBe(200)
+        const signUpData = await signUpResponse.json()
+        expect(signUpData).toHaveProperty('user')
+        expect(signUpData.user.email).toBe('regression@example.com')
       })
 
-      // THEN: Sign-up succeeds
-      expect(signUpResponse.status()).toBe(200)
-      const signUpData = await signUpResponse.json()
-      expect(signUpData).toHaveProperty('user')
-      expect(signUpData.user.email).toBe('regression@example.com')
+      await test.step('Sign in with new credentials', async () => {
+        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'regression@example.com',
+            password: 'SecurePass123!',
+          },
+        })
 
-      // WHEN: User can sign in with new credentials
-      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
-        data: {
-          email: 'regression@example.com',
-          password: 'SecurePass123!',
-        },
+        expect(signInResponse.status()).toBe(200)
+        const signInData = await signInResponse.json()
+        expect(signInData).toHaveProperty('user')
+        expect(signInData).toHaveProperty('token')
       })
-
-      // THEN: Sign-in succeeds
-      expect(signInResponse.status()).toBe(200)
-      const signInData = await signInResponse.json()
-      expect(signInData).toHaveProperty('user')
-      expect(signInData).toHaveProperty('token') // Better Auth returns token, not session object
     }
   )
 })

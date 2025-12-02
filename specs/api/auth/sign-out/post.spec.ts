@@ -190,40 +190,41 @@ test.describe('Sign out user', () => {
     'API-AUTH-SIGN-OUT-006: user can complete full sign-out workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-      })
+      await test.step('Setup: Create server and authenticate user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
 
-      // Create user and authenticate
-      await signUp({
-        name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
-      })
-
-      // WHEN: User signs out
-      const signOutResponse = await page.request.post('/api/auth/sign-out')
-
-      // THEN: Sign-out succeeds
-      expect(signOutResponse.status()).toBe(200)
-
-      // Verify session is invalidated (Better Auth returns null body)
-      const sessionResponse = await page.request.get('/api/auth/get-session')
-      const sessionData = await sessionResponse.json()
-      expect(sessionData).toBeNull()
-
-      // Verify user can sign in again
-      const reSignInResponse = await page.request.post('/api/auth/sign-in/email', {
-        data: {
+        await signUp({
+          name: 'Regression User',
           email: 'regression@example.com',
           password: 'SecurePass123!',
-        },
+        })
       })
-      expect(reSignInResponse.status()).toBe(200)
+
+      await test.step('Sign out user', async () => {
+        const signOutResponse = await page.request.post('/api/auth/sign-out')
+        expect(signOutResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify session is invalidated', async () => {
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        const sessionData = await sessionResponse.json()
+        expect(sessionData).toBeNull()
+      })
+
+      await test.step('Verify user can sign in again', async () => {
+        const reSignInResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'regression@example.com',
+            password: 'SecurePass123!',
+          },
+        })
+        expect(reSignInResponse.status()).toBe(200)
+      })
     }
   )
 })

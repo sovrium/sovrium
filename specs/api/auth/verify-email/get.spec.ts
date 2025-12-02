@@ -246,47 +246,52 @@ test.describe('Verify email address', () => {
     'API-AUTH-VERIFY-EMAIL-007: user can complete full verify-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      let userEmail: string
+
+      await test.step('Setup: Create server and test user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
+
+        userEmail = mailpit.email('workflow')
+
+        await signUp({
+          email: userEmail,
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
       })
 
-      const userEmail = mailpit.email('workflow')
-
-      // Create user
-      await signUp({
-        email: userEmail,
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify without token fails', async () => {
+        const noTokenResponse = await page.request.get('/api/auth/verify-email')
+        expect(noTokenResponse.status()).toBe(400)
       })
 
-      // Test 1: Verify without token fails
-      const noTokenResponse = await page.request.get('/api/auth/verify-email')
-      expect(noTokenResponse.status()).toBe(400)
-
-      // Test 2: Verify with invalid token fails
-      const invalidTokenResponse = await page.request.get(
-        '/api/auth/verify-email?token=invalid_token'
-      )
-      expect([400, 401]).toContain(invalidTokenResponse.status())
-
-      // Test 3: Full workflow - request email, extract token, verify
-      await page.request.post('/api/auth/send-verification-email', {
-        data: { email: userEmail },
+      await test.step('Verify with invalid token fails', async () => {
+        const invalidTokenResponse = await page.request.get(
+          '/api/auth/verify-email?token=invalid_token'
+        )
+        expect([400, 401]).toContain(invalidTokenResponse.status())
       })
 
-      const email = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
-      )
+      await test.step('Complete verification with valid token', async () => {
+        await page.request.post('/api/auth/send-verification-email', {
+          data: { email: userEmail },
+        })
 
-      const token = extractTokenFromUrl(email.HTML, 'token')
-      expect(token).not.toBeNull()
+        const email = await mailpit.waitForEmail(
+          (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+        )
 
-      const verifyResponse = await page.request.get(`/api/auth/verify-email?token=${token}`)
-      expect(verifyResponse.status()).toBe(200)
+        const token = extractTokenFromUrl(email.HTML, 'token')
+        expect(token).not.toBeNull()
+
+        const verifyResponse = await page.request.get(`/api/auth/verify-email?token=${token}`)
+        expect(verifyResponse.status()).toBe(200)
+      })
     }
   )
 })
