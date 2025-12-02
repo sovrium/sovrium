@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+import { assertEmailReceived } from '../email-helpers'
 
 /**
  * E2E Tests for Send verification email
@@ -20,24 +21,19 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation via API (no direct executeQuery for auth data)
+ * - Email capture via Mailpit fixture for verification token extraction
  * - Authentication/authorization checks via auth fixtures
- *
- * Note: Better Auth's send-verification-email endpoint may not be publicly exposed.
- * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Send verification email', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: These tests are marked .fixme() because the /api/auth/send-verification-email
-  // endpoint behavior needs to be verified
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-001: should return 200 OK and send verification email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A registered user with unverified email
       await startServerWithSchema({
         name: 'test-app',
@@ -46,9 +42,11 @@ test.describe('Send verification email', () => {
         },
       })
 
+      const userEmail = mailpit.email('test')
+
       // Create user via API (email may not be verified by default)
       await signUp({
-        email: 'test@example.com',
+        email: userEmail,
         password: 'TestPassword123!',
         name: 'Test User',
       })
@@ -56,7 +54,7 @@ test.describe('Send verification email', () => {
       // WHEN: User requests verification email
       const response = await page.request.post('/api/auth/send-verification-email', {
         data: {
-          email: 'test@example.com',
+          email: userEmail,
         },
       })
 
@@ -65,10 +63,21 @@ test.describe('Send verification email', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
+
+      // Verify email was actually sent (filtered by testId namespace)
+      const email = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+
+      assertEmailReceived(email, {
+        to: userEmail,
+        from: 'noreply@sovrium.com',
+        subjectContains: 'verify',
+      })
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-002: should return 400 Bad Request without email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -93,7 +102,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -120,7 +129,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-004: should handle already verified email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -150,10 +159,10 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-005: should invalidate old token on new request',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A user who has already requested verification
       await startServerWithSchema({
         name: 'test-app',
@@ -162,21 +171,29 @@ test.describe('Send verification email', () => {
         },
       })
 
+      const userEmail = mailpit.email('test')
+
       await signUp({
-        email: 'test@example.com',
+        email: userEmail,
         password: 'TestPassword123!',
         name: 'Test User',
       })
 
-      // First request
+      // First request - sends first verification email
       await page.request.post('/api/auth/send-verification-email', {
-        data: { email: 'test@example.com' },
+        data: { email: userEmail },
       })
+
+      // Wait for first email (filtered by testId namespace)
+      const firstEmail = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+      expect(firstEmail).toBeDefined()
 
       // WHEN: User requests verification email again
       const response = await page.request.post('/api/auth/send-verification-email', {
         data: {
-          email: 'test@example.com',
+          email: userEmail,
         },
       })
 
@@ -185,10 +202,17 @@ test.describe('Send verification email', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
+
+      // Verify new email was sent (wait for 2nd email)
+      const emails = await mailpit.getEmails()
+      const verifyEmails = emails.filter(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+      expect(verifyEmails.length).toBeGreaterThanOrEqual(2)
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-006: should return 200 OK for non-existent email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -212,6 +236,8 @@ test.describe('Send verification email', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
+
+      // Note: No email should be sent for non-existent user (but response looks the same)
     }
   )
 
@@ -219,10 +245,10 @@ test.describe('Send verification email', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-SEND-VERIFICATION-EMAIL-007: user can complete full send-verification-email workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -231,9 +257,12 @@ test.describe('Send verification email', () => {
         },
       })
 
+      const userEmail = mailpit.email('workflow')
+      const nonExistentEmail = mailpit.email('nonexistent')
+
       // Create user
       await signUp({
-        email: 'workflow@example.com',
+        email: userEmail,
         password: 'WorkflowPass123!',
         name: 'Workflow User',
       })
@@ -244,15 +273,21 @@ test.describe('Send verification email', () => {
       })
       expect(invalidResponse.status()).toBe(400)
 
-      // Test 2: Request for registered email succeeds
+      // Test 2: Request for registered email succeeds and sends email
       const successResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: 'workflow@example.com' },
+        data: { email: userEmail },
       })
       expect(successResponse.status()).toBe(200)
 
+      // Verify email was sent (filtered by testId namespace)
+      const email = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+      expect(email).toBeDefined()
+
       // Test 3: Request for non-existent email also succeeds (prevent enumeration)
       const nonExistentResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: 'nonexistent@example.com' },
+        data: { email: nonExistentEmail },
       })
       expect(nonExistentResponse.status()).toBe(200)
     }

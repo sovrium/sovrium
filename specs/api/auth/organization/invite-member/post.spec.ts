@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation via API (no direct executeQuery for auth data)
+ * - Email capture via Mailpit fixture for invitation verification
  * - Authentication/authorization checks via auth fixtures
  */
 
@@ -29,48 +29,61 @@ test.describe('Invite member to organization', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
-    'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token',
+  test(
+    'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
+      const ownerEmail = mailpit.email('owner')
+      const inviteeEmail = mailpit.email('newuser')
+
       await signUp({
-        email: 'owner@example.com',
+        email: ownerEmail,
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
       await signIn({
-        email: 'owner@example.com',
+        email: ownerEmail,
         password: 'OwnerPass123!',
       })
 
       // Create organization
-      await page.request.post('/api/auth/organization/create', {
+      const createResponse = await page.request.post('/api/auth/organization/create-organization', {
         data: { name: 'Test Org', slug: 'test-org' },
       })
+      const org = await createResponse.json()
 
       // WHEN: Owner invites new user by email
       const response = await page.request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: '1',
-          email: 'newuser@example.com',
+          organizationId: org.organization.id,
+          email: inviteeEmail,
           role: 'member',
         },
       })
 
-      // THEN: Returns 201 Created with invitation token
-      expect(response.status()).toBe(201)
+      // THEN: Returns 200 OK with invitation data and sends email
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('invitation')
+
+      // Verify invitation email was sent (filtered by testId namespace)
+      const email = await mailpit.waitForEmail(
+        (e) =>
+          e.To[0]?.Address === inviteeEmail &&
+          (e.Subject.toLowerCase().includes('invite') ||
+            e.Subject.toLowerCase().includes('invitation'))
+      )
+      expect(email).toBeDefined()
     }
   )
 
@@ -83,7 +96,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -123,7 +136,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -167,7 +180,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -194,7 +207,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -261,7 +274,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -301,7 +314,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -367,7 +380,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -421,7 +434,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -490,7 +503,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 

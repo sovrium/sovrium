@@ -58,6 +58,8 @@ export type MailpitOptions = {
   smtpPort?: number
   /** Docker container name (default: 'mailpit-test') */
   containerName?: string
+  /** Unique test ID for isolation (auto-generated if not provided) */
+  testId?: string
 }
 
 /**
@@ -187,38 +189,76 @@ async function waitForMailpitReady(maxAttempts = 30): Promise<void> {
 }
 
 /**
+ * Generate a unique test ID for email isolation
+ * Uses timestamp + random suffix for uniqueness
+ */
+export function generateTestId(): string {
+  const timestamp = Date.now().toString(36)
+  const random = Math.random().toString(36).substring(2, 8)
+  return `t${timestamp}${random}`
+}
+
+/**
  * Mailpit Helper for E2E Email Testing
  *
  * Provides utilities to interact with Mailpit SMTP server and web API.
- * Each test gets its own isolated mailbox by clearing emails before/after tests.
+ * Each test gets its own isolated namespace via testId - emails are filtered
+ * by this ID to prevent test interference when running in parallel.
  *
  * @example
  * ```typescript
- * const mailpit = new MailpitHelper()
+ * const mailpit = new MailpitHelper({ testId: 'test123' })
  *
- * // Clear mailbox before test
- * await mailpit.clearEmails()
+ * // Generate namespaced email address for this test
+ * const email = mailpit.email('user') // 'user-test123@test.local'
  *
- * // ... trigger email sending in your app ...
+ * // ... trigger email sending in your app using the namespaced address ...
  *
- * // Wait for email to arrive
- * const email = await mailpit.waitForEmail(
- *   (e) => e.To[0].Address === 'user@example.com'
+ * // Wait for email to arrive (automatically filtered by testId)
+ * const received = await mailpit.waitForEmail(
+ *   (e) => e.To[0]?.Address === mailpit.email('user')
  * )
  *
  * // Verify email content
- * expect(email.Subject).toBe('Welcome!')
- * expect(email.From.Address).toBe('noreply@myapp.com')
+ * expect(received.Subject).toBe('Welcome!')
  * ```
  */
 export class MailpitHelper {
   private readonly baseUrl: string
   private readonly smtpPort: number
+  /** Unique test ID for email isolation */
+  readonly testId: string
+  /** Email domain used for test emails */
+  readonly domain = 'test.local'
 
   constructor(options?: MailpitOptions) {
     const webPort = options?.webPort ?? globalWebPort
     this.smtpPort = options?.smtpPort ?? globalSmtpPort
     this.baseUrl = `http://localhost:${webPort}`
+    this.testId = options?.testId ?? generateTestId()
+  }
+
+  /**
+   * Generate a namespaced email address for this test
+   * Creates addresses like: user-t1234abc@test.local
+   *
+   * @param localPart - The local part of the email (e.g., 'user', 'admin')
+   * @returns Namespaced email address unique to this test
+   *
+   * @example
+   * mailpit.email('user')     // 'user-t1234abc@test.local'
+   * mailpit.email('admin')    // 'admin-t1234abc@test.local'
+   * mailpit.email('new')      // 'new-t1234abc@test.local'
+   */
+  email(localPart: string): string {
+    return `${localPart}-${this.testId}@${this.domain}`
+  }
+
+  /**
+   * Check if an email address belongs to this test's namespace
+   */
+  isOwnEmail(address: string): boolean {
+    return address.includes(`-${this.testId}@`)
   }
 
   /**
@@ -239,9 +279,10 @@ export class MailpitHelper {
   }
 
   /**
-   * Get all emails in the mailbox
+   * Get all emails in the mailbox (unfiltered)
+   * For most use cases, prefer getOwnEmails() which filters by testId
    */
-  async getEmails(): Promise<MailpitEmail[]> {
+  async getAllEmails(): Promise<MailpitEmail[]> {
     try {
       const response = await fetch(`${this.baseUrl}/api/v1/messages`)
       if (!response.ok) {
@@ -255,7 +296,16 @@ export class MailpitHelper {
   }
 
   /**
-   * Get email count
+   * Get emails belonging to this test's namespace only
+   * Filters by testId in recipient addresses for test isolation
+   */
+  async getEmails(): Promise<MailpitEmail[]> {
+    const allEmails = await this.getAllEmails()
+    return allEmails.filter((email) => email.To.some((to) => this.isOwnEmail(to.Address)))
+  }
+
+  /**
+   * Get email count for this test's namespace
    */
   async getEmailCount(): Promise<number> {
     const emails = await this.getEmails()
@@ -264,6 +314,7 @@ export class MailpitHelper {
 
   /**
    * Wait for an email matching the predicate to arrive
+   * Automatically filters to only emails in this test's namespace
    *
    * @param predicate - Function to match the expected email
    * @param options - Timeout and polling options
@@ -272,14 +323,14 @@ export class MailpitHelper {
    *
    * @example
    * ```typescript
-   * // Wait for email to specific recipient
+   * // Wait for email to namespaced recipient
    * const email = await mailpit.waitForEmail(
-   *   (e) => e.To[0].Address === 'user@example.com'
+   *   (e) => e.To[0]?.Address === mailpit.email('user')
    * )
    *
-   * // Wait for email with specific subject
+   * // Wait for email with specific subject (still filtered by testId)
    * const email = await mailpit.waitForEmail(
-   *   (e) => e.Subject === 'Password Reset'
+   *   (e) => e.Subject.toLowerCase().includes('password')
    * )
    * ```
    */
@@ -292,7 +343,7 @@ export class MailpitHelper {
     const startTime = Date.now()
 
     while (Date.now() - startTime < timeout) {
-      const emails = await this.getEmails()
+      const emails = await this.getEmails() // Already filtered by testId
       const email = emails.find(predicate)
       if (email) {
         return email
@@ -300,7 +351,7 @@ export class MailpitHelper {
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
 
-    throw new Error(`Email not found within ${timeout}ms`)
+    throw new Error(`Email not found within ${timeout}ms (testId: ${this.testId})`)
   }
 
   /**
@@ -319,29 +370,16 @@ export class MailpitHelper {
   }
 
   /**
-   * Get SMTP configuration for the email schema
-   * Use these values in your app's email config to send to Mailpit
+   * Get SMTP configuration environment variables for Mailpit
+   * These should be set in process.env when starting the server
    */
-  getSmtpConfig() {
+  getSmtpEnv(from?: string, options?: { fromName?: string }) {
     return {
-      host: 'localhost',
-      port: this.smtpPort,
-      secure: false,
-    }
-  }
-
-  /**
-   * Get full email configuration matching the app schema
-   */
-  getEmailConfig(from: string, options?: { fromName?: string; replyTo?: string }) {
-    return {
-      from,
-      fromName: options?.fromName,
-      replyTo: options?.replyTo,
-      host: 'localhost',
-      port: this.smtpPort,
-      secure: false,
-      preview: false,
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: this.smtpPort.toString(),
+      SMTP_SECURE: 'false',
+      ...(from && { SMTP_FROM: from }),
+      ...(options?.fromName && { SMTP_FROM_NAME: options.fromName }),
     }
   }
 }

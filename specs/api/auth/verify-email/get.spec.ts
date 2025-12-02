@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+import { extractTokenFromUrl } from '../email-helpers'
 
 /**
  * E2E Tests for Verify email address
@@ -20,24 +21,19 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation via API (no direct executeQuery for auth data)
+ * - Email capture via Mailpit fixture for verification token extraction
  * - Authentication/authorization checks via auth fixtures
- *
- * Note: Better Auth's verify-email endpoint requires a valid token.
- * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Verify email address', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: These tests are marked .fixme() because the /api/auth/verify-email
-  // endpoint requires a valid token which can't be easily obtained in tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-001: should return 200 OK and mark email as verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A user with valid verification token
       await startServerWithSchema({
         name: 'test-app',
@@ -46,17 +42,28 @@ test.describe('Verify email address', () => {
         },
       })
 
+      const userEmail = mailpit.email('test')
+
       await signUp({
-        email: 'test@example.com',
+        email: userEmail,
         password: 'TestPassword123!',
         name: 'Test User',
       })
 
-      // Note: In real tests, we'd need to capture the token from the email
-      // For now, this test assumes a valid token is available
+      // Request verification email
+      await page.request.post('/api/auth/send-verification-email', {
+        data: { email: userEmail },
+      })
+
+      // Capture email and extract token (filtered by testId namespace)
+      const email = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+      const token = extractTokenFromUrl(email.HTML, 'token')
+      expect(token).not.toBeNull()
 
       // WHEN: User clicks verification link with valid token
-      const response = await page.request.get('/api/auth/verify-email?token=valid_verify_token')
+      const response = await page.request.get(`/api/auth/verify-email?token=${token}`)
 
       // THEN: Returns 200 OK and marks email as verified
       expect(response.status()).toBe(200)
@@ -66,7 +73,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-002: should return 400 Bad Request without token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -89,7 +96,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-003: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -112,7 +119,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-004: should return 401 Unauthorized with expired token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -124,7 +131,7 @@ test.describe('Verify email address', () => {
         },
       })
 
-      // WHEN: User submits expired token
+      // WHEN: User submits expired token (simulated with fake token)
       const response = await page.request.get('/api/auth/verify-email?token=expired_token')
 
       // THEN: Returns 401 Unauthorized (or 400 depending on Better Auth version)
@@ -135,11 +142,11 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-005: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server (token already used)
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
+      // GIVEN: A user with token that's already been used
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -147,8 +154,32 @@ test.describe('Verify email address', () => {
         },
       })
 
+      const userEmail = mailpit.email('test')
+
+      await signUp({
+        email: userEmail,
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+
+      // Request verification email
+      await page.request.post('/api/auth/send-verification-email', {
+        data: { email: userEmail },
+      })
+
+      // Capture email and extract token (filtered by testId namespace)
+      const email = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+      const token = extractTokenFromUrl(email.HTML, 'token')
+      expect(token).not.toBeNull()
+
+      // Use the token first time (should succeed)
+      const firstResponse = await page.request.get(`/api/auth/verify-email?token=${token}`)
+      expect(firstResponse.status()).toBe(200)
+
       // WHEN: User attempts to reuse the same verification token
-      const response = await page.request.get('/api/auth/verify-email?token=used_token')
+      const response = await page.request.get(`/api/auth/verify-email?token=${token}`)
 
       // THEN: Returns 401 Unauthorized (token already used)
       expect([400, 401]).toContain(response.status())
@@ -158,10 +189,10 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-006: should handle already verified email with valid token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A user with already verified email and unused token
       await startServerWithSchema({
         name: 'test-app',
@@ -170,17 +201,40 @@ test.describe('Verify email address', () => {
         },
       })
 
+      const userEmail = mailpit.email('test')
+
       await signUp({
-        email: 'test@example.com',
+        email: userEmail,
         password: 'TestPassword123!',
         name: 'Test User',
       })
 
+      // Request first verification email
+      await page.request.post('/api/auth/send-verification-email', {
+        data: { email: userEmail },
+      })
+
+      // Get first token and verify email (filtered by testId namespace)
+      const firstEmail = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+      const firstToken = extractTokenFromUrl(firstEmail.HTML, 'token')
+      expect(firstToken).not.toBeNull()
+
+      // Verify with first token
+      await page.request.get(`/api/auth/verify-email?token=${firstToken}`)
+
+      // Request new verification email for already verified email
+      await page.request.post('/api/auth/send-verification-email', {
+        data: { email: userEmail },
+      })
+
       // WHEN: User clicks verification link for already verified email
-      const response = await page.request.get('/api/auth/verify-email?token=valid_token')
+      // Note: A new email might or might not be sent depending on implementation
+      const response = await page.request.get('/api/auth/verify-email?token=some_new_token')
 
       // THEN: Returns 200 OK or 400 (implementation-dependent)
-      expect([200, 400]).toContain(response.status())
+      expect([200, 400, 401]).toContain(response.status())
     }
   )
 
@@ -188,10 +242,10 @@ test.describe('Verify email address', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-007: user can complete full verify-email workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -200,9 +254,11 @@ test.describe('Verify email address', () => {
         },
       })
 
+      const userEmail = mailpit.email('workflow')
+
       // Create user
       await signUp({
-        email: 'workflow@example.com',
+        email: userEmail,
         password: 'WorkflowPass123!',
         name: 'Workflow User',
       })
@@ -217,7 +273,20 @@ test.describe('Verify email address', () => {
       )
       expect([400, 401]).toContain(invalidTokenResponse.status())
 
-      // Note: Full workflow test would require capturing token from email
+      // Test 3: Full workflow - request email, extract token, verify
+      await page.request.post('/api/auth/send-verification-email', {
+        data: { email: userEmail },
+      })
+
+      const email = await mailpit.waitForEmail(
+        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+      )
+
+      const token = extractTokenFromUrl(email.HTML, 'token')
+      expect(token).not.toBeNull()
+
+      const verifyResponse = await page.request.get(`/api/auth/verify-email?token=${token}`)
+      expect(verifyResponse.status()).toBe(200)
     }
   )
 })

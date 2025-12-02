@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
-import { MailpitHelper } from './email-utils'
+import { MailpitHelper, generateTestId } from './email-utils'
 import type { App } from '@/domain/models/app'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { ChildProcess } from 'node:child_process'
@@ -181,13 +181,18 @@ async function startCliServer(
   url: string
   port: number
 }> {
+  // Configure SMTP to use Mailpit for all email sending
+  const mailpit = new MailpitHelper()
+  const smtpEnv = mailpit.getSmtpEnv('noreply@sovrium.com', { fromName: 'Sovrium' })
+
   // Start the server with CLI command using port 0 (Bun auto-selects available port)
   const serverProcess = spawn('bun', ['run', 'src/cli.ts'], {
     env: {
       ...process.env,
-      SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
-      SOVRIUM_PORT: '0', // Let Bun select an available port
+      SOVRIUM_APP_JSON: JSON.stringify(appSchema),
+      PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
+      ...smtpEnv, // Configure SMTP to use Mailpit
     },
     stdio: 'pipe',
   })
@@ -606,22 +611,9 @@ export const test = base.extend<ServerFixtures>({
         ;(testInfo as any)._testDatabaseName = testDbName
       }
 
-      // Auto-inject default email config when auth is present but email is not
-      // This is required because email config is mandatory when auth is configured
-      const finalSchema =
-        appSchema.auth && !appSchema.email
-          ? {
-              ...appSchema,
-              email: {
-                from: 'test@example.com',
-                host: 'localhost',
-                port: 1025,
-                preview: true,
-              },
-            }
-          : appSchema
-
-      const server = await startCliServer(finalSchema, databaseUrl)
+      // SMTP is automatically configured via environment variables from mailpit
+      // (configured in startCliServer - no need to pass email config in schema)
+      const server = await startCliServer(appSchema, databaseUrl)
       serverProcess = server.process
       serverUrl = server.url
 
@@ -818,7 +810,7 @@ export const test = base.extend<ServerFixtures>({
         // Build environment variables from config
         const env: Record<string, string> = {
           ...process.env,
-          SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
+          SOVRIUM_APP_JSON: JSON.stringify(appSchema),
           SOVRIUM_OUTPUT_DIR: outputDir,
         }
 
@@ -1183,17 +1175,13 @@ export const test = base.extend<ServerFixtures>({
   },
 
   // Mailpit fixture: Email testing helper
-  // Provides isolated mailbox for each test (emails cleared at start)
+  // Each test gets its own isolated namespace via unique testId
+  // No need to clear emails - filtering by testId provides isolation
   mailpit: async ({}, use) => {
-    const mailpit = new MailpitHelper()
-
-    // Clear emails at the start of each test for isolation
-    await mailpit.clearEmails()
+    const testId = generateTestId()
+    const mailpit = new MailpitHelper({ testId })
 
     await use(mailpit)
-
-    // Optional: Clear emails after test (not strictly necessary since we clear at start)
-    // await mailpit.clearEmails()
   },
 })
 
