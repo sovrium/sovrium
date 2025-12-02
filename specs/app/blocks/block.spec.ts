@@ -482,63 +482,59 @@ test.describe('Block Template', () => {
     'APP-BLOCKS-BLOCK-013: user can complete full block workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive block templates
-      await startServerWithSchema({
-        name: 'test-app',
-        blocks: [
-          {
-            name: 'simple-text',
-            type: 'single-line-text',
-            props: { className: 'text-$color' },
-            content: '$message',
-          },
-          {
-            name: 'feature-item',
-            type: 'flex',
-            props: { gap: 3 },
-            children: [
-              { type: 'icon', props: { name: '$icon' } },
-              { type: 'single-line-text', content: '$text' },
-            ],
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              { block: 'simple-text', vars: { color: 'blue', message: 'Welcome' } },
-              { block: 'feature-item', vars: { icon: 'check', text: 'Feature 1' } },
-              { block: 'feature-item', vars: { icon: 'star', text: 'Feature 2' } },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with block templates', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'simple-text',
+              type: 'single-line-text',
+              props: { className: 'text-$color' },
+              content: '$message',
+            },
+            {
+              name: 'feature-item',
+              type: 'flex',
+              props: { gap: 3 },
+              children: [
+                { type: 'icon', props: { name: '$icon' } },
+                { type: 'single-line-text', content: '$text' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                { block: 'simple-text', vars: { color: 'blue', message: 'Welcome' } },
+                { block: 'feature-item', vars: { icon: 'check', text: 'Feature 1' } },
+                { block: 'feature-item', vars: { icon: 'star', text: 'Feature 2' } },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify text block', async () => {
+        await page.goto('/')
+        const textBlock = page.locator('[data-testid="block-simple-text"]')
+        await expect(textBlock).toHaveText('Welcome')
+        await expect(textBlock).toHaveClass(/text-blue/)
+      })
 
-      // 1. Text block - structure and styling
-      const textBlock = page.locator('[data-testid="block-simple-text"]')
-      // THEN: assertion
-      await expect(textBlock).toHaveText('Welcome')
-      await expect(textBlock).toHaveClass(/text-blue/)
-
-      // 2. Feature blocks - ARIA validates nested icon + text structure
-      // THEN: assertion
-      await expect(page.locator('[data-testid="block-feature-item-0"]')).toMatchAriaSnapshot(`
-        - group:
-          - img
-          - text: Feature 1
-      `)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="block-feature-item-1"]')).toMatchAriaSnapshot(`
-        - group:
-          - img
-          - text: Feature 2
-      `)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify feature blocks with ARIA snapshots', async () => {
+        await expect(page.locator('[data-testid="block-feature-item-0"]')).toMatchAriaSnapshot(`
+          - group:
+            - img
+            - text: Feature 1
+        `)
+        await expect(page.locator('[data-testid="block-feature-item-1"]')).toMatchAriaSnapshot(`
+          - group:
+            - img
+            - text: Feature 2
+        `)
+      })
     }
   )
 })
