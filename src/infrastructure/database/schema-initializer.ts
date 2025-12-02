@@ -109,6 +109,20 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} (${field.name})`
     })
 
+  // Create exclusion constraints for geolocation fields with unique constraint
+  // NOTE: POINT type doesn't support btree UNIQUE constraints or GiST UNIQUE indexes
+  // PostgreSQL requires EXCLUDE USING gist for uniqueness on geometric types using ~= operator
+  const uniqueGeolocationConstraints = table.fields
+    .filter(
+      (field): field is Fields[number] & { type: 'geolocation'; unique: true } =>
+        field.type === 'geolocation' && 'unique' in field && !!field.unique
+    )
+    .map((field) => {
+      // Use PostgreSQL naming convention: {table}_{column}_key (matches constraint naming)
+      const constraintName = `${table.name}_${field.name}_key`
+      return `ALTER TABLE public.${table.name} ADD CONSTRAINT ${constraintName} EXCLUDE USING gist (${field.name} WITH ~=)`
+    })
+
   // Create full-text search GIN indexes for rich-text fields with fullTextSearch enabled
   const fullTextSearchIndexes = table.fields
     .filter(
@@ -128,7 +142,13 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})`
     }) ?? []
 
-  return [...indexedFields, ...autonumberIndexes, ...fullTextSearchIndexes, ...customIndexes]
+  return [
+    ...indexedFields,
+    ...autonumberIndexes,
+    ...uniqueGeolocationConstraints,
+    ...fullTextSearchIndexes,
+    ...customIndexes,
+  ]
 }
 
 /**
