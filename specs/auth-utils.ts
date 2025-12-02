@@ -18,7 +18,7 @@
  *
  * @example
  * ```ts
- * import { expect401Unauthorized, expect403Forbidden, expect404CrossOrg } from '@/specs/helpers/authorization-tests'
+ * import { expect401Unauthorized, expect403Forbidden, expect404CrossOrg } from '@/specs/auth-utils'
  *
  * test('should return 401 Unauthorized', async ({ request, startServerWithSchema }) => {
  *   await startServerWithSchema({ ... })
