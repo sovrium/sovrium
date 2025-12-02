@@ -778,105 +778,111 @@ test.describe('Batch update records', () => {
     'API-TABLES-RECORDS-BATCH-PATCH-016: user can complete full batch update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with representative table and permission configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 16,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text', required: true },
-              { id: 2, name: 'email', type: 'email', required: true, unique: true },
-              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
+      await test.step('Setup: Start server with employees table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 16,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'email', type: 'email', required: true, unique: true },
+                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Setup: Insert test records', async () => {
+        await executeQuery(`
+          INSERT INTO employees (id, name, email, salary, organization_id) VALUES
+            (1, 'John Doe', 'john@example.com', 75000, 'org_123'),
+            (2, 'Jane Smith', 'jane@example.com', 80000, 'org_123'),
+            (3, 'Bob Johnson', 'bob@example.com', 70000, 'org_123')
+        `)
+      })
+
+      await test.step('Batch update records successfully', async () => {
+        const successResponse = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, name: 'John Updated' },
+              { id: 2, email: 'jane.updated@example.com' },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(successResponse.status()).toBe(200)
+        const result = await successResponse.json()
+        expect(result.updated).toBe(2)
+      })
+
+      await test.step('Verify updates in database', async () => {
+        const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+        expect(verifyUpdate.rows[0].name).toBe('John Updated')
+      })
+
+      await test.step('Verify validation error triggers rollback', async () => {
+        const validationResponse = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, name: 'Valid' },
+              { id: 2, email: null }, // Invalid
             ],
           },
-        ],
+        })
+
+        expect(validationResponse.status()).toBe(400)
       })
-      await executeQuery(`
-        INSERT INTO employees (id, name, email, salary, organization_id) VALUES
-          (1, 'John Doe', 'john@example.com', 75000, 'org_123'),
-          (2, 'Jane Smith', 'jane@example.com', 80000, 'org_123'),
-          (3, 'Bob Johnson', 'bob@example.com', 70000, 'org_123')
-      `)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Verify unauthorized batch update fails', async () => {
+        const forbiddenResponse = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 3, name: 'Test' }],
+          },
+        })
 
-      // Test successful batch update (admin with full access)
-      const successResponse = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'John Updated' },
-            { id: 2, email: 'jane.updated@example.com' },
-          ],
-          returnRecords: true,
-        },
+        expect(forbiddenResponse.status()).toBe(403)
       })
-      // THEN: assertion
-      expect(successResponse.status()).toBe(200)
-      const result = await successResponse.json()
-      // THEN: assertion
-      expect(result.updated).toBe(2)
 
-      // Verify updates in database
-      const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
-      // THEN: assertion
-      expect(verifyUpdate.rows[0].name).toBe('John Updated')
+      await test.step('Verify unauthenticated batch update fails', async () => {
+        const unauthorizedResponse = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 1, name: 'Test' }],
+          },
+        })
 
-      // Test validation error with rollback
-      const validationResponse = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Valid' },
-            { id: 2, email: null }, // Invalid
-          ],
-        },
+        expect(unauthorizedResponse.status()).toBe(401)
       })
-      // THEN: assertion
-      expect(validationResponse.status()).toBe(400)
 
-      // Test permission denied (member without update permission)
-      const forbiddenResponse = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ id: 3, name: 'Test' }],
-        },
-      })
-      // THEN: assertion
-      expect(forbiddenResponse.status()).toBe(403)
+      await test.step('Verify field-level permission enforced', async () => {
+        const fieldForbiddenResponse = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 3, salary: 99_999 }],
+          },
+        })
 
-      // Test unauthorized
-      const unauthorizedResponse = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ id: 1, name: 'Test' }],
-        },
+        expect(fieldForbiddenResponse.status()).toBe(403)
       })
-      // THEN: assertion
-      expect(unauthorizedResponse.status()).toBe(401)
-
-      // Test field-level write restriction
-      const fieldForbiddenResponse = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ id: 3, salary: 99_999 }],
-        },
-      })
-      // THEN: assertion
-      expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )
 })

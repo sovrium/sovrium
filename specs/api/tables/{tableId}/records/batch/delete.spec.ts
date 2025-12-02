@@ -563,85 +563,85 @@ test.describe('Batch delete records', () => {
     'API-TABLES-RECORDS-BATCH-DELETE-012: user can complete full batch delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with multiple records
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 12,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'title', type: 'single-line-text', required: true },
-              { id: 2, name: 'status', type: 'single-line-text' },
-            ],
+      await test.step('Setup: Start server with tasks table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 12,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text', required: true },
+                { id: 2, name: 'status', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Setup: Insert test records', async () => {
+        await executeQuery(`
+          INSERT INTO tasks (id, title, status) VALUES
+            (1, 'Task 1', 'pending'),
+            (2, 'Task 2', 'pending'),
+            (3, 'Task 3', 'pending'),
+            (4, 'Task 4', 'pending'),
+            (5, 'Task 5', 'pending')
+        `)
+      })
+
+      await test.step('Batch delete records successfully', async () => {
+        const successResponse = await request.delete('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
           },
-        ],
+          data: {
+            ids: [1, 2, 3],
+          },
+        })
+
+        expect(successResponse.status()).toBe(200)
+        const result = await successResponse.json()
+        expect(result.deleted).toBe(3)
       })
-      await executeQuery(`
-        INSERT INTO tasks (id, title, status) VALUES
-          (1, 'Task 1', 'pending'),
-          (2, 'Task 2', 'pending'),
-          (3, 'Task 3', 'pending'),
-          (4, 'Task 4', 'pending'),
-          (5, 'Task 5', 'pending')
-      `)
 
-      // WHEN/THEN: Execute representative batch delete workflow
-
-      // 1. Successful batch delete
-      const successResponse = await request.delete('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          ids: [1, 2, 3],
-        },
+      await test.step('Verify deletion in database', async () => {
+        const afterDelete = await executeQuery(`
+          SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3)
+        `)
+        expect(afterDelete.rows[0].count).toBe(0)
       })
-      // THEN: assertion
-      expect(successResponse.status()).toBe(200)
-      const result = await successResponse.json()
-      // THEN: assertion
-      expect(result.deleted).toBe(3)
 
-      // Verify deletion
-      const afterDelete = await executeQuery(`
-        SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3)
-      `)
-      // THEN: assertion
-      expect(afterDelete.rows[0].count).toBe(0)
+      await test.step('Verify partial failure triggers rollback', async () => {
+        const rollbackResponse = await request.delete('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            ids: [4, 9999],
+          },
+        })
 
-      // 2. Transaction rollback on partial failure
-      const rollbackResponse = await request.delete('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          ids: [4, 9999],
-        },
+        expect(rollbackResponse.status()).toBe(404)
+
+        const afterRollback = await executeQuery(`
+          SELECT COUNT(*) as count FROM tasks WHERE id=4
+        `)
+        expect(afterRollback.rows[0].count).toBe(1)
       })
-      // THEN: assertion
-      expect(rollbackResponse.status()).toBe(404)
 
-      // Verify rollback - record 4 should still exist
-      const afterRollback = await executeQuery(`
-        SELECT COUNT(*) as count FROM tasks WHERE id=4
-      `)
-      // THEN: assertion
-      expect(afterRollback.rows[0].count).toBe(1)
+      await test.step('Verify payload size limit enforced', async () => {
+        const tooLargeResponse = await request.delete('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            ids: Array.from({ length: 1001 }, (_, i) => i + 1),
+          },
+        })
 
-      // 3. Test payload size limit
-      const tooLargeResponse = await request.delete('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          ids: Array.from({ length: 1001 }, (_, i) => i + 1),
-        },
+        expect(tooLargeResponse.status()).toBe(413)
       })
-      // THEN: assertion
-      expect(tooLargeResponse.status()).toBe(413)
-
-      // Workflow completes successfully
     }
   )
 })

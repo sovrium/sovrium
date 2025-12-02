@@ -725,106 +725,107 @@ test.describe('Batch create records', () => {
     'API-TABLES-RECORDS-BATCH-POST-016: user can complete full batch create workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with representative table and permission configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 16,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text', required: true },
-              { id: 2, name: 'email', type: 'email', required: true, unique: true },
-              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
+      await test.step('Setup: Start server with employees table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 16,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'email', type: 'email', required: true, unique: true },
+                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Batch create records successfully', async () => {
+        const successResponse = await request.post('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { name: 'John Doe', email: 'john@example.com' },
+              { name: 'Jane Smith', email: 'jane@example.com' },
+              { name: 'Bob Johnson', email: 'bob@example.com' },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(successResponse.status()).toBe(201)
+        const result = await successResponse.json()
+        expect(result.created).toBe(3)
+        expect(result.records).toHaveLength(3)
+      })
+
+      await test.step('Verify records in database', async () => {
+        const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+        expect(verifyRecords.rows[0].count).toBe(3)
+      })
+
+      await test.step('Verify validation error triggers rollback', async () => {
+        const validationResponse = await request.post('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { name: 'Valid', email: 'valid@example.com' },
+              { name: 'Invalid' }, // Missing email
             ],
           },
-        ],
+        })
+
+        expect(validationResponse.status()).toBe(400)
+
+        const verifyRollback = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+        expect(verifyRollback.rows[0].count).toBe(3)
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Verify unauthorized batch create fails', async () => {
+        const forbiddenResponse = await request.post('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ name: 'Test', email: 'test@example.com' }],
+          },
+        })
 
-      // Test successful batch create (admin with full access)
-      const successResponse = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { name: 'John Doe', email: 'john@example.com' },
-            { name: 'Jane Smith', email: 'jane@example.com' },
-            { name: 'Bob Johnson', email: 'bob@example.com' },
-          ],
-          returnRecords: true,
-        },
+        expect(forbiddenResponse.status()).toBe(403)
       })
-      // THEN: assertion
-      expect(successResponse.status()).toBe(201)
-      const result = await successResponse.json()
-      // THEN: assertion
-      expect(result.created).toBe(3)
-      expect(result.records).toHaveLength(3)
 
-      // Verify records in database
-      const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-      // THEN: assertion
-      expect(verifyRecords.rows[0].count).toBe(3)
+      await test.step('Verify unauthenticated batch create fails', async () => {
+        const unauthorizedResponse = await request.post('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ name: 'Test', email: 'test@example.com' }],
+          },
+        })
 
-      // Test validation error with rollback
-      const validationResponse = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { name: 'Valid', email: 'valid@example.com' },
-            { name: 'Invalid' }, // Missing email
-          ],
-        },
+        expect(unauthorizedResponse.status()).toBe(401)
       })
-      // THEN: assertion
-      expect(validationResponse.status()).toBe(400)
 
-      // Verify rollback (still 3 records, no new ones)
-      const verifyRollback = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-      // THEN: assertion
-      expect(verifyRollback.rows[0].count).toBe(3)
+      await test.step('Verify field-level permission enforced', async () => {
+        const fieldForbiddenResponse = await request.post('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ name: 'Test', email: 'test2@example.com', salary: 99_999 }],
+          },
+        })
 
-      // Test permission denied (member without create permission)
-      const forbiddenResponse = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ name: 'Test', email: 'test@example.com' }],
-        },
+        expect(fieldForbiddenResponse.status()).toBe(403)
       })
-      // THEN: assertion
-      expect(forbiddenResponse.status()).toBe(403)
-
-      // Test unauthorized
-      const unauthorizedResponse = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ name: 'Test', email: 'test@example.com' }],
-        },
-      })
-      // THEN: assertion
-      expect(unauthorizedResponse.status()).toBe(401)
-
-      // Test field-level write restriction
-      const fieldForbiddenResponse = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ name: 'Test', email: 'test2@example.com', salary: 99_999 }],
-        },
-      })
-      // THEN: assertion
-      expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )
 })
