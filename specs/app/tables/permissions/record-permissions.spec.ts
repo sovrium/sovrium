@@ -112,7 +112,7 @@ test.describe('Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RECORD-PERMISSIONS-002: should deny UPDATE when user attempts to update record not assigned to them',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -149,39 +149,47 @@ test.describe('Record-Level Permissions', () => {
       const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
+      // Create non-superuser role for RLS testing
+      await executeQuery('DROP ROLE IF EXISTS rls_test_user')
+      await executeQuery("CREATE ROLE rls_test_user WITH LOGIN PASSWORD 'test'")
+
       await executeQuery([
-        'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY user_update_assigned ON tasks FOR UPDATE USING (assigned_to = current_setting('app.user_id')::INTEGER)",
+        'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY', // Enable RLS
+        'ALTER TABLE tasks FORCE ROW LEVEL SECURITY', // Apply to table owners too
+        "CREATE POLICY user_select_assigned ON tasks FOR SELECT USING (assigned_to = current_setting('app.user_id', true)::TEXT)",
+        "CREATE POLICY user_update_assigned ON tasks FOR UPDATE USING (assigned_to = current_setting('app.user_id', true)::TEXT) WITH CHECK (assigned_to = current_setting('app.user_id', true)::TEXT)",
         `INSERT INTO tasks (title, status, assigned_to) VALUES ('Task 1', 'open', '${user1.user.id}'), ('Task 2', 'open', '${user2.user.id}')`,
+        'GRANT ALL ON TABLE tasks TO rls_test_user',
+        'GRANT USAGE ON SCHEMA public TO rls_test_user',
       ])
 
       // WHEN: user attempts to update record not assigned to them
       // THEN: PostgreSQL RLS policy denies UPDATE
 
-      // RLS policy exists for user_update_assigned
+      // RLS policies exist for SELECT and UPDATE
       const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname='user_update_assigned'"
+        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname IN ('user_select_assigned', 'user_update_assigned')"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(1)
+      expect(policyCount.count).toBe(2)
 
       // User 1 can UPDATE tasks assigned to them
       const user1Update = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status`
       )
       // THEN: assertion
       expect(user1Update.status).toBe('in_progress')
 
       // User 1 cannot UPDATE tasks assigned to user 2
       const user1FailedUpdate = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id`
       )
       // THEN: assertion
-      expect(user1FailedUpdate.id).toBeNull()
+      expect(user1FailedUpdate.id).toBeUndefined()
 
       // User 2 can only UPDATE their assigned tasks
       const user2Update = await executeQuery(
-        `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status`
       )
       // THEN: assertion
       expect(user2Update.status).toBe('done')
