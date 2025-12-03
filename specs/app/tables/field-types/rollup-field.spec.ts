@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 /**
- * E2E Tests for Rollup Field
+ * E2E Tests for Rollup Field (Airtable-style Computed Values)
  *
  * Source: src/domain/models/app/table/field-types/rollup-field.ts
  * Domain: app
@@ -16,22 +16,34 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Reference: https://support.airtable.com/docs/rollup-field-overview
  *
- * NOTE: Some rollup field properties (conditions) are planned but not yet implemented.
- * Tests use type assertions to document the intended API.
+ * IMPLEMENTATION APPROACH:
+ * Rollup fields should work like Airtable - computed values are directly
+ * accessible as table columns, NOT manually computed via JOIN queries.
+ *
+ * Recommended implementation: Create database VIEWs that include aggregated
+ * columns. Views automatically recalculate when related records change.
+ *
+ * Example:
+ * CREATE VIEW customers_view AS
+ * SELECT c.*, COALESCE(SUM(o.amount), 0) as total_order_amount
+ * FROM customers c LEFT JOIN orders o ON c.id = o.customer_id GROUP BY c.id;
+ *
+ * Tests validate that computed values are directly readable, not that
+ * implementations write correct SQL aggregations.
  */
 
 /**
  * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
- * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ * 1. @spec tests - One per acceptance criterion (11 tests) - Exhaustive coverage
+ * 2. @regression test - ONE optimized integration test - Critical workflow validation
  */
 
 test.describe('Rollup Field', () => {
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-001: should calculate SUM aggregation from related records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with rollup field
+      // GIVEN: Customers table with rollup field summing order amounts
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -71,52 +83,33 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting customers and orders
       await executeQuery("INSERT INTO customers (name) VALUES ('Alice'), ('Bob')")
       await executeQuery(
         'INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00), (1, 75.50), (2, 200.00)'
       )
 
-      // WHEN: executing query
-      const aliceTotal = await executeQuery(
-        'SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 1 GROUP BY c.id, c.name'
-      )
-      // THEN: assertion
-      expect(aliceTotal).toEqual({
-        id: 1,
-        name: 'Alice',
-        total_order_amount: 325.5,
-        rowCount: 1,
-        rows: [{ id: 1, name: 'Alice', total_order_amount: 325.5 }],
-      })
+      // THEN: Rollup field is directly accessible (Airtable-style)
+      const alice = await executeQuery('SELECT * FROM customers WHERE id = 1')
+      expect(alice.total_order_amount).toBe(325.5) // 100 + 150 + 75.50
 
-      // WHEN: executing query
-      const bobTotal = await executeQuery(
-        'SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 2 GROUP BY c.id, c.name'
-      )
-      // THEN: assertion
-      expect(bobTotal).toEqual({
-        id: 2,
-        name: 'Bob',
-        total_order_amount: 200.0,
-        rowCount: 1,
-        rows: [{ id: 2, name: 'Bob', total_order_amount: 200.0 }],
-      })
+      const bob = await executeQuery('SELECT * FROM customers WHERE id = 2')
+      expect(bob.total_order_amount).toBe(200.0)
 
-      // WHEN: executing query
-      const noOrders = await executeQuery(
-        "INSERT INTO customers (name) VALUES ('Charlie') RETURNING (SELECT COALESCE(SUM(o.amount), 0) FROM orders o WHERE o.customer_id = 3) as total_order_amount"
-      )
-      // THEN: assertion
-      expect(noOrders.total_order_amount).toBe(0)
+      // WHEN: Customer with no orders
+      await executeQuery("INSERT INTO customers (name) VALUES ('Charlie')")
+
+      // THEN: Rollup returns 0 for empty aggregation
+      const charlie = await executeQuery('SELECT * FROM customers WHERE id = 3')
+      expect(charlie.total_order_amount).toBe(0)
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-002: should return COUNT aggregation of related records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with COUNT rollup
+      // GIVEN: Projects table with COUNT rollup of tasks
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -156,43 +149,24 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting projects and tasks
       await executeQuery("INSERT INTO projects (name) VALUES ('Website Redesign'), ('Mobile App')")
       await executeQuery(
         "INSERT INTO tasks (project_id, title) VALUES (1, 'Design mockups'), (1, 'Write code'), (1, 'Test'), (2, 'Setup project')"
       )
 
-      // WHEN: executing query
-      const project1Count = await executeQuery(
-        'SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 1 GROUP BY p.id, p.name'
-      )
-      // THEN: assertion
-      expect(project1Count).toEqual({
-        id: 1,
-        name: 'Website Redesign',
-        task_count: 3,
-        rowCount: 1,
-        rows: [{ id: 1, name: 'Website Redesign', task_count: 3 }],
-      })
+      // THEN: COUNT rollup is directly accessible
+      const project1 = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      expect(project1.task_count).toBe(3)
 
-      // WHEN: executing query
-      const project2Count = await executeQuery(
-        'SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 2 GROUP BY p.id, p.name'
-      )
-      // THEN: assertion
-      expect(project2Count).toEqual({
-        id: 2,
-        name: 'Mobile App',
-        task_count: 1,
-        rowCount: 1,
-        rows: [{ id: 2, name: 'Mobile App', task_count: 1 }],
-      })
+      const project2 = await executeQuery('SELECT * FROM projects WHERE id = 2')
+      expect(project2.task_count).toBe(1)
 
-      // WHEN: executing query
-      const emptyProject = await executeQuery(
-        "INSERT INTO projects (name) VALUES ('Empty Project') RETURNING (SELECT COUNT(t.id) FROM tasks t WHERE t.project_id = 3) as task_count"
-      )
-      // THEN: assertion
+      // WHEN: Project with no tasks
+      await executeQuery("INSERT INTO projects (name) VALUES ('Empty Project')")
+
+      // THEN: COUNT returns 0 for empty relation
+      const emptyProject = await executeQuery('SELECT * FROM projects WHERE id = 3')
       expect(emptyProject.task_count).toBe(0)
     }
   )
@@ -201,7 +175,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-003: should support AVG, MIN, MAX statistical aggregations',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with statistical rollup fields
+      // GIVEN: Products table with multiple statistical rollup fields
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -257,32 +231,17 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting product with reviews
       await executeQuery("INSERT INTO products (name) VALUES ('Laptop')")
       await executeQuery(
         'INSERT INTO reviews (product_id, rating) VALUES (1, 5), (1, 4), (1, 5), (1, 3)'
       )
 
-      // WHEN: executing query
-      const avgRating = await executeQuery(
-        'SELECT p.id, AVG(r.rating)::NUMERIC(10,2) as avg_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id'
-      )
-      // THEN: assertion
-      expect(avgRating).toEqual({ id: 1, avg_rating: '4.25' })
-
-      // WHEN: executing query
-      const minRating = await executeQuery(
-        'SELECT p.id, MIN(r.rating) as min_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id'
-      )
-      // THEN: assertion
-      expect(minRating).toEqual({ id: 1, min_rating: 3 })
-
-      // WHEN: executing query
-      const maxRating = await executeQuery(
-        'SELECT p.id, MAX(r.rating) as max_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id'
-      )
-      // THEN: assertion
-      expect(maxRating).toEqual({ id: 1, max_rating: 5 })
+      // THEN: Statistical rollup fields are directly accessible
+      const product = await executeQuery('SELECT * FROM products WHERE id = 1')
+      expect(product.avg_rating).toBe(4.25) // (5 + 4 + 5 + 3) / 4
+      expect(product.min_rating).toBe(3)
+      expect(product.max_rating).toBe(5)
     }
   )
 
@@ -290,7 +249,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-004: should efficiently aggregate across multiple parent records with GROUP BY',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with department salary totals
+      // GIVEN: Departments table with salary rollup
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -330,7 +289,7 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting departments and employees
       await executeQuery(
         "INSERT INTO departments (name) VALUES ('Engineering'), ('Sales'), ('Marketing')"
       )
@@ -338,23 +297,22 @@ test.describe('Rollup Field', () => {
         'INSERT INTO employees (department_id, salary) VALUES (1, 90000), (1, 85000), (1, 95000), (2, 70000), (2, 75000), (3, 60000)'
       )
 
-      // WHEN: executing query
-      const allDepartments = await executeQuery(
-        'SELECT d.id, d.name, COALESCE(SUM(e.salary), 0) as total_salary FROM departments d LEFT JOIN employees e ON d.id = e.department_id GROUP BY d.id, d.name ORDER BY d.id'
-      )
-      // THEN: assertion
-      expect(allDepartments).toEqual([
-        { id: 1, name: 'Engineering', total_salary: '270000.00' },
-        { id: 2, name: 'Sales', total_salary: '145000.00' },
-        { id: 3, name: 'Marketing', total_salary: '60000.00' },
+      // THEN: Rollup works efficiently for all departments
+      const allDepartments = await executeQuery('SELECT * FROM departments ORDER BY id')
+      expect(allDepartments.rows).toEqual([
+        { id: 1, name: 'Engineering', total_salary: 270000 }, // 90k + 85k + 95k
+        { id: 2, name: 'Sales', total_salary: 145000 }, // 70k + 75k
+        { id: 3, name: 'Marketing', total_salary: 60000 },
       ])
 
-      // WHEN: executing query
-      const filtered = await executeQuery(
-        "SELECT d.name, SUM(e.salary) as total_salary FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.name = 'Engineering' GROUP BY d.name"
+      // THEN: Can filter departments by computed rollup value
+      const highBudgetDepts = await executeQuery(
+        'SELECT * FROM departments WHERE total_salary > 100000 ORDER BY id'
       )
-      // THEN: assertion
-      expect(filtered).toEqual({ name: 'Engineering', total_salary: '270000.00' })
+      expect(highBudgetDepts.rows).toEqual([
+        { id: 1, name: 'Engineering', total_salary: 270000 },
+        { id: 2, name: 'Sales', total_salary: 145000 },
+      ])
     }
   )
 
@@ -362,7 +320,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-005: should create VIEW to encapsulate rollup aggregation logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with view for rollup logic
+      // GIVEN: Accounts table with revenue rollup
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -382,14 +340,6 @@ test.describe('Rollup Field', () => {
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 1,
-                name: 'accounts_with_revenue',
-                query:
-                  'SELECT a.id, a.account_name, COALESCE(SUM(i.amount), 0) as revenue_total FROM accounts a LEFT JOIN invoices i ON a.id = i.account_id GROUP BY a.id, a.account_name',
-              },
-            ],
           },
           {
             id: 2,
@@ -410,32 +360,26 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting accounts and invoices
       await executeQuery("INSERT INTO accounts (account_name) VALUES ('Acme Corp'), ('Tech Inc')")
       await executeQuery(
         'INSERT INTO invoices (account_id, amount) VALUES (1, 5000.00), (1, 3000.00), (2, 10000.00)'
       )
 
-      // WHEN: executing query
+      // THEN: View is created for rollup logic (implementation detail)
+      // Note: View may be named 'accounts' (replacing table) or 'accounts_view'
       const viewExists = await executeQuery(
-        "SELECT table_name FROM information_schema.views WHERE table_name = 'accounts_with_revenue'"
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_schema = 'public' AND table_name LIKE '%accounts%'"
       )
-      // THEN: assertion
-      expect(viewExists.table_name).toBe('accounts_with_revenue')
+      expect(viewExists.count).toBeGreaterThan(0)
 
-      // WHEN: executing query
-      const viewData = await executeQuery(
-        'SELECT id, account_name, revenue_total FROM accounts_with_revenue WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(viewData).toEqual({ id: 1, account_name: 'Acme Corp', revenue_total: '8000.00' })
+      // THEN: Rollup value is directly accessible
+      const acme = await executeQuery("SELECT * FROM accounts WHERE account_name = 'Acme Corp'")
+      expect(acme.revenue_total).toBe(8000) // 5000 + 3000
 
-      // WHEN: executing query
-      const viewAggregates = await executeQuery(
-        'SELECT COUNT(*) as count, SUM(revenue_total) as total_revenue FROM accounts_with_revenue'
-      )
-      // THEN: assertion
-      expect(viewAggregates).toEqual({ count: 2, total_revenue: '18000.00' })
+      // THEN: Can aggregate on rollup fields
+      const totalRevenue = await executeQuery('SELECT SUM(revenue_total) as total FROM accounts')
+      expect(totalRevenue.total).toBe(18000) // 8000 + 10000
     }
   )
 
@@ -443,7 +387,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-007: should count non-empty values with COUNTA aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with COUNTA rollup (counts non-empty text or numeric values)
+      // GIVEN: Authors table with COUNTA rollup (counts non-empty descriptions)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -484,7 +428,7 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data (some books have description, some don't)
+      // WHEN: Inserting author with books (some have description, some don't)
       await executeQuery("INSERT INTO authors (name) VALUES ('Jane Austen')")
       await executeQuery(`
         INSERT INTO books (title, description, author_id) VALUES
@@ -495,14 +439,8 @@ test.describe('Rollup Field', () => {
       `)
 
       // THEN: COUNTA counts only non-empty values (excludes NULL and empty strings)
-      const countaResult = await executeQuery(`
-        SELECT a.id, COUNT(b.description) FILTER (WHERE b.description IS NOT NULL AND b.description != '') as books_with_description_count
-        FROM authors a
-        LEFT JOIN books b ON a.id = b.author_id
-        WHERE a.id = 1
-        GROUP BY a.id
-      `)
-      expect(countaResult.books_with_description_count).toBe(2)
+      const author = await executeQuery('SELECT * FROM authors WHERE id = 1')
+      expect(author.books_with_description_count).toBe(2) // Only 'Pride' and 'Emma'
     }
   )
 
@@ -510,7 +448,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-008: should count all linked records with COUNTALL including empty',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with COUNTALL rollup (counts all linked records regardless of field values)
+      // GIVEN: Projects table with COUNTALL rollup (counts all linked records)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -551,7 +489,7 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data (some tasks have empty fields)
+      // WHEN: Inserting project with tasks (some have empty fields)
       await executeQuery("INSERT INTO projects (name) VALUES ('Website')")
       await executeQuery(`
         INSERT INTO tasks (title, notes, project_id) VALUES
@@ -562,14 +500,8 @@ test.describe('Rollup Field', () => {
       `)
 
       // THEN: COUNTALL counts all linked records regardless of field values
-      const countallResult = await executeQuery(`
-        SELECT p.id, COUNT(t.id) as total_tasks
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(countallResult.total_tasks).toBe(4)
+      const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      expect(project.total_tasks).toBe(4) // All 4 tasks counted
     }
   )
 
@@ -577,7 +509,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-009: should support MIN and MAX aggregation with date fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with date MIN/MAX rollup fields
+      // GIVEN: Projects table with date MIN/MAX rollup fields
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -626,7 +558,7 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with various dates
+      // WHEN: Inserting project with tasks with various dates
       await executeQuery("INSERT INTO projects (name) VALUES ('Q1 Release')")
       await executeQuery(`
         INSERT INTO tasks (title, due_date, project_id) VALUES
@@ -636,25 +568,10 @@ test.describe('Rollup Field', () => {
         ('Launch', '2024-03-31', 1)
       `)
 
-      // THEN: MIN returns earliest date
-      const minDate = await executeQuery(`
-        SELECT p.id, MIN(t.due_date) as earliest_task_date
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(minDate.earliest_task_date).toEqual(new Date('2024-01-15'))
-
-      // THEN: MAX returns latest date
-      const maxDate = await executeQuery(`
-        SELECT p.id, MAX(t.due_date) as latest_task_date
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(maxDate.latest_task_date).toEqual(new Date('2024-03-31'))
+      // THEN: MIN/MAX date rollups are directly accessible
+      const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      expect(project.earliest_task_date).toEqual(new Date('2024-01-15'))
+      expect(project.latest_task_date).toEqual(new Date('2024-03-31'))
     }
   )
 
@@ -662,7 +579,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-010: should apply conditions to filter rollup aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with conditional rollup
+      // GIVEN: Projects table with conditional rollup (filters by status)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -714,7 +631,7 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with different statuses
+      // WHEN: Inserting project with tasks with different statuses
       await executeQuery("INSERT INTO projects (name) VALUES ('Website Redesign')")
       await executeQuery(`
         INSERT INTO tasks (title, hours, status, project_id) VALUES
@@ -724,24 +641,10 @@ test.describe('Rollup Field', () => {
         ('Testing', 12.0, 'pending', 1)
       `)
 
-      // THEN: conditional rollup sums only matching records
-      const completedHours = await executeQuery(`
-        SELECT p.id, COALESCE(SUM(t.hours) FILTER (WHERE t.status = 'completed'), 0) as completed_hours
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(completedHours.completed_hours).toBe(24.0)
-
-      const pendingHours = await executeQuery(`
-        SELECT p.id, COALESCE(SUM(t.hours) FILTER (WHERE t.status = 'pending'), 0) as pending_hours
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(pendingHours.pending_hours).toBe(36.0)
+      // THEN: Conditional rollup sums only matching records
+      const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      expect(project.completed_hours).toBe(24.0) // 8 + 16
+      expect(project.pending_hours).toBe(36.0) // 24 + 12
     }
   )
 
@@ -749,7 +652,7 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-011: should return unique values with ARRAYUNIQUE aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with ARRAYUNIQUE rollup
+      // GIVEN: Projects table with ARRAYUNIQUE rollup (distinct assignees)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -790,7 +693,7 @@ test.describe('Rollup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with duplicate assignees
+      // WHEN: Inserting project with tasks with duplicate assignees
       await executeQuery("INSERT INTO projects (name) VALUES ('Website')")
       await executeQuery(`
         INSERT INTO tasks (title, assignee, project_id) VALUES
@@ -801,15 +704,9 @@ test.describe('Rollup Field', () => {
         ('Deploy', 'Bob', 1)
       `)
 
-      // THEN: ARRAYUNIQUE returns distinct values
-      const uniqueAssignees = await executeQuery(`
-        SELECT p.id, ARRAY_AGG(DISTINCT t.assignee ORDER BY t.assignee) as unique_assignees
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(uniqueAssignees.unique_assignees).toEqual(['Alice', 'Bob', 'Charlie'])
+      // THEN: ARRAYUNIQUE returns distinct values as array
+      const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      expect(project.unique_assignees).toEqual(['Alice', 'Bob', 'Charlie'])
     }
   )
 
@@ -896,86 +793,47 @@ test.describe('Rollup Field', () => {
         `)
       })
 
-      await test.step('Verify SUM aggregation', async () => {
-        const totalHours = await executeQuery(`
-          SELECT p.name, COALESCE(SUM(t.hours), 0) as total_hours
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 1
-          GROUP BY p.id, p.name
-        `)
-        expect(totalHours.total_hours).toBe('60.00')
-      })
+      await test.step('Verify all rollup aggregations are directly accessible', async () => {
+        const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
 
-      await test.step('Verify COUNT aggregation', async () => {
-        const taskCount = await executeQuery(`
-          SELECT p.name, COUNT(t.id) as task_count
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 1
-          GROUP BY p.id, p.name
-        `)
-        expect(taskCount.task_count).toBe(4)
-      })
+        // Verify SUM aggregation
+        expect(project.total_hours).toBe(60.0) // 8 + 16 + 24 + 12
 
-      await test.step('Verify AVG aggregation', async () => {
-        const avgHours = await executeQuery(`
-          SELECT p.name, AVG(t.hours)::NUMERIC(10,2) as avg_hours
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 1
-          GROUP BY p.id, p.name
-        `)
-        expect(avgHours.avg_hours).toBe('15.00')
-      })
+        // Verify COUNT aggregation
+        expect(project.task_count).toBe(4)
 
-      await test.step('Verify MIN/MAX with dates', async () => {
-        const dateBounds = await executeQuery(`
-          SELECT p.name, MIN(t.due_date) as earliest, MAX(t.due_date) as latest
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 1
-          GROUP BY p.id, p.name
-        `)
-        expect(dateBounds.earliest).toEqual(new Date('2024-01-15'))
-        expect(dateBounds.latest).toEqual(new Date('2024-03-31'))
-      })
+        // Verify AVG aggregation
+        expect(project.avg_hours).toBe(15.0) // 60 / 4
 
-      await test.step('Verify conditional rollup filtering', async () => {
-        const completedHours = await executeQuery(`
-          SELECT p.name, COALESCE(SUM(t.hours) FILTER (WHERE t.status = 'completed'), 0) as completed_hours
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 1
-          GROUP BY p.id, p.name
-        `)
-        expect(completedHours.completed_hours).toBe(24.0) // 8 + 16
+        // Verify conditional rollup filtering
+        expect(project.completed_hours).toBe(24.0) // 8 + 16
       })
 
       await test.step('Verify rollup returns zero for empty relations', async () => {
         await executeQuery("INSERT INTO projects (name) VALUES ('Empty Project')")
-        const emptyRollup = await executeQuery(`
-          SELECT p.name, COALESCE(SUM(t.hours), 0) as total_hours, COUNT(t.id) as task_count
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 3
-          GROUP BY p.id, p.name
-        `)
-        expect(emptyRollup.total_hours).toBe(0)
-        expect(emptyRollup.task_count).toBe(0)
+        const emptyProject = await executeQuery('SELECT * FROM projects WHERE id = 3')
+
+        expect(emptyProject.total_hours).toBe(0)
+        expect(emptyProject.task_count).toBe(0)
+        expect(emptyProject.avg_hours).toBeNull() // AVG of empty set is NULL
+        expect(emptyProject.completed_hours).toBe(0)
       })
 
       await test.step('Verify rollup updates when records change', async () => {
+        // WHEN: Updating task status
         await executeQuery("UPDATE tasks SET status = 'completed' WHERE id = 3")
 
-        const updatedCompleted = await executeQuery(`
-          SELECT COALESCE(SUM(t.hours) FILTER (WHERE t.status = 'completed'), 0) as completed_hours
-          FROM projects p
-          LEFT JOIN tasks t ON p.id = t.project_id
-          WHERE p.id = 1
-          GROUP BY p.id
-        `)
-        expect(updatedCompleted.completed_hours).toBe(48.0) // 8 + 16 + 24
+        // THEN: Computed rollup values update automatically
+        const updated = await executeQuery('SELECT * FROM projects WHERE id = 1')
+        expect(updated.completed_hours).toBe(48.0) // 8 + 16 + 24 (now completed)
+      })
+
+      await test.step('Verify can filter by rollup values', async () => {
+        const highHourProjects = await executeQuery(
+          'SELECT * FROM projects WHERE total_hours > 20 ORDER BY id'
+        )
+        expect(highHourProjects.rows.length).toBe(1)
+        expect(highHourProjects.rows[0].name).toBe('Website')
       })
     }
   )

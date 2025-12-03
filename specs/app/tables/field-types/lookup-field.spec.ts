@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 /**
- * E2E Tests for Lookup Field
+ * E2E Tests for Lookup Field (Airtable-style Computed Values)
  *
  * Source: src/domain/models/app/table/field-types/lookup-field.ts
  * Domain: app
@@ -16,22 +16,34 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Reference: https://support.airtable.com/docs/lookup-field-overview
  *
- * NOTE: Some lookup field properties (conditions) are planned but not yet implemented.
- * Tests use type assertions to document the intended API.
+ * IMPLEMENTATION APPROACH:
+ * Lookup fields should work like Airtable - computed values are directly
+ * accessible as table columns, NOT manually computed via JOIN queries.
+ *
+ * Recommended implementation: Create database VIEWs that include looked-up
+ * columns via JOINs. Views automatically reflect updates to related records.
+ *
+ * Example:
+ * CREATE VIEW orders_view AS
+ * SELECT o.*, c.name as customer_name, c.email as customer_email
+ * FROM orders o LEFT JOIN customers c ON o.customer_id = c.id;
+ *
+ * Tests validate that lookup values are directly readable, not that
+ * implementations write correct JOIN SQL.
  */
 
 /**
  * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
- * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ * 1. @spec tests - One per acceptance criterion (9 tests) - Exhaustive coverage
+ * 2. @regression test - ONE optimized integration test - Critical workflow validation
  */
 
 test.describe('Lookup Field', () => {
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-001: should retrieve related field via JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with relationship and lookup fields
+      // GIVEN: Orders table with lookup field to customer name
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -71,7 +83,7 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting customers and orders
       await executeQuery(
         "INSERT INTO customers (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')"
       )
@@ -79,36 +91,31 @@ test.describe('Lookup Field', () => {
         'INSERT INTO orders (customer_id, amount) VALUES (1, 150.00), (2, 200.00), (1, 75.50)'
       )
 
-      // THEN: lookup field retrieves related name via JOIN
-      const lookup = await executeQuery(
-        'SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.id = 1'
-      )
-      expect(lookup.id).toBe(1)
-      expect(lookup.customer_name).toBe('Alice Johnson')
+      // THEN: Lookup field is directly accessible (Airtable-style)
+      const order1 = await executeQuery('SELECT * FROM orders WHERE id = 1')
+      expect(order1.customer_name).toBe('Alice Johnson')
 
-      // THEN: multiple orders can lookup same customer
-      const multipleOrders = await executeQuery(
-        "SELECT COUNT(*) as count FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.name = 'Alice Johnson'"
-      )
-      expect(multipleOrders.count).toBe(2)
+      const order2 = await executeQuery('SELECT * FROM orders WHERE id = 2')
+      expect(order2.customer_name).toBe('Bob Smith')
 
-      // THEN: all lookups work correctly
-      const allLookups = await executeQuery(
-        'SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id ORDER BY o.id'
-      )
-      expect(allLookups.rows).toEqual([
-        { id: 1, customer_name: 'Alice Johnson' },
-        { id: 2, customer_name: 'Bob Smith' },
-        { id: 3, customer_name: 'Alice Johnson' },
+      const order3 = await executeQuery('SELECT * FROM orders WHERE id = 3')
+      expect(order3.customer_name).toBe('Alice Johnson')
+
+      // THEN: Can query all orders with lookup values
+      const allOrders = await executeQuery('SELECT * FROM orders ORDER BY id')
+      expect(allOrders.rows).toEqual([
+        { id: 1, customer_id: 1, amount: 150.0, customer_name: 'Alice Johnson' },
+        { id: 2, customer_id: 2, amount: 200.0, customer_name: 'Bob Smith' },
+        { id: 3, customer_id: 1, amount: 75.5, customer_name: 'Alice Johnson' },
       ])
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with multiple lookup fields
+      // GIVEN: Tasks table with multiple lookup fields from employees
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -163,7 +170,7 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting employee and tasks
       await executeQuery(
         "INSERT INTO employees (name, email, department) VALUES ('John Doe', 'john@company.com', 'Engineering')"
       )
@@ -171,22 +178,19 @@ test.describe('Lookup Field', () => {
         "INSERT INTO tasks (title, assigned_to) VALUES ('Fix bug', 1), ('Write docs', 1)"
       )
 
-      // THEN: multiple lookup fields retrieve different values from same related record
-      const multipleLookups = await executeQuery(
-        'SELECT t.id, e.name as assignee_name, e.email as assignee_email, e.department as assignee_department FROM tasks t JOIN employees e ON t.assigned_to = e.id WHERE t.id = 1'
-      )
-      expect(multipleLookups.id).toBe(1)
-      expect(multipleLookups.assignee_name).toBe('John Doe')
-      expect(multipleLookups.assignee_email).toBe('john@company.com')
-      expect(multipleLookups.assignee_department).toBe('Engineering')
+      // THEN: Multiple lookup fields retrieve different values from same related record
+      const task = await executeQuery('SELECT * FROM tasks WHERE id = 1')
+      expect(task.assignee_name).toBe('John Doe')
+      expect(task.assignee_email).toBe('john@company.com')
+      expect(task.assignee_department).toBe('Engineering')
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with views for lookup fields
+      // GIVEN: Products table with category lookup
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -221,43 +225,33 @@ test.describe('Lookup Field', () => {
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 1,
-                name: 'products_with_category',
-                query:
-                  'SELECT p.id, p.title, p.category_id, c.name as product_category FROM products p LEFT JOIN categories c ON p.category_id = c.id',
-              },
-            ],
           },
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting categories and products
       await executeQuery("INSERT INTO categories (name) VALUES ('Electronics'), ('Clothing')")
       await executeQuery(
         "INSERT INTO products (title, category_id) VALUES ('Laptop', 1), ('T-Shirt', 2)"
       )
 
-      // THEN: view is created for lookup logic
+      // THEN: View is created for lookup logic (implementation detail)
+      // Note: View may be named 'products' (replacing table) or 'products_view'
       const viewExists = await executeQuery(
-        "SELECT table_name FROM information_schema.views WHERE table_name = 'products_with_category'"
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_schema = 'public' AND table_name LIKE '%products%'"
       )
-      expect(viewExists.table_name).toBe('products_with_category')
+      expect(viewExists.count).toBeGreaterThan(0)
 
-      // THEN: view returns lookup values correctly
-      const viewData = await executeQuery(
-        'SELECT id, title, product_category FROM products_with_category WHERE id = 1'
-      )
-      expect(viewData.id).toBe(1)
-      expect(viewData.title).toBe('Laptop')
-      expect(viewData.product_category).toBe('Electronics')
+      // THEN: Lookup value is directly accessible
+      const laptop = await executeQuery("SELECT * FROM products WHERE title = 'Laptop'")
+      expect(laptop.product_category).toBe('Electronics')
 
-      // THEN: view can be filtered by lookup field
-      const filterByLookup = await executeQuery(
-        "SELECT COUNT(*) as count FROM products_with_category WHERE product_category = 'Electronics'"
+      // THEN: Can filter by lookup field
+      const electronics = await executeQuery(
+        "SELECT * FROM products WHERE product_category = 'Electronics'"
       )
-      expect(filterByLookup.count).toBe(1)
+      expect(electronics.rows.length).toBe(1)
+      expect(electronics.rows[0].title).toBe('Laptop')
     }
   )
 
@@ -265,7 +259,7 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with optional relationship
+      // GIVEN: Invoices table with optional company relationship
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -304,29 +298,23 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with NULL relationship
+      // WHEN: Inserting company and invoices (one without company)
       await executeQuery("INSERT INTO companies (name) VALUES ('Acme Corp')")
       await executeQuery(
         "INSERT INTO invoices (invoice_number, company_id) VALUES ('INV-001', 1), ('INV-002', NULL)"
       )
 
-      // THEN: lookup returns value when relationship exists
-      const withRelationship = await executeQuery(
-        "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-001'"
-      )
-      expect(withRelationship).toEqual({ invoice_number: 'INV-001', company_name: 'Acme Corp' })
+      // THEN: Lookup returns value when relationship exists
+      const inv1 = await executeQuery("SELECT * FROM invoices WHERE invoice_number = 'INV-001'")
+      expect(inv1.company_name).toBe('Acme Corp')
 
-      // THEN: lookup returns NULL when relationship is NULL
-      const nullRelationship = await executeQuery(
-        "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-002'"
-      )
-      expect(nullRelationship).toEqual({ invoice_number: 'INV-002', company_name: null })
+      // THEN: Lookup returns NULL when relationship is NULL
+      const inv2 = await executeQuery("SELECT * FROM invoices WHERE invoice_number = 'INV-002'")
+      expect(inv2.company_name).toBeNull()
 
-      // THEN: LEFT JOIN includes all records
-      const allRecords = await executeQuery(
-        'SELECT COUNT(*) as count FROM invoices i LEFT JOIN companies c ON i.company_id = c.id'
-      )
-      expect(allRecords.count).toBe(2)
+      // THEN: Can query all invoices including those with NULL lookup
+      const allInvoices = await executeQuery('SELECT COUNT(*) as count FROM invoices')
+      expect(allInvoices.count).toBe(2)
     }
   )
 
@@ -334,7 +322,7 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with lookup field
+      // GIVEN: Line items table with product price lookup
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -374,24 +362,20 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data
+      // WHEN: Inserting product and line item
       await executeQuery("INSERT INTO products (name, price) VALUES ('Widget', 19.99)")
       await executeQuery('INSERT INTO line_items (product_id, quantity) VALUES (1, 5)')
 
-      // THEN: lookup shows initial value
-      const initialLookup = await executeQuery(
-        'SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1'
-      )
-      expect(initialLookup).toEqual({ id: 1, product_price: '19.99' })
+      // THEN: Lookup shows initial value
+      const initialItem = await executeQuery('SELECT * FROM line_items WHERE id = 1')
+      expect(initialItem.product_price).toBe(19.99)
 
-      // WHEN: updating related record
+      // WHEN: Updating related product price
       await executeQuery('UPDATE products SET price = 24.99 WHERE id = 1')
 
-      // THEN: lookup reflects updated value immediately
-      const updatedLookup = await executeQuery(
-        'SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1'
-      )
-      expect(updatedLookup).toEqual({ id: 1, product_price: '24.99' })
+      // THEN: Lookup reflects updated value immediately (view-based)
+      const updatedItem = await executeQuery('SELECT * FROM line_items WHERE id = 1')
+      expect(updatedItem.product_price).toBe(24.99)
     }
   )
 
@@ -399,7 +383,7 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-007: should concatenate values from multiple linked records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with many-to-many relationship and lookup
+      // GIVEN: Projects table with lookup showing multiple team member names
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -454,23 +438,17 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with multiple linked records
+      // WHEN: Inserting project with multiple team members
       await executeQuery("INSERT INTO projects (name) VALUES ('Website Redesign')")
       await executeQuery("INSERT INTO members (member_name) VALUES ('Alice'), ('Bob'), ('Charlie')")
       await executeQuery(
         'INSERT INTO project_members (project_id, member_id) VALUES (1, 1), (1, 2), (1, 3)'
       )
 
-      // THEN: lookup concatenates values from multiple linked records
-      const concatenatedLookup = await executeQuery(`
-        SELECT p.id, STRING_AGG(m.member_name, ', ' ORDER BY m.member_name) as team_member_names
-        FROM projects p
-        LEFT JOIN project_members pm ON p.id = pm.project_id
-        LEFT JOIN members m ON pm.member_id = m.id
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(concatenatedLookup.team_member_names).toBe('Alice, Bob, Charlie')
+      // THEN: Lookup concatenates values from multiple linked records
+      const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      // Airtable returns comma-separated string for multi-record lookups
+      expect(project.team_member_names).toBe('Alice, Bob, Charlie')
     }
   )
 
@@ -478,7 +456,7 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-008: should apply conditions to filter lookup results',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with conditional lookup
+      // GIVEN: Projects table with conditional lookup (only active tasks)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -519,7 +497,7 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with different statuses
+      // WHEN: Inserting project with tasks of different statuses
       await executeQuery("INSERT INTO projects (name) VALUES ('Website')")
       await executeQuery(`
         INSERT INTO tasks (title, status, project_id) VALUES
@@ -529,15 +507,10 @@ test.describe('Lookup Field', () => {
         ('Deploy', 'pending', 1)
       `)
 
-      // THEN: conditional lookup only includes matching records
-      const conditionalLookup = await executeQuery(`
-        SELECT p.id, STRING_AGG(t.title, ', ' ORDER BY t.title) as active_tasks
-        FROM projects p
-        LEFT JOIN tasks t ON p.id = t.project_id AND t.status = 'active'
-        WHERE p.id = 1
-        GROUP BY p.id
-      `)
-      expect(conditionalLookup.active_tasks).toBe('Code, Design')
+      // THEN: Conditional lookup only includes matching records
+      const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
+      // Multiple active tasks concatenated
+      expect(project.active_tasks).toBe('Code, Design') // Alphabetical order
     }
   )
 
@@ -545,7 +518,7 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-009: should lookup different field types (text, number, date)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration with lookups of different field types
+      // GIVEN: Orders table with lookups of different field types
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -608,47 +581,18 @@ test.describe('Lookup Field', () => {
         ],
       })
 
-      // WHEN: inserting test data with various field types
+      // WHEN: Inserting product and order
       await executeQuery(
         "INSERT INTO products (name, price, release_date, in_stock) VALUES ('Widget Pro', 99.99, '2024-03-15', true)"
       )
       await executeQuery('INSERT INTO orders (product_id, quantity) VALUES (1, 5)')
 
-      // THEN: lookup retrieves text field correctly
-      const textLookup = await executeQuery(`
-        SELECT o.id, p.name as product_name
-        FROM orders o
-        JOIN products p ON o.product_id = p.id
-        WHERE o.id = 1
-      `)
-      expect(textLookup.product_name).toBe('Widget Pro')
-
-      // THEN: lookup retrieves decimal field correctly
-      const decimalLookup = await executeQuery(`
-        SELECT o.id, p.price as product_price
-        FROM orders o
-        JOIN products p ON o.product_id = p.id
-        WHERE o.id = 1
-      `)
-      expect(decimalLookup.product_price).toBe('99.99')
-
-      // THEN: lookup retrieves date field correctly
-      const dateLookup = await executeQuery(`
-        SELECT o.id, p.release_date as product_release_date
-        FROM orders o
-        JOIN products p ON o.product_id = p.id
-        WHERE o.id = 1
-      `)
-      expect(dateLookup.product_release_date).toEqual(new Date('2024-03-15'))
-
-      // THEN: lookup retrieves boolean field correctly
-      const booleanLookup = await executeQuery(`
-        SELECT o.id, p.in_stock as product_in_stock
-        FROM orders o
-        JOIN products p ON o.product_id = p.id
-        WHERE o.id = 1
-      `)
-      expect(booleanLookup.product_in_stock).toBe(true)
+      // THEN: All lookup field types are directly accessible
+      const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
+      expect(order.product_name).toBe('Widget Pro') // text
+      expect(order.product_price).toBe(99.99) // decimal
+      expect(order.product_release_date).toEqual(new Date('2024-03-15')) // date
+      expect(order.product_in_stock).toBe(true) // boolean
     }
   )
 
@@ -729,78 +673,48 @@ test.describe('Lookup Field', () => {
         `)
       })
 
-      await test.step('Verify lookup retrieves text field', async () => {
-        const lookup = await executeQuery(`
-          SELECT o.id, p.name as product_name
-          FROM orders o
-          JOIN products p ON o.product_id = p.id
-          WHERE o.id = 1
-        `)
-        expect(lookup.product_name).toBe('Widget Pro')
-      })
+      await test.step('Verify all lookup field types are directly accessible', async () => {
+        const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
 
-      await test.step('Verify lookup retrieves decimal field', async () => {
-        const lookup = await executeQuery(`
-          SELECT o.id, p.price as product_price
-          FROM orders o
-          JOIN products p ON o.product_id = p.id
-          WHERE o.id = 1
-        `)
-        expect(lookup.product_price).toBe('99.99')
-      })
-
-      await test.step('Verify lookup retrieves date field', async () => {
-        const lookup = await executeQuery(`
-          SELECT o.id, p.release_date as product_release_date
-          FROM orders o
-          JOIN products p ON o.product_id = p.id
-          WHERE o.id = 1
-        `)
-        expect(lookup.product_release_date).toEqual(new Date('2024-03-15'))
-      })
-
-      await test.step('Verify lookup retrieves boolean field', async () => {
-        const lookup = await executeQuery(`
-          SELECT o.id, p.in_stock as product_in_stock
-          FROM orders o
-          JOIN products p ON o.product_id = p.id
-          WHERE o.id = 1
-        `)
-        expect(lookup.product_in_stock).toBe(true)
+        expect(order.product_name).toBe('Widget Pro')
+        expect(order.product_price).toBe(99.99)
+        expect(order.product_release_date).toEqual(new Date('2024-03-15'))
+        expect(order.product_in_stock).toBe(true)
       })
 
       await test.step('Verify NULL relationship returns NULL via LEFT JOIN', async () => {
-        const nullLookup = await executeQuery(`
-          SELECT o.id, p.name as product_name
-          FROM orders o
-          LEFT JOIN products p ON o.product_id = p.id
-          WHERE o.id = 3
-        `)
-        expect(nullLookup.product_name).toBeNull()
+        const nullOrder = await executeQuery('SELECT * FROM orders WHERE id = 3')
+
+        expect(nullOrder.product_name).toBeNull()
+        expect(nullOrder.product_price).toBeNull()
+        expect(nullOrder.product_release_date).toBeNull()
+        expect(nullOrder.product_in_stock).toBeNull()
       })
 
       await test.step('Verify lookup updates when related record changes', async () => {
+        // WHEN: Updating product name
         await executeQuery("UPDATE products SET name = 'Widget Pro Max' WHERE id = 1")
 
-        const updatedLookup = await executeQuery(`
-          SELECT o.id, p.name as product_name
-          FROM orders o
-          JOIN products p ON o.product_id = p.id
-          WHERE o.id = 1
-        `)
-        expect(updatedLookup.product_name).toBe('Widget Pro Max')
+        // THEN: Lookup reflects updated value immediately
+        const updated = await executeQuery('SELECT * FROM orders WHERE id = 1')
+        expect(updated.product_name).toBe('Widget Pro Max')
       })
 
       await test.step('Verify multiple lookups from same relationship', async () => {
-        const multipleLookups = await executeQuery(`
-          SELECT o.id, p.name as product_name, p.price as product_price, p.in_stock as product_in_stock
-          FROM orders o
-          JOIN products p ON o.product_id = p.id
-          WHERE o.id = 2
-        `)
-        expect(multipleLookups.product_name).toBe('Gadget Plus')
-        expect(multipleLookups.product_price).toBe('149.99')
-        expect(multipleLookups.product_in_stock).toBe(false)
+        const order = await executeQuery('SELECT * FROM orders WHERE id = 2')
+
+        expect(order.product_name).toBe('Gadget Plus')
+        expect(order.product_price).toBe(149.99)
+        expect(order.product_in_stock).toBe(false)
+      })
+
+      await test.step('Verify can filter by lookup values', async () => {
+        const expensiveOrders = await executeQuery(
+          'SELECT * FROM orders WHERE product_price > 100 ORDER BY id'
+        )
+
+        expect(expensiveOrders.rows.length).toBe(1)
+        expect(expensiveOrders.rows[0].id).toBe(2)
       })
     }
   )
