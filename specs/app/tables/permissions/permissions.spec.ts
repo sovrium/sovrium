@@ -444,8 +444,10 @@ test.describe('Table Permissions', () => {
       expect(publicTitle.title).toBe('Published Post')
 
       // Author sees published + their own drafts (2 records)
+      // Must use SET ROLE app_user to enforce RLS (superusers bypass RLS)
       const authorCount = await executeQuery([
         'BEGIN',
+        'SET ROLE app_user',
         `SELECT set_config('app.user_id', '${author1.user.id}', true)`,
         'SELECT COUNT(*) as count FROM posts',
       ])
@@ -453,8 +455,10 @@ test.describe('Table Permissions', () => {
       expect(authorCount.count).toBe(2)
 
       // Author can read body field on their posts
+      // Must use SET ROLE app_user to enforce RLS (superusers bypass RLS)
       const authorPost = await executeQuery([
         'BEGIN',
+        'SET ROLE app_user',
         `SELECT set_config('app.user_id', '${author1.user.id}', true)`,
         "SELECT title, body FROM posts WHERE title = 'Draft Post'",
       ])
