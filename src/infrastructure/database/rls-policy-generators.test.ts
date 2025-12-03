@@ -26,32 +26,33 @@ describe('generateRLSPolicyStatements', () => {
 
     const statements = generateRLSPolicyStatements(table)
 
-    expect(statements).toHaveLength(9) // Enable RLS + 4 drops + 4 creates
+    expect(statements).toHaveLength(10) // Enable RLS + Force RLS + 4 drops + 4 creates
 
-    // Check ALTER TABLE ENABLE RLS
+    // Check ALTER TABLE ENABLE RLS and FORCE RLS
     expect(statements[0]).toBe('ALTER TABLE projects ENABLE ROW LEVEL SECURITY')
+    expect(statements[1]).toBe('ALTER TABLE projects FORCE ROW LEVEL SECURITY')
 
     // Check DROP statements
-    expect(statements[1]).toBe('DROP POLICY IF EXISTS projects_org_select ON projects')
-    expect(statements[2]).toBe('DROP POLICY IF EXISTS projects_org_insert ON projects')
-    expect(statements[3]).toBe('DROP POLICY IF EXISTS projects_org_update ON projects')
-    expect(statements[4]).toBe('DROP POLICY IF EXISTS projects_org_delete ON projects')
+    expect(statements[2]).toBe('DROP POLICY IF EXISTS projects_org_select ON projects')
+    expect(statements[3]).toBe('DROP POLICY IF EXISTS projects_org_insert ON projects')
+    expect(statements[4]).toBe('DROP POLICY IF EXISTS projects_org_update ON projects')
+    expect(statements[5]).toBe('DROP POLICY IF EXISTS projects_org_delete ON projects')
 
     // Check CREATE POLICY statements
-    expect(statements[5]).toContain('CREATE POLICY projects_org_select ON projects FOR SELECT')
-    expect(statements[5]).toContain(
+    expect(statements[6]).toContain('CREATE POLICY projects_org_select ON projects FOR SELECT')
+    expect(statements[6]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
 
-    expect(statements[6]).toContain('CREATE POLICY projects_org_insert ON projects FOR INSERT')
-    expect(statements[6]).toContain('WITH CHECK')
-
-    expect(statements[7]).toContain('CREATE POLICY projects_org_update ON projects FOR UPDATE')
-    expect(statements[7]).toContain('USING')
+    expect(statements[7]).toContain('CREATE POLICY projects_org_insert ON projects FOR INSERT')
     expect(statements[7]).toContain('WITH CHECK')
 
-    expect(statements[8]).toContain('CREATE POLICY projects_org_delete ON projects FOR DELETE')
+    expect(statements[8]).toContain('CREATE POLICY projects_org_update ON projects FOR UPDATE')
     expect(statements[8]).toContain('USING')
+    expect(statements[8]).toContain('WITH CHECK')
+
+    expect(statements[9]).toContain('CREATE POLICY projects_org_delete ON projects FOR DELETE')
+    expect(statements[9]).toContain('USING')
   })
 
   test('should return empty array when organizationScoped is false', () => {
@@ -82,7 +83,10 @@ describe('generateRLSPolicyStatements', () => {
     }
 
     const statements = generateRLSPolicyStatements(table)
-    expect(statements).toEqual(['ALTER TABLE simple_table ENABLE ROW LEVEL SECURITY'])
+    expect(statements).toEqual([
+      'ALTER TABLE simple_table ENABLE ROW LEVEL SECURITY',
+      'ALTER TABLE simple_table FORCE ROW LEVEL SECURITY',
+    ])
   })
 
   test('should return empty array when organization_id field is missing', () => {
@@ -122,37 +126,37 @@ describe('generateRLSPolicyStatements', () => {
 
     const statements = generateRLSPolicyStatements(table)
 
-    expect(statements).toHaveLength(9) // Enable RLS + 4 drops + 4 creates
+    expect(statements).toHaveLength(10) // Enable RLS + Force RLS + 4 drops + 4 creates
 
     // Check SELECT policy combines organization + role check
-    expect(statements[5]).toContain('FOR SELECT')
-    expect(statements[5]).toContain(
-      "organization_id = current_setting('app.organization_id')::TEXT"
-    )
-    expect(statements[5]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
-    expect(statements[5]).toContain("current_setting('app.user_role')::TEXT = 'member'")
-    expect(statements[5]).toContain('OR') // admin OR member
-
-    // Check INSERT policy combines organization + admin-only
-    expect(statements[6]).toContain('FOR INSERT')
+    expect(statements[6]).toContain('FOR SELECT')
     expect(statements[6]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
     expect(statements[6]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+    expect(statements[6]).toContain("current_setting('app.user_role')::TEXT = 'member'")
+    expect(statements[6]).toContain('OR') // admin OR member
 
-    // Check UPDATE policy combines organization + admin-only
-    expect(statements[7]).toContain('FOR UPDATE')
+    // Check INSERT policy combines organization + admin-only
+    expect(statements[7]).toContain('FOR INSERT')
     expect(statements[7]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
     expect(statements[7]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
 
-    // Check DELETE policy combines organization + admin-only
-    expect(statements[8]).toContain('FOR DELETE')
+    // Check UPDATE policy combines organization + admin-only
+    expect(statements[8]).toContain('FOR UPDATE')
     expect(statements[8]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
     expect(statements[8]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+
+    // Check DELETE policy combines organization + admin-only
+    expect(statements[9]).toContain('FOR DELETE')
+    expect(statements[9]).toContain(
+      "organization_id = current_setting('app.organization_id')::TEXT"
+    )
+    expect(statements[9]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
   })
 
   test('should generate owner-based RLS policies for UPDATE operations', () => {
@@ -205,9 +209,10 @@ describe('generateRLSPolicyStatements', () => {
 
     const statements = generateRLSPolicyStatements(table)
 
-    // Should have: enable RLS + 4 drops + 4 creates
-    expect(statements.length).toBe(9)
+    // Should have: enable RLS + force RLS + 4 drops + 4 creates
+    expect(statements.length).toBe(10)
     expect(statements[0]).toBe('ALTER TABLE posts ENABLE ROW LEVEL SECURITY')
+    expect(statements[1]).toBe('ALTER TABLE posts FORCE ROW LEVEL SECURITY')
 
     // Check DROP policies
     expect(statements.filter((s) => s.startsWith('DROP POLICY IF EXISTS'))).toHaveLength(4)
