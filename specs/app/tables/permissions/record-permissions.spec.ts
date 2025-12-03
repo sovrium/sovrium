@@ -443,7 +443,7 @@ test.describe('Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RECORD-PERMISSIONS-006: should filter records where user is creator OR assignee when record-level permission has complex OR condition',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -481,10 +481,17 @@ test.describe('Record-Level Permissions', () => {
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
       const user3 = await createAuthenticatedUser({ email: 'user3@example.com' })
 
+      // Create non-superuser role for RLS testing
+      await executeQuery('DROP ROLE IF EXISTS rls_test_user')
+      await executeQuery("CREATE ROLE rls_test_user WITH LOGIN PASSWORD 'test'")
+
       await executeQuery([
         'ALTER TABLE tickets ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY user_read_tickets ON tickets FOR SELECT USING (created_by = current_setting('app.user_id')::INTEGER OR assigned_to = current_setting('app.user_id')::INTEGER)",
+        'ALTER TABLE tickets FORCE ROW LEVEL SECURITY',
+        "CREATE POLICY user_read_tickets ON tickets FOR SELECT USING (created_by = current_setting('app.user_id', true)::TEXT OR assigned_to = current_setting('app.user_id', true)::TEXT)",
         `INSERT INTO tickets (title, created_by, assigned_to) VALUES ('Ticket 1', '${user1.user.id}', '${user2.user.id}'), ('Ticket 2', '${user2.user.id}', '${user1.user.id}'), ('Ticket 3', '${user1.user.id}', '${user1.user.id}'), ('Ticket 4', '${user3.user.id}', '${user3.user.id}')`,
+        'GRANT ALL ON TABLE tickets TO rls_test_user',
+        'GRANT USAGE ON SCHEMA public TO rls_test_user',
       ])
 
       // WHEN: user lists records
@@ -496,22 +503,22 @@ test.describe('Record-Level Permissions', () => {
       )
       // THEN: assertion
       expect(policyQual.qual).toBe(
-        "((created_by = (current_setting('app.user_id'::text))::integer) OR (assigned_to = (current_setting('app.user_id'::text))::integer))"
+        "((created_by = current_setting('app.user_id'::text, true)) OR (assigned_to = current_setting('app.user_id'::text, true)))"
       )
 
       // User 1 sees tickets they created OR are assigned to
       const user1Count = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM tickets`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM tickets`
       )
       // THEN: assertion
       expect(user1Count.count).toBe(3)
 
       // User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)
       const user1Tickets = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT title FROM tickets ORDER BY id`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; SELECT title FROM tickets ORDER BY id`
       )
       // THEN: assertion
-      expect(user1Tickets).toEqual([
+      expect(user1Tickets.rows).toEqual([
         { title: 'Ticket 1' },
         { title: 'Ticket 2' },
         { title: 'Ticket 3' },
@@ -519,10 +526,10 @@ test.describe('Record-Level Permissions', () => {
 
       // User 2 sees tickets they created OR are assigned to
       const user2Tickets = await executeQuery(
-        `SET LOCAL app.user_id = '${user2.user.id}'; SELECT title FROM tickets ORDER BY id`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user2.user.id}'; SELECT title FROM tickets ORDER BY id`
       )
       // THEN: assertion
-      expect(user2Tickets).toEqual([{ title: 'Ticket 1' }, { title: 'Ticket 2' }])
+      expect(user2Tickets.rows).toEqual([{ title: 'Ticket 1' }, { title: 'Ticket 2' }])
     }
   )
 
