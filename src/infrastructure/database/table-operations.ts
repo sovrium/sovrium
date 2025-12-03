@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { generateFieldPermissionGrants } from './field-permission-generators'
 import { createVolatileFormulaTriggers } from './formula-trigger-generators'
 import { generateIndexStatements } from './index-generators'
 import { generateRLSPolicyStatements } from './rls-policy-generators'
@@ -86,7 +87,7 @@ const executeSQLStatements = async (
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
 /**
- * Apply table features (indexes, triggers, RLS policies)
+ * Apply table features (indexes, triggers, RLS policies, field permissions)
  * Shared by both createNewTable and migrateExistingTable
  */
 /* eslint-disable functional/no-expression-statements */
@@ -111,6 +112,9 @@ const applyTableFeatures = async (
 
   // RLS policies for organization-scoped tables
   await executeSQLStatements(tx, generateRLSPolicyStatements(table))
+
+  // Field-level permissions (column grants)
+  await executeSQLStatements(tx, generateFieldPermissionGrants(table))
 }
 /* eslint-enable functional/no-expression-statements */
 

@@ -109,7 +109,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-002: should filter sensitive fields when user has table read permission but restricted field access',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -151,38 +151,45 @@ test.describe('Table Permissions', () => {
 
       // WHEN: user queries records
       // THEN: PostgreSQL allows table access but filters sensitive fields
-      const authCount = await executeQuery(
-        'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM users'
-      )
+      const authCount = await executeQuery([
+        'SET ROLE authenticated_user',
+        'SELECT COUNT(*) as count FROM users',
+      ])
       // THEN: assertion
       expect(authCount.count).toBe(1)
 
       // Authenticated user can SELECT allowed fields
-      const authFields = await executeQuery(
-        'SET ROLE authenticated_user; SELECT name, email FROM users WHERE id = 1'
-      )
+      const authFields = await executeQuery([
+        'SET ROLE authenticated_user',
+        'SELECT name, email FROM users WHERE id = 1',
+      ])
       // THEN: assertion
-      expect(authFields).toEqual({
-        name: 'Alice',
-        email: 'alice@example.com',
-      })
+      expect(authFields.name).toBe('Alice')
+      expect(authFields.email).toBe('alice@example.com')
 
       // Authenticated user cannot SELECT salary field
       // THEN: assertion
-      await expect(async () => {
-        await executeQuery('SET ROLE authenticated_user; SELECT salary FROM users WHERE id = 1')
-      }).rejects.toThrow('permission denied for column salary')
+      // Note: PostgreSQL's column-level GRANT restrictions return "permission denied for table"
+      // error message, not "permission denied for column", when a restricted column is queried
+      try {
+        await executeQuery([
+          'SET ROLE authenticated_user',
+          'SELECT salary FROM users WHERE id = 1',
+        ])
+        throw new Error('Expected query to fail but it succeeded')
+      } catch (error: any) {
+        expect(error.message).toContain('permission denied for table users')
+      }
 
       // Admin user can SELECT all fields including salary
-      const adminFields = await executeQuery(
-        'SET ROLE admin_user; SELECT name, email, salary FROM users WHERE id = 1'
-      )
+      const adminFields = await executeQuery([
+        'SET ROLE admin_user',
+        'SELECT name, email, salary FROM users WHERE id = 1',
+      ])
       // THEN: assertion
-      expect(adminFields).toEqual({
-        name: 'Alice',
-        email: 'alice@example.com',
-        salary: 75_000.0,
-      })
+      expect(adminFields.name).toBe('Alice')
+      expect(adminFields.email).toBe('alice@example.com')
+      expect(adminFields.salary).toBe(75_000.0)
     }
   )
 
