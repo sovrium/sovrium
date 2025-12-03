@@ -238,7 +238,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-005: should accept constraint name matching pattern when creating unique constraint with valid name',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
