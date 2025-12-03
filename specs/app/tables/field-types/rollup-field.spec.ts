@@ -440,65 +440,6 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-006: user can complete full rollup-field workflow',
-    { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with rollup field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'categories',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'total_value',
-                  type: 'rollup',
-                  relationshipField: 'category_id',
-                  relatedField: 'price',
-                  aggregation: 'sum',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'category_id',
-                  type: 'relationship',
-                  relatedTable: 'categories',
-                  relationType: 'many-to-one',
-                },
-                { id: 3, name: 'price', type: 'decimal' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-
-        await executeQuery("INSERT INTO categories (name) VALUES ('Electronics')")
-        await executeQuery(
-          'INSERT INTO products (category_id, price) VALUES (1, 100.00), (1, 200.00), (1, 150.00)'
-        )
-      })
-
-      await test.step('Verify rollup aggregation calculation', async () => {
-        const rollup = await executeQuery(
-          'SELECT c.id, COALESCE(SUM(p.price), 0) as total_value FROM categories c LEFT JOIN products p ON c.id = p.category_id WHERE c.id = 1 GROUP BY c.id'
-        )
-        expect(rollup.total_value).toBe('450.00')
-      })
-    }
-  )
-
-  test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-007: should count non-empty values with COUNTA aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -738,8 +679,8 @@ test.describe('Rollup Field', () => {
                 relationshipField: 'project_id',
                 relatedField: 'hours',
                 aggregation: 'sum',
-                conditions: [{ field: 'status', operator: 'equals', value: 'completed' }],
-              } as any,
+                filters: { field: 'status', operator: 'equals', value: 'completed' },
+              },
               {
                 id: 4,
                 name: 'pending_hours',
@@ -747,8 +688,8 @@ test.describe('Rollup Field', () => {
                 relationshipField: 'project_id',
                 relatedField: 'hours',
                 aggregation: 'sum',
-                conditions: [{ field: 'status', operator: 'equals', value: 'pending' }],
-              } as any,
+                filters: { field: 'status', operator: 'equals', value: 'pending' },
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -869,6 +810,173 @@ test.describe('Rollup Field', () => {
         GROUP BY p.id
       `)
       expect(uniqueAssignees.unique_assignees).toEqual(['Alice', 'Bob', 'Charlie'])
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-ROLLUP-012: user can complete full rollup-field workflow',
+    { tag: '@regression' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await test.step('Setup: Start server with multiple rollup aggregations', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'total_hours',
+                  type: 'rollup',
+                  relationshipField: 'project_id',
+                  relatedField: 'hours',
+                  aggregation: 'sum',
+                },
+                {
+                  id: 4,
+                  name: 'task_count',
+                  type: 'rollup',
+                  relationshipField: 'project_id',
+                  relatedField: 'id',
+                  aggregation: 'count',
+                },
+                {
+                  id: 5,
+                  name: 'avg_hours',
+                  type: 'rollup',
+                  relationshipField: 'project_id',
+                  relatedField: 'hours',
+                  aggregation: 'avg',
+                },
+                {
+                  id: 6,
+                  name: 'completed_hours',
+                  type: 'rollup',
+                  relationshipField: 'project_id',
+                  relatedField: 'hours',
+                  aggregation: 'sum',
+                  filters: { field: 'status', operator: 'equals', value: 'completed' },
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'hours', type: 'decimal' },
+                { id: 4, name: 'status', type: 'single-line-text' },
+                { id: 5, name: 'due_date', type: 'date' },
+                {
+                  id: 6,
+                  name: 'project_id',
+                  type: 'relationship',
+                  relatedTable: 'projects',
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+
+        await executeQuery("INSERT INTO projects (name) VALUES ('Website'), ('Mobile App')")
+        await executeQuery(`
+          INSERT INTO tasks (title, hours, status, due_date, project_id) VALUES
+          ('Design', 8.0, 'completed', '2024-01-15', 1),
+          ('Frontend', 16.0, 'completed', '2024-02-28', 1),
+          ('Backend', 24.0, 'pending', '2024-03-10', 1),
+          ('Testing', 12.0, 'pending', '2024-03-31', 1),
+          ('Setup', 4.0, 'completed', '2024-01-10', 2)
+        `)
+      })
+
+      await test.step('Verify SUM aggregation', async () => {
+        const totalHours = await executeQuery(`
+          SELECT p.name, COALESCE(SUM(t.hours), 0) as total_hours
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 1
+          GROUP BY p.id, p.name
+        `)
+        expect(totalHours.total_hours).toBe('60.00')
+      })
+
+      await test.step('Verify COUNT aggregation', async () => {
+        const taskCount = await executeQuery(`
+          SELECT p.name, COUNT(t.id) as task_count
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 1
+          GROUP BY p.id, p.name
+        `)
+        expect(taskCount.task_count).toBe(4)
+      })
+
+      await test.step('Verify AVG aggregation', async () => {
+        const avgHours = await executeQuery(`
+          SELECT p.name, AVG(t.hours)::NUMERIC(10,2) as avg_hours
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 1
+          GROUP BY p.id, p.name
+        `)
+        expect(avgHours.avg_hours).toBe('15.00')
+      })
+
+      await test.step('Verify MIN/MAX with dates', async () => {
+        const dateBounds = await executeQuery(`
+          SELECT p.name, MIN(t.due_date) as earliest, MAX(t.due_date) as latest
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 1
+          GROUP BY p.id, p.name
+        `)
+        expect(dateBounds.earliest).toEqual(new Date('2024-01-15'))
+        expect(dateBounds.latest).toEqual(new Date('2024-03-31'))
+      })
+
+      await test.step('Verify conditional rollup filtering', async () => {
+        const completedHours = await executeQuery(`
+          SELECT p.name, COALESCE(SUM(t.hours) FILTER (WHERE t.status = 'completed'), 0) as completed_hours
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 1
+          GROUP BY p.id, p.name
+        `)
+        expect(completedHours.completed_hours).toBe(24.0) // 8 + 16
+      })
+
+      await test.step('Verify rollup returns zero for empty relations', async () => {
+        await executeQuery("INSERT INTO projects (name) VALUES ('Empty Project')")
+        const emptyRollup = await executeQuery(`
+          SELECT p.name, COALESCE(SUM(t.hours), 0) as total_hours, COUNT(t.id) as task_count
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 3
+          GROUP BY p.id, p.name
+        `)
+        expect(emptyRollup.total_hours).toBe(0)
+        expect(emptyRollup.task_count).toBe(0)
+      })
+
+      await test.step('Verify rollup updates when records change', async () => {
+        await executeQuery("UPDATE tasks SET status = 'completed' WHERE id = 3")
+
+        const updatedCompleted = await executeQuery(`
+          SELECT COALESCE(SUM(t.hours) FILTER (WHERE t.status = 'completed'), 0) as completed_hours
+          FROM projects p
+          LEFT JOIN tasks t ON p.id = t.project_id
+          WHERE p.id = 1
+          GROUP BY p.id
+        `)
+        expect(updatedCompleted.completed_hours).toBe(48.0) // 8 + 16 + 24
+      })
     }
   )
 })

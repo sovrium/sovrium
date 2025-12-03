@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { ViewFiltersSchema } from '../views/filters'
 
 export const RollupFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
@@ -29,6 +30,11 @@ export const RollupFieldSchema = BaseFieldSchema.pipe(
             description: 'Display format for the result',
             examples: ['currency', 'number', 'percentage'],
           })
+        )
+      ),
+      filters: Schema.optional(
+        ViewFiltersSchema.pipe(
+          Schema.annotations({ description: 'Filters to apply to the rollup aggregation' })
         )
       ),
     })

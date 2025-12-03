@@ -45,6 +45,31 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      reciprocalField: Schema.optional(
+        Schema.String.pipe(
+          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.annotations({
+            description:
+              'Name of the reciprocal link field in the related table for bidirectional relationships',
+          })
+        )
+      ),
+      allowMultiple: Schema.optional(
+        Schema.Boolean.pipe(
+          Schema.annotations({
+            description:
+              'Whether to allow linking to multiple records (default: true for many-to-many)',
+          })
+        )
+      ),
+      limitToView: Schema.optional(
+        Schema.String.pipe(
+          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.annotations({
+            description: 'Name of the view to limit linkable records to',
+          })
+        )
+      ),
     })
   )
 ).pipe(

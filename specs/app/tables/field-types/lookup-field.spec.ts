@@ -396,62 +396,6 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-006: user can complete full lookup-field workflow',
-    { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with lookup field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'categories',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'items',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'category_id',
-                  type: 'relationship',
-                  relatedTable: 'categories',
-                  relationType: 'many-to-one',
-                },
-                {
-                  id: 4,
-                  name: 'category_name',
-                  type: 'lookup',
-                  relationshipField: 'category_id',
-                  relatedField: 'name',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-
-        await executeQuery("INSERT INTO categories (name) VALUES ('Books')")
-        await executeQuery("INSERT INTO items (category_id, title) VALUES (1, 'The Great Book')")
-      })
-
-      await test.step('Verify lookup field retrieves related value', async () => {
-        const lookup = await executeQuery(
-          'SELECT i.id, c.name as category_name FROM items i JOIN categories c ON i.category_id = c.id WHERE i.id = 1'
-        )
-        expect(lookup.category_name).toBe('Books')
-      })
-    }
-  )
-
-  test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-007: should concatenate values from multiple linked records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -550,8 +494,8 @@ test.describe('Lookup Field', () => {
                 type: 'lookup',
                 relationshipField: 'project_id',
                 relatedField: 'title',
-                conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
-              } as any,
+                filters: { field: 'status', operator: 'equals', value: 'active' },
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -705,6 +649,159 @@ test.describe('Lookup Field', () => {
         WHERE o.id = 1
       `)
       expect(booleanLookup.product_in_stock).toBe(true)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-LOOKUP-010: user can complete full lookup-field workflow',
+    { tag: '@regression' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await test.step('Setup: Start server with multiple lookup fields of different types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'price', type: 'decimal' },
+                { id: 4, name: 'release_date', type: 'date' },
+                { id: 5, name: 'in_stock', type: 'checkbox' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'quantity', type: 'integer' },
+                {
+                  id: 3,
+                  name: 'product_id',
+                  type: 'relationship',
+                  relatedTable: 'products',
+                  relationType: 'many-to-one',
+                },
+                {
+                  id: 4,
+                  name: 'product_name',
+                  type: 'lookup',
+                  relationshipField: 'product_id',
+                  relatedField: 'name',
+                },
+                {
+                  id: 5,
+                  name: 'product_price',
+                  type: 'lookup',
+                  relationshipField: 'product_id',
+                  relatedField: 'price',
+                },
+                {
+                  id: 6,
+                  name: 'product_release_date',
+                  type: 'lookup',
+                  relationshipField: 'product_id',
+                  relatedField: 'release_date',
+                },
+                {
+                  id: 7,
+                  name: 'product_in_stock',
+                  type: 'lookup',
+                  relationshipField: 'product_id',
+                  relatedField: 'in_stock',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+
+        await executeQuery(`
+          INSERT INTO products (name, price, release_date, in_stock) VALUES
+          ('Widget Pro', 99.99, '2024-03-15', true),
+          ('Gadget Plus', 149.99, '2024-06-01', false)
+        `)
+        await executeQuery(`
+          INSERT INTO orders (product_id, quantity) VALUES (1, 5), (2, 3), (NULL, 1)
+        `)
+      })
+
+      await test.step('Verify lookup retrieves text field', async () => {
+        const lookup = await executeQuery(`
+          SELECT o.id, p.name as product_name
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.id = 1
+        `)
+        expect(lookup.product_name).toBe('Widget Pro')
+      })
+
+      await test.step('Verify lookup retrieves decimal field', async () => {
+        const lookup = await executeQuery(`
+          SELECT o.id, p.price as product_price
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.id = 1
+        `)
+        expect(lookup.product_price).toBe('99.99')
+      })
+
+      await test.step('Verify lookup retrieves date field', async () => {
+        const lookup = await executeQuery(`
+          SELECT o.id, p.release_date as product_release_date
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.id = 1
+        `)
+        expect(lookup.product_release_date).toEqual(new Date('2024-03-15'))
+      })
+
+      await test.step('Verify lookup retrieves boolean field', async () => {
+        const lookup = await executeQuery(`
+          SELECT o.id, p.in_stock as product_in_stock
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.id = 1
+        `)
+        expect(lookup.product_in_stock).toBe(true)
+      })
+
+      await test.step('Verify NULL relationship returns NULL via LEFT JOIN', async () => {
+        const nullLookup = await executeQuery(`
+          SELECT o.id, p.name as product_name
+          FROM orders o
+          LEFT JOIN products p ON o.product_id = p.id
+          WHERE o.id = 3
+        `)
+        expect(nullLookup.product_name).toBeNull()
+      })
+
+      await test.step('Verify lookup updates when related record changes', async () => {
+        await executeQuery("UPDATE products SET name = 'Widget Pro Max' WHERE id = 1")
+
+        const updatedLookup = await executeQuery(`
+          SELECT o.id, p.name as product_name
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.id = 1
+        `)
+        expect(updatedLookup.product_name).toBe('Widget Pro Max')
+      })
+
+      await test.step('Verify multiple lookups from same relationship', async () => {
+        const multipleLookups = await executeQuery(`
+          SELECT o.id, p.name as product_name, p.price as product_price, p.in_stock as product_in_stock
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          WHERE o.id = 2
+        `)
+        expect(multipleLookups.product_name).toBe('Gadget Plus')
+        expect(multipleLookups.product_price).toBe('149.99')
+        expect(multipleLookups.product_in_stock).toBe(false)
+      })
     }
   )
 })

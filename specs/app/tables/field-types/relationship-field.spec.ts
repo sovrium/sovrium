@@ -480,51 +480,6 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-011: user can complete full relationship-field workflow',
-    { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create tables with relationship', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'categories',
-              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'items',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'category_id',
-                  type: 'relationship',
-                  relatedTable: 'categories',
-                  relationType: 'many-to-one',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-
-        await executeQuery('INSERT INTO categories VALUES (1)')
-        await executeQuery('INSERT INTO items (category_id) VALUES (1)')
-      })
-
-      await test.step('Verify relationship via JOIN', async () => {
-        const join = await executeQuery(
-          'SELECT i.id, c.id as category_id FROM items i JOIN categories c ON i.category_id = c.id'
-        )
-        expect(join.category_id).toBe(1)
-      })
-    }
-  )
-
-  test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-012: should create reciprocal link field in related table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -545,7 +500,7 @@ test.describe('Relationship Field', () => {
                 relatedTable: 'tasks',
                 relationType: 'one-to-many',
                 reciprocalField: 'project',
-              } as any,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -562,7 +517,7 @@ test.describe('Relationship Field', () => {
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
                 reciprocalField: 'tasks',
-              } as any,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -624,7 +579,7 @@ test.describe('Relationship Field', () => {
                 relatedTable: 'users',
                 relationType: 'many-to-one',
                 allowMultiple: false,
-              } as any,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -688,7 +643,7 @@ test.describe('Relationship Field', () => {
                 relatedTable: 'users',
                 relationType: 'many-to-one',
                 limitToView: 'active_developers',
-              } as any,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -717,6 +672,178 @@ test.describe('Relationship Field', () => {
 
       // NOTE: limitToView affects UI record picker, not FK constraint
       // The FK still allows any valid user id, but UI filters by view
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: user can complete full relationship-field workflow',
+    { tag: '@regression' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await test.step('Setup: Create tables with various relationship types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'departments',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'department_id',
+                  type: 'relationship',
+                  relatedTable: 'departments',
+                  relationType: 'many-to-one',
+                },
+                {
+                  id: 4,
+                  name: 'manager_id',
+                  type: 'relationship',
+                  relatedTable: 'employees',
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 3,
+              name: 'skills',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 4,
+              name: 'employee_skills',
+              fields: [
+                {
+                  id: 1,
+                  name: 'employee_id',
+                  type: 'relationship',
+                  relatedTable: 'employees',
+                  relationType: 'many-to-one',
+                  required: true,
+                },
+                {
+                  id: 2,
+                  name: 'skill_id',
+                  type: 'relationship',
+                  relatedTable: 'skills',
+                  relationType: 'many-to-one',
+                  required: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['employee_id', 'skill_id'] },
+            },
+          ],
+        })
+
+        await executeQuery("INSERT INTO departments (name) VALUES ('Engineering'), ('Sales')")
+        await executeQuery("INSERT INTO skills (name) VALUES ('JavaScript'), ('Python'), ('SQL')")
+        await executeQuery(`
+          INSERT INTO employees (name, department_id, manager_id) VALUES
+          ('Alice', 1, NULL),
+          ('Bob', 1, 1),
+          ('Charlie', 1, 1),
+          ('Diana', 2, NULL)
+        `)
+        await executeQuery(`
+          INSERT INTO employee_skills (employee_id, skill_id) VALUES
+          (1, 1), (1, 2), (1, 3),
+          (2, 1), (2, 3),
+          (3, 2)
+        `)
+      })
+
+      await test.step('Verify many-to-one relationship via JOIN', async () => {
+        const join = await executeQuery(`
+          SELECT e.name, d.name as department
+          FROM employees e
+          JOIN departments d ON e.department_id = d.id
+          WHERE e.id = 1
+        `)
+        expect(join.name).toBe('Alice')
+        expect(join.department).toBe('Engineering')
+      })
+
+      await test.step('Verify FK constraint rejects invalid reference', async () => {
+        await expect(
+          executeQuery("INSERT INTO employees (name, department_id) VALUES ('Invalid', 999)")
+        ).rejects.toThrow(/violates foreign key constraint/)
+      })
+
+      await test.step('Verify self-referencing relationship', async () => {
+        const subordinates = await executeQuery(`
+          SELECT COUNT(*) as count FROM employees WHERE manager_id = 1
+        `)
+        expect(subordinates.count).toBe(2) // Bob and Charlie report to Alice
+      })
+
+      await test.step('Verify many-to-many via junction table', async () => {
+        const aliceSkills = await executeQuery(`
+          SELECT s.name
+          FROM employee_skills es
+          JOIN skills s ON es.skill_id = s.id
+          WHERE es.employee_id = 1
+          ORDER BY s.name
+        `)
+        expect(aliceSkills.rows).toEqual([
+          { name: 'JavaScript' },
+          { name: 'Python' },
+          { name: 'SQL' },
+        ])
+      })
+
+      await test.step('Verify junction table prevents duplicates', async () => {
+        await expect(
+          executeQuery('INSERT INTO employee_skills (employee_id, skill_id) VALUES (1, 1)')
+        ).rejects.toThrow(/duplicate key/)
+      })
+
+      await test.step('Verify NULL relationship is allowed when not required', async () => {
+        const noManager = await executeQuery(`
+          SELECT name, manager_id FROM employees WHERE manager_id IS NULL
+        `)
+        expect(noManager.rows.length).toBe(2) // Alice and Diana have no manager
+      })
+
+      await test.step('Verify relationship update works', async () => {
+        await executeQuery('UPDATE employees SET department_id = 2 WHERE id = 2')
+
+        const updated = await executeQuery(`
+          SELECT e.name, d.name as department
+          FROM employees e
+          JOIN departments d ON e.department_id = d.id
+          WHERE e.id = 2
+        `)
+        expect(updated.department).toBe('Sales')
+      })
+
+      await test.step('Verify counting related records', async () => {
+        const deptCounts = await executeQuery(`
+          SELECT d.name, COUNT(e.id) as employee_count
+          FROM departments d
+          LEFT JOIN employees e ON d.id = e.department_id
+          GROUP BY d.id, d.name
+          ORDER BY d.name
+        `)
+        expect(deptCounts.rows).toEqual([
+          { name: 'Engineering', employee_count: 2 },
+          { name: 'Sales', employee_count: 2 },
+        ])
+      })
     }
   )
 })
