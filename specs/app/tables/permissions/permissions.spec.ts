@@ -335,7 +335,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-005: should enforce all layers (public access, field filtering, record filtering) with complete permission hierarchy',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
