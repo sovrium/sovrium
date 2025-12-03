@@ -422,6 +422,83 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
 }
 
 /**
+ * Translate record permission condition to PostgreSQL RLS expression
+ *
+ * Replaces variable placeholders with current_setting() calls:
+ * - {userId} → current_setting('app.user_id', true)::TEXT
+ * - {organizationId} → current_setting('app.organization_id', true)::TEXT
+ * - {user.department} → current_setting('app.user_department', true)::TEXT
+ *
+ * The second parameter (true) makes current_setting return NULL if the setting doesn't exist,
+ * instead of raising an error.
+ *
+ * Note: User IDs are TEXT in Better Auth, not INTEGER
+ *
+ * @param condition - Record permission condition with variable placeholders
+ * @returns PostgreSQL RLS expression
+ */
+const translateRecordPermissionCondition = (condition: string): string =>
+  condition
+    .replace(/\{userId\}/g, "current_setting('app.user_id', true)::TEXT")
+    .replace(/\{organizationId\}/g, "current_setting('app.organization_id', true)::TEXT")
+    .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)
+
+/**
+ * Generate RLS policy statements for record-level permissions
+ *
+ * When a table has `permissions.records` array, this generates RLS policies
+ * based on custom conditions defined in the schema.
+ *
+ * Each record permission maps to a CREATE POLICY statement with the translated condition.
+ *
+ * @param table - Table definition with record-level permissions
+ * @returns Array of SQL statements to enable RLS and create record-level policies
+ */
+const generateRecordLevelPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
+  const recordPermissions = table.permissions?.records ?? []
+
+  if (recordPermissions.length === 0) {
+    return []
+  }
+
+  const enableRLS = [
+    `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
+    `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
+  ]
+
+  const policies = recordPermissions.flatMap((permission) => {
+    const sqlCommand = {
+      read: 'SELECT',
+      create: 'INSERT',
+      update: 'UPDATE',
+      delete: 'DELETE',
+    }[permission.action] as 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'
+
+    const policyName = `${tableName}_record_${permission.action}`
+    const translatedCondition = translateRecordPermissionCondition(permission.condition)
+    const dropStatement = `DROP POLICY IF EXISTS ${policyName} ON ${tableName}`
+
+    // UPDATE requires both USING and WITH CHECK clauses
+    if (sqlCommand === 'UPDATE') {
+      return [
+        dropStatement,
+        `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} USING (${translatedCondition}) WITH CHECK (${translatedCondition})`,
+      ]
+    }
+
+    // INSERT uses WITH CHECK, SELECT/DELETE use USING
+    const clause = sqlCommand === 'INSERT' ? 'WITH CHECK' : 'USING'
+    return [
+      dropStatement,
+      `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} ${clause} (${translatedCondition})`,
+    ]
+  })
+
+  return [...enableRLS, ...policies]
+}
+
+/**
  * Generate RLS policy statements for organization-scoped tables
  *
  * When a table has `permissions.organizationScoped: true`, this generates:
@@ -469,6 +546,26 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
 }
 
 /**
+ * Check if table has record-level permissions configured
+ *
+ * @param table - Table definition
+ * @returns True if table has permissions.records array with at least one permission
+ */
+const hasRecordLevelPermissions = (table: Table): boolean =>
+  !!(table.permissions?.records && table.permissions.records.length > 0)
+
+/**
+ * Generate default deny RLS policies (no permissions configured)
+ *
+ * @param tableName - Name of the table
+ * @returns Array of SQL statements to enable RLS with no policies
+ */
+const generateDefaultDenyPolicies = (tableName: string): readonly string[] => [
+  `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
+]
+
+/**
  * Generate RLS policy statements for tables with various permission types
  *
  * Supports the following permission configurations:
@@ -477,15 +574,20 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
  *    - Enables RLS with no policies
  *    - All access is blocked
  *
- * 2. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
+ * 2. **Record-level permissions** (permissions.records array):
+ *    - Custom RLS conditions defined per CRUD action
+ *    - Supports variable substitution: {userId}, {organizationId}, {user.property}
+ *    - Example: { action: 'delete', condition: "{userId} = created_by AND status = 'draft'" }
+ *
+ * 3. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
  *    - Filters records by the specified owner field
  *    - Uses current_setting('app.user_id') to match ownership
  *
- * 3. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
+ * 4. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
  *    - Checks user's role via current_setting('app.user_role')
  *    - Creates policies for each CRUD operation based on allowed roles
  *
- * 4. **Organization-scoped** (permissions.organizationScoped: true):
+ * 5. **Organization-scoped** (permissions.organizationScoped: true):
  *    - Filters by organization_id using current_setting('app.organization_id')
  *    - Can be combined with role checks using AND
  *
@@ -499,12 +601,14 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   const tableName = table.name
 
   // If no permissions configured, enable RLS with no policies (default deny)
-  // Use FORCE to apply RLS even to superusers (critical for E2E tests)
   if (hasNoPermissions(table)) {
-    return [
-      `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
-      `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
-    ]
+    return generateDefaultDenyPolicies(tableName)
+  }
+
+  // Check if table has record-level permissions (custom conditions)
+  // This takes priority over other permission types
+  if (hasRecordLevelPermissions(table)) {
+    return generateRecordLevelPolicies(table)
   }
 
   // Check if table has owner-based permissions

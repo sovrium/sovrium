@@ -196,7 +196,7 @@ test.describe('Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RECORD-PERMISSIONS-003: should deny DELETE when user attempts to delete published record they created',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -233,9 +233,12 @@ test.describe('Record-Level Permissions', () => {
       const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
+      // Replace automatic policy with manual one for verification
       await executeQuery([
         'ALTER TABLE articles ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY user_delete_draft ON articles FOR DELETE USING (created_by = current_setting('app.user_id')::INTEGER AND status = 'draft')",
+        'ALTER TABLE articles FORCE ROW LEVEL SECURITY',
+        'DROP POLICY IF EXISTS articles_record_delete ON articles',
+        "CREATE POLICY user_delete_draft ON articles FOR DELETE USING (created_by = current_setting('app.user_id', true)::TEXT AND status = 'draft')",
         `INSERT INTO articles (title, status, created_by) VALUES ('Draft 1', 'draft', '${user1.user.id}'), ('Published 1', 'published', '${user1.user.id}'), ('Draft 2', 'draft', '${user2.user.id}')`,
       ])
 
