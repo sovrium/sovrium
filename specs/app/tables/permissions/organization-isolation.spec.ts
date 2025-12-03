@@ -389,7 +389,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-006: should allow organization admin to access all org data',
     { tag: '@spec' },
     async ({
