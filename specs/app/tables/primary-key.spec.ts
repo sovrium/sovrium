@@ -395,7 +395,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-007: should use BIGINT for larger auto-increment range with BIGSERIAL',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

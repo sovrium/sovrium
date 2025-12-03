@@ -33,8 +33,15 @@ const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => field.typ
 /**
  * Generate automatic id column definition based on primary key type
  */
-const generateIdColumn = (primaryKeyType: string | undefined): string =>
-  primaryKeyType === 'uuid' ? 'id UUID NOT NULL DEFAULT gen_random_uuid()' : 'id SERIAL NOT NULL'
+const generateIdColumn = (primaryKeyType: string | undefined): string => {
+  if (primaryKeyType === 'uuid') {
+    return 'id UUID NOT NULL DEFAULT gen_random_uuid()'
+  }
+  if (primaryKeyType === 'bigserial') {
+    return 'id BIGSERIAL NOT NULL'
+  }
+  return 'id SERIAL NOT NULL'
+}
 
 /**
  * Generate CREATE TABLE statement

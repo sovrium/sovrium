@@ -211,7 +211,7 @@ test.describe('Integer Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-INTEGER-005: should create btree index for fast numerical queries when integer field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -237,7 +237,7 @@ test.describe('Integer Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
+      expect(indexExists.rows[0]).toEqual({
         indexname: 'idx_leaderboard_score',
         tablename: 'leaderboard',
       })
@@ -246,7 +246,7 @@ test.describe('Integer Field', () => {
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'"
       )
       // THEN: assertion
-      expect(indexDef.indexdef).toBe(
+      expect(indexDef.rows[0].indexdef).toBe(
         'CREATE INDEX idx_leaderboard_score ON public.leaderboard USING btree (score)'
       )
     }
