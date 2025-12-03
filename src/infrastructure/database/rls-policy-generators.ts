@@ -200,6 +200,48 @@ const hasOwnerPermissions = (table: Table): boolean => {
 }
 
 /**
+ * Generate owner policy statements for a specific operation
+ *
+ * Creates DROP and CREATE POLICY statements for owner-based access control.
+ * UPDATE requires both USING and WITH CHECK clauses, while SELECT/DELETE use USING,
+ * and INSERT uses WITH CHECK.
+ *
+ * @param tableName - Name of the table
+ * @param operation - CRUD operation name (read/create/update/delete)
+ * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
+ * @param checkExpression - Owner check SQL expression
+ * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
+ */
+const generateOwnerPolicyStatements = (
+  tableName: string,
+  operation: string,
+  sqlCommand: string,
+  checkExpression: string | undefined
+): readonly string[] => {
+  if (!checkExpression) {
+    return []
+  }
+
+  const policyName = `${tableName}_owner_${operation}`
+  const dropStatement = `DROP POLICY IF EXISTS ${policyName} ON ${tableName}`
+
+  // UPDATE requires both USING and WITH CHECK clauses
+  if (sqlCommand === 'UPDATE') {
+    return [
+      dropStatement,
+      `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} USING (${checkExpression}) WITH CHECK (${checkExpression})`,
+    ]
+  }
+
+  // INSERT uses WITH CHECK, SELECT/DELETE use USING
+  const clause = sqlCommand === 'INSERT' ? 'WITH CHECK' : 'USING'
+  return [
+    dropStatement,
+    `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} ${clause} (${checkExpression})`,
+  ]
+}
+
+/**
  * Generate RLS policy statements for owner-based permissions
  *
  * When a table has owner-based permissions (e.g., read: { type: 'owner', field: 'owner_id' }),
@@ -221,39 +263,27 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
     delete: generateOwnerCheck(table.permissions?.delete),
   }
 
-  // Generate SELECT policy if read permission is owner-based
-  const selectPolicies = ownerChecks.read
-    ? [
-        `DROP POLICY IF EXISTS ${tableName}_owner_read ON ${tableName}`,
-        `CREATE POLICY ${tableName}_owner_read ON ${tableName} FOR SELECT USING (${ownerChecks.read})`,
-      ]
-    : []
-
-  // Generate INSERT policy if create permission is owner-based
-  const insertPolicies = ownerChecks.create
-    ? [
-        `DROP POLICY IF EXISTS ${tableName}_owner_create ON ${tableName}`,
-        `CREATE POLICY ${tableName}_owner_create ON ${tableName} FOR INSERT WITH CHECK (${ownerChecks.create})`,
-      ]
-    : []
-
-  // Generate UPDATE policy if update permission is owner-based
-  const updatePolicies = ownerChecks.update
-    ? [
-        `DROP POLICY IF EXISTS ${tableName}_owner_update ON ${tableName}`,
-        `CREATE POLICY ${tableName}_owner_update ON ${tableName} FOR UPDATE USING (${ownerChecks.update}) WITH CHECK (${ownerChecks.update})`,
-      ]
-    : []
-
-  // Generate DELETE policy if delete permission is owner-based
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field, not a Drizzle delete operation
-  const deletePolicies = ownerChecks.delete
-    ? [
-        `DROP POLICY IF EXISTS ${tableName}_owner_delete ON ${tableName}`,
-        // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field, not a Drizzle delete operation
-        `CREATE POLICY ${tableName}_owner_delete ON ${tableName} FOR DELETE USING (${ownerChecks.delete})`,
-      ]
-    : []
+  // Generate policies for each CRUD operation
+  const selectPolicies = generateOwnerPolicyStatements(tableName, 'read', 'SELECT', ownerChecks.read)
+  const insertPolicies = generateOwnerPolicyStatements(
+    tableName,
+    'create',
+    'INSERT',
+    ownerChecks.create
+  )
+  const updatePolicies = generateOwnerPolicyStatements(
+    tableName,
+    'update',
+    'UPDATE',
+    ownerChecks.update
+  )
+  const deletePolicies = generateOwnerPolicyStatements(
+    tableName,
+    'delete',
+    'DELETE',
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field, not a Drizzle delete operation
+    ownerChecks.delete
+  )
 
   return [enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
