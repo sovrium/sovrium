@@ -86,7 +86,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-002: should generate UUID values using gen_random_uuid() with UUID primary key',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
