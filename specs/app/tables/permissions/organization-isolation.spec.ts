@@ -186,7 +186,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-003: should prevent creating records in other organizations',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
