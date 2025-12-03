@@ -237,7 +237,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-004: should prevent updating records in other organizations',
     { tag: '@spec' },
     async ({
