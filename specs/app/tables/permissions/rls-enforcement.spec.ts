@@ -147,7 +147,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-003: should enforce field-level read restrictions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -190,15 +190,15 @@ test.describe('Row-Level Security Enforcement', () => {
       const columns = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'employees' ORDER BY ordinal_position`
       )
-      expect(columns.map((c: { column_name: string }) => c.column_name)).toContain('salary')
-      expect(columns.map((c: { column_name: string }) => c.column_name)).toContain('ssn')
+      expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('salary')
+      expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('ssn')
 
       // Verify field-level permissions are configured (stored in app metadata)
       // The actual field filtering happens at the application layer based on schema config
       const data = await executeQuery(`SELECT name, email, salary, ssn FROM employees WHERE id = 1`)
-      expect(data[0].name).toBe('John Doe')
-      expect(data[0].salary).toBe('75000.00')
-      expect(data[0].ssn).toBe('123-45-6789')
+      expect(data.rows[0].name).toBe('John Doe')
+      expect(data.rows[0].salary).toBe(75_000)
+      expect(data.rows[0].ssn).toBe('123-45-6789')
     }
   )
 
