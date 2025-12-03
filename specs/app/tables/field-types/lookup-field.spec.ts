@@ -222,10 +222,17 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-006: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      await test.step('Setup: Start server', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [],
+        })
+      })
+
       await test.step('Setup: Create tables and data', async () => {
         await executeQuery([
           'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -233,29 +240,6 @@ test.describe('Lookup Field', () => {
           'CREATE TABLE items (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id), title VARCHAR(255))',
           "INSERT INTO items (category_id, title) VALUES (1, 'The Great Book')",
         ])
-      })
-
-      await test.step('Setup: Start server with lookup field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'items',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'category_name',
-                  type: 'lookup',
-                  relationshipField: 'category_id',
-                  relatedField: 'name',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
       })
 
       await test.step('Verify lookup field retrieves related value', async () => {
