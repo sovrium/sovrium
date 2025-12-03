@@ -479,6 +479,21 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
 }
 
 /**
+ * Generate composite UNIQUE constraints from table.uniqueConstraints
+ * These are multi-column unique constraints (e.g., UNIQUE (email, tenant_id))
+ */
+const generateCompositeUniqueConstraints = (table: Table): readonly string[] => {
+  if (!table.uniqueConstraints || table.uniqueConstraints.length === 0) {
+    return []
+  }
+
+  return table.uniqueConstraints.map((constraint) => {
+    const fields = constraint.fields.join(', ')
+    return `CONSTRAINT ${constraint.name} UNIQUE (${fields})`
+  })
+}
+
+/**
  * Generate table constraints (CHECK constraints, UNIQUE constraints, FOREIGN KEY, primary key, etc.)
  */
 export const generateTableConstraints = (table: Table): readonly string[] => [
@@ -491,6 +506,7 @@ export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateBarcodeConstraints(table.fields),
   ...generateColorConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
+  ...generateCompositeUniqueConstraints(table),
   ...generateForeignKeyConstraints(table.name, table.fields),
   ...generatePrimaryKeyConstraint(table),
 ]

@@ -29,7 +29,7 @@ test.describe('Unique Constraints', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-001: should reject with unique constraint violation error when attempting to insert duplicate combination',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -77,7 +77,8 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
       )
       // THEN: assertion
-      expect(result.rows[0]).toMatchObject({ id: 2 })
+      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+      expect(result.rows[0]).toMatchObject({ id: 3 })
     }
   )
 
@@ -123,7 +124,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-003: should create composite unique index with 2 fields (minimum required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -171,11 +172,11 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('John', 'Smith'), ('Jane', 'Doe') RETURNING id`
       )
       // THEN: assertion
-      expect(insert.rows[0]).toMatchObject({ id: 3 })
+      expect(insert.rows[2]).toMatchObject({ id: 3 })
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-004: should create multi-column unique index with 3+ fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -232,11 +233,12 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'Los Angeles') RETURNING id`
       )
       // THEN: assertion
-      expect(result.rows[0]).toMatchObject({ id: 2 })
+      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+      expect(result.rows[0]).toMatchObject({ id: 3 })
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-005: should accept constraint name matching pattern when creating unique constraint with valid name',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -281,7 +283,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-006: should accept but lowercase the name when constraint name has invalid characters',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -322,11 +324,11 @@ test.describe('Unique Constraints', () => {
         `SELECT conname FROM pg_constraint WHERE conname = 'UQ_TEST' OR conname = 'uq_test'`
       )
       // THEN: assertion
-      expect(constraint.rows[0]).toMatchObject({ conname: 'UQ_TEST' })
+      expect(constraint.rows[0]).toMatchObject({ conname: 'uq_test' })
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-007: should preserve constraint name exactly as created when querying metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -375,7 +377,7 @@ test.describe('Unique Constraints', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-008: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -428,7 +430,8 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
       )
       // THEN: assertion
-      expect(user2.rows[0]).toMatchObject({ id: 2 })
+      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+      expect(user2.rows[0]).toMatchObject({ id: 3 })
 
       // 3. Multiple unique constraints on different tables
       await executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)

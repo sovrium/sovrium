@@ -36,9 +36,13 @@ export const UniqueConstraintsSchema = Schema.Array(
   Schema.Struct({
     name: Schema.String.pipe(
       Schema.minLength(1, { message: () => 'This field is required' }),
-      Schema.pattern(/^[a-z][a-z0-9_]*$/, {
+      Schema.pattern(/^[a-zA-Z][a-zA-Z0-9_]*$/, {
         message: () =>
           "Name of the unique constraint. Use descriptive names like 'uq_tablename_field1_field2'",
+      }),
+      Schema.transform(Schema.String, {
+        decode: (name) => name.toLowerCase(),
+        encode: (name) => name,
       }),
       Schema.annotations({
         description:
