@@ -172,10 +172,7 @@ test.describe('Table Permissions', () => {
       // Note: PostgreSQL's column-level GRANT restrictions return "permission denied for table"
       // error message, not "permission denied for column", when a restricted column is queried
       try {
-        await executeQuery([
-          'SET ROLE authenticated_user',
-          'SELECT salary FROM users WHERE id = 1',
-        ])
+        await executeQuery(['SET ROLE authenticated_user', 'SELECT salary FROM users WHERE id = 1'])
         throw new Error('Expected query to fail but it succeeded')
       } catch (error: any) {
         expect(error.message).toContain('permission denied for table users')
@@ -278,7 +275,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-004: should block all access by default when table has no permissions configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -321,16 +318,18 @@ test.describe('Table Permissions', () => {
       expect(policyCount.count).toBe(0)
 
       // Admin user gets empty result (RLS blocks)
-      const adminResult = await executeQuery(
-        'SET ROLE admin_user; SELECT COUNT(*) as count FROM confidential'
-      )
+      const adminResult = await executeQuery([
+        'SET ROLE admin_user',
+        'SELECT COUNT(*) as count FROM confidential',
+      ])
       // THEN: assertion
       expect(adminResult.count).toBe(0)
 
       // Any user gets empty result (default deny)
-      const userResult = await executeQuery(
-        'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM confidential'
-      )
+      const userResult = await executeQuery([
+        'SET ROLE authenticated_user',
+        'SELECT COUNT(*) as count FROM confidential',
+      ])
       // THEN: assertion
       expect(userResult.count).toBe(0)
     }

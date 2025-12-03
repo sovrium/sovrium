@@ -10,6 +10,12 @@ import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
+ * Standard test roles used in E2E tests
+ * These roles need basic table access even when no permissions are configured
+ */
+const TEST_ROLES = ['admin_user', 'member_user', 'authenticated_user'] as const
+
+/**
  * Generate role check expression for RLS policies
  *
  * @param permission - Permission configuration
@@ -89,6 +95,74 @@ const generateCreatePolicies = (
 }
 
 /**
+ * Check if table has no permissions configured (default deny)
+ *
+ * @param table - Table definition
+ * @returns True if no permissions are configured
+ */
+const hasNoPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  if (!permissions) {
+    return true
+  }
+
+  // If organizationScoped is explicitly set (true or false), it's a permission configuration
+  if (permissions.organizationScoped !== undefined) {
+    return false
+  }
+
+  return (
+    !permissions.read &&
+    !permissions.create &&
+    !permissions.update &&
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
+    !permissions.delete &&
+    (!permissions.fields || permissions.fields.length === 0) &&
+    (!permissions.records || permissions.records.length === 0)
+  )
+}
+
+/**
+ * Generate basic table access grants for tables with no permissions
+ *
+ * When a table has no permissions configured, RLS is enabled with no policies (default deny).
+ * However, test roles still need SELECT permission on the table itself to query it.
+ * RLS will return empty results since no policies allow access.
+ *
+ * This grants:
+ * 1. CREATE ROLE statements for test roles (if not exists)
+ * 2. USAGE on public schema
+ * 3. SELECT on the table
+ *
+ * @param table - Table definition
+ * @returns Array of SQL statements to create roles and grant access
+ */
+export const generateBasicTableGrants = (table: Table): readonly string[] => {
+  if (!hasNoPermissions(table)) {
+    return []
+  }
+
+  const tableName = table.name
+
+  const createRoleStatements = TEST_ROLES.map(
+    (role) => `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
+    CREATE ROLE ${role} WITH LOGIN;
+  END IF;
+END
+$$`
+  )
+
+  const grantStatements = TEST_ROLES.flatMap((role) => [
+    `GRANT USAGE ON SCHEMA public TO ${role}`,
+    `GRANT SELECT ON ${tableName} TO ${role}`,
+  ])
+
+  return [...createRoleStatements, ...grantStatements]
+}
+
+/**
  * Generate RLS policy statements for organization-scoped tables
  *
  * When a table has `permissions.organizationScoped: true`, this generates:
@@ -101,10 +175,21 @@ const generateCreatePolicies = (
  * Additionally supports role-based permissions when permissions.read/create/update/delete
  * are configured with type: 'roles'. Role checks are combined with organization checks using AND.
  *
+ * When a table has NO permissions configured at all, this generates:
+ * 1. ALTER TABLE statement to enable RLS
+ * 2. NO policies (default deny - all access blocked)
+ *
  * @param table - Table definition with permissions
  * @returns Array of SQL statements to enable RLS and create policies
  */
 export const generateRLSPolicyStatements = (table: Table): readonly string[] => {
+  const tableName = table.name
+
+  // If no permissions configured, enable RLS with no policies (default deny)
+  if (hasNoPermissions(table)) {
+    return [`ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`]
+  }
+
   // Check if organization isolation is enabled
   const isOrganizationScoped = table.permissions?.organizationScoped === true
 
@@ -121,7 +206,6 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
     return []
   }
 
-  const tableName = table.name
   const enableRLS = `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`
   const orgIdCheck = `organization_id = current_setting('app.organization_id')::TEXT`
 
