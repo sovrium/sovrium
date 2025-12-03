@@ -442,7 +442,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-008: should support role-based permissions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
