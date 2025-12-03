@@ -422,10 +422,10 @@ test.describe('Table Permissions', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-006: user can complete full permissions workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with hierarchical permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -470,12 +470,20 @@ test.describe('Table Permissions', () => {
         })
       })
 
+      let user1: Awaited<ReturnType<typeof createAuthenticatedUser>>
+      let user2: Awaited<ReturnType<typeof createAuthenticatedUser>>
+      let user3: Awaited<ReturnType<typeof createAuthenticatedUser>>
+
       await test.step('Create RLS policies and insert test data', async () => {
+        user1 = await createAuthenticatedUser({ name: 'User 1', email: 'user1@example.com' })
+        user2 = await createAuthenticatedUser({ name: 'User 2', email: 'user2@example.com' })
+        user3 = await createAuthenticatedUser({ name: 'User 3', email: 'user3@example.com' })
+
         await executeQuery([
           'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
           'CREATE POLICY authenticated_read ON documents FOR SELECT USING (auth.is_authenticated())',
-          "CREATE POLICY owner_or_published ON documents FOR SELECT USING (author_id = current_setting('app.user_id')::INTEGER OR status = 'published')",
-          "INSERT INTO documents (title, content, salary_info, author_id, status) VALUES ('Public Doc', 'Content', 'Confidential', 1, 'published'), ('Private Doc', 'Private', 'Secret', 2, 'draft')",
+          "CREATE POLICY owner_or_published ON documents FOR SELECT USING (author_id = current_setting('app.user_id')::TEXT OR status = 'published')",
+          `INSERT INTO documents (title, content, salary_info, author_id, status) VALUES ('Public Doc', 'Content', 'Confidential', '${user1.user.id}', 'published'), ('Private Doc', 'Private', 'Secret', '${user2.user.id}', 'draft')`,
         ])
       })
 
@@ -487,22 +495,29 @@ test.describe('Table Permissions', () => {
       })
 
       await test.step('Verify authenticated user can access published documents', async () => {
-        const userDocs = await executeQuery(
-          "SET LOCAL app.user_id = 3; SELECT COUNT(*) as count FROM documents WHERE status = 'published'"
-        )
+        const userDocs = await executeQuery([
+          `SET LOCAL app.user_id = '${user3.user.id}'`,
+          "SELECT COUNT(*) as count FROM documents WHERE status = 'published'",
+        ])
         expect(userDocs.count).toBe(1)
       })
 
       await test.step('Verify field-level restriction for non-admin users', async () => {
         await expect(async () => {
-          await executeQuery('SET ROLE member_user; SELECT salary_info FROM documents WHERE id = 1')
+          await executeQuery([
+            'SET ROLE member_user',
+            `SET LOCAL app.user_id = '${user1.user.id}'`,
+            'SELECT salary_info FROM documents WHERE id = 1',
+          ])
         }).rejects.toThrow('permission denied')
       })
 
       await test.step('Verify admin can see restricted fields', async () => {
-        const adminFields = await executeQuery(
-          'SET ROLE admin_user; SELECT title, salary_info FROM documents WHERE id = 1'
-        )
+        const adminFields = await executeQuery([
+          'SET ROLE admin_user',
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          'SELECT title, salary_info FROM documents WHERE id = 1',
+        ])
         expect(adminFields.title).toBe('Public Doc')
         expect(adminFields.salary_info).toBe('Confidential')
       })
