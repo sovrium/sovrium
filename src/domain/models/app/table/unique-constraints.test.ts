@@ -89,6 +89,23 @@ describe('UniqueConstraintsSchema', () => {
       const result = Schema.decodeUnknownSync(UniqueConstraintsSchema)(constraints)
       expect(result).toEqual(constraints)
     })
+
+    test('should accept and lowercase constraint names with uppercase characters', () => {
+      const constraints = [
+        {
+          name: 'UQ_User_Email',
+          fields: ['email'],
+        },
+      ]
+
+      const result = Schema.decodeUnknownSync(UniqueConstraintsSchema)(constraints)
+      expect(result).toEqual([
+        {
+          name: 'uq_user_email',
+          fields: ['email'],
+        },
+      ])
+    })
   })
 
   describe('invalid values', () => {
@@ -104,17 +121,6 @@ describe('UniqueConstraintsSchema', () => {
           },
         ])
       }).toThrow('This field is required')
-    })
-
-    test('should reject constraint with invalid name pattern (uppercase)', () => {
-      expect(() => {
-        Schema.decodeUnknownSync(UniqueConstraintsSchema)([
-          {
-            name: 'UQ_User_Email',
-            fields: ['email'],
-          },
-        ])
-      }).toThrow()
     })
 
     test('should reject constraint with invalid name pattern (starts with number)', () => {
