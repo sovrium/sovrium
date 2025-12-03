@@ -16,6 +16,69 @@ import type { TablePermission } from '@/domain/models/app/table/permissions'
 const TEST_ROLES = ['admin_user', 'member_user', 'authenticated_user'] as const
 
 /**
+ * SQL command mapping for CRUD operations
+ */
+const CRUD_TO_SQL_COMMAND = {
+  read: 'SELECT',
+  create: 'INSERT',
+  update: 'UPDATE',
+  delete: 'DELETE',
+} as const
+
+/**
+ * Generate ALTER TABLE statements to enable RLS
+ * Uses FORCE to enforce policies even for superusers (critical for E2E tests)
+ *
+ * @param tableName - Name of the table
+ * @returns Array of ALTER TABLE statements
+ */
+const generateEnableRLS = (tableName: string): readonly string[] => [
+  `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
+  `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
+]
+
+/**
+ * Generate policy statements for a specific operation
+ *
+ * Creates DROP and CREATE POLICY statements for any permission type.
+ * UPDATE requires both USING and WITH CHECK clauses, while SELECT/DELETE use USING,
+ * and INSERT uses WITH CHECK.
+ *
+ * @param tableName - Name of the table
+ * @param policyName - Name of the policy
+ * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
+ * @param checkExpression - SQL expression for permission check
+ * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
+ */
+const generatePolicyStatements = (
+  tableName: string,
+  policyName: string,
+  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
+  checkExpression: string | undefined
+): readonly string[] => {
+  if (!checkExpression) {
+    return []
+  }
+
+  const dropStatement = `DROP POLICY IF EXISTS ${policyName} ON ${tableName}`
+
+  // UPDATE requires both USING and WITH CHECK clauses
+  if (sqlCommand === 'UPDATE') {
+    return [
+      dropStatement,
+      `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} USING (${checkExpression}) WITH CHECK (${checkExpression})`,
+    ]
+  }
+
+  // INSERT uses WITH CHECK, SELECT/DELETE use USING
+  const clause = sqlCommand === 'INSERT' ? 'WITH CHECK' : 'USING'
+  return [
+    dropStatement,
+    `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} ${clause} (${checkExpression})`,
+  ]
+}
+
+/**
  * Generate owner check expression for RLS policies
  *
  * @param permission - Permission configuration
@@ -224,8 +287,6 @@ const hasRolePermissions = (table: Table): boolean => {
  * Generate role policy statements for a specific operation
  *
  * Creates DROP and CREATE POLICY statements for role-based access control.
- * UPDATE requires both USING and WITH CHECK clauses, while SELECT/DELETE use USING,
- * and INSERT uses WITH CHECK.
  *
  * @param tableName - Name of the table
  * @param operation - CRUD operation name (read/create/update/delete)
@@ -235,39 +296,18 @@ const hasRolePermissions = (table: Table): boolean => {
  */
 const generateRolePolicyStatements = (
   tableName: string,
-  operation: string,
-  sqlCommand: string,
+  operation: 'read' | 'create' | 'update' | 'delete',
+  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
   checkExpression: string | undefined
 ): readonly string[] => {
-  if (!checkExpression) {
-    return []
-  }
-
   const policyName = `${tableName}_role_${operation}`
-  const dropStatement = `DROP POLICY IF EXISTS ${policyName} ON ${tableName}`
-
-  // UPDATE requires both USING and WITH CHECK clauses
-  if (sqlCommand === 'UPDATE') {
-    return [
-      dropStatement,
-      `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} USING (${checkExpression}) WITH CHECK (${checkExpression})`,
-    ]
-  }
-
-  // INSERT uses WITH CHECK, SELECT/DELETE use USING
-  const clause = sqlCommand === 'INSERT' ? 'WITH CHECK' : 'USING'
-  return [
-    dropStatement,
-    `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} ${clause} (${checkExpression})`,
-  ]
+  return generatePolicyStatements(tableName, policyName, sqlCommand, checkExpression)
 }
 
 /**
  * Generate owner policy statements for a specific operation
  *
  * Creates DROP and CREATE POLICY statements for owner-based access control.
- * UPDATE requires both USING and WITH CHECK clauses, while SELECT/DELETE use USING,
- * and INSERT uses WITH CHECK.
  *
  * @param tableName - Name of the table
  * @param operation - CRUD operation name (read/create/update/delete)
@@ -277,31 +317,12 @@ const generateRolePolicyStatements = (
  */
 const generateOwnerPolicyStatements = (
   tableName: string,
-  operation: string,
-  sqlCommand: string,
+  operation: 'read' | 'create' | 'update' | 'delete',
+  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
   checkExpression: string | undefined
 ): readonly string[] => {
-  if (!checkExpression) {
-    return []
-  }
-
   const policyName = `${tableName}_owner_${operation}`
-  const dropStatement = `DROP POLICY IF EXISTS ${policyName} ON ${tableName}`
-
-  // UPDATE requires both USING and WITH CHECK clauses
-  if (sqlCommand === 'UPDATE') {
-    return [
-      dropStatement,
-      `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} USING (${checkExpression}) WITH CHECK (${checkExpression})`,
-    ]
-  }
-
-  // INSERT uses WITH CHECK, SELECT/DELETE use USING
-  const clause = sqlCommand === 'INSERT' ? 'WITH CHECK' : 'USING'
-  return [
-    dropStatement,
-    `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} ${clause} (${checkExpression})`,
-  ]
+  return generatePolicyStatements(tableName, policyName, sqlCommand, checkExpression)
 }
 
 /**
@@ -318,13 +339,7 @@ const generateOwnerPolicyStatements = (
  */
 const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
   const tableName = table.name
-
-  // Separate statements for ENABLE and FORCE RLS
-  // FORCE makes RLS apply even to superusers (critical for E2E tests)
-  const enableRLS = [
-    `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
-    `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
-  ]
+  const enableRLS = generateEnableRLS(tableName)
 
   // Generate owner checks for each operation
   const ownerChecks = {
@@ -379,13 +394,7 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
  */
 const generateRoleBasedPolicies = (table: Table): readonly string[] => {
   const tableName = table.name
-
-  // Separate statements for ENABLE and FORCE RLS
-  // FORCE makes RLS apply even to superusers (critical for E2E tests)
-  const enableRLS = [
-    `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
-    `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
-  ]
+  const enableRLS = generateEnableRLS(tableName)
 
   // Generate role checks for each operation
   const roleChecks = {
@@ -422,6 +431,60 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
 }
 
 /**
+ * Translate record permission condition to PostgreSQL RLS expression
+ *
+ * Replaces variable placeholders with current_setting() calls:
+ * - {userId} → current_setting('app.user_id', true)::TEXT
+ * - {organizationId} → current_setting('app.organization_id', true)::TEXT
+ * - {user.department} → current_setting('app.user_department', true)::TEXT
+ *
+ * The second parameter (true) makes current_setting return NULL if the setting doesn't exist,
+ * instead of raising an error.
+ *
+ * Note: User IDs are TEXT in Better Auth, not INTEGER
+ *
+ * @param condition - Record permission condition with variable placeholders
+ * @returns PostgreSQL RLS expression
+ */
+const translateRecordPermissionCondition = (condition: string): string =>
+  condition
+    .replace(/\{userId\}/g, "current_setting('app.user_id', true)::TEXT")
+    .replace(/\{organizationId\}/g, "current_setting('app.organization_id', true)::TEXT")
+    .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)
+
+/**
+ * Generate RLS policy statements for record-level permissions
+ *
+ * When a table has `permissions.records` array, this generates RLS policies
+ * based on custom conditions defined in the schema.
+ *
+ * Each record permission maps to a CREATE POLICY statement with the translated condition.
+ *
+ * @param table - Table definition with record-level permissions
+ * @returns Array of SQL statements to enable RLS and create record-level policies
+ */
+const generateRecordLevelPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
+  const recordPermissions = table.permissions?.records ?? []
+
+  if (recordPermissions.length === 0) {
+    return []
+  }
+
+  const enableRLS = generateEnableRLS(tableName)
+
+  const policies = recordPermissions.flatMap((permission) => {
+    const sqlCommand = CRUD_TO_SQL_COMMAND[permission.action]
+    const policyName = `${tableName}_record_${permission.action}`
+    const translatedCondition = translateRecordPermissionCondition(permission.condition)
+
+    return generatePolicyStatements(tableName, policyName, sqlCommand, translatedCondition)
+  })
+
+  return [...enableRLS, ...policies]
+}
+
+/**
  * Generate RLS policy statements for organization-scoped tables
  *
  * When a table has `permissions.organizationScoped: true`, this generates:
@@ -448,10 +511,7 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
     return []
   }
 
-  const enableRLS = [
-    `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
-    `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
-  ]
+  const enableRLS = generateEnableRLS(tableName)
   const orgIdCheck = `organization_id = current_setting('app.organization_id')::TEXT`
 
   const roleChecks = {
@@ -469,6 +529,24 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
 }
 
 /**
+ * Check if table has record-level permissions configured
+ *
+ * @param table - Table definition
+ * @returns True if table has permissions.records array with at least one permission
+ */
+const hasRecordLevelPermissions = (table: Table): boolean =>
+  !!(table.permissions?.records && table.permissions.records.length > 0)
+
+/**
+ * Generate default deny RLS policies (no permissions configured)
+ *
+ * @param tableName - Name of the table
+ * @returns Array of SQL statements to enable RLS with no policies
+ */
+const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
+  generateEnableRLS(tableName)
+
+/**
  * Generate RLS policy statements for tables with various permission types
  *
  * Supports the following permission configurations:
@@ -477,15 +555,20 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
  *    - Enables RLS with no policies
  *    - All access is blocked
  *
- * 2. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
+ * 2. **Record-level permissions** (permissions.records array):
+ *    - Custom RLS conditions defined per CRUD action
+ *    - Supports variable substitution: {userId}, {organizationId}, {user.property}
+ *    - Example: { action: 'delete', condition: "{userId} = created_by AND status = 'draft'" }
+ *
+ * 3. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
  *    - Filters records by the specified owner field
  *    - Uses current_setting('app.user_id') to match ownership
  *
- * 3. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
+ * 4. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
  *    - Checks user's role via current_setting('app.user_role')
  *    - Creates policies for each CRUD operation based on allowed roles
  *
- * 4. **Organization-scoped** (permissions.organizationScoped: true):
+ * 5. **Organization-scoped** (permissions.organizationScoped: true):
  *    - Filters by organization_id using current_setting('app.organization_id')
  *    - Can be combined with role checks using AND
  *
@@ -499,12 +582,14 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   const tableName = table.name
 
   // If no permissions configured, enable RLS with no policies (default deny)
-  // Use FORCE to apply RLS even to superusers (critical for E2E tests)
   if (hasNoPermissions(table)) {
-    return [
-      `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
-      `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
-    ]
+    return generateDefaultDenyPolicies(tableName)
+  }
+
+  // Check if table has record-level permissions (custom conditions)
+  // This takes priority over other permission types
+  if (hasRecordLevelPermissions(table)) {
+    return generateRecordLevelPolicies(table)
   }
 
   // Check if table has owner-based permissions
