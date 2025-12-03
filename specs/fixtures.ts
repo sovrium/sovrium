@@ -213,13 +213,29 @@ async function startCliServer(
     const port = await waitForServerPort(serverProcess)
     const url = `http://localhost:${port}`
 
-    // Verify server is ready by checking health endpoint
-    const response = await fetch(`${url}/api/health`)
-    if (!response.ok) {
-      throw new Error(`Health check failed with status ${response.status}`)
+    // Verify server is ready by checking health endpoint with retries
+    // The server may not be fully ready immediately after port detection
+    const maxHealthRetries = 10
+    let lastError: Error | null = null
+
+    for (let i = 0; i < maxHealthRetries; i++) {
+      try {
+        const response = await fetch(`${url}/api/health`)
+        if (response.ok) {
+          return { process: serverProcess, url, port }
+        }
+        lastError = new Error(`Health check failed with status ${response.status}`)
+      } catch (fetchError) {
+        lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError))
+      }
+
+      // Wait before retrying (50ms, 100ms, 150ms, ...)
+      if (i < maxHealthRetries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50 * (i + 1)))
+      }
     }
 
-    return { process: serverProcess, url, port }
+    throw lastError || new Error('Health check failed after retries')
   } catch (error) {
     // Cleanup on startup failure
     // eslint-disable-next-line drizzle/enforce-delete-with-where
