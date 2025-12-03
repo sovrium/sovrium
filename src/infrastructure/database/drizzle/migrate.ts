@@ -306,41 +306,36 @@ export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =
               END$$;
             `)
 
-            // Create auth schema for helper functions
-            // eslint-disable-next-line functional/no-expression-statements -- Migration side effect required
+            // Create auth schema and helper functions for RLS policies
+            // Note: This duplicates drizzle/0003_add_auth_schema_and_test_roles.sql
+            // because runMigrations() creates tables at runtime without running Drizzle migrations.
+            // The Drizzle migration is applied in tests via database-utils.ts.
+            // Using LANGUAGE sql (simpler, optimizer-friendly) with COALESCE for NULL handling.
             await tx.unsafe(`
-              CREATE SCHEMA IF NOT EXISTS auth
-            `)
+              CREATE SCHEMA IF NOT EXISTS auth;
 
-            // Create auth.is_authenticated() function
-            // Returns true if app.user_id session variable is set
-             
-            await tx.unsafe(`
+              -- Helper function to check if current user is authenticated
+              -- Used in RLS policies: auth.is_authenticated()
+              -- Reads from app.user_id session variable set by application layer
               CREATE OR REPLACE FUNCTION auth.is_authenticated()
-              RETURNS boolean AS $$
-              BEGIN
-                RETURN current_setting('app.user_id', true) IS NOT NULL
-                  AND current_setting('app.user_id', true) != '';
-              EXCEPTION
-                WHEN OTHERS THEN
-                  RETURN false;
-              END;
-              $$ LANGUAGE plpgsql STABLE;
-            `)
+              RETURNS BOOLEAN
+              LANGUAGE sql
+              STABLE
+              AS $$
+                SELECT current_setting('app.user_id', true) IS NOT NULL
+                  AND current_setting('app.user_id', true) != ''
+              $$;
 
-            // Create auth.user_has_role() function
-            // Checks if the current user has the specified role
-             
-            await tx.unsafe(`
-              CREATE OR REPLACE FUNCTION auth.user_has_role(role_name text)
-              RETURNS boolean AS $$
-              BEGIN
-                RETURN current_setting('app.user_role', true) = role_name;
-              EXCEPTION
-                WHEN OTHERS THEN
-                  RETURN false;
-              END;
-              $$ LANGUAGE plpgsql STABLE;
+              -- Helper function to check if current user has a specific role
+              -- Used in RLS policies: auth.user_has_role('admin')
+              -- Reads from app.user_role session variable set by application layer
+              CREATE OR REPLACE FUNCTION auth.user_has_role(role_name TEXT)
+              RETURNS BOOLEAN
+              LANGUAGE sql
+              STABLE
+              AS $$
+                SELECT COALESCE(current_setting('app.user_role', true), '') = role_name
+              $$;
             `)
           })
         } finally {

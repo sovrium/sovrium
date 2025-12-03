@@ -242,8 +242,8 @@ test.describe('Table Permissions', () => {
       await executeQuery([
         'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY',
         'CREATE POLICY authenticated_read ON tasks FOR SELECT USING (auth.is_authenticated())',
-        "CREATE POLICY owner_records ON tasks FOR SELECT USING (owner_id = current_setting('app.user_id')::INTEGER)",
-        "INSERT INTO tasks (title, notes, owner_id, status) VALUES ('Task 1', 'Private notes 1', 1, 'open'), ('Task 2', 'Private notes 2', 2, 'open')",
+        "CREATE POLICY owner_records ON tasks FOR SELECT USING (owner_id = current_setting('app.user_id')::TEXT)",
+        "INSERT INTO tasks (title, notes, owner_id, status) VALUES ('Task 1', 'Private notes 1', '1', 'open'), ('Task 2', 'Private notes 2', '2', 'open')",
       ])
 
       // WHEN: user accesses table
