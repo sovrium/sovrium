@@ -23,6 +23,20 @@ import type { Hono } from 'hono'
  */
 
 /**
+ * Transform Date objects to ISO strings for Zod validation
+ */
+const transformDateToISO = (member: unknown): unknown => {
+  if (!member || typeof member !== 'object') return member
+  if (!('createdAt' in member)) return member
+
+  const { createdAt } = member as { createdAt: unknown }
+  return {
+    ...(member as Record<string, unknown>),
+    createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt,
+  }
+}
+
+/**
  * Add member to organization endpoint
  *
  * Wraps Better Auth's SERVER_ONLY auth.api.addMember() function
@@ -56,8 +70,12 @@ export const chainAuthRoutes = (app: Hono): Hono =>
 
       try {
         const result = await Effect.runPromise(program)
+        // Transform Date objects to ISO strings for Zod validation
+        const transformedResult = {
+          member: transformDateToISO(result.member),
+        }
         // Validate response against schema for type safety
-        const validated = addOrganizationMemberResponseSchema.parse(result)
+        const validated = addOrganizationMemberResponseSchema.parse(transformedResult)
         return c.json(validated, 200)
       } catch (error) {
         // Handle ServiceError from use case

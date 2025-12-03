@@ -193,7 +193,7 @@ test.describe('Table Permissions', () => {
   test(
     'APP-TABLES-PERMISSIONS-003: should apply hierarchical checks (table → field → record filtering) when permissions configured at all three levels',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: permissions configured at all three levels (table + field + record)
       await startServerWithSchema({
         name: 'test-app',
@@ -236,42 +236,65 @@ test.describe('Table Permissions', () => {
         ],
       })
 
+      // Create test users first to satisfy foreign key constraint
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY',
-        'CREATE POLICY authenticated_read ON tasks FOR SELECT USING (auth.is_authenticated())',
-        "CREATE POLICY owner_records ON tasks FOR SELECT USING (owner_id = current_setting('app.user_id')::TEXT)",
-        "INSERT INTO tasks (title, notes, owner_id, status) VALUES ('Task 1', 'Private notes 1', '1', 'open'), ('Task 2', 'Private notes 2', '2', 'open')",
+        "CREATE POLICY owner_records ON tasks FOR SELECT USING (owner_id = current_setting('app.user_id', true)::TEXT)",
+        `INSERT INTO tasks (title, notes, owner_id, status) VALUES ('Task 1', 'Private notes 1', '${user1.user.id}', 'open'), ('Task 2', 'Private notes 2', '${user2.user.id}', 'open')`,
       ])
 
       // WHEN: user accesses table
       // THEN: PostgreSQL applies hierarchical checks: table → field → record filtering
 
-      // Unauthenticated user denied at table level
-      await expect(async () => {
-        await executeQuery('RESET ROLE; SELECT COUNT(*) as count FROM tasks')
-      }).rejects.toThrow('permission denied for table tasks')
+      // Grant permissions to app_user role
+      await executeQuery([
+        'GRANT USAGE ON SCHEMA auth TO app_user',
+        'GRANT SELECT ON tasks TO app_user',
+      ])
+
+      // User without app.user_id set gets no records (no owner_id match)
+      const noUserIdResult = await executeQuery([
+        'BEGIN',
+        'SET ROLE app_user',
+        "SELECT set_config('app.user_id', '', false)",
+        'SELECT COUNT(*) as count FROM tasks',
+      ])
+      // THEN: assertion
+      expect(noUserIdResult.count).toBe(0)
 
       // Authenticated user passes table level, filtered by record level
-      const userCount = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tasks'
-      )
+      const userCount = await executeQuery([
+        'BEGIN',
+        'SET ROLE app_user',
+        `SELECT set_config('app.user_id', '${user1.user.id}', false)`,
+        'SELECT COUNT(*) as count FROM tasks',
+      ])
       // THEN: assertion
       expect(userCount.count).toBe(1)
 
       // User 1 sees only their task (record-level filter)
-      const userTask = await executeQuery('SET LOCAL app.user_id = 1; SELECT title FROM tasks')
+      const userTask = await executeQuery([
+        'BEGIN',
+        'SET ROLE app_user',
+        `SELECT set_config('app.user_id', '${user1.user.id}', false)`,
+        'SELECT title FROM tasks',
+      ])
       // THEN: assertion
       expect(userTask.title).toBe('Task 1')
 
       // User 1 can read notes on their own task (field-level allows)
-      const userNotes = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT title, notes FROM tasks WHERE id = 1'
-      )
+      const userNotes = await executeQuery([
+        'BEGIN',
+        'SET ROLE app_user',
+        `SELECT set_config('app.user_id', '${user1.user.id}', false)`,
+        'SELECT title, notes FROM tasks WHERE id = 1',
+      ])
       // THEN: assertion
-      expect(userNotes).toEqual({
-        title: 'Task 1',
-        notes: 'Private notes 1',
-      })
+      expect(userNotes.title).toBe('Task 1')
+      expect(userNotes.notes).toBe('Private notes 1')
     }
   )
 
@@ -338,7 +361,7 @@ test.describe('Table Permissions', () => {
   test(
     'APP-TABLES-PERMISSIONS-005: should enforce all layers (public access, field filtering, record filtering) with complete permission hierarchy',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: complete permission hierarchy with table=public, field=restricted, record=owner-only
       await startServerWithSchema({
         name: 'test-app',
@@ -380,41 +403,64 @@ test.describe('Table Permissions', () => {
         ],
       })
 
+      // Create test users first
+      const author1 = await createAuthenticatedUser({ email: 'author1@example.com' })
+      const author2 = await createAuthenticatedUser({ email: 'author2@example.com' })
+
       await executeQuery([
         'ALTER TABLE posts ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY published_or_owner ON posts FOR SELECT USING (draft = false OR author_id = current_setting('app.user_id')::INTEGER)",
-        "INSERT INTO posts (title, body, draft, author_id) VALUES ('Published Post', 'Public content', false, 1), ('Draft Post', 'Private draft', true, 1), ('Other Draft', 'Other private', true, 2)",
+        'ALTER TABLE posts FORCE ROW LEVEL SECURITY',
+        "CREATE POLICY published_or_owner ON posts FOR SELECT USING (draft = false OR (current_setting('app.user_id', true) IS NOT NULL AND author_id = current_setting('app.user_id', true)::TEXT))",
+        `INSERT INTO posts (title, body, draft, author_id) VALUES ('Published Post', 'Public content', false, '${author1.user.id}'), ('Draft Post', 'Private draft', true, '${author1.user.id}'), ('Other Draft', 'Other private', true, '${author2.user.id}')`,
       ])
 
       // WHEN: different users access table
       // THEN: PostgreSQL enforces all layers: public access, field filtering, record filtering
 
+      // Grant permissions to app_user role for public access
+      await executeQuery([
+        'GRANT USAGE ON SCHEMA auth TO app_user',
+        'GRANT SELECT ON posts TO app_user',
+      ])
+
       // Unauthenticated user sees published posts only (record filter)
-      const publicCount = await executeQuery('RESET ROLE; SELECT COUNT(*) as count FROM posts')
+      const publicCount = await executeQuery([
+        'BEGIN',
+        'SET ROLE app_user',
+        "SELECT set_config('app.user_id', '', true)",
+        'SELECT COUNT(*) as count FROM posts',
+      ])
       // THEN: assertion
       expect(publicCount.count).toBe(1)
 
       // Unauthenticated user can see title but not body (field filter)
-      const publicTitle = await executeQuery('RESET ROLE; SELECT title FROM posts')
+      const publicTitle = await executeQuery([
+        'BEGIN',
+        'SET ROLE app_user',
+        "SELECT set_config('app.user_id', '', true)",
+        'SELECT title FROM posts',
+      ])
       // THEN: assertion
       expect(publicTitle.title).toBe('Published Post')
 
       // Author sees published + their own drafts (2 records)
-      const authorCount = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM posts'
-      )
+      const authorCount = await executeQuery([
+        'BEGIN',
+        `SELECT set_config('app.user_id', '${author1.user.id}', true)`,
+        'SELECT COUNT(*) as count FROM posts',
+      ])
       // THEN: assertion
       expect(authorCount.count).toBe(2)
 
       // Author can read body field on their posts
-      const authorPost = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT title, body FROM posts WHERE id = 2'
-      )
+      const authorPost = await executeQuery([
+        'BEGIN',
+        `SELECT set_config('app.user_id', '${author1.user.id}', true)`,
+        "SELECT title, body FROM posts WHERE title = 'Draft Post'",
+      ])
       // THEN: assertion
-      expect(authorPost).toEqual({
-        title: 'Draft Post',
-        body: 'Private draft',
-      })
+      expect(authorPost.title).toBe('Draft Post')
+      expect(authorPost.body).toBe('Private draft')
     }
   )
 

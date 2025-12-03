@@ -207,7 +207,7 @@ test.describe('Decimal Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_scores_score'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
+      expect(indexExists.rows[0]).toEqual({
         indexname: 'idx_scores_score',
         tablename: 'scores',
       })
