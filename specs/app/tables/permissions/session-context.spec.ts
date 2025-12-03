@@ -121,8 +121,10 @@ test.describe('Database Session Context Integration', () => {
 
       // WHEN: Setting session context for user1 and querying tasks
       // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
+      // Enable row_security for superuser (FORCE RLS still allows superusers to bypass without this)
       const tasksResult = await executeQuery([
         `BEGIN`,
+        `SET LOCAL row_security = on`,
         `SET LOCAL app.user_id = '${user1.user.id}'`,
         `SELECT id, title FROM tasks ORDER BY id`,
       ])
@@ -181,8 +183,10 @@ test.describe('Database Session Context Integration', () => {
 
       // WHEN: Setting session context for org1 and querying projects
       // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
+      // Enable row_security for superuser (FORCE RLS still allows superusers to bypass without this)
       const projectsResult = await executeQuery([
         `BEGIN`,
+        `SET LOCAL row_security = on`,
         `SET LOCAL app.organization_id = '${org1.organization.id}'`,
         `SELECT id, name FROM projects ORDER BY id`,
       ])
@@ -369,8 +373,10 @@ test.describe('Database Session Context Integration', () => {
       await test.step('Set session context for user1/org1 and verify isolation', async () => {
         // Set session context and query projects
         // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
+        // Enable row_security for superuser (FORCE RLS still allows superusers to bypass without this)
         const projectsResult = await executeQuery([
           `BEGIN`,
+          `SET LOCAL row_security = on`,
           `SET LOCAL app.user_id = '${user1.user.id}'`,
           `SET LOCAL app.organization_id = '${org1.organization.id}'`,
           `SELECT id, name FROM projects ORDER BY id`,
@@ -383,15 +389,22 @@ test.describe('Database Session Context Integration', () => {
 
       await test.step('Query without context and verify access is denied', async () => {
         // Without session context, RLS should deny all access
-        const projectsResult = await executeQuery('SELECT id, name FROM projects')
+        // Enable row_security for superuser (FORCE RLS still allows superusers to bypass without this)
+        const projectsResult = await executeQuery([
+          `BEGIN`,
+          `SET LOCAL row_security = on`,
+          `SELECT id, name FROM projects`,
+        ])
         expect(projectsResult.rows).toHaveLength(0)
       })
 
       await test.step('Switch to user2/org2 and verify different data access', async () => {
         // Set different session context and query projects
         // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
+        // Enable row_security for superuser (FORCE RLS still allows superusers to bypass without this)
         const projectsResult = await executeQuery([
           `BEGIN`,
+          `SET LOCAL row_security = on`,
           `SET LOCAL app.user_id = '${user2.user.id}'`,
           `SET LOCAL app.organization_id = '${org2.organization.id}'`,
           `SELECT id, name FROM projects ORDER BY id`,
