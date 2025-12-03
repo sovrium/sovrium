@@ -8,7 +8,7 @@
 import { generateFieldPermissionGrants } from './field-permission-generators'
 import { createVolatileFormulaTriggers } from './formula-trigger-generators'
 import { generateIndexStatements } from './index-generators'
-import { generateRLSPolicyStatements } from './rls-policy-generators'
+import { generateRLSPolicyStatements, generateBasicTableGrants } from './rls-policy-generators'
 import {
   getExistingColumns,
   generateAlterTableStatements,
@@ -117,8 +117,11 @@ const applyTableFeatures = async (
   // Triggers for volatile formula fields
   await createVolatileFormulaTriggers(tx, table.name, table.fields)
 
-  // RLS policies for organization-scoped tables
+  // RLS policies for organization-scoped tables OR default deny when no permissions
   await executeSQLStatements(tx, generateRLSPolicyStatements(table))
+
+  // Basic table grants for tables with no permissions (default deny)
+  await executeSQLStatements(tx, generateBasicTableGrants(table))
 
   // Field-level permissions (column grants)
   await executeSQLStatements(tx, generateFieldPermissionGrants(table))

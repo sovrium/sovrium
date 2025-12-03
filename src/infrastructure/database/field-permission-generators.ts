@@ -60,7 +60,7 @@ const addBaseFieldsToRestrictedRoles = (
   const restrictedRoles = allRoles.filter((role) => !baseRoles.includes(role))
 
   const firstBaseRole = baseRoles[0]
-  const baseFields = firstBaseRole ? roleFieldsMap.get(firstBaseRole) ?? [] : []
+  const baseFields = firstBaseRole ? (roleFieldsMap.get(firstBaseRole) ?? []) : []
 
   const updatedEntries = restrictedRoles.map((role) => {
     const currentFields = roleFieldsMap.get(role) ?? []

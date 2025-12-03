@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { generateRLSPolicyStatements } from './rls-policy-generators'
+import { generateRLSPolicyStatements, generateBasicTableGrants } from './rls-policy-generators'
 import type { Table } from '@/domain/models/app/table'
 
 describe('generateRLSPolicyStatements', () => {
@@ -71,7 +71,7 @@ describe('generateRLSPolicyStatements', () => {
     expect(statements).toEqual([])
   })
 
-  test('should return empty array when organizationScoped is undefined', () => {
+  test('should enable RLS with no policies when no permissions configured (default deny)', () => {
     const table: Table = {
       id: 1,
       name: 'simple_table',
@@ -82,7 +82,7 @@ describe('generateRLSPolicyStatements', () => {
     }
 
     const statements = generateRLSPolicyStatements(table)
-    expect(statements).toEqual([])
+    expect(statements).toEqual(['ALTER TABLE simple_table ENABLE ROW LEVEL SECURITY'])
   })
 
   test('should return empty array when organization_id field is missing', () => {
@@ -153,5 +153,66 @@ describe('generateRLSPolicyStatements', () => {
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
     expect(statements[8]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+  })
+})
+
+describe('generateBasicTableGrants', () => {
+  test('should generate grants for table with no permissions', () => {
+    const table: Table = {
+      id: 1,
+      name: 'confidential',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'data', type: 'single-line-text' },
+      ],
+    }
+
+    const statements = generateBasicTableGrants(table)
+
+    // Should create roles and grant access
+    expect(statements.length).toBeGreaterThan(0)
+    expect(statements.some((s) => s.includes('CREATE ROLE admin_user'))).toBe(true)
+    expect(statements.some((s) => s.includes('CREATE ROLE member_user'))).toBe(true)
+    expect(statements.some((s) => s.includes('CREATE ROLE authenticated_user'))).toBe(true)
+    expect(statements.some((s) => s.includes('GRANT USAGE ON SCHEMA public TO admin_user'))).toBe(
+      true
+    )
+    expect(statements.some((s) => s.includes('GRANT SELECT ON confidential TO admin_user'))).toBe(
+      true
+    )
+  })
+
+  test('should return empty array for table with organizationScoped', () => {
+    const table: Table = {
+      id: 1,
+      name: 'org_data',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'organization_id', type: 'single-line-text' },
+      ],
+      permissions: {
+        organizationScoped: true,
+      },
+    }
+
+    const statements = generateBasicTableGrants(table)
+    expect(statements).toEqual([])
+  })
+
+  test('should return empty array for table with read permission', () => {
+    const table: Table = {
+      id: 1,
+      name: 'public_data',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'title', type: 'single-line-text' },
+      ],
+      permissions: {
+        read: { type: 'public' },
+      },
+    }
+
+    const statements = generateBasicTableGrants(table)
+    expect(statements).toEqual([])
   })
 })

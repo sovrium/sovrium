@@ -41,9 +41,7 @@ export type ServiceError = Readonly<{
  * @param input - Add member request data with authentication headers
  * @returns Effect that resolves to member data or error
  */
-export const addMember = (
-  input: AddMemberInput
-): Effect.Effect<AddMemberResult, ServiceError> =>
+export const addMember = (input: AddMemberInput): Effect.Effect<AddMemberResult, ServiceError> =>
   Effect.gen(function* () {
     const auth = getDefaultAuthInstance()
 
