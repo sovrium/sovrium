@@ -340,6 +340,7 @@ sovrium/
 - API Routes: `@docs/infrastructure/api/hono-rpc-openapi.md`
 - Database: `@docs/infrastructure/database/drizzle.md`
 - Schemas: `@docs/infrastructure/framework/effect.md`
+- **Email**: `@docs/infrastructure/email/nodemailer.md` (Nodemailer SMTP client)
 - **Email Testing**: `@docs/infrastructure/email/mailpit.md` (Local SMTP with Web UI)
 - **Styling & CSS**: `@docs/infrastructure/ui/tailwind.md`, `@docs/infrastructure/css/css-compiler.md`
 - **Theming Architecture**: `@docs/architecture/patterns/theming-architecture.md`
