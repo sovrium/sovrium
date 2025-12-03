@@ -71,9 +71,53 @@ export const generateCreateTableSQL = (table: Table): string => {
 }
 
 /**
- * Migrate existing table (ALTER statements + constraints + indexes)
+ * Execute SQL statements from a generator
+ * Helper to eliminate duplication in index/trigger/policy creation
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+const executeSQLStatements = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  statements: readonly string[]
+): Promise<void> => {
+  for (const sql of statements) {
+    await tx.unsafe(sql)
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+
+/**
+ * Apply table features (indexes, triggers, RLS policies)
+ * Shared by both createNewTable and migrateExistingTable
+ */
+/* eslint-disable functional/no-expression-statements */
+const applyTableFeatures = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  table: Table
+): Promise<void> => {
+  // Indexes (IF NOT EXISTS prevents errors)
+  await executeSQLStatements(tx, generateIndexStatements(table))
+
+  // Triggers for created-at fields
+  await executeSQLStatements(tx, generateCreatedAtTriggers(table))
+
+  // Triggers for autonumber fields
+  await executeSQLStatements(tx, generateAutonumberTriggers(table))
+
+  // Triggers for updated-by fields
+  await executeSQLStatements(tx, generateUpdatedByTriggers(table))
+
+  // Triggers for volatile formula fields
+  await createVolatileFormulaTriggers(tx, table.name, table.fields)
+
+  // RLS policies for organization-scoped tables
+  await executeSQLStatements(tx, generateRLSPolicyStatements(table))
+}
+/* eslint-enable functional/no-expression-statements */
+
+/**
+ * Migrate existing table (ALTER statements + constraints + indexes)
+ */
+/* eslint-disable functional/no-expression-statements */
 export const migrateExistingTable = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   table: Table,
@@ -89,48 +133,21 @@ export const migrateExistingTable = async (
     await tx.unsafe(createTableSQL)
   } else {
     // Apply incremental migrations
-    for (const alterSQL of alterStatements) {
-      await tx.unsafe(alterSQL)
-    }
+    await executeSQLStatements(tx, alterStatements)
   }
 
   // Always add/update unique constraints for existing tables
   await syncUniqueConstraints(tx, table)
 
-  // Always create indexes (IF NOT EXISTS prevents errors)
-  for (const indexSQL of generateIndexStatements(table)) {
-    await tx.unsafe(indexSQL)
-  }
-
-  // Always create/update triggers for created-at fields
-  for (const triggerSQL of generateCreatedAtTriggers(table)) {
-    await tx.unsafe(triggerSQL)
-  }
-
-  // Always create/update triggers for autonumber fields
-  for (const triggerSQL of generateAutonumberTriggers(table)) {
-    await tx.unsafe(triggerSQL)
-  }
-
-  // Always create/update triggers for updated-by fields
-  for (const triggerSQL of generateUpdatedByTriggers(table)) {
-    await tx.unsafe(triggerSQL)
-  }
-
-  // Always create/update triggers for volatile formula fields
-  await createVolatileFormulaTriggers(tx, table.name, table.fields)
-
-  // Always create/update RLS policies for organization-scoped tables
-  for (const rlsSQL of generateRLSPolicyStatements(table)) {
-    await tx.unsafe(rlsSQL)
-  }
+  // Apply all table features (indexes, triggers, RLS)
+  await applyTableFeatures(tx, table)
 }
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+/* eslint-enable functional/no-expression-statements */
 
 /**
  * Create new table (CREATE statement + indexes + triggers)
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+/* eslint-disable functional/no-expression-statements */
 export const createNewTable = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   table: Table
@@ -138,31 +155,10 @@ export const createNewTable = async (
   const createTableSQL = generateCreateTableSQL(table)
   await tx.unsafe(createTableSQL)
 
-  for (const indexSQL of generateIndexStatements(table)) {
-    await tx.unsafe(indexSQL)
-  }
-
-  for (const triggerSQL of generateCreatedAtTriggers(table)) {
-    await tx.unsafe(triggerSQL)
-  }
-
-  for (const triggerSQL of generateAutonumberTriggers(table)) {
-    await tx.unsafe(triggerSQL)
-  }
-
-  for (const triggerSQL of generateUpdatedByTriggers(table)) {
-    await tx.unsafe(triggerSQL)
-  }
-
-  // Create triggers for volatile formula fields
-  await createVolatileFormulaTriggers(tx, table.name, table.fields)
-
-  // Create RLS policies for organization-scoped tables
-  for (const rlsSQL of generateRLSPolicyStatements(table)) {
-    await tx.unsafe(rlsSQL)
-  }
+  // Apply all table features (indexes, triggers, RLS)
+  await applyTableFeatures(tx, table)
 }
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+/* eslint-enable functional/no-expression-statements */
 
 /**
  * Create or migrate table based on existence
