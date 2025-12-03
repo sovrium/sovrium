@@ -68,6 +68,15 @@ export class DatabaseTemplateManager {
 
     try {
       await migrate(db, { migrationsFolder: './drizzle' })
+
+      // Configure custom session variables for RLS policies
+      // These variables are used by Row-Level Security policies to filter data
+      // based on authenticated user context (user_id, organization_id, role)
+      await templatePool.query(`
+        ALTER DATABASE "${this.templateDbName}" SET app.user_id = '';
+        ALTER DATABASE "${this.templateDbName}" SET app.organization_id = '';
+        ALTER DATABASE "${this.templateDbName}" SET app.user_role = '';
+      `)
     } finally {
       await templatePool.end()
     }

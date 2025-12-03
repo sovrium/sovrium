@@ -63,6 +63,7 @@ test.describe('Database Session Context Integration', () => {
       const org = await createOrganization({ name: 'Test Org' })
 
       // WHEN: Setting session context using SET LOCAL commands and reading them back
+      // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
       const contextResult = await executeQuery([
         `BEGIN`,
         `SET LOCAL app.user_id = '${user.user.id}'`,
@@ -72,7 +73,6 @@ test.describe('Database Session Context Integration', () => {
           current_setting('app.user_id') as user_id,
           current_setting('app.organization_id') as organization_id,
           current_setting('app.user_role') as role`,
-        `COMMIT`,
       ])
 
       // THEN: Session variables should be set correctly
@@ -120,11 +120,11 @@ test.describe('Database Session Context Integration', () => {
       ])
 
       // WHEN: Setting session context for user1 and querying tasks
+      // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
       const tasksResult = await executeQuery([
         `BEGIN`,
         `SET LOCAL app.user_id = '${user1.user.id}'`,
         `SELECT id, title FROM tasks ORDER BY id`,
-        `COMMIT`,
       ])
 
       // THEN: User should only see their own tasks
@@ -180,11 +180,11 @@ test.describe('Database Session Context Integration', () => {
       ])
 
       // WHEN: Setting session context for org1 and querying projects
+      // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
       const projectsResult = await executeQuery([
         `BEGIN`,
         `SET LOCAL app.organization_id = '${org1.organization.id}'`,
         `SELECT id, name FROM projects ORDER BY id`,
-        `COMMIT`,
       ])
 
       // THEN: User should only see org1 projects
@@ -218,17 +218,18 @@ test.describe('Database Session Context Integration', () => {
       const user = await createAuthenticatedUser({ email: 'user@example.com' })
 
       // WHEN: Setting session context
+      // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
       const contextBefore = await executeQuery([
         `BEGIN`,
         `SET LOCAL app.user_id = '${user.user.id}'`,
         `SELECT current_setting('app.user_id') as user_id`,
-        `COMMIT`,
       ])
 
       // THEN: Variable should be set
       expect(contextBefore.rows[0].user_id).toBe(user.user.id)
 
       // WHEN: Clearing session context
+      // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
       const contextAfter = await executeQuery([
         `BEGIN`,
         `RESET app.user_id`,
@@ -238,13 +239,12 @@ test.describe('Database Session Context Integration', () => {
           current_setting('app.user_id', true) as user_id,
           current_setting('app.organization_id', true) as organization_id,
           current_setting('app.user_role', true) as role`,
-        `COMMIT`,
       ])
 
-      // THEN: Variables should be cleared (return null with missing_ok=true)
-      expect(contextAfter.rows[0].user_id).toBeNull()
-      expect(contextAfter.rows[0].organization_id).toBeNull()
-      expect(contextAfter.rows[0].role).toBeNull()
+      // THEN: Variables should be cleared (return empty string - defaults from ALTER DATABASE SET)
+      expect(contextAfter.rows[0].user_id).toBe('')
+      expect(contextAfter.rows[0].organization_id).toBe('')
+      expect(contextAfter.rows[0].role).toBe('')
     }
   )
 
@@ -294,6 +294,7 @@ test.describe('Database Session Context Integration', () => {
       expect(memberResult.rows).toHaveLength(0)
 
       // WHEN: Setting session variables for non-member
+      // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
       const contextResult = await executeQuery([
         `BEGIN`,
         `SET LOCAL app.user_id = '${nonMember.user.id}'`,
@@ -303,7 +304,6 @@ test.describe('Database Session Context Integration', () => {
           current_setting('app.user_id') as user_id,
           current_setting('app.organization_id') as organization_id,
           current_setting('app.user_role') as role`,
-        `COMMIT`,
       ])
 
       // THEN: Should default to 'authenticated' role for non-members
@@ -368,12 +368,12 @@ test.describe('Database Session Context Integration', () => {
 
       await test.step('Set session context for user1/org1 and verify isolation', async () => {
         // Set session context and query projects
+        // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
         const projectsResult = await executeQuery([
           `BEGIN`,
           `SET LOCAL app.user_id = '${user1.user.id}'`,
           `SET LOCAL app.organization_id = '${org1.organization.id}'`,
           `SELECT id, name FROM projects ORDER BY id`,
-          `COMMIT`,
         ])
 
         // Verify RLS filters to only user1's projects in org1
@@ -389,12 +389,12 @@ test.describe('Database Session Context Integration', () => {
 
       await test.step('Switch to user2/org2 and verify different data access', async () => {
         // Set different session context and query projects
+        // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
         const projectsResult = await executeQuery([
           `BEGIN`,
           `SET LOCAL app.user_id = '${user2.user.id}'`,
           `SET LOCAL app.organization_id = '${org2.organization.id}'`,
           `SELECT id, name FROM projects ORDER BY id`,
-          `COMMIT`,
         ])
 
         // Verify RLS filters to only user2's projects in org2

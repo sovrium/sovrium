@@ -247,12 +247,21 @@ const generateOwnerPolicyStatements = (
  * When a table has owner-based permissions (e.g., read: { type: 'owner', field: 'owner_id' }),
  * this generates RLS policies that filter records by the specified owner field.
  *
+ * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
+ * This is critical for E2E tests where the database user is often a superuser.
+ *
  * @param table - Table definition with owner-based permissions
  * @returns Array of SQL statements to enable RLS and create owner-based policies
  */
 const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
   const tableName = table.name
-  const enableRLS = `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`
+
+  // Separate statements for ENABLE and FORCE RLS
+  // FORCE makes RLS apply even to superusers (critical for E2E tests)
+  const enableRLS = [
+    `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
+    `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
+  ]
 
   // Generate owner checks for each operation
   const ownerChecks = {
@@ -290,14 +299,14 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
     ownerChecks.delete
   )
 
-  return [enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
+  return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
 
 /**
  * Generate RLS policy statements for organization-scoped tables or owner-based permissions
  *
  * When a table has `permissions.organizationScoped: true`, this generates:
- * 1. ALTER TABLE statement to enable RLS
+ * 1. ALTER TABLE statement to enable RLS (with FORCE for superusers)
  * 2. CREATE POLICY statements for all CRUD operations
  *
  * The policies filter by organization_id using current_setting('app.organization_id')
@@ -310,8 +319,11 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
  * this generates RLS policies that filter records by the specified owner field.
  *
  * When a table has NO permissions configured at all, this generates:
- * 1. ALTER TABLE statement to enable RLS
+ * 1. ALTER TABLE statement to enable RLS (with FORCE for superusers)
  * 2. NO policies (default deny - all access blocked)
+ *
+ * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
+ * This is critical for E2E tests where the database user is often a superuser.
  *
  * @param table - Table definition with permissions
  * @returns Array of SQL statements to enable RLS and create policies
@@ -320,8 +332,12 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   const tableName = table.name
 
   // If no permissions configured, enable RLS with no policies (default deny)
+  // Use FORCE to apply RLS even to superusers (critical for E2E tests)
   if (hasNoPermissions(table)) {
-    return [`ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`]
+    return [
+      `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
+      `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
+    ]
   }
 
   // Check if table has owner-based permissions
@@ -345,7 +361,10 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
     return []
   }
 
-  const enableRLS = `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`
+  const enableRLS = [
+    `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
+    `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
+  ]
   const orgIdCheck = `organization_id = current_setting('app.organization_id')::TEXT`
 
   const roleChecks = {
@@ -359,5 +378,5 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   const dropPolicies = generateDropPolicies(tableName)
   const createPolicies = generateCreatePolicies(tableName, orgIdCheck, roleChecks)
 
-  return [enableRLS, ...dropPolicies, ...createPolicies]
+  return [...enableRLS, ...dropPolicies, ...createPolicies]
 }
