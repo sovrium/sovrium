@@ -483,7 +483,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-007: should support users in multiple organizations',
     { tag: '@spec' },
     async ({

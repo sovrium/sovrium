@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { chainTableRoutes } from '@/presentation/api/routes'
+import { chainTableRoutes, chainAuthRoutes } from '@/presentation/api/routes'
 import {
   healthResponseSchema,
   type HealthResponse,
@@ -81,7 +81,10 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   })
 
   // Chain table routes (tables, records, views, permissions)
-  return chainTableRoutes(honoWithHealth)
+  const honoWithTables = chainTableRoutes(honoWithHealth)
+
+  // Chain auth routes (organization member management)
+  return chainAuthRoutes(honoWithTables)
 }
 
 /**
