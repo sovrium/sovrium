@@ -21,7 +21,9 @@ const extractRoles = (permission: TablePermission): readonly string[] => {
     return ['authenticated_user']
   }
   if (permission.type === 'public') {
-    return ['authenticated_user', 'admin_user', 'member_user']
+    // Public permissions grant access to everyone including unauthenticated users
+    // PostgreSQL PUBLIC pseudo-role represents all users
+    return ['PUBLIC', 'authenticated_user', 'admin_user', 'member_user']
   }
   return []
 }
@@ -127,7 +129,10 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Generate SQL statements
   const finalRoles = Array.from(roleFieldsWithBase.keys())
 
-  const createRoleStatements = finalRoles.map(
+  // Filter out PUBLIC role from creation (it's a built-in PostgreSQL role)
+  const customRoles = finalRoles.filter((role) => role !== 'PUBLIC')
+
+  const createRoleStatements = customRoles.map(
     (role) => `DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
