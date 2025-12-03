@@ -283,7 +283,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-006: should accept but lowercase the name when constraint name has invalid characters',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -324,7 +324,7 @@ test.describe('Unique Constraints', () => {
         `SELECT conname FROM pg_constraint WHERE conname = 'UQ_TEST' OR conname = 'uq_test'`
       )
       // THEN: assertion
-      expect(constraint.rows[0]).toMatchObject({ conname: 'UQ_TEST' })
+      expect(constraint.rows[0]).toMatchObject({ conname: 'uq_test' })
     }
   )
 
