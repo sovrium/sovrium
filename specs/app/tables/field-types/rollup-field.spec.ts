@@ -300,9 +300,9 @@ test.describe('Rollup Field', () => {
       // THEN: Rollup works efficiently for all departments
       const allDepartments = await executeQuery('SELECT * FROM departments ORDER BY id')
       expect(allDepartments.rows).toEqual([
-        { id: 1, name: 'Engineering', total_salary: 270000 }, // 90k + 85k + 95k
-        { id: 2, name: 'Sales', total_salary: 145000 }, // 70k + 75k
-        { id: 3, name: 'Marketing', total_salary: 60000 },
+        { id: 1, name: 'Engineering', total_salary: 270_000 }, // 90k + 85k + 95k
+        { id: 2, name: 'Sales', total_salary: 145_000 }, // 70k + 75k
+        { id: 3, name: 'Marketing', total_salary: 60_000 },
       ])
 
       // THEN: Can filter departments by computed rollup value
@@ -310,8 +310,8 @@ test.describe('Rollup Field', () => {
         'SELECT * FROM departments WHERE total_salary > 100000 ORDER BY id'
       )
       expect(highBudgetDepts.rows).toEqual([
-        { id: 1, name: 'Engineering', total_salary: 270000 },
-        { id: 2, name: 'Sales', total_salary: 145000 },
+        { id: 1, name: 'Engineering', total_salary: 270_000 },
+        { id: 2, name: 'Sales', total_salary: 145_000 },
       ])
     }
   )
@@ -379,7 +379,7 @@ test.describe('Rollup Field', () => {
 
       // THEN: Can aggregate on rollup fields
       const totalRevenue = await executeQuery('SELECT SUM(revenue_total) as total FROM accounts')
-      expect(totalRevenue.total).toBe(18000) // 8000 + 10000
+      expect(totalRevenue.total).toBe(18_000) // 8000 + 10000
     }
   )
 

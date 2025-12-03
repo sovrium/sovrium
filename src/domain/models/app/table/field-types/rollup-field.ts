@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { BaseFieldSchema } from './base-field'
 import { ViewFiltersSchema } from '../views/filters'
+import { BaseFieldSchema } from './base-field'
 
 export const RollupFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
