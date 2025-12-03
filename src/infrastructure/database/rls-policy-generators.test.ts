@@ -154,6 +154,89 @@ describe('generateRLSPolicyStatements', () => {
     )
     expect(statements[8]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
   })
+
+  test('should generate owner-based RLS policies for UPDATE operations', () => {
+    const table: Table = {
+      id: 1,
+      name: 'documents',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'content', type: 'long-text' },
+        { id: 3, name: 'owner_id', type: 'user' },
+      ],
+      permissions: {
+        update: { type: 'owner', field: 'owner_id' },
+      },
+    }
+
+    const statements = generateRLSPolicyStatements(table)
+
+    // Should enable RLS + DROP + CREATE for UPDATE
+    expect(statements.length).toBeGreaterThan(0)
+    expect(statements[0]).toBe('ALTER TABLE documents ENABLE ROW LEVEL SECURITY')
+
+    // Find UPDATE policy
+    const updatePolicy = statements.find((s) => s.includes('FOR UPDATE'))
+    expect(updatePolicy).toBeDefined()
+    expect(updatePolicy).toContain('CREATE POLICY documents_owner_update ON documents FOR UPDATE')
+    expect(updatePolicy).toContain("owner_id = current_setting('app.user_id')::TEXT")
+
+    // UPDATE should have both USING and WITH CHECK clauses
+    expect(updatePolicy).toContain('USING')
+    expect(updatePolicy).toContain('WITH CHECK')
+  })
+
+  test('should generate owner-based RLS policies for all CRUD operations', () => {
+    const table: Table = {
+      id: 1,
+      name: 'posts',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'title', type: 'single-line-text' },
+        { id: 3, name: 'author_id', type: 'user' },
+      ],
+      permissions: {
+        read: { type: 'owner', field: 'author_id' },
+        create: { type: 'owner', field: 'author_id' },
+        update: { type: 'owner', field: 'author_id' },
+        delete: { type: 'owner', field: 'author_id' },
+      },
+    }
+
+    const statements = generateRLSPolicyStatements(table)
+
+    // Should have: enable RLS + 4 drops + 4 creates
+    expect(statements.length).toBe(9)
+    expect(statements[0]).toBe('ALTER TABLE posts ENABLE ROW LEVEL SECURITY')
+
+    // Check DROP policies
+    expect(statements.filter((s) => s.startsWith('DROP POLICY IF EXISTS'))).toHaveLength(4)
+
+    // Check SELECT policy
+    const selectPolicy = statements.find((s) => s.includes('FOR SELECT'))
+    expect(selectPolicy).toBeDefined()
+    expect(selectPolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(selectPolicy).toContain('USING')
+
+    // Check INSERT policy
+    const insertPolicy = statements.find((s) => s.includes('FOR INSERT'))
+    expect(insertPolicy).toBeDefined()
+    expect(insertPolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(insertPolicy).toContain('WITH CHECK')
+
+    // Check UPDATE policy
+    const updatePolicy = statements.find((s) => s.includes('FOR UPDATE'))
+    expect(updatePolicy).toBeDefined()
+    expect(updatePolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(updatePolicy).toContain('USING')
+    expect(updatePolicy).toContain('WITH CHECK')
+
+    // Check DELETE policy
+    const deletePolicy = statements.find((s) => s.includes('FOR DELETE'))
+    expect(deletePolicy).toBeDefined()
+    expect(deletePolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(deletePolicy).toContain('USING')
+  })
 })
 
 describe('generateBasicTableGrants', () => {
