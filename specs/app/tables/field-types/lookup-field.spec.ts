@@ -481,7 +481,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-007: should lookup different field types (text, number, date)',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-008: should lookup different field types (text, number, date)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Orders table with lookups of different field types
@@ -559,7 +559,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-008: user can complete full lookup-field workflow',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-009: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple lookup fields of different types', async () => {

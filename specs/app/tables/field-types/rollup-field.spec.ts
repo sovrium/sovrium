@@ -478,7 +478,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should support MIN and MAX aggregation with date fields',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-008: should support MIN and MAX aggregation with date fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with date MIN/MAX rollup fields
@@ -544,7 +544,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should apply conditions to filter rollup aggregation',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-009: should apply conditions to filter rollup aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with conditional rollup (filters by status)
@@ -613,7 +613,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should return unique values with ARRAYUNIQUE aggregation',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-010: should return unique values with ARRAYUNIQUE aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with ARRAYUNIQUE rollup (distinct assignees)
@@ -671,7 +671,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-007: user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-011: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple rollup aggregations', async () => {
