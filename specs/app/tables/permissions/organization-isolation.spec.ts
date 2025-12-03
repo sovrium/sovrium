@@ -587,7 +587,7 @@ test.describe('Organization Data Isolation', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-008: organization data isolation workflow',
     { tag: '@regression' },
     async ({
