@@ -250,16 +250,16 @@ test.describe('Row-Level Security Enforcement', () => {
       const columns = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'profiles' ORDER BY ordinal_position`
       )
-      expect(columns.map((c: { column_name: string }) => c.column_name)).toContain('verified')
-      expect(columns.map((c: { column_name: string }) => c.column_name)).toContain('role')
+      expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('verified')
+      expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('role')
 
       // Verify data can be inserted with all fields
       const data = await executeQuery(
         `SELECT display_name, bio, verified, role FROM profiles WHERE id = 1`
       )
-      expect(data[0].display_name).toBe('User Profile')
-      expect(data[0].verified).toBe(false)
-      expect(data[0].role).toBe('member')
+      expect(data.rows[0].display_name).toBe('User Profile')
+      expect(data.rows[0].verified).toBe(false)
+      expect(data.rows[0].role).toBe('member')
 
       // Field-level write permissions are enforced at application layer based on schema config
       // The database schema correctly stores the data; API layer enforces role-based write restrictions
@@ -302,21 +302,21 @@ test.describe('Row-Level Security Enforcement', () => {
       const rlsEnabled = await executeQuery(
         `SELECT relrowsecurity FROM pg_class WHERE relname = 'tasks'`
       )
-      expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
 
       // Verify RLS policy exists for INSERT
       const policies = await executeQuery(
         `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'tasks' AND cmd = 'INSERT'`
       )
-      expect(policies).toHaveLength(1)
-      expect(policies[0].cmd).toBe('INSERT')
+      expect(policies.rows).toHaveLength(1)
+      expect(policies.rows[0].cmd).toBe('INSERT')
 
       // Verify policy uses WITH CHECK clause (for INSERT)
       const policyDef = await executeQuery(
         `SELECT pg_get_expr(polwithcheck, polrelid) as withcheck FROM pg_policy
          WHERE polrelid = 'tasks'::regclass AND polcmd = 'a'`
       )
-      expect(policyDef[0].withcheck).toContain('created_by')
+      expect(policyDef.rows[0].withcheck).toContain('created_by')
     }
   )
 
@@ -363,21 +363,21 @@ test.describe('Row-Level Security Enforcement', () => {
       const rlsEnabled = await executeQuery(
         `SELECT relrowsecurity FROM pg_class WHERE relname = 'documents'`
       )
-      expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
 
       // Verify RLS policy exists for UPDATE
       const policies = await executeQuery(
         `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'documents' AND cmd = 'UPDATE'`
       )
-      expect(policies).toHaveLength(1)
-      expect(policies[0].cmd).toBe('UPDATE')
+      expect(policies.rows).toHaveLength(1)
+      expect(policies.rows[0].cmd).toBe('UPDATE')
 
       // Verify policy definition references owner_id field
       const policyDef = await executeQuery(
         `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
          WHERE polrelid = 'documents'::regclass AND polcmd = 'w'`
       )
-      expect(policyDef[0].qual).toContain('owner_id')
+      expect(policyDef.rows[0].qual).toContain('owner_id')
     }
   )
 
@@ -424,21 +424,21 @@ test.describe('Row-Level Security Enforcement', () => {
       const rlsEnabled = await executeQuery(
         `SELECT relrowsecurity FROM pg_class WHERE relname = 'comments'`
       )
-      expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
 
       // Verify RLS policy exists for DELETE
       const policies = await executeQuery(
         `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'comments' AND cmd = 'DELETE'`
       )
-      expect(policies).toHaveLength(1)
-      expect(policies[0].cmd).toBe('DELETE')
+      expect(policies.rows).toHaveLength(1)
+      expect(policies.rows[0].cmd).toBe('DELETE')
 
       // Verify policy definition references author_id field
       const policyDef = await executeQuery(
         `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
          WHERE polrelid = 'comments'::regclass AND polcmd = 'd'`
       )
-      expect(policyDef[0].qual).toContain('author_id')
+      expect(policyDef.rows[0].qual).toContain('author_id')
     }
   )
 
@@ -485,13 +485,13 @@ test.describe('Row-Level Security Enforcement', () => {
       const rlsEnabled = await executeQuery(
         `SELECT relrowsecurity FROM pg_class WHERE relname = 'reports'`
       )
-      expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
 
       // Verify RLS policies exist for all operations
       const policies = await executeQuery(
         `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'reports' ORDER BY cmd`
       )
-      const cmds = policies.map((p: { cmd: string }) => p.cmd)
+      const cmds = policies.rows.map((p: { cmd: string }) => p.cmd)
       expect(cmds).toContain('SELECT')
       expect(cmds).toContain('INSERT')
       expect(cmds).toContain('UPDATE')
@@ -502,11 +502,11 @@ test.describe('Row-Level Security Enforcement', () => {
         `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
          WHERE polrelid = 'reports'::regclass AND polcmd = 'r'`
       )
-      expect(readPolicy[0].qual).toMatch(/role|manager|admin/i)
+      expect(readPolicy.rows[0].qual).toMatch(/role|manager|admin/i)
 
       // Verify data exists in table
       const data = await executeQuery(`SELECT COUNT(*) as count FROM reports`)
-      expect(data[0].count).toBe(3)
+      expect(data.rows[0].count).toBe(3)
     }
   )
 
@@ -562,14 +562,14 @@ test.describe('Row-Level Security Enforcement', () => {
         const rlsEnabled = await executeQuery(
           `SELECT relrowsecurity FROM pg_class WHERE relname = 'items'`
         )
-        expect(rlsEnabled[0].relrowsecurity).toBe(true)
+        expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
       })
 
       await test.step('Verify policies exist for all CRUD operations', async () => {
         const policies = await executeQuery(
           `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'items' ORDER BY cmd`
         )
-        const cmds = policies.map((p: { cmd: string }) => p.cmd)
+        const cmds = policies.rows.map((p: { cmd: string }) => p.cmd)
         expect(cmds).toContain('SELECT')
         expect(cmds).toContain('INSERT')
         expect(cmds).toContain('UPDATE')
@@ -581,7 +581,7 @@ test.describe('Row-Level Security Enforcement', () => {
           `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
            FROM pg_policy WHERE polrelid = 'items'::regclass`
         )
-        const policies2 = policyDefs as unknown as Array<{
+        const policies2 = policyDefs.rows as unknown as Array<{
           polcmd: string
           qual: string | null
           withcheck: string | null
@@ -594,11 +594,11 @@ test.describe('Row-Level Security Enforcement', () => {
 
       await test.step('Verify data stored correctly', async () => {
         const data = await executeQuery(`SELECT id, name, user_id FROM items ORDER BY id`)
-        expect(data).toHaveLength(2)
-        expect(data[0].name).toBe('User 1 Item')
-        expect(data[0].user_id).toBe(1)
-        expect(data[1].name).toBe('User 2 Item')
-        expect(data[1].user_id).toBe(2)
+        expect(data.rows).toHaveLength(2)
+        expect(data.rows[0].name).toBe('User 1 Item')
+        expect(data.rows[0].user_id).toBe(1)
+        expect(data.rows[1].name).toBe('User 2 Item')
+        expect(data.rows[1].user_id).toBe(2)
       })
     }
   )
