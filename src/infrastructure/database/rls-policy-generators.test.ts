@@ -101,4 +101,57 @@ describe('generateRLSPolicyStatements', () => {
     const statements = generateRLSPolicyStatements(table)
     expect(statements).toEqual([])
   })
+
+  test('should combine organization scope with role-based permissions', () => {
+    const table: Table = {
+      id: 1,
+      name: 'internal_docs',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'content', type: 'long-text' },
+        { id: 3, name: 'organization_id', type: 'single-line-text' },
+      ],
+      permissions: {
+        organizationScoped: true,
+        read: { type: 'roles', roles: ['admin', 'member'] },
+        create: { type: 'roles', roles: ['admin'] },
+        update: { type: 'roles', roles: ['admin'] },
+        delete: { type: 'roles', roles: ['admin'] },
+      },
+    }
+
+    const statements = generateRLSPolicyStatements(table)
+
+    expect(statements).toHaveLength(9) // Enable RLS + 4 drops + 4 creates
+
+    // Check SELECT policy combines organization + role check
+    expect(statements[5]).toContain('FOR SELECT')
+    expect(statements[5]).toContain(
+      "organization_id = current_setting('app.organization_id')::TEXT"
+    )
+    expect(statements[5]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+    expect(statements[5]).toContain("current_setting('app.user_role')::TEXT = 'member'")
+    expect(statements[5]).toContain('OR') // admin OR member
+
+    // Check INSERT policy combines organization + admin-only
+    expect(statements[6]).toContain('FOR INSERT')
+    expect(statements[6]).toContain(
+      "organization_id = current_setting('app.organization_id')::TEXT"
+    )
+    expect(statements[6]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+
+    // Check UPDATE policy combines organization + admin-only
+    expect(statements[7]).toContain('FOR UPDATE')
+    expect(statements[7]).toContain(
+      "organization_id = current_setting('app.organization_id')::TEXT"
+    )
+    expect(statements[7]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+
+    // Check DELETE policy combines organization + admin-only
+    expect(statements[8]).toContain('FOR DELETE')
+    expect(statements[8]).toContain(
+      "organization_id = current_setting('app.organization_id')::TEXT"
+    )
+    expect(statements[8]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+  })
 })
