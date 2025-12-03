@@ -24,7 +24,7 @@ test.describe('Table Permissions', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-001: should deny access before field/record checks when user lacks table-level read permission',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -41,7 +41,6 @@ test.describe('Table Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'secret', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -56,8 +55,13 @@ test.describe('Table Permissions', () => {
 
       await executeQuery([
         'ALTER TABLE admin_data ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY admin_only ON admin_data FOR SELECT USING (auth.user_has_role('admin'))",
-        "INSERT INTO admin_data (secret, owner_id) VALUES ('Secret 1', 1)",
+        'ALTER TABLE admin_data FORCE ROW LEVEL SECURITY',
+        "CREATE POLICY admin_only_select ON admin_data FOR SELECT USING (auth.user_has_role('admin'))",
+        "CREATE POLICY admin_only_insert ON admin_data FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
+        'BEGIN',
+        "SET LOCAL app.user_role = 'admin'",
+        "INSERT INTO admin_data (secret) VALUES ('Secret 1')",
+        'COMMIT',
       ])
 
       // WHEN: user attempts to list records
@@ -66,19 +70,33 @@ test.describe('Table Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='admin_data'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(1)
+      expect(policyCount.count).toBe(2)
 
-      // Admin user can SELECT records
-      const adminResult = await executeQuery(
-        'SET ROLE admin_user; SELECT COUNT(*) as count FROM admin_data'
-      )
+      // Grant permissions to test roles
+      // IMPORTANT: PostgreSQL superusers ALWAYS bypass RLS (even with FORCE ROW LEVEL SECURITY).
+      // Must use non-superuser roles (admin_user, member_user) to properly test RLS policies.
+      await executeQuery([
+        'GRANT USAGE ON SCHEMA auth TO admin_user, member_user',
+        'GRANT SELECT ON admin_data TO admin_user, member_user',
+      ])
+
+      // Admin user can SELECT records (switch to non-superuser role)
+      const adminResult = await executeQuery([
+        'BEGIN',
+        'SET ROLE admin_user',
+        "SET LOCAL app.user_role = 'admin'",
+        'SELECT COUNT(*) as count FROM admin_data',
+      ])
       // THEN: assertion
       expect(adminResult.count).toBe(1)
 
       // Member user cannot SELECT records (table-level denied)
-      const memberResult = await executeQuery(
-        'SET ROLE member_user; SELECT COUNT(*) as count FROM admin_data'
-      )
+      const memberResult = await executeQuery([
+        'BEGIN',
+        'SET ROLE member_user',
+        "SET LOCAL app.user_role = 'member'",
+        'SELECT COUNT(*) as count FROM admin_data',
+      ])
       // THEN: assertion
       expect(memberResult.count).toBe(0)
 
