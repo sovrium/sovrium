@@ -217,7 +217,7 @@ test.describe('DateTime Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATETIME-007: should display time in 12-hour format when timeFormat is 12-hour',
+    'APP-TABLES-FIELD-TYPES-DATETIME-006: should display time in 12-hour format when timeFormat is 12-hour',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with datetime field configured with 12-hour time format
@@ -250,7 +250,7 @@ test.describe('DateTime Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATETIME-008: should display time in 24-hour format when timeFormat is 24-hour',
+    'APP-TABLES-FIELD-TYPES-DATETIME-007: should display time in 24-hour format when timeFormat is 24-hour',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with datetime field configured with 24-hour time format
@@ -283,7 +283,7 @@ test.describe('DateTime Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATETIME-009: should display datetime with specific timezone when timeZone is configured',
+    'APP-TABLES-FIELD-TYPES-DATETIME-008: should display datetime with specific timezone when timeZone is configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with datetime field configured with specific timezone
@@ -319,7 +319,7 @@ test.describe('DateTime Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATETIME-010: should use local timezone when timeZone is set to local',
+    'APP-TABLES-FIELD-TYPES-DATETIME-009: should use local timezone when timeZone is set to local',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with datetime field configured to use local timezone
@@ -354,7 +354,7 @@ test.describe('DateTime Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-DATETIME-011: user can complete full datetime-field workflow',
+    'APP-TABLES-FIELD-TYPES-DATETIME-010: user can complete full datetime-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with datetime field', async () => {

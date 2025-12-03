@@ -217,7 +217,7 @@ test.describe('Date Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATE-007: should display date in US format (M/D/YYYY) when dateFormat is US',
+    'APP-TABLES-FIELD-TYPES-DATE-006: should display date in US format (M/D/YYYY) when dateFormat is US',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with date field configured with US format
@@ -250,7 +250,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATE-008: should display date in European format (D/M/YYYY) when dateFormat is European',
+    'APP-TABLES-FIELD-TYPES-DATE-007: should display date in European format (D/M/YYYY) when dateFormat is European',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with date field configured with European format
@@ -283,7 +283,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATE-009: should display date in ISO format (YYYY-MM-DD) when dateFormat is ISO',
+    'APP-TABLES-FIELD-TYPES-DATE-008: should display date in ISO format (YYYY-MM-DD) when dateFormat is ISO',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with date field configured with ISO format
@@ -316,7 +316,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATE-010: should include time component when includeTime is true',
+    'APP-TABLES-FIELD-TYPES-DATE-009: should include time component when includeTime is true',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with date field configured to include time
@@ -349,7 +349,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DATE-011: should handle timezone conversion when timeZone is specified',
+    'APP-TABLES-FIELD-TYPES-DATE-010: should handle timezone conversion when timeZone is specified',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with date field configured with specific timezone
@@ -386,7 +386,7 @@ test.describe('Date Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-DATE-012: user can complete full date-field workflow',
+    'APP-TABLES-FIELD-TYPES-DATE-011: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with date field', async () => {

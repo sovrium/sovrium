@@ -155,7 +155,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: should restrict file uploads to allowed MIME types',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: should restrict file uploads to allowed MIME types',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with single-attachment field restricted to images only
@@ -190,7 +190,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-008: should enforce maximum file size limit',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: should enforce maximum file size limit',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with single-attachment field with 5MB max file size
@@ -224,7 +224,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-009: should generate thumbnails for image attachments',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-008: should generate thumbnails for image attachments',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, page }) => {
       // GIVEN: table with single-attachment field configured for thumbnail generation
@@ -259,7 +259,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-010: should store image dimensions in metadata',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-009: should store image dimensions in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with single-attachment field for images
@@ -297,7 +297,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-011: should store video duration in metadata',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-010: should store video duration in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with single-attachment field for videos
@@ -338,7 +338,7 @@ test.describe('Single Attachment Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-012: user can complete full single-attachment-field workflow',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-011: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with single-attachment field', async () => {

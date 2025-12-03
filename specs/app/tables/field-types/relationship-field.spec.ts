@@ -480,7 +480,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-012: should create reciprocal link field in related table',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-011: should create reciprocal link field in related table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with bidirectional relationship
@@ -550,7 +550,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-013: should enforce single link when allowMultiple is false',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-012: should enforce single link when allowMultiple is false',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-link constraint
@@ -605,7 +605,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: should limit linkable records to specified view',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-013: should limit linkable records to specified view',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with view-limited relationship
@@ -676,7 +676,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: user can complete full relationship-field workflow',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create tables with various relationship types', async () => {

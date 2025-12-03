@@ -344,7 +344,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-007: should compute absolute value with ABS function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-006: should compute absolute value with ABS function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -384,7 +384,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-008: should compute average with inline calculation',
+    'APP-TABLES-FIELD-TYPES-FORMULA-007: should compute average with inline calculation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with multiple numeric fields
@@ -420,7 +420,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-009: should round up with CEIL function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-008: should round up with CEIL function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -460,7 +460,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-010: should round to nearest even number with EVEN formula',
+    'APP-TABLES-FIELD-TYPES-FORMULA-009: should round to nearest even number with EVEN formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -503,7 +503,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-011: should compute exponential with EXP function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-010: should compute exponential with EXP function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -547,7 +547,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-012: should round down with FLOOR function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-011: should round down with FLOOR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -587,7 +587,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-013: should truncate to integer with TRUNC function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-012: should truncate to integer with TRUNC function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -627,7 +627,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-014: should compute logarithm with LOG function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-013: should compute logarithm with LOG function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -667,7 +667,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-015: should compute natural logarithm with LN function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-014: should compute natural logarithm with LN function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -706,7 +706,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-016: should find maximum with GREATEST function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-015: should find maximum with GREATEST function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -745,7 +745,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-017: should find minimum with LEAST function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-016: should find minimum with LEAST function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -784,7 +784,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-018: should compute modulo with MOD function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-017: should compute modulo with MOD function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -825,7 +825,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-019: should round to nearest odd number with ODD formula',
+    'APP-TABLES-FIELD-TYPES-FORMULA-018: should round to nearest odd number with ODD formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -868,7 +868,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-020: should compute power with POWER function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-019: should compute power with POWER function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -909,7 +909,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-021: should round down with TRUNC for precision',
+    'APP-TABLES-FIELD-TYPES-FORMULA-020: should round down with TRUNC for precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -949,7 +949,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-022: should round up with precision calculation',
+    'APP-TABLES-FIELD-TYPES-FORMULA-021: should round up with precision calculation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -989,7 +989,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-023: should compute square root with SQRT function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-022: should compute square root with SQRT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1031,7 +1031,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-024: should compute sum of multiple fields',
+    'APP-TABLES-FIELD-TYPES-FORMULA-023: should compute sum of multiple fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1070,7 +1070,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-025: should convert text to number with CAST',
+    'APP-TABLES-FIELD-TYPES-FORMULA-024: should convert text to number with CAST',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1107,7 +1107,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-026: should count non-null values with CASE expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-025: should count non-null values with CASE expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1152,7 +1152,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-027: should return first non-null value with COALESCE',
+    'APP-TABLES-FIELD-TYPES-FORMULA-026: should return first non-null value with COALESCE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1206,7 +1206,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-028: should concatenate text with || operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-027: should concatenate text with || operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1248,7 +1248,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-029: should extract left characters with LEFT function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-028: should extract left characters with LEFT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1285,7 +1285,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-030: should extract right characters with RIGHT function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-029: should extract right characters with RIGHT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1322,7 +1322,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-031: should extract substring with SUBSTR function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-030: should extract substring with SUBSTR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1356,7 +1356,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-032: should compute string length with LENGTH function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-031: should compute string length with LENGTH function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1396,7 +1396,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-033: should convert to lowercase with LOWER function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-032: should convert to lowercase with LOWER function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1433,7 +1433,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-034: should convert to uppercase with UPPER function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-033: should convert to uppercase with UPPER function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1470,7 +1470,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-035: should remove whitespace with TRIM function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-034: should remove whitespace with TRIM function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1507,7 +1507,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-036: should find substring position with STRPOS function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-035: should find substring position with STRPOS function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1544,7 +1544,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-037: should return null for not found with NULLIF pattern',
+    'APP-TABLES-FIELD-TYPES-FORMULA-036: should return null for not found with NULLIF pattern',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1581,7 +1581,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-038: should replace substring with OVERLAY function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-037: should replace substring with OVERLAY function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1615,7 +1615,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-039: should substitute all occurrences with REPLACE function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-038: should substitute all occurrences with REPLACE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1652,7 +1652,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-040: should repeat text with REPEAT function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-039: should repeat text with REPEAT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1690,7 +1690,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-041: should convert to text with CASE expression for T function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-040: should convert to text with CASE expression for T function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1727,7 +1727,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-042: should split text into array with STRING_TO_ARRAY',
+    'APP-TABLES-FIELD-TYPES-FORMULA-041: should split text into array with STRING_TO_ARRAY',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1764,7 +1764,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-043: should convert ASCII code to character with CHR function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-042: should convert ASCII code to character with CHR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1804,7 +1804,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-044: should convert character to ASCII code with ASCII function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-043: should convert character to ASCII code with ASCII function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1844,7 +1844,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-045: should encode to base64 with ENCODE function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-044: should encode to base64 with ENCODE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1878,7 +1878,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-046: should decode from base64 with DECODE function',
+    'APP-TABLES-FIELD-TYPES-FORMULA-045: should decode from base64 with DECODE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -1912,7 +1912,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-047: should URL encode with custom expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-046: should URL encode with custom expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration (limited URL encoding via REPLACE)
@@ -1953,7 +1953,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-048: should evaluate IF with CASE WHEN expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-047: should evaluate IF with CASE WHEN expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -1990,7 +1990,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-049: should evaluate OR logical operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-048: should evaluate OR logical operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2020,7 +2020,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-050: should evaluate XOR logical operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-049: should evaluate XOR logical operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2056,7 +2056,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-051: should evaluate SWITCH with CASE expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-050: should evaluate SWITCH with CASE expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2096,7 +2096,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-052: should return TRUE boolean constant',
+    'APP-TABLES-FIELD-TYPES-FORMULA-051: should return TRUE boolean constant',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2127,7 +2127,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-053: should return FALSE boolean constant',
+    'APP-TABLES-FIELD-TYPES-FORMULA-052: should return FALSE boolean constant',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2158,7 +2158,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-054: should return NULL with BLANK expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-053: should return NULL with BLANK expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2183,7 +2183,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-055: should handle error with custom expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-054: should handle error with custom expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2213,7 +2213,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-056: should detect errors with guarded expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-055: should detect errors with guarded expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2247,7 +2247,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-057: should check for blank with IS NULL',
+    'APP-TABLES-FIELD-TYPES-FORMULA-056: should check for blank with IS NULL',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2281,7 +2281,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-058: should use COALESCE for default values',
+    'APP-TABLES-FIELD-TYPES-FORMULA-057: should use COALESCE for default values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2319,7 +2319,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-059: should compare date with CURRENT_DATE',
+    'APP-TABLES-FIELD-TYPES-FORMULA-058: should compare date with CURRENT_DATE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2350,7 +2350,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-060: should add interval to date',
+    'APP-TABLES-FIELD-TYPES-FORMULA-059: should add interval to date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2382,7 +2382,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-061: should compute date difference',
+    'APP-TABLES-FIELD-TYPES-FORMULA-060: should compute date difference',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2416,7 +2416,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-062: should format date with TO_CHAR',
+    'APP-TABLES-FIELD-TYPES-FORMULA-061: should format date with TO_CHAR',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2447,7 +2447,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-063: should parse date from text',
+    'APP-TABLES-FIELD-TYPES-FORMULA-062: should parse date from text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2478,7 +2478,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-064: should extract year from date',
+    'APP-TABLES-FIELD-TYPES-FORMULA-063: should extract year from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2507,7 +2507,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-065: should extract month from date',
+    'APP-TABLES-FIELD-TYPES-FORMULA-064: should extract month from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2536,7 +2536,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-066: should extract day from date',
+    'APP-TABLES-FIELD-TYPES-FORMULA-065: should extract day from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2565,7 +2565,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-067: should extract hour from timestamp',
+    'APP-TABLES-FIELD-TYPES-FORMULA-066: should extract hour from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2594,7 +2594,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-068: should extract minute from timestamp',
+    'APP-TABLES-FIELD-TYPES-FORMULA-067: should extract minute from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2623,7 +2623,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-069: should extract second from timestamp',
+    'APP-TABLES-FIELD-TYPES-FORMULA-068: should extract second from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2652,7 +2652,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-070: should get day of week',
+    'APP-TABLES-FIELD-TYPES-FORMULA-069: should get day of week',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2681,7 +2681,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-071: should get week number',
+    'APP-TABLES-FIELD-TYPES-FORMULA-070: should get week number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2710,7 +2710,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-072: should check if date is weekday',
+    'APP-TABLES-FIELD-TYPES-FORMULA-071: should check if date is weekday',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2744,7 +2744,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-073: should count calendar days between dates',
+    'APP-TABLES-FIELD-TYPES-FORMULA-072: should count calendar days between dates',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2778,7 +2778,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-074: should compare dates at same precision',
+    'APP-TABLES-FIELD-TYPES-FORMULA-073: should compare dates at same precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2815,7 +2815,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-075: should check if date is after another',
+    'APP-TABLES-FIELD-TYPES-FORMULA-074: should check if date is after another',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2852,7 +2852,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-076: should check if date is before another',
+    'APP-TABLES-FIELD-TYPES-FORMULA-075: should check if date is before another',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2894,7 +2894,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-077: should join array elements with ARRAY_TO_STRING',
+    'APP-TABLES-FIELD-TYPES-FORMULA-076: should join array elements with ARRAY_TO_STRING',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // TODO: Deferred - requires lookup fields for array values
@@ -2926,7 +2926,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-078: should get unique array elements',
+    'APP-TABLES-FIELD-TYPES-FORMULA-077: should get unique array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // TODO: Deferred - requires lookup fields for array values
@@ -2960,7 +2960,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-079: should remove empty elements from array',
+    'APP-TABLES-FIELD-TYPES-FORMULA-078: should remove empty elements from array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -2991,7 +2991,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-080: should flatten nested arrays',
+    'APP-TABLES-FIELD-TYPES-FORMULA-079: should flatten nested arrays',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // TODO: Deferred - complex nested array handling
@@ -3023,7 +3023,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-081: should slice array elements',
+    'APP-TABLES-FIELD-TYPES-FORMULA-080: should slice array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3052,7 +3052,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-082: should count array elements',
+    'APP-TABLES-FIELD-TYPES-FORMULA-081: should count array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3085,7 +3085,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-083: should return record ID',
+    'APP-TABLES-FIELD-TYPES-FORMULA-082: should return record ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3109,7 +3109,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-084: should return created timestamp',
+    'APP-TABLES-FIELD-TYPES-FORMULA-083: should return created timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3140,7 +3140,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-085: should return last modified timestamp',
+    'APP-TABLES-FIELD-TYPES-FORMULA-084: should return last modified timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3175,7 +3175,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-086: should match regex pattern',
+    'APP-TABLES-FIELD-TYPES-FORMULA-085: should match regex pattern',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3207,7 +3207,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-087: should extract regex match',
+    'APP-TABLES-FIELD-TYPES-FORMULA-086: should extract regex match',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3241,7 +3241,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-088: should replace with regex',
+    'APP-TABLES-FIELD-TYPES-FORMULA-087: should replace with regex',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3276,7 +3276,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-089: should compute modulo with % operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-088: should compute modulo with % operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3300,7 +3300,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-090: should handle NULL in arithmetic',
+    'APP-TABLES-FIELD-TYPES-FORMULA-089: should handle NULL in arithmetic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3324,7 +3324,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-091: should handle division by zero',
+    'APP-TABLES-FIELD-TYPES-FORMULA-090: should handle division by zero',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3357,7 +3357,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-092: should coerce number to text',
+    'APP-TABLES-FIELD-TYPES-FORMULA-091: should coerce number to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3380,7 +3380,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-093: should coerce text to number',
+    'APP-TABLES-FIELD-TYPES-FORMULA-092: should coerce text to number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3409,7 +3409,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-094: should handle nested function calls',
+    'APP-TABLES-FIELD-TYPES-FORMULA-093: should handle nested function calls',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3438,7 +3438,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-095: should concatenate with & operator equivalent',
+    'APP-TABLES-FIELD-TYPES-FORMULA-094: should concatenate with & operator equivalent',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3470,7 +3470,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-096: should compare with = operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-095: should compare with = operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3499,7 +3499,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-097: should compare with != operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-096: should compare with != operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3534,7 +3534,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-098: should compare with < operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-097: should compare with < operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3563,7 +3563,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-099: should compare with > operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-098: should compare with > operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3598,7 +3598,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-100: should compare with <= operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-099: should compare with <= operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3630,7 +3630,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-101: should compare with >= operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-100: should compare with >= operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3662,7 +3662,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-102: should apply unary minus operator',
+    'APP-TABLES-FIELD-TYPES-FORMULA-101: should apply unary minus operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3686,7 +3686,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-103: should respect parentheses grouping',
+    'APP-TABLES-FIELD-TYPES-FORMULA-102: should respect parentheses grouping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3717,7 +3717,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-104: should mix arithmetic and text',
+    'APP-TABLES-FIELD-TYPES-FORMULA-103: should mix arithmetic and text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3747,7 +3747,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-105: should coerce boolean to text',
+    'APP-TABLES-FIELD-TYPES-FORMULA-104: should coerce boolean to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3777,7 +3777,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-106: should coerce date to text',
+    'APP-TABLES-FIELD-TYPES-FORMULA-105: should coerce date to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3808,7 +3808,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-107: should handle empty string',
+    'APP-TABLES-FIELD-TYPES-FORMULA-106: should handle empty string',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3838,7 +3838,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-108: should handle whitespace in formulas',
+    'APP-TABLES-FIELD-TYPES-FORMULA-107: should handle whitespace in formulas',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3868,7 +3868,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-109: should handle case sensitivity in field names',
+    'APP-TABLES-FIELD-TYPES-FORMULA-108: should handle case sensitivity in field names',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3897,7 +3897,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-110: should handle reserved word escaping',
+    'APP-TABLES-FIELD-TYPES-FORMULA-109: should handle reserved word escaping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3926,7 +3926,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-111: should handle long formula expressions',
+    'APP-TABLES-FIELD-TYPES-FORMULA-110: should handle long formula expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3958,7 +3958,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-112: should handle deeply nested expressions',
+    'APP-TABLES-FIELD-TYPES-FORMULA-111: should handle deeply nested expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -3987,7 +3987,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-113: should support multiple formula fields',
+    'APP-TABLES-FIELD-TYPES-FORMULA-112: should support multiple formula fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4035,7 +4035,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-114: should reference another formula field',
+    'APP-TABLES-FIELD-TYPES-FORMULA-113: should reference another formula field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Note: PostgreSQL GENERATED columns cannot reference other generated columns
@@ -4066,7 +4066,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-115: should handle all NULL inputs',
+    'APP-TABLES-FIELD-TYPES-FORMULA-114: should handle all NULL inputs',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4100,7 +4100,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-116: should handle complex nested expression',
+    'APP-TABLES-FIELD-TYPES-FORMULA-115: should handle complex nested expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4133,7 +4133,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-117: should calculate invoice total',
+    'APP-TABLES-FIELD-TYPES-FORMULA-116: should calculate invoice total',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4166,7 +4166,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-118: should calculate discount pricing',
+    'APP-TABLES-FIELD-TYPES-FORMULA-117: should calculate discount pricing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4200,7 +4200,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-119: should calculate age from birthdate',
+    'APP-TABLES-FIELD-TYPES-FORMULA-118: should calculate age from birthdate',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4230,7 +4230,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-120: should derive status from conditions',
+    'APP-TABLES-FIELD-TYPES-FORMULA-119: should derive status from conditions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4271,7 +4271,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-121: should format full name',
+    'APP-TABLES-FIELD-TYPES-FORMULA-120: should format full name',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4303,7 +4303,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-122: should generate URL slug',
+    'APP-TABLES-FIELD-TYPES-FORMULA-121: should generate URL slug',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4334,7 +4334,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-FORMULA-123: should track deadline status',
+    'APP-TABLES-FIELD-TYPES-FORMULA-122: should track deadline status',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
@@ -4371,7 +4371,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-FORMULA-124: user can complete full formula-field workflow',
+    'APP-TABLES-FIELD-TYPES-FORMULA-123: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with formula field', async () => {

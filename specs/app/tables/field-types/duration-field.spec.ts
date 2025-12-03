@@ -192,7 +192,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DURATION-007: should display duration in h:mm format when displayFormat is h:mm',
+    'APP-TABLES-FIELD-TYPES-DURATION-006: should display duration in h:mm format when displayFormat is h:mm',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with duration field configured with h:mm format
@@ -225,7 +225,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DURATION-008: should display duration in h:mm:ss format when displayFormat is h:mm:ss',
+    'APP-TABLES-FIELD-TYPES-DURATION-007: should display duration in h:mm:ss format when displayFormat is h:mm:ss',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with duration field configured with h:mm:ss format
@@ -258,7 +258,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DURATION-009: should display duration in decimal format when displayFormat is decimal',
+    'APP-TABLES-FIELD-TYPES-DURATION-008: should display duration in decimal format when displayFormat is decimal',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with duration field configured with decimal format
@@ -291,7 +291,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-DURATION-010: should parse various input formats to duration',
+    'APP-TABLES-FIELD-TYPES-DURATION-009: should parse various input formats to duration',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with duration field
@@ -342,7 +342,7 @@ test.describe('Duration Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-DURATION-011: user can complete full duration-field workflow',
+    'APP-TABLES-FIELD-TYPES-DURATION-010: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with duration field', async () => {

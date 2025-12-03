@@ -240,7 +240,7 @@ test.describe('Currency Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-007: should display currency with EUR symbol when currency is EUR',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-006: should display currency with EUR symbol when currency is EUR',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with currency field configured with EUR currency
@@ -273,7 +273,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-008: should display symbol after amount when symbolPosition is after',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-007: should display symbol after amount when symbolPosition is after',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with currency field configured with symbol after amount
@@ -307,7 +307,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-009: should format with specified decimal precision',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-008: should format with specified decimal precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with currency field configured with 0 decimal places
@@ -341,7 +341,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-010: should display negative amounts in parentheses when negativeFormat is parentheses',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-009: should display negative amounts in parentheses when negativeFormat is parentheses',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with currency field configured to use parentheses for negatives
@@ -375,7 +375,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-011: should use specified thousands separator',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-010: should use specified thousands separator',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with currency field configured with space as thousands separator
@@ -409,7 +409,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-012: should use period as thousands separator when configured',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-011: should use period as thousands separator when configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
       // GIVEN: table with currency field configured with period as thousands separator
@@ -443,7 +443,7 @@ test.describe('Currency Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-013: user can complete full currency-field workflow',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-012: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with currency field', async () => {
