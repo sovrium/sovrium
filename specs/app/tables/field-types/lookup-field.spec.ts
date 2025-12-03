@@ -140,10 +140,16 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize server with minimal schema to enable database access
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE companies (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -157,14 +163,16 @@ test.describe('Lookup Field', () => {
         "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-001'"
       )
       // THEN: assertion
-      expect(withRelationship).toEqual({ invoice_number: 'INV-001', company_name: 'Acme Corp' })
+      expect(withRelationship.invoice_number).toBe('INV-001')
+      expect(withRelationship.company_name).toBe('Acme Corp')
 
       // WHEN: executing query
       const nullRelationship = await executeQuery(
         "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-002'"
       )
       // THEN: assertion
-      expect(nullRelationship).toEqual({ invoice_number: 'INV-002', company_name: null })
+      expect(nullRelationship.invoice_number).toBe('INV-002')
+      expect(nullRelationship.company_name).toBe(null)
 
       // WHEN: executing query
       const allRecords = await executeQuery(
