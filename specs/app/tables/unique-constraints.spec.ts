@@ -124,7 +124,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-003: should create composite unique index with 2 fields (minimum required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -172,7 +172,7 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('John', 'Smith'), ('Jane', 'Doe') RETURNING id`
       )
       // THEN: assertion
-      expect(insert.rows[0]).toMatchObject({ id: 3 })
+      expect(insert.rows[2]).toMatchObject({ id: 3 })
     }
   )
 
