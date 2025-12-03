@@ -6,6 +6,8 @@
  */
 
 import { Effect } from 'effect'
+// eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure for session context
+import { SessionContextError } from '@/infrastructure/database/session-context'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
@@ -36,6 +38,10 @@ import {
   type GetRecordResponse,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
+import { listRecords, getRecord, createRecord, updateRecord, deleteRecord } from '@/presentation/api/utils/table-queries'
+// eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
+import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Hono } from 'hono'
 
 // ============================================================================
@@ -85,55 +91,109 @@ function createGetPermissionsProgram() {
 // Record Route Handlers
 // ============================================================================
 
-function createListRecordsProgram(): Effect.Effect<ListRecordsResponse, never> {
-  return Effect.succeed({
-    records: [],
-    pagination: {
-      page: 1,
-      limit: 10,
-      total: 0,
-      totalPages: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    },
+function createListRecordsProgram(
+  session: Readonly<Session>,
+  tableName: string
+): Effect.Effect<ListRecordsResponse, SessionContextError> {
+  return Effect.gen(function* () {
+    // Query records with session context (RLS policies automatically applied)
+    const records = yield* listRecords(session, tableName)
+
+    return {
+      records: records.map((r) => ({
+        id: String(r.id),
+        fields: r as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        createdAt: r.created_at ? String(r.created_at) : new Date().toISOString(),
+        updatedAt: r.updated_at ? String(r.updated_at) : new Date().toISOString(),
+      })),
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: records.length,
+        totalPages: Math.ceil(records.length / 10),
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    }
   })
 }
 
-function createGetRecordProgram(recordId: string): Effect.Effect<GetRecordResponse, never> {
-  return Effect.succeed({
-    record: {
-      id: recordId,
-      fields: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+function createGetRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<GetRecordResponse, SessionContextError> {
+  return Effect.gen(function* () {
+    // Query record with session context (RLS policies automatically applied)
+    const record = yield* getRecord(session, tableName, recordId)
+
+    if (!record) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
+
+    return {
+      record: {
+        id: String(record.id),
+        fields: record as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
+        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
+      },
+    }
   })
 }
 
-function createRecordProgram(fields: Record<string, unknown>) {
-  return Effect.succeed({
-    record: {
-      id: crypto.randomUUID(),
-      fields,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+function createRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  fields: Readonly<Record<string, unknown>>
+) {
+  return Effect.gen(function* () {
+    // Create record with session context (organization_id and owner_id set automatically)
+    const record = yield* createRecord(session, tableName, fields)
+
+    return {
+      record: {
+        id: String(record.id),
+        fields: record as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
+        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
+      },
+    }
   })
 }
 
-function updateRecordProgram(recordId: string, fields: Record<string, unknown>) {
-  return Effect.succeed({
-    record: {
-      id: recordId,
-      fields,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+function updateRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string,
+  fields: Readonly<Record<string, unknown>>
+) {
+  return Effect.gen(function* () {
+    // Update record with session context (RLS policies enforce access control)
+    const record = yield* updateRecord(session, tableName, recordId, fields)
+
+    return {
+      record: {
+        id: String(record.id),
+        fields: record as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
+        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
+      },
+    }
   })
 }
 
-function deleteRecordProgram() {
-  return Effect.succeed({ success: true as const })
+function deleteRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+) {
+  return Effect.gen(function* () {
+    // Delete record with session context (RLS policies enforce access control)
+    yield* deleteRecord(session, tableName, recordId)
+
+    return { success: true as const }
+  })
 }
 
 // ============================================================================
@@ -237,31 +297,83 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
     )
 }
 
+// eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
 function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
   return honoApp
-    .get('/api/tables/:tableId/records', async (c) =>
-      runEffect(c, createListRecordsProgram(), listRecordsResponseSchema)
-    )
+    .get('/api/tables/:tableId/records', async (c) => {
+      // Extract session from context (set by auth middleware)
+      const {session} = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      // Get table name from route parameter (in real implementation, query table metadata)
+      const tableName = 'records' // TODO: Map tableId to actual table name
+
+      return runEffect(c, createListRecordsProgram(session, tableName), listRecordsResponseSchema)
+    })
     .post('/api/tables/:tableId/records', async (c) => {
+      const {session} = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
       const result = await validateRequest(c, createRecordRequestSchema)
       if (!result.success) return result.response
-      return runEffect(c, createRecordProgram(result.data.fields), createRecordResponseSchema)
-    })
-    .get('/api/tables/:tableId/records/:recordId', async (c) =>
-      runEffect(c, createGetRecordProgram(c.req.param('recordId')), getRecordResponseSchema)
-    )
-    .patch('/api/tables/:tableId/records/:recordId', async (c) => {
-      const result = await validateRequest(c, updateRecordRequestSchema)
-      if (!result.success) return result.response
+
+      const tableName = 'records' // TODO: Map tableId to actual table name
+
       return runEffect(
         c,
-        updateRecordProgram(c.req.param('recordId'), result.data.fields),
+        createRecordProgram(session, tableName, result.data.fields),
+        createRecordResponseSchema
+      )
+    })
+    .get('/api/tables/:tableId/records/:recordId', async (c) => {
+      const {session} = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      const tableName = 'records' // TODO: Map tableId to actual table name
+
+      return runEffect(
+        c,
+        createGetRecordProgram(session, tableName, c.req.param('recordId')),
+        getRecordResponseSchema
+      )
+    })
+    .patch('/api/tables/:tableId/records/:recordId', async (c) => {
+      const {session} = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      const result = await validateRequest(c, updateRecordRequestSchema)
+      if (!result.success) return result.response
+
+      const tableName = 'records' // TODO: Map tableId to actual table name
+
+      return runEffect(
+        c,
+        updateRecordProgram(session, tableName, c.req.param('recordId'), result.data.fields),
         updateRecordResponseSchema
       )
     })
-    .delete('/api/tables/:tableId/records/:recordId', async (c) =>
-      runEffect(c, deleteRecordProgram(), deleteRecordResponseSchema)
-    )
+    .delete('/api/tables/:tableId/records/:recordId', async (c) => {
+      const {session} = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      const tableName = 'records' // TODO: Map tableId to actual table name
+
+      return runEffect(
+        c,
+        deleteRecordProgram(session, tableName, c.req.param('recordId')),
+        deleteRecordResponseSchema
+      )
+    })
 }
 
 function chainBatchRoutesMethods<T extends Hono>(honoApp: T) {
