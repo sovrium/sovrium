@@ -9,6 +9,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Effect } from 'effect'
 import { z } from 'zod'
 import { addMember } from '@/application/use-cases/organization/add-member'
+import { addOrganizationMemberResponseSchema } from '@/presentation/api/schemas/auth-schemas'
 import type { Hono } from 'hono'
 
 /**
@@ -29,31 +30,48 @@ import type { Hono } from 'hono'
  * This endpoint allows authenticated organization owners/admins
  * to add users directly to their organization without invitation flow.
  */
-const addMemberSchema = z.object({
-  organizationId: z.string(),
-  userId: z.string(),
-  role: z.enum(['owner', 'admin', 'member']).optional().default('member'),
+const addMemberRequestSchema = z.object({
+  organizationId: z.string().describe('Organization ID to add member to'),
+  userId: z.string().describe('User ID to add as member'),
+  role: z
+    .enum(['owner', 'admin', 'member'])
+    .optional()
+    .default('member')
+    .describe('Role to assign to member'),
 })
 
 export const chainAuthRoutes = (app: Hono): Hono =>
-  app.post('/api/auth/organization/add-member', zValidator('json', addMemberSchema), async (c) => {
-    const body = c.req.valid('json')
+  app.post(
+    '/api/auth/organization/add-member',
+    zValidator('json', addMemberRequestSchema),
+    async (c) => {
+      const body = c.req.valid('json')
 
-    const program = addMember({
-      organizationId: body.organizationId,
-      userId: body.userId,
-      role: body.role,
-      headers: c.req.raw.headers,
-    })
+      const program = addMember({
+        organizationId: body.organizationId,
+        userId: body.userId,
+        role: body.role,
+        headers: c.req.raw.headers,
+      })
 
-    try {
-      const result = await Effect.runPromise(program)
-      return c.json(result, 200)
-    } catch (error) {
-      if (error && typeof error === 'object' && 'status' in error && 'message' in error) {
-        const { status, message } = error as { status: number; message: string }
-        return c.json({ message }, status as 200)
+      try {
+        const result = await Effect.runPromise(program)
+        // Validate response against schema for type safety
+        const validated = addOrganizationMemberResponseSchema.parse(result)
+        return c.json(validated, 200)
+      } catch (error) {
+        // Handle ServiceError from use case
+        if (error && typeof error === 'object' && 'status' in error && 'message' in error) {
+          const { status, message } = error as { status: number; message: string }
+          return c.json({ message }, status as 200)
+        }
+        // Handle other errors
+        return c.json(
+          {
+            message: error instanceof Error ? error.message : 'Internal server error',
+          },
+          500
+        )
       }
-      return c.json({ message: 'Internal server error' }, 500)
     }
-  })
+  )
