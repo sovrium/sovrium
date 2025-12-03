@@ -92,7 +92,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-002: should prevent reading records not matching permission policy',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -135,15 +135,15 @@ test.describe('Row-Level Security Enforcement', () => {
       const policies = await executeQuery(
         `SELECT policyname, cmd, permissive FROM pg_policies WHERE tablename = 'private_data' AND cmd = 'SELECT'`
       )
-      expect(policies).toHaveLength(1)
-      expect(policies[0].cmd).toBe('SELECT')
+      expect(policies.rows).toHaveLength(1)
+      expect(policies.rows[0].cmd).toBe('SELECT')
 
       // Verify the policy definition references user_id field
       const policyDef = await executeQuery(
         `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
          WHERE polrelid = 'private_data'::regclass AND polcmd = 'r'`
       )
-      expect(policyDef[0].qual).toContain('user_id')
+      expect(policyDef.rows[0].qual).toContain('user_id')
     }
   )
 
