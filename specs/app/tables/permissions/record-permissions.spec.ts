@@ -282,7 +282,7 @@ test.describe('Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RECORD-PERMISSIONS-004: should filter records matching ALL conditions when multiple record-level read conditions with AND logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
