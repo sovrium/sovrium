@@ -320,7 +320,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-006: should apply owner permission on UPDATE operations',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
