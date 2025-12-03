@@ -9,6 +9,7 @@ import { SQL } from 'bun'
 import { Config, Effect, Console, Data, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
+import { logInfo } from '@/infrastructure/logging/effect-logger'
 import {
   needsUsersTable,
   needsUpdatedByTrigger,
@@ -67,14 +68,14 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
   try {
     await db.begin(async (tx) => {
       // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
-      console.log('[executeSchemaInit] Checking if Better Auth users table is needed...')
+      logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
       const needs = needsUsersTable(tables)
-      console.log('[executeSchemaInit] needsUsersTable:', needs)
+      logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
       if (needs) {
-        console.log('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
+        logInfo('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
         await ensureBetterAuthUsersTable(tx)
       } else {
-        console.log('[executeSchemaInit] Better Auth users table not needed')
+        logInfo('[executeSchemaInit] Better Auth users table not needed')
       }
 
       // Step 0.1: Ensure updated-by trigger function exists if any table needs it
@@ -125,8 +126,8 @@ const initializeSchemaInternal = (
   app: App
 ): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
   Effect.gen(function* () {
-    console.log('[initializeSchemaInternal] Starting schema initialization...')
-    console.log('[initializeSchemaInternal] App tables count:', app.tables?.length || 0)
+    logInfo('[initializeSchemaInternal] Starting schema initialization...')
+    logInfo(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
 
     // Skip if no tables defined
     if (!app.tables || app.tables.length === 0) {
@@ -137,8 +138,8 @@ const initializeSchemaInternal = (
     // Check if tables require user fields but auth is not configured
     const tablesNeedUsersTable = needsUsersTable(app.tables)
     const hasAuthConfig = !!app.auth
-    console.log('[initializeSchemaInternal] Tables need users table:', tablesNeedUsersTable)
-    console.log('[initializeSchemaInternal] Auth config present:', hasAuthConfig)
+    logInfo(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
+    logInfo(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
 
     if (tablesNeedUsersTable && !hasAuthConfig) {
       return yield* Effect.fail(
@@ -151,9 +152,8 @@ const initializeSchemaInternal = (
 
     // Get database URL from Effect Config (reads from environment)
     const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))
-    console.log(
-      '[initializeSchemaInternal] DATABASE_URL:',
-      databaseUrlConfig ? 'present' : 'missing'
+    logInfo(
+      `[initializeSchemaInternal] DATABASE_URL: ${databaseUrlConfig ? 'present' : 'missing'}`
     )
 
     // Skip if no DATABASE_URL configured

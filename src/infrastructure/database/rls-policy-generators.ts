@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { logWarning } from '@/infrastructure/logging/effect-logger'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
@@ -114,7 +115,7 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   // Verify table has organization_id field
   const hasOrganizationIdField = table.fields.some((field) => field.name === 'organization_id')
   if (!hasOrganizationIdField) {
-    console.warn(
+    logWarning(
       `[RLS] Table "${table.name}" has organizationScoped=true but no organization_id field`
     )
     return []

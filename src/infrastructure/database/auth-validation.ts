@@ -6,6 +6,7 @@
  */
 
 import { Data } from 'effect'
+import { logInfo } from '@/infrastructure/logging/effect-logger'
 import { isUserReferenceField, isUserField } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 
@@ -39,7 +40,7 @@ export const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
 export const ensureBetterAuthUsersTable = async (tx: {
   unsafe: (sql: string) => Promise<unknown>
 }): Promise<void> => {
-  console.log('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
+  logInfo('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
 
   // Check if users table exists
   const tableExistsResult = (await tx.unsafe(`
@@ -76,7 +77,7 @@ export const ensureBetterAuthUsersTable = async (tx: {
     })
   }
 
-  console.log('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
+  logInfo('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
 }
 /* eslint-enable functional/no-throw-statements */
 
