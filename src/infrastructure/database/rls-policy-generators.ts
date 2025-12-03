@@ -16,6 +16,22 @@ import type { TablePermission } from '@/domain/models/app/table/permissions'
 const TEST_ROLES = ['admin_user', 'member_user', 'authenticated_user'] as const
 
 /**
+ * Generate owner check expression for RLS policies
+ *
+ * @param permission - Permission configuration
+ * @returns SQL expression for owner check, or undefined if no owner check needed
+ */
+const generateOwnerCheck = (permission?: TablePermission): string | undefined => {
+  if (!permission || permission.type !== 'owner') {
+    return undefined
+  }
+
+  // Generate owner check: owner_id = current_setting('app.user_id')::TEXT
+  const ownerField = permission.field
+  return `${ownerField} = current_setting('app.user_id')::TEXT`
+}
+
+/**
  * Generate role check expression for RLS policies
  *
  * @param permission - Permission configuration
@@ -163,7 +179,87 @@ $$`
 }
 
 /**
- * Generate RLS policy statements for organization-scoped tables
+ * Check if table has owner-based permissions
+ *
+ * @param table - Table definition
+ * @returns True if any CRUD operation uses owner-based permission
+ */
+const hasOwnerPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  if (!permissions) {
+    return false
+  }
+
+  return (
+    permissions.read?.type === 'owner' ||
+    permissions.create?.type === 'owner' ||
+    permissions.update?.type === 'owner' ||
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
+    permissions.delete?.type === 'owner'
+  )
+}
+
+/**
+ * Generate RLS policy statements for owner-based permissions
+ *
+ * When a table has owner-based permissions (e.g., read: { type: 'owner', field: 'owner_id' }),
+ * this generates RLS policies that filter records by the specified owner field.
+ *
+ * @param table - Table definition with owner-based permissions
+ * @returns Array of SQL statements to enable RLS and create owner-based policies
+ */
+const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
+  const enableRLS = `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`
+
+  // Generate owner checks for each operation
+  const ownerChecks = {
+    read: generateOwnerCheck(table.permissions?.read),
+    create: generateOwnerCheck(table.permissions?.create),
+    update: generateOwnerCheck(table.permissions?.update),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
+    delete: generateOwnerCheck(table.permissions?.delete),
+  }
+
+  // Generate SELECT policy if read permission is owner-based
+  const selectPolicies = ownerChecks.read
+    ? [
+        `DROP POLICY IF EXISTS ${tableName}_owner_read ON ${tableName}`,
+        `CREATE POLICY ${tableName}_owner_read ON ${tableName} FOR SELECT USING (${ownerChecks.read})`,
+      ]
+    : []
+
+  // Generate INSERT policy if create permission is owner-based
+  const insertPolicies = ownerChecks.create
+    ? [
+        `DROP POLICY IF EXISTS ${tableName}_owner_create ON ${tableName}`,
+        `CREATE POLICY ${tableName}_owner_create ON ${tableName} FOR INSERT WITH CHECK (${ownerChecks.create})`,
+      ]
+    : []
+
+  // Generate UPDATE policy if update permission is owner-based
+  const updatePolicies = ownerChecks.update
+    ? [
+        `DROP POLICY IF EXISTS ${tableName}_owner_update ON ${tableName}`,
+        `CREATE POLICY ${tableName}_owner_update ON ${tableName} FOR UPDATE USING (${ownerChecks.update}) WITH CHECK (${ownerChecks.update})`,
+      ]
+    : []
+
+  // Generate DELETE policy if delete permission is owner-based
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field, not a Drizzle delete operation
+  const deletePolicies = ownerChecks.delete
+    ? [
+        `DROP POLICY IF EXISTS ${tableName}_owner_delete ON ${tableName}`,
+        // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field, not a Drizzle delete operation
+        `CREATE POLICY ${tableName}_owner_delete ON ${tableName} FOR DELETE USING (${ownerChecks.delete})`,
+      ]
+    : []
+
+  return [enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
+}
+
+/**
+ * Generate RLS policy statements for organization-scoped tables or owner-based permissions
  *
  * When a table has `permissions.organizationScoped: true`, this generates:
  * 1. ALTER TABLE statement to enable RLS
@@ -174,6 +270,9 @@ $$`
  *
  * Additionally supports role-based permissions when permissions.read/create/update/delete
  * are configured with type: 'roles'. Role checks are combined with organization checks using AND.
+ *
+ * When a table has owner-based permissions (e.g., read: { type: 'owner', field: 'owner_id' }),
+ * this generates RLS policies that filter records by the specified owner field.
  *
  * When a table has NO permissions configured at all, this generates:
  * 1. ALTER TABLE statement to enable RLS
@@ -188,6 +287,11 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   // If no permissions configured, enable RLS with no policies (default deny)
   if (hasNoPermissions(table)) {
     return [`ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`]
+  }
+
+  // Check if table has owner-based permissions
+  if (hasOwnerPermissions(table)) {
+    return generateOwnerBasedPolicies(table)
   }
 
   // Check if organization isolation is enabled
