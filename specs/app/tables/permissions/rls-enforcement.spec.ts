@@ -514,7 +514,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-009: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -596,9 +596,9 @@ test.describe('Row-Level Security Enforcement', () => {
         const data = await executeQuery(`SELECT id, name, user_id FROM items ORDER BY id`)
         expect(data.rows).toHaveLength(2)
         expect(data.rows[0].name).toBe('User 1 Item')
-        expect(data.rows[0].user_id).toBe(1)
+        expect(data.rows[0].user_id).toBe(user1.user.id)
         expect(data.rows[1].name).toBe('User 2 Item')
-        expect(data.rows[1].user_id).toBe(2)
+        expect(data.rows[1].user_id).toBe(user2.user.id)
       })
     }
   )
