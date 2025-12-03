@@ -96,10 +96,16 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize server with minimal schema to enable database access
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -121,7 +127,9 @@ test.describe('Lookup Field', () => {
         'SELECT id, title, product_category FROM products_with_category WHERE id = 1'
       )
       // THEN: assertion
-      expect(viewData).toEqual({ id: 1, title: 'Laptop', product_category: 'Electronics' })
+      expect(viewData.id).toBe(1)
+      expect(viewData.title).toBe('Laptop')
+      expect(viewData.product_category).toBe('Electronics')
 
       // WHEN: executing query
       const filterByLookup = await executeQuery(
