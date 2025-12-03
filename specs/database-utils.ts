@@ -57,6 +57,22 @@ export class DatabaseTemplateManager {
 
       // Create fresh template database
       await adminPool.query(`CREATE DATABASE "${this.templateDbName}"`)
+
+      // Create a non-superuser role for RLS testing
+      // Superusers always bypass RLS (even with NOBYPASSRLS), so we create
+      // a separate role 'app_user' without superuser privileges.
+      // Tests should use SET ROLE app_user to switch to this role before queries.
+      await adminPool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+            CREATE ROLE app_user WITH LOGIN INHERIT;
+          END IF;
+        END
+        $$;
+        GRANT ALL PRIVILEGES ON DATABASE "${this.templateDbName}" TO app_user;
+        GRANT app_user TO test;
+      `)
     } finally {
       await adminPool.end()
     }
@@ -76,6 +92,16 @@ export class DatabaseTemplateManager {
         ALTER DATABASE "${this.templateDbName}" SET app.user_id = '';
         ALTER DATABASE "${this.templateDbName}" SET app.organization_id = '';
         ALTER DATABASE "${this.templateDbName}" SET app.user_role = '';
+      `)
+
+      // Grant schema and table access to app_user for RLS testing
+      // This allows the non-superuser role to access all tables through SET ROLE
+      await templatePool.query(`
+        GRANT USAGE ON SCHEMA public TO app_user;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO app_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO app_user;
       `)
     } finally {
       await templatePool.end()
