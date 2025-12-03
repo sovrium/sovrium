@@ -31,6 +31,12 @@ import type { Fields } from '@/domain/models/app/table/fields'
 const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => field.type !== 'button'
 
 /**
+ * Generate automatic id column definition based on primary key type
+ */
+const generateIdColumn = (primaryKeyType: string | undefined): string =>
+  primaryKeyType === 'uuid' ? 'id UUID NOT NULL DEFAULT gen_random_uuid()' : 'id SERIAL NOT NULL'
+
+/**
  * Generate CREATE TABLE statement
  */
 export const generateCreateTableSQL = (table: Table): string => {
@@ -44,8 +50,9 @@ export const generateCreateTableSQL = (table: Table): string => {
   // Check if a custom primary key is defined
   const hasCustomPrimaryKey = table.primaryKey && primaryKeyFields.length > 0
 
-  // Add automatic id column only if not explicitly defined AND no custom primary key
-  const idColumnDefinition = hasIdField || hasCustomPrimaryKey ? [] : ['id SERIAL NOT NULL']
+  // Generate automatic id column based on primary key type
+  const idColumnDefinition =
+    hasIdField || hasCustomPrimaryKey ? [] : [generateIdColumn(table.primaryKey?.type)]
 
   // Filter out UI-only fields (like button) that don't need database columns
   const columnDefinitions = table.fields.filter(shouldCreateDatabaseColumn).map((field) => {
