@@ -43,7 +43,7 @@ export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =
         const db = new SQL(databaseUrl)
 
         try {
-          // eslint-disable-next-line max-lines-per-function, functional/no-expression-statements -- Transaction must include all table creation statements
+          // eslint-disable-next-line max-lines-per-function -- Transaction must include all table creation statements
           await db.begin(async (tx) => {
             // Create tables using raw SQL (IF NOT EXISTS prevents errors)
             // This is the content from drizzle/0000_harsh_dazzler.sql and drizzle/0001_zippy_speed_demon.sql
@@ -304,6 +304,43 @@ export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE cascade;
                 END IF;
               END$$;
+            `)
+
+            // Create auth schema for helper functions
+            // eslint-disable-next-line functional/no-expression-statements -- Migration side effect required
+            await tx.unsafe(`
+              CREATE SCHEMA IF NOT EXISTS auth
+            `)
+
+            // Create auth.is_authenticated() function
+            // Returns true if app.user_id session variable is set
+             
+            await tx.unsafe(`
+              CREATE OR REPLACE FUNCTION auth.is_authenticated()
+              RETURNS boolean AS $$
+              BEGIN
+                RETURN current_setting('app.user_id', true) IS NOT NULL
+                  AND current_setting('app.user_id', true) != '';
+              EXCEPTION
+                WHEN OTHERS THEN
+                  RETURN false;
+              END;
+              $$ LANGUAGE plpgsql STABLE;
+            `)
+
+            // Create auth.user_has_role() function
+            // Checks if the current user has the specified role
+             
+            await tx.unsafe(`
+              CREATE OR REPLACE FUNCTION auth.user_has_role(role_name text)
+              RETURNS boolean AS $$
+              BEGIN
+                RETURN current_setting('app.user_role', true) = role_name;
+              EXCEPTION
+                WHEN OTHERS THEN
+                  RETURN false;
+              END;
+              $$ LANGUAGE plpgsql STABLE;
             `)
           })
         } finally {

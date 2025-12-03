@@ -193,7 +193,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-003: should apply hierarchical checks (table → field → record filtering) when permissions configured at all three levels',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
