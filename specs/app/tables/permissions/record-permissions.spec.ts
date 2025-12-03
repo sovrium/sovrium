@@ -156,6 +156,7 @@ test.describe('Record-Level Permissions', () => {
       await executeQuery([
         'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY', // Enable RLS
         'ALTER TABLE tasks FORCE ROW LEVEL SECURITY', // Apply to table owners too
+        "CREATE POLICY user_select_assigned ON tasks FOR SELECT USING (assigned_to = current_setting('app.user_id', true)::TEXT)",
         "CREATE POLICY user_update_assigned ON tasks FOR UPDATE USING (assigned_to = current_setting('app.user_id', true)::TEXT) WITH CHECK (assigned_to = current_setting('app.user_id', true)::TEXT)",
         `INSERT INTO tasks (title, status, assigned_to) VALUES ('Task 1', 'open', '${user1.user.id}'), ('Task 2', 'open', '${user2.user.id}')`,
         'GRANT ALL ON TABLE tasks TO rls_test_user',
@@ -165,12 +166,12 @@ test.describe('Record-Level Permissions', () => {
       // WHEN: user attempts to update record not assigned to them
       // THEN: PostgreSQL RLS policy denies UPDATE
 
-      // RLS policy exists for user_update_assigned
+      // RLS policies exist for SELECT and UPDATE
       const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname='user_update_assigned'"
+        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname IN ('user_select_assigned', 'user_update_assigned')"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(1)
+      expect(policyCount.count).toBe(2)
 
       // User 1 can UPDATE tasks assigned to them
       const user1Update = await executeQuery(
