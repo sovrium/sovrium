@@ -365,7 +365,7 @@ test.describe('Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RECORD-PERMISSIONS-005: should filter by user department custom property when record-level permission is {user.department} = department',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -395,10 +395,17 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create non-superuser role for RLS testing
+      await executeQuery('DROP ROLE IF EXISTS rls_test_user')
+      await executeQuery("CREATE ROLE rls_test_user WITH LOGIN PASSWORD 'test'")
+
       await executeQuery([
         'ALTER TABLE employees ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY same_department ON employees FOR SELECT USING (department = current_setting('app.user_department')::TEXT)",
+        'ALTER TABLE employees FORCE ROW LEVEL SECURITY',
+        "CREATE POLICY same_department ON employees FOR SELECT USING (department = current_setting('app.user_department', true))",
         "INSERT INTO employees (name, department, email) VALUES ('Alice', 'Engineering', 'alice@example.com'), ('Bob', 'Marketing', 'bob@example.com'), ('Charlie', 'Engineering', 'charlie@example.com')",
+        'GRANT ALL ON TABLE employees TO rls_test_user',
+        'GRANT USAGE ON SCHEMA public TO rls_test_user',
       ])
 
       // WHEN: user lists records
@@ -410,26 +417,26 @@ test.describe('Record-Level Permissions', () => {
       )
       // THEN: assertion
       expect(policyQual.qual).toBe(
-        "(department = (current_setting('app.user_department'::text))::text)"
+        "((department)::text = current_setting('app.user_department'::text, true))"
       )
 
       // Engineering user sees Engineering employees only
       const engCount = await executeQuery(
-        "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM employees"
+        "SET ROLE rls_test_user; SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM employees"
       )
       // THEN: assertion
       expect(engCount.count).toBe(2)
 
       // Engineering user sees Alice and Charlie
       const engEmployees = await executeQuery(
-        "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM employees ORDER BY name"
+        "SET ROLE rls_test_user; SET LOCAL app.user_department = 'Engineering'; SELECT name FROM employees ORDER BY name"
       )
       // THEN: assertion
-      expect(engEmployees).toEqual([{ name: 'Alice' }, { name: 'Charlie' }])
+      expect(engEmployees.rows).toEqual([{ name: 'Alice' }, { name: 'Charlie' }])
 
       // Marketing user sees Marketing employees only
       const mktEmployee = await executeQuery(
-        "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM employees"
+        "SET ROLE rls_test_user; SET LOCAL app.user_department = 'Marketing'; SELECT name FROM employees"
       )
       // THEN: assertion
       expect(mktEmployee.name).toBe('Bob')
