@@ -202,7 +202,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-004: should enforce field-level write restrictions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
