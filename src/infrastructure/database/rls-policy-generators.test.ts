@@ -39,7 +39,9 @@ describe('generateRLSPolicyStatements', () => {
 
     // Check CREATE POLICY statements
     expect(statements[5]).toContain('CREATE POLICY projects_org_select ON projects FOR SELECT')
-    expect(statements[5]).toContain("organization_id = current_setting('app.organization_id')::TEXT")
+    expect(statements[5]).toContain(
+      "organization_id = current_setting('app.organization_id')::TEXT"
+    )
 
     expect(statements[6]).toContain('CREATE POLICY projects_org_insert ON projects FOR INSERT')
     expect(statements[6]).toContain('WITH CHECK')

@@ -1324,7 +1324,12 @@ export const test = base.extend<ServerFixtures>({
   createOrganization: async ({ page }, use) => {
     await use(async (data: { name: string; slug?: string }): Promise<OrganizationResult> => {
       // Generate slug from name if not provided (Better Auth requires slug)
-      const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      const slug =
+        data.slug ||
+        data.name
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '')
 
       const response = await page.request.post('/api/auth/organization/create', {
         data: {
