@@ -51,10 +51,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'customers',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'total_order_amount',
                 type: 'rollup',
                 relationshipField: 'customer_id',
@@ -62,23 +61,20 @@ test.describe('Rollup Field', () => {
                 aggregation: 'sum',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'customer_id',
                 type: 'relationship',
                 relatedTable: 'customers',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'amount', type: 'decimal' },
+              { id: 2, name: 'amount', type: 'decimal' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -117,10 +113,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'task_count',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -128,23 +123,20 @@ test.describe('Rollup Field', () => {
                 aggregation: 'count',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'project_id',
                 type: 'relationship',
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'title', type: 'single-line-text' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -183,10 +175,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'avg_rating',
                 type: 'rollup',
                 relationshipField: 'product_id',
@@ -194,7 +185,7 @@ test.describe('Rollup Field', () => {
                 aggregation: 'avg',
               },
               {
-                id: 4,
+                id: 3,
                 name: 'min_rating',
                 type: 'rollup',
                 relationshipField: 'product_id',
@@ -202,7 +193,7 @@ test.describe('Rollup Field', () => {
                 aggregation: 'min',
               },
               {
-                id: 5,
+                id: 4,
                 name: 'max_rating',
                 type: 'rollup',
                 relationshipField: 'product_id',
@@ -210,23 +201,20 @@ test.describe('Rollup Field', () => {
                 aggregation: 'max',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'reviews',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'product_id',
                 type: 'relationship',
                 relatedTable: 'products',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'rating', type: 'integer' },
+              { id: 2, name: 'rating', type: 'integer' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -257,10 +245,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'departments',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'total_salary',
                 type: 'rollup',
                 relationshipField: 'department_id',
@@ -268,23 +255,20 @@ test.describe('Rollup Field', () => {
                 aggregation: 'sum',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'employees',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'department_id',
                 type: 'relationship',
                 relatedTable: 'departments',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 2, name: 'salary', type: 'decimal' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -328,10 +312,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'accounts',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'account_name', type: 'single-line-text' },
+              { id: 1, name: 'account_name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'revenue_total',
                 type: 'rollup',
                 relationshipField: 'account_id',
@@ -339,23 +322,20 @@ test.describe('Rollup Field', () => {
                 aggregation: 'sum',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'invoices',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'account_id',
                 type: 'relationship',
                 relatedTable: 'accounts',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'amount', type: 'decimal' },
+              { id: 2, name: 'amount', type: 'decimal' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -384,7 +364,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should count non-empty values with COUNTA aggregation',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-006: should count non-empty values with COUNTA aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Authors table with COUNTA rollup (counts non-empty descriptions)
@@ -395,10 +375,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'authors',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'books_with_description_count',
                 type: 'rollup',
                 relationshipField: 'author_id',
@@ -406,24 +385,21 @@ test.describe('Rollup Field', () => {
                 aggregation: 'counta',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'books',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'description', type: 'long-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'description', type: 'long-text' },
               {
-                id: 4,
+                id: 3,
                 name: 'author_id',
                 type: 'relationship',
                 relatedTable: 'authors',
                 relationType: 'many-to-one',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -445,7 +421,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-008: should count all linked records with COUNTALL including empty',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should count all linked records with COUNTALL including empty',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with COUNTALL rollup (counts all linked records)
@@ -456,10 +432,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'total_tasks',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -467,24 +442,21 @@ test.describe('Rollup Field', () => {
                 aggregation: 'countall',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'notes', type: 'long-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'notes', type: 'long-text' },
               {
-                id: 4,
+                id: 3,
                 name: 'project_id',
                 type: 'relationship',
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -506,7 +478,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-009: should support MIN and MAX aggregation with date fields',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should support MIN and MAX aggregation with date fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with date MIN/MAX rollup fields
@@ -517,10 +489,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'earliest_task_date',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -528,7 +499,7 @@ test.describe('Rollup Field', () => {
                 aggregation: 'min',
               },
               {
-                id: 4,
+                id: 3,
                 name: 'latest_task_date',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -536,24 +507,21 @@ test.describe('Rollup Field', () => {
                 aggregation: 'max',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'due_date', type: 'date' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'due_date', type: 'date' },
               {
-                id: 4,
+                id: 3,
                 name: 'project_id',
                 type: 'relationship',
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -576,7 +544,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-010: should apply conditions to filter rollup aggregation',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should apply conditions to filter rollup aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with conditional rollup (filters by status)
@@ -587,10 +555,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'completed_hours',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -599,7 +566,7 @@ test.describe('Rollup Field', () => {
                 filters: { field: 'status', operator: 'equals', value: 'completed' },
               },
               {
-                id: 4,
+                id: 3,
                 name: 'pending_hours',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -608,25 +575,22 @@ test.describe('Rollup Field', () => {
                 filters: { field: 'status', operator: 'equals', value: 'pending' },
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'hours', type: 'decimal' },
-              { id: 4, name: 'status', type: 'single-line-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'hours', type: 'decimal' },
+              { id: 3, name: 'status', type: 'single-line-text' },
               {
-                id: 5,
+                id: 4,
                 name: 'project_id',
                 type: 'relationship',
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -649,7 +613,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-011: should return unique values with ARRAYUNIQUE aggregation',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-007: should return unique values with ARRAYUNIQUE aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with ARRAYUNIQUE rollup (distinct assignees)
@@ -660,10 +624,9 @@ test.describe('Rollup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'unique_assignees',
                 type: 'rollup',
                 relationshipField: 'project_id',
@@ -671,24 +634,21 @@ test.describe('Rollup Field', () => {
                 aggregation: 'arrayunique',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'assignee', type: 'single-line-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'assignee', type: 'single-line-text' },
               {
-                id: 4,
+                id: 3,
                 name: 'project_id',
                 type: 'relationship',
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -711,7 +671,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-012: user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-007: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple rollup aggregations', async () => {
@@ -722,10 +682,9 @@ test.describe('Rollup Field', () => {
               id: 1,
               name: 'projects',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 1, name: 'name', type: 'single-line-text' },
                 {
-                  id: 3,
+                  id: 2,
                   name: 'total_hours',
                   type: 'rollup',
                   relationshipField: 'project_id',
@@ -733,7 +692,7 @@ test.describe('Rollup Field', () => {
                   aggregation: 'sum',
                 },
                 {
-                  id: 4,
+                  id: 3,
                   name: 'task_count',
                   type: 'rollup',
                   relationshipField: 'project_id',
@@ -741,7 +700,7 @@ test.describe('Rollup Field', () => {
                   aggregation: 'count',
                 },
                 {
-                  id: 5,
+                  id: 4,
                   name: 'avg_hours',
                   type: 'rollup',
                   relationshipField: 'project_id',
@@ -749,7 +708,7 @@ test.describe('Rollup Field', () => {
                   aggregation: 'avg',
                 },
                 {
-                  id: 6,
+                  id: 5,
                   name: 'completed_hours',
                   type: 'rollup',
                   relationshipField: 'project_id',
@@ -758,26 +717,23 @@ test.describe('Rollup Field', () => {
                   filters: { field: 'status', operator: 'equals', value: 'completed' },
                 },
               ],
-              primaryKey: { type: 'composite', fields: ['id'] },
             },
             {
               id: 2,
               name: 'tasks',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'hours', type: 'decimal' },
-                { id: 4, name: 'status', type: 'single-line-text' },
-                { id: 5, name: 'due_date', type: 'date' },
+                { id: 1, name: 'title', type: 'single-line-text' },
+                { id: 2, name: 'hours', type: 'decimal' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'due_date', type: 'date' },
                 {
-                  id: 6,
+                  id: 5,
                   name: 'project_id',
                   type: 'relationship',
                   relatedTable: 'projects',
                   relationType: 'many-to-one',
                 },
               ],
-              primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })

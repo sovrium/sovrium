@@ -51,34 +51,30 @@ test.describe('Lookup Field', () => {
             id: 1,
             name: 'customers',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'email', type: 'email' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'customer_id',
                 type: 'relationship',
                 relatedTable: 'customers',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'amount', type: 'decimal' },
+              { id: 2, name: 'amount', type: 'decimal' },
               {
-                id: 4,
+                id: 3,
                 name: 'customer_name',
                 type: 'lookup',
                 relationshipField: 'customer_id',
                 relatedField: 'name',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -123,49 +119,45 @@ test.describe('Lookup Field', () => {
             id: 1,
             name: 'employees',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'email', type: 'email' },
-              { id: 4, name: 'department', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'department', type: 'single-line-text' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'assigned_to',
                 type: 'relationship',
                 relatedTable: 'employees',
                 relationType: 'many-to-one',
               },
               {
-                id: 4,
+                id: 3,
                 name: 'assignee_name',
                 type: 'lookup',
                 relationshipField: 'assigned_to',
                 relatedField: 'name',
               },
               {
-                id: 5,
+                id: 4,
                 name: 'assignee_email',
                 type: 'lookup',
                 relationshipField: 'assigned_to',
                 relatedField: 'email',
               },
               {
-                id: 6,
+                id: 5,
                 name: 'assignee_department',
                 type: 'lookup',
                 relationshipField: 'assigned_to',
                 relatedField: 'department',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -197,34 +189,28 @@ test.describe('Lookup Field', () => {
           {
             id: 1,
             name: 'categories',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
           {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'category_id',
                 type: 'relationship',
                 relatedTable: 'categories',
                 relationType: 'many-to-one',
               },
               {
-                id: 4,
+                id: 3,
                 name: 'product_category',
                 type: 'lookup',
                 relationshipField: 'category_id',
                 relatedField: 'name',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -266,34 +252,28 @@ test.describe('Lookup Field', () => {
           {
             id: 1,
             name: 'companies',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
           {
             id: 2,
             name: 'invoices',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'invoice_number', type: 'single-line-text' },
+              { id: 1, name: 'invoice_number', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'company_id',
                 type: 'relationship',
                 relatedTable: 'companies',
                 relationType: 'many-to-one',
               },
               {
-                id: 4,
+                id: 3,
                 name: 'company_name',
                 type: 'lookup',
                 relationshipField: 'company_id',
                 relatedField: 'name',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -330,34 +310,30 @@ test.describe('Lookup Field', () => {
             id: 1,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'price', type: 'decimal' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'price', type: 'decimal' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'line_items',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'product_id',
                 type: 'relationship',
                 relatedTable: 'products',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'quantity', type: 'integer' },
+              { id: 2, name: 'quantity', type: 'integer' },
               {
-                id: 4,
+                id: 3,
                 name: 'product_price',
                 type: 'lookup',
                 relationshipField: 'product_id',
                 relatedField: 'price',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -380,7 +356,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-007: should concatenate values from multiple linked records',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-006: should concatenate values from multiple linked records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with lookup showing multiple team member names
@@ -391,26 +367,20 @@ test.describe('Lookup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'team_member_names',
                 type: 'lookup',
                 relationshipField: 'project_id',
                 relatedField: 'member_name',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'members',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'member_name', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
+            fields: [{ id: 1, name: 'member_name', type: 'single-line-text' }],
           },
           {
             id: 3,
@@ -453,7 +423,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-008: should apply conditions to filter lookup results',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-007: should apply conditions to filter lookup results',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Projects table with conditional lookup (only active tasks)
@@ -464,10 +434,9 @@ test.describe('Lookup Field', () => {
             id: 1,
             name: 'projects',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
               {
-                id: 3,
+                id: 2,
                 name: 'active_tasks',
                 type: 'lookup',
                 relationshipField: 'project_id',
@@ -475,24 +444,21 @@ test.describe('Lookup Field', () => {
                 filters: { field: 'status', operator: 'equals', value: 'active' },
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
               {
-                id: 4,
+                id: 3,
                 name: 'project_id',
                 type: 'relationship',
                 relatedTable: 'projects',
                 relationType: 'many-to-one',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -515,7 +481,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-009: should lookup different field types (text, number, date)',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-007: should lookup different field types (text, number, date)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Orders table with lookups of different field types
@@ -526,57 +492,53 @@ test.describe('Lookup Field', () => {
             id: 1,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'price', type: 'decimal' },
-              { id: 4, name: 'release_date', type: 'date' },
-              { id: 5, name: 'in_stock', type: 'checkbox' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'price', type: 'decimal' },
+              { id: 3, name: 'release_date', type: 'date' },
+              { id: 4, name: 'in_stock', type: 'checkbox' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 2,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 1,
                 name: 'product_id',
                 type: 'relationship',
                 relatedTable: 'products',
                 relationType: 'many-to-one',
               },
-              { id: 3, name: 'quantity', type: 'integer' },
+              { id: 2, name: 'quantity', type: 'integer' },
               {
-                id: 4,
+                id: 3,
                 name: 'product_name',
                 type: 'lookup',
                 relationshipField: 'product_id',
                 relatedField: 'name',
               },
               {
-                id: 5,
+                id: 4,
                 name: 'product_price',
                 type: 'lookup',
                 relationshipField: 'product_id',
                 relatedField: 'price',
               },
               {
-                id: 6,
+                id: 5,
                 name: 'product_release_date',
                 type: 'lookup',
                 relationshipField: 'product_id',
                 relatedField: 'release_date',
               },
               {
-                id: 7,
+                id: 6,
                 name: 'product_in_stock',
                 type: 'lookup',
                 relationshipField: 'product_id',
                 relatedField: 'in_stock',
               },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -597,7 +559,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-010: user can complete full lookup-field workflow',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-008: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple lookup fields of different types', async () => {
@@ -608,57 +570,53 @@ test.describe('Lookup Field', () => {
               id: 1,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'price', type: 'decimal' },
-                { id: 4, name: 'release_date', type: 'date' },
-                { id: 5, name: 'in_stock', type: 'checkbox' },
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'price', type: 'decimal' },
+                { id: 3, name: 'release_date', type: 'date' },
+                { id: 4, name: 'in_stock', type: 'checkbox' },
               ],
-              primaryKey: { type: 'composite', fields: ['id'] },
             },
             {
               id: 2,
               name: 'orders',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'quantity', type: 'integer' },
+                { id: 1, name: 'quantity', type: 'integer' },
                 {
-                  id: 3,
+                  id: 2,
                   name: 'product_id',
                   type: 'relationship',
                   relatedTable: 'products',
                   relationType: 'many-to-one',
                 },
                 {
-                  id: 4,
+                  id: 3,
                   name: 'product_name',
                   type: 'lookup',
                   relationshipField: 'product_id',
                   relatedField: 'name',
                 },
                 {
-                  id: 5,
+                  id: 4,
                   name: 'product_price',
                   type: 'lookup',
                   relationshipField: 'product_id',
                   relatedField: 'price',
                 },
                 {
-                  id: 6,
+                  id: 5,
                   name: 'product_release_date',
                   type: 'lookup',
                   relationshipField: 'product_id',
                   relatedField: 'release_date',
                 },
                 {
-                  id: 7,
+                  id: 6,
                   name: 'product_in_stock',
                   type: 'lookup',
                   relationshipField: 'product_id',
                   relatedField: 'in_stock',
                 },
               ],
-              primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
