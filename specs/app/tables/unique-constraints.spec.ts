@@ -328,7 +328,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-007: should preserve constraint name exactly as created when querying metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
