@@ -48,6 +48,10 @@
 ### Build Tools
 - `@docs/infrastructure/build/jiti.md` - Runtime TypeScript loader (transitive dependency via Tailwind)
 
+### Email
+- `@docs/infrastructure/email/nodemailer.md` - Nodemailer SMTP email client (transporter, Effect service, Better Auth integration)
+- `@docs/infrastructure/email/mailpit.md` - Local email testing with web UI (local SMTP server)
+
 ### Utilities
 (No utilities currently documented - use Effect.DateTime for date handling)
 

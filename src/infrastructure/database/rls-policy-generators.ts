@@ -397,12 +397,7 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
   }
 
   // Generate policies for each CRUD operation
-  const selectPolicies = generateRolePolicyStatements(
-    tableName,
-    'read',
-    'SELECT',
-    roleChecks.read
-  )
+  const selectPolicies = generateRolePolicyStatements(tableName, 'read', 'SELECT', roleChecks.read)
   const insertPolicies = generateRolePolicyStatements(
     tableName,
     'create',
