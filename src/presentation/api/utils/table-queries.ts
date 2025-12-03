@@ -58,7 +58,8 @@ export function getRecord(
         // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
         return result[0] ?? null
       },
-      catch: (error) => new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error),
+      catch: (error) =>
+        new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error),
     })
   )
 }
@@ -129,7 +130,8 @@ export function updateRecord(
 
         return result[0] ?? {}
       },
-      catch: (error) => new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error),
+      catch: (error) =>
+        new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error),
     })
   )
 }
@@ -155,7 +157,8 @@ export function deleteRecord(
         await tx.execute(`DELETE FROM ${tableName} WHERE id = '${recordId}'`)
         return true
       },
-      catch: (error) => new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),
+      catch: (error) =>
+        new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),
     })
   )
 }

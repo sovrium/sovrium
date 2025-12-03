@@ -38,7 +38,13 @@ import {
   type GetRecordResponse,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
-import { listRecords, getRecord, createRecord, updateRecord, deleteRecord } from '@/presentation/api/utils/table-queries'
+import {
+  listRecords,
+  getRecord,
+  createRecord,
+  updateRecord,
+  deleteRecord,
+} from '@/presentation/api/utils/table-queries'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -102,7 +108,10 @@ function createListRecordsProgram(
     return {
       records: records.map((r) => ({
         id: String(r.id),
-        fields: r as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        fields: r as Record<
+          string,
+          string | number | boolean | unknown[] | Record<string, unknown> | null
+        >,
         createdAt: r.created_at ? String(r.created_at) : new Date().toISOString(),
         updatedAt: r.updated_at ? String(r.updated_at) : new Date().toISOString(),
       })),
@@ -134,7 +143,10 @@ function createGetRecordProgram(
     return {
       record: {
         id: String(record.id),
-        fields: record as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        fields: record as Record<
+          string,
+          string | number | boolean | unknown[] | Record<string, unknown> | null
+        >,
         createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
         updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
       },
@@ -154,7 +166,10 @@ function createRecordProgram(
     return {
       record: {
         id: String(record.id),
-        fields: record as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        fields: record as Record<
+          string,
+          string | number | boolean | unknown[] | Record<string, unknown> | null
+        >,
         createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
         updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
       },
@@ -175,7 +190,10 @@ function updateRecordProgram(
     return {
       record: {
         id: String(record.id),
-        fields: record as Record<string, string | number | boolean | unknown[] | Record<string, unknown> | null>,
+        fields: record as Record<
+          string,
+          string | number | boolean | unknown[] | Record<string, unknown> | null
+        >,
         createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
         updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
       },
@@ -183,11 +201,7 @@ function updateRecordProgram(
   })
 }
 
-function deleteRecordProgram(
-  session: Readonly<Session>,
-  tableName: string,
-  recordId: string
-) {
+function deleteRecordProgram(session: Readonly<Session>, tableName: string, recordId: string) {
   return Effect.gen(function* () {
     // Delete record with session context (RLS policies enforce access control)
     yield* deleteRecord(session, tableName, recordId)
@@ -302,7 +316,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
   return honoApp
     .get('/api/tables/:tableId/records', async (c) => {
       // Extract session from context (set by auth middleware)
-      const {session} = (c as ContextWithSession).var
+      const { session } = (c as ContextWithSession).var
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
@@ -313,7 +327,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       return runEffect(c, createListRecordsProgram(session, tableName), listRecordsResponseSchema)
     })
     .post('/api/tables/:tableId/records', async (c) => {
-      const {session} = (c as ContextWithSession).var
+      const { session } = (c as ContextWithSession).var
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
@@ -330,7 +344,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       )
     })
     .get('/api/tables/:tableId/records/:recordId', async (c) => {
-      const {session} = (c as ContextWithSession).var
+      const { session } = (c as ContextWithSession).var
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
@@ -344,7 +358,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       )
     })
     .patch('/api/tables/:tableId/records/:recordId', async (c) => {
-      const {session} = (c as ContextWithSession).var
+      const { session } = (c as ContextWithSession).var
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
@@ -361,7 +375,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       )
     })
     .delete('/api/tables/:tableId/records/:recordId', async (c) => {
-      const {session} = (c as ContextWithSession).var
+      const { session } = (c as ContextWithSession).var
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }

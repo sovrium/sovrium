@@ -264,7 +264,12 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
   }
 
   // Generate policies for each CRUD operation
-  const selectPolicies = generateOwnerPolicyStatements(tableName, 'read', 'SELECT', ownerChecks.read)
+  const selectPolicies = generateOwnerPolicyStatements(
+    tableName,
+    'read',
+    'SELECT',
+    ownerChecks.read
+  )
   const insertPolicies = generateOwnerPolicyStatements(
     tableName,
     'create',

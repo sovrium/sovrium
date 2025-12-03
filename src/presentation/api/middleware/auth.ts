@@ -45,7 +45,9 @@ export type ContextWithSession = Context & {
  * @param auth - Better Auth instance with api.getSession method
  * @returns Hono middleware function
  */
-export function authMiddleware(auth: { api: { getSession: (options: { headers: Headers }) => Promise<{ session: Session | null }> } }) {
+export function authMiddleware(auth: {
+  api: { getSession: (options: { headers: Headers }) => Promise<{ session: Session | null }> }
+}) {
   return async (c: Context, next: Next) => {
     try {
       // Extract session from Better Auth
@@ -54,7 +56,7 @@ export function authMiddleware(auth: { api: { getSession: (options: { headers: H
       })
 
       // Attach session to context (may be null for unauthenticated requests)
-      const {session} = result
+      const { session } = result
       if (session) {
         c.set('session', session)
       }
@@ -72,7 +74,7 @@ export function authMiddleware(auth: { api: { getSession: (options: { headers: H
  * Middleware handler for requiring authentication
  */
 async function requireAuthHandler(c: ContextWithSession, next: Next) {
-  const {session} = c.var
+  const { session } = c.var
 
   if (!session) {
     return c.json(

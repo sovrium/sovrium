@@ -266,7 +266,9 @@ test.describe('Primary Key', () => {
       // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO products (id, name) VALUES (NULL, 'Product 2')`)
-      ).rejects.toThrow(/null value in column "id" of relation "products" violates not-null constraint/)
+      ).rejects.toThrow(
+        /null value in column "id" of relation "products" violates not-null constraint/
+      )
 
       // Valid auto-generated ID succeeds
       const result = await executeQuery(

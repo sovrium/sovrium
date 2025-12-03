@@ -76,12 +76,7 @@ test.describe('API Session Context Integration', () => {
   test.fixme(
     'API-TABLES-SESSION-CTX-INT-002: should enforce RLS owner filtering via API',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table with owner-based RLS policy
       await startServerWithSchema({
         name: 'test-app',
@@ -563,7 +558,9 @@ test.describe('API Session Context Integration', () => {
         // Owner should see budget field (role-based field permission)
         expect(data.records[0].budget).toBe(100_000)
         // Should NOT see org1Member's project (owner filtering)
-        expect(data.records.find((r: { name: string }) => r.name === 'Org1 Member Project')).toBeUndefined()
+        expect(
+          data.records.find((r: { name: string }) => r.name === 'Org1 Member Project')
+        ).toBeUndefined()
       })
 
       await test.step('Org1 member sees own projects WITHOUT budget via API', async () => {
@@ -600,7 +597,9 @@ test.describe('API Session Context Integration', () => {
         expect(data.records[0].name).toBe('Org2 Owner Project')
         expect(data.records[0].budget).toBe(75_000)
         // Should NOT see any Org1 projects (organization isolation)
-        expect(data.records.find((r: { name: string }) => r.name.startsWith('Org1'))).toBeUndefined()
+        expect(
+          data.records.find((r: { name: string }) => r.name.startsWith('Org1'))
+        ).toBeUndefined()
       })
 
       await test.step('Unauthenticated request is rejected', async () => {
