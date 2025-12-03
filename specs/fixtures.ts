@@ -721,6 +721,31 @@ type ServerFixtures = {
 }
 
 /**
+ * Helper function to execute multiple SQL statements in a transaction
+ * Used for SET LOCAL pattern in RLS testing
+ */
+async function executeStatementsInTransaction(
+  client: any,
+  statements: string[]
+): Promise<{ rows: any[]; rowCount: number; [key: string]: any }> {
+  await client.query('BEGIN')
+  try {
+    let lastResult: any = { rows: [], rowCount: 0 }
+    for (const sql of statements) {
+      const result = await client.query(sql)
+      const rows = result.rows
+      const rowCount = result.rowCount || 0
+      lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+    }
+    await client.query('COMMIT')
+    return lastResult
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  }
+}
+
+/**
  * Extend Playwright test with server fixture
  * Provides:
  * - startServerWithSchema: Function to start server with custom AppSchema configuration
@@ -940,13 +965,23 @@ export const test = base.extend<ServerFixtures>({
             lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
           }
           return lastResult
-        } else {
-          const result = params ? await client.query(query, params) : await client.query(query)
-          const rows = result.rows
-          const rowCount = result.rowCount || 0
-          // Always include rows/rowCount, spread first row for single-row queries
-          return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
         }
+
+        // Handle semicolon-separated statements (e.g., SET LOCAL ... ; SELECT ...)
+        if (!params && query.includes(';')) {
+          const statements = query
+            .split(';')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+
+          return await executeStatementsInTransaction(client, statements)
+        }
+
+        // Single statement
+        const result = params ? await client.query(query, params) : await client.query(query)
+        const rows = result.rows
+        const rowCount = result.rowCount || 0
+        return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
       } finally {
         // Close connection after each query execution
         await client.end()
