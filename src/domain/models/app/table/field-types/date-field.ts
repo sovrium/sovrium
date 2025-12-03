@@ -39,12 +39,36 @@ export const DateFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      dateFormat: Schema.optional(
+        Schema.Literal('US', 'European', 'ISO').pipe(
+          Schema.annotations({
+            description: 'Date display format preset',
+            examples: ['US', 'European', 'ISO'],
+          })
+        )
+      ),
+      timeFormat: Schema.optional(
+        Schema.Literal('12-hour', '24-hour').pipe(
+          Schema.annotations({
+            description: 'Time display format (12-hour with AM/PM or 24-hour)',
+            examples: ['12-hour', '24-hour'],
+          })
+        )
+      ),
       includeTime: Schema.optional(Schema.Boolean),
       timezone: Schema.optional(
         Schema.String.pipe(
           Schema.annotations({
             description: 'Timezone for datetime fields',
             examples: ['UTC', 'America/New_York', 'Europe/London'],
+          })
+        )
+      ),
+      timeZone: Schema.optional(
+        Schema.Union(Schema.Literal('local'), Schema.String).pipe(
+          Schema.annotations({
+            description: 'Timezone setting (specific timezone or "local" for browser timezone)',
+            examples: ['local', 'America/New_York', 'Europe/Paris'],
           })
         )
       ),

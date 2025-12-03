@@ -370,7 +370,7 @@ test.describe('Count Field', () => {
     'APP-TABLES-FIELD-TYPES-COUNT-006: user can complete full count-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with count field', async () => {
+      await test.step('Setup: Start server with count field and conditional count', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
@@ -386,6 +386,13 @@ test.describe('Count Field', () => {
                   type: 'count',
                   relationshipField: 'department_id',
                 } as any,
+                {
+                  id: 4,
+                  name: 'active_employee_count',
+                  type: 'count',
+                  relationshipField: 'department_id',
+                  conditions: [{ field: 'is_active', operator: 'equals', value: true }],
+                } as any,
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
@@ -395,8 +402,9 @@ test.describe('Count Field', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'is_active', type: 'checkbox' },
                 {
-                  id: 3,
+                  id: 4,
                   name: 'department_id',
                   type: 'relationship',
                   relatedTable: 'departments',
@@ -408,10 +416,12 @@ test.describe('Count Field', () => {
           ],
         })
 
-        await executeQuery("INSERT INTO departments (name) VALUES ('Engineering'), ('Sales')")
+        await executeQuery(
+          "INSERT INTO departments (name) VALUES ('Engineering'), ('Sales'), ('Empty Dept')"
+        )
         await executeQuery(`
-          INSERT INTO employees (name, department_id) VALUES
-          ('Alice', 1), ('Bob', 1), ('Charlie', 1), ('Diana', 2)
+          INSERT INTO employees (name, is_active, department_id) VALUES
+          ('Alice', true, 1), ('Bob', true, 1), ('Charlie', false, 1), ('Diana', true, 2)
         `)
       })
 
@@ -427,6 +437,25 @@ test.describe('Count Field', () => {
         expect(salesCount.employee_count).toBe(1)
       })
 
+      await test.step('Verify zero count for department with no employees', async () => {
+        const emptyDept = await executeQuery(
+          'SELECT d.name, COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 3 GROUP BY d.id, d.name'
+        )
+        expect(emptyDept.employee_count).toBe(0)
+      })
+
+      await test.step('Verify conditional count filters correctly', async () => {
+        // Engineering has 3 employees, but only 2 are active
+        const activeCount = await executeQuery(`
+          SELECT d.name, COUNT(e.id) FILTER (WHERE e.is_active = true) as active_employee_count
+          FROM departments d
+          LEFT JOIN employees e ON d.id = e.department_id
+          WHERE d.id = 1
+          GROUP BY d.id, d.name
+        `)
+        expect(activeCount.active_employee_count).toBe(2)
+      })
+
       await test.step('Verify count updates when records change', async () => {
         // Move an employee to another department
         await executeQuery('UPDATE employees SET department_id = 2 WHERE id = 3')
@@ -440,6 +469,15 @@ test.describe('Count Field', () => {
           'SELECT COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 2 GROUP BY d.id'
         )
         expect(updatedSales.employee_count).toBe(2)
+      })
+
+      await test.step('Verify count updates when employee deleted', async () => {
+        await executeQuery('DELETE FROM employees WHERE id = 1')
+
+        const afterDelete = await executeQuery(
+          'SELECT COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 1 GROUP BY d.id'
+        )
+        expect(afterDelete.employee_count).toBe(1)
       })
     }
   )

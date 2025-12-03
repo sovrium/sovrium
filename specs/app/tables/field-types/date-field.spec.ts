@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/date-field.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 11
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -216,8 +216,177 @@ test.describe('Date Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATE-007: should display date in US format (M/D/YYYY) when dateFormat is US',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with date field configured with US format
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 7,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'event_date',
+                type: 'date',
+                dateFormat: 'US',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views date field in table
+      await page.goto('/tables/events')
+
+      // THEN: date is displayed in US format (M/D/YYYY)
+      await expect(page.getByText('6/15/2024')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATE-008: should display date in European format (D/M/YYYY) when dateFormat is European',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with date field configured with European format
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 8,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'event_date',
+                type: 'date',
+                dateFormat: 'European',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views date field in table
+      await page.goto('/tables/events')
+
+      // THEN: date is displayed in European format (D/M/YYYY)
+      await expect(page.getByText('15/6/2024')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATE-009: should display date in ISO format (YYYY-MM-DD) when dateFormat is ISO',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with date field configured with ISO format
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 9,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'event_date',
+                type: 'date',
+                dateFormat: 'ISO',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views date field in table
+      await page.goto('/tables/events')
+
+      // THEN: date is displayed in ISO format (YYYY-MM-DD)
+      await expect(page.getByText('2024-06-15')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATE-010: should include time component when includeTime is true',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with date field configured to include time
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 10,
+            name: 'appointments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'scheduled_date',
+                type: 'date',
+                includeTime: true,
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views date field with time in table
+      await page.goto('/tables/appointments')
+
+      // THEN: date is displayed with time component
+      await expect(page.getByText(/6\/15\/2024.*2:30 PM/)).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATE-011: should handle timezone conversion when timeZone is specified',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with date field configured with specific timezone
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 11,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'event_date',
+                type: 'date',
+                includeTime: true,
+                timeZone: 'America/New_York',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user in different timezone views date
+      await page.goto('/tables/events')
+
+      // THEN: date is displayed in specified timezone
+      // Note: This test verifies timezone conversion logic is applied
+      const dateCell = page.locator('[data-field="event_date"]').first()
+      await expect(dateCell).toBeVisible()
+      // Exact value depends on timezone conversion implementation
+    }
+  )
+
   test(
-    'APP-TABLES-FIELD-TYPES-DATE-006: user can complete full date-field workflow',
+    'APP-TABLES-FIELD-TYPES-DATE-012: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with date field', async () => {

@@ -18,6 +18,37 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
           Schema.annotations({ description: 'Maximum number of files allowed' })
         )
       ),
+      allowedFileTypes: Schema.optional(
+        Schema.Array(Schema.String).pipe(
+          Schema.annotations({
+            description: 'Allowed MIME types for file uploads',
+            examples: [['application/pdf', 'application/msword']],
+          })
+        )
+      ),
+      maxFileSize: Schema.optional(
+        Schema.Int.pipe(
+          Schema.greaterThanOrEqualTo(1),
+          Schema.annotations({
+            description: 'Maximum file size in bytes per attachment',
+            examples: [10_485_760],
+          })
+        )
+      ),
+      generateThumbnails: Schema.optional(
+        Schema.Boolean.pipe(
+          Schema.annotations({
+            description: 'Whether to generate thumbnails for image attachments',
+          })
+        )
+      ),
+      storeMetadata: Schema.optional(
+        Schema.Boolean.pipe(
+          Schema.annotations({
+            description: 'Whether to store metadata for each attachment',
+          })
+        )
+      ),
       storage: Schema.optional(
         Schema.Struct({
           provider: Schema.optional(

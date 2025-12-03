@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/datetime-field.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 9
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (9 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -216,8 +216,145 @@ test.describe('DateTime Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATETIME-007: should display time in 12-hour format when timeFormat is 12-hour',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with datetime field configured with 12-hour time format
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 7,
+            name: 'appointments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'scheduled_time',
+                type: 'datetime',
+                timeFormat: '12-hour',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views datetime field in table
+      await page.goto('/tables/appointments')
+
+      // THEN: time is displayed in 12-hour format with AM/PM
+      await expect(page.getByText(/2:30 PM/)).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATETIME-008: should display time in 24-hour format when timeFormat is 24-hour',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with datetime field configured with 24-hour time format
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 8,
+            name: 'appointments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'scheduled_time',
+                type: 'datetime',
+                timeFormat: '24-hour',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views datetime field in table
+      await page.goto('/tables/appointments')
+
+      // THEN: time is displayed in 24-hour format (14:30 instead of 2:30 PM)
+      await expect(page.getByText(/14:30/)).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATETIME-009: should display datetime with specific timezone when timeZone is configured',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with datetime field configured with specific timezone
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 9,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'event_time',
+                type: 'datetime',
+                timeZone: 'America/Los_Angeles',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views datetime field from different timezone
+      await page.goto('/tables/events')
+
+      // THEN: datetime is displayed in specified timezone (PST/PDT)
+      // Note: Timezone conversion should be applied consistently
+      const timeCell = page.locator('[data-field="event_time"]').first()
+      await expect(timeCell).toBeVisible()
+      // Exact value depends on timezone conversion and DST rules
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-DATETIME-010: should use local timezone when timeZone is set to local',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with datetime field configured to use local timezone
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 10,
+            name: 'meetings',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'meeting_time',
+                type: 'datetime',
+                timeZone: 'local',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views datetime field in table
+      await page.goto('/tables/meetings')
+
+      // THEN: datetime is displayed in user's local browser timezone
+      const timeCell = page.locator('[data-field="meeting_time"]').first()
+      await expect(timeCell).toBeVisible()
+      // Value should match user's browser timezone
+    }
+  )
+
   test(
-    'APP-TABLES-FIELD-TYPES-DATETIME-006: user can complete full datetime-field workflow',
+    'APP-TABLES-FIELD-TYPES-DATETIME-011: user can complete full datetime-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with datetime field', async () => {
