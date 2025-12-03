@@ -29,7 +29,7 @@ test.describe('Unique Constraints', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-001: should reject with unique constraint violation error when attempting to insert duplicate combination',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -77,7 +77,8 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
       )
       // THEN: assertion
-      expect(result.rows[0]).toMatchObject({ id: 2 })
+      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+      expect(result.rows[0]).toMatchObject({ id: 3 })
     }
   )
 

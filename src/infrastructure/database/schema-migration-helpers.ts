@@ -280,14 +280,17 @@ export const generateAlterTableStatements = (
 
 /**
  * Sync unique constraints for existing table
- * Adds named UNIQUE constraints for fields with unique property
- * Uses PostgreSQL default naming convention: {table}_{column}_key
+ * Adds named UNIQUE constraints for:
+ * 1. Single-field constraints (fields with unique property)
+ * 2. Composite unique constraints (table.uniqueConstraints)
+ * Uses PostgreSQL default naming convention: {table}_{column}_key for single fields
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
 export const syncUniqueConstraints = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   table: Table
 ): Promise<void> => {
+  // Single-field unique constraints
   const uniqueFields = new Set(
     table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
   )
@@ -308,6 +311,26 @@ export const syncUniqueConstraints = async (
         END IF;
       END$$;
     `)
+  }
+
+  // Composite unique constraints from table.uniqueConstraints
+  if (table.uniqueConstraints && table.uniqueConstraints.length > 0) {
+    for (const constraint of table.uniqueConstraints) {
+      const fields = constraint.fields.join(', ')
+      await tx.unsafe(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE table_name = '${table.name}'
+              AND constraint_type = 'UNIQUE'
+              AND constraint_name = '${constraint.name}'
+          ) THEN
+            ALTER TABLE ${table.name} ADD CONSTRAINT ${constraint.name} UNIQUE (${fields});
+          END IF;
+        END$$;
+      `)
+    }
   }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
