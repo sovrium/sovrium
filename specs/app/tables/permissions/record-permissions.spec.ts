@@ -233,13 +233,20 @@ test.describe('Record-Level Permissions', () => {
       const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
+      // Create non-superuser role for RLS testing
+      await executeQuery('DROP ROLE IF EXISTS rls_test_user')
+      await executeQuery("CREATE ROLE rls_test_user WITH LOGIN PASSWORD 'test'")
+
       // Replace automatic policy with manual one for verification
       await executeQuery([
         'ALTER TABLE articles ENABLE ROW LEVEL SECURITY',
         'ALTER TABLE articles FORCE ROW LEVEL SECURITY',
         'DROP POLICY IF EXISTS articles_record_delete ON articles',
+        "CREATE POLICY user_select_own ON articles FOR SELECT USING (created_by = current_setting('app.user_id', true)::TEXT)",
         "CREATE POLICY user_delete_draft ON articles FOR DELETE USING (created_by = current_setting('app.user_id', true)::TEXT AND status = 'draft')",
         `INSERT INTO articles (title, status, created_by) VALUES ('Draft 1', 'draft', '${user1.user.id}'), ('Published 1', 'published', '${user1.user.id}'), ('Draft 2', 'draft', '${user2.user.id}')`,
+        'GRANT ALL ON TABLE articles TO rls_test_user',
+        'GRANT USAGE ON SCHEMA public TO rls_test_user',
       ])
 
       // WHEN: user attempts to delete published record they created
@@ -254,24 +261,24 @@ test.describe('Record-Level Permissions', () => {
 
       // User 1 can DELETE their draft article
       const user1Delete = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 1 RETURNING id`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 1 RETURNING id`
       )
       // THEN: assertion
       expect(user1Delete.id).toBe(1)
 
       // User 1 cannot DELETE their published article (status not draft)
       const user1FailedDelete = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 2 RETURNING id`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 2 RETURNING id`
       )
       // THEN: assertion
-      expect(user1FailedDelete.id).toBeNull()
+      expect(user1FailedDelete.id).toBeUndefined()
 
       // User 1 cannot DELETE drafts by user 2 (not their own)
       const user1CrossDelete = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 3 RETURNING id`
+        `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 3 RETURNING id`
       )
       // THEN: assertion
-      expect(user1CrossDelete.id).toBeNull()
+      expect(user1CrossDelete.id).toBeUndefined()
     }
   )
 
