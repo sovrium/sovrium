@@ -537,7 +537,7 @@ test.describe('Record-Level Permissions', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-RECORD-PERMISSIONS-007: user can complete full record-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -586,39 +586,45 @@ test.describe('Record-Level Permissions', () => {
         user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
         user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
+        await executeQuery('DROP ROLE IF EXISTS rls_test_user')
+        await executeQuery("CREATE ROLE rls_test_user WITH LOGIN PASSWORD 'test'")
+
         await executeQuery([
           'ALTER TABLE items ENABLE ROW LEVEL SECURITY',
-          "CREATE POLICY user_read ON items FOR SELECT USING (owner_id = current_setting('app.user_id')::INTEGER)",
-          "CREATE POLICY user_update ON items FOR UPDATE USING (owner_id = current_setting('app.user_id')::INTEGER)",
-          "CREATE POLICY user_delete ON items FOR DELETE USING (owner_id = current_setting('app.user_id')::INTEGER AND status = 'draft')",
+          'ALTER TABLE items FORCE ROW LEVEL SECURITY',
+          "CREATE POLICY user_read ON items FOR SELECT USING (owner_id = current_setting('app.user_id', true)::TEXT)",
+          "CREATE POLICY user_update ON items FOR UPDATE USING (owner_id = current_setting('app.user_id', true)::TEXT)",
+          "CREATE POLICY user_delete ON items FOR DELETE USING (owner_id = current_setting('app.user_id', true)::TEXT AND status = 'draft')",
           `INSERT INTO items (title, owner_id, status) VALUES ('Item 1', '${user1.user.id}', 'draft'), ('Item 2', '${user2.user.id}', 'published')`,
+          'GRANT ALL ON TABLE items TO rls_test_user',
+          'GRANT USAGE ON SCHEMA public TO rls_test_user',
         ])
       })
 
       await test.step('Verify user can read their own records', async () => {
         const readResult = await executeQuery(
-          `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items`
+          `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items`
         )
         expect(readResult.count).toBe(1)
       })
 
       await test.step('Verify user can update their own records', async () => {
         const updateResult = await executeQuery(
-          `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title`
+          `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title`
         )
         expect(updateResult.title).toBe('Updated')
       })
 
       await test.step('Verify user can delete their own draft records', async () => {
         const deleteResult = await executeQuery(
-          `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM items WHERE id = 1 RETURNING id`
+          `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM items WHERE id = 1 RETURNING id`
         )
         expect(deleteResult.id).toBe(1)
       })
 
       await test.step('Verify user cannot access other users records', async () => {
         const crossUserResult = await executeQuery(
-          `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`
+          `SET ROLE rls_test_user; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`
         )
         expect(crossUserResult.count).toBe(0)
       })
