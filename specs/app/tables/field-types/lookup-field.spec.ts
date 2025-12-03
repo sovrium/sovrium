@@ -183,10 +183,16 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize server with minimal schema to enable database access
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2))',
@@ -200,7 +206,8 @@ test.describe('Lookup Field', () => {
         'SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1'
       )
       // THEN: assertion
-      expect(initialLookup).toEqual({ id: 1, product_price: '19.99' })
+      expect(initialLookup.id).toBe(1)
+      expect(initialLookup.product_price).toBe(19.99)
 
       // WHEN: executing query
       await executeQuery('UPDATE products SET price = 24.99 WHERE id = 1')
@@ -210,7 +217,8 @@ test.describe('Lookup Field', () => {
         'SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1'
       )
       // THEN: assertion
-      expect(updatedLookup).toEqual({ id: 1, product_price: '24.99' })
+      expect(updatedLookup.id).toBe(1)
+      expect(updatedLookup.product_price).toBe(24.99)
     }
   )
 
