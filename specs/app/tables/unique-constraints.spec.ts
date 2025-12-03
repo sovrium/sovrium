@@ -377,7 +377,7 @@ test.describe('Unique Constraints', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-008: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -430,7 +430,8 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
       )
       // THEN: assertion
-      expect(user2.rows[0]).toMatchObject({ id: 2 })
+      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+      expect(user2.rows[0]).toMatchObject({ id: 3 })
 
       // 3. Multiple unique constraints on different tables
       await executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
