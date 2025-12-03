@@ -6,3 +6,4 @@
  */
 
 export { chainTableRoutes } from './tables'
+export { chainAuthRoutes } from './auth'
