@@ -29,7 +29,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-001: should filter records based on user ownership policy',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -74,19 +74,21 @@ test.describe('Row-Level Security Enforcement', () => {
       const rlsEnabled = await executeQuery(
         `SELECT relrowsecurity FROM pg_class WHERE relname = 'notes'`
       )
-      expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
 
       // Verify RLS policy exists
       const policies = await executeQuery(
         `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'notes'`
       )
-      expect(policies.some((p: { policyname: string }) => p.policyname.includes('read'))).toBe(true)
+      expect(policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))).toBe(
+        true
+      )
 
       // Verify policy filters by owner_id (check policy definition)
       const policyDef = await executeQuery(
         `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy WHERE polrelid = 'notes'::regclass`
       )
-      expect(policyDef[0].qual).toContain('owner_id')
+      expect(policyDef.rows[0].qual).toContain('owner_id')
     }
   )
 
