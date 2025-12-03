@@ -176,7 +176,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-004: should create multi-column unique index with 3+ fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -233,7 +233,8 @@ test.describe('Unique Constraints', () => {
         `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'Los Angeles') RETURNING id`
       )
       // THEN: assertion
-      expect(result.rows[0]).toMatchObject({ id: 2 })
+      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+      expect(result.rows[0]).toMatchObject({ id: 3 })
     }
   )
 
