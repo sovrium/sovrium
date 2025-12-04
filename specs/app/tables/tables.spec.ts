@@ -1571,7 +1571,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-040: should reject single-select field without options',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
