@@ -15,14 +15,23 @@ import type { Table } from '@/domain/models/app/tables'
  * Generate sample value for a field
  */
 function getSampleValue(
-  field: { readonly name: string; readonly type: string; readonly precision?: number }
+  field: {
+    readonly name: string
+    readonly type: string
+    readonly precision?: number
+    readonly negativeFormat?: 'minus' | 'parentheses'
+  }
 ): unknown {
   switch (field.type) {
     case 'integer':
       return field.name === 'id' ? 1 : 42
     case 'currency': {
-      // Use 1000 for zero-decimal currencies (like JPY), 99.99 for others
       const currencyField = field as CurrencyField
+      // Use negative value for fields with parentheses format to demonstrate the feature
+      if (currencyField.negativeFormat === 'parentheses') {
+        return -100.0
+      }
+      // Use 1000 for zero-decimal currencies (like JPY), 99.99 for others
       return currencyField.precision === 0 ? 1000 : 99.99
     }
     case 'date':
