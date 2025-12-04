@@ -79,6 +79,13 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
       ),
     })
   ),
+  Schema.filter((field) => {
+    // Validate min <= max when both are specified
+    if (field.min !== undefined && field.max !== undefined && field.min > field.max) {
+      return 'min cannot be greater than max'
+    }
+    return undefined
+  }),
   Schema.annotations({
     title: 'Decimal Field',
     description:
