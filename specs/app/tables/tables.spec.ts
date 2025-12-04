@@ -1510,7 +1510,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-038: should reject integer field with min greater than max',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
