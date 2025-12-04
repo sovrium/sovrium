@@ -134,7 +134,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-003: should auto-update when linked records change',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
