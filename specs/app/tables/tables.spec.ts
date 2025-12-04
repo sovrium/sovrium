@@ -1438,7 +1438,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-035: should reject field name with invalid format',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
