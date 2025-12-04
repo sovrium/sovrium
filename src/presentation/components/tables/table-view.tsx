@@ -6,6 +6,7 @@
  */
 
 import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
+import type { DateField } from '@/domain/models/app/table/field-types/date-field'
 import type { Table } from '@/domain/models/app/tables'
 import type React from 'react'
 
@@ -100,6 +101,42 @@ function applyThousandsSeparator(
   return decimalPart !== undefined ? `${formattedInteger}${decimalSeparator}${decimalPart}` : formattedInteger
 }
 
+/**
+ * Format date value based on dateFormat option
+ *
+ * @param dateString - ISO date string (YYYY-MM-DD)
+ * @param dateFormat - Date format preset (US, European, or ISO)
+ * @returns Formatted date string
+ *
+ * @example
+ * formatDate("2024-06-15", "US") // "6/15/2024"
+ * formatDate("2024-06-15", "European") // "15/6/2024"
+ * formatDate("2024-06-15", "ISO") // "2024-06-15"
+ */
+function formatDate(dateString: string, dateFormat?: 'US' | 'European' | 'ISO'): string {
+  // Parse ISO date string (YYYY-MM-DD)
+  const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) {
+    return dateString // Return as-is if not in expected format
+  }
+
+  const [, year, month, day] = match
+
+  // Remove leading zeros from month and day
+  const monthNum = parseInt(month || '1', 10)
+  const dayNum = parseInt(day || '1', 10)
+
+  switch (dateFormat) {
+    case 'US':
+      return `${monthNum}/${dayNum}/${year}`
+    case 'European':
+      return `${dayNum}/${monthNum}/${year}`
+    case 'ISO':
+    default:
+      return dateString
+  }
+}
+
 export interface TableViewProps {
   readonly table: Table
   readonly records: readonly Record<string, unknown>[]
@@ -140,6 +177,14 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                     negativeFormat: currencyField.negativeFormat,
                     thousandsSeparator: currencyField.thousandsSeparator,
                   })
+                  return <td key={field.id}>{formatted}</td>
+                }
+
+                // Format date fields
+                if (field.type === 'date') {
+                  const dateField = field as DateField
+                  const dateString = String(value ?? '')
+                  const formatted = formatDate(dateString, dateField.dateFormat)
                   return <td key={field.id}>{formatted}</td>
                 }
 

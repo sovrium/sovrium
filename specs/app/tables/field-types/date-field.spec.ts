@@ -249,7 +249,7 @@ test.describe('Date Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-007: should display date in European format (D/M/YYYY) when dateFormat is European',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
