@@ -374,7 +374,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-010: should use specified thousands separator',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {

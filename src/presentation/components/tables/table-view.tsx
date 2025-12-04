@@ -25,7 +25,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 }
 
 /**
- * Format currency value with symbol position, precision, and negative format
+ * Format currency value with symbol position, precision, negative format, and thousands separator
  */
 function formatCurrency(
   value: number,
@@ -34,6 +34,7 @@ function formatCurrency(
     readonly symbolPosition?: 'before' | 'after'
     readonly precision?: number
     readonly negativeFormat?: 'minus' | 'parentheses'
+    readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
   }
 ): string {
   const {
@@ -41,11 +42,18 @@ function formatCurrency(
     symbolPosition = 'before',
     precision = 2,
     negativeFormat = 'minus',
+    thousandsSeparator = 'none',
   } = options
   const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode
   const absValue = Math.abs(value)
-  const formattedValue = absValue.toFixed(precision)
+  const fixedValue = absValue.toFixed(precision)
   const isNegative = value < 0
+
+  // Apply thousands separator
+  const formattedValue =
+    thousandsSeparator !== 'none'
+      ? applyThousandsSeparator(fixedValue, thousandsSeparator)
+      : fixedValue
 
   const result =
     symbolPosition === 'after' ? `${formattedValue}${symbol}` : `${symbol}${formattedValue}`
@@ -56,6 +64,37 @@ function formatCurrency(
       ? `(${result})`
       : `-${result}`
     : result
+}
+
+/**
+ * Apply thousands separator to a numeric string
+ *
+ * @param value - Numeric string with period as decimal separator (e.g., "1000000.00")
+ * @param separator - Type of thousands separator to use
+ * @returns Formatted string with thousands separator applied
+ *
+ * @example
+ * applyThousandsSeparator("1000000.00", "space") // "1 000 000.00"
+ * applyThousandsSeparator("1000000.00", "comma") // "1,000,000.00"
+ * applyThousandsSeparator("1000000.00", "period") // "1.000.000.00"
+ */
+function applyThousandsSeparator(
+  value: string,
+  separator: 'comma' | 'period' | 'space'
+): string {
+  // Split on period (decimal separator)
+  const parts = value.split('.')
+  const integerPart = parts[0] || '0'
+  const decimalPart = parts[1]
+
+  // Map separator type to character
+  const separatorChar = separator === 'comma' ? ',' : separator === 'period' ? '.' : ' '
+
+  // Insert separator every 3 digits from right to left
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, separatorChar)
+
+  // Reconstruct with original decimal separator (always period)
+  return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger
 }
 
 export interface TableViewProps {
@@ -96,6 +135,7 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                     symbolPosition: currencyField.symbolPosition,
                     precision: currencyField.precision,
                     negativeFormat: currencyField.negativeFormat,
+                    thousandsSeparator: currencyField.thousandsSeparator,
                   })
                   return <td key={field.id}>{formatted}</td>
                 }

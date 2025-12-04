@@ -20,6 +20,7 @@ function getSampleValue(
     readonly type: string
     readonly precision?: number
     readonly negativeFormat?: 'minus' | 'parentheses'
+    readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
   }
 ): unknown {
   switch (field.type) {
@@ -30,6 +31,10 @@ function getSampleValue(
       // Use negative value for fields with parentheses format to demonstrate the feature
       if (currencyField.negativeFormat === 'parentheses') {
         return -100.0
+      }
+      // Use large number for fields with thousands separator to demonstrate the feature
+      if (currencyField.thousandsSeparator && currencyField.thousandsSeparator !== 'none') {
+        return 1_000_000.0
       }
       // Use 1000 for zero-decimal currencies (like JPY), 99.99 for others
       return currencyField.precision === 0 ? 1000 : 99.99
