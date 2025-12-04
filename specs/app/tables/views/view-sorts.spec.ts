@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 3
+ * Spec Count: 4
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
@@ -170,11 +170,49 @@ test.describe('View Sorts', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (004)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-VIEW-SORTS-004: should reject sort referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: View sort referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'sorted_view',
+                  name: 'Sorted View',
+                  sorts: [
+                    { field: 'price', direction: 'asc' }, // 'price' doesn't exist!
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*price.*not found|sort.*references.*non-existent.*field/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-SORTS-004: user can complete full view-sorts workflow',
+    'APP-TABLES-VIEW-SORTS-005: user can complete full view-sorts workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with sorted view', async () => {

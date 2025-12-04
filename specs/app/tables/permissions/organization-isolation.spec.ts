@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Data Isolation
  *
  * Domain: app/tables/permissions
- * Spec Count: 7
+ * Spec Count: 9
  *
  * Test Organization:
  * 1. @spec tests - One per spec (7 tests) - Exhaustive acceptance criteria
@@ -584,11 +584,81 @@ test.describe('Organization Data Isolation', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (008-009)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-ORG-ISOLATION-008: should reject organizationScoped table without organization_id field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: organizationScoped table without organization_id field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                // Missing organization_id field!
+              ],
+              permissions: {
+                organizationScoped: true, // Requires organization_id field!
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/organization_id.*required|organizationScoped.*requires.*organization_id/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-ORG-ISOLATION-009: should reject organizationScoped table with wrong organization_id field type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: organizationScoped table with organization_id as integer (should be text)
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'integer' }, // Should be text/single-line-text!
+              ],
+              permissions: {
+                organizationScoped: true,
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/organization_id.*type.*text|organization_id.*invalid.*type/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test(
-    'APP-TABLES-ORG-ISOLATION-008: organization data isolation workflow',
+    'APP-TABLES-ORG-ISOLATION-010: organization data isolation workflow',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

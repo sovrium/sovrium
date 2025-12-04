@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 3
+ * Spec Count: 4
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
@@ -182,11 +182,50 @@ test.describe('View Group By', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (004)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-VIEW-GROUP-BY-004: should reject groupBy referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: View groupBy referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'grouped_view',
+                  name: 'Grouped View',
+                  groupBy: {
+                    field: 'category', // 'category' doesn't exist!
+                    direction: 'asc',
+                  },
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*category.*not found|groupBy.*references.*non-existent.*field/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-GROUP-BY-004: user can complete full view-group-by workflow',
+    'APP-TABLES-VIEW-GROUP-BY-005: user can complete full view-group-by workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with grouped view', async () => {

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 3
+ * Spec Count: 4
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
@@ -157,11 +157,50 @@ test.describe('Table View', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (004)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-VIEW-004: should reject duplicate view IDs within the same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with duplicate view IDs
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'my_view', // Duplicate ID!
+                  name: 'View 1',
+                },
+                {
+                  id: 'my_view', // Duplicate ID!
+                  name: 'View 2',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*view.*id|view id.*must be unique/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-004: user can complete full view workflow',
+    'APP-TABLES-VIEW-005: user can complete full view workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with default view configuration', async () => {

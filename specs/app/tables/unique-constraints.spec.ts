@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 7
+ * Spec Count: 9
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (7 tests) - Exhaustive acceptance criteria
@@ -374,11 +374,82 @@ test.describe('Unique Constraints', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (008-009)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-UNIQUECONSTRAINTS-008: should reject unique constraint referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Unique constraint referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_users_tenant_email',
+                  fields: ['tenant_id', 'email'], // 'tenant_id' doesn't exist!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*tenant_id.*not found|unique constraint.*references.*non-existent.*field/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-UNIQUECONSTRAINTS-009: should reject duplicate unique constraint names within the same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with duplicate unique constraint names
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'phone', type: 'phone-number' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_users_contact', // Duplicate name!
+                  fields: ['name', 'email'],
+                },
+                {
+                  name: 'uq_users_contact', // Duplicate name!
+                  fields: ['name', 'phone'],
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*constraint.*name|constraint name.*must be unique/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
   test(
-    'APP-TABLES-UNIQUECONSTRAINTS-008: user can complete full Unique Constraints workflow',
+    'APP-TABLES-UNIQUECONSTRAINTS-010: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative unique constraint configurations

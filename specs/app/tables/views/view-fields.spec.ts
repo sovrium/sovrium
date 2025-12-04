@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 3
+ * Spec Count: 4
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
@@ -181,11 +181,47 @@ test.describe('View Fields', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (004)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-VIEW-FIELDS-004: should reject fields array containing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: View fields array containing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'custom_view',
+                  name: 'Custom View',
+                  fields: ['id', 'name', 'description'], // 'description' doesn't exist!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*description.*not found|view.*fields.*non-existent/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-FIELDS-004: user can complete full view-fields workflow',
+    'APP-TABLES-VIEW-FIELDS-005: user can complete full view-fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with custom field configuration', async () => {

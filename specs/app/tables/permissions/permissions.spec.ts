@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/permissions/index.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 10
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -471,11 +471,202 @@ test.describe('Table Permissions', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (006-009)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-PERMISSIONS-006: should reject permission with non-existent role',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Permission configuration referencing non-existent role
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: {
+                  type: 'roles',
+                  roles: ['super_admin'], // 'super_admin' role doesn't exist!
+                },
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/role.*super_admin.*not found|invalid.*role/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-PERMISSIONS-007: should reject field permission referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Field permission referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                fields: [
+                  {
+                    field: 'salary', // 'salary' field doesn't exist!
+                    read: { type: 'roles', roles: ['admin'] },
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*salary.*not found|field.*does not exist/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-PERMISSIONS-008: should reject conflicting field permissions',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Same field with conflicting permission rules
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                fields: [
+                  {
+                    field: 'content',
+                    read: { type: 'public' }, // Public read
+                  },
+                  {
+                    field: 'content', // Duplicate field definition!
+                    read: { type: 'roles', roles: ['admin'] }, // Conflicting!
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*field.*permission|conflicting.*permission/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-PERMISSIONS-009: should reject record permission with invalid condition field reference',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Record permission referencing non-existent field in condition
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                records: [
+                  {
+                    action: 'read',
+                    condition: '{userId} = owner_id', // 'owner_id' field doesn't exist!
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*owner_id.*not found|invalid.*field.*condition/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-PERMISSIONS-010: should reject circular relationship dependency between tables',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Two tables with circular foreign key dependencies (Table A → Table B → Table A)
+      // WHEN: Attempting to start server with circular dependency
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'table_a',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'table_b_ref',
+                  type: 'relationship',
+                  relatedTable: 'table_b', // References table_b
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'table_b',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'table_a_ref',
+                  type: 'relationship',
+                  relatedTable: 'table_a', // References table_a - circular!
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/circular.*dependency|dependency.*cycle|cannot resolve.*order/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test(
-    'APP-TABLES-PERMISSIONS-006: user can complete full permissions workflow',
+    'APP-TABLES-PERMISSIONS-011: user can complete full permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with hierarchical permissions', async () => {

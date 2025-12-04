@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/migrations/migration-system/error-handling/error-handling.json
  * Domain: migrations
- * Spec Count: 5
+ * Spec Count: 10
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -268,11 +268,157 @@ test.describe('Error Handling and Rollback', () => {
   )
 
   // ============================================================================
+  // Phase: Additional Startup Configuration Validation Tests (006-007)
+  // ============================================================================
+
+  test.fixme(
+    'MIGRATION-ERROR-006: should reject schema with index on non-existent column',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with index referencing non-existent column
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_users_status',
+                  fields: ['status'], // 'status' column doesn't exist!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/column.*status.*not found|index.*references.*non-existent.*column/i)
+    }
+  )
+
+  test.fixme(
+    'MIGRATION-ERROR-007: should reject schema with duplicate table IDs',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Schema with two tables having same ID
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1, // Duplicate ID!
+              name: 'users',
+              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+            },
+            {
+              id: 1, // Duplicate ID!
+              name: 'products',
+              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*table.*id|table id.*must be unique/i)
+    }
+  )
+
+  test.fixme(
+    'MIGRATION-ERROR-008: should reject migration with invalid dependency order',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Migration depending on non-existent previous migration
+      // WHEN: Attempting to start server with invalid migration order
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'author_id',
+                  type: 'relationship',
+                  relatedTable: 'users', // References 'users' table that doesn't exist yet
+                  relationType: 'many-to-one',
+                },
+              ],
+            },
+            // 'users' table should be defined BEFORE 'posts' to satisfy FK dependency
+          ],
+        })
+      ).rejects.toThrow(/relation.*users.*does not exist|invalid.*migration.*order|dependency.*not.*found/i)
+    }
+  )
+
+  test.fixme(
+    'MIGRATION-ERROR-009: should reject destructive operations without confirmation flag',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Existing table with data
+      await executeQuery([
+        `CREATE TABLE legacy_data (id SERIAL PRIMARY KEY, value TEXT)`,
+        `INSERT INTO legacy_data (value) VALUES ('important data')`,
+      ])
+
+      // WHEN: Attempting to drop column/table without explicit confirmation
+      // THEN: Should throw validation error requiring confirmation
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'legacy_data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                // 'value' column removed - destructive operation!
+              ],
+              // No 'allowDestructive: true' flag
+            },
+          ],
+        })
+      ).rejects.toThrow(/destructive.*operation|column.*drop.*requires.*confirmation|data loss/i)
+
+      // Verify data still exists (operation was blocked)
+      const dataCheck = await executeQuery(`SELECT COUNT(*) as count FROM legacy_data`)
+      expect(dataCheck.count).toBe(1)
+    }
+  )
+
+  test.fixme(
+    'MIGRATION-ERROR-010: should reject empty migration with no schema changes',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Migration configuration with no tables or operations
+      // WHEN: Attempting to start server with empty migration
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [], // Empty tables array - no operations!
+        })
+      ).rejects.toThrow(/empty.*migration|no.*tables.*defined|at least one table required/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'MIGRATION-ERROR-006: user can complete full error-handling-and-rollback workflow',
+    'MIGRATION-ERROR-011: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Test invalid field type triggers rollback', async () => {
