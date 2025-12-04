@@ -6,6 +6,7 @@
  */
 
 import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
+import type { DateField } from '@/domain/models/app/table/field-types/date-field'
 import type { Table } from '@/domain/models/app/tables'
 import type React from 'react'
 
@@ -25,7 +26,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 }
 
 /**
- * Format currency value with symbol position, precision, and negative format
+ * Format currency value with symbol position, precision, negative format, and thousands separator
  */
 function formatCurrency(
   value: number,
@@ -34,6 +35,7 @@ function formatCurrency(
     readonly symbolPosition?: 'before' | 'after'
     readonly precision?: number
     readonly negativeFormat?: 'minus' | 'parentheses'
+    readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
   }
 ): string {
   const {
@@ -41,11 +43,18 @@ function formatCurrency(
     symbolPosition = 'before',
     precision = 2,
     negativeFormat = 'minus',
+    thousandsSeparator = 'none',
   } = options
   const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode
   const absValue = Math.abs(value)
-  const formattedValue = absValue.toFixed(precision)
+  const fixedValue = absValue.toFixed(precision)
   const isNegative = value < 0
+
+  // Apply thousands separator
+  const formattedValue =
+    thousandsSeparator !== 'none'
+      ? applyThousandsSeparator(fixedValue, thousandsSeparator)
+      : fixedValue
 
   const result =
     symbolPosition === 'after' ? `${formattedValue}${symbol}` : `${symbol}${formattedValue}`
@@ -56,6 +65,109 @@ function formatCurrency(
       ? `(${result})`
       : `-${result}`
     : result
+}
+
+/**
+ * Apply thousands separator to a numeric string
+ *
+ * @param value - Numeric string with period as decimal separator (e.g., "1000000.00")
+ * @param separator - Type of thousands separator to use
+ * @returns Formatted string with thousands separator applied
+ *
+ * @example
+ * applyThousandsSeparator("1000000.00", "space") // "1 000 000.00"
+ * applyThousandsSeparator("1000000.00", "comma") // "1,000,000.00"
+ * applyThousandsSeparator("1000000.00", "period") // "1.000.000,00"
+ */
+function applyThousandsSeparator(
+  value: string,
+  separator: 'comma' | 'period' | 'space'
+): string {
+  // Split on period (decimal separator)
+  const parts = value.split('.')
+  const integerPart = parts[0] || '0'
+  const decimalPart = parts[1]
+
+  // Map separator type to character
+  const separatorChar = separator === 'comma' ? ',' : separator === 'period' ? '.' : ' '
+
+  // Insert separator every 3 digits from right to left
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, separatorChar)
+
+  // When using period as thousands separator, use comma as decimal separator (European format)
+  const decimalSeparator = separator === 'period' ? ',' : '.'
+
+  // Reconstruct with appropriate decimal separator
+  return decimalPart !== undefined ? `${formattedInteger}${decimalSeparator}${decimalPart}` : formattedInteger
+}
+
+/**
+ * Format date value based on dateFormat option
+ *
+ * @param dateString - ISO date string (YYYY-MM-DD)
+ * @param dateFormat - Date format preset (US, European, or ISO)
+ * @returns Formatted date string
+ *
+ * @example
+ * formatDate("2024-06-15", "US") // "6/15/2024"
+ * formatDate("2024-06-15", "European") // "15/6/2024"
+ * formatDate("2024-06-15", "ISO") // "2024-06-15"
+ */
+function formatDate(dateString: string, dateFormat?: 'US' | 'European' | 'ISO'): string {
+  // Parse ISO date string (YYYY-MM-DD)
+  const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) {
+    return dateString // Return as-is if not in expected format
+  }
+
+  const [, year, month, day] = match
+
+  // Remove leading zeros from month and day
+  const monthNum = parseInt(month || '1', 10)
+  const dayNum = parseInt(day || '1', 10)
+
+  switch (dateFormat) {
+    case 'US':
+      return `${monthNum}/${dayNum}/${year}`
+    case 'European':
+      return `${dayNum}/${monthNum}/${year}`
+    case 'ISO':
+    default:
+      return dateString
+  }
+}
+
+/**
+ * Format datetime value with time format option
+ *
+ * @param datetimeString - ISO datetime string (YYYY-MM-DD HH:MM:SS)
+ * @param timeFormat - Time format (12-hour or 24-hour)
+ * @returns Formatted datetime string with time
+ *
+ * @example
+ * formatDateTime("2024-06-15 14:30:00", "24-hour") // "14:30"
+ * formatDateTime("2024-06-15 14:30:00", "12-hour") // "2:30 PM"
+ */
+function formatDateTime(datetimeString: string, timeFormat?: '12-hour' | '24-hour'): string {
+  // Parse ISO datetime string (YYYY-MM-DD HH:MM:SS)
+  const match = datetimeString.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/)
+  if (!match) {
+    return datetimeString // Return as-is if not in expected format
+  }
+
+  const [, , , , hour, minute] = match
+  const hourNum = parseInt(hour || '0', 10)
+  const minuteStr = minute || '00'
+
+  if (timeFormat === '12-hour') {
+    // Convert to 12-hour format with AM/PM
+    const period = hourNum >= 12 ? 'PM' : 'AM'
+    const hour12 = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum
+    return `${hour12}:${minuteStr} ${period}`
+  }
+
+  // Default to 24-hour format
+  return `${hour}:${minuteStr}`
 }
 
 export interface TableViewProps {
@@ -96,7 +208,24 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                     symbolPosition: currencyField.symbolPosition,
                     precision: currencyField.precision,
                     negativeFormat: currencyField.negativeFormat,
+                    thousandsSeparator: currencyField.thousandsSeparator,
                   })
+                  return <td key={field.id}>{formatted}</td>
+                }
+
+                // Format date fields
+                if (field.type === 'date') {
+                  const dateField = field as DateField
+                  const dateString = String(value ?? '')
+                  const formatted = formatDate(dateString, dateField.dateFormat)
+                  return <td key={field.id}>{formatted}</td>
+                }
+
+                // Format datetime fields
+                if (field.type === 'datetime') {
+                  const dateField = field as DateField
+                  const datetimeString = String(value ?? '')
+                  const formatted = formatDateTime(datetimeString, dateField.timeFormat)
                   return <td key={field.id}>{formatted}</td>
                 }
 
