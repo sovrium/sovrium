@@ -1629,7 +1629,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-042: should reject decimal field with invalid precision',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
