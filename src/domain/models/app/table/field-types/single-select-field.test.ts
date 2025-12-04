@@ -60,6 +60,23 @@ describe('SingleSelectFieldSchema', () => {
         Schema.decodeSync(SingleSelectFieldSchema)(field)
       }).toThrow()
     })
+
+    test('should reject field with empty options array', () => {
+      // Given: A field with empty options
+      const field = {
+        id: 1,
+        name: 'category',
+        type: 'single-select' as const,
+        options: [],
+
+        // When: The value is validated against the schema
+        // Then: Validation should throw an error about requiring at least one option
+      }
+
+      expect(() => {
+        Schema.decodeSync(SingleSelectFieldSchema)(field)
+      }).toThrow(/at least one option/i)
+    })
   })
 
   describe('type inference', () => {
