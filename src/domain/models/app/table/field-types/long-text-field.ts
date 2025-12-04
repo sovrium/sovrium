@@ -50,8 +50,7 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Long Text Field',
     description:

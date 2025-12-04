@@ -207,6 +207,7 @@ jobs:
           3. **⚠️ GATE: Verify quality BEFORE PR** - Run \`bun run quality\` and confirm ALL checks pass:
              - ✅ ESLint: 0 errors
              - ✅ TypeScript: No type errors
+             - ✅ Effect diagnostics: No Effect-specific issues
              - ✅ Unit tests: All passing
              - ✅ Coverage check: Domain layer has tests
              - ✅ **Smart E2E detection**: Runs affected @regression specs automatically
@@ -221,7 +222,7 @@ jobs:
 
           - **If \`bun run quality\` fails**:
             1. Read the FULL error output carefully
-            2. Fix ALL failing checks (ESLint, TypeScript, unit tests, E2E)
+            2. Fix ALL failing checks (ESLint, TypeScript, Effect diagnostics, unit tests, E2E)
             3. Re-run \`bun run quality\` until it passes completely
             4. Only THEN proceed to commit and PR creation
           - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure

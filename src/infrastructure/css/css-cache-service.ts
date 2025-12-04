@@ -59,6 +59,4 @@ export const getCachedCSS = (cacheKey: string): Effect.Effect<CompiledCSS | unde
  * @returns Effect that updates the cache
  */
 export const setCachedCSS = (cacheKey: string, compiled: CompiledCSS): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    yield* Ref.update(cssCache, (currentCache) => new Map([...currentCache, [cacheKey, compiled]]))
-  })
+  Ref.update(cssCache, (currentCache) => new Map([...currentCache, [cacheKey, compiled]]))

@@ -73,10 +73,7 @@ const structuredLogger = Logger.make(({ logLevel, message, cause }) => {
 const runLogEffect = <A>(effect: Effect.Effect<A>): void => {
   // eslint-disable-next-line functional/no-expression-statements -- Side effect for logging
   Effect.runSync(
-    effect.pipe(
-      Effect.provide(Logger.replace(Logger.defaultLogger, structuredLogger)),
-      Effect.catchAll(() => Effect.void)
-    )
+    effect.pipe(Effect.provide(Logger.replace(Logger.defaultLogger, structuredLogger)))
   )
 }
 

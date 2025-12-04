@@ -544,7 +544,8 @@ const translateRecordPermissionCondition = (condition: string): string =>
  * When a table has `permissions.records` array, this generates RLS policies
  * based on custom conditions defined in the schema.
  *
- * Each record permission maps to a CREATE POLICY statement with the translated condition.
+ * Multiple permissions for the same action are combined with AND logic.
+ * For example, two "read" permissions become: (condition1) AND (condition2)
  *
  * @param table - Table definition with record-level permissions
  * @returns Array of SQL statements to enable RLS and create record-level policies
@@ -559,12 +560,29 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
 
   const enableRLS = generateEnableRLS(tableName)
 
-  const policies = recordPermissions.flatMap((permission) => {
-    const sqlCommand = CRUD_TO_SQL_COMMAND[permission.action]
-    const policyName = `${tableName}_record_${permission.action}`
-    const translatedCondition = translateRecordPermissionCondition(permission.condition)
+  // Group permissions by action to combine multiple conditions with AND
+  const permissionsByAction = recordPermissions.reduce(
+    (acc, permission) => {
+      const existing = acc[permission.action] ?? []
+      return { ...acc, [permission.action]: [...existing, permission] }
+    },
+    {} as Record<string, typeof recordPermissions>
+  )
 
-    return generatePolicyStatements(tableName, policyName, sqlCommand, translatedCondition)
+  const policies = Object.entries(permissionsByAction).flatMap(([action, permissions]) => {
+    const sqlCommand = CRUD_TO_SQL_COMMAND[action as keyof typeof CRUD_TO_SQL_COMMAND]
+    const policyName = `${tableName}_record_${action}`
+
+    // Combine multiple conditions with AND logic
+    const translatedConditions = permissions.map((p) =>
+      translateRecordPermissionCondition(p.condition)
+    )
+    const combinedCondition =
+      translatedConditions.length === 1
+        ? translatedConditions[0]
+        : `(${translatedConditions.map((c) => `(${c})`).join(' AND ')})`
+
+    return generatePolicyStatements(tableName, policyName, sqlCommand, combinedCondition)
   })
 
   return [...enableRLS, ...policies]

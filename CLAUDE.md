@@ -80,6 +80,7 @@ bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
 bun run quality                    # Check code quality with smart E2E detection
 bun run quality --skip-e2e         # Skip E2E tests entirely
 bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
+bun run quality --skip-effect      # Skip Effect diagnostics (Effect Language Service)
 bun run generate:roadmap           # Generate roadmap from specifications
 bun run validate:docs              # Validate documentation versions match package.json
 bun run release                    # Manually trigger release (semantic-release)
@@ -125,9 +126,10 @@ The `bun run quality` command includes **smart E2E detection** to prevent timeou
 
 1. **ESLint** - Code linting with caching
 2. **TypeScript** - Type checking (incremental)
-3. **Unit Tests** - All `.test.ts` files in `src/` and `scripts/`
-4. **Coverage Check** - Verifies domain layer has unit tests
-5. **Smart E2E Detection** - Identifies affected @regression specs and runs them
+3. **Effect Diagnostics** - Effect Language Service checks for Effect-specific issues (unnecessaryPipeChain, catchUnfailableEffect, returnEffectInGen, tryCatchInEffectGen)
+4. **Unit Tests** - All `.test.ts` files in `src/` and `scripts/`
+5. **Coverage Check** - Verifies domain layer has unit tests
+6. **Smart E2E Detection** - Identifies affected @regression specs and runs them
 
 ### How Smart E2E Detection Works
 
@@ -161,18 +163,20 @@ The `bun run quality` command includes **smart E2E detection** to prevent timeou
 ```
 → ESLint... ✓ (2341ms)
 → TypeScript... ✓ (4521ms)
+→ Effect Diagnostics... ✓ (1523ms)
 → Unit Tests... ✓ (12034ms)
 → Coverage Check... ✓
 → Analyzing changed files... (3 files, mode: local)
 ⏭ Skipping E2E: no modified specs or related sources
 ─────────────────────────────────────────────
-✅ All quality checks passed! (18896ms)
+✅ All quality checks passed! (20419ms)
 ```
 
 **Example Output (E2E runs for affected specs)**:
 ```
 → ESLint... ✓ (2341ms)
 → TypeScript... ✓ (4521ms)
+→ Effect Diagnostics... ✓ (1523ms)
 → Unit Tests... ✓ (12034ms)
 → Coverage Check... ✓
 → Analyzing changed files... (5 files, mode: ci)
@@ -203,6 +207,7 @@ bun run quality --skip-coverage  # Skip coverage check (gradual adoption)
 bun run quality              # Smart detection (default)
 bun run quality --skip-e2e   # Force skip E2E tests entirely
 bun run quality --skip-coverage  # Skip coverage enforcement
+bun run quality --skip-effect    # Skip Effect diagnostics
 ```
 
 ### CI vs Local Behavior
@@ -545,7 +550,7 @@ Key workflow settings:
 - **Max concurrent**: 1 spec at a time (strict serial)
 - **Dual agents**: e2e-test-fixer + codebase-refactor-auditor (ALWAYS both)
 - **Retry attempts**: Max 3 per spec
-- **PR validation**: test.yml (lint, typecheck, unit tests, E2E regression)
+- **PR validation**: test.yml (lint, typecheck, Effect diagnostics, unit tests, E2E regression)
 - **Auto-merge**: Enabled after validation passes
 - **Issue closure**: Automatic on PR merge to main
 

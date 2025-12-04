@@ -324,7 +324,7 @@ Releases happen ONLY when:
 No release when:
 
 - Commit message does NOT start with `release:` (security protection)
-- CI workflow fails (lint, typecheck, or unit tests)
+- CI workflow fails (lint, typecheck, Effect diagnostics, or unit tests)
 - Commit contains `[skip ci]`
 - Push is to branch other than `main`
 

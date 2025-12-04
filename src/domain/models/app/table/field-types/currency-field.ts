@@ -79,6 +79,30 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      symbolPosition: Schema.optional(
+        Schema.Literal('before', 'after').pipe(
+          Schema.annotations({
+            description: 'Position of currency symbol relative to the amount',
+            examples: ['before', 'after'],
+          })
+        )
+      ),
+      negativeFormat: Schema.optional(
+        Schema.Literal('minus', 'parentheses').pipe(
+          Schema.annotations({
+            description: 'Format for displaying negative amounts',
+            examples: ['minus', 'parentheses'],
+          })
+        )
+      ),
+      thousandsSeparator: Schema.optional(
+        Schema.Literal('comma', 'period', 'space', 'none').pipe(
+          Schema.annotations({
+            description: 'Character used to separate thousands',
+            examples: ['comma', 'period', 'space', 'none'],
+          })
+        )
+      ),
       default: Schema.optional(
         Schema.Number.pipe(
           Schema.annotations({
@@ -87,8 +111,7 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Currency Field',
     description:

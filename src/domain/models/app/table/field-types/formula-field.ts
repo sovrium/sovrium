@@ -39,8 +39,7 @@ export const FormulaFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Formula Field',
     description: 'Computed field that calculates values based on formula expressions.',

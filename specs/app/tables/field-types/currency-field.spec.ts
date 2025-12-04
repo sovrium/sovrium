@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/currency-field.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 12
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (12 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -239,8 +239,211 @@ test.describe('Currency Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-CURRENCY-006: should display currency with EUR symbol when currency is EUR',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with currency field configured with EUR currency
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 7,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'price',
+                type: 'currency',
+                currency: 'EUR',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views currency field in table
+      await page.goto('/tables/products')
+
+      // THEN: currency is displayed with EUR symbol (€)
+      await expect(page.getByText('€99.99')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-CURRENCY-007: should display symbol after amount when symbolPosition is after',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with currency field configured with symbol after amount
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 8,
+            name: 'invoices',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'total',
+                type: 'currency',
+                currency: 'USD',
+                symbolPosition: 'after',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views currency field in table
+      await page.goto('/tables/invoices')
+
+      // THEN: currency is displayed with symbol after amount (99.99$)
+      await expect(page.getByText('99.99$')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-CURRENCY-008: should format with specified decimal precision',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with currency field configured with 0 decimal places
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 9,
+            name: 'sales',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'amount',
+                type: 'currency',
+                currency: 'JPY',
+                precision: 0,
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views currency field in table
+      await page.goto('/tables/sales')
+
+      // THEN: currency is displayed with no decimal places (¥1000)
+      await expect(page.getByText('¥1000')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-CURRENCY-009: should display negative amounts in parentheses when negativeFormat is parentheses',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with currency field configured to use parentheses for negatives
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 10,
+            name: 'transactions',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'balance',
+                type: 'currency',
+                currency: 'USD',
+                negativeFormat: 'parentheses',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views negative currency value in table
+      await page.goto('/tables/transactions')
+
+      // THEN: negative amount is displayed in parentheses ($100.00)
+      await expect(page.getByText('($100.00)')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-CURRENCY-010: should use specified thousands separator',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with currency field configured with space as thousands separator
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 11,
+            name: 'assets',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'value',
+                type: 'currency',
+                currency: 'USD',
+                thousandsSeparator: 'space',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views large currency value in table
+      await page.goto('/tables/assets')
+
+      // THEN: thousands separator is displayed as space ($1 000 000.00)
+      await expect(page.getByText('$1 000 000.00')).toBeVisible()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-CURRENCY-011: should use period as thousands separator when configured',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, page }) => {
+      // GIVEN: table with currency field configured with period as thousands separator
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 12,
+            name: 'properties',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'value',
+                type: 'currency',
+                currency: 'EUR',
+                thousandsSeparator: 'period',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: user views large currency value in table
+      await page.goto('/tables/properties')
+
+      // THEN: thousands separator is displayed as period (€1.000.000,00)
+      await expect(page.getByText('€1.000.000,00')).toBeVisible()
+    }
+  )
+
   test(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-012: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with currency field', async () => {

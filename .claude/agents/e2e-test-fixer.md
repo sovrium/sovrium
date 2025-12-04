@@ -696,7 +696,7 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 ## Quality Assurance
 
 **Quality Check Components** (`bun run quality`):
-- Runs ESLint, TypeScript, unit tests, coverage check, and **smart E2E detection** in sequence
+- Runs ESLint, TypeScript, Effect diagnostics, unit tests, coverage check, and **smart E2E detection** in sequence
 - Smart E2E detection: Identifies changed files, maps to related @regression specs, runs only affected tests
 - Typically completes in <30s when no E2E tests needed, up to 5min with affected specs
 - **Does NOT include @spec tests** - must run separately: `bun test:e2e --grep @spec`
@@ -730,7 +730,7 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - **NEVER proceed to regression tests or commit with failing quality or tests**
 
 **Automated via Hooks (Runs Automatically)**:
-- Code formatting (Prettier), linting (ESLint), type-checking (TypeScript)
+- Code formatting (Prettier), linting (ESLint), type-checking (TypeScript), Effect diagnostics
 - Unused code detection (Knip), unit tests (co-located test files)
 - **Note**: Hooks run after Edit/Write, but you MUST still run `bun run quality` manually before Step 5
 
@@ -746,7 +746,7 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - ✅ **Is the code production-ready with zero demonstration/showcase modes?**
 
 **⚠️ STOP - DO NOT COMMIT IF**:
-- `bun run quality` shows ANY errors (lint, typecheck, format, unused code)
+- `bun run quality` shows ANY errors (lint, typecheck, Effect diagnostics, format, unused code)
 - ANY test in the test file is failing (even if "your" test passes)
 - Go back to Step 4 and iterate until both pass
 
@@ -1002,7 +1002,7 @@ Your implementation will be considered successful when:
    - All test commands complete successfully
 
 2. **Code Quality Success**:
-   - **`bun run quality` passes with ZERO errors** (lint, typecheck, format, unused code)
+   - **`bun run quality` passes with ZERO errors** (lint, typecheck, Effect diagnostics, format, unused code)
    - Implementation follows Sovrium architectural patterns
    - Minimal code written (no over-engineering)
    - Effect schemas properly created when needed

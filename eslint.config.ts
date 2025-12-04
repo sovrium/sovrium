@@ -8,6 +8,7 @@
 import baseConfig from './eslint/base.config'
 import boundariesConfig from './eslint/boundaries.config'
 import drizzleConfig from './eslint/drizzle.config'
+import effectConfig from './eslint/effect.config'
 import fileNamingConfig from './eslint/file-naming.config'
 import functionalConfig from './eslint/functional.config'
 import importConfig from './eslint/import.config'
@@ -27,6 +28,7 @@ export default [
   ...typescriptConfig,
   ...reactConfig,
   ...functionalConfig,
+  ...effectConfig,
   ...importConfig,
   ...unicornConfig,
   ...fileNamingConfig,

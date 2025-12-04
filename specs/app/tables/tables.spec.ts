@@ -1127,7 +1127,7 @@ test.describe('Data Tables', () => {
   )
 
   test(
-    'APP-TABLES-025: should require auth config when using user reference fields',
+    'APP-TABLES-024: should require auth config when using user reference fields',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: table configuration with user field but NO auth configuration
@@ -1155,7 +1155,7 @@ test.describe('Data Tables', () => {
   )
 
   test(
-    'APP-TABLES-026: should require auth config when using created-by field',
+    'APP-TABLES-025: should require auth config when using created-by field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: table configuration with created-by field but NO auth configuration
@@ -1183,7 +1183,7 @@ test.describe('Data Tables', () => {
   )
 
   test(
-    'APP-TABLES-027: should require auth config when using updated-by field',
+    'APP-TABLES-026: should require auth config when using updated-by field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: table configuration with updated-by field but NO auth configuration
@@ -1211,7 +1211,7 @@ test.describe('Data Tables', () => {
   )
 
   test(
-    'APP-TABLES-028: should accept user fields when auth config is present',
+    'APP-TABLES-027: should accept user fields when auth config is present',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: table configuration with user fields AND auth configuration
@@ -1268,7 +1268,7 @@ test.describe('Data Tables', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-024: user can complete full Data Tables workflow',
+    'APP-TABLES-028: user can complete full Data Tables workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative table configuration

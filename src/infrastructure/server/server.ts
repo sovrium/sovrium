@@ -162,11 +162,10 @@ export const createServer = (
 
     // Get database URL from Effect Config (reads from environment)
     // Catch ConfigError and convert to empty string (no DATABASE_URL = skip migrations)
-    const databaseUrl = yield* Config.string('DATABASE_URL')
-      .pipe(Config.withDefault(''))
-      .pipe(
-        Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
-      )
+    const databaseUrl = yield* Config.string('DATABASE_URL').pipe(
+      Config.withDefault(''),
+      Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
+    )
 
     // Run Better Auth table creation (if DATABASE_URL is configured and auth is enabled)
     if (databaseUrl && app.auth) {

@@ -33,8 +33,7 @@ export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
       options: Schema.Array(Schema.String),
       default: Schema.optional(Schema.String),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Single Select Field',
     description:

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { ViewFiltersSchema } from '../views/filters'
 import { BaseFieldSchema } from './base-field'
 
 export const LookupFieldSchema = BaseFieldSchema.pipe(
@@ -20,9 +21,13 @@ export const LookupFieldSchema = BaseFieldSchema.pipe(
         Schema.minLength(1, { message: () => 'This field is required' }),
         Schema.annotations({ description: 'Name of the field in the related table to display' })
       ),
+      filters: Schema.optional(
+        ViewFiltersSchema.pipe(
+          Schema.annotations({ description: 'Filters to apply to the lookup results' })
+        )
+      ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Lookup Field',
     description: 'Displays values from related records without aggregation.',

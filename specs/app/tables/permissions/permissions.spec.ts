@@ -70,7 +70,9 @@ test.describe('Table Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='admin_data'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(2)
+      // Note: 3 policies total: 2 manually created (admin_only_select, admin_only_insert)
+      // + 1 automatic from RLS policy generator (admin_data_org_select)
+      expect(policyCount.count).toBe(3)
 
       // Grant permissions to test roles
       // IMPORTANT: PostgreSQL superusers ALWAYS bypass RLS (even with FORCE ROW LEVEL SECURITY).

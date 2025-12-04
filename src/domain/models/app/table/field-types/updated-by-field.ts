@@ -32,8 +32,7 @@ export const UpdatedByFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('updated-by'),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Updated By Field',
     description:

@@ -30,8 +30,7 @@ export const CreatedAtFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('created-at'),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Created At Field',
     description:

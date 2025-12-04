@@ -46,8 +46,7 @@ export const RichTextFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Rich Text Field',
     description:
