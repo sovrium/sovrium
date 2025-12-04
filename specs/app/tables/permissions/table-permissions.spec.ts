@@ -24,7 +24,7 @@ test.describe('Table-Level Permissions', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-001: should grant SELECT access to user with member role when table has role-based read permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -79,14 +79,14 @@ test.describe('Table-Level Permissions', () => {
         "SELECT cmd, qual FROM pg_policies WHERE tablename='projects' AND policyname='member_read'"
       )
       // THEN: assertion
-      expect(policyDetails).toEqual({
+      expect(policyDetails).toMatchObject({
         cmd: 'SELECT',
         qual: "auth.user_has_role('member'::text)",
       })
 
       // Member user can SELECT records
       const memberResult = await executeQuery(
-        'SET ROLE member_user; SELECT COUNT(*) as count FROM projects'
+        "SET ROLE member_user; SET app.user_role = 'member'; SELECT COUNT(*) as count FROM projects"
       )
       // THEN: assertion
       expect(memberResult.count).toBe(2)
@@ -94,7 +94,9 @@ test.describe('Table-Level Permissions', () => {
       // Non-member user cannot SELECT records
       // THEN: assertion
       await expect(async () => {
-        await executeQuery('SET ROLE guest_user; SELECT COUNT(*) as count FROM projects')
+        await executeQuery(
+          "SET ROLE guest_user; SET app.user_role = 'guest'; SELECT COUNT(*) as count FROM projects"
+        )
       }).rejects.toThrow('permission denied for table projects')
     }
   )

@@ -259,6 +259,24 @@ const generateArrayConstraints = (fields: readonly Fields[number][]): readonly s
     )
 
 /**
+ * Generate CHECK constraints for multiple-attachments fields with maxFiles
+ */
+const generateMultipleAttachmentsConstraints = (
+  fields: readonly Fields[number][]
+): readonly string[] =>
+  fields
+    .filter(
+      (field): field is Fields[number] & { type: 'multiple-attachments'; maxFiles: number } =>
+        field.type === 'multiple-attachments' &&
+        'maxFiles' in field &&
+        typeof field.maxFiles === 'number'
+    )
+    .map(
+      (field) =>
+        `CONSTRAINT check_${field.name}_max_files CHECK (jsonb_array_length(${field.name}) IS NULL OR jsonb_array_length(${field.name}) <= ${field.maxFiles})`
+    )
+
+/**
  * Generate CHECK constraints for numeric fields with min/max values
  * Supports: integer, decimal, currency, percentage, rating
  */
@@ -513,6 +531,7 @@ const generateCompositeUniqueConstraints = (table: Table): readonly string[] => 
  */
 export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateArrayConstraints(table.fields),
+  ...generateMultipleAttachmentsConstraints(table.fields),
   ...generateNumericConstraints(table.fields),
   ...generateProgressConstraints(table.fields),
   ...generateEnumConstraints(table.fields),

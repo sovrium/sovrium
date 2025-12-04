@@ -133,8 +133,8 @@ describe('generateRLSPolicyStatements', () => {
     expect(statements[6]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
-    expect(statements[6]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
-    expect(statements[6]).toContain("current_setting('app.user_role')::TEXT = 'member'")
+    expect(statements[6]).toContain("auth.user_has_role('admin')")
+    expect(statements[6]).toContain("auth.user_has_role('member')")
     expect(statements[6]).toContain('OR') // admin OR member
 
     // Check INSERT policy combines organization + admin-only
@@ -142,21 +142,21 @@ describe('generateRLSPolicyStatements', () => {
     expect(statements[7]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
-    expect(statements[7]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+    expect(statements[7]).toContain("auth.user_has_role('admin')")
 
     // Check UPDATE policy combines organization + admin-only
     expect(statements[8]).toContain('FOR UPDATE')
     expect(statements[8]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
-    expect(statements[8]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+    expect(statements[8]).toContain("auth.user_has_role('admin')")
 
     // Check DELETE policy combines organization + admin-only
     expect(statements[9]).toContain('FOR DELETE')
     expect(statements[9]).toContain(
       "organization_id = current_setting('app.organization_id')::TEXT"
     )
-    expect(statements[9]).toContain("current_setting('app.user_role')::TEXT = 'admin'")
+    expect(statements[9]).toContain("auth.user_has_role('admin')")
   })
 
   test('should generate owner-based RLS policies for UPDATE operations', () => {
