@@ -20,7 +20,8 @@ import type { Linter } from 'eslint'
 export default [
   {
     plugins: {
-      effect: effectEslint,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      effect: effectEslint as any,
     },
     rules: {
       'effect/no-import-from-barrel-package': 'warn',
