@@ -1312,7 +1312,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-030: should reject empty table name',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
