@@ -8,7 +8,11 @@
 import { generateFieldPermissionGrants } from './field-permission-generators'
 import { createVolatileFormulaTriggers } from './formula-trigger-generators'
 import { generateIndexStatements } from './index-generators'
-import { generateRLSPolicyStatements, generateBasicTableGrants } from './rls-policy-generators'
+import {
+  generateRLSPolicyStatements,
+  generateBasicTableGrants,
+  generateRoleBasedGrants,
+} from './rls-policy-generators'
 import {
   getExistingColumns,
   generateAlterTableStatements,
@@ -129,6 +133,9 @@ const applyTableFeatures = async (
 
   // Basic table grants for tables with no permissions (default deny)
   await executeSQLStatements(tx, generateBasicTableGrants(table))
+
+  // Role-based table grants for tables with role-based permissions
+  await executeSQLStatements(tx, generateRoleBasedGrants(table))
 
   // Field-level permissions (column grants)
   await executeSQLStatements(tx, generateFieldPermissionGrants(table))

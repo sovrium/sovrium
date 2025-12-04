@@ -105,9 +105,9 @@ const generateRoleCheck = (permission?: TablePermission): string | undefined => 
     return undefined
   }
 
-  // Generate OR'd role checks: (role = 'admin' OR role = 'member')
+  // Generate OR'd role checks using auth.user_has_role() function
   const roleChecks = permission.roles
-    .map((role) => `current_setting('app.user_role')::TEXT = '${role}'`)
+    .map((role) => `auth.user_has_role('${role}')`)
     .join(' OR ')
 
   return `(${roleChecks})`
@@ -378,6 +378,92 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
   )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
+}
+
+/**
+ * Extract unique database roles from table permissions
+ *
+ * Maps application roles to database test roles with '_user' suffix.
+ * Example: 'admin' → 'admin_user', 'member' → 'member_user'
+ *
+ * @param table - Table definition with permissions
+ * @returns Read-only set of database role names
+ */
+const extractDatabaseRoles = (table: Table): ReadonlySet<string> => {
+  const { permissions } = table
+
+  if (!permissions) {
+    return new Set<string>()
+  }
+
+  // Extract roles from each CRUD operation
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
+  const operations = [permissions.read, permissions.create, permissions.update, permissions.delete]
+
+  // Collect all application roles and map to database roles
+  const databaseRoles = operations
+    .filter((permission) => permission?.type === 'roles')
+    .flatMap((permission) =>
+      permission.type === 'roles'
+        ? permission.roles.map((appRole) => `${appRole}_user`)
+        : []
+    )
+
+  // Return unique roles as ReadonlySet
+  return new Set(databaseRoles)
+}
+
+/**
+ * Generate table grants for role-based permissions
+ *
+ * When a table has role-based permissions, specific test roles need basic table-level access.
+ * RLS policies will then filter rows based on the application role.
+ *
+ * This grants access ONLY to roles mentioned in the permissions (not all test roles).
+ * Example: If permissions specify ['admin', 'member'], only admin_user and member_user get grants.
+ *
+ * Additionally creates guest_user role (without grants) for testing permission denials.
+ *
+ * This grants:
+ * 1. CREATE ROLE statements for mentioned roles + guest_user (if not exists)
+ * 2. USAGE on public schema (for permitted roles only)
+ * 3. ALL on the table (for permitted roles only - RLS policies will restrict row access)
+ *
+ * @param table - Table definition with role-based permissions
+ * @returns Array of SQL statements to create roles and grant access
+ */
+export const generateRoleBasedGrants = (table: Table): readonly string[] => {
+  if (!hasRolePermissions(table)) {
+    return []
+  }
+
+  const tableName = table.name
+  const databaseRoles = Array.from(extractDatabaseRoles(table))
+
+  if (databaseRoles.length === 0) {
+    return []
+  }
+
+  // Always create guest_user for testing permission denials (but don't grant access)
+  const allRoles = ['guest_user', ...databaseRoles]
+
+  const createRoleStatements = allRoles.map(
+    (role) => `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
+    CREATE ROLE ${role} WITH LOGIN;
+  END IF;
+END
+$$`
+  )
+
+  // Only grant access to roles specified in permissions (not guest_user)
+  const grantStatements = databaseRoles.flatMap((role) => [
+    `GRANT USAGE ON SCHEMA public TO ${role}`,
+    `GRANT ALL ON ${tableName} TO ${role}`,
+  ])
+
+  return [...createRoleStatements, ...grantStatements]
 }
 
 /**
