@@ -25,15 +25,16 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 }
 
 /**
- * Format currency value with symbol position
+ * Format currency value with symbol position and precision
  */
 function formatCurrency(
   value: number,
   currencyCode: string,
-  symbolPosition: 'before' | 'after' = 'before'
+  symbolPosition: 'before' | 'after' = 'before',
+  precision: number = 2
 ): string {
   const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode
-  const formattedValue = value.toFixed(2)
+  const formattedValue = value.toFixed(precision)
 
   if (symbolPosition === 'after') {
     return `${formattedValue}${symbol}`
@@ -78,7 +79,8 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                   const formatted = formatCurrency(
                     numericValue,
                     currencyField.currency,
-                    currencyField.symbolPosition
+                    currencyField.symbolPosition,
+                    currencyField.precision
                   )
                   return <td key={field.id}>{formatted}</td>
                 }

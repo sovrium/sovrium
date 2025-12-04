@@ -306,7 +306,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-008: should format with specified decimal precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
