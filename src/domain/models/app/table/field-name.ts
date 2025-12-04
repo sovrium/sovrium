@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { createDatabaseIdentifierSchema } from './database-identifier'
 
 /**
  * Field Name
@@ -23,10 +24,7 @@ import { Schema } from 'effect'
  * 'created_at'
  * ```
  */
-export const FieldNameSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(63),
-  Schema.pattern(/^[a-z][a-z0-9_]*$/),
+export const FieldNameSchema = createDatabaseIdentifierSchema('field').pipe(
   Schema.annotations({
     title: 'Field Name',
     description:
