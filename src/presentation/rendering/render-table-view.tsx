@@ -8,17 +8,23 @@
 import { renderToString } from 'react-dom/server'
 import { TableView } from '@/presentation/components/tables/table-view'
 import type { App } from '@/domain/models/app'
+import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
 import type { Table } from '@/domain/models/app/tables'
 
 /**
  * Generate sample value for a field
  */
-function getSampleValue(field: { readonly name: string; readonly type: string }): unknown {
+function getSampleValue(
+  field: { readonly name: string; readonly type: string; readonly precision?: number }
+): unknown {
   switch (field.type) {
     case 'integer':
       return field.name === 'id' ? 1 : 42
-    case 'currency':
-      return 99.99
+    case 'currency': {
+      // Use 1000 for zero-decimal currencies (like JPY), 99.99 for others
+      const currencyField = field as CurrencyField
+      return currencyField.precision === 0 ? 1000 : 99.99
+    }
     case 'date':
       return '2024-06-15'
     case 'datetime':
