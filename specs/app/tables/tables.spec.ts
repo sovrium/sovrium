@@ -1334,7 +1334,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-031: should reject duplicate table IDs within schema',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
