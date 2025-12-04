@@ -269,6 +269,12 @@ test.describe('Checkbox Field', () => {
         )
         expect(filtered.count).toBe(1)
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (checkbox_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
+      })
     }
   )
 })

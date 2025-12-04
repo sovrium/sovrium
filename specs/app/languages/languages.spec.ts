@@ -1484,79 +1484,6 @@ test.describe('Languages Configuration', () => {
   )
 
   // ============================================================================
-  // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
-  // ============================================================================
-
-  test(
-    'APP-LANGUAGES-030: user can complete full languages workflow',
-    { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with multi-language configuration', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          languages: {
-            default: 'en',
-            supported: [
-              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
-              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
-              { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
-            ],
-            fallback: 'en',
-            detectBrowser: false,
-            persistSelection: true,
-          },
-          blocks: [
-            {
-              name: 'language-switcher',
-              type: 'language-switcher',
-              props: {
-                variant: 'dropdown',
-              },
-            },
-          ],
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  block: 'language-switcher',
-                },
-              ],
-            },
-          ],
-        })
-      })
-
-      await test.step('Verify default language and switching', async () => {
-        await page.goto('/')
-
-        await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
-
-        await page.locator('[data-testid="language-switcher"]').click()
-        await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
-      })
-
-      await test.step('Switch to French and verify persistence', async () => {
-        await page.locator('[data-testid="language-option-fr-FR"]').click()
-        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
-
-        await page.reload()
-        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
-      })
-
-      await test.step('Switch to Arabic and verify RTL', async () => {
-        await page.locator('[data-testid="language-switcher"]').click()
-        await page.locator('[data-testid="language-option-ar-SA"]').click()
-        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-        await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
-      })
-    }
-  )
-
-  // ============================================================================
   // Language Subdirectory Routing Tests
   // ============================================================================
 
@@ -1767,6 +1694,79 @@ test.describe('Languages Configuration', () => {
 
       // THEN: should return 404
       expect(response?.status()).toBe(404)
+    }
+  )
+
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // ============================================================================
+
+  test(
+    'APP-LANGUAGES-030: user can complete full languages workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema }) => {
+      await test.step('Setup: Start server with multi-language configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
+              { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
+            ],
+            fallback: 'en',
+            detectBrowser: false,
+            persistSelection: true,
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+              props: {
+                variant: 'dropdown',
+              },
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  block: 'language-switcher',
+                },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Verify default language and switching', async () => {
+        await page.goto('/')
+
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
+
+        await page.locator('[data-testid="language-switcher"]').click()
+        await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
+      })
+
+      await test.step('Switch to French and verify persistence', async () => {
+        await page.locator('[data-testid="language-option-fr-FR"]').click()
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
+
+        await page.reload()
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
+      })
+
+      await test.step('Switch to Arabic and verify RTL', async () => {
+        await page.locator('[data-testid="language-switcher"]').click()
+        await page.locator('[data-testid="language-option-ar-SA"]').click()
+        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
+      })
     }
   )
 })

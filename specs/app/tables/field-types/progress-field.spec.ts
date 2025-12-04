@@ -131,6 +131,12 @@ test.describe('Progress Field', () => {
         const results = await executeQuery('SELECT AVG(progress_field) as avg FROM data')
         expect(parseFloat(results.avg)).toBeCloseTo(58.33, 1)
       })
+
+      await test.step('Error handling: CHECK constraint rejects values outside 0-100 range', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (progress_field) VALUES (101)')
+        ).rejects.toThrow(/violates check constraint/)
+      })
     }
   )
 })

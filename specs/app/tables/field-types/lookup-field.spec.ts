@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/lookup-field.ts
  * Domain: app
- * Spec Count: 8
+ * Spec Count: 11
  *
  * Reference: https://support.airtable.com/docs/lookup-field-overview
  *
@@ -545,7 +545,118 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-009: user can complete full lookup-field workflow',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-009: should reject lookup field when relationshipField does not exist',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Lookup field referencing non-existent relationship field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'amount', type: 'decimal' },
+                {
+                  id: 2,
+                  name: 'customer_name',
+                  type: 'lookup',
+                  relationshipField: 'customer_id', // Does not exist in this table
+                  relatedField: 'name',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/relationshipField.*customer_id.*not found|invalid.*relationship/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-LOOKUP-010: should reject lookup field when relationshipField is not a relationship type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Lookup field referencing a non-relationship field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 2,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'customer_email', type: 'email' }, // Not a relationship field
+                { id: 2, name: 'amount', type: 'decimal' },
+                {
+                  id: 3,
+                  name: 'customer_name',
+                  type: 'lookup',
+                  relationshipField: 'customer_email', // Points to email field, not relationship
+                  relatedField: 'name',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/relationshipField.*must.*relationship|customer_email.*not.*relationship/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-LOOKUP-011: should reject lookup when relatedField does not exist in related table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Lookup field pointing to non-existent field in related table
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 2,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'amount', type: 'decimal' },
+                {
+                  id: 2,
+                  name: 'customer_id',
+                  type: 'relationship',
+                  relatedTable: 'customers',
+                  relationType: 'many-to-one',
+                },
+                {
+                  id: 3,
+                  name: 'customer_name',
+                  type: 'lookup',
+                  relationshipField: 'customer_id',
+                  relatedField: 'full_name', // 'full_name' doesn't exist in customers!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/relatedField.*full_name.*not found|field.*does not exist.*related table/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-LOOKUP-012: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple lookup fields of different types', async () => {

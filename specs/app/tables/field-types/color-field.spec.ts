@@ -135,7 +135,7 @@ test.describe('Color Field', () => {
             {
               id: 6,
               name: 'data',
-              fields: [{ id: 1, name: 'color', type: 'color' }],
+              fields: [{ id: 1, name: 'color', type: 'color', required: true }],
             },
           ],
         })
@@ -145,6 +145,18 @@ test.describe('Color Field', () => {
         await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")
         const result = await executeQuery('SELECT color FROM data WHERE id = 1')
         expect(result.color).toBe('#ABCDEF')
+      })
+
+      await test.step('Error handling: CHECK constraint rejects invalid hex color', async () => {
+        await expect(executeQuery("INSERT INTO data (color) VALUES ('invalid')")).rejects.toThrow(
+          /violates check constraint/
+        )
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (color) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
     }
   )

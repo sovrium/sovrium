@@ -272,6 +272,12 @@ test.describe('Geolocation Field', () => {
         expect(coordinates.lat).toBe(48.8566)
         expect(coordinates.lng).toBe(2.3522)
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (position) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
     }
   )
 })

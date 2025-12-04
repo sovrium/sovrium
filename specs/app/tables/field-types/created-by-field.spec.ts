@@ -333,6 +333,26 @@ test.describe('Created By Field', () => {
         )
         expect(creator.name).toBe('Alice')
       })
+
+      await test.step('Error handling: created-by without auth config is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            // No auth config!
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'creator', type: 'created-by' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
+      })
     }
   )
 })

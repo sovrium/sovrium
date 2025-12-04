@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/permissions/index.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 7
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -354,11 +354,80 @@ test.describe('Table-Level Permissions', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (006-007)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-TABLE-PERMISSIONS-006: should reject owner permission referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Owner permission referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: {
+                  type: 'owner',
+                  field: 'created_by', // 'created_by' field doesn't exist!
+                },
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*created_by.*not found|owner field.*does not exist/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-TABLE-PERMISSIONS-007: should reject owner permission field that is not a user type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Owner permission referencing field that is not user type
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'category', type: 'single-line-text' }, // text field, not user!
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: {
+                  type: 'owner',
+                  field: 'category', // not a user field!
+                },
+              },
+            },
+          ],
+        })
+      ).rejects.toThrow(/owner.*field.*must be.*user|field.*category.*not.*user type/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-TABLE-PERMISSIONS-006: user can complete full table-permissions workflow',
+    'APP-TABLES-TABLE-PERMISSIONS-008: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any
@@ -431,6 +500,57 @@ test.describe('Table-Level Permissions', () => {
             "SET ROLE member_user; INSERT INTO data (content, owner_id) VALUES ('Data 3', 3)"
           )
         }).rejects.toThrow()
+      })
+
+      await test.step('Error handling: owner permission referencing non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: {
+                    type: 'owner',
+                    field: 'created_by', // 'created_by' field doesn't exist!
+                  },
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*created_by.*not found|owner field.*does not exist/i)
+      })
+
+      await test.step('Error handling: owner permission field that is not a user type', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'category', type: 'single-line-text' }, // text field, not user!
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: {
+                    type: 'owner',
+                    field: 'category', // not a user field!
+                  },
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/owner.*field.*must be.*user|field.*category.*not.*user type/i)
       })
     }
   )

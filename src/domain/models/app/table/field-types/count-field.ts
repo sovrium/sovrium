@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { ViewFiltersSchema } from '../views/filters'
+import { ViewFilterConditionSchema } from '../views/filters'
 import { BaseFieldSchema } from './base-field'
 
 export const CountFieldSchema = BaseFieldSchema.pipe(
@@ -16,20 +16,14 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
       relationshipField: Schema.String.pipe(
         Schema.minLength(1, { message: () => 'This field is required' }),
         Schema.annotations({
-          description: 'Name of the relationship field in the related table to count',
+          description:
+            'Name of the relationship field in the same table to count linked records from',
         })
       ),
       conditions: Schema.optional(
-        Schema.Union(
-          ViewFiltersSchema,
-          Schema.Array(ViewFiltersSchema).pipe(
-            Schema.annotations({
-              description: 'Array of filter conditions (shorthand for implicit AND)',
-            })
-          )
-        ).pipe(
+        Schema.Array(ViewFilterConditionSchema).pipe(
           Schema.annotations({
-            description: 'Conditions to filter which linked records are counted',
+            description: 'Filter conditions to apply when counting linked records',
           })
         )
       ),
@@ -37,13 +31,21 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
   ),
   Schema.annotations({
     title: 'Count Field',
-    description: 'Counts the number of linked records in a relationship field.',
+    description:
+      'Counts the number of linked records from a relationship field. Optionally filters records with conditions.',
     examples: [
       {
         id: 1,
         name: 'task_count',
         type: 'count',
-        relationshipField: 'project_id',
+        relationshipField: 'tasks',
+      },
+      {
+        id: 2,
+        name: 'completed_task_count',
+        type: 'count',
+        relationshipField: 'tasks',
+        conditions: [{ field: 'status', operator: 'equals', value: 'completed' }],
       },
     ],
   })

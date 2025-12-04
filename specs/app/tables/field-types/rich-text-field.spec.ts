@@ -217,7 +217,7 @@ test.describe('Rich Text Field', () => {
               name: 'data',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'description', type: 'rich-text', required: true },
+                { id: 2, name: 'description', type: 'rich-text', required: true, unique: true },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
@@ -238,6 +238,20 @@ test.describe('Rich Text Field', () => {
           "SELECT COUNT(*) as count FROM data WHERE to_tsvector('english', description) @@ to_tsquery('english', 'important')"
         )
         expect(searchResult.count).toBe(1)
+      })
+
+      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
+        await expect(
+          executeQuery(
+            "INSERT INTO data (description) VALUES ('# Title\n\nThis is **important** content')"
+          )
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (description) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
     }
   )
