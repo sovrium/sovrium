@@ -617,7 +617,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-012: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

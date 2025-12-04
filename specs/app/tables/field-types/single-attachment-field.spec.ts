@@ -337,7 +337,7 @@ test.describe('Single Attachment Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-011: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

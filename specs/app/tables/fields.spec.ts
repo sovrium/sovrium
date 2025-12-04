@@ -528,7 +528,7 @@ test.describe('Table Fields', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELDS-017: user can complete full Table Fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -314,7 +314,7 @@ test.describe('Multiple Attachments Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-010: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

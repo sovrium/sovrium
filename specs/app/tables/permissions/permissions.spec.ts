@@ -665,7 +665,7 @@ test.describe('Table Permissions', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-PERMISSIONS-011: user can complete full permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

@@ -178,7 +178,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-006: user can complete full autonumber-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

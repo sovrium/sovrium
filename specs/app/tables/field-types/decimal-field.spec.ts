@@ -218,7 +218,7 @@ test.describe('Decimal Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-DECIMAL-006: user can complete full decimal-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

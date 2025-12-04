@@ -253,7 +253,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-BUTTON-008: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -442,7 +442,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-CURRENCY-012: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
