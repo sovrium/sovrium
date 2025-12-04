@@ -1388,7 +1388,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-033: should reject duplicate field IDs within same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
