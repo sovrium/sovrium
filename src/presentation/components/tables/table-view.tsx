@@ -25,7 +25,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 }
 
 /**
- * Format currency value with symbol position, precision, and negative format
+ * Format currency value with symbol position, precision, negative format, and thousands separator
  */
 function formatCurrency(
   value: number,
@@ -34,6 +34,7 @@ function formatCurrency(
     readonly symbolPosition?: 'before' | 'after'
     readonly precision?: number
     readonly negativeFormat?: 'minus' | 'parentheses'
+    readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
   }
 ): string {
   const {
@@ -41,11 +42,18 @@ function formatCurrency(
     symbolPosition = 'before',
     precision = 2,
     negativeFormat = 'minus',
+    thousandsSeparator = 'none',
   } = options
   const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode
   const absValue = Math.abs(value)
-  const formattedValue = absValue.toFixed(precision)
+  const fixedValue = absValue.toFixed(precision)
   const isNegative = value < 0
+
+  // Apply thousands separator
+  const formattedValue =
+    thousandsSeparator !== 'none'
+      ? applyThousandsSeparator(fixedValue, thousandsSeparator)
+      : fixedValue
 
   const result =
     symbolPosition === 'after' ? `${formattedValue}${symbol}` : `${symbol}${formattedValue}`
@@ -56,6 +64,24 @@ function formatCurrency(
       ? `(${result})`
       : `-${result}`
     : result
+}
+
+/**
+ * Apply thousands separator to a numeric string
+ */
+function applyThousandsSeparator(
+  value: string,
+  separator: 'comma' | 'period' | 'space'
+): string {
+  const parts = value.split('.')
+  const integerPart = parts[0] || '0'
+  const decimalPart = parts[1]
+  const separatorChar = separator === 'comma' ? ',' : separator === 'period' ? '.' : ' '
+
+  // Add separator every 3 digits from the right
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, separatorChar)
+
+  return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger
 }
 
 export interface TableViewProps {
@@ -96,6 +122,7 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                     symbolPosition: currencyField.symbolPosition,
                     precision: currencyField.precision,
                     negativeFormat: currencyField.negativeFormat,
+                    thousandsSeparator: currencyField.thousandsSeparator,
                   })
                   return <td key={field.id}>{formatted}</td>
                 }
