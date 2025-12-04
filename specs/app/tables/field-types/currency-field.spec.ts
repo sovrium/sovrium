@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/currency-field.ts
  * Domain: app
- * Spec Count: 12
+ * Spec Count: 11
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (12 tests) - Exhaustive acceptance criteria

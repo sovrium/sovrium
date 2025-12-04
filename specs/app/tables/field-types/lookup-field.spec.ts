@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/lookup-field.ts
  * Domain: app
- * Spec Count: 9
+ * Spec Count: 8
  *
  * Reference: https://support.airtable.com/docs/lookup-field-overview
  *

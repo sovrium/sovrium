@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/relationship-field.ts
  * Domain: app
- * Spec Count: 14
+ * Spec Count: 13
  *
  * Reference: https://support.airtable.com/docs/linking-records-in-airtable
  *
