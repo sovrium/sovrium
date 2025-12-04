@@ -477,13 +477,26 @@ const runEffectDiagnostics = Effect.gen(function* () {
   const output = result.stdout || result.stderr || ''
 
   // Count Effect diagnostics warnings (lines containing "effect(" pattern)
-  const diagnosticLines = output.split('\n').filter((line) => line.includes('effect('))
+  // Exclude:
+  // - scripts/ directory (utility scripts, not core application code)
+  // - runEffectInsideEffect (intentional patterns in signal handlers and Drizzle transactions)
+  // Note: Output contains ANSI color codes, so we check for 'scripts/' anywhere in the line
+  const diagnosticLines = output.split('\n').filter((line) => {
+    if (!line.includes('effect(')) return false
+    // Exclude scripts/ directory (check for scripts/ anywhere due to ANSI codes)
+    if (line.includes('scripts/')) return false
+    // Exclude intentional runEffectInsideEffect patterns
+    if (line.includes('runEffectInsideEffect')) return false
+    return true
+  })
   const warningCount = diagnosticLines.length
 
   if (warningCount > 0) {
     yield* logError(`Effect Diagnostics failed (${duration}ms) - ${warningCount} warning(s)`)
-    // Print the diagnostic output
-    console.error(output)
+    // Print only the relevant diagnostic lines
+    for (const line of diagnosticLines) {
+      console.error(line)
+    }
     return {
       name: 'Effect Diagnostics',
       success: false,
