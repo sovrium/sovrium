@@ -132,8 +132,8 @@ describe('DecimalFieldSchema', () => {
     }).toThrow()
   })
 
-  test('should accept precision of 0 for whole numbers', () => {
-    // Given: A valid configuration
+  test('should reject precision of 0 (must be positive)', () => {
+    // Given: An invalid configuration with precision 0
     const field = {
       id: 1,
       name: 'rounded_value',
@@ -141,10 +141,11 @@ describe('DecimalFieldSchema', () => {
       precision: 0,
 
       // When: The value is validated against the schema
-      // Then: Validation succeeds and the value is accepted
+      // Then: Validation should throw an error (precision must be 1-10)
     }
 
-    const result = Schema.decodeSync(DecimalFieldSchema)(field)
-    expect(result.precision).toBe(0)
+    expect(() => {
+      Schema.decodeSync(DecimalFieldSchema)(field)
+    }).toThrow()
   })
 })
