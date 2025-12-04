@@ -206,7 +206,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-004: should count records for multiple relationship fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -216,7 +216,7 @@ test.describe('Count Field', () => {
         tables: [
           {
             id: 1,
-            name: 'users',
+            name: 'team_members',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
@@ -245,14 +245,14 @@ test.describe('Count Field', () => {
                 id: 3,
                 name: 'created_by',
                 type: 'relationship',
-                relatedTable: 'users',
+                relatedTable: 'team_members',
                 relationType: 'many-to-one',
               },
               {
                 id: 4,
                 name: 'assigned_to',
                 type: 'relationship',
-                relatedTable: 'users',
+                relatedTable: 'team_members',
                 relationType: 'many-to-one',
               },
             ],
@@ -262,7 +262,7 @@ test.describe('Count Field', () => {
       })
 
       // WHEN: inserting test data
-      await executeQuery("INSERT INTO users (name) VALUES ('Alice'), ('Bob')")
+      await executeQuery("INSERT INTO team_members (name) VALUES ('Alice'), ('Bob')")
       await executeQuery(
         "INSERT INTO tasks (title, created_by, assigned_to) VALUES ('Task 1', 1, 2), ('Task 2', 1, 1), ('Task 3', 2, 1)"
       )
@@ -273,7 +273,7 @@ test.describe('Count Field', () => {
           u.name,
           (SELECT COUNT(*) FROM tasks WHERE created_by = u.id) as created_task_count,
           (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id) as assigned_task_count
-        FROM users u WHERE u.id = 1
+        FROM team_members u WHERE u.id = 1
       `)
       expect(aliceCounts.created_task_count).toBe(2)
       expect(aliceCounts.assigned_task_count).toBe(2)
@@ -284,7 +284,7 @@ test.describe('Count Field', () => {
           u.name,
           (SELECT COUNT(*) FROM tasks WHERE created_by = u.id) as created_task_count,
           (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id) as assigned_task_count
-        FROM users u WHERE u.id = 2
+        FROM team_members u WHERE u.id = 2
       `)
       expect(bobCounts.created_task_count).toBe(1)
       expect(bobCounts.assigned_task_count).toBe(1)
