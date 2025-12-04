@@ -1600,7 +1600,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-041: should reject multi-select field without options',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
