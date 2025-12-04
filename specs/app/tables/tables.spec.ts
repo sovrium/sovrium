@@ -1413,7 +1413,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-034: should reject duplicate field names within same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
