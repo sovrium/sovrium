@@ -456,7 +456,7 @@ const runEffectDiagnostics = Effect.gen(function* () {
   const result = yield* cmd
     .spawn(
       [
-        'node',
+        'bun',
         'node_modules/@effect/language-service/cli.js',
         'diagnostics',
         '--project',
@@ -676,7 +676,7 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
       if (failedNames.has('TypeScript')) yield* Effect.log('  bun run typecheck')
       if (failedNames.has('Effect Diagnostics')) {
         yield* Effect.log(
-          '  node node_modules/@effect/language-service/cli.js diagnostics --project tsconfig.json'
+          '  bun node_modules/@effect/language-service/cli.js diagnostics --project tsconfig.json'
         )
         yield* Effect.log('  Or use: bun run quality --skip-effect')
       }
