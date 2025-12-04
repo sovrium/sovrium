@@ -23,8 +23,7 @@ export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
       ),
       default: Schema.optional(Schema.Array(Schema.String)),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Multi Select Field',
     description: 'Allows selection of multiple options from predefined list.',

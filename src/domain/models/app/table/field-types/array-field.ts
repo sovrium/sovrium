@@ -22,8 +22,7 @@ export const ArrayFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Array Field',
     description: 'Stores arrays of values with optional type and length constraints.',

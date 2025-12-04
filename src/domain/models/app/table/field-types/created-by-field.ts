@@ -31,8 +31,7 @@ export const CreatedByFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('created-by'),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Created By Field',
     description:

@@ -74,8 +74,7 @@ export const DateFieldSchema = BaseFieldSchema.pipe(
       ),
       default: Schema.optional(Schema.String),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Date Field',
     description:

@@ -111,8 +111,7 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Currency Field',
     description:

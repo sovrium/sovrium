@@ -27,8 +27,7 @@ export const LookupFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Lookup Field',
     description: 'Displays values from related records without aggregation.',

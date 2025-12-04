@@ -36,6 +36,9 @@ export const withGracefulShutdown = (server: ServerInstance): Effect.Effect<neve
   Effect.gen(function* () {
     // Setup SIGINT handler for graceful shutdown
     // Wrap process.on() side effect in Effect.sync for testability
+    // Note: Effect.runPromise/runSync inside signal handler is intentional -
+    // signal handlers run outside the Effect runtime, so we need a new runtime
+    // @effect-suppress runEffectInsideEffect
     yield* Effect.sync(() =>
       process.on('SIGINT', () => {
         Effect.runPromise(

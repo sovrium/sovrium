@@ -32,8 +32,7 @@ export const UserFieldSchema = BaseFieldSchema.pipe(
       type: Schema.Literal('user'),
       allowMultiple: Schema.optional(Schema.Boolean),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'User Field',
     description:

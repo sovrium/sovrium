@@ -63,8 +63,7 @@ export const SingleAttachmentFieldSchema = BaseFieldSchema.pipe(
         })
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Single Attachment Field',
     description: 'Stores a single file attachment with storage configuration.',

@@ -107,7 +107,7 @@ const commandPopulate = Effect.gen(function* () {
 
     // Read scan results
     const scanPath = '.github/tdd-queue-scan.json'
-    const scanExists = yield* fs.exists(scanPath).pipe(Effect.catchAll(() => Effect.succeed(false)))
+    const scanExists = yield* fs.exists(scanPath)
 
     if (!scanExists) {
       yield* logError('❌ No scan results found')

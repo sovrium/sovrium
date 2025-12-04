@@ -34,8 +34,7 @@ export const AutonumberFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Autonumber Field',
     description: 'Auto-incrementing number field with optional prefix and zero padding.',

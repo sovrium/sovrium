@@ -30,8 +30,7 @@ export const GeolocationFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('geolocation'),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Geolocation Field',
     description:

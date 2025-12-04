@@ -71,8 +71,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Relationship Field',
     description: 'Links records to another table with referential integrity.',

@@ -38,8 +38,7 @@ export const BarcodeFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Barcode Field',
     description:

@@ -52,8 +52,7 @@ export const EmailFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Email Field',
     description:

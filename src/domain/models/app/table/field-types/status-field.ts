@@ -31,8 +31,7 @@ export const StatusFieldSchema = BaseFieldSchema.pipe(
       ),
       default: Schema.optional(Schema.String),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Status Field',
     description: 'Status field with colored options for workflow states.',

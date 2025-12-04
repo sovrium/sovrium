@@ -187,10 +187,7 @@ const isCommentOnlyChange = (filePath: string) =>
 
     // If stripped versions are identical, only comments changed
     return currentStripped === headStripped
-  }).pipe(
-    // On any error, assume it's not a comment-only change (safer to run checks)
-    Effect.catchAll(() => Effect.succeed(false))
-  )
+  })
 
 /**
  * Find test file for a given source file

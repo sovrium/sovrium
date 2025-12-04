@@ -53,8 +53,7 @@ export const DurationFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Duration Field',
     description:

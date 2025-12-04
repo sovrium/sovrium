@@ -69,8 +69,7 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
         })
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Multiple Attachments Field',
     description: 'Stores multiple file attachments with storage configuration.',

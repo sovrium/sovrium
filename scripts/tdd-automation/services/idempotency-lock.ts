@@ -26,9 +26,7 @@ export const checkIdempotencyLock = Effect.gen(function* () {
   const cmd = yield* CommandService
 
   // Check if lock file exists
-  const lockExists = yield* fs
-    .exists(LOCK_FILE_PATH)
-    .pipe(Effect.catchAll(() => Effect.succeed(false)))
+  const lockExists = yield* fs.exists(LOCK_FILE_PATH)
 
   if (!lockExists) {
     return true // No lock, safe to proceed

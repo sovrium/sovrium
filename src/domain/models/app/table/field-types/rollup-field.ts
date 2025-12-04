@@ -38,8 +38,7 @@ export const RollupFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Rollup Field',
     description: 'Aggregates values from related records using functions like SUM, AVG, COUNT.',

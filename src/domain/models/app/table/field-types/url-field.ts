@@ -53,8 +53,7 @@ export const UrlFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'URL Field',
     description:

@@ -56,6 +56,9 @@ export const withSessionContext = <A, E>(
           )
 
           // Execute the user's operation with the transaction
+          // Note: Effect.runPromise is intentional - Drizzle's transaction callback
+          // runs outside Effect runtime, requiring a new runtime for the operation
+          // @effect-suppress runEffectInsideEffect
           const operationResult = await Effect.runPromise(operation(tx))
           return operationResult
         }),

@@ -54,8 +54,7 @@ export const PhoneNumberFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Phone Number Field',
     description:

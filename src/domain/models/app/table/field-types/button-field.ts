@@ -30,8 +30,7 @@ export const ButtonFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Button Field',
     description:
