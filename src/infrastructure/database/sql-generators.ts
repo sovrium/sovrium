@@ -41,7 +41,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   barcode: 'VARCHAR(255)',
   'single-attachment': 'VARCHAR(255)',
   'multiple-attachments': 'JSONB',
-  relationship: 'TEXT',
+  relationship: 'INTEGER',
   lookup: 'TEXT',
   rollup: 'TEXT',
   formula: 'TEXT',
@@ -124,6 +124,15 @@ export const isUserReferenceField = (field: Fields[number]): boolean =>
  * Exported for use in schema-initializer
  */
 export const isUserField = (field: Fields[number]): boolean => field.type === 'user'
+
+/**
+ * Check if field is a relationship field (type: 'relationship')
+ * Used to generate FOREIGN KEY constraints to related tables
+ */
+export const isRelationshipField = (
+  field: Fields[number]
+): field is Fields[number] & { type: 'relationship'; relatedTable: string } =>
+  field.type === 'relationship' && 'relatedTable' in field && typeof field.relatedTable === 'string'
 
 /**
  * Check if field is an auto-timestamp field (created-at, updated-at)
@@ -442,7 +451,7 @@ export const generateUniqueConstraints = (
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
 
 /**
- * Generate FOREIGN KEY constraints for user fields
+ * Generate FOREIGN KEY constraints for user fields and relationship fields
  */
 const generateForeignKeyConstraints = (
   tableName: string,
@@ -452,6 +461,12 @@ const generateForeignKeyConstraints = (
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
     const constraintName = `${tableName}_${field.name}_fkey`
     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+  })
+
+  // Generate foreign keys for relationship fields (type: 'relationship')
+  const relationshipFieldConstraints = fields.filter(isRelationshipField).map((field) => {
+    const constraintName = `${tableName}_${field.name}_fkey`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${field.relatedTable}(id)`
   })
 
   // TODO: Re-enable foreign keys for created-by/updated-by fields
@@ -465,7 +480,7 @@ const generateForeignKeyConstraints = (
   //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
   //   })
 
-  return [...userFieldConstraints, ...userReferenceConstraints]
+  return [...userFieldConstraints, ...relationshipFieldConstraints, ...userReferenceConstraints]
 }
 
 /**

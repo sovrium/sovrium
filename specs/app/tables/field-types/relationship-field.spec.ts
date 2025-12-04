@@ -330,7 +330,9 @@ test.describe('Relationship Field', () => {
       await executeQuery('INSERT INTO students VALUES (1), (2)')
       await executeQuery('INSERT INTO courses VALUES (1)')
       // Auto-generated junction table should be named students_courses
-      await executeQuery('INSERT INTO students_courses (student_id, course_id) VALUES (1, 1), (2, 1)')
+      await executeQuery(
+        'INSERT INTO students_courses (student_id, course_id) VALUES (1, 1), (2, 1)'
+      )
 
       // THEN: auto-generated junction table contains correct records
       const count = await executeQuery('SELECT COUNT(*) as count FROM students_courses')

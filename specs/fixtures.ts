@@ -721,6 +721,59 @@ type ServerFixtures = {
 }
 
 /**
+ * Split SQL query into multiple statements, respecting string literals
+ * Handles PostgreSQL string escaping ('')  within quotes
+ */
+function splitSQLStatements(query: string): string[] {
+  const statements: string[] = []
+  let current = ''
+  let inString = false
+  let i = 0
+
+  while (i < query.length) {
+    const char = query[i]
+
+    if (char === "'" && !inString) {
+      // Start of string literal
+      inString = true
+      current += char
+      i++
+    } else if (char === "'" && inString) {
+      // Check if this is an escaped quote ('')
+      if (i + 1 < query.length && query[i + 1] === "'") {
+        // Escaped quote - add both quotes and continue
+        current += "''"
+        i += 2
+      } else {
+        // End of string literal
+        inString = false
+        current += char
+        i++
+      }
+    } else if (char === ';' && !inString) {
+      // Statement separator (not inside string)
+      const stmt = current.trim()
+      if (stmt.length > 0) {
+        statements.push(stmt)
+      }
+      current = ''
+      i++
+    } else {
+      current += char
+      i++
+    }
+  }
+
+  // Add final statement
+  const stmt = current.trim()
+  if (stmt.length > 0) {
+    statements.push(stmt)
+  }
+
+  return statements
+}
+
+/**
  * Helper function to execute multiple SQL statements in a transaction
  * Used for SET LOCAL pattern in RLS testing
  */
@@ -968,12 +1021,9 @@ export const test = base.extend<ServerFixtures>({
         }
 
         // Handle semicolon-separated statements (e.g., SET LOCAL ... ; SELECT ...)
+        // Note: Must respect string literals when splitting (don't split on ';' inside quotes)
         if (!params && query.includes(';')) {
-          const statements = query
-            .split(';')
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0)
-
+          const statements = splitSQLStatements(query)
           return await executeStatementsInTransaction(client, statements)
         }
 

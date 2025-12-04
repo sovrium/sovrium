@@ -96,6 +96,7 @@ interface QualityOptions {
   readonly file?: string
   readonly skipE2E: boolean
   readonly skipCoverage: boolean
+  readonly skipEffect: boolean
 }
 
 /**
@@ -107,6 +108,7 @@ const parseArgs = (): QualityOptions => {
     file: args.find((a) => !a.startsWith('--')),
     skipE2E: args.includes('--skip-e2e'),
     skipCoverage: args.includes('--skip-coverage'),
+    skipEffect: args.includes('--skip-effect'),
   }
 }
 
