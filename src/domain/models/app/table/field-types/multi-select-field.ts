@@ -12,7 +12,12 @@ export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('multi-select'),
-      options: Schema.Array(Schema.String),
+      options: Schema.Array(Schema.String).pipe(
+        Schema.minItems(1),
+        Schema.annotations({
+          message: () => 'At least one option is required for multi-select field',
+        })
+      ),
       maxSelections: Schema.optional(
         Schema.Int.pipe(
           Schema.greaterThanOrEqualTo(1),

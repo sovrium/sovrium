@@ -45,5 +45,22 @@ describe('MultiSelectFieldSchema', () => {
         Schema.decodeSync(MultiSelectFieldSchema)(field)
       }).toThrow()
     })
+
+    test('should reject field with empty options array', () => {
+      // Given: A field with empty options
+      const field = {
+        id: 1,
+        name: 'tags',
+        type: 'multi-select' as const,
+        options: [],
+
+        // When: The value is validated against the schema
+        // Then: Validation should throw an error about requiring at least one option
+      }
+
+      expect(() => {
+        Schema.decodeSync(MultiSelectFieldSchema)(field)
+      }).toThrow(/at least one option/i)
+    })
   })
 })
