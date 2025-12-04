@@ -31,6 +31,6 @@ export const createDatabaseIdentifierSchema = (
     Schema.maxLength(63, { message: () => 'Maximum length is 63 characters' }),
     Schema.pattern(/^[a-z][a-z0-9_]*$/, {
       message: () =>
-        `Internal identifier name used for database ${identifierType}s and programmatic references. Must follow database naming conventions: start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit). This name is used in SQL queries, API endpoints, and code generation. Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").`,
+        `Invalid ${identifierType} name pattern. Must follow database naming conventions: start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit). This name is used in SQL queries, API endpoints, and code generation. Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").`,
     })
   )
