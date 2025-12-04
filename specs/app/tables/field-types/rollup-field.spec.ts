@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/rollup-field.ts
  * Domain: app
- * Spec Count: 11
+ * Spec Count: 10
  *
  * Reference: https://support.airtable.com/docs/rollup-field-overview
  *
