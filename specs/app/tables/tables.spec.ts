@@ -1462,7 +1462,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-036: should reject field name exceeding maximum length',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -1481,7 +1481,7 @@ test.describe('Data Tables', () => {
             },
           ],
         })
-      ).rejects.toThrow(/name.*too.*long|exceeds.*maximum.*length|maxLength/i)
+      ).rejects.toThrow(/maximum.*length.*63.*characters/i)
     }
   )
 
