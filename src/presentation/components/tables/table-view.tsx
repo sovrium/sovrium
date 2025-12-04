@@ -61,11 +61,7 @@ function formatCurrency(
     symbolPosition === 'after' ? `${formattedValue}${symbol}` : `${symbol}${formattedValue}`
 
   // Apply negative format
-  return isNegative
-    ? negativeFormat === 'parentheses'
-      ? `(${result})`
-      : `-${result}`
-    : result
+  return isNegative ? (negativeFormat === 'parentheses' ? `(${result})` : `-${result}`) : result
 }
 
 /**
@@ -80,10 +76,7 @@ function formatCurrency(
  * applyThousandsSeparator("1000000.00", "comma") // "1,000,000.00"
  * applyThousandsSeparator("1000000.00", "period") // "1.000.000,00"
  */
-function applyThousandsSeparator(
-  value: string,
-  separator: 'comma' | 'period' | 'space'
-): string {
+function applyThousandsSeparator(value: string, separator: 'comma' | 'period' | 'space'): string {
   // Split on period (decimal separator)
   const parts = value.split('.')
   const integerPart = parts[0] || '0'
@@ -99,7 +92,9 @@ function applyThousandsSeparator(
   const decimalSeparator = separator === 'period' ? ',' : '.'
 
   // Reconstruct with appropriate decimal separator
-  return decimalPart !== undefined ? `${formattedInteger}${decimalSeparator}${decimalPart}` : formattedInteger
+  return decimalPart !== undefined
+    ? `${formattedInteger}${decimalSeparator}${decimalPart}`
+    : formattedInteger
 }
 
 /**
