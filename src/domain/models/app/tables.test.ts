@@ -505,8 +505,8 @@ describe('TablesSchema', () => {
       expect(result[99]!.name).toBe('table_100')
     })
 
-    test('should accept tables with duplicate names (schema allows it)', () => {
-      // GIVEN: Multiple tables with the same name (validation is application-layer concern)
+    test('should reject tables with duplicate names', () => {
+      // GIVEN: Multiple tables with the same name
       const tables = [
         {
           id: 1,
@@ -520,13 +520,10 @@ describe('TablesSchema', () => {
         },
       ]
 
-      // WHEN: The tables array is validated against the schema
-      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
-
-      // THEN: Both tables should be accepted (business rule validation happens elsewhere)
-      expect(result.length).toBe(2)
-      expect(result[0]!.name).toBe('users')
-      expect(result[1]!.name).toBe('users')
+      // WHEN/THEN: The validation should fail
+      expect(() => {
+        Schema.decodeUnknownSync(TablesSchema)(tables)
+      }).toThrow(/Table names must be unique/)
     })
 
     test('should accept tables with various ID values', () => {

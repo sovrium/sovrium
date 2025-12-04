@@ -1361,7 +1361,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-032: should reject duplicate table names within schema',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

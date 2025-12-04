@@ -96,6 +96,11 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     const uniqueIds = new Set(ids)
     return ids.length === uniqueIds.size || 'Table IDs must be unique within the schema'
   }),
+  Schema.filter((tables) => {
+    const names = tables.map((table) => table.name)
+    const uniqueNames = new Set(names)
+    return names.length === uniqueNames.size || 'Table names must be unique within the schema'
+  }),
   Schema.annotations({
     title: 'Data Tables',
     description:
