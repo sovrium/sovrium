@@ -336,6 +336,52 @@ describe('TablesSchema', () => {
         Schema.decodeUnknownSync(TablesSchema)(tables)
       }).toThrow()
     })
+
+    test('should reject tables with duplicate IDs', () => {
+      // GIVEN: Tables array with duplicate table IDs
+      const tables = [
+        {
+          id: 1,
+          name: 'users',
+          fields: [{ id: 1, name: 'email', type: 'email' as const }],
+        },
+        {
+          id: 1, // Duplicate ID
+          name: 'products',
+          fields: [{ id: 1, name: 'title', type: 'single-line-text' as const }],
+        },
+      ]
+
+      // WHEN: Schema validation is performed
+      // THEN: Validation should fail with uniqueness error
+      expect(() => {
+        Schema.decodeUnknownSync(TablesSchema)(tables)
+      }).toThrow(/unique/i)
+    })
+
+    test('should accept tables with unique IDs', () => {
+      // GIVEN: Tables array with unique IDs
+      const tables = [
+        {
+          id: 1,
+          name: 'users',
+          fields: [{ id: 1, name: 'email', type: 'email' as const }],
+        },
+        {
+          id: 2,
+          name: 'products',
+          fields: [{ id: 1, name: 'title', type: 'single-line-text' as const }],
+        },
+      ]
+
+      // WHEN: Schema validation is performed
+      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
+
+      // THEN: Both tables should be accepted
+      expect(result.length).toBe(2)
+      expect(result[0]!.id).toBe(1)
+      expect(result[1]!.id).toBe(2)
+    })
   })
 
   describe('Type Inference', () => {
