@@ -272,7 +272,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-007: should display symbol after amount when symbolPosition is after',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {

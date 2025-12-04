@@ -366,7 +366,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-006: user can complete full count-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
