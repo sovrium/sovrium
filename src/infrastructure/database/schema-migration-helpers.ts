@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { shouldCreateDatabaseColumn } from './field-utils'
 import { mapFieldTypeToPostgres, generateColumnDefinition } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
@@ -188,12 +189,6 @@ const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): b
   // For other types, exact match required
   return normalizedExpected === normalizedExisting
 }
-
-/**
- * Check if field should create a database column
- * Some field types are UI-only and don't need database columns
- */
-const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => field.type !== 'button'
 
 /**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
