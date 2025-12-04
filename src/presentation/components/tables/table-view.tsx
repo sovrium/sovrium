@@ -68,19 +68,32 @@ function formatCurrency(
 
 /**
  * Apply thousands separator to a numeric string
+ *
+ * @param value - Numeric string with period as decimal separator (e.g., "1000000.00")
+ * @param separator - Type of thousands separator to use
+ * @returns Formatted string with thousands separator applied
+ *
+ * @example
+ * applyThousandsSeparator("1000000.00", "space") // "1 000 000.00"
+ * applyThousandsSeparator("1000000.00", "comma") // "1,000,000.00"
+ * applyThousandsSeparator("1000000.00", "period") // "1.000.000.00"
  */
 function applyThousandsSeparator(
   value: string,
   separator: 'comma' | 'period' | 'space'
 ): string {
+  // Split on period (decimal separator)
   const parts = value.split('.')
   const integerPart = parts[0] || '0'
   const decimalPart = parts[1]
+
+  // Map separator type to character
   const separatorChar = separator === 'comma' ? ',' : separator === 'period' ? '.' : ' '
 
-  // Add separator every 3 digits from the right
+  // Insert separator every 3 digits from right to left
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, separatorChar)
 
+  // Reconstruct with original decimal separator (always period)
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger
 }
 
