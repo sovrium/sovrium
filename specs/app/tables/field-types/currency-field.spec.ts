@@ -306,7 +306,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-008: should format with specified decimal precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -340,7 +340,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-009: should display negative amounts in parentheses when negativeFormat is parentheses',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
