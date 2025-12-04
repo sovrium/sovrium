@@ -8,14 +8,14 @@
 /**
  * Issue Creator Service
  *
- * Handles GitHub issue creation for spec items
+ * Handles GitHub issue creation and updates for spec items
  */
 
 import { writeFileSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as Effect from 'effect/Effect'
-import { CommandService, logError, logWarn, skip, success } from '../../lib/effect'
+import { CommandService, logError, logWarn, logInfo, skip, success } from '../../lib/effect'
 import { specHasIssue } from './queue-operations'
 import type { SpecItem } from './types'
 import type { LoggerService } from '../../lib/effect'
@@ -115,4 +115,49 @@ This spec will be automatically picked up by the TDD queue processor and impleme
     }
 
     return issueNumber
+  })
+
+/**
+ * Update an existing spec issue's title when spec ID changes
+ *
+ * This handles the case where a spec's ID was renumbered (e.g., 006 -> 007)
+ * but the description remained the same. We update the title to reflect the new spec ID.
+ *
+ * @param issueNumber - The GitHub issue number to update
+ * @param oldSpecId - The old spec ID in the issue title
+ * @param newSpec - The new spec item with updated ID
+ */
+export const updateSpecIssueTitle = (
+  issueNumber: number,
+  oldSpecId: string,
+  newSpec: SpecItem
+): Effect.Effect<boolean, never, CommandService | LoggerService> =>
+  Effect.gen(function* () {
+    const cmd = yield* CommandService
+
+    const newTitle = `🤖 ${newSpec.specId}: ${newSpec.description}`
+
+    yield* logInfo(`Updating issue #${issueNumber} title: ${oldSpecId} -> ${newSpec.specId}`)
+
+    const output = yield* cmd
+      .exec(`gh issue edit ${issueNumber} --title ${JSON.stringify(newTitle)}`, {
+        throwOnError: false,
+      })
+      .pipe(
+        Effect.catchAll((error) => {
+          return Effect.gen(function* () {
+            yield* logError(`Failed to update issue #${issueNumber}: ${error}`)
+            return ''
+          })
+        })
+      )
+
+    // gh issue edit outputs the issue URL on success
+    if (output.includes('/issues/')) {
+      yield* success(`Updated issue #${issueNumber}: ${oldSpecId} -> ${newSpec.specId}`)
+      return true
+    }
+
+    yield* logWarn(`Failed to update issue #${issueNumber} title`)
+    return false
   })
