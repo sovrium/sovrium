@@ -274,6 +274,31 @@ test.describe('View Fields', () => {
         expect(viewRecords[0]).toHaveProperty('id')
         expect(viewRecords[0]).not.toHaveProperty('secret')
       })
+
+      await test.step('Error handling: fields array contains non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                ],
+                views: [
+                  {
+                    id: 'bad_view',
+                    name: 'Bad View',
+                    fields: ['id', 'name', 'description'],
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*description.*not found|view.*fields.*non-existent/i)
+      })
     }
   )
 })

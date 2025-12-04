@@ -221,6 +221,12 @@ test.describe('Time Field', () => {
         const stored = await executeQuery('SELECT time_field FROM data WHERE id = 1')
         expect(stored.time_field).toBeTruthy()
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (time_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
     }
   )
 })

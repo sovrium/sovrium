@@ -851,6 +851,31 @@ test.describe('Relationship Field', () => {
           { name: 'Sales', employee_count: 2 },
         ])
       })
+
+      await test.step('Error handling: relationship to non-existent table is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'posts',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  {
+                    id: 2,
+                    name: 'author_id',
+                    type: 'relationship',
+                    relatedTable: 'nonexistent_users', // Table doesn't exist!
+                    relationType: 'many-to-one',
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/relation.*does not exist|table.*not found|invalid.*relatedTable/i)
+      })
     }
   )
 })

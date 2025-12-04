@@ -266,6 +266,28 @@ test.describe('View Sorts', () => {
           { category: 'B', value: 2 },
         ])
       })
+
+      await test.step('Error handling: sort references non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  {
+                    id: 'bad_view',
+                    name: 'Bad View',
+                    sorts: [{ field: 'price', direction: 'asc' }],
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*price.*not found|sort.*references.*non-existent.*field/i)
+      })
     }
   )
 })

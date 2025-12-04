@@ -584,45 +584,63 @@ test.describe('Table Fields', () => {
 
       // WHEN/THEN: Execute representative workflow
 
-      // 1. All fields are created in database
-      const fieldCount = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
-      )
-      // THEN: assertion
-      expect(fieldCount.rows[0].count).toBeGreaterThanOrEqual(6) // At least 6 fields (+ auto id)
+      await test.step('All fields are created in database', async () => {
+        const fieldCount = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
+        )
+        expect(fieldCount.rows[0].count).toBeGreaterThanOrEqual(6) // At least 6 fields (+ auto id)
+      })
 
-      // 2. Field types are correctly mapped to PostgreSQL types
-      const columns = await executeQuery(
-        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' AND column_name IN ('email', 'name', 'age', 'balance', 'is_active', 'created_at') ORDER BY column_name`
-      )
-      // THEN: assertion
-      expect(columns.rows).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ column_name: 'email', data_type: 'character varying' }),
-          expect.objectContaining({ column_name: 'name', data_type: 'character varying' }),
-          expect.objectContaining({ column_name: 'age', data_type: 'integer' }),
-          expect.objectContaining({ column_name: 'balance', data_type: 'numeric' }),
-          expect.objectContaining({ column_name: 'is_active', data_type: 'boolean' }),
-          expect.objectContaining({
-            column_name: 'created_at',
-            data_type: 'timestamp without time zone',
-          }),
-        ])
-      )
+      await test.step('Field types are correctly mapped to PostgreSQL types', async () => {
+        const columns = await executeQuery(
+          `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' AND column_name IN ('email', 'name', 'age', 'balance', 'is_active', 'created_at') ORDER BY column_name`
+        )
+        expect(columns.rows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ column_name: 'email', data_type: 'character varying' }),
+            expect.objectContaining({ column_name: 'name', data_type: 'character varying' }),
+            expect.objectContaining({ column_name: 'age', data_type: 'integer' }),
+            expect.objectContaining({ column_name: 'balance', data_type: 'numeric' }),
+            expect.objectContaining({ column_name: 'is_active', data_type: 'boolean' }),
+            expect.objectContaining({
+              column_name: 'created_at',
+              data_type: 'timestamp without time zone',
+            }),
+          ])
+        )
+      })
 
-      // 3. Constraints are properly applied
-      const constraints = await executeQuery(
-        `SELECT constraint_type, COUNT(*) as count FROM information_schema.table_constraints WHERE table_name = 'customers' GROUP BY constraint_type ORDER BY constraint_type`
-      )
-      // THEN: assertion
-      expect(constraints.rows).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ constraint_type: 'PRIMARY KEY' }),
-          expect.objectContaining({ constraint_type: 'UNIQUE' }), // email unique constraint
-        ])
-      )
+      await test.step('Constraints are properly applied', async () => {
+        const constraints = await executeQuery(
+          `SELECT constraint_type, COUNT(*) as count FROM information_schema.table_constraints WHERE table_name = 'customers' GROUP BY constraint_type ORDER BY constraint_type`
+        )
+        expect(constraints.rows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ constraint_type: 'PRIMARY KEY' }),
+            expect.objectContaining({ constraint_type: 'UNIQUE' }), // email unique constraint
+          ])
+        )
+      })
 
-      // Workflow completes successfully
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid_table',
+                fields: [
+                  { id: 1, name: 'field_a', type: 'single-line-text' }, // Duplicate ID
+                  { id: 1, name: 'field_b', type: 'email' }, // Duplicate ID
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
+
+      // Workflow completes successfully with proper validation
     }
   )
 })

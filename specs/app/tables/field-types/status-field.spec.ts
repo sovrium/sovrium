@@ -426,6 +426,30 @@ test.describe('Status Field', () => {
         expect(statusCounts).toContainEqual({ status: 'Draft', count: 1 })
         expect(statusCounts).toContainEqual({ status: 'Published', count: 1 })
       })
+
+      await test.step('Error handling: empty options array is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  {
+                    id: 2,
+                    name: 'bad_status',
+                    type: 'status',
+                    options: [], // Empty options!
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+      })
     }
   )
 })

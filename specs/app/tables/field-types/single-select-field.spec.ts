@@ -317,6 +317,30 @@ test.describe('Single Select Field', () => {
         )
         expect(grouped).toContainEqual({ select_field: 'option2', count: 2 })
       })
+
+      await test.step('Error handling: empty options array is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  {
+                    id: 2,
+                    name: 'bad_select',
+                    type: 'single-select',
+                    options: [], // Empty options!
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+      })
     }
   )
 })

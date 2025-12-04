@@ -461,6 +461,7 @@ test.describe('Currency Field', () => {
                   type: 'currency',
                   currency: 'USD',
                   required: true,
+                  unique: true,
                   indexed: true,
                   min: 0,
                   max: 1000,
@@ -485,6 +486,50 @@ test.describe('Currency Field', () => {
         await executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
         const stored = await executeQuery('SELECT currency_field FROM data WHERE id = 1')
         expect(parseFloat(stored.currency_field)).toBe(499.99)
+      })
+
+      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (currency_field) VALUES (1001)')
+        ).rejects.toThrow(/violates check constraint/)
+      })
+
+      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (currency_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
+      })
+
+      await test.step('Error handling: min > max is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  // @ts-expect-error min > max is rejected
+                  {
+                    id: 2,
+                    name: 'bad_currency',
+                    type: 'currency',
+                    min: 1000,
+                    max: 100, // min > max!
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
       })
     }
   )

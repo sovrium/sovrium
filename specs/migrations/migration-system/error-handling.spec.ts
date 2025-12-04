@@ -358,7 +358,9 @@ test.describe('Error Handling and Rollback', () => {
             // 'users' table should be defined BEFORE 'posts' to satisfy FK dependency
           ],
         })
-      ).rejects.toThrow(/relation.*users.*does not exist|invalid.*migration.*order|dependency.*not.*found/i)
+      ).rejects.toThrow(
+        /relation.*users.*does not exist|invalid.*migration.*order|dependency.*not.*found/i
+      )
     }
   )
 

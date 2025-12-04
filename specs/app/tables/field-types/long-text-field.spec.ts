@@ -275,6 +275,12 @@ test.describe('Long Text Field', () => {
         )
         expect(insertResult.length).toBe(1000)
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (long_text_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
+      })
     }
   )
 })

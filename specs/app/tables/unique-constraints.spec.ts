@@ -404,7 +404,9 @@ test.describe('Unique Constraints', () => {
             },
           ],
         })
-      ).rejects.toThrow(/field.*tenant_id.*not found|unique constraint.*references.*non-existent.*field/i)
+      ).rejects.toThrow(
+        /field.*tenant_id.*not found|unique constraint.*references.*non-existent.*field/i
+      )
     }
   )
 

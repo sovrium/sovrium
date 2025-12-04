@@ -294,6 +294,24 @@ test.describe('Button Field', () => {
         const item = await executeQuery('SELECT status FROM items WHERE id = 1')
         expect(item.status).toBe('published')
       })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'button_a', type: 'button', label: 'A', action: 'a' },
+                  { id: 1, name: 'button_b', type: 'button', label: 'B', action: 'b' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
     }
   )
 })

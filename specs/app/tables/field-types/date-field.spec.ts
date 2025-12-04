@@ -433,6 +433,12 @@ test.describe('Date Field', () => {
         )
         expect(rangeQuery.count).toBeGreaterThan(0)
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (date_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
     }
   )
 })

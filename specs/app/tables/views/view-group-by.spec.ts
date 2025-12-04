@@ -289,6 +289,28 @@ test.describe('View Group By', () => {
         )
         expect(categoryBCounts.count).toBe(1)
       })
+
+      await test.step('Error handling: groupBy references non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  {
+                    id: 'bad_view',
+                    name: 'Bad View',
+                    groupBy: { field: 'category', direction: 'asc' },
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*category.*not found|groupBy.*references.*non-existent.*field/i)
+      })
     }
   )
 })

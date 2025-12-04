@@ -703,6 +703,84 @@ test.describe('Row-Level Security Enforcement', () => {
         expect(data.rows[1].name).toBe('User 2 Item')
         expect(data.rows[1].user_id).toBe(user2.user.id)
       })
+
+      await test.step('Error handling: RLS policy with syntax error in condition', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'owner_id', type: 'user' },
+                ],
+                permissions: {
+                  records: [
+                    {
+                      action: 'read',
+                      condition: '{userId} == owner_id', // Invalid: double equals
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/invalid.*condition.*syntax|syntax error/i)
+      })
+
+      await test.step('Error handling: RLS policy referencing non-existent column', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
+                permissions: {
+                  records: [
+                    {
+                      action: 'read',
+                      condition: '{userId} = created_by', // 'created_by' column doesn't exist!
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/column.*created_by.*not found|field.*does not exist/i)
+      })
+
+      await test.step('Error handling: field permission read restriction on non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error3',
+            tables: [
+              {
+                id: 97,
+                name: 'invalid3',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                ],
+                permissions: {
+                  fields: [
+                    {
+                      field: 'salary', // 'salary' field doesn't exist!
+                      read: { type: 'roles', roles: ['admin', 'hr'] },
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*salary.*not found|field.*does not exist/i)
+      })
     }
   )
 })

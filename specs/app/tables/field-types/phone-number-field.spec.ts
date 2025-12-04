@@ -290,10 +290,16 @@ test.describe('Phone Number Field', () => {
         await executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
       })
 
-      await test.step('Test unique constraint enforcement', async () => {
+      await test.step('Error handling: unique constraint rejects duplicate phone number', async () => {
         await expect(
           executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (phone_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
     }
   )

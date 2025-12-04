@@ -272,10 +272,16 @@ test.describe('URL Field', () => {
         await executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
       })
 
-      await test.step('Test unique constraint enforcement', async () => {
+      await test.step('Error handling: unique constraint rejects duplicate URL', async () => {
         await expect(
           executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (url_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
     }
   )

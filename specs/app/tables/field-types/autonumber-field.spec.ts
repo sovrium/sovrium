@@ -213,6 +213,24 @@ test.describe('Autonumber Field', () => {
           expect(results.rows[i].auto_field).toBeGreaterThan(results.rows[i - 1].auto_field)
         }
       })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'auto_a', type: 'autonumber' },
+                  { id: 1, name: 'auto_b', type: 'autonumber' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
     }
   )
 })

@@ -753,6 +753,58 @@ test.describe('Organization Data Isolation', () => {
         expect(data.rows[1].name).toBe('Other Org Resource')
         expect(data.rows[1].organization_id).toBe(orgB.organization.id)
       })
+
+      await test.step('Error handling: organizationScoped table without organization_id field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            auth: {
+              emailAndPassword: true,
+              plugins: { organization: true },
+            },
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  // Missing organization_id field!
+                ],
+                permissions: {
+                  organizationScoped: true, // Requires organization_id field!
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/organization_id.*required|organizationScoped.*requires.*organization_id/i)
+      })
+
+      await test.step('Error handling: organizationScoped table with wrong organization_id field type', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            auth: {
+              emailAndPassword: true,
+              plugins: { organization: true },
+            },
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'organization_id', type: 'integer' }, // Should be text/single-line-text!
+                ],
+                permissions: {
+                  organizationScoped: true,
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/organization_id.*type.*text|organization_id.*invalid.*type/i)
+      })
     }
   )
 })

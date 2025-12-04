@@ -400,6 +400,12 @@ test.describe('DateTime Field', () => {
         )
         expect(rangeQuery.count).toBe(2)
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (datetime_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
+      })
     }
   )
 })

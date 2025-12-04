@@ -583,6 +583,26 @@ test.describe('Count Field', () => {
         const afterDelete = await executeQuery('SELECT * FROM departments WHERE id = 1')
         expect(afterDelete.employee_count).toBe(1)
       })
+
+      await test.step('Error handling: count field without relationshipField is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  // @ts-expect-error - Testing missing relationshipField
+                  { id: 2, name: 'bad_count', type: 'count' }, // Missing relationshipField!
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/relationshipField.*required|missing.*relationship/i)
+      })
     }
   )
 })

@@ -352,6 +352,30 @@ test.describe('Multi Select Field', () => {
         )
         expect(matching.count).toBe(1)
       })
+
+      await test.step('Error handling: empty options array is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  {
+                    id: 2,
+                    name: 'bad_multi_select',
+                    type: 'multi-select',
+                    options: [], // Empty options!
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+      })
     }
   )
 })

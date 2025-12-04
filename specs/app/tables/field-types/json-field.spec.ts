@@ -274,6 +274,21 @@ test.describe('JSON Field', () => {
         )
         expect(Number(filtered.count)).toBe(1)
       })
+
+      await test.step('Error handling: invalid field name is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: '123_json', type: 'json' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/invalid.*field.*name|name.*must.*match|pattern/i)
+      })
     }
   )
 })

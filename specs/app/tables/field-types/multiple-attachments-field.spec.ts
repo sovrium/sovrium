@@ -340,6 +340,24 @@ test.describe('Multiple Attachments Field', () => {
         )
         expect(files.count).toBe(2)
       })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'files_a', type: 'multiple-attachments' },
+                  { id: 1, name: 'files_b', type: 'multiple-attachments' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
     }
   )
 })

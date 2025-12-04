@@ -292,6 +292,57 @@ test.describe('View Filters', () => {
         expect(viewRecords).toHaveLength(1)
         expect(viewRecords[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
       })
+
+      await test.step('Error handling: filter references non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  {
+                    id: 'bad_view',
+                    name: 'Bad View',
+                    filters: {
+                      and: [{ field: 'status', operator: 'equals', value: 'active' }],
+                    },
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*status.*not found|filter.*references.*non-existent.*field/i)
+      })
+
+      await test.step('Error handling: invalid operator for field type', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'is_active', type: 'checkbox' },
+                ],
+                views: [
+                  {
+                    id: 'bad_view2',
+                    name: 'Bad View 2',
+                    filters: {
+                      and: [{ field: 'is_active', operator: 'contains', value: 'test' }],
+                    },
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/operator.*contains.*invalid.*checkbox|incompatible.*operator/i)
+      })
     }
   )
 })

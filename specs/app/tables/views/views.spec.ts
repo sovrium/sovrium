@@ -558,6 +558,41 @@ test.describe('Table Views', () => {
         )
         expect(viewExists.count).toBe(1)
       })
+
+      await test.step('Error handling: multiple default views rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  { id: 'view_1', name: 'View 1', isDefault: true },
+                  { id: 'view_2', name: 'View 2', isDefault: true },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/multiple.*default.*view|only one.*default.*view/i)
+      })
+
+      await test.step('Error handling: empty view name rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [{ id: 'my_view', name: '' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/view.*name.*required|view.*name.*empty/i)
+      })
     }
   )
 })

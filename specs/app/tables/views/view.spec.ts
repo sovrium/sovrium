@@ -264,6 +264,25 @@ test.describe('Table View', () => {
         )
         expect(inactiveInView).toHaveLength(0)
       })
+
+      await test.step('Error handling: duplicate view IDs rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  { id: 'my_view', name: 'View 1' },
+                  { id: 'my_view', name: 'View 2' },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*view.*id|view id.*must be unique/i)
+      })
     }
   )
 })

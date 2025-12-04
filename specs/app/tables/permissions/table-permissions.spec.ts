@@ -501,6 +501,57 @@ test.describe('Table-Level Permissions', () => {
           )
         }).rejects.toThrow()
       })
+
+      await test.step('Error handling: owner permission referencing non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: {
+                    type: 'owner',
+                    field: 'created_by', // 'created_by' field doesn't exist!
+                  },
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*created_by.*not found|owner field.*does not exist/i)
+      })
+
+      await test.step('Error handling: owner permission field that is not a user type', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'category', type: 'single-line-text' }, // text field, not user!
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: {
+                    type: 'owner',
+                    field: 'category', // not a user field!
+                  },
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/owner.*field.*must be.*user|field.*category.*not.*user type/i)
+      })
     }
   )
 })

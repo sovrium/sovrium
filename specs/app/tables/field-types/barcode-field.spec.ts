@@ -150,6 +150,12 @@ test.describe('Barcode Field', () => {
         )
         expect(result.barcode).toBe('9876543210987')
       })
+
+      await test.step('Error handling: unique constraint rejects duplicate barcode', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
     }
   )
 })

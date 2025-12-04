@@ -364,6 +364,24 @@ test.describe('Single Attachment Field', () => {
         const file = await executeQuery('SELECT url, metadata FROM files WHERE id = 1')
         expect(file.url).toBe('https://example.com/file.pdf')
       })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'file_a', type: 'single-attachment' },
+                  { id: 1, name: 'file_b', type: 'single-attachment' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
     }
   )
 })

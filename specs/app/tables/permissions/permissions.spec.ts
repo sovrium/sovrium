@@ -764,6 +764,158 @@ test.describe('Table Permissions', () => {
         expect(adminFields.title).toBe('Public Doc')
         expect(adminFields.salary_info).toBe('Confidential')
       })
+
+      await test.step('Error handling: permission with non-existent role', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: {
+                    type: 'roles',
+                    roles: ['super_admin'], // 'super_admin' role doesn't exist!
+                  },
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/role.*super_admin.*not found|invalid.*role/i)
+      })
+
+      await test.step('Error handling: field permission referencing non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  fields: [
+                    {
+                      field: 'salary', // 'salary' field doesn't exist!
+                      read: { type: 'roles', roles: ['admin'] },
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*salary.*not found|field.*does not exist/i)
+      })
+
+      await test.step('Error handling: conflicting field permissions', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error3',
+            tables: [
+              {
+                id: 97,
+                name: 'invalid3',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'content', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  fields: [
+                    {
+                      field: 'content',
+                      read: { type: 'public' }, // Public read
+                    },
+                    {
+                      field: 'content', // Duplicate field definition!
+                      read: { type: 'roles', roles: ['admin'] }, // Conflicting!
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*permission|conflicting.*permission/i)
+      })
+
+      await test.step('Error handling: record permission with invalid condition field reference', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error4',
+            tables: [
+              {
+                id: 96,
+                name: 'invalid4',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  records: [
+                    {
+                      action: 'read',
+                      condition: '{userId} = owner_id', // 'owner_id' field doesn't exist!
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*owner_id.*not found|invalid.*field.*condition/i)
+      })
+
+      await test.step('Error handling: circular relationship dependency between tables', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error5',
+            tables: [
+              {
+                id: 95,
+                name: 'table_a',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  {
+                    id: 3,
+                    name: 'table_b_ref',
+                    type: 'relationship',
+                    relatedTable: 'table_b', // References table_b
+                    relationType: 'many-to-one',
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+              {
+                id: 94,
+                name: 'table_b',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  {
+                    id: 3,
+                    name: 'table_a_ref',
+                    type: 'relationship',
+                    relatedTable: 'table_a', // References table_a - circular!
+                    relationType: 'many-to-one',
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/circular.*dependency|dependency.*cycle|cannot resolve.*order/i)
+      })
     }
   )
 })
