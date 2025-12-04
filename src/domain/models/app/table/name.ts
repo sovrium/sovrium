@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { createDatabaseIdentifierSchema } from './database-identifier'
 
 /**
  * Table Name
@@ -17,13 +18,7 @@ import { Schema } from 'effect'
  * "users"
  * ```
  */
-export const NameSchema = Schema.String.pipe(
-  Schema.minLength(1, { message: () => 'This field is required' }),
-  Schema.maxLength(63, { message: () => 'Maximum length is 63 characters' }),
-  Schema.pattern(/^[a-z][a-z0-9_]*$/, {
-    message: () =>
-      'Internal identifier name used for database tables, columns, and programmatic references. Must follow database naming conventions: start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit). This name is used in SQL queries, API endpoints, and code generation. Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").',
-  }),
+export const NameSchema = createDatabaseIdentifierSchema('table').pipe(
   Schema.annotations({
     title: 'Name',
     description:
