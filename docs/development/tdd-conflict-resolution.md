@@ -43,7 +43,7 @@ prompt: >-
 - **Same function signature conflict**: Merge both parameter additions (e.g., `blocks` + `theme` → both props)
 - **Same function body conflict**: Combine logic from both versions
 - **Import conflicts**: Merge all unique imports
-- **After resolution**: Run full validation again (lint, typecheck, tests)
+- **After resolution**: Run full validation again (lint, typecheck, Effect diagnostics, tests)
 
 **Benefits**:
 

@@ -831,7 +831,7 @@ If a spec has been in-progress for > 90 minutes with no activity:
 
 - All spec tests must pass
 - All regression tests must pass
-- All code quality checks must pass (license, lint, typecheck)
+- All code quality checks must pass (license, lint, typecheck, Effect diagnostics)
 - Human review still possible (PRs are created as draft first)
 
 ### Error Recovery
@@ -1148,7 +1148,7 @@ After enabling auto-merge in Step 4B, you MUST monitor CI validation:
 
 #### Phase 1: Monitor CI Status
 
-- test.yml CI runs: lint, typecheck, unit tests, E2E regression
+- test.yml CI runs: lint, typecheck, Effect diagnostics, unit tests, E2E regression
 - Check status: `gh pr checks $PR_NUMBER`
 - Auto-merge is already enabled, so PR will merge automatically when CI passes
 
