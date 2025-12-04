@@ -249,7 +249,7 @@ test.describe('DateTime Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-007: should display time in 24-hour format when timeFormat is 24-hour',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
