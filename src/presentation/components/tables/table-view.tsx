@@ -76,7 +76,7 @@ function formatCurrency(
  * @example
  * applyThousandsSeparator("1000000.00", "space") // "1 000 000.00"
  * applyThousandsSeparator("1000000.00", "comma") // "1,000,000.00"
- * applyThousandsSeparator("1000000.00", "period") // "1.000.000.00"
+ * applyThousandsSeparator("1000000.00", "period") // "1.000.000,00"
  */
 function applyThousandsSeparator(
   value: string,
@@ -93,8 +93,11 @@ function applyThousandsSeparator(
   // Insert separator every 3 digits from right to left
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, separatorChar)
 
-  // Reconstruct with original decimal separator (always period)
-  return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger
+  // When using period as thousands separator, use comma as decimal separator (European format)
+  const decimalSeparator = separator === 'period' ? ',' : '.'
+
+  // Reconstruct with appropriate decimal separator
+  return decimalPart !== undefined ? `${formattedInteger}${decimalSeparator}${decimalPart}` : formattedInteger
 }
 
 export interface TableViewProps {
