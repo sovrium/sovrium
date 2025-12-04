@@ -346,6 +346,26 @@ test.describe('Updated By Field', () => {
         )
         expect(editor.name).toBe('Bob')
       })
+
+      await test.step('Error handling: updated-by without auth config is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            // No auth config!
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'editor', type: 'updated-by' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
+      })
     }
   )
 })

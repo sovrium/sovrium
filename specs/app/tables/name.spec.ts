@@ -180,29 +180,58 @@ test.describe('Table Name', () => {
 
       // WHEN/THEN: Execute representative workflow
 
-      // 1. Valid names create tables correctly
-      const usersTable = await executeQuery(
-        `SELECT tablename FROM pg_tables WHERE tablename = 'users'`
-      )
-      // THEN: assertion
-      expect(usersTable.rows[0]).toMatchObject({ tablename: 'users' })
+      await test.step('Valid names create tables correctly', async () => {
+        const usersTable = await executeQuery(
+          `SELECT tablename FROM pg_tables WHERE tablename = 'users'`
+        )
+        expect(usersTable.rows[0]).toMatchObject({ tablename: 'users' })
 
-      const ordersTable = await executeQuery(
-        `SELECT tablename FROM pg_tables WHERE tablename = 'orders_2024'`
-      )
-      // THEN: assertion
-      expect(ordersTable.rows[0]).toMatchObject({ tablename: 'orders_2024' })
+        const ordersTable = await executeQuery(
+          `SELECT tablename FROM pg_tables WHERE tablename = 'orders_2024'`
+        )
+        expect(ordersTable.rows[0]).toMatchObject({ tablename: 'orders_2024' })
+      })
 
-      // 2. Names follow schema pattern (lowercase, underscores, starts with letter)
-      const allTables = await executeQuery(
-        `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('users', 'orders_2024') ORDER BY tablename`
-      )
-      // THEN: assertion
-      expect(allTables.rows).toHaveLength(2)
-      expect(allTables.rows[0].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
-      expect(allTables.rows[1].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
+      await test.step('Names follow schema pattern', async () => {
+        const allTables = await executeQuery(
+          `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('users', 'orders_2024') ORDER BY tablename`
+        )
+        expect(allTables.rows).toHaveLength(2)
+        expect(allTables.rows[0].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
+        expect(allTables.rows[1].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
+      })
 
-      // Workflow completes successfully
+      await test.step('Error handling: invalid table names are rejected', async () => {
+        // Invalid: uppercase letters
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'InvalidUppercase',
+                fields: [{ id: 1, name: 'field', type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/AppValidationError|ParseError/)
+
+        // Invalid: starts with number
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: '123_invalid',
+                fields: [{ id: 1, name: 'field', type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/AppValidationError|ParseError/)
+      })
+
+      // Workflow completes successfully with proper validation
     }
   )
 })

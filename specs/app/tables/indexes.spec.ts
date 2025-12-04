@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 8
+ * Spec Count: 10
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (8 tests) - Exhaustive acceptance criteria
@@ -598,11 +598,81 @@ test.describe('Database Indexes', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (009-010)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-INDEXES-009: should reject index referencing non-existent column',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Index referencing non-existent column
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_users_status',
+                  fields: ['status'], // 'status' column doesn't exist!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/column.*status.*not found|index.*references.*non-existent.*column/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-010: should reject duplicate index names within the same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with duplicate index names
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_users_lookup', // Duplicate name!
+                  fields: ['name'],
+                },
+                {
+                  name: 'idx_users_lookup', // Duplicate name!
+                  fields: ['email'],
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*index.*name|index name.*must be unique/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
   test(
-    'APP-TABLES-INDEXES-009: user can complete full Database Indexes workflow',
+    'APP-TABLES-INDEXES-011: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative index configurations

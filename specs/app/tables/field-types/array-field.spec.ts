@@ -249,7 +249,7 @@ test.describe('Array Field', () => {
               name: 'data',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'items', type: 'array', itemType: 'text' },
+                { id: 2, name: 'items', type: 'array', itemType: 'text', maxItems: 10 },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
@@ -273,6 +273,14 @@ test.describe('Array Field', () => {
           'SELECT array_length(items, 1) as length FROM data WHERE id = 1'
         )
         expect(lengthCheck.length).toBe(3)
+      })
+
+      await test.step('Error handling: CHECK constraint rejects array exceeding maxItems', async () => {
+        await expect(
+          executeQuery(
+            "INSERT INTO data (items) VALUES (ARRAY['1','2','3','4','5','6','7','8','9','10','11'])"
+          )
+        ).rejects.toThrow(/violates check constraint/)
       })
     }
   )

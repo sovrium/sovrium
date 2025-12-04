@@ -295,7 +295,7 @@ test.describe('Integer Field', () => {
         expect(columnInfo.is_nullable).toBe('NO')
       })
 
-      await test.step('Test range constraint enforcement', async () => {
+      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
         await expect(executeQuery('INSERT INTO data (integer_field) VALUES (101)')).rejects.toThrow(
           /violates check constraint/
         )
@@ -305,10 +305,16 @@ test.describe('Integer Field', () => {
         await executeQuery('INSERT INTO data (integer_field) VALUES (75)')
       })
 
-      await test.step('Test unique constraint enforcement', async () => {
+      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
         await expect(executeQuery('INSERT INTO data (integer_field) VALUES (75)')).rejects.toThrow(
           /duplicate key value violates unique constraint/
         )
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (integer_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
     }
   )

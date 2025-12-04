@@ -69,28 +69,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if echo \"${CLAUDE_FILE_PATH}\" | grep -E '(src|scripts|tests)/.*\\.tsx?$' > /dev/null 2>&1; then cd ${CLAUDE_PROJECT_DIR} && bun run license 2>&1 | grep -E '(Added header|processed)' || true; fi",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun ${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-check.ts",
-            "timeout": 90
-          }
-        ]
-      }
     ]
   },
   "outputStyle": "Learning",

@@ -7,6 +7,7 @@
 
 import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
 import type { DateField } from '@/domain/models/app/table/field-types/date-field'
+import type { DurationField } from '@/domain/models/app/table/field-types/duration-field'
 import type { Table } from '@/domain/models/app/tables'
 import type React from 'react'
 
@@ -60,11 +61,7 @@ function formatCurrency(
     symbolPosition === 'after' ? `${formattedValue}${symbol}` : `${symbol}${formattedValue}`
 
   // Apply negative format
-  return isNegative
-    ? negativeFormat === 'parentheses'
-      ? `(${result})`
-      : `-${result}`
-    : result
+  return isNegative ? (negativeFormat === 'parentheses' ? `(${result})` : `-${result}`) : result
 }
 
 /**
@@ -79,10 +76,7 @@ function formatCurrency(
  * applyThousandsSeparator("1000000.00", "comma") // "1,000,000.00"
  * applyThousandsSeparator("1000000.00", "period") // "1.000.000,00"
  */
-function applyThousandsSeparator(
-  value: string,
-  separator: 'comma' | 'period' | 'space'
-): string {
+function applyThousandsSeparator(value: string, separator: 'comma' | 'period' | 'space'): string {
   // Split on period (decimal separator)
   const parts = value.split('.')
   const integerPart = parts[0] || '0'
@@ -98,7 +92,9 @@ function applyThousandsSeparator(
   const decimalSeparator = separator === 'period' ? ',' : '.'
 
   // Reconstruct with appropriate decimal separator
-  return decimalPart !== undefined ? `${formattedInteger}${decimalSeparator}${decimalPart}` : formattedInteger
+  return decimalPart !== undefined
+    ? `${formattedInteger}${decimalSeparator}${decimalPart}`
+    : formattedInteger
 }
 
 /**
@@ -170,9 +166,98 @@ function formatDateTime(datetimeString: string, timeFormat?: '12-hour' | '24-hou
   return `${hour}:${minuteStr}`
 }
 
+/**
+ * Format duration value with display format option
+ *
+ * @param durationString - PostgreSQL interval string (e.g., "01:30:45")
+ * @param displayFormat - Display format preset (h:mm:ss, h:mm, or decimal)
+ * @returns Formatted duration string
+ *
+ * @example
+ * formatDuration("01:30:45", "h:mm:ss") // "1:30:45"
+ * formatDuration("01:30:00", "h:mm") // "1:30"
+ * formatDuration("01:30:45", "decimal") // "1.5125"
+ */
+function formatDuration(
+  durationString: string,
+  displayFormat?: 'h:mm' | 'h:mm:ss' | 'decimal'
+): string {
+  // Parse PostgreSQL interval format (HH:MM:SS)
+  const match = durationString.match(/^(\d{2}):(\d{2}):(\d{2})/)
+  if (!match) {
+    return durationString // Return as-is if not in expected format
+  }
+
+  const [, hours, minutes, seconds] = match
+  const hoursNum = parseInt(hours || '0', 10)
+  const minutesNum = parseInt(minutes || '0', 10)
+  const secondsNum = parseInt(seconds || '0', 10)
+
+  // Format based on displayFormat
+  switch (displayFormat) {
+    case 'h:mm:ss':
+      return `${hoursNum}:${minutes}:${seconds}`
+    case 'h:mm':
+      return `${hoursNum}:${minutes}`
+    case 'decimal': {
+      const totalHours = hoursNum + minutesNum / 60 + secondsNum / 3600
+      return totalHours.toFixed(4)
+    }
+    default:
+      return durationString
+  }
+}
+
 export interface TableViewProps {
   readonly table: Table
   readonly records: readonly Record<string, unknown>[]
+}
+
+/**
+ * Format a single cell value based on field type
+ *
+ * @param field - Field definition with type and formatting options
+ * @param value - Cell value to format
+ * @returns Formatted cell content as string
+ */
+/* eslint-disable complexity -- Switch-like field type formatting requires multiple branches */
+function formatCellValue(field: Table['fields'][number], value: unknown): string {
+  // Format currency fields
+  if (field.type === 'currency') {
+    const currencyField = field as CurrencyField
+    const numericValue = typeof value === 'number' ? value : parseFloat(String(value || 0))
+    return formatCurrency(numericValue, {
+      currencyCode: currencyField.currency,
+      symbolPosition: currencyField.symbolPosition,
+      precision: currencyField.precision,
+      negativeFormat: currencyField.negativeFormat,
+      thousandsSeparator: currencyField.thousandsSeparator,
+    })
+  }
+
+  // Format date fields
+  if (field.type === 'date') {
+    const dateField = field as DateField
+    const dateString = String(value ?? '')
+    return formatDate(dateString, dateField.dateFormat)
+  }
+
+  // Format datetime fields
+  if (field.type === 'datetime') {
+    const dateField = field as DateField
+    const datetimeString = String(value ?? '')
+    return formatDateTime(datetimeString, dateField.timeFormat)
+  }
+
+  // Format duration fields
+  if (field.type === 'duration') {
+    const durationField = field as DurationField
+    const durationString = String(value ?? '')
+    return formatDuration(durationString, durationField.displayFormat)
+  }
+
+  // Default: display as string
+  return String(value ?? '')
 }
 
 /**
@@ -195,43 +280,9 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
         <tbody>
           {records.map((record, rowIndex) => (
             <tr key={rowIndex}>
-              {table.fields.map((field) => {
-                const value = record[field.name]
-
-                // Format currency fields
-                if (field.type === 'currency') {
-                  const currencyField = field as CurrencyField
-                  const numericValue =
-                    typeof value === 'number' ? value : parseFloat(String(value || 0))
-                  const formatted = formatCurrency(numericValue, {
-                    currencyCode: currencyField.currency,
-                    symbolPosition: currencyField.symbolPosition,
-                    precision: currencyField.precision,
-                    negativeFormat: currencyField.negativeFormat,
-                    thousandsSeparator: currencyField.thousandsSeparator,
-                  })
-                  return <td key={field.id}>{formatted}</td>
-                }
-
-                // Format date fields
-                if (field.type === 'date') {
-                  const dateField = field as DateField
-                  const dateString = String(value ?? '')
-                  const formatted = formatDate(dateString, dateField.dateFormat)
-                  return <td key={field.id}>{formatted}</td>
-                }
-
-                // Format datetime fields
-                if (field.type === 'datetime') {
-                  const dateField = field as DateField
-                  const datetimeString = String(value ?? '')
-                  const formatted = formatDateTime(datetimeString, dateField.timeFormat)
-                  return <td key={field.id}>{formatted}</td>
-                }
-
-                // Default: display as string
-                return <td key={field.id}>{String(value ?? '')}</td>
-              })}
+              {table.fields.map((field) => (
+                <td key={field.id}>{formatCellValue(field, record[field.name])}</td>
+              ))}
             </tr>
           ))}
         </tbody>

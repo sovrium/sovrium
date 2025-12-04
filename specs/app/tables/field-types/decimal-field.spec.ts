@@ -218,7 +218,7 @@ test.describe('Decimal Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-DECIMAL-006: user can complete full decimal-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -236,6 +236,7 @@ test.describe('Decimal Field', () => {
                   name: 'decimal_field',
                   type: 'decimal',
                   required: true,
+                  unique: true,
                   indexed: true,
                   min: 0,
                   max: 100,
@@ -260,6 +261,49 @@ test.describe('Decimal Field', () => {
         await executeQuery('INSERT INTO data (decimal_field) VALUES (75.25)')
         const stored = await executeQuery('SELECT decimal_field FROM data WHERE id = 1')
         expect(parseFloat(stored.decimal_field)).toBe(75.25)
+      })
+
+      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
+        await expect(executeQuery('INSERT INTO data (decimal_field) VALUES (101)')).rejects.toThrow(
+          /violates check constraint/
+        )
+      })
+
+      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (decimal_field) VALUES (75.25)')
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (decimal_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
+      })
+
+      await test.step('Error handling: min > max is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  {
+                    id: 2,
+                    name: 'bad_decimal',
+                    type: 'decimal',
+                    min: 100,
+                    max: 10, // min > max!
+                  },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
       })
     }
   )

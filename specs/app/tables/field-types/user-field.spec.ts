@@ -308,6 +308,18 @@ test.describe('User Field', () => {
         expect(userInfo.name).toBe('Alice')
         expect(userInfo.email).toBe('alice@example.com')
       })
+
+      await test.step('Error handling: foreign key constraint rejects invalid user ID', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (assignee) VALUES ('invalid-user-id-999')")
+        ).rejects.toThrow(/violates foreign key constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (assignee) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
     }
   )
 })

@@ -224,10 +224,10 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-007: should display duration in h:mm:ss format when displayFormat is h:mm:ss',
     { tag: '@spec' },
-    async ({ startServerWithSchema, page }) => {
+    async ({ startServerWithSchema, executeQuery, page }) => {
       // GIVEN: table with duration field configured with h:mm:ss format
       await startServerWithSchema({
         name: 'test-app',
@@ -248,6 +248,9 @@ test.describe('Duration Field', () => {
           },
         ],
       })
+
+      // Insert test data: 5445 seconds = 1 hour 30 minutes 45 seconds
+      await executeQuery("INSERT INTO videos (id, length) VALUES (1, '1:30:45')")
 
       // WHEN: user views duration field in table
       await page.goto('/tables/videos')
@@ -372,6 +375,12 @@ test.describe('Duration Field', () => {
         await executeQuery("INSERT INTO data (duration_field) VALUES ('2 hours 15 minutes')")
         const stored = await executeQuery('SELECT duration_field FROM data WHERE id = 1')
         expect(stored.duration_field).toBeTruthy()
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (duration_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
     }
   )

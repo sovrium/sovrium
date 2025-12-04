@@ -12,16 +12,13 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/count-field.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 7
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (7 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Reference: https://support.airtable.com/docs/count-field-overview
- *
- * NOTE: The 'count' field type is planned but not yet implemented in the schema.
- * Tests use type assertions to document the intended API.
  */
 
 test.describe('Count Field', () => {
@@ -41,9 +38,17 @@ test.describe('Count Field', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               {
                 id: 3,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 4,
                 name: 'task_count',
                 type: 'count',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -74,9 +79,7 @@ test.describe('Count Field', () => {
       )
 
       // THEN: count field returns number of linked records
-      const projectWithCount = await executeQuery(
-        'SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 1 GROUP BY p.id, p.name'
-      )
+      const projectWithCount = await executeQuery('SELECT * FROM projects WHERE id = 1')
       expect(projectWithCount.task_count).toBe(3)
     }
   )
@@ -97,10 +100,18 @@ test.describe('Count Field', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               {
                 id: 3,
+                name: 'products',
+                type: 'relationship',
+                relatedTable: 'products',
+                relationType: 'one-to-many',
+                foreignKey: 'category_id',
+              },
+              {
+                id: 4,
                 name: 'product_count',
                 type: 'count',
-                relationshipField: 'category_id',
-              } as any,
+                relationshipField: 'products',
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -127,9 +138,7 @@ test.describe('Count Field', () => {
       await executeQuery("INSERT INTO categories (name) VALUES ('Empty Category')")
 
       // THEN: count field returns 0, not null
-      const emptyCategory = await executeQuery(
-        'SELECT c.id, c.name, COUNT(p.id) as product_count FROM categories c LEFT JOIN products p ON c.id = p.category_id WHERE c.id = 1 GROUP BY c.id, c.name'
-      )
+      const emptyCategory = await executeQuery('SELECT * FROM categories WHERE id = 1')
       expect(emptyCategory.product_count).toBe(0)
     }
   )
@@ -150,10 +159,18 @@ test.describe('Count Field', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               {
                 id: 3,
+                name: 'books',
+                type: 'relationship',
+                relatedTable: 'books',
+                relationType: 'one-to-many',
+                foreignKey: 'author_id',
+              },
+              {
+                id: 4,
                 name: 'book_count',
                 type: 'count',
-                relationshipField: 'author_id',
-              } as any,
+                relationshipField: 'books',
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -181,27 +198,21 @@ test.describe('Count Field', () => {
       await executeQuery("INSERT INTO books (title, author_id) VALUES ('Pride and Prejudice', 1)")
 
       // THEN: initial count is 1
-      const initialCount = await executeQuery(
-        'SELECT COUNT(b.id) as book_count FROM authors a LEFT JOIN books b ON a.id = b.author_id WHERE a.id = 1 GROUP BY a.id'
-      )
+      const initialCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
       expect(initialCount.book_count).toBe(1)
 
       // WHEN: adding more linked records
       await executeQuery("INSERT INTO books (title, author_id) VALUES ('Sense and Sensibility', 1)")
 
       // THEN: count updates immediately
-      const updatedCount = await executeQuery(
-        'SELECT COUNT(b.id) as book_count FROM authors a LEFT JOIN books b ON a.id = b.author_id WHERE a.id = 1 GROUP BY a.id'
-      )
+      const updatedCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
       expect(updatedCount.book_count).toBe(2)
 
       // WHEN: removing a linked record
       await executeQuery('DELETE FROM books WHERE id = 1')
 
       // THEN: count reflects the removal
-      const afterDeleteCount = await executeQuery(
-        'SELECT COUNT(b.id) as book_count FROM authors a LEFT JOIN books b ON a.id = b.author_id WHERE a.id = 1 GROUP BY a.id'
-      )
+      const afterDeleteCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
       expect(afterDeleteCount.book_count).toBe(1)
     }
   )
@@ -222,16 +233,32 @@ test.describe('Count Field', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               {
                 id: 3,
-                name: 'created_task_count',
-                type: 'count',
-                relationshipField: 'created_by',
-              } as any,
+                name: 'created_tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'created_by',
+              },
               {
                 id: 4,
+                name: 'assigned_tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'assigned_to',
+              },
+              {
+                id: 5,
+                name: 'created_task_count',
+                type: 'count',
+                relationshipField: 'created_tasks',
+              },
+              {
+                id: 6,
                 name: 'assigned_task_count',
                 type: 'count',
-                relationshipField: 'assigned_to',
-              } as any,
+                relationshipField: 'assigned_tasks',
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -268,24 +295,12 @@ test.describe('Count Field', () => {
       )
 
       // THEN: Alice created 2 tasks, assigned 2 tasks
-      const aliceCounts = await executeQuery(`
-        SELECT
-          u.name,
-          (SELECT COUNT(*) FROM tasks WHERE created_by = u.id) as created_task_count,
-          (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id) as assigned_task_count
-        FROM team_members u WHERE u.id = 1
-      `)
+      const aliceCounts = await executeQuery('SELECT * FROM team_members WHERE id = 1')
       expect(aliceCounts.created_task_count).toBe(2)
       expect(aliceCounts.assigned_task_count).toBe(2)
 
       // THEN: Bob created 1 task, assigned 1 task
-      const bobCounts = await executeQuery(`
-        SELECT
-          u.name,
-          (SELECT COUNT(*) FROM tasks WHERE created_by = u.id) as created_task_count,
-          (SELECT COUNT(*) FROM tasks WHERE assigned_to = u.id) as assigned_task_count
-        FROM team_members u WHERE u.id = 2
-      `)
+      const bobCounts = await executeQuery('SELECT * FROM team_members WHERE id = 2')
       expect(bobCounts.created_task_count).toBe(1)
       expect(bobCounts.assigned_task_count).toBe(1)
     }
@@ -307,18 +322,26 @@ test.describe('Count Field', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               {
                 id: 3,
-                name: 'completed_task_count',
-                type: 'count',
-                relationshipField: 'project_id',
-                conditions: [{ field: 'status', operator: 'equals', value: 'completed' }],
-              } as any,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
               {
                 id: 4,
+                name: 'completed_task_count',
+                type: 'count',
+                relationshipField: 'tasks',
+                conditions: [{ field: 'status', operator: 'equals', value: 'completed' }],
+              },
+              {
+                id: 5,
                 name: 'pending_task_count',
                 type: 'count',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 conditions: [{ field: 'status', operator: 'equals', value: 'pending' }],
-              } as any,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -354,20 +377,111 @@ test.describe('Count Field', () => {
       `)
 
       // THEN: conditional counts filter correctly
-      const projectCounts = await executeQuery(`
-        SELECT
-          p.name,
-          (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'completed') as completed_task_count,
-          (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'pending') as pending_task_count
-        FROM projects p WHERE p.id = 1
-      `)
+      const projectCounts = await executeQuery('SELECT * FROM projects WHERE id = 1')
       expect(projectCounts.completed_task_count).toBe(2)
       expect(projectCounts.pending_task_count).toBe(3)
     }
   )
 
-  test(
-    'APP-TABLES-FIELD-TYPES-COUNT-006: user can complete full count-field workflow',
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-COUNT-006: should reject count field when relationshipField does not exist in same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Count field referencing non-existent relationship field in same table
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'task_count',
+                  type: 'count',
+                  relationshipField: 'tasks', // References field that doesn't exist in this table
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'project_id',
+                  type: 'relationship',
+                  relatedTable: 'projects',
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/relationshipField.*tasks.*not found|invalid.*relationship/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-COUNT-007: should reject count field when relationshipField is not a relationship type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Count field referencing a non-relationship field in same table
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'description', type: 'long-text' }, // Not a relationship field
+                {
+                  id: 4,
+                  name: 'task_count',
+                  type: 'count',
+                  relationshipField: 'description', // Points to text field in same table, not relationship
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'project_id',
+                  type: 'relationship',
+                  relatedTable: 'projects',
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/relationshipField.*must.*relationship|description.*not.*relationship/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-COUNT-008: user can complete full count-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with count field and conditional count', async () => {
@@ -382,17 +496,25 @@ test.describe('Count Field', () => {
                 { id: 2, name: 'name', type: 'single-line-text' },
                 {
                   id: 3,
-                  name: 'employee_count',
-                  type: 'count',
-                  relationshipField: 'department_id',
-                } as any,
+                  name: 'employees',
+                  type: 'relationship',
+                  relatedTable: 'employees',
+                  relationType: 'one-to-many',
+                  foreignKey: 'department_id',
+                },
                 {
                   id: 4,
+                  name: 'employee_count',
+                  type: 'count',
+                  relationshipField: 'employees',
+                },
+                {
+                  id: 5,
                   name: 'active_employee_count',
                   type: 'count',
-                  relationshipField: 'department_id',
+                  relationshipField: 'employees',
                   conditions: [{ field: 'is_active', operator: 'equals', value: true }],
-                } as any,
+                },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
@@ -426,33 +548,21 @@ test.describe('Count Field', () => {
       })
 
       await test.step('Verify count field returns correct number', async () => {
-        const engineeringCount = await executeQuery(
-          'SELECT d.name, COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 1 GROUP BY d.id, d.name'
-        )
+        const engineeringCount = await executeQuery('SELECT * FROM departments WHERE id = 1')
         expect(engineeringCount.employee_count).toBe(3)
 
-        const salesCount = await executeQuery(
-          'SELECT d.name, COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 2 GROUP BY d.id, d.name'
-        )
+        const salesCount = await executeQuery('SELECT * FROM departments WHERE id = 2')
         expect(salesCount.employee_count).toBe(1)
       })
 
       await test.step('Verify zero count for department with no employees', async () => {
-        const emptyDept = await executeQuery(
-          'SELECT d.name, COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 3 GROUP BY d.id, d.name'
-        )
+        const emptyDept = await executeQuery('SELECT * FROM departments WHERE id = 3')
         expect(emptyDept.employee_count).toBe(0)
       })
 
       await test.step('Verify conditional count filters correctly', async () => {
         // Engineering has 3 employees, but only 2 are active
-        const activeCount = await executeQuery(`
-          SELECT d.name, COUNT(e.id) FILTER (WHERE e.is_active = true) as active_employee_count
-          FROM departments d
-          LEFT JOIN employees e ON d.id = e.department_id
-          WHERE d.id = 1
-          GROUP BY d.id, d.name
-        `)
+        const activeCount = await executeQuery('SELECT * FROM departments WHERE id = 1')
         expect(activeCount.active_employee_count).toBe(2)
       })
 
@@ -460,24 +570,38 @@ test.describe('Count Field', () => {
         // Move an employee to another department
         await executeQuery('UPDATE employees SET department_id = 2 WHERE id = 3')
 
-        const updatedEngineering = await executeQuery(
-          'SELECT COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 1 GROUP BY d.id'
-        )
+        const updatedEngineering = await executeQuery('SELECT * FROM departments WHERE id = 1')
         expect(updatedEngineering.employee_count).toBe(2)
 
-        const updatedSales = await executeQuery(
-          'SELECT COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 2 GROUP BY d.id'
-        )
+        const updatedSales = await executeQuery('SELECT * FROM departments WHERE id = 2')
         expect(updatedSales.employee_count).toBe(2)
       })
 
       await test.step('Verify count updates when employee deleted', async () => {
         await executeQuery('DELETE FROM employees WHERE id = 1')
 
-        const afterDelete = await executeQuery(
-          'SELECT COUNT(e.id) as employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.id = 1 GROUP BY d.id'
-        )
+        const afterDelete = await executeQuery('SELECT * FROM departments WHERE id = 1')
         expect(afterDelete.employee_count).toBe(1)
+      })
+
+      await test.step('Error handling: count field without relationshipField is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  // @ts-expect-error - Testing missing relationshipField
+                  { id: 2, name: 'bad_count', type: 'count' }, // Missing relationshipField!
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/relationshipField.*required|missing.*relationship/i)
       })
     }
   )

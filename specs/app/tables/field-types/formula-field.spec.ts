@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/formula-field.ts
  * Domain: app
- * Spec Count: 122
+ * Spec Count: 125
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -4414,6 +4414,110 @@ test.describe('Formula Field', () => {
         const recomputed = await executeQuery('SELECT total_price FROM data WHERE id = 1')
         expect(recomputed.total_price).toBe(120)
       })
+    }
+  )
+
+  // ============================================================================
+  // Phase 11: Error Configuration Validation Tests (124-126)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-FORMULA-124: should reject formula when referenced field does not exist',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Formula field referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'line_items',
+              fields: [
+                { id: 1, name: 'quantity', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'total',
+                  type: 'formula',
+                  formula: 'price * quantity', // 'price' field doesn't exist!
+                  resultType: 'decimal',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*price.*not found|invalid.*field reference/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-FORMULA-125: should reject circular formula dependencies',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Two formula fields that reference each other
+      // WHEN: Attempting to start server with circular dependency
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'calculations',
+              fields: [
+                {
+                  id: 1,
+                  name: 'field_a',
+                  type: 'formula',
+                  formula: 'field_b * 2',
+                  resultType: 'decimal',
+                },
+                {
+                  id: 2,
+                  name: 'field_b',
+                  type: 'formula',
+                  formula: 'field_a * 2',
+                  resultType: 'decimal',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/circular.*dependency|cyclic.*reference/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-FORMULA-126: should reject formula with invalid syntax',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Formula field with syntax error
+      // WHEN: Attempting to start server with invalid formula
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'line_items',
+              fields: [
+                { id: 1, name: 'quantity', type: 'integer', required: true },
+                { id: 2, name: 'price', type: 'decimal', required: true },
+                {
+                  id: 3,
+                  name: 'total',
+                  type: 'formula',
+                  formula: 'price * * quantity', // Invalid syntax!
+                  resultType: 'decimal',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/invalid.*formula.*syntax|syntax error/i)
     }
   )
 })

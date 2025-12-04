@@ -14,15 +14,13 @@ import type { Table } from '@/domain/models/app/tables'
 /**
  * Generate sample value for a field
  */
-function getSampleValue(
-  field: {
-    readonly name: string
-    readonly type: string
-    readonly precision?: number
-    readonly negativeFormat?: 'minus' | 'parentheses'
-    readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
-  }
-): unknown {
+function getSampleValue(field: {
+  readonly name: string
+  readonly type: string
+  readonly precision?: number
+  readonly negativeFormat?: 'minus' | 'parentheses'
+  readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
+}): unknown {
   switch (field.type) {
     case 'integer':
       return field.name === 'id' ? 1 : 42
@@ -80,7 +78,12 @@ export function renderTableView(app: App, tableName: string): string | undefined
   const sampleRecords = [generateSampleRecord(table)]
 
   // Render the table view component
-  const tableHtml = renderToString(<TableView table={table} records={sampleRecords} />)
+  const tableHtml = renderToString(
+    <TableView
+      table={table}
+      records={sampleRecords}
+    />
+  )
 
   // Wrap in a minimal HTML document
   return `<!DOCTYPE html>

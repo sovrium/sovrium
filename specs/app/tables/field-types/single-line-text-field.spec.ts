@@ -819,11 +819,23 @@ test.describe('Single Line Text Field', () => {
         expect(columnInfo.column_default).toBe("'Default Value'::character varying")
       })
 
-      await test.step('Test unique constraint enforcement', async () => {
+      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
         await executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
         await expect(
           executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (text_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
+
+      await test.step('Error handling: VARCHAR(255) limit rejects text exceeding limit', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (text_field) VALUES (REPEAT('x', 256))")
+        ).rejects.toThrow(/value too long for type character varying\(255\)/)
       })
 
       await test.step('Test unicode handling', async () => {

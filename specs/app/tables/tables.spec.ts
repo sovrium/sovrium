@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 27
+ * Spec Count: 44
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (24 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (41 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
@@ -1264,11 +1264,450 @@ test.describe('Data Tables', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (028-041)
+  // ============================================================================
+
+  test(
+    'APP-TABLES-028: should reject table name with invalid characters',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table name with invalid characters (uppercase, spaces, special chars)
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'Invalid Table!', // Invalid: spaces and special characters
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/invalid.*table.*name|name.*must.*match|pattern/i)
+    }
+  )
+
+  test(
+    'APP-TABLES-029: should reject table name exceeding maximum length',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table name exceeding 63 characters (PostgreSQL identifier limit)
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      const longName = 'a'.repeat(64) // 64 chars exceeds PostgreSQL limit
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: longName,
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/maximum.*length.*63.*characters/i)
+    }
+  )
+
+  test(
+    'APP-TABLES-030: should reject empty table name',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Empty table name
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: '', // Empty name
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/name.*required|empty.*name|minLength/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-031: should reject duplicate table IDs within schema',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Schema with two tables having same ID
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1, // Duplicate ID!
+              name: 'users',
+              fields: [{ id: 1, name: 'email', type: 'email' }],
+            },
+            {
+              id: 1, // Duplicate ID!
+              name: 'products',
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*table.*id|table.*id.*must.*be.*unique/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-032: should reject duplicate table names within schema',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Schema with two tables having same name
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users', // Duplicate name!
+              fields: [{ id: 1, name: 'email', type: 'email' }],
+            },
+            {
+              id: 2,
+              name: 'users', // Duplicate name!
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*table.*name|table.*name.*must.*be.*unique/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-033: should reject duplicate field IDs within same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with duplicate field IDs
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email' }, // Duplicate ID!
+                { id: 1, name: 'name', type: 'single-line-text' }, // Duplicate ID!
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-034: should reject duplicate field names within same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with duplicate field names
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email' }, // Duplicate name!
+                { id: 2, name: 'email', type: 'single-line-text' }, // Duplicate name!
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*field.*name|field.*name.*must.*be.*unique/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-035: should reject field name with invalid format',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Field name starting with number or containing invalid characters
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: '1invalid', type: 'single-line-text' }, // Starts with number
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/invalid.*field.*name|name.*must.*match|pattern/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-036: should reject field name exceeding maximum length',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Field name exceeding 63 characters
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      const longFieldName = 'f'.repeat(64)
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [{ id: 1, name: longFieldName, type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/name.*too.*long|exceeds.*maximum.*length|maxLength/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-037: should reject invalid field type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Field with invalid type
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                // @ts-expect-error - Testing invalid field type
+                { id: 1, name: 'data', type: 'invalid-type' },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/unknown.*field.*type|invalid.*type|unsupported/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-038: should reject integer field with min greater than max',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Integer field with min > max
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                {
+                  id: 1,
+                  name: 'quantity',
+                  type: 'integer',
+                  min: 100, // min > max!
+                  max: 10,
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-039: should reject decimal field with min greater than max',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Decimal field with min > max
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                {
+                  id: 1,
+                  name: 'price',
+                  type: 'decimal',
+                  precision: 10,
+                  min: 1000.0, // min > max!
+                  max: 100.0,
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-040: should reject single-select field without options',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Single-select field without options array
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                {
+                  id: 1,
+                  name: 'status',
+                  type: 'single-select',
+                  options: [], // Empty options!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-041: should reject multi-select field without options',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Multi-select field without options array
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                {
+                  id: 1,
+                  name: 'tags',
+                  type: 'multi-select',
+                  options: [], // Empty options!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-042: should reject decimal field with invalid precision',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Decimal field with precision outside valid range
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                {
+                  id: 1,
+                  name: 'price',
+                  type: 'decimal',
+                  precision: 0, // Invalid precision (must be positive)
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/invalid.*precision|precision.*must.*be.*positive|greaterThan/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-043: should reject table name starting with number',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table name starting with a number
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: '123_table', // Starts with number!
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/invalid.*table.*name|name.*must.*start.*letter|pattern/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-044: should reject table with reserved SQL keyword as name',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table name using a reserved SQL keyword
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error (or PostgreSQL error)
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'select', // Reserved SQL keyword!
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+      ).rejects.toThrow(/reserved.*keyword|invalid.*table.*name|syntax.*error/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
   test(
-    'APP-TABLES-028: user can complete full Data Tables workflow',
+    'APP-TABLES-045: user can complete full Data Tables workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative table configuration

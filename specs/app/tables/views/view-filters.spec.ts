@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 3
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
@@ -168,11 +168,87 @@ test.describe('View Filters', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (004-005)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-VIEW-FILTERS-004: should reject filter referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: View filter referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'filtered_view',
+                  name: 'Filtered View',
+                  filters: {
+                    and: [
+                      { field: 'status', operator: 'equals', value: 'active' }, // 'status' doesn't exist!
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*status.*not found|filter.*references.*non-existent.*field/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-VIEW-FILTERS-005: should reject filter with invalid operator for field type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: View filter with operator incompatible with field type
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'is_active', type: 'checkbox' },
+              ],
+              views: [
+                {
+                  id: 'filtered_view',
+                  name: 'Filtered View',
+                  filters: {
+                    and: [
+                      { field: 'is_active', operator: 'contains', value: 'test' }, // 'contains' invalid for checkbox!
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/operator.*contains.*invalid.*checkbox|incompatible.*operator/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-FILTERS-004: user can complete full view-filters workflow',
+    'APP-TABLES-VIEW-FILTERS-006: user can complete full view-filters workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with filtered view', async () => {
@@ -215,6 +291,57 @@ test.describe('View Filters', () => {
         const viewRecords = await executeQuery('SELECT * FROM filtered_view')
         expect(viewRecords).toHaveLength(1)
         expect(viewRecords[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
+      })
+
+      await test.step('Error handling: filter references non-existent field', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  {
+                    id: 'bad_view',
+                    name: 'Bad View',
+                    filters: {
+                      and: [{ field: 'status', operator: 'equals', value: 'active' }],
+                    },
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*status.*not found|filter.*references.*non-existent.*field/i)
+      })
+
+      await test.step('Error handling: invalid operator for field type', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'is_active', type: 'checkbox' },
+                ],
+                views: [
+                  {
+                    id: 'bad_view2',
+                    name: 'Bad View 2',
+                    filters: {
+                      and: [{ field: 'is_active', operator: 'contains', value: 'test' }],
+                    },
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/operator.*contains.*invalid.*checkbox|incompatible.*operator/i)
       })
     }
   )

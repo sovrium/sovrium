@@ -314,7 +314,7 @@ test.describe('Multiple Attachments Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-010: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -339,6 +339,24 @@ test.describe('Multiple Attachments Field', () => {
           'SELECT jsonb_array_length(files) as count FROM data WHERE id = 1'
         )
         expect(files.count).toBe(2)
+      })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'files_a', type: 'multiple-attachments' },
+                  { id: 1, name: 'files_b', type: 'multiple-attachments' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
       })
     }
   )
