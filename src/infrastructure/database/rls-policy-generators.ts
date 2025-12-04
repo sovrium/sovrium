@@ -106,9 +106,7 @@ const generateRoleCheck = (permission?: TablePermission): string | undefined => 
   }
 
   // Generate OR'd role checks using auth.user_has_role() function
-  const roleChecks = permission.roles
-    .map((role) => `auth.user_has_role('${role}')`)
-    .join(' OR ')
+  const roleChecks = permission.roles.map((role) => `auth.user_has_role('${role}')`).join(' OR ')
 
   return `(${roleChecks})`
 }
@@ -404,9 +402,7 @@ const extractDatabaseRoles = (table: Table): ReadonlySet<string> => {
   const databaseRoles = operations
     .filter((permission) => permission?.type === 'roles')
     .flatMap((permission) =>
-      permission.type === 'roles'
-        ? permission.roles.map((appRole) => `${appRole}_user`)
-        : []
+      permission.type === 'roles' ? permission.roles.map((appRole) => `${appRole}_user`) : []
     )
 
   // Return unique roles as ReadonlySet
