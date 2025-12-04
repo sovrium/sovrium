@@ -37,6 +37,14 @@ export const DurationFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      displayFormat: Schema.optional(
+        Schema.Literal('h:mm', 'h:mm:ss', 'decimal').pipe(
+          Schema.annotations({
+            description: 'Display format preset for duration values',
+            examples: ['h:mm', 'h:mm:ss', 'decimal'],
+          })
+        )
+      ),
       default: Schema.optional(
         Schema.Number.pipe(
           Schema.annotations({
@@ -45,8 +53,7 @@ export const DurationFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Duration Field',
     description:

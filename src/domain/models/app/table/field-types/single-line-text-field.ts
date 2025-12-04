@@ -51,8 +51,7 @@ export const SingleLineTextFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Single Line Text Field',
     description:

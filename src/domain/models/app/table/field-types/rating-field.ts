@@ -54,8 +54,7 @@ export const RatingFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Rating Field',
     description:

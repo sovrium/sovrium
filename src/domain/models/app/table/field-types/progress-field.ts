@@ -51,8 +51,7 @@ export const ProgressFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Progress Field',
     description:

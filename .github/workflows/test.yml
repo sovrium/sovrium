@@ -52,6 +52,9 @@ jobs:
       - name: Type check
         run: bun run typecheck
 
+      - name: Effect diagnostics
+        run: bun node_modules/@effect/language-service/cli.js diagnostics --project tsconfig.json
+
       - name: Run unit tests
         run: bun test:unit
 

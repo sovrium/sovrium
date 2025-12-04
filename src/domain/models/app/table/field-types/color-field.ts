@@ -38,8 +38,7 @@ export const ColorFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Color Field',
     description: 'Stores color values in hexadecimal format. Rendered with color picker in UI.',

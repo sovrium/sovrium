@@ -331,8 +331,8 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
       })
     }
 
-    // Check for GIVEN/WHEN/THEN structure
-    if (test.tag === '@spec') {
+    // Check for GIVEN/WHEN/THEN structure (skip fixme tests - they're placeholders)
+    if (test.tag === '@spec' && !test.isFixme) {
       if (!test.hasGiven) {
         issues.push({
           type: 'warning',

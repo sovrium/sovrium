@@ -521,9 +521,7 @@ export const getNextSpec = Effect.gen(function* () {
     { canImplement: boolean; missingDependencies: string[] }
   > | null = null
 
-  const dependencyGraphExists = yield* fs
-    .exists(dependencyGraphPath)
-    .pipe(Effect.catchAll(() => Effect.succeed(false)))
+  const dependencyGraphExists = yield* fs.exists(dependencyGraphPath)
 
   if (dependencyGraphExists) {
     const graphBuffer = yield* fs

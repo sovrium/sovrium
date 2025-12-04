@@ -151,9 +151,7 @@ export const CoverageServiceLive = Layer.effect(
 
         for (const sourceFile of sourceFiles) {
           const testFile = getTestFilePath(sourceFile)
-          const hasTest = yield* fs
-            .exists(testFile)
-            .pipe(Effect.catchAll(() => Effect.succeed(false)))
+          const hasTest = yield* fs.exists(testFile)
 
           if (hasTest) {
             testedCount++

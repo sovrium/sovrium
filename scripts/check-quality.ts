@@ -7,14 +7,20 @@
  */
 
 /**
- * Quality check script - runs linting, type checking, unit tests, coverage check, and smart E2E regression tests
+ * Quality check script - runs linting, type checking, Effect diagnostics, unit tests, coverage check, and smart E2E regression tests
  *
  * Usage:
  *   bun run quality                   # Run all checks with smart E2E detection
  *   bun run quality <file>            # Run checks on specific file (ESLint, TypeScript, unit tests only)
  *   bun run quality --skip-e2e        # Skip E2E tests entirely
  *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
+ *   bun run quality --skip-effect     # Skip Effect diagnostics (Effect Language Service checks)
  *   bun run quality src/index.ts      # Example: check specific file
+ *
+ * Effect Diagnostics:
+ * - Uses Effect Language Service to check for Effect-specific issues
+ * - Detects unnecessaryPipeChain, catchUnfailableEffect, returnEffectInGen, tryCatchInEffectGen
+ * - Run with --skip-effect to bypass these checks
  *
  * Smart E2E Detection:
  * - Detects changed files (local: uncommitted changes, CI: diff from main branch)
@@ -96,6 +102,7 @@ interface QualityOptions {
   readonly file?: string
   readonly skipE2E: boolean
   readonly skipCoverage: boolean
+  readonly skipEffect: boolean
 }
 
 /**
@@ -107,6 +114,7 @@ const parseArgs = (): QualityOptions => {
     file: args.find((a) => !a.startsWith('--')),
     skipE2E: args.includes('--skip-e2e'),
     skipCoverage: args.includes('--skip-coverage'),
+    skipEffect: args.includes('--skip-effect'),
   }
 }
 
@@ -179,10 +187,7 @@ const isCommentOnlyChange = (filePath: string) =>
 
     // If stripped versions are identical, only comments changed
     return currentStripped === headStripped
-  }).pipe(
-    // On any error, assume it's not a comment-only change (safer to run checks)
-    Effect.catchAll(() => Effect.succeed(false))
-  )
+  })
 
 /**
  * Find test file for a given source file
@@ -431,6 +436,84 @@ const runCoverageCheck = (layers: readonly LayerConfig[]) =>
   })
 
 /**
+ * Run Effect Language Service diagnostics
+ * Checks for Effect-specific issues like:
+ * - unnecessaryPipeChain: Chained pipe calls that can be simplified
+ * - catchUnfailableEffect: Catching on effects that never fail
+ * - returnEffectInGen: Returning Effect inside generator (should use yield*)
+ * - tryCatchInEffectGen: Using try/catch in generators instead of Effect error handling
+ */
+const runEffectDiagnostics = Effect.gen(function* () {
+  const cmd = yield* CommandService
+  const startTime = Date.now()
+
+  yield* progress('Effect Diagnostics...')
+
+  // Run Effect Language Service diagnostics CLI
+  const result = yield* cmd
+    .spawn(
+      [
+        'bun',
+        'node_modules/@effect/language-service/cli.js',
+        'diagnostics',
+        '--project',
+        'tsconfig.json',
+      ],
+      { timeout: 120_000, throwOnError: false }
+    )
+    .pipe(
+      Effect.catchTag('CommandTimeoutError', () =>
+        Effect.succeed({ exitCode: 1, stdout: '', stderr: 'Effect diagnostics timed out' })
+      ),
+      Effect.catchTag('CommandSpawnError', () =>
+        Effect.succeed({ exitCode: 1, stdout: '', stderr: 'Failed to run Effect diagnostics' })
+      ),
+      Effect.catchTag('CommandFailedError', (e) =>
+        Effect.succeed({ exitCode: e.exitCode, stdout: e.stdout, stderr: e.stderr })
+      )
+    )
+
+  const duration = Date.now() - startTime
+  const output = result.stdout || result.stderr || ''
+
+  // Count Effect diagnostics warnings (lines containing "effect(" pattern)
+  // Exclude:
+  // - scripts/ directory (utility scripts, not core application code)
+  // - runEffectInsideEffect (intentional patterns in signal handlers and Drizzle transactions)
+  // Note: Output contains ANSI color codes, so we check for 'scripts/' anywhere in the line
+  const diagnosticLines = output.split('\n').filter((line) => {
+    if (!line.includes('effect(')) return false
+    // Exclude scripts/ directory (check for scripts/ anywhere due to ANSI codes)
+    if (line.includes('scripts/')) return false
+    // Exclude intentional runEffectInsideEffect patterns
+    if (line.includes('runEffectInsideEffect')) return false
+    return true
+  })
+  const warningCount = diagnosticLines.length
+
+  if (warningCount > 0) {
+    yield* logError(`Effect Diagnostics failed (${duration}ms) - ${warningCount} warning(s)`)
+    // Print only the relevant diagnostic lines
+    for (const line of diagnosticLines) {
+      console.error(line)
+    }
+    return {
+      name: 'Effect Diagnostics',
+      success: false,
+      duration,
+      error: `${warningCount} Effect warning(s) found`,
+    } as CheckResult
+  }
+
+  yield* success(`Effect Diagnostics passed (${duration}ms)`)
+  return {
+    name: 'Effect Diagnostics',
+    success: true,
+    duration,
+  } as CheckResult
+})
+
+/**
  * Run quality checks for entire codebase with fail-fast
  * Runs checks sequentially and stops immediately on first failure
  * Includes smart E2E detection and optional coverage checking
@@ -476,7 +559,24 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 3. Unit tests
+    // 3. Effect diagnostics (optional)
+    if (!options.skipEffect) {
+      const effectResult = yield* runEffectDiagnostics
+      results.push(effectResult)
+      if (!effectResult.success) {
+        yield* logError('\n⚠️  Stopping checks due to Effect Diagnostics failure (fail-fast mode)')
+        return results
+      }
+    } else {
+      yield* skip('Effect Diagnostics skipped (--skip-effect flag)')
+      results.push({
+        name: 'Effect Diagnostics',
+        success: true,
+        duration: 0,
+      })
+    }
+
+    // 4. Unit tests
     const unitResult = yield* runCheck(
       'Unit Tests',
       ['bun', 'test', '--concurrent', '.test.ts', '.test.tsx'],
@@ -488,7 +588,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 4. Coverage check (optional)
+    // 5. Coverage check (optional)
     if (!options.skipCoverage) {
       const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
       results.push(coverageResult)
@@ -505,7 +605,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 5. Smart E2E detection
+    // 6. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({
@@ -584,6 +684,12 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
       const failedNames = new Set(results.filter((r) => !r.success).map((r) => r.name))
       if (failedNames.has('ESLint')) yield* Effect.log('  bun run lint')
       if (failedNames.has('TypeScript')) yield* Effect.log('  bun run typecheck')
+      if (failedNames.has('Effect Diagnostics')) {
+        yield* Effect.log(
+          '  bun node_modules/@effect/language-service/cli.js diagnostics --project tsconfig.json'
+        )
+        yield* Effect.log('  Or use: bun run quality --skip-effect')
+      }
       if (failedNames.has('Unit Tests')) yield* Effect.log('  bun test:unit')
       if (failedNames.has('Coverage Check')) {
         yield* Effect.log('  Add missing .test.ts files for source files')

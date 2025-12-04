@@ -214,7 +214,7 @@ const analyzeSpecDependencies = Effect.gen(function* () {
   if (!fs.existsSync(scanFilePath)) {
     yield* logError(`Scan file not found: ${scanFilePath}`)
     yield* logInfo('  Run queue-manager.ts scan first')
-    return Effect.fail(new Error('No scan results found'))
+    return yield* Effect.fail(new Error('No scan results found'))
   }
 
   const scanData: QueueScanData = JSON.parse(fs.readFileSync(scanFilePath, 'utf-8'))
@@ -223,7 +223,7 @@ const analyzeSpecDependencies = Effect.gen(function* () {
 
   if (scanData.totalSpecs === 0) {
     yield* success('No specs to analyze')
-    return Effect.succeed(void 0)
+    return
   }
 
   // Build dependency graph
@@ -290,8 +290,6 @@ const analyzeSpecDependencies = Effect.gen(function* () {
     `   ⚠️  Blocked: ${blockedSpecs} (${Math.round((blockedSpecs / totalSpecs) * 100)}%)`
   )
   yield* logInfo('')
-
-  return Effect.succeed(void 0)
 })
 
 // Run analysis

@@ -14,8 +14,7 @@ export const JsonFieldSchema = BaseFieldSchema.pipe(
       type: Schema.Literal('json'),
       schema: Schema.optional(Schema.Struct({})),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'JSON Field',
     description: 'Stores structured JSON data with optional schema validation.',

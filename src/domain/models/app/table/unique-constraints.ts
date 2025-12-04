@@ -40,13 +40,10 @@ export const UniqueConstraintsSchema = Schema.Array(
         message: () =>
           "Name of the unique constraint. Use descriptive names like 'uq_tablename_field1_field2'",
       }),
-      Schema.transform(
-        Schema.String,
-        {
-          decode: (name) => name.toLowerCase(),
-          encode: (name) => name,
-        }
-      ),
+      Schema.transform(Schema.String, {
+        decode: (name) => name.toLowerCase(),
+        encode: (name) => name,
+      }),
       Schema.annotations({
         description:
           "Name of the unique constraint. Use descriptive names like 'uq_tablename_field1_field2'",

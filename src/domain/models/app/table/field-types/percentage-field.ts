@@ -80,8 +80,7 @@ export const PercentageFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Percentage Field',
     description:

@@ -310,11 +310,7 @@ describe('CSS Cache Service', () => {
       }
 
       // First run: set cache
-      const program1 = Effect.gen(function* () {
-        yield* setCachedCSS(cacheKey, compiled)
-      })
-
-      await Effect.runPromise(program1)
+      await Effect.runPromise(setCachedCSS(cacheKey, compiled))
 
       // Second run: retrieve cache
       const result = await Effect.runPromise(

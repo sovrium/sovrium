@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { ViewFiltersSchema } from '../views/filters'
 import { BaseFieldSchema } from './base-field'
 
 export const RollupFieldSchema = BaseFieldSchema.pipe(
@@ -31,9 +32,13 @@ export const RollupFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      filters: Schema.optional(
+        ViewFiltersSchema.pipe(
+          Schema.annotations({ description: 'Filters to apply to the rollup aggregation' })
+        )
+      ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Rollup Field',
     description: 'Aggregates values from related records using functions like SUM, AVG, COUNT.',

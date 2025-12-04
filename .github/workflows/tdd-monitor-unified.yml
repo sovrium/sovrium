@@ -690,7 +690,7 @@ jobs:
                  \`\`\`bash
                  bun run quality
                  \`\`\`
-                 ALL checks must pass (ESLint, TypeScript, unit tests, E2E regression)
+                 ALL checks must pass (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
 
               5. **Push resolved changes**:
                  \`\`\`bash

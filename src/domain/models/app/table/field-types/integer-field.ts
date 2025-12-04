@@ -66,8 +66,7 @@ export const IntegerFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Integer Field',
     description:

@@ -180,7 +180,7 @@ jobs:
             1. **Run codebase-refactor-auditor agent** - Use `Task` tool with `subagent_type='codebase-refactor-auditor'` in automated/pipeline mode
             2. **Apply Phase 1.1 refactors only** - Safe, automated changes that maintain test coverage
             3. **Verify layer architecture** - Ensure NO cross-layer import violations (domain must be pure)
-            4. **Run quality checks** - Execute `bun run quality` and confirm ALL checks pass (ESLint, TypeScript, unit tests, E2E regression)
+            4. **Run quality checks** - Execute `bun run quality` and confirm ALL checks pass (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
             5. **Commit changes** - Run `bun run license`, then commit with message: "refactor: automated ${{ needs.wait-for-clean.outputs.scope }} maintenance"
             6. **Create PR** - `gh pr create --base main --label "automated-refactor" --title "refactor: automated ${{ needs.wait-for-clean.outputs.scope }} maintenance"`
             7. **Enable auto-merge** - `gh pr merge $PR_NUMBER --auto --squash`

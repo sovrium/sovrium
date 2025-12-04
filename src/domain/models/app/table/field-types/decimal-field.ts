@@ -78,8 +78,7 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  )
-).pipe(
+  ),
   Schema.annotations({
     title: 'Decimal Field',
     description:

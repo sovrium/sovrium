@@ -207,9 +207,7 @@ export const SpecMappingServiceLive = Layer.effect(
           // Add direct spec patterns
           const directSpecs = rule.specPatterns(match)
           for (const specPath of directSpecs) {
-            const exists = yield* fs
-              .exists(specPath)
-              .pipe(Effect.catchAll(() => Effect.succeed(false)))
+            const exists = yield* fs.exists(specPath)
             if (exists) {
               specs.push(specPath)
             }
