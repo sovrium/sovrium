@@ -73,6 +73,28 @@ describe('FieldsSchema', () => {
         })
       }).toThrow()
     })
+
+    test('should reject duplicate field IDs', () => {
+      // Given: An array with duplicate field IDs
+      const fields = [
+        {
+          id: 1,
+          name: 'email',
+          type: 'email',
+        },
+        {
+          id: 1, // Duplicate ID
+          name: 'name',
+          type: 'single-line-text',
+        },
+      ] as const
+
+      // When: The fields array is validated against the schema
+      // Then: Validation should throw an error with message about unique IDs
+      expect(() => {
+        Schema.decodeUnknownSync(FieldsSchema)(fields)
+      }).toThrow(/Field IDs must be unique within the table/)
+    })
   })
 
   describe('type inference', () => {

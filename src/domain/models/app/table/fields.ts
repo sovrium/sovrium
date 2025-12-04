@@ -99,6 +99,11 @@ export const FieldsSchema = Schema.Array(
   )
 ).pipe(
   Schema.minItems(1),
+  Schema.filter((fields) => {
+    const ids = fields.map((field) => field.id)
+    const uniqueIds = new Set(ids)
+    return ids.length === uniqueIds.size || 'Field IDs must be unique within the table'
+  }),
   Schema.annotations({
     title: 'Table Fields',
     description:
