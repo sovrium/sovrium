@@ -192,8 +192,10 @@ const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): b
 /**
  * Check if field should create a database column
  * Some field types are UI-only and don't need database columns
+ * Count fields are virtual/computed fields that don't need database columns
  */
-const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => field.type !== 'button'
+const shouldCreateDatabaseColumn = (field: Fields[number]): boolean =>
+  field.type !== 'button' && field.type !== 'count'
 
 /**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)

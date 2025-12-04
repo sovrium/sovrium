@@ -12,6 +12,7 @@ import { BarcodeFieldSchema } from './field-types/barcode-field'
 import { ButtonFieldSchema } from './field-types/button-field'
 import { CheckboxFieldSchema } from './field-types/checkbox-field'
 import { ColorFieldSchema } from './field-types/color-field'
+import { CountFieldSchema } from './field-types/count-field'
 import { CreatedAtFieldSchema } from './field-types/created-at-field'
 import { CreatedByFieldSchema } from './field-types/created-by-field'
 import { CurrencyFieldSchema } from './field-types/currency-field'
@@ -77,6 +78,7 @@ export const FieldsSchema = Schema.Array(
     FormulaFieldSchema,
     RollupFieldSchema,
     LookupFieldSchema,
+    CountFieldSchema,
     UserFieldSchema,
     CreatedAtFieldSchema,
     CreatedByFieldSchema,

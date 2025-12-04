@@ -106,7 +106,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   const tableReadPermission = table.permissions?.read
 
   const baseFieldPermissions = table.fields
-    .filter((field) => field.type !== 'button')
+    .filter((field) => field.type !== 'button' && field.type !== 'count')
     .map((field) => ({ field: field.name, permission: tableReadPermission }))
 
   const overriddenFieldPermissions = fieldPermissions
