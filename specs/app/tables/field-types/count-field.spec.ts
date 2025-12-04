@@ -81,7 +81,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-002: should return zero when no records are linked',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
