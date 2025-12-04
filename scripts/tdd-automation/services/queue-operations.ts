@@ -189,6 +189,35 @@ export const getInProgressSpecs = Effect.gen(function* () {
 })
 
 /**
+ * Issue metadata for duplicate detection
+ */
+export interface ExistingIssueInfo {
+  number: number
+  specId: string
+  description: string
+  state: string
+  createdAt: string
+}
+
+/**
+ * Result from getAllExistingSpecs with both spec ID and description lookups
+ */
+export interface ExistingSpecsResult {
+  /** Set of existing spec IDs for quick lookup */
+  specIds: Set<string>
+  /** Map of description (normalized) to issue info for title-based matching */
+  byDescription: Map<string, ExistingIssueInfo>
+  /** Map of spec ID to issue info for ID-based matching */
+  bySpecId: Map<string, ExistingIssueInfo>
+}
+
+/**
+ * Normalize description for comparison (lowercase, trim, remove extra whitespace)
+ */
+export const normalizeDescription = (desc: string): string =>
+  desc.toLowerCase().trim().replace(/\s+/g, ' ')
+
+/**
  * Get all existing spec issues from GitHub (all states: open and closed)
  * Used for bulk deduplication before creating new issues
  *
@@ -196,7 +225,8 @@ export const getInProgressSpecs = Effect.gen(function* () {
  * - Uses GitHub API pagination to fetch ALL issues (no 1000 limit)
  * - Filters by bot emoji (🤖) in title to ensure only spec issues are fetched
  * - Checks both open and closed issues
- * - Returns both spec IDs and issue metadata for duplicate detection
+ * - Returns both spec IDs and descriptions for duplicate detection
+ * - Handles spec ID changes by matching on description
  * - Handles unlimited growth (tested up to 10,000+ issues)
  */
 export const getAllExistingSpecs = Effect.gen(function* () {
@@ -275,18 +305,41 @@ export const getAllExistingSpecs = Effect.gen(function* () {
 
   yield* logInfo(`  Fetched ${allIssues.length} total spec issues across ${page} page(s)`)
 
-  // Extract spec IDs from issue titles and build metadata map
+  // Extract spec IDs and descriptions from issue titles
   const existingSpecIds = new Set<string>()
+  const byDescription = new Map<string, ExistingIssueInfo>()
+  const bySpecId = new Map<string, ExistingIssueInfo>()
   const specMetadata = new Map<
     string,
     Array<{ number: number; state: string; createdAt: string }>
   >()
 
   for (const issue of allIssues) {
-    const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
-    const specId = specIdMatch?.[1]
-    if (specId) {
+    // Extract spec ID and description from title: "🤖 APP-VERSION-001: description here"
+    const titleMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):\s*(.+)/)
+    const specId = titleMatch?.[1]
+    const description = titleMatch?.[2]?.trim()
+
+    if (specId && description) {
       existingSpecIds.add(specId)
+
+      const issueInfo: ExistingIssueInfo = {
+        number: issue.number,
+        specId,
+        description,
+        state: issue.state,
+        createdAt: issue.created_at,
+      }
+
+      // Store by spec ID (latest issue wins for same spec ID)
+      bySpecId.set(specId, issueInfo)
+
+      // Store by normalized description (for detecting spec ID changes)
+      const normalizedDesc = normalizeDescription(description)
+      // Only store if not already present (first/oldest issue wins for same description)
+      if (!byDescription.has(normalizedDesc)) {
+        byDescription.set(normalizedDesc, issueInfo)
+      }
 
       // Track all issues for this spec ID (for duplicate detection)
       if (!specMetadata.has(specId)) {
@@ -295,7 +348,7 @@ export const getAllExistingSpecs = Effect.gen(function* () {
       specMetadata.get(specId)?.push({
         number: issue.number,
         state: issue.state,
-        createdAt: issue.created_at, // API returns created_at, not createdAt
+        createdAt: issue.created_at,
       })
     }
   }
@@ -309,6 +362,7 @@ export const getAllExistingSpecs = Effect.gen(function* () {
   }
 
   yield* logInfo(`  Found ${existingSpecIds.size} unique spec IDs`)
+  yield* logInfo(`  Found ${byDescription.size} unique descriptions`)
 
   if (duplicates.length > 0) {
     yield* logWarn(`  ⚠️  Found ${duplicates.length} specs with multiple issues (duplicates exist)`)
@@ -323,7 +377,7 @@ export const getAllExistingSpecs = Effect.gen(function* () {
     )
   }
 
-  return existingSpecIds
+  return { specIds: existingSpecIds, byDescription, bySpecId } as ExistingSpecsResult
 })
 
 /**

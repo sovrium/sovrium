@@ -423,10 +423,10 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
     })
   }
 
-  // Check for sequential spec IDs
-  const specIds = specTests.map((t) => t.id).filter(Boolean) as string[]
-  if (specIds.length > 1) {
-    const idNumbers = specIds.map((id) => {
+  // Check for sequential spec IDs (include both @spec and @regression tests)
+  const allTestIds = file.tests.map((t) => t.id).filter(Boolean) as string[]
+  if (allTestIds.length > 1) {
+    const idNumbers = allTestIds.map((id) => {
       const numMatch = id.match(/(\d{3})$/)
       return numMatch?.[1] ? parseInt(numMatch[1], 10) : 0
     })
@@ -438,7 +438,7 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
         issues.push({
           type: 'suggestion',
           code: 'NON_SEQUENTIAL_IDS',
-          message: `Spec IDs are not sequential (gap between ${specIds[i - 1]} and ${specIds[i]})`,
+          message: `Spec IDs are not sequential (gap between ${allTestIds[i - 1]} and ${allTestIds[i]})`,
         })
         break
       }

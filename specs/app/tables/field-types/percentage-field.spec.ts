@@ -248,6 +248,7 @@ test.describe('Percentage Field', () => {
                   name: 'percentage_field',
                   type: 'percentage',
                   required: true,
+                  unique: true,
                   indexed: true,
                   min: 0,
                   max: 100,
@@ -274,10 +275,22 @@ test.describe('Percentage Field', () => {
         expect(parseFloat(stored.percentage_field)).toBe(75.25)
       })
 
-      await test.step('Test range constraint enforcement', async () => {
+      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
         await expect(
           executeQuery('INSERT INTO data (percentage_field) VALUES (150.0)')
         ).rejects.toThrow(/violates check constraint/)
+      })
+
+      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (percentage_field) VALUES (75.25)')
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (percentage_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
     }
   )

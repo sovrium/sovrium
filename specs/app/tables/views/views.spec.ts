@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 6
+ * Spec Count: 8
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
@@ -410,11 +410,83 @@ test.describe('Table Views', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (007-008)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-VIEWS-007: should reject multiple default views in the same table',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Table with multiple isDefault: true views
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'view_1',
+                  name: 'View 1',
+                  isDefault: true, // First default
+                },
+                {
+                  id: 'view_2',
+                  name: 'View 2',
+                  isDefault: true, // Second default - conflict!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/multiple.*default.*view|only one.*default.*view/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-VIEWS-008: should reject view with empty name',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: View with empty name
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+              views: [
+                {
+                  id: 'my_view',
+                  name: '', // Empty name!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/view.*name.*required|view.*name.*empty/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEWS-007: user can complete full views workflow',
+    'APP-TABLES-VIEWS-009: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with active items view', async () => {
@@ -485,6 +557,41 @@ test.describe('Table Views', () => {
           "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_view'"
         )
         expect(viewExists.count).toBe(1)
+      })
+
+      await test.step('Error handling: multiple default views rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [
+                  { id: 'view_1', name: 'View 1', isDefault: true },
+                  { id: 'view_2', name: 'View 2', isDefault: true },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/multiple.*default.*view|only one.*default.*view/i)
+      })
+
+      await test.step('Error handling: empty view name rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error2',
+            tables: [
+              {
+                id: 98,
+                name: 'invalid2',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                views: [{ id: 'my_view', name: '' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/view.*name.*required|view.*name.*empty/i)
       })
     }
   )

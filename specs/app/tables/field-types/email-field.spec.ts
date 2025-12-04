@@ -266,10 +266,16 @@ test.describe('Email Field', () => {
         expect(stored.email_field).toBe('test@example.com')
       })
 
-      await test.step('Test unique constraint enforcement', async () => {
+      await test.step('Error handling: unique constraint rejects duplicate email', async () => {
         await expect(
           executeQuery("INSERT INTO data (email_field) VALUES ('test@example.com')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (email_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
     }
   )

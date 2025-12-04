@@ -376,6 +376,12 @@ test.describe('Duration Field', () => {
         const stored = await executeQuery('SELECT duration_field FROM data WHERE id = 1')
         expect(stored.duration_field).toBeTruthy()
       })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (duration_field) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
+      })
     }
   )
 })

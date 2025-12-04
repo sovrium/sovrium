@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 8
+ * Spec Count: 10
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (8 tests) - Exhaustive acceptance criteria
@@ -543,11 +543,73 @@ test.describe('Primary Key', () => {
   )
 
   // ============================================================================
+  // Phase: Error Configuration Validation Tests (009-010)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-PRIMARYKEY-009: should reject composite primary key referencing non-existent field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Composite primary key referencing non-existent field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              primaryKey: {
+                type: 'composite',
+                fields: ['tenant_id', 'user_id'], // Neither field exists!
+              },
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/field.*tenant_id.*not found|primary key.*references.*non-existent.*field/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-PRIMARYKEY-010: should reject composite primary key with duplicate field references',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Composite primary key with same field listed twice
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              primaryKey: {
+                type: 'composite',
+                fields: ['tenant_id', 'tenant_id'], // Duplicate field!
+              },
+              fields: [
+                { id: 1, name: 'tenant_id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*field|primary key.*field.*unique/i)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
   test(
-    'APP-TABLES-PRIMARYKEY-009: user can complete full Primary Key workflow',
+    'APP-TABLES-PRIMARYKEY-011: user can complete full Primary Key workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative primary key configurations

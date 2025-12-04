@@ -226,6 +226,18 @@ test.describe('Rating Field', () => {
         const avgRating = await executeQuery('SELECT AVG(rating_field) as avg FROM data')
         expect(avgRating.avg).toBeTruthy()
       })
+
+      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
+        await expect(executeQuery('INSERT INTO data (rating_field) VALUES (6)')).rejects.toThrow(
+          /violates check constraint/
+        )
+      })
+
+      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+        await expect(executeQuery('INSERT INTO data (rating_field) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
     }
   )
 })

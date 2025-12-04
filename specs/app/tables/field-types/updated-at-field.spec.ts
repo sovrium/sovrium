@@ -221,6 +221,24 @@ test.describe('Updated At Field', () => {
         const final = await executeQuery(`SELECT updated_at FROM data WHERE id = ${insertId}`)
         expect(new Date(final.updated_at).getTime()).toBeGreaterThan(new Date(initial).getTime())
       })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'updated_at_a', type: 'updated-at' },
+                  { id: 1, name: 'updated_at_b', type: 'updated-at' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
     }
   )
 })

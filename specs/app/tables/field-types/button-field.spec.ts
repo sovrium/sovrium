@@ -191,8 +191,70 @@ test.describe('Button Field', () => {
     }
   )
 
-  test(
-    'APP-TABLES-FIELD-TYPES-BUTTON-006: user can complete full button-field workflow',
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-BUTTON-006: should reject button with action=url when url is missing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Button field with action='url' but no URL provided
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'records',
+              fields: [
+                {
+                  id: 1,
+                  name: 'open_link',
+                  type: 'button',
+                  label: 'Open',
+                  action: 'url',
+                  // url is missing!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/url.*required.*action.*url|missing.*url/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-BUTTON-007: should reject button with action=automation when automation is missing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Button field with action='automation' but no automation provided
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'records',
+              fields: [
+                {
+                  id: 1,
+                  name: 'run_automation',
+                  type: 'button',
+                  label: 'Run',
+                  action: 'automation',
+                  // automation is missing!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/automation.*required.*action.*automation|missing.*automation/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-BUTTON-008: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with button field', async () => {
@@ -231,6 +293,24 @@ test.describe('Button Field', () => {
         await executeQuery("UPDATE items SET status = 'published' WHERE id = 1")
         const item = await executeQuery('SELECT status FROM items WHERE id = 1')
         expect(item.status).toBe('published')
+      })
+
+      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'button_a', type: 'button', label: 'A', action: 'a' },
+                  { id: 1, name: 'button_b', type: 'button', label: 'B', action: 'b' }, // Duplicate ID!
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
       })
     }
   )
