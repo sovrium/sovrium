@@ -137,6 +137,39 @@ function formatDate(dateString: string, dateFormat?: 'US' | 'European' | 'ISO'):
   }
 }
 
+/**
+ * Format datetime value with time format option
+ *
+ * @param datetimeString - ISO datetime string (YYYY-MM-DD HH:MM:SS)
+ * @param timeFormat - Time format (12-hour or 24-hour)
+ * @returns Formatted datetime string with time
+ *
+ * @example
+ * formatDateTime("2024-06-15 14:30:00", "24-hour") // "14:30"
+ * formatDateTime("2024-06-15 14:30:00", "12-hour") // "2:30 PM"
+ */
+function formatDateTime(datetimeString: string, timeFormat?: '12-hour' | '24-hour'): string {
+  // Parse ISO datetime string (YYYY-MM-DD HH:MM:SS)
+  const match = datetimeString.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/)
+  if (!match) {
+    return datetimeString // Return as-is if not in expected format
+  }
+
+  const [, , , , hour, minute] = match
+  const hourNum = parseInt(hour || '0', 10)
+  const minuteStr = minute || '00'
+
+  if (timeFormat === '12-hour') {
+    // Convert to 12-hour format with AM/PM
+    const period = hourNum >= 12 ? 'PM' : 'AM'
+    const hour12 = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum
+    return `${hour12}:${minuteStr} ${period}`
+  }
+
+  // Default to 24-hour format
+  return `${hour}:${minuteStr}`
+}
+
 export interface TableViewProps {
   readonly table: Table
   readonly records: readonly Record<string, unknown>[]
@@ -185,6 +218,14 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                   const dateField = field as DateField
                   const dateString = String(value ?? '')
                   const formatted = formatDate(dateString, dateField.dateFormat)
+                  return <td key={field.id}>{formatted}</td>
+                }
+
+                // Format datetime fields
+                if (field.type === 'datetime') {
+                  const dateField = field as DateField
+                  const datetimeString = String(value ?? '')
+                  const formatted = formatDateTime(datetimeString, dateField.timeFormat)
                   return <td key={field.id}>{formatted}</td>
                 }
 
