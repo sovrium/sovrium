@@ -23,6 +23,15 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
           description: 'Type of relationship',
         })
       ),
+      foreignKey: Schema.optional(
+        Schema.String.pipe(
+          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.annotations({
+            description:
+              'Name of the foreign key field in the related table for one-to-many relationships',
+          })
+        )
+      ),
       displayField: Schema.optional(
         Schema.String.pipe(
           Schema.minLength(1, { message: () => 'This field is required' }),

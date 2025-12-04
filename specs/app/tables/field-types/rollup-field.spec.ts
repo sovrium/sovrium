@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/rollup-field.ts
  * Domain: app
- * Spec Count: 10
+ * Spec Count: 12
  *
  * Reference: https://support.airtable.com/docs/rollup-field-overview
  *
@@ -54,9 +54,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'orders',
+                type: 'relationship',
+                relatedTable: 'orders',
+                relationType: 'one-to-many',
+                foreignKey: 'customer_id',
+              },
+              {
+                id: 3,
                 name: 'total_order_amount',
                 type: 'rollup',
-                relationshipField: 'customer_id',
+                relationshipField: 'orders',
                 relatedField: 'amount',
                 aggregation: 'sum',
               },
@@ -116,9 +124,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 3,
                 name: 'task_count',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'id',
                 aggregation: 'count',
               },
@@ -178,25 +194,33 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'reviews',
+                type: 'relationship',
+                relatedTable: 'reviews',
+                relationType: 'one-to-many',
+                foreignKey: 'product_id',
+              },
+              {
+                id: 3,
                 name: 'avg_rating',
                 type: 'rollup',
-                relationshipField: 'product_id',
+                relationshipField: 'reviews',
                 relatedField: 'rating',
                 aggregation: 'avg',
               },
               {
-                id: 3,
+                id: 4,
                 name: 'min_rating',
                 type: 'rollup',
-                relationshipField: 'product_id',
+                relationshipField: 'reviews',
                 relatedField: 'rating',
                 aggregation: 'min',
               },
               {
-                id: 4,
+                id: 5,
                 name: 'max_rating',
                 type: 'rollup',
-                relationshipField: 'product_id',
+                relationshipField: 'reviews',
                 relatedField: 'rating',
                 aggregation: 'max',
               },
@@ -248,9 +272,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'employees',
+                type: 'relationship',
+                relatedTable: 'employees',
+                relationType: 'one-to-many',
+                foreignKey: 'department_id',
+              },
+              {
+                id: 3,
                 name: 'total_salary',
                 type: 'rollup',
-                relationshipField: 'department_id',
+                relationshipField: 'employees',
                 relatedField: 'salary',
                 aggregation: 'sum',
               },
@@ -315,9 +347,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'account_name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'invoices',
+                type: 'relationship',
+                relatedTable: 'invoices',
+                relationType: 'one-to-many',
+                foreignKey: 'account_id',
+              },
+              {
+                id: 3,
                 name: 'revenue_total',
                 type: 'rollup',
-                relationshipField: 'account_id',
+                relationshipField: 'invoices',
                 relatedField: 'amount',
                 aggregation: 'sum',
               },
@@ -378,9 +418,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'books',
+                type: 'relationship',
+                relatedTable: 'books',
+                relationType: 'one-to-many',
+                foreignKey: 'author_id',
+              },
+              {
+                id: 3,
                 name: 'books_with_description_count',
                 type: 'rollup',
-                relationshipField: 'author_id',
+                relationshipField: 'books',
                 relatedField: 'description',
                 aggregation: 'counta',
               },
@@ -435,9 +483,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 3,
                 name: 'total_tasks',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'id',
                 aggregation: 'countall',
               },
@@ -492,17 +548,25 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 3,
                 name: 'earliest_task_date',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'due_date',
                 aggregation: 'min',
               },
               {
-                id: 3,
+                id: 4,
                 name: 'latest_task_date',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'due_date',
                 aggregation: 'max',
               },
@@ -558,18 +622,26 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 3,
                 name: 'completed_hours',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'hours',
                 aggregation: 'sum',
                 filters: { field: 'status', operator: 'equals', value: 'completed' },
               },
               {
-                id: 3,
+                id: 4,
                 name: 'pending_hours',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'hours',
                 aggregation: 'sum',
                 filters: { field: 'status', operator: 'equals', value: 'pending' },
@@ -627,9 +699,17 @@ test.describe('Rollup Field', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 3,
                 name: 'unique_assignees',
                 type: 'rollup',
-                relationshipField: 'project_id',
+                relationshipField: 'tasks',
                 relatedField: 'assignee',
                 aggregation: 'arrayunique',
               },
@@ -671,7 +751,86 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-011: user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-011: should reject rollup field when relationshipField does not exist',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Rollup field referencing non-existent relationship field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                {
+                  id: 2,
+                  name: 'total_order_amount',
+                  type: 'rollup',
+                  relationshipField: 'customer_id', // Does not exist - should be in orders table
+                  relatedField: 'amount',
+                  aggregation: 'sum',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/relationshipField.*customer_id.*not found|invalid.*relationship/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-ROLLUP-012: should reject rollup field when relationshipField is not a relationship type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Rollup field referencing a non-relationship field
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' }, // Not a relationship field
+                {
+                  id: 3,
+                  name: 'total_order_amount',
+                  type: 'rollup',
+                  relationshipField: 'email', // Points to email field, not relationship
+                  relatedField: 'amount',
+                  aggregation: 'sum',
+                },
+              ],
+            },
+            {
+              id: 2,
+              name: 'orders',
+              fields: [
+                {
+                  id: 1,
+                  name: 'customer_id',
+                  type: 'relationship',
+                  relatedTable: 'customers',
+                  relationType: 'many-to-one',
+                },
+                { id: 2, name: 'amount', type: 'decimal' },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/relationshipField.*must.*relationship|email.*not.*relationship/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-ROLLUP-013: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple rollup aggregations', async () => {
@@ -685,33 +844,41 @@ test.describe('Rollup Field', () => {
                 { id: 1, name: 'name', type: 'single-line-text' },
                 {
                   id: 2,
+                  name: 'tasks',
+                  type: 'relationship',
+                  relatedTable: 'tasks',
+                  relationType: 'one-to-many',
+                  foreignKey: 'project_id',
+                },
+                {
+                  id: 3,
                   name: 'total_hours',
                   type: 'rollup',
-                  relationshipField: 'project_id',
+                  relationshipField: 'tasks',
                   relatedField: 'hours',
                   aggregation: 'sum',
                 },
                 {
-                  id: 3,
+                  id: 4,
                   name: 'task_count',
                   type: 'rollup',
-                  relationshipField: 'project_id',
+                  relationshipField: 'tasks',
                   relatedField: 'id',
                   aggregation: 'count',
                 },
                 {
-                  id: 4,
+                  id: 5,
                   name: 'avg_hours',
                   type: 'rollup',
-                  relationshipField: 'project_id',
+                  relationshipField: 'tasks',
                   relatedField: 'hours',
                   aggregation: 'avg',
                 },
                 {
-                  id: 5,
+                  id: 6,
                   name: 'completed_hours',
                   type: 'rollup',
-                  relationshipField: 'project_id',
+                  relationshipField: 'tasks',
                   relatedField: 'hours',
                   aggregation: 'sum',
                   filters: { field: 'status', operator: 'equals', value: 'completed' },
