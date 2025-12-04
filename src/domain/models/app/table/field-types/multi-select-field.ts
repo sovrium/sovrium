@@ -8,6 +8,25 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
 
+/**
+ * Multi Select Field
+ *
+ * Allows selection of multiple options from a predefined list.
+ * Commonly used for tags, categories, or any multi-valued selections.
+ * Supports optional default value array and maximum selection limit.
+ *
+ * @example
+ * ```typescript
+ * const field = {
+ *   id: 1,
+ *   name: 'tags',
+ *   type: 'multi-select',
+ *   options: ['Urgent', 'Important', 'Review'],
+ *   maxSelections: 3,
+ *   default: ['Important']
+ * }
+ * ```
+ */
 export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
