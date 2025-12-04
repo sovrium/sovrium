@@ -1267,7 +1267,7 @@ test.describe('Data Tables', () => {
   // Phase: Error Configuration Validation Tests (028-041)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-028: should reject table name with invalid characters',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
