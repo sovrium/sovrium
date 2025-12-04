@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { validateMinMaxRange } from './validation-utils'
 
 /**
  * Decimal Field
@@ -79,13 +80,7 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
       ),
     })
   ),
-  Schema.filter((field) => {
-    // Validate min <= max when both are specified
-    if (field.min !== undefined && field.max !== undefined && field.min > field.max) {
-      return 'min cannot be greater than max'
-    }
-    return undefined
-  }),
+  Schema.filter(validateMinMaxRange),
   Schema.annotations({
     title: 'Decimal Field',
     description:
