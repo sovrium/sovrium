@@ -1540,7 +1540,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-039: should reject decimal field with min greater than max',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
