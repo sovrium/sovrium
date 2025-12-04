@@ -1485,7 +1485,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-037: should reject invalid field type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
