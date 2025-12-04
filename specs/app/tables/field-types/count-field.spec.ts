@@ -25,7 +25,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Count Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-001: should count number of linked records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -44,7 +44,7 @@ test.describe('Count Field', () => {
                 name: 'task_count',
                 type: 'count',
                 relationshipField: 'project_id',
-              } as any,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
