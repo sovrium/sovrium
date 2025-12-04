@@ -25,22 +25,37 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 }
 
 /**
- * Format currency value with symbol position and precision
+ * Format currency value with symbol position, precision, and negative format
  */
 function formatCurrency(
   value: number,
-  currencyCode: string,
-  symbolPosition: 'before' | 'after' = 'before',
-  precision: number = 2
-): string {
-  const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode
-  const formattedValue = value.toFixed(precision)
-
-  if (symbolPosition === 'after') {
-    return `${formattedValue}${symbol}`
+  options: {
+    readonly currencyCode: string
+    readonly symbolPosition?: 'before' | 'after'
+    readonly precision?: number
+    readonly negativeFormat?: 'minus' | 'parentheses'
   }
+): string {
+  const {
+    currencyCode,
+    symbolPosition = 'before',
+    precision = 2,
+    negativeFormat = 'minus',
+  } = options
+  const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode
+  const absValue = Math.abs(value)
+  const formattedValue = absValue.toFixed(precision)
+  const isNegative = value < 0
 
-  return `${symbol}${formattedValue}`
+  const result =
+    symbolPosition === 'after' ? `${formattedValue}${symbol}` : `${symbol}${formattedValue}`
+
+  // Apply negative format
+  return isNegative
+    ? negativeFormat === 'parentheses'
+      ? `(${result})`
+      : `-${result}`
+    : result
 }
 
 export interface TableViewProps {
@@ -76,12 +91,12 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
                   const currencyField = field as CurrencyField
                   const numericValue =
                     typeof value === 'number' ? value : parseFloat(String(value || 0))
-                  const formatted = formatCurrency(
-                    numericValue,
-                    currencyField.currency,
-                    currencyField.symbolPosition,
-                    currencyField.precision
-                  )
+                  const formatted = formatCurrency(numericValue, {
+                    currencyCode: currencyField.currency,
+                    symbolPosition: currencyField.symbolPosition,
+                    precision: currencyField.precision,
+                    negativeFormat: currencyField.negativeFormat,
+                  })
                   return <td key={field.id}>{formatted}</td>
                 }
 
