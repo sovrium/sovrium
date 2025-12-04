@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { shouldCreateDatabaseColumn } from './field-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
@@ -106,7 +107,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   const tableReadPermission = table.permissions?.read
 
   const baseFieldPermissions = table.fields
-    .filter((field) => field.type !== 'button' && field.type !== 'count')
+    .filter(shouldCreateDatabaseColumn)
     .map((field) => ({ field: field.name, permission: tableReadPermission }))
 
   const overriddenFieldPermissions = fieldPermissions
