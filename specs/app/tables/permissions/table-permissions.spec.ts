@@ -101,7 +101,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-002: should deny INSERT access when user with member role attempts to create record with admin-only create permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
@@ -130,6 +130,8 @@ test.describe('Table-Level Permissions', () => {
       await executeQuery([
         'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY admin_create ON documents FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
+        'GRANT ALL PRIVILEGES ON documents TO admin_user, member_user',
+        'GRANT ALL PRIVILEGES ON SEQUENCE documents_id_seq TO admin_user, member_user',
       ])
 
       // WHEN: user with 'member' role attempts to create record
@@ -147,23 +149,32 @@ test.describe('Table-Level Permissions', () => {
         "SELECT cmd, with_check FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'"
       )
       // THEN: assertion
-      expect(policyDetails).toEqual({
+      expect(policyDetails).toMatchObject({
         cmd: 'INSERT',
         with_check: "auth.user_has_role('admin'::text)",
       })
 
       // Admin user can INSERT records
       const adminInsert = await executeQuery(
-        "SET ROLE admin_user; INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id"
+        "SET ROLE admin_user; SET app.user_role = 'admin'; INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id"
       )
       // THEN: assertion
       expect(adminInsert.id).toBe(1)
 
       // Member user cannot INSERT records
       // THEN: assertion
-      await expect(async () => {
-        await executeQuery("SET ROLE member_user; INSERT INTO documents (title) VALUES ('Doc 2')")
-      }).rejects.toThrow('new row violates row-level security policy')
+      let memberInsertFailed = false
+      let errorMessage = ''
+      try {
+        await executeQuery(
+          "SET ROLE member_user; SET app.user_role = 'member'; INSERT INTO documents (title) VALUES ('Doc 2')"
+        )
+      } catch (error) {
+        memberInsertFailed = true
+        errorMessage = error instanceof Error ? error.message : String(error)
+        expect(errorMessage).toContain('new row violates row-level security policy')
+      }
+      expect(memberInsertFailed).toBe(true)
     }
   )
 

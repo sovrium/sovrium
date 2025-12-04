@@ -29,6 +29,13 @@
       "when": 1733193600000,
       "tag": "0003_add_auth_schema_and_test_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1733270400000,
+      "tag": "0004_grant_test_role_permissions",
+      "breakpoints": true
     }
   ]
 }
