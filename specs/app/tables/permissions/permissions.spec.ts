@@ -746,13 +746,20 @@ test.describe('Table Permissions', () => {
       })
 
       await test.step('Verify field-level restriction for non-admin users', async () => {
-        await expect(async () => {
+        let accessDenied = false
+        let errorMessage = ''
+        try {
           await executeQuery([
             'SET ROLE member_user',
             `SET LOCAL app.user_id = '${user1.user.id}'`,
             'SELECT salary_info FROM documents WHERE id = 1',
           ])
-        }).rejects.toThrow('permission denied')
+        } catch (error) {
+          accessDenied = true
+          errorMessage = error instanceof Error ? error.message : String(error)
+          expect(errorMessage).toContain('permission denied')
+        }
+        expect(accessDenied).toBe(true)
       })
 
       await test.step('Verify admin can see restricted fields', async () => {
