@@ -20,7 +20,14 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
         })
       ),
       conditions: Schema.optional(
-        ViewFiltersSchema.pipe(
+        Schema.Union(
+          ViewFiltersSchema,
+          Schema.Array(ViewFiltersSchema).pipe(
+            Schema.annotations({
+              description: 'Array of filter conditions (shorthand for implicit AND)',
+            })
+          )
+        ).pipe(
           Schema.annotations({
             description: 'Conditions to filter which linked records are counted',
           })

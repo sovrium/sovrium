@@ -291,7 +291,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-005: should apply conditions to filter counted records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
