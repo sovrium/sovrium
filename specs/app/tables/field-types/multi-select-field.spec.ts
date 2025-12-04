@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/multi-select-field.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 8
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -217,8 +217,102 @@ test.describe('Multi Select Field', () => {
     }
   )
 
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: should reject multi-select with empty options array',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Multi-select field with empty options array
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'tags',
+                  type: 'multi-select',
+                  options: [], // Empty options!
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/options.*empty|at least one option required/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-007: should reject multi-select with duplicate option values',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Multi-select field with duplicate option values
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'articles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'categories',
+                  type: 'multi-select',
+                  options: ['tech', 'health', 'tech'], // Duplicate 'tech'!
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*option|options.*unique/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-008: should reject multi-select when maxSelections exceeds options length',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Multi-select field with maxSelections > options.length
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'tags',
+                  type: 'multi-select',
+                  options: ['tag1', 'tag2'], // Only 2 options
+                  maxSelections: 5, // Can't select 5 when only 2 exist!
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/maxSelections.*exceeds.*options|maxSelections.*too large/i)
+    }
+  )
+
   test(
-    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: user can complete full multi-select-field workflow',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-009: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multi-select field', async () => {

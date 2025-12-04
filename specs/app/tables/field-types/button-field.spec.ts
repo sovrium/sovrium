@@ -191,8 +191,70 @@ test.describe('Button Field', () => {
     }
   )
 
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-BUTTON-006: should reject button with action=url when url is missing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Button field with action='url' but no URL provided
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'records',
+              fields: [
+                {
+                  id: 1,
+                  name: 'open_link',
+                  type: 'button',
+                  label: 'Open',
+                  action: 'url',
+                  // url is missing!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/url.*required.*action.*url|missing.*url/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-BUTTON-007: should reject button with action=automation when automation is missing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Button field with action='automation' but no automation provided
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'records',
+              fields: [
+                {
+                  id: 1,
+                  name: 'run_automation',
+                  type: 'button',
+                  label: 'Run',
+                  action: 'automation',
+                  // automation is missing!
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/automation.*required.*action.*automation|missing.*automation/i)
+    }
+  )
+
   test(
-    'APP-TABLES-FIELD-TYPES-BUTTON-006: user can complete full button-field workflow',
+    'APP-TABLES-FIELD-TYPES-BUTTON-008: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with button field', async () => {

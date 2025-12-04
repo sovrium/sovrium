@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/single-select-field.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 7
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -214,7 +214,69 @@ test.describe('Single Select Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-006: user can complete full single-select-field workflow',
+    'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-006: should reject single-select with empty options array',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Single-select field with empty options array
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'category',
+                  type: 'single-select',
+                  options: [], // Empty options!
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/options.*empty|at least one option required/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-007: should reject single-select with duplicate option values',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Single-select field with duplicate option values
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'status',
+                  type: 'single-select',
+                  options: ['draft', 'published', 'draft'], // Duplicate 'draft'!
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate.*option|options.*unique/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-008: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with single-select field', async () => {

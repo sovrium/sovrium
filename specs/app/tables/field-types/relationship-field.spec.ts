@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/relationship-field.ts
  * Domain: app
- * Spec Count: 13
+ * Spec Count: 14
  *
  * Reference: https://support.airtable.com/docs/linking-records-in-airtable
  *
@@ -666,7 +666,39 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: user can complete full relationship-field workflow',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: should reject relationship when relatedTable does not exist',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Relationship field pointing to non-existent table
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'customer_id',
+                  type: 'relationship',
+                  relatedTable: 'customers', // 'customers' table doesn't exist!
+                  relationType: 'many-to-one',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/table.*customers.*not found|relatedTable.*does not exist/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create tables with various relationship types', async () => {

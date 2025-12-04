@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/rollup-field.ts
  * Domain: app
- * Spec Count: 12
+ * Spec Count: 13
  *
  * Reference: https://support.airtable.com/docs/rollup-field-overview
  *
@@ -830,7 +830,61 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-013: user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-013: should reject rollup when aggregation function is invalid for field type',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Rollup field with aggregation incompatible with field type
+      // WHEN: Attempting to start server with invalid schema
+      // THEN: Should throw validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                {
+                  id: 2,
+                  name: 'tasks',
+                  type: 'relationship',
+                  relatedTable: 'tasks',
+                  relationType: 'one-to-many',
+                  foreignKey: 'project_id',
+                },
+                {
+                  id: 3,
+                  name: 'avg_task_name', // Doesn't make sense!
+                  type: 'rollup',
+                  relationshipField: 'tasks',
+                  relatedField: 'title', // title is text
+                  aggregation: 'avg', // Can't average text!
+                },
+              ],
+            },
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text' },
+                {
+                  id: 2,
+                  name: 'project_id',
+                  type: 'relationship',
+                  relatedTable: 'projects',
+                  relationType: 'many-to-one',
+                },
+              ],
+            },
+          ],
+        })
+      ).rejects.toThrow(/aggregation.*avg.*incompatible.*text|cannot.*average.*text field/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-ROLLUP-014: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple rollup aggregations', async () => {
