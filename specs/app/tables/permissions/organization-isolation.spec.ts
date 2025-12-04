@@ -777,7 +777,9 @@ test.describe('Organization Data Isolation', () => {
               },
             ],
           })
-        ).rejects.toThrow(/organization_id.*required|organizationScoped.*requires.*organization_id/i)
+        ).rejects.toThrow(
+          /organization_id.*required|organizationScoped.*requires.*organization_id/i
+        )
       })
 
       await test.step('Error handling: organizationScoped table with wrong organization_id field type', async () => {
