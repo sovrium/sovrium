@@ -9,6 +9,7 @@ import { renderToString } from 'react-dom/server'
 import { findMatchingRoute } from '@/domain/utils/route-matcher'
 import { DefaultHomePage } from '@/presentation/components/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/components/pages/DynamicPage'
+import { renderTableView } from '@/presentation/rendering/render-table-view'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -93,5 +94,12 @@ export function renderHomePage(app: App, detectedLanguage?: string): string {
  */
 // @knip-ignore - Used via dynamic import in server.ts
 export function renderPage(app: App, path: string, detectedLanguage?: string): string | undefined {
+  // Check if path matches /tables/:tableName pattern
+  const tablePathMatch = path.match(/^\/tables\/([^/]+)$/)
+  if (tablePathMatch && tablePathMatch[1]) {
+    const tableName = tablePathMatch[1]
+    return renderTableView(app, tableName)
+  }
+
   return renderPageByPath(app, path, detectedLanguage)
 }
