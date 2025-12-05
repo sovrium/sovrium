@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { validateButtonAction } from './validation-utils'
 
 const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
   Schema.extend(
@@ -34,12 +35,7 @@ const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
 )
 
 export const ButtonFieldSchema = ButtonFieldBaseSchema.pipe(
-  Schema.filter((field) => {
-    if (field.action === 'url' && !field.url) {
-      return 'url is required when action is url'
-    }
-    return true
-  }),
+  Schema.filter(validateButtonAction),
   Schema.annotations({
     title: 'Button Field',
     description:

@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { Schema } from 'effect'
-import { validateMinMaxRange, createOptionsSchema } from './validation-utils'
+import { validateMinMaxRange, createOptionsSchema, validateButtonAction } from './validation-utils'
 
 describe('validateMinMaxRange', () => {
   test('returns undefined when both min and max are valid (min < max)', () => {
@@ -78,5 +78,57 @@ describe('createOptionsSchema', () => {
 
     expect(() => Schema.decodeSync(singleSelectSchema)([])).toThrow(/single-select/)
     expect(() => Schema.decodeSync(multiSelectSchema)([])).toThrow(/multi-select/)
+  })
+})
+
+describe('validateButtonAction', () => {
+  test('returns true when action=url and url is provided', () => {
+    expect(validateButtonAction({ action: 'url', url: 'https://example.com' })).toBe(true)
+  })
+
+  test('returns error when action=url and url is missing', () => {
+    expect(validateButtonAction({ action: 'url' })).toBe('url is required when action is url')
+  })
+
+  test('returns error when action=url and url is empty string', () => {
+    expect(validateButtonAction({ action: 'url', url: '' })).toBe(
+      'url is required when action is url'
+    )
+  })
+
+  test('returns true when action=automation and automation is provided', () => {
+    expect(
+      validateButtonAction({ action: 'automation', automation: 'approve_request' })
+    ).toBe(true)
+  })
+
+  test('returns error when action=automation and automation is missing', () => {
+    expect(validateButtonAction({ action: 'automation' })).toBe(
+      'automation is required when action is automation'
+    )
+  })
+
+  test('returns error when action=automation and automation is empty string', () => {
+    expect(validateButtonAction({ action: 'automation', automation: '' })).toBe(
+      'automation is required when action is automation'
+    )
+  })
+
+  test('returns true when action is not url or automation', () => {
+    expect(validateButtonAction({ action: 'custom' })).toBe(true)
+    expect(validateButtonAction({ action: 'save' })).toBe(true)
+    expect(validateButtonAction({ action: 'submit' })).toBe(true)
+  })
+
+  test('returns true when action=url has url and extra properties', () => {
+    expect(
+      validateButtonAction({ action: 'url', url: 'https://example.com', automation: 'ignored' })
+    ).toBe(true)
+  })
+
+  test('returns true when action=automation has automation and extra properties', () => {
+    expect(
+      validateButtonAction({ action: 'automation', automation: 'approve', url: 'ignored' })
+    ).toBe(true)
   })
 })
