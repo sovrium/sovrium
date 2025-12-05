@@ -121,7 +121,7 @@ test.describe('Table Fields', () => {
           name: 'test-app',
           tables: [{ id: 3, name: 'invalid_table', fields: [] }],
         })
-      ).rejects.toThrow(/Expected Collection of all supported field types/)
+      ).rejects.toThrow(/Expected an array of at least 1 item/)
 
       // Invalid: Missing fields property
       // THEN: assertion
@@ -370,7 +370,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-012: should reject single-select field with empty options',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
