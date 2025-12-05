@@ -457,7 +457,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-015: should reject relationship field without relatedTable',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -484,7 +484,7 @@ test.describe('Table Fields', () => {
             },
           ],
         })
-      ).rejects.toThrow(/relatedTable.*required|missing.*relatedTable/i)
+      ).rejects.toThrow(/relatedTable.*is missing|relatedTable is required/i)
     }
   )
 

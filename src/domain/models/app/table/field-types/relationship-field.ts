@@ -13,7 +13,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('relationship'),
       relatedTable: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'relatedTable is required' }),
         Schema.annotations({
           description: 'Name of the related table',
         })
