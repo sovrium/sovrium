@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { validateMinMaxRange } from './validation-utils'
 
 /**
  * Currency Field
@@ -112,6 +113,7 @@ export const CurrencyFieldSchema = BaseFieldSchema.pipe(
       ),
     })
   ),
+  Schema.filter(validateMinMaxRange),
   Schema.annotations({
     title: 'Currency Field',
     description:

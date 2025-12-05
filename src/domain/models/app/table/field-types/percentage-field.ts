@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { validateMinMaxRange } from './validation-utils'
 
 /**
  * Percentage Field
@@ -81,6 +82,7 @@ export const PercentageFieldSchema = BaseFieldSchema.pipe(
       ),
     })
   ),
+  Schema.filter(validateMinMaxRange),
   Schema.annotations({
     title: 'Percentage Field',
     description:
