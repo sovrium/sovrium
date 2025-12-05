@@ -109,6 +109,21 @@ export const FieldsSchema = Schema.Array(
     const uniqueNames = new Set(names)
     return names.length === uniqueNames.size || 'Field names must be unique within the table'
   }),
+  Schema.filter((fields) => {
+    // Validate count fields reference existing relationship fields
+    const countFields = fields.filter((field) => field.type === 'count')
+    const fieldNames = new Set(fields.map((field) => field.name))
+
+    const invalidCountField = countFields.find((countField) => {
+      const { relationshipField } = countField as { relationshipField: string }
+      return !fieldNames.has(relationshipField)
+    })
+
+    return (
+      !invalidCountField ||
+      `Count field "${invalidCountField.name}" references relationshipField "${(invalidCountField as { relationshipField: string }).relationshipField}" not found in the same table`
+    )
+  }),
   Schema.annotations({
     title: 'Table Fields',
     description:

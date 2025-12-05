@@ -383,7 +383,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-006: should reject count field when relationshipField does not exist in same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
