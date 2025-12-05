@@ -213,7 +213,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-006: should reject field name with special characters',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
