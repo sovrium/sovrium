@@ -222,7 +222,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-007: should reject button with action=automation when automation is missing',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
