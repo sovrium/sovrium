@@ -14,8 +14,8 @@ describe('createDatabaseIdentifierSchema', () => {
     const TableIdentifierSchema = createDatabaseIdentifierSchema('table')
 
     test('should accept valid lowercase table names', () => {
-      // Given: Valid lowercase table names
-      const validNames = ['user', 'product', 'order', 'customer']
+      // Given: Valid lowercase table names (non-reserved keywords)
+      const validNames = ['person', 'product', 'customer', 'invoice']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -27,7 +27,7 @@ describe('createDatabaseIdentifierSchema', () => {
 
     test('should accept names with underscores', () => {
       // Given: Table names with underscores (snake_case)
-      const validNames = ['user_profile', 'order_item', 'shipping_address', 'created_at']
+      const validNames = ['person_profile', 'order_item', 'shipping_address', 'created_at']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -39,7 +39,7 @@ describe('createDatabaseIdentifierSchema', () => {
 
     test('should accept names with numbers', () => {
       // Given: Table names containing numbers
-      const validNames = ['user123', 'product_v2', 'order2023', 'item_1']
+      const validNames = ['person123', 'product_v2', 'invoice2023', 'item_1']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -82,7 +82,7 @@ describe('createDatabaseIdentifierSchema', () => {
 
     test('should reject names starting with uppercase letter', () => {
       // Given: Names starting with uppercase letters
-      const invalidNames = ['User', 'Product', 'OrderItem']
+      const invalidNames = ['Person', 'Product', 'InvoiceItem']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -95,7 +95,7 @@ describe('createDatabaseIdentifierSchema', () => {
 
     test('should reject names starting with number', () => {
       // Given: Names starting with numbers
-      const invalidNames = ['1user', '2product', '123order']
+      const invalidNames = ['1person', '2product', '123invoice']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -111,13 +111,13 @@ describe('createDatabaseIdentifierSchema', () => {
       // When: The name is validated against the schema
       // Then: Validation should throw an error
       expect(() => {
-        Schema.decodeUnknownSync(TableIdentifierSchema)('_user')
+        Schema.decodeUnknownSync(TableIdentifierSchema)('_person')
       }).toThrow()
     })
 
     test('should reject names with special characters', () => {
       // Given: Names with special characters
-      const invalidNames = ['user@profile', 'order#item', 'user!name', 'product$price']
+      const invalidNames = ['person@profile', 'invoice#item', 'person!name', 'product$price']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -134,7 +134,7 @@ describe('createDatabaseIdentifierSchema', () => {
 
     test('should accept valid lowercase field names', () => {
       // Given: Valid lowercase field names
-      const validNames = ['email', 'user_status', 'order_item', 'created_at']
+      const validNames = ['email', 'person_status', 'order_item', 'created_at']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -218,6 +218,35 @@ describe('createDatabaseIdentifierSchema', () => {
       expect(() => Schema.decodeUnknownSync(columnSchema)(tooLongName)).toThrow(
         'Maximum length is 63 characters'
       )
+    })
+  })
+
+  describe('reserved SQL keyword validation', () => {
+    const TableIdentifierSchema = createDatabaseIdentifierSchema('table')
+
+    test('should reject common SQL reserved keywords', () => {
+      // Given: Reserved SQL keywords
+      const reservedKeywords = ['select', 'insert', 'update', 'delete', 'user', 'order', 'group', 'table']
+
+      // When: Each keyword is validated against the schema
+      // Then: All should throw validation errors mentioning reserved keywords
+      reservedKeywords.forEach((keyword) => {
+        expect(() => {
+          Schema.decodeUnknownSync(TableIdentifierSchema)(keyword)
+        }).toThrow(/reserved.*keyword/i)
+      })
+    })
+
+    test('should allow non-reserved names that are similar to keywords', () => {
+      // Given: Names similar to keywords but not reserved
+      const validNames = ['person', 'customer', 'invoice', 'product']
+
+      // When: Each name is validated against the schema
+      // Then: All names should be accepted
+      validNames.forEach((name) => {
+        const result = Schema.decodeUnknownSync(TableIdentifierSchema)(name)
+        expect(result).toBe(name)
+      })
     })
   })
 })
