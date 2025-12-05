@@ -239,7 +239,7 @@ test.describe('Currency Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-006: should display currency with EUR symbol when currency is EUR',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
