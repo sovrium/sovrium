@@ -260,7 +260,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-008: should reject empty field name',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
