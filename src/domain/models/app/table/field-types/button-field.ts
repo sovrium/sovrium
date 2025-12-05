@@ -13,7 +13,7 @@ export const ButtonFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('button'),
       label: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'label is required' }),
         Schema.annotations({ description: 'Button text label' })
       ),
       action: Schema.String.pipe(Schema.annotations({ description: 'Type of action to trigger' })),

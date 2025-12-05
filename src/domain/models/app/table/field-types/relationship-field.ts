@@ -25,7 +25,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
       ),
       foreignKey: Schema.optional(
         Schema.String.pipe(
-          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.nonEmptyString({ message: () => 'foreignKey is required' }),
           Schema.annotations({
             description:
               'Name of the foreign key field in the related table for one-to-many relationships',
@@ -34,7 +34,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
       ),
       displayField: Schema.optional(
         Schema.String.pipe(
-          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.nonEmptyString({ message: () => 'displayField is required' }),
           Schema.annotations({
             description: 'Field from related table to display in UI',
           })
@@ -56,7 +56,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
       ),
       reciprocalField: Schema.optional(
         Schema.String.pipe(
-          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.nonEmptyString({ message: () => 'reciprocalField is required' }),
           Schema.annotations({
             description:
               'Name of the reciprocal link field in the related table for bidirectional relationships',
@@ -73,7 +73,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
       ),
       limitToView: Schema.optional(
         Schema.String.pipe(
-          Schema.minLength(1, { message: () => 'This field is required' }),
+          Schema.nonEmptyString({ message: () => 'limitToView is required' }),
           Schema.annotations({
             description: 'Name of the view to limit linkable records to',
           })

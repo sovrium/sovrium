@@ -15,7 +15,7 @@ export const StatusFieldSchema = BaseFieldSchema.pipe(
       options: Schema.Array(
         Schema.Struct({
           value: Schema.String.pipe(
-            Schema.minLength(1, { message: () => 'This field is required' })
+            Schema.nonEmptyString({ message: () => 'value is required' })
           ),
           color: Schema.optional(
             Schema.String.pipe(

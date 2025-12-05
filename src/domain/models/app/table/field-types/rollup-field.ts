@@ -14,11 +14,11 @@ export const RollupFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('rollup'),
       relationshipField: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'relationshipField is required' }),
         Schema.annotations({ description: 'Name of the relationship field to aggregate from' })
       ),
       relatedField: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'relatedField is required' }),
         Schema.annotations({ description: 'Name of the field in the related table to aggregate' })
       ),
       aggregation: Schema.String.pipe(

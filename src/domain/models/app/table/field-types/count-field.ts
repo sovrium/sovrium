@@ -14,7 +14,7 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('count'),
       relationshipField: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'relationshipField is required' }),
         Schema.annotations({
           description:
             'Name of the relationship field in the same table to count linked records from',
