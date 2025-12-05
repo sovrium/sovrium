@@ -19,6 +19,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
         })
       ),
       relationType: Schema.String.pipe(
+        Schema.nonEmptyString({ message: () => 'relationType is required' }),
         Schema.annotations({
           description: 'Type of relationship',
         })
