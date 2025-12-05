@@ -164,7 +164,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-004: should reject duplicate field names within same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
