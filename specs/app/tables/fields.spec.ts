@@ -488,7 +488,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-016: should reject relationship field without relationType',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -520,7 +520,7 @@ test.describe('Table Fields', () => {
             },
           ],
         })
-      ).rejects.toThrow(/relationType.*required|missing.*relationType/i)
+      ).rejects.toThrow(/relationType.*is missing|relationType is required/i)
     }
   )
 
