@@ -49,6 +49,11 @@ export const IndexesSchema = Schema.Array(
     unique: Schema.optional(Schema.Boolean),
   })
 ).pipe(
+  Schema.filter((indexes) => {
+    const names = indexes.map((index) => index.name)
+    const uniqueNames = new Set(names)
+    return names.length === uniqueNames.size || 'Index names must be unique within the table'
+  }),
   Schema.annotations({
     title: 'Database Indexes',
     description:

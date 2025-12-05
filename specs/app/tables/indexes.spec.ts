@@ -632,7 +632,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-010: should reject duplicate index names within the same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
