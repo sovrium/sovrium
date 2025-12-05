@@ -428,7 +428,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-014: should reject decimal field with negative precision',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
