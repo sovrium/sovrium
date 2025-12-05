@@ -12,8 +12,8 @@ import { NameSchema } from './name'
 describe('NameSchema', () => {
   describe('valid values', () => {
     test('should accept simple lowercase names', () => {
-      // Given: Simple lowercase table names
-      const validNames = ['user', 'product', 'order', 'customer']
+      // Given: Simple lowercase table names (non-reserved keywords)
+      const validNames = ['person', 'product', 'invoice', 'customer']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -25,7 +25,7 @@ describe('NameSchema', () => {
 
     test('should accept names with underscores', () => {
       // Given: Table names with underscores (snake_case)
-      const validNames = ['user_profile', 'order_item', 'shipping_address', 'created_at']
+      const validNames = ['person_profile', 'order_item', 'shipping_address', 'created_at']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -37,7 +37,7 @@ describe('NameSchema', () => {
 
     test('should accept names with numbers', () => {
       // Given: Table names containing numbers
-      const validNames = ['user123', 'product_v2', 'order2023', 'item_1']
+      const validNames = ['person123', 'product_v2', 'invoice2023', 'item_1']
 
       // When: Each name is validated against the schema
       // Then: All names should be accepted
@@ -82,7 +82,7 @@ describe('NameSchema', () => {
 
     test('should reject names starting with uppercase letter', () => {
       // Given: Table names starting with uppercase letters
-      const invalidNames = ['User', 'Product', 'OrderItem']
+      const invalidNames = ['Person', 'Product', 'InvoiceItem']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -95,7 +95,7 @@ describe('NameSchema', () => {
 
     test('should reject names starting with number', () => {
       // Given: Table names starting with numbers
-      const invalidNames = ['1user', '2product', '123order']
+      const invalidNames = ['1person', '2product', '123invoice']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -111,13 +111,13 @@ describe('NameSchema', () => {
       // When: The name is validated against the schema
       // Then: Validation should throw an error
       expect(() => {
-        Schema.decodeUnknownSync(NameSchema)('_user')
+        Schema.decodeUnknownSync(NameSchema)('_person')
       }).toThrow()
     })
 
     test('should reject names with hyphens', () => {
       // Given: Table names with hyphens (kebab-case)
-      const invalidNames = ['user-profile', 'order-item', 'shipping-address']
+      const invalidNames = ['person-profile', 'invoice-item', 'shipping-address']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -130,7 +130,7 @@ describe('NameSchema', () => {
 
     test('should reject names with spaces', () => {
       // Given: Table names containing spaces
-      const invalidNames = ['user profile', 'order item', 'user name']
+      const invalidNames = ['person profile', 'invoice item', 'person name']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -143,7 +143,7 @@ describe('NameSchema', () => {
 
     test('should reject names with special characters', () => {
       // Given: Table names with special characters
-      const invalidNames = ['user@profile', 'order#item', 'user!name', 'product$price']
+      const invalidNames = ['person@profile', 'invoice#item', 'person!name', 'product$price']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
@@ -182,11 +182,11 @@ describe('NameSchema', () => {
   describe('type inference', () => {
     test('should infer correct TypeScript type', () => {
       // Given: A valid table name with TypeScript type annotation
-      const name: Schema.Schema.Type<typeof NameSchema> = 'user'
+      const name: Schema.Schema.Type<typeof NameSchema> = 'person'
 
       // When: TypeScript type inference is applied
       // Then: The type should be correctly inferred as string
-      expect(name).toBe('user')
+      expect(name).toBe('person')
     })
   })
 })

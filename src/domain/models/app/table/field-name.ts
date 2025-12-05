@@ -29,7 +29,7 @@ export const FieldNameSchema = createDatabaseIdentifierSchema('field').pipe(
     title: 'Field Name',
     description:
       'Internal identifier name for database columns following PostgreSQL naming conventions. Must start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters.',
-    examples: ['email', 'user_status', 'order_item', 'customer_email', 'created_at'],
+    examples: ['email', 'person_status', 'invoice_item', 'customer_email', 'created_at'],
   })
 )
 

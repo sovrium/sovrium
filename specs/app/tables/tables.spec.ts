@@ -1680,7 +1680,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-044: should reject table with reserved SQL keyword as name',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
