@@ -399,7 +399,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-013: should reject multi-select field with empty options',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
