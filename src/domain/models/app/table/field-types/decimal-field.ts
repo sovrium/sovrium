@@ -18,10 +18,10 @@ import { BaseFieldSchema } from './base-field'
  * exact precision without floating-point errors.
  *
  * Business Rules:
- * - Precision defines number of decimal places (0-10), defaulting to 2 for common use cases
+ * - Precision defines number of decimal places (1-10), defaulting to 2 for common use cases
  * - DECIMAL storage ensures exact representation without floating-point rounding errors
  * - Min/max validation optional - useful for enforcing valid ranges
- * - Precision of 0 effectively creates an integer (use Integer Field instead for clarity)
+ * - Precision must be at least 1 (use Integer Field for whole numbers without decimals)
  * - Indexing recommended for fields used in sorting, filtering, or calculations
  * - Constant value 'decimal' ensures type safety and enables discriminated unions
  *
@@ -49,10 +49,10 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
       ),
       precision: Schema.optional(
         Schema.Int.pipe(
-          Schema.greaterThanOrEqualTo(0),
+          Schema.greaterThan(0),
           Schema.lessThanOrEqualTo(10),
           Schema.annotations({
-            description: 'Number of decimal places (0-10)',
+            description: 'Number of decimal places (1-10)',
           })
         )
       ),
@@ -89,7 +89,7 @@ export const DecimalFieldSchema = BaseFieldSchema.pipe(
   Schema.annotations({
     title: 'Decimal Field',
     description:
-      'Numeric field for numbers with decimal places. Supports configurable precision (0-10 decimal places) and min/max range validation. Uses exact DECIMAL storage.',
+      'Numeric field for numbers with decimal places. Supports configurable precision (1-10 decimal places) and min/max range validation. Uses exact DECIMAL storage.',
     examples: [
       {
         id: 1,
