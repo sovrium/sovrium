@@ -60,3 +60,37 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
       message: () => `At least one option is required for ${fieldType} field`,
     })
   )
+
+/**
+ * Validates that button fields have required properties based on their action type.
+ *
+ * This validation is used by button field types to ensure that action-specific
+ * properties are provided when needed. For example, buttons with action='url'
+ * must have a url property, and buttons with action='automation' must have an
+ * automation property.
+ *
+ * @param field - Object containing action and optional url/automation properties
+ * @returns Error message if validation fails, true if validation passes
+ *
+ * @example
+ * ```typescript
+ * validateButtonAction({ action: 'url', url: 'https://example.com' })  // true (valid)
+ * validateButtonAction({ action: 'url' })                              // 'url is required when action is url'
+ * validateButtonAction({ action: 'automation', automation: 'approve' }) // true (valid)
+ * validateButtonAction({ action: 'automation' })                       // 'automation is required when action is automation'
+ * validateButtonAction({ action: 'custom' })                           // true (no requirements)
+ * ```
+ */
+export const validateButtonAction = (field: {
+  readonly action: string
+  readonly url?: string
+  readonly automation?: string
+}): string | true => {
+  if (field.action === 'url' && !field.url) {
+    return 'url is required when action is url'
+  }
+  if (field.action === 'automation' && !field.automation) {
+    return 'automation is required when action is automation'
+  }
+  return true
+}

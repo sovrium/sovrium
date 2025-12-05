@@ -7,8 +7,9 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { validateButtonAction } from './validation-utils'
 
-export const ButtonFieldSchema = BaseFieldSchema.pipe(
+const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('button'),
@@ -30,7 +31,11 @@ export const ButtonFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  ),
+  )
+)
+
+export const ButtonFieldSchema = ButtonFieldBaseSchema.pipe(
+  Schema.filter(validateButtonAction),
   Schema.annotations({
     title: 'Button Field',
     description:

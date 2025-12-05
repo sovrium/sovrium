@@ -191,7 +191,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-006: should reject button with action=url when url is missing',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
