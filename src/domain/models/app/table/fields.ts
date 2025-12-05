@@ -124,6 +124,22 @@ export const FieldsSchema = Schema.Array(
       `Count field "${invalidCountField.name}" references relationshipField "${(invalidCountField as { relationshipField: string }).relationshipField}" not found in the same table`
     )
   }),
+  Schema.filter((fields) => {
+    // Validate count fields reference relationship type fields only
+    const countFields = fields.filter((field) => field.type === 'count')
+    const fieldsByName = new Map(fields.map((field) => [field.name, field]))
+
+    const invalidCountField = countFields.find((countField) => {
+      const { relationshipField } = countField as { relationshipField: string }
+      const referencedField = fieldsByName.get(relationshipField)
+      return referencedField && referencedField.type !== 'relationship'
+    })
+
+    return (
+      !invalidCountField ||
+      `Count field "${invalidCountField.name}" relationshipField "${(invalidCountField as { relationshipField: string }).relationshipField}" must reference a relationship field`
+    )
+  }),
   Schema.annotations({
     title: 'Table Fields',
     description:
