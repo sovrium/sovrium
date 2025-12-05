@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Schema } from 'effect'
+
 /**
  * Validates that min is less than or equal to max when both are specified.
  *
@@ -32,3 +34,29 @@ export const validateMinMaxRange = (field: {
   }
   return undefined
 }
+
+/**
+ * Creates a reusable options array schema for select-type fields.
+ *
+ * This schema factory is used by single-select and multi-select field types
+ * to ensure consistent validation of options arrays. All select fields require
+ * at least one option to be meaningful.
+ *
+ * @param fieldType - The type of select field (for error messages)
+ * @returns Effect Schema for validating options arrays
+ *
+ * @example
+ * ```typescript
+ * // Used in single-select field
+ * const optionsSchema = createOptionsSchema('single-select')
+ * // Used in multi-select field
+ * const optionsSchema = createOptionsSchema('multi-select')
+ * ```
+ */
+export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select') =>
+  Schema.Array(Schema.String).pipe(
+    Schema.minItems(1),
+    Schema.annotations({
+      message: () => `At least one option is required for ${fieldType} field`,
+    })
+  )

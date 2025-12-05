@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { createOptionsSchema } from './validation-utils'
 
 /**
  * Single Select Field
@@ -30,12 +31,7 @@ export const SingleSelectFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('single-select'),
-      options: Schema.Array(Schema.String).pipe(
-        Schema.minItems(1),
-        Schema.annotations({
-          message: () => 'At least one option is required for single-select field',
-        })
-      ),
+      options: createOptionsSchema('single-select'),
       default: Schema.optional(Schema.String),
     })
   ),
