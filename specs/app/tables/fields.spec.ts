@@ -189,7 +189,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-005: should reject field name starting with number',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
