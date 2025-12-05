@@ -8,7 +8,7 @@
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
 
-export const ButtonFieldSchema = BaseFieldSchema.pipe(
+const ButtonFieldBaseSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('button'),
@@ -30,7 +30,16 @@ export const ButtonFieldSchema = BaseFieldSchema.pipe(
         )
       ),
     })
-  ),
+  )
+)
+
+export const ButtonFieldSchema = ButtonFieldBaseSchema.pipe(
+  Schema.filter((field) => {
+    if (field.action === 'url' && !field.url) {
+      return 'url is required when action is url'
+    }
+    return true
+  }),
   Schema.annotations({
     title: 'Button Field',
     description:
