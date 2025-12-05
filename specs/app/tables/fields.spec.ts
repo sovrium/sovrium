@@ -284,7 +284,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-009: should reject invalid field type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -305,7 +305,7 @@ test.describe('Table Fields', () => {
             },
           ],
         })
-      ).rejects.toThrow(/unknown.*field.*type|invalid.*type|unsupported/i)
+      ).rejects.toThrow(/expected.*actual.*nonexistent-type|invalid.*type|unsupported/i)
     }
   )
 
