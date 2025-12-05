@@ -14,11 +14,11 @@ export const LookupFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('lookup'),
       relationshipField: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'relationshipField is required' }),
         Schema.annotations({ description: 'Name of the relationship field to lookup from' })
       ),
       relatedField: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'relatedField is required' }),
         Schema.annotations({ description: 'Name of the field in the related table to display' })
       ),
       filters: Schema.optional(

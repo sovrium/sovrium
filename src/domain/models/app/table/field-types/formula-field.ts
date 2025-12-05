@@ -13,7 +13,7 @@ export const FormulaFieldSchema = BaseFieldSchema.pipe(
     Schema.Struct({
       type: Schema.Literal('formula'),
       formula: Schema.String.pipe(
-        Schema.minLength(1, { message: () => 'This field is required' }),
+        Schema.nonEmptyString({ message: () => 'formula is required' }),
         Schema.annotations({
           description:
             'Formula expression to compute the value. Supports field references, operators, and functions.',
