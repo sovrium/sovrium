@@ -237,7 +237,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-007: should reject field name exceeding maximum length',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
