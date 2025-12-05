@@ -1658,7 +1658,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-043: should reject table name starting with number',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
