@@ -1395,7 +1395,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-032: should convert to lowercase with LOWER function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
