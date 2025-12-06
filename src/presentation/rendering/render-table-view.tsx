@@ -22,6 +22,7 @@ function getSampleValue(field: {
   readonly negativeFormat?: 'minus' | 'parentheses'
   readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
   readonly displayFormat?: 'h:mm' | 'h:mm:ss' | 'decimal'
+  readonly includeTime?: boolean
 }): unknown {
   switch (field.type) {
     case 'integer':
@@ -40,7 +41,8 @@ function getSampleValue(field: {
       return currencyField.precision === 0 ? 1000 : 99.99
     }
     case 'date':
-      return '2024-06-15'
+      // When includeTime is true, return datetime string
+      return field.includeTime ? '2024-06-15 14:30:00' : '2024-06-15'
     case 'datetime':
       return '2024-06-15 14:30:00'
     case 'duration':

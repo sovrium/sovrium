@@ -315,7 +315,7 @@ test.describe('Date Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-009: should include time component when includeTime is true',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
