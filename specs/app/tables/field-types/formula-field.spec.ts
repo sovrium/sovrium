@@ -705,7 +705,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-015: should find maximum with GREATEST function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
