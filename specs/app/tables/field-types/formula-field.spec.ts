@@ -1355,7 +1355,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-031: should compute string length with LENGTH function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
