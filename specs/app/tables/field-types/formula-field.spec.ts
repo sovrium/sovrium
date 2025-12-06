@@ -908,7 +908,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-020: should round down with TRUNC for precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
