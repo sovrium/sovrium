@@ -419,7 +419,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-008: should round up with CEIL function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
