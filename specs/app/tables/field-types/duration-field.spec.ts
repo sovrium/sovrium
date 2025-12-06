@@ -260,7 +260,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-008: should display duration in decimal format when displayFormat is decimal',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {

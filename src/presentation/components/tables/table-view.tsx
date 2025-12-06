@@ -182,8 +182,8 @@ function formatDuration(
   durationString: string,
   displayFormat?: 'h:mm' | 'h:mm:ss' | 'decimal'
 ): string {
-  // Parse PostgreSQL interval format (HH:MM:SS)
-  const match = durationString.match(/^(\d{2}):(\d{2}):(\d{2})/)
+  // Parse PostgreSQL interval format (H:MM:SS or HH:MM:SS)
+  const match = durationString.match(/^(\d{1,2}):(\d{2}):(\d{2})/)
   if (!match) {
     return durationString // Return as-is if not in expected format
   }
@@ -201,7 +201,7 @@ function formatDuration(
       return `${hoursNum}:${minutes}`
     case 'decimal': {
       const totalHours = hoursNum + minutesNum / 60 + secondsNum / 3600
-      return totalHours.toFixed(4)
+      return String(totalHours)
     }
     default:
       return durationString

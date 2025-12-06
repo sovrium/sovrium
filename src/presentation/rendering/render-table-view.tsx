@@ -14,12 +14,14 @@ import type { Table } from '@/domain/models/app/tables'
 /**
  * Generate sample value for a field
  */
+/* eslint-disable complexity -- Switch-like field type formatting requires multiple branches */
 function getSampleValue(field: {
   readonly name: string
   readonly type: string
   readonly precision?: number
   readonly negativeFormat?: 'minus' | 'parentheses'
   readonly thousandsSeparator?: 'comma' | 'period' | 'space' | 'none'
+  readonly displayFormat?: 'h:mm' | 'h:mm:ss' | 'decimal'
 }): unknown {
   switch (field.type) {
     case 'integer':
@@ -41,6 +43,8 @@ function getSampleValue(field: {
       return '2024-06-15'
     case 'datetime':
       return '2024-06-15 14:30:00'
+    case 'duration':
+      return field.displayFormat === 'h:mm:ss' ? '01:30:45' : '01:30:00'
     default:
       return `Sample ${field.name}`
   }
