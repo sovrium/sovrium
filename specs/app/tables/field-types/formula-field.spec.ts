@@ -546,7 +546,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-011: should round down with FLOOR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
