@@ -1506,7 +1506,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-035: should find substring position with STRPOS function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
