@@ -282,7 +282,7 @@ test.describe('DateTime Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-008: should display datetime with specific timezone when timeZone is configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
