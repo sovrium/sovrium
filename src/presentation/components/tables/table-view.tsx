@@ -269,7 +269,11 @@ function formatDateFieldValue(dateField: DateField, value: unknown): string {
     // Default to US format for dates when includeTime is true and no format specified
     const formattedDate = formatDate(datePart, dateField.dateFormat || 'US')
     // Default to 12-hour format for times when includeTime is true and no format specified
-    const formattedTime = formatDateTime(dateString, dateField.timeFormat || '12-hour')
+    const formattedTime = formatDateTime(
+      dateString,
+      dateField.timeFormat || '12-hour',
+      dateField.timeZone
+    )
     return `${formattedDate} ${formattedTime}`
   }
   return formatDate(dateString, dateField.dateFormat)

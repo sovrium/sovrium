@@ -348,7 +348,7 @@ test.describe('Date Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-010: should handle timezone conversion when timeZone is specified',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
