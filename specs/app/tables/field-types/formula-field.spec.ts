@@ -383,7 +383,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-007: should compute average with inline calculation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
