@@ -824,7 +824,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-018: should round to nearest odd number with ODD formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
