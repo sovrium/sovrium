@@ -1284,7 +1284,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-029: should extract right characters with RIGHT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
