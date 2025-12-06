@@ -95,6 +95,19 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
 }
 
 /**
+ * Translate formula from user-friendly syntax to PostgreSQL syntax
+ * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
+ * Exported for use in formula-trigger-generators.ts
+ */
+export const translateFormulaToPostgres = (formula: string): string => {
+  // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
+  return formula.replace(
+    /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
+    (_, text, start, length) => `SUBSTRING(${text.trim()} FROM ${start} FOR ${length})`
+  )
+}
+
+/**
  * Format default value for SQL
  */
 const formatDefaultValue = (defaultValue: unknown): string =>
@@ -227,6 +240,9 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
         ? mapFormulaResultTypeToPostgres(field.resultType)
         : 'TEXT'
 
+    // Translate formula to PostgreSQL syntax
+    const translatedFormula = translateFormulaToPostgres(field.formula)
+
     // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
     // because PostgreSQL GENERATED columns must be immutable
     if (isFormulaVolatile(field.formula)) {
@@ -235,7 +251,7 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
     }
 
     // Immutable formulas can use GENERATED ALWAYS AS
-    return `${field.name} ${resultType} GENERATED ALWAYS AS (${field.formula}) STORED`
+    return `${field.name} ${resultType} GENERATED ALWAYS AS (${translatedFormula}) STORED`
   }
 
   const columnType = mapFieldTypeToPostgres(field)

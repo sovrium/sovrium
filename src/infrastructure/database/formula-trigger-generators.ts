@@ -6,6 +6,7 @@
  */
 
 import type { Fields } from '@/domain/models/app/table/fields'
+import { translateFormulaToPostgres } from './sql-generators'
 
 /**
  * Volatile SQL functions that cannot be used in GENERATED ALWAYS AS columns
@@ -69,9 +70,11 @@ export const generateVolatileFormulaTriggerFunction = (
   const functionName = `compute_${tableName}_formulas`
   const assignments = volatileFields
     .map((field) => {
+      // Translate formula to PostgreSQL syntax (e.g., SUBSTR → SUBSTRING)
+      const translatedFormula = translateFormulaToPostgres(field.formula)
       // Replace column references with NEW.column_name
       // We need to handle this carefully - for now, use dynamic SQL with NEW.*
-      return `  SELECT (${field.formula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
+      return `  SELECT (${translatedFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
     })
     .join('\n')
 
