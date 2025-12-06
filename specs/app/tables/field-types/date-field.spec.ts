@@ -282,7 +282,7 @@ test.describe('Date Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-008: should display date in ISO format (YYYY-MM-DD) when dateFormat is ISO',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
