@@ -988,7 +988,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-022: should compute square root with SQRT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
