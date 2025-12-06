@@ -1205,7 +1205,7 @@ test.describe('Formula Field', () => {
   // Phase 2: Text Functions (028-047)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-027: should concatenate text with || operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
