@@ -1432,7 +1432,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-033: should convert to uppercase with UPPER function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
