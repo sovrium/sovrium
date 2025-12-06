@@ -502,7 +502,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-010: should compute exponential with EXP function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
