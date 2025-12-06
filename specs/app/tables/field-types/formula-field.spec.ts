@@ -783,7 +783,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-017: should compute modulo with MOD function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
