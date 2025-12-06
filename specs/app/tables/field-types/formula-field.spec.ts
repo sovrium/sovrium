@@ -1069,7 +1069,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-024: should convert text to number with CAST',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
