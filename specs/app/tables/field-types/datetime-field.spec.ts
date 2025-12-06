@@ -318,7 +318,7 @@ test.describe('DateTime Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-009: should use local timezone when timeZone is set to local',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
