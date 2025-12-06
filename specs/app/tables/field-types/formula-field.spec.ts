@@ -1106,7 +1106,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-025: should count non-null values with CASE expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
