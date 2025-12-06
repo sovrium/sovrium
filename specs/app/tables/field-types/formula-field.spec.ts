@@ -1580,7 +1580,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-037: should replace substring with OVERLAY function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
