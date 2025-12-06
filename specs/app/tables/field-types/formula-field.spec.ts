@@ -459,7 +459,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-009: should round to nearest even number with EVEN formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
