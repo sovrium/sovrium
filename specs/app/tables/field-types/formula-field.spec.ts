@@ -867,7 +867,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-019: should compute power with POWER function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
