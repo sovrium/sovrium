@@ -254,13 +254,34 @@ export interface TableViewProps {
 }
 
 /**
+ * Format date field value with optional time component
+ *
+ * @param dateField - Date field configuration
+ * @param value - Date string value (YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+ * @returns Formatted date string with optional time
+ */
+function formatDateFieldValue(dateField: DateField, value: unknown): string {
+  const dateString = String(value ?? '')
+  // When includeTime is true, format as datetime with both date and time
+  if (dateField.includeTime) {
+    // Extract date part (YYYY-MM-DD) for date formatting
+    const datePart = dateString.split(' ')[0] || dateString
+    // Default to US format for dates when includeTime is true and no format specified
+    const formattedDate = formatDate(datePart, dateField.dateFormat || 'US')
+    // Default to 12-hour format for times when includeTime is true and no format specified
+    const formattedTime = formatDateTime(dateString, dateField.timeFormat || '12-hour')
+    return `${formattedDate} ${formattedTime}`
+  }
+  return formatDate(dateString, dateField.dateFormat)
+}
+
+/**
  * Format a single cell value based on field type
  *
  * @param field - Field definition with type and formatting options
  * @param value - Cell value to format
  * @returns Formatted cell content as string
  */
-/* eslint-disable complexity -- Switch-like field type formatting requires multiple branches */
 function formatCellValue(field: Table['fields'][number], value: unknown): string {
   // Format currency fields
   if (field.type === 'currency') {
@@ -277,9 +298,7 @@ function formatCellValue(field: Table['fields'][number], value: unknown): string
 
   // Format date fields
   if (field.type === 'date') {
-    const dateField = field as DateField
-    const dateString = String(value ?? '')
-    return formatDate(dateString, dateField.dateFormat)
+    return formatDateFieldValue(field as DateField, value)
   }
 
   // Format datetime fields
