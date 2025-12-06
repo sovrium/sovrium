@@ -1321,7 +1321,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-030: should extract substring with SUBSTR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

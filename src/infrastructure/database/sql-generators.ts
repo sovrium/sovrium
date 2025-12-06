@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isFormulaVolatile } from './formula-trigger-generators'
+import { isFormulaVolatile, translateFormulaToPostgres } from './formula-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -227,6 +227,9 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
         ? mapFormulaResultTypeToPostgres(field.resultType)
         : 'TEXT'
 
+    // Translate formula to PostgreSQL syntax
+    const translatedFormula = translateFormulaToPostgres(field.formula)
+
     // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
     // because PostgreSQL GENERATED columns must be immutable
     if (isFormulaVolatile(field.formula)) {
@@ -235,7 +238,7 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
     }
 
     // Immutable formulas can use GENERATED ALWAYS AS
-    return `${field.name} ${resultType} GENERATED ALWAYS AS (${field.formula}) STORED`
+    return `${field.name} ${resultType} GENERATED ALWAYS AS (${translatedFormula}) STORED`
   }
 
   const columnType = mapFieldTypeToPostgres(field)

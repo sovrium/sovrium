@@ -5,33 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isFormulaVolatile, translateFormulaToPostgres } from './formula-utils'
 import type { Fields } from '@/domain/models/app/table/fields'
-
-/**
- * Volatile SQL functions that cannot be used in GENERATED ALWAYS AS columns
- * These functions return different values on each call or depend on external state
- */
-const volatileSQLFunctions = [
-  'CURRENT_DATE',
-  'CURRENT_TIME',
-  'CURRENT_TIMESTAMP',
-  'NOW()',
-  'TIMEOFDAY()',
-  'TRANSACTION_TIMESTAMP()',
-  'STATEMENT_TIMESTAMP()',
-  'CLOCK_TIMESTAMP()',
-  'RANDOM()',
-  'SETSEED(',
-]
-
-/**
- * Check if formula contains volatile functions that make it non-immutable
- * PostgreSQL GENERATED ALWAYS AS columns must be immutable (deterministic)
- */
-const isFormulaVolatile = (formula: string): boolean => {
-  const upperFormula = formula.toUpperCase()
-  return volatileSQLFunctions.some((fn) => upperFormula.includes(fn))
-}
 
 /**
  * Type for formula fields with volatile functions
@@ -69,9 +44,11 @@ export const generateVolatileFormulaTriggerFunction = (
   const functionName = `compute_${tableName}_formulas`
   const assignments = volatileFields
     .map((field) => {
+      // Translate formula to PostgreSQL syntax (e.g., SUBSTR → SUBSTRING)
+      const translatedFormula = translateFormulaToPostgres(field.formula)
       // Replace column references with NEW.column_name
       // We need to handle this carefully - for now, use dynamic SQL with NEW.*
-      return `  SELECT (${field.formula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
+      return `  SELECT (${translatedFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
     })
     .join('\n')
 
@@ -109,11 +86,6 @@ FOR EACH ROW
 EXECUTE FUNCTION ${functionName}();
 `.trim()
 }
-
-/**
- * Export isFormulaVolatile for use in sql-generators.ts
- */
-export { isFormulaVolatile }
 
 /**
  * Create volatile formula triggers for a table
