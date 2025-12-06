@@ -586,7 +586,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-012: should truncate to integer with TRUNC function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
