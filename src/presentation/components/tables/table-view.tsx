@@ -134,36 +134,76 @@ function formatDate(dateString: string, dateFormat?: 'US' | 'European' | 'ISO'):
 }
 
 /**
- * Format datetime value with time format option
+ * Format time in 12-hour format with AM/PM
+ */
+function formatTime12Hour(hour: number, minute: string): string {
+  const period = hour >= 12 ? 'PM' : 'AM'
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  return `${hour12}:${minute} ${period}`
+}
+
+/**
+ * Format time in 24-hour format
+ */
+function formatTime24Hour(hour: number, minute: string): string {
+  const hourStr = hour.toString().padStart(2, '0')
+  return `${hourStr}:${minute}`
+}
+
+/**
+ * Convert UTC timestamp to local timezone and format
+ */
+function formatLocalDateTime(
+  parts: RegExpMatchArray,
+  timeFormat?: '12-hour' | '24-hour'
+): string {
+  const [, year, month, day, hour, minute, second] = parts
+  const utcDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`)
+  const localHour = utcDate.getHours()
+  const localMinute = utcDate.getMinutes()
+  const minuteStr = localMinute.toString().padStart(2, '0')
+
+  return timeFormat === '12-hour'
+    ? formatTime12Hour(localHour, minuteStr)
+    : formatTime24Hour(localHour, minuteStr)
+}
+
+/**
+ * Format datetime value with time format and timezone options
  *
- * @param datetimeString - ISO datetime string (YYYY-MM-DD HH:MM:SS)
+ * @param datetimeString - ISO datetime string (YYYY-MM-DD HH:MM:SS or YYYY-MM-DDTHH:MM:SS+offset)
  * @param timeFormat - Time format (12-hour or 24-hour)
+ * @param timeZone - Timezone setting ('local' for browser timezone or IANA timezone name)
  * @returns Formatted datetime string with time
  *
  * @example
  * formatDateTime("2024-06-15 14:30:00", "24-hour") // "14:30"
  * formatDateTime("2024-06-15 14:30:00", "12-hour") // "2:30 PM"
+ * formatDateTime("2024-06-15T14:30:00+00:00", "24-hour", "local") // Uses browser timezone
  */
-function formatDateTime(datetimeString: string, timeFormat?: '12-hour' | '24-hour'): string {
-  // Parse ISO datetime string (YYYY-MM-DD HH:MM:SS)
-  const match = datetimeString.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/)
+function formatDateTime(
+  datetimeString: string,
+  timeFormat?: '12-hour' | '24-hour',
+  timeZone?: string
+): string {
+  const match = datetimeString.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/)
   if (!match) {
-    return datetimeString // Return as-is if not in expected format
+    return datetimeString
   }
 
+  // Convert to local timezone if requested
+  if (timeZone === 'local') {
+    return formatLocalDateTime(match, timeFormat)
+  }
+
+  // Use original UTC values
   const [, , , , hour, minute] = match
   const hourNum = parseInt(hour || '0', 10)
   const minuteStr = minute || '00'
 
-  if (timeFormat === '12-hour') {
-    // Convert to 12-hour format with AM/PM
-    const period = hourNum >= 12 ? 'PM' : 'AM'
-    const hour12 = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum
-    return `${hour12}:${minuteStr} ${period}`
-  }
-
-  // Default to 24-hour format
-  return `${hour}:${minuteStr}`
+  return timeFormat === '12-hour'
+    ? formatTime12Hour(hourNum, minuteStr)
+    : `${hour}:${minuteStr}`
 }
 
 /**
@@ -265,7 +305,7 @@ function formatCellValue(field: Table['fields'][number], value: unknown): string
   if (field.type === 'datetime') {
     const dateField = field as DateField
     const datetimeString = String(value ?? '')
-    return formatDateTime(datetimeString, dateField.timeFormat)
+    return formatDateTime(datetimeString, dateField.timeFormat, dateField.timeZone)
   }
 
   // Format duration fields
