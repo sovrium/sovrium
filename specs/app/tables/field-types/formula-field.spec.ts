@@ -626,7 +626,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-013: should compute logarithm with LOG function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
