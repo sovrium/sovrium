@@ -1469,7 +1469,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-034: should remove whitespace with TRIM function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
