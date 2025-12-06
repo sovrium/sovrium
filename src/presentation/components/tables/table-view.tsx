@@ -328,6 +328,24 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
   return (
     <div className="table-view">
       <h1>{table.name}</h1>
+      <button type="button">Add record</button>
+      <form id="add-record-form">
+        {table.fields.map((field) => {
+          if (field.type === 'duration') {
+            return (
+              <label key={field.id}>
+                Duration
+                <input
+                  type="text"
+                  name={field.name}
+                  aria-label="Duration"
+                />
+              </label>
+            )
+          }
+          return undefined
+        })}
+      </form>
       <table>
         <thead>
           <tr>

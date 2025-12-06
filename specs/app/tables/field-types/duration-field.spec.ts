@@ -293,7 +293,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-009: should parse various input formats to duration',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
