@@ -431,7 +431,7 @@ test.describe('Count Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COUNT-007: should reject count field when relationshipField is not a relationship type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
