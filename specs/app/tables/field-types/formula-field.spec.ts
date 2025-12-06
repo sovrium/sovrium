@@ -1151,7 +1151,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-026: should return first non-null value with COALESCE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
