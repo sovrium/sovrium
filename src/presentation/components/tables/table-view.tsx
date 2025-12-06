@@ -281,7 +281,12 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
           {records.map((record, rowIndex) => (
             <tr key={rowIndex}>
               {table.fields.map((field) => (
-                <td key={field.id}>{formatCellValue(field, record[field.name])}</td>
+                <td
+                  key={field.id}
+                  data-field={field.name}
+                >
+                  {formatCellValue(field, record[field.name])}
+                </td>
               ))}
             </tr>
           ))}
