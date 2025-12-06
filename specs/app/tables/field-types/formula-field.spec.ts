@@ -1543,7 +1543,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-036: should return null for not found with NULLIF pattern',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
