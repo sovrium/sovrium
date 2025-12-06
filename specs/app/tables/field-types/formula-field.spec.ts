@@ -666,7 +666,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-014: should compute natural logarithm with LN function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
