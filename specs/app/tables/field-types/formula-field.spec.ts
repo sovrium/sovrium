@@ -1247,7 +1247,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-028: should extract left characters with LEFT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
