@@ -1030,7 +1030,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-023: should compute sum of multiple fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
