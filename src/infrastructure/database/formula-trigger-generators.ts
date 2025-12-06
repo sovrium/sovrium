@@ -5,34 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isFormulaVolatile, translateFormulaToPostgres } from './formula-utils'
 import type { Fields } from '@/domain/models/app/table/fields'
-import { translateFormulaToPostgres } from './sql-generators'
-
-/**
- * Volatile SQL functions that cannot be used in GENERATED ALWAYS AS columns
- * These functions return different values on each call or depend on external state
- */
-const volatileSQLFunctions = [
-  'CURRENT_DATE',
-  'CURRENT_TIME',
-  'CURRENT_TIMESTAMP',
-  'NOW()',
-  'TIMEOFDAY()',
-  'TRANSACTION_TIMESTAMP()',
-  'STATEMENT_TIMESTAMP()',
-  'CLOCK_TIMESTAMP()',
-  'RANDOM()',
-  'SETSEED(',
-]
-
-/**
- * Check if formula contains volatile functions that make it non-immutable
- * PostgreSQL GENERATED ALWAYS AS columns must be immutable (deterministic)
- */
-const isFormulaVolatile = (formula: string): boolean => {
-  const upperFormula = formula.toUpperCase()
-  return volatileSQLFunctions.some((fn) => upperFormula.includes(fn))
-}
 
 /**
  * Type for formula fields with volatile functions
@@ -112,11 +86,6 @@ FOR EACH ROW
 EXECUTE FUNCTION ${functionName}();
 `.trim()
 }
-
-/**
- * Export isFormulaVolatile for use in sql-generators.ts
- */
-export { isFormulaVolatile }
 
 /**
  * Create volatile formula triggers for a table

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { translateFormulaToPostgres } from './sql-generators'
+import { translateFormulaToPostgres } from './formula-utils'
 
 describe('translateFormulaToPostgres', () => {
   test('should translate SUBSTR to SUBSTRING with FROM...FOR syntax', () => {

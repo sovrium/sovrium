@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isFormulaVolatile } from './formula-trigger-generators'
+import { isFormulaVolatile, translateFormulaToPostgres } from './formula-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -92,19 +92,6 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
   }
 
   return fieldTypeToPostgresMap[field.type] ?? 'TEXT'
-}
-
-/**
- * Translate formula from user-friendly syntax to PostgreSQL syntax
- * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
- * Exported for use in formula-trigger-generators.ts
- */
-export const translateFormulaToPostgres = (formula: string): string => {
-  // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
-  return formula.replace(
-    /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
-    (_, text, start, length) => `SUBSTRING(${text.trim()} FROM ${start} FOR ${length})`
-  )
 }
 
 /**
