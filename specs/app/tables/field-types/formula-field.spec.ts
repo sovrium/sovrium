@@ -2924,11 +2924,10 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-077: should get unique array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // TODO: Deferred - requires lookup fields for array values
       await startServerWithSchema({
         name: 'test-app',
         tables: [
