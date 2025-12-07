@@ -2957,7 +2957,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-078: should remove empty elements from array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
