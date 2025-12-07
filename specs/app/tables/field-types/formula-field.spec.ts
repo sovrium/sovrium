@@ -3081,7 +3081,7 @@ test.describe('Formula Field', () => {
   // Phase 6: Record Functions (083-085)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-082: should return record ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
