@@ -3048,7 +3048,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-081: should count array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
