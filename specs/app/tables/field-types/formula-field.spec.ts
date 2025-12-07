@@ -2564,7 +2564,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-066: should extract hour from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
