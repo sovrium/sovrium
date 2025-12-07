@@ -1726,7 +1726,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-041: should split text into array with STRING_TO_ARRAY',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

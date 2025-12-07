@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isFormulaVolatile, translateFormulaToPostgres } from './formula-utils'
+import {
+  isFormulaVolatile,
+  isFormulaReturningArray,
+  translateFormulaToPostgres,
+} from './formula-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -66,6 +70,8 @@ const formulaResultTypeMap: Record<string, string> = {
   bool: 'BOOLEAN',
   text: 'TEXT',
   string: 'TEXT',
+  'text[]': 'TEXT[]',
+  'string[]': 'TEXT[]',
   date: 'DATE',
   datetime: 'TIMESTAMPTZ',
   timestamp: 'TIMESTAMPTZ',
@@ -222,10 +228,17 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
 
   // Formula fields: check if formula is volatile
   if (field.type === 'formula' && 'formula' in field && field.formula) {
-    const resultType =
+    const baseResultType =
       'resultType' in field && field.resultType
         ? mapFormulaResultTypeToPostgres(field.resultType)
         : 'TEXT'
+
+    // Auto-detect array return type for functions like STRING_TO_ARRAY
+    // If formula returns an array but resultType doesn't specify array, append []
+    const resultType =
+      isFormulaReturningArray(field.formula) && !baseResultType.endsWith('[]')
+        ? `${baseResultType}[]`
+        : baseResultType
 
     // Translate formula to PostgreSQL syntax
     const translatedFormula = translateFormulaToPostgres(field.formula)

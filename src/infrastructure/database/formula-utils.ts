@@ -32,6 +32,21 @@ export const isFormulaVolatile = (formula: string): boolean => {
 }
 
 /**
+ * SQL functions that return array types
+ * Used to automatically adjust column type when formula returns an array
+ */
+const arrayReturningFunctions = ['STRING_TO_ARRAY']
+
+/**
+ * Check if formula returns an array type
+ * Some PostgreSQL functions return arrays regardless of input type
+ */
+export const isFormulaReturningArray = (formula: string): boolean => {
+  const upperFormula = formula.toUpperCase()
+  return arrayReturningFunctions.some((fn) => upperFormula.includes(fn))
+}
+
+/**
  * Translate formula from user-friendly syntax to PostgreSQL syntax
  * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
  */
