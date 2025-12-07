@@ -25,6 +25,7 @@ const volatileSQLFunctions = [
   'TO_CHAR(',
   'TO_DATE(',
   'DATE_TRUNC(',
+  'ARRAY_TO_STRING(',
 ]
 
 /**
@@ -58,9 +59,16 @@ const arrayReturningFunctions = ['STRING_TO_ARRAY']
 /**
  * Check if formula returns an array type
  * Some PostgreSQL functions return arrays regardless of input type
+ * NOTE: ARRAY_TO_STRING wraps an array and returns text, so check for it first
  */
 export const isFormulaReturningArray = (formula: string): boolean => {
-  const upperFormula = formula.toUpperCase()
+  const upperFormula = formula.toUpperCase().trim()
+
+  // If formula starts with ARRAY_TO_STRING, the result is text, not array
+  if (upperFormula.startsWith('ARRAY_TO_STRING(')) {
+    return false
+  }
+
   return arrayReturningFunctions.some((fn) => upperFormula.includes(fn))
 }
 
