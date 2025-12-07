@@ -78,10 +78,15 @@ describe('isFormulaVolatile', () => {
       expect(isFormulaVolatile("DATE_TRUNC('month', date_field)")).toBe(true)
     })
 
+    test('should detect ARRAY_TO_STRING()', () => {
+      expect(isFormulaVolatile("ARRAY_TO_STRING(some_array, ',')")).toBe(true)
+    })
+
     test('should be case-insensitive for functions', () => {
       expect(isFormulaVolatile('current_date')).toBe(true)
       expect(isFormulaVolatile('now()')).toBe(true)
       expect(isFormulaVolatile("date_trunc('day', created_at)")).toBe(true)
+      expect(isFormulaVolatile("array_to_string(items, ' | ')")).toBe(true)
     })
   })
 
@@ -187,6 +192,25 @@ describe('isFormulaReturningArray', () => {
     const formula = 'MY_STRING_TO_ARRAY_FUNCTION(text)'
     // This will return true because includes() matches substring
     // This is acceptable behavior - conservative matching is safer
+    expect(isFormulaReturningArray(formula)).toBe(true)
+  })
+
+  test('should return false when ARRAY_TO_STRING wraps STRING_TO_ARRAY (returns text, not array)', () => {
+    const formula = "ARRAY_TO_STRING(STRING_TO_ARRAY(items, ','), ' | ')"
+    expect(isFormulaReturningArray(formula)).toBe(false)
+  })
+
+  test('should return false when ARRAY_TO_STRING is at the start (case-insensitive)', () => {
+    const formulaUpper = "ARRAY_TO_STRING(some_array, ',')"
+    const formulaLower = "array_to_string(some_array, ',')"
+    const formulaMixed = "Array_To_String(some_array, ',')"
+    expect(isFormulaReturningArray(formulaUpper)).toBe(false)
+    expect(isFormulaReturningArray(formulaLower)).toBe(false)
+    expect(isFormulaReturningArray(formulaMixed)).toBe(false)
+  })
+
+  test('should return true for STRING_TO_ARRAY even when nested inside other functions (not ARRAY_TO_STRING)', () => {
+    const formula = "COALESCE(STRING_TO_ARRAY(items, ','), ARRAY[]::TEXT[])"
     expect(isFormulaReturningArray(formula)).toBe(true)
   })
 })

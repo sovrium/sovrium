@@ -2893,11 +2893,10 @@ test.describe('Formula Field', () => {
   // TODO: Requires lookup/rollup fields implementation
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-076: should join array elements with ARRAY_TO_STRING',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // TODO: Deferred - requires lookup fields for array values
       await startServerWithSchema({
         name: 'test-app',
         tables: [
