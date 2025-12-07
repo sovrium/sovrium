@@ -3019,7 +3019,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-080: should slice array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
