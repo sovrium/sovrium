@@ -44,6 +44,12 @@ describe('translateFormulaToPostgres', () => {
       "CONCAT(SUBSTRING(first_name FROM 1 FOR 1), '.', SUBSTRING(last_name FROM 1 FOR 1))"
     expect(translateFormulaToPostgres(input)).toBe(expected)
   })
+
+  test('should leave CASE expressions unchanged (native PostgreSQL syntax)', () => {
+    const input =
+      "CASE status WHEN 'pending' THEN 'Waiting' WHEN 'active' THEN 'In Progress' WHEN 'done' THEN 'Completed' ELSE 'Unknown' END"
+    expect(translateFormulaToPostgres(input)).toBe(input)
+  })
 })
 
 describe('isFormulaReturningArray', () => {
