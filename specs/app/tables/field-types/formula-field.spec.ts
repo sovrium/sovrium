@@ -2709,7 +2709,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-071: should check if date is weekday',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
