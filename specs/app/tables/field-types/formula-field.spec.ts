@@ -2814,7 +2814,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-074: should check if date is after another',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
