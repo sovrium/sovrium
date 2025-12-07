@@ -1911,7 +1911,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-046: should URL encode with custom expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

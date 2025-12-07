@@ -40,7 +40,8 @@ describe('translateFormulaToPostgres', () => {
 
   test('should handle multiple SUBSTR calls in one formula', () => {
     const input = "CONCAT(SUBSTR(first_name, 1, 1), '.', SUBSTR(last_name, 1, 1))"
-    const expected = "CONCAT(SUBSTRING(first_name FROM 1 FOR 1), '.', SUBSTRING(last_name FROM 1 FOR 1))"
+    const expected =
+      "CONCAT(SUBSTRING(first_name FROM 1 FOR 1), '.', SUBSTRING(last_name FROM 1 FOR 1))"
     expect(translateFormulaToPostgres(input)).toBe(expected)
   })
 })

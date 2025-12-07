@@ -106,9 +106,7 @@ const SQL_RESERVED_KEYWORDS = new Set([
  * 'created_at'
  * ```
  */
-export const createDatabaseIdentifierSchema = (
-  identifierType: 'table' | 'field' | 'column'
-) =>
+export const createDatabaseIdentifierSchema = (identifierType: 'table' | 'field' | 'column') =>
   Schema.String.pipe(
     Schema.minLength(1, { message: () => 'This field is required' }),
     Schema.maxLength(63, { message: () => 'Maximum length is 63 characters' }),
