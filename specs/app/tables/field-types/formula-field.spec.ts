@@ -1877,7 +1877,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-045: should decode from base64 with DECODE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
