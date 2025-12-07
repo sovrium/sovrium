@@ -1803,7 +1803,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-043: should convert character to ASCII code with ASCII function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
