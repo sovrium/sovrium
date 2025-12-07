@@ -2593,7 +2593,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-067: should extract minute from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
