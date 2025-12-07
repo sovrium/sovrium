@@ -2535,7 +2535,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-065: should extract day from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
