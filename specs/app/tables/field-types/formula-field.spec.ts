@@ -1843,7 +1843,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-044: should encode to base64 with ENCODE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
