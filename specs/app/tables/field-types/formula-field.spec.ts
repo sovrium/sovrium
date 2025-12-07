@@ -2280,7 +2280,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-057: should use COALESCE for default values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
