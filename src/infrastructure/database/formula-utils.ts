@@ -27,12 +27,22 @@ const volatileSQLFunctions = [
 ]
 
 /**
+ * Type casts that make expressions non-immutable in PostgreSQL
+ * Casts to TIMESTAMP types depend on locale settings (DateStyle, TimeZone)
+ * making them volatile even when used with immutable functions like EXTRACT
+ */
+const volatileTypeCasts = ['::TIMESTAMP', '::TIMESTAMPTZ', '::DATE', '::TIME']
+
+/**
  * Check if formula contains volatile functions that make it non-immutable
  * PostgreSQL GENERATED ALWAYS AS columns must be immutable (deterministic)
  */
 export const isFormulaVolatile = (formula: string): boolean => {
   const upperFormula = formula.toUpperCase()
-  return volatileSQLFunctions.some((fn) => upperFormula.includes(fn))
+  return (
+    volatileSQLFunctions.some((fn) => upperFormula.includes(fn)) ||
+    volatileTypeCasts.some((cast) => upperFormula.includes(cast))
+  )
 }
 
 /**
