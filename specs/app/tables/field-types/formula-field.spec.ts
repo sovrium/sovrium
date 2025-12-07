@@ -2477,7 +2477,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-063: should extract year from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
