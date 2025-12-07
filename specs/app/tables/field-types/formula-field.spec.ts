@@ -1952,7 +1952,7 @@ test.describe('Formula Field', () => {
   // Phase 3: Logical Functions (048-058)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-047: should evaluate IF with CASE WHEN expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
