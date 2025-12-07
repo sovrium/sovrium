@@ -22,6 +22,7 @@ const volatileSQLFunctions = [
   'SETSEED(',
   'DECODE(',
   'CONVERT_FROM(',
+  'TO_CHAR(',
 ]
 
 /**
