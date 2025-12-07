@@ -6,7 +6,11 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { translateFormulaToPostgres, isFormulaReturningArray } from './formula-utils'
+import {
+  translateFormulaToPostgres,
+  isFormulaReturningArray,
+  isFormulaVolatile,
+} from './formula-utils'
 
 describe('translateFormulaToPostgres', () => {
   test('should translate SUBSTR to SUBSTRING with FROM...FOR syntax', () => {
@@ -49,6 +53,86 @@ describe('translateFormulaToPostgres', () => {
     const input =
       "CASE status WHEN 'pending' THEN 'Waiting' WHEN 'active' THEN 'In Progress' WHEN 'done' THEN 'Completed' ELSE 'Unknown' END"
     expect(translateFormulaToPostgres(input)).toBe(input)
+  })
+})
+
+describe('isFormulaVolatile', () => {
+  describe('volatile SQL functions', () => {
+    test('should detect CURRENT_DATE', () => {
+      expect(isFormulaVolatile('CURRENT_DATE')).toBe(true)
+    })
+
+    test('should detect NOW()', () => {
+      expect(isFormulaVolatile('NOW()')).toBe(true)
+    })
+
+    test('should detect CURRENT_TIMESTAMP', () => {
+      expect(isFormulaVolatile('CURRENT_TIMESTAMP')).toBe(true)
+    })
+
+    test('should detect RANDOM()', () => {
+      expect(isFormulaVolatile('RANDOM()')).toBe(true)
+    })
+
+    test('should be case-insensitive for functions', () => {
+      expect(isFormulaVolatile('current_date')).toBe(true)
+      expect(isFormulaVolatile('now()')).toBe(true)
+    })
+  })
+
+  describe('volatile type casts', () => {
+    test('should detect ::TIMESTAMP cast', () => {
+      expect(isFormulaVolatile("EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)")).toBe(true)
+    })
+
+    test('should detect ::TIMESTAMPTZ cast', () => {
+      expect(isFormulaVolatile("created_at::TIMESTAMPTZ")).toBe(true)
+    })
+
+    test('should detect ::DATE cast', () => {
+      expect(isFormulaVolatile("date_string::DATE")).toBe(true)
+    })
+
+    test('should detect ::TIME cast', () => {
+      expect(isFormulaVolatile("time_string::TIME")).toBe(true)
+    })
+
+    test('should be case-insensitive for type casts', () => {
+      expect(isFormulaVolatile("timestamp_value::timestamp")).toBe(true)
+      expect(isFormulaVolatile("timestamp_value::Timestamp")).toBe(true)
+    })
+
+    test('should detect type cast in complex formula', () => {
+      expect(isFormulaVolatile("EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)::INTEGER")).toBe(true)
+    })
+  })
+
+  describe('non-volatile formulas', () => {
+    test('should return false for simple field reference', () => {
+      expect(isFormulaVolatile('field_name')).toBe(false)
+    })
+
+    test('should return false for UPPER function', () => {
+      expect(isFormulaVolatile('UPPER(name)')).toBe(false)
+    })
+
+    test('should return false for numeric operations', () => {
+      expect(isFormulaVolatile('amount * 1.1')).toBe(false)
+    })
+
+    test('should return false for CONCAT', () => {
+      expect(isFormulaVolatile("CONCAT(first_name, ' ', last_name)")).toBe(false)
+    })
+
+    test('should return false for immutable type casts', () => {
+      expect(isFormulaVolatile('field::INTEGER')).toBe(false)
+      expect(isFormulaVolatile('field::TEXT')).toBe(false)
+      expect(isFormulaVolatile('field::BOOLEAN')).toBe(false)
+    })
+
+    test('should return false for empty formula', () => {
+      expect(isFormulaVolatile('')).toBe(false)
+    })
   })
 })
 

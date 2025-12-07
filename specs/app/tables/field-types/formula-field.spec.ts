@@ -2651,7 +2651,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-069: should get day of week',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -2680,7 +2680,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-070: should get week number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -2709,7 +2709,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-071: should check if date is weekday',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
