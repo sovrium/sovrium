@@ -2095,7 +2095,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-051: should return TRUE boolean constant',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
