@@ -74,9 +74,14 @@ describe('isFormulaVolatile', () => {
       expect(isFormulaVolatile('RANDOM()')).toBe(true)
     })
 
+    test('should detect DATE_TRUNC()', () => {
+      expect(isFormulaVolatile("DATE_TRUNC('month', date_field)")).toBe(true)
+    })
+
     test('should be case-insensitive for functions', () => {
       expect(isFormulaVolatile('current_date')).toBe(true)
       expect(isFormulaVolatile('now()')).toBe(true)
+      expect(isFormulaVolatile("date_trunc('day', created_at)")).toBe(true)
     })
   })
 

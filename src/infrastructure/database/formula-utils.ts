@@ -24,6 +24,7 @@ const volatileSQLFunctions = [
   'CONVERT_FROM(',
   'TO_CHAR(',
   'TO_DATE(',
+  'DATE_TRUNC(',
 ]
 
 /**

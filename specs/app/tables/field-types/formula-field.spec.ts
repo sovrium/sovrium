@@ -2777,7 +2777,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-073: should compare dates at same precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
