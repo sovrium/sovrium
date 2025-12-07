@@ -2988,11 +2988,10 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-079: should flatten nested arrays',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // TODO: Deferred - complex nested array handling
       await startServerWithSchema({
         name: 'test-app',
         tables: [
