@@ -1614,7 +1614,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-038: should substitute all occurrences with REPLACE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
