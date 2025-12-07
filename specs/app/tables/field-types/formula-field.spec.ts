@@ -2446,7 +2446,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-062: should parse date from text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

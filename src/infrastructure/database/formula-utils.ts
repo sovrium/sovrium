@@ -23,6 +23,7 @@ const volatileSQLFunctions = [
   'DECODE(',
   'CONVERT_FROM(',
   'TO_CHAR(',
+  'TO_DATE(',
 ]
 
 /**
