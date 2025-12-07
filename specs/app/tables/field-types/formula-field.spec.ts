@@ -2212,7 +2212,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-055: should detect errors with guarded expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
