@@ -1689,7 +1689,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-040: should convert to text with CASE expression for T function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
