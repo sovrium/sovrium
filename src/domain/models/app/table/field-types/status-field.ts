@@ -14,9 +14,7 @@ export const StatusFieldSchema = BaseFieldSchema.pipe(
       type: Schema.Literal('status'),
       options: Schema.Array(
         Schema.Struct({
-          value: Schema.String.pipe(
-            Schema.nonEmptyString({ message: () => 'value is required' })
-          ),
+          value: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'value is required' })),
           color: Schema.optional(
             Schema.String.pipe(
               Schema.pattern(/^#[0-9a-fA-F]{6}$/, {

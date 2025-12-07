@@ -153,10 +153,7 @@ function formatTime24Hour(hour: number, minute: string): string {
 /**
  * Convert UTC timestamp to local timezone and format
  */
-function formatLocalDateTime(
-  parts: RegExpMatchArray,
-  timeFormat?: '12-hour' | '24-hour'
-): string {
+function formatLocalDateTime(parts: RegExpMatchArray, timeFormat?: '12-hour' | '24-hour'): string {
   const [, year, month, day, hour, minute, second] = parts
   const utcDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`)
   const localHour = utcDate.getHours()
@@ -201,9 +198,7 @@ function formatDateTime(
   const hourNum = parseInt(hour || '0', 10)
   const minuteStr = minute || '00'
 
-  return timeFormat === '12-hour'
-    ? formatTime12Hour(hourNum, minuteStr)
-    : `${hour}:${minuteStr}`
+  return timeFormat === '12-hour' ? formatTime12Hour(hourNum, minuteStr) : `${hour}:${minuteStr}`
 }
 
 /**
