@@ -2680,7 +2680,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-070: should get week number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
