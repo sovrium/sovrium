@@ -2157,7 +2157,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-053: should return NULL with BLANK expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
