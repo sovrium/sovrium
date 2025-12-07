@@ -226,7 +226,16 @@ describe('createDatabaseIdentifierSchema', () => {
 
     test('should reject common SQL reserved keywords', () => {
       // Given: Reserved SQL keywords
-      const reservedKeywords = ['select', 'insert', 'update', 'delete', 'user', 'order', 'group', 'table']
+      const reservedKeywords = [
+        'select',
+        'insert',
+        'update',
+        'delete',
+        'user',
+        'order',
+        'group',
+        'table',
+      ]
 
       // When: Each keyword is validated against the schema
       // Then: All should throw validation errors mentioning reserved keywords

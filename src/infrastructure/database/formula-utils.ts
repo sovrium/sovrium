@@ -20,6 +20,8 @@ const volatileSQLFunctions = [
   'CLOCK_TIMESTAMP()',
   'RANDOM()',
   'SETSEED(',
+  'DECODE(',
+  'CONVERT_FROM(',
 ]
 
 /**

@@ -1763,7 +1763,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-042: should convert ASCII code to character with CHR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -1803,7 +1803,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-043: should convert character to ASCII code with ASCII function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -1843,7 +1843,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-044: should encode to base64 with ENCODE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -1877,7 +1877,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-045: should decode from base64 with DECODE function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -1911,7 +1911,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-046: should URL encode with custom expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

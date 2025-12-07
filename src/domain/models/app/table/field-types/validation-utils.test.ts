@@ -97,9 +97,7 @@ describe('validateButtonAction', () => {
   })
 
   test('returns true when action=automation and automation is provided', () => {
-    expect(
-      validateButtonAction({ action: 'automation', automation: 'approve_request' })
-    ).toBe(true)
+    expect(validateButtonAction({ action: 'automation', automation: 'approve_request' })).toBe(true)
   })
 
   test('returns error when action=automation and automation is missing', () => {
