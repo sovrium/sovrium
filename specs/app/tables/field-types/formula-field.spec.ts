@@ -1651,7 +1651,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-039: should repeat text with REPEAT function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
