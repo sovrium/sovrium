@@ -2318,7 +2318,7 @@ test.describe('Formula Field', () => {
   // Phase 4: Date/Time Functions (059-076)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-058: should compare date with CURRENT_DATE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
