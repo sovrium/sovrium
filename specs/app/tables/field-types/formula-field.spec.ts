@@ -1763,7 +1763,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-042: should convert ASCII code to character with CHR function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
