@@ -2743,7 +2743,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-072: should count calendar days between dates',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
