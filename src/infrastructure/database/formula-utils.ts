@@ -36,6 +36,9 @@ export const isFormulaVolatile = (formula: string): boolean => {
 /**
  * SQL functions that return array types
  * Used to automatically adjust column type when formula returns an array
+ *
+ * @example
+ * STRING_TO_ARRAY('a,b,c', ',') → ['a', 'b', 'c'] (TEXT[])
  */
 const arrayReturningFunctions = ['STRING_TO_ARRAY']
 

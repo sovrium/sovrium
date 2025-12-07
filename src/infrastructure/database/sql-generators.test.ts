@@ -627,6 +627,72 @@ describe('sql-generators', () => {
       // Then
       expect(result).toBe('computed TEXT GENERATED ALWAYS AS (value) STORED')
     })
+
+    test('auto-detects TEXT[] for STRING_TO_ARRAY formula without array resultType', () => {
+      // Given
+      const field = {
+        name: 'parts',
+        type: 'formula',
+        formula: "STRING_TO_ARRAY(text, ',')",
+        resultType: 'text',
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe("parts TEXT[] GENERATED ALWAYS AS (STRING_TO_ARRAY(text, ',')) STORED")
+    })
+
+    test('does not add duplicate [] when resultType already specifies array', () => {
+      // Given
+      const field = {
+        name: 'items',
+        type: 'formula',
+        formula: "STRING_TO_ARRAY(data, ';')",
+        resultType: 'text[]',
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe("items TEXT[] GENERATED ALWAYS AS (STRING_TO_ARRAY(data, ';')) STORED")
+    })
+
+    test('handles STRING_TO_ARRAY with string[] resultType', () => {
+      // Given
+      const field = {
+        name: 'values',
+        type: 'formula',
+        formula: "STRING_TO_ARRAY(field, ',')",
+        resultType: 'string[]',
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe("values TEXT[] GENERATED ALWAYS AS (STRING_TO_ARRAY(field, ',')) STORED")
+    })
+
+    test('translates SUBSTR in formula with array detection', () => {
+      // Given
+      const field = {
+        name: 'parts',
+        type: 'formula',
+        formula: "STRING_TO_ARRAY(SUBSTR(text, 1, 10), ',')",
+        resultType: 'text',
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe(
+        "parts TEXT[] GENERATED ALWAYS AS (STRING_TO_ARRAY(SUBSTRING(text FROM 1 FOR 10), ',')) STORED"
+      )
+    })
   })
 
   describe('generateUniqueConstraints', () => {
