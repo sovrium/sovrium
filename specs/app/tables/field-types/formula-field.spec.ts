@@ -2651,7 +2651,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-069: should get day of week',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
