@@ -3922,7 +3922,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-110: should handle long formula expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
