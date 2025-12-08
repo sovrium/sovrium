@@ -3713,7 +3713,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-103: should mix arithmetic and text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
