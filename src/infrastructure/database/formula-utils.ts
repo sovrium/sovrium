@@ -81,6 +81,10 @@ export const isFormulaReturningArray = (formula: string): boolean => {
 /**
  * Translate formula from user-friendly syntax to PostgreSQL syntax
  * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
+ *
+ * NOTE: PostgreSQL natively supports nested function calls like ROUND(SQRT(ABS(value)), 2)
+ * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), so they don't
+ * need translation and are passed through unchanged.
  */
 export const translateFormulaToPostgres = (formula: string): string => {
   // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
