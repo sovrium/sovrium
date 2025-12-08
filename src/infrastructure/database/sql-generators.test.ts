@@ -693,6 +693,22 @@ describe('sql-generators', () => {
         "parts TEXT[] GENERATED ALWAYS AS (STRING_TO_ARRAY(SUBSTRING(text FROM 1 FOR 10), ',')) STORED"
       )
     })
+
+    test('generates GENERATED column for nested function calls', () => {
+      // Given
+      const field = {
+        name: 'result',
+        type: 'formula',
+        formula: 'ROUND(SQRT(ABS(value)), 2)',
+        resultType: 'decimal',
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe('result DECIMAL GENERATED ALWAYS AS (ROUND(SQRT(ABS(value)), 2)) STORED')
+    })
   })
 
   describe('generateUniqueConstraints', () => {
