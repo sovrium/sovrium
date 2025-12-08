@@ -3320,7 +3320,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-090: should handle division by zero',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
