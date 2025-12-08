@@ -3203,7 +3203,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-086: should extract regex match',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
