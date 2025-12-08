@@ -3272,7 +3272,7 @@ test.describe('Formula Field', () => {
   // Phase 8: Operators & Edge Cases (089-115)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-088: should compute modulo with % operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
