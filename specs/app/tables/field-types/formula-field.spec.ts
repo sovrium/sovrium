@@ -3834,7 +3834,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-107: should handle whitespace in formulas',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
