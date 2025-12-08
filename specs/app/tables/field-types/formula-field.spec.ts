@@ -3530,7 +3530,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-097: should compare with < operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
