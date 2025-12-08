@@ -264,7 +264,7 @@ export const generateAlterTableStatements = (
 
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
-    const columnDef = generateColumnDefinition(field, isPrimaryKey)
+    const columnDef = generateColumnDefinition(field, isPrimaryKey, table.fields)
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 

@@ -44,8 +44,8 @@ export const generateVolatileFormulaTriggerFunction = (
   const functionName = `compute_${tableName}_formulas`
   const assignments = volatileFields
     .map((field) => {
-      // Translate formula to PostgreSQL syntax (e.g., SUBSTR → SUBSTRING)
-      const translatedFormula = translateFormulaToPostgres(field.formula)
+      // Translate formula to PostgreSQL syntax (e.g., SUBSTR → SUBSTRING, date::TEXT → TO_CHAR)
+      const translatedFormula = translateFormulaToPostgres(field.formula, fields)
       // Replace column references with NEW.column_name
       // We need to handle this carefully - for now, use dynamic SQL with NEW.*
       return `  SELECT (${translatedFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`

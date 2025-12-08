@@ -81,14 +81,39 @@ export const isFormulaReturningArray = (formula: string): boolean => {
 /**
  * Translate formula from user-friendly syntax to PostgreSQL syntax
  * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
+ * Converts date_field::TEXT to TO_CHAR(date_field, 'YYYY-MM-DD') for immutability
  *
  * NOTE: PostgreSQL natively supports nested function calls like ROUND(SQRT(ABS(value)), 2)
  * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), so they don't
  * need translation and are passed through unchanged.
  */
-export const translateFormulaToPostgres = (formula: string): string => {
+export const translateFormulaToPostgres = (
+  formula: string,
+  allFields?: readonly { name: string; type: string }[]
+): string => {
+  // Translate date/datetime/time field casts to TEXT using TO_CHAR
+  // DATE::TEXT depends on DateStyle (volatile), but TO_CHAR with format is immutable
+  const withDateToText = allFields
+    ? formula.replace(/(\w+)::TEXT/gi, (match, fieldName) => {
+        const field = allFields.find((f) => f.name.toLowerCase() === fieldName.toLowerCase())
+        if (field && (field.type === 'date' || field.type === 'datetime' || field.type === 'time')) {
+          // Use appropriate format based on field type
+          if (field.type === 'date') {
+            return `TO_CHAR(${fieldName}, 'YYYY-MM-DD')`
+          }
+          if (field.type === 'datetime') {
+            return `TO_CHAR(${fieldName}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
+          }
+          if (field.type === 'time') {
+            return `TO_CHAR(${fieldName}, 'HH24:MI:SS')`
+          }
+        }
+        return match // Keep original for non-date fields (e.g., num::TEXT)
+      })
+    : formula
+
   // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
-  return formula.replace(
+  return withDateToText.replace(
     /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
     (_, text, start, length) => `SUBSTRING(${text.trim()} FROM ${start} FOR ${length})`
   )

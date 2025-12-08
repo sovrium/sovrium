@@ -54,6 +54,51 @@ describe('translateFormulaToPostgres', () => {
       "CASE status WHEN 'pending' THEN 'Waiting' WHEN 'active' THEN 'In Progress' WHEN 'done' THEN 'Completed' ELSE 'Unknown' END"
     expect(translateFormulaToPostgres(input)).toBe(input)
   })
+
+  test('should translate date field ::TEXT to TO_CHAR with format', () => {
+    const fields = [
+      { name: 'date_value', type: 'date' },
+      { name: 'num', type: 'integer' },
+    ]
+    const input = 'date_value::TEXT'
+    const expected = "TO_CHAR(date_value, 'YYYY-MM-DD')"
+    expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+  })
+
+  test('should NOT translate non-date field ::TEXT casts', () => {
+    const fields = [
+      { name: 'date_value', type: 'date' },
+      { name: 'num', type: 'integer' },
+    ]
+    const input = 'num::TEXT'
+    expect(translateFormulaToPostgres(input, fields)).toBe(input)
+  })
+
+  test('should translate datetime field ::TEXT to TO_CHAR with ISO format', () => {
+    const fields = [{ name: 'created_at', type: 'datetime' }]
+    const input = 'created_at::TEXT'
+    const expected = `TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
+    expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+  })
+
+  test('should translate time field ::TEXT to TO_CHAR with time format', () => {
+    const fields = [{ name: 'start_time', type: 'time' }]
+    const input = 'start_time::TEXT'
+    const expected = "TO_CHAR(start_time, 'HH24:MI:SS')"
+    expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+  })
+
+  test('should handle case-insensitive field names', () => {
+    const fields = [{ name: 'date_value', type: 'date' }]
+    const input = 'DATE_VALUE::TEXT'
+    const expected = "TO_CHAR(DATE_VALUE, 'YYYY-MM-DD')"
+    expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+  })
+
+  test('should work without fields array (backward compatibility)', () => {
+    const input = 'field::TEXT'
+    expect(translateFormulaToPostgres(input)).toBe(input)
+  })
 })
 
 describe('isFormulaVolatile', () => {
