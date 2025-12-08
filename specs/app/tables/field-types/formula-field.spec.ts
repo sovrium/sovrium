@@ -3105,7 +3105,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-083: should return created timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
