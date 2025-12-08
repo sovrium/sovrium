@@ -3376,7 +3376,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-092: should coerce text to number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
