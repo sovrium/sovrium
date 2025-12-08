@@ -3171,7 +3171,7 @@ test.describe('Formula Field', () => {
   // Phase 7: REGEX Functions (086-088)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-085: should match regex pattern',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
