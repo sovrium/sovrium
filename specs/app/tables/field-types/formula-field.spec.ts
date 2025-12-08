@@ -3136,7 +3136,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-084: should return last modified timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
