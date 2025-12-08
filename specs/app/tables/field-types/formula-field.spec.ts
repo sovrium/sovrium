@@ -3682,7 +3682,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-102: should respect parentheses grouping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
