@@ -220,7 +220,11 @@ const generateDefaultClause = (field: Fields[number]): string => {
  * GENERATED ALWAYS AS because PostgreSQL requires generated columns to be immutable.
  * For volatile formulas, we create regular columns and handle computation via triggers.
  */
-export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean): string => {
+export const generateColumnDefinition = (
+  field: Fields[number],
+  isPrimaryKey: boolean,
+  allFields?: readonly Fields[number][]
+): string => {
   // SERIAL columns for auto-increment fields
   if (shouldUseSerial(field, isPrimaryKey)) {
     return generateSerialColumn(field.name)
@@ -240,8 +244,8 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
         ? `${baseResultType}[]`
         : baseResultType
 
-    // Translate formula to PostgreSQL syntax
-    const translatedFormula = translateFormulaToPostgres(field.formula)
+    // Translate formula to PostgreSQL syntax with field type context
+    const translatedFormula = translateFormulaToPostgres(field.formula, allFields)
 
     // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
     // because PostgreSQL GENERATED columns must be immutable

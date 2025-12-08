@@ -3713,7 +3713,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-103: should mix arithmetic and text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3743,7 +3743,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-104: should coerce boolean to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3773,7 +3773,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-105: should coerce date to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3804,7 +3804,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-106: should handle empty string',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3834,7 +3834,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-107: should handle whitespace in formulas',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3864,7 +3864,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-108: should handle case sensitivity in field names',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
