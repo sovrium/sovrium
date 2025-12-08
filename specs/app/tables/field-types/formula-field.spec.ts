@@ -3237,7 +3237,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-087: should replace with regex',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
