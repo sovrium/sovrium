@@ -3864,7 +3864,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-108: should handle case sensitivity in field names',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
