@@ -3658,7 +3658,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-101: should apply unary minus operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
