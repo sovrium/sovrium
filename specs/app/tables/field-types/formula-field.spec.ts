@@ -3296,7 +3296,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-089: should handle NULL in arithmetic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
