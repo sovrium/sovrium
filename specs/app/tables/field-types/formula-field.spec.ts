@@ -3048,7 +3048,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-081: should count array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3081,7 +3081,7 @@ test.describe('Formula Field', () => {
   // Phase 6: Record Functions (083-085)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-082: should return record ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3105,7 +3105,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-083: should return created timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3136,7 +3136,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-084: should return last modified timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3171,7 +3171,7 @@ test.describe('Formula Field', () => {
   // Phase 7: REGEX Functions (086-088)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-085: should match regex pattern',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

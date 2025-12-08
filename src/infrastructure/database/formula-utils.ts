@@ -60,12 +60,18 @@ const arrayReturningFunctions = ['STRING_TO_ARRAY']
  * Check if formula returns an array type
  * Some PostgreSQL functions return arrays regardless of input type
  * NOTE: ARRAY_TO_STRING wraps an array and returns text, so check for it first
+ * NOTE: CARDINALITY wraps an array and returns integer, so check for it too
  */
 export const isFormulaReturningArray = (formula: string): boolean => {
   const upperFormula = formula.toUpperCase().trim()
 
   // If formula starts with ARRAY_TO_STRING, the result is text, not array
   if (upperFormula.startsWith('ARRAY_TO_STRING(')) {
+    return false
+  }
+
+  // If formula starts with CARDINALITY, the result is integer, not array
+  if (upperFormula.startsWith('CARDINALITY(')) {
     return false
   }
 

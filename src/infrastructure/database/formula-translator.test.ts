@@ -213,4 +213,18 @@ describe('isFormulaReturningArray', () => {
     const formula = "COALESCE(STRING_TO_ARRAY(items, ','), ARRAY[]::TEXT[])"
     expect(isFormulaReturningArray(formula)).toBe(true)
   })
+
+  test('should return false when CARDINALITY wraps STRING_TO_ARRAY (returns integer, not array)', () => {
+    const formula = "CARDINALITY(STRING_TO_ARRAY(items, ','))"
+    expect(isFormulaReturningArray(formula)).toBe(false)
+  })
+
+  test('should return false when CARDINALITY is at the start (case-insensitive)', () => {
+    const formulaUpper = "CARDINALITY(some_array)"
+    const formulaLower = "cardinality(some_array)"
+    const formulaMixed = "Cardinality(some_array)"
+    expect(isFormulaReturningArray(formulaUpper)).toBe(false)
+    expect(isFormulaReturningArray(formulaLower)).toBe(false)
+    expect(isFormulaReturningArray(formulaMixed)).toBe(false)
+  })
 })
