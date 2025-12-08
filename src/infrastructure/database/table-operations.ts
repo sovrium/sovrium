@@ -62,7 +62,7 @@ export const generateCreateTableSQL = (table: Table): string => {
   // Filter out UI-only fields (like button) that don't need database columns
   const columnDefinitions = table.fields.filter(shouldCreateDatabaseColumn).map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
-    return generateColumnDefinition(field, isPrimaryKey)
+    return generateColumnDefinition(field, isPrimaryKey, table.fields)
   })
 
   // Add PRIMARY KEY constraint on id if no custom primary key is defined
