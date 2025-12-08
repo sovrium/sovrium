@@ -3434,7 +3434,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-094: should concatenate with & operator equivalent',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
