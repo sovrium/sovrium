@@ -4226,7 +4226,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-119: should derive status from conditions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
