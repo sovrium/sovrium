@@ -408,7 +408,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-007: should apply conditions to filter lookup results',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
