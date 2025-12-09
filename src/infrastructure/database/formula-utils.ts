@@ -247,6 +247,101 @@ const parseRoundArgs = (
 }
 
 /**
+ * Convert date/datetime/time field casts to TO_CHAR for immutability
+ * DATE::TEXT depends on DateStyle (volatile), but TO_CHAR with format is immutable
+ */
+const translateDateCastsToToChar = (
+  formula: string,
+  allFields?: readonly { name: string; type: string }[]
+): string => {
+  if (!allFields) return formula
+
+  return formula.replace(/(\w+)::TEXT/gi, (match, fieldName) => {
+    const field = allFields.find((f) => f.name.toLowerCase() === fieldName.toLowerCase())
+    if (field && (field.type === 'date' || field.type === 'datetime' || field.type === 'time')) {
+      // Use appropriate format based on field type
+      if (field.type === 'date') {
+        return `TO_CHAR(${escapeFieldName(fieldName)}, 'YYYY-MM-DD')`
+      }
+      if (field.type === 'datetime') {
+        return `TO_CHAR(${escapeFieldName(fieldName)}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
+      }
+      if (field.type === 'time') {
+        return `TO_CHAR(${escapeFieldName(fieldName)}, 'HH24:MI:SS')`
+      }
+    }
+    return match // Keep original for non-date fields (e.g., num::TEXT)
+  })
+}
+
+/**
+ * Convert SUBSTR to SUBSTRING with PostgreSQL syntax
+ * SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
+ */
+const translateSubstrToSubstring = (formula: string): string =>
+  formula.replace(
+    /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
+    (_, text, start, length) => {
+      const trimmedText = text.trim()
+      // Only escape if it's a field name (not already a function call or quoted)
+      const escapedText =
+        trimmedText.match(/^\w+$/) ? escapeFieldName(trimmedText) : trimmedText
+      return `SUBSTRING(${escapedText} FROM ${start} FOR ${length})`
+    }
+  )
+
+/**
+ * Cast ROUND arguments to NUMERIC when input may be double precision
+ * PostgreSQL's ROUND(numeric, integer) exists but ROUND(double precision, integer) does not
+ */
+const addNumericCastToRound = (formula: string): string => {
+  // Find all ROUND( occurrences and build replacement list
+  const roundMatches = [...formula.matchAll(/ROUND\s*\(/gi)]
+  const replacements = roundMatches
+    .map((match) => parseRoundArgs(formula, match.index ?? 0, match[0].length))
+    .filter((parsed): parsed is NonNullable<typeof parsed> => parsed !== undefined)
+    .filter((parsed) => /SQRT|POWER|EXP|LN|LOG/i.test(parsed.firstArg))
+    .map((parsed) => ({
+      start: parsed.start,
+      end: parsed.end,
+      replacement: `ROUND((${parsed.firstArg})::NUMERIC, ${parsed.secondArg})`,
+    }))
+
+  // Apply replacements in reverse order to maintain indices
+  // Sort immutably using toSorted (ES2023)
+  const sortedReplacements = replacements.toSorted((a, b) => b.start - a.start)
+
+  return sortedReplacements.reduce(
+    (result, { start, end, replacement }) => result.slice(0, start) + replacement + result.slice(end),
+    formula
+  )
+}
+
+/**
+ * Escape reserved word field names in formulas
+ * Handles references like "order_num * 2" → "\"order_num\" * 2"
+ */
+const escapeReservedFieldNames = (
+  formula: string,
+  allFields?: readonly { name: string; type: string }[]
+): string => {
+  if (!allFields) return formula
+
+  return allFields.reduce((acc, field) => {
+    // Only escape this field if it needs escaping
+    if (!containsReservedWord(field.name)) {
+      return acc
+    }
+
+    // Create a regex that matches the field name as a whole word
+    // Use word boundaries (\b) to ensure we only match complete field names
+    // Use negative lookbehind to avoid matching if already quoted
+    const fieldRegex = new RegExp(`(?<!["'])\\b${field.name}\\b(?!["'])`, 'gi')
+    return acc.replace(fieldRegex, (match) => escapeFieldName(match))
+  }, formula)
+}
+
+/**
  * Translate formula from user-friendly syntax to PostgreSQL syntax
  * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
  * Converts date_field::TEXT to TO_CHAR(date_field, 'YYYY-MM-DD') for immutability
@@ -262,80 +357,8 @@ export const translateFormulaToPostgres = (
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string => {
-  // Translate date/datetime/time field casts to TEXT using TO_CHAR
-  // DATE::TEXT depends on DateStyle (volatile), but TO_CHAR with format is immutable
-  const withDateToText = allFields
-    ? formula.replace(/(\w+)::TEXT/gi, (match, fieldName) => {
-        const field = allFields.find((f) => f.name.toLowerCase() === fieldName.toLowerCase())
-        if (field && (field.type === 'date' || field.type === 'datetime' || field.type === 'time')) {
-          // Use appropriate format based on field type
-          if (field.type === 'date') {
-            return `TO_CHAR(${escapeFieldName(fieldName)}, 'YYYY-MM-DD')`
-          }
-          if (field.type === 'datetime') {
-            return `TO_CHAR(${escapeFieldName(fieldName)}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
-          }
-          if (field.type === 'time') {
-            return `TO_CHAR(${escapeFieldName(fieldName)}, 'HH24:MI:SS')`
-          }
-        }
-        return match // Keep original for non-date fields (e.g., num::TEXT)
-      })
-    : formula
-
-  // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
-  const withSubstring = withDateToText.replace(
-    /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
-    (_, text, start, length) => {
-      const trimmedText = text.trim()
-      // Only escape if it's a field name (not already a function call or quoted)
-      const escapedText =
-        trimmedText.match(/^\w+$/) ? escapeFieldName(trimmedText) : trimmedText
-      return `SUBSTRING(${escapedText} FROM ${start} FOR ${length})`
-    }
-  )
-
-  // ROUND with double precision functions (SQRT, POWER, EXP, LN, LOG) needs ::NUMERIC cast
-  // PostgreSQL's ROUND(numeric, integer) exists but ROUND(double precision, integer) does not
-  // We need to handle nested parentheses properly by finding matching pairs
-
-  // Find all ROUND( occurrences and build replacement list
-  const roundMatches = [...withSubstring.matchAll(/ROUND\s*\(/gi)]
-  const replacements = roundMatches
-    .map((match) => parseRoundArgs(withSubstring, match.index ?? 0, match[0].length))
-    .filter((parsed): parsed is NonNullable<typeof parsed> => parsed !== undefined)
-    .filter((parsed) => /SQRT|POWER|EXP|LN|LOG/i.test(parsed.firstArg))
-    .map((parsed) => ({
-      start: parsed.start,
-      end: parsed.end,
-      replacement: `ROUND((${parsed.firstArg})::NUMERIC, ${parsed.secondArg})`,
-    }))
-
-  // Apply replacements in reverse order to maintain indices
-  // Sort immutably using toSorted (ES2023)
-  const sortedReplacements = replacements.toSorted((a, b) => b.start - a.start)
-
-  const withRoundCast = sortedReplacements.reduce(
-    (result, { start, end, replacement }) => result.slice(0, start) + replacement + result.slice(end),
-    withSubstring
-  )
-
-  // Escape field names in formulas (match word boundaries to avoid escaping function names)
-  // This handles references like "order_num * 2" → "\"order_num\" * 2"
-  if (allFields) {
-    return allFields.reduce((acc, field) => {
-      // Only escape this field if it needs escaping
-      if (!containsReservedWord(field.name)) {
-        return acc
-      }
-
-      // Create a regex that matches the field name as a whole word
-      // Use word boundaries (\b) to ensure we only match complete field names
-      // Use negative lookbehind to avoid matching if already quoted
-      const fieldRegex = new RegExp(`(?<!["'])\\b${field.name}\\b(?!["'])`, 'gi')
-      return acc.replace(fieldRegex, (match) => escapeFieldName(match))
-    }, withRoundCast)
-  }
-
-  return withRoundCast
+  const withDateToText = translateDateCastsToToChar(formula, allFields)
+  const withSubstring = translateSubstrToSubstring(withDateToText)
+  const withRoundCast = addNumericCastToRound(withSubstring)
+  return escapeReservedFieldNames(withRoundCast, allFields)
 }
