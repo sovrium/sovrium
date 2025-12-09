@@ -6,6 +6,117 @@
  */
 
 /**
+ * Reserved SQL keywords that require escaping when used in identifiers
+ * Based on PostgreSQL reserved keywords list
+ * @see https://www.postgresql.org/docs/current/sql-keywords-appendix.html
+ */
+const SQL_RESERVED_KEYWORDS = new Set([
+  'select',
+  'insert',
+  'update',
+  'delete',
+  'from',
+  'where',
+  'join',
+  'inner',
+  'outer',
+  'left',
+  'right',
+  'full',
+  'cross',
+  'on',
+  'as',
+  'table',
+  'create',
+  'alter',
+  'drop',
+  'truncate',
+  'add',
+  'column',
+  'constraint',
+  'primary',
+  'foreign',
+  'key',
+  'references',
+  'unique',
+  'index',
+  'view',
+  'database',
+  'schema',
+  'grant',
+  'revoke',
+  'transaction',
+  'commit',
+  'rollback',
+  'union',
+  'intersect',
+  'except',
+  'group',
+  'having',
+  'order',
+  'limit',
+  'offset',
+  'distinct',
+  'all',
+  'any',
+  'some',
+  'exists',
+  'in',
+  'between',
+  'like',
+  'ilike',
+  'and',
+  'or',
+  'not',
+  'null',
+  'is',
+  'true',
+  'false',
+  'case',
+  'when',
+  'then',
+  'else',
+  'end',
+  'cast',
+  'default',
+  'check',
+  'user',
+  'current_user',
+  'session_user',
+  'current_date',
+  'current_time',
+  'current_timestamp',
+])
+
+/**
+ * Check if an identifier needs escaping due to reserved words
+ * Split identifier by underscores and check if any token is a reserved word
+ * Examples:
+ * - "order" → needs escaping (is reserved word)
+ * - "order_num" → needs escaping (token "order" is reserved)
+ * - "created_at" → no escaping ("created" and "at" on their own are not problematic)
+ * - "user_id" → needs escaping (token "user" is reserved)
+ * - "select" → needs escaping (is reserved word)
+ */
+const containsReservedWord = (identifier: string): boolean => {
+  const lowerIdentifier = identifier.toLowerCase()
+  // Check if the identifier itself is a reserved word
+  if (SQL_RESERVED_KEYWORDS.has(lowerIdentifier)) {
+    return true
+  }
+  // Split by underscores and check each token
+  const tokens = lowerIdentifier.split('_')
+  return tokens.some((token) => SQL_RESERVED_KEYWORDS.has(token))
+}
+
+/**
+ * Escape a field name for use in SQL if it contains reserved words
+ * PostgreSQL uses double quotes for identifier escaping
+ */
+const escapeFieldName = (fieldName: string): string =>
+  containsReservedWord(fieldName) ? `"${fieldName}"` : fieldName
+
+/**
  * Volatile SQL functions that cannot be used in GENERATED ALWAYS AS columns
  * These functions return different values on each call or depend on external state
  */
@@ -140,6 +251,7 @@ const parseRoundArgs = (
  * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
  * Converts date_field::TEXT to TO_CHAR(date_field, 'YYYY-MM-DD') for immutability
  * Casts ROUND arguments to NUMERIC when input may be double precision
+ * Escapes field names that contain reserved words (e.g., order_num → "order_num")
  *
  * NOTE: PostgreSQL natively supports nested function calls like ROUND(SQRT(ABS(value)), 2)
  * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), but ROUND only
@@ -158,13 +270,13 @@ export const translateFormulaToPostgres = (
         if (field && (field.type === 'date' || field.type === 'datetime' || field.type === 'time')) {
           // Use appropriate format based on field type
           if (field.type === 'date') {
-            return `TO_CHAR(${fieldName}, 'YYYY-MM-DD')`
+            return `TO_CHAR(${escapeFieldName(fieldName)}, 'YYYY-MM-DD')`
           }
           if (field.type === 'datetime') {
-            return `TO_CHAR(${fieldName}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
+            return `TO_CHAR(${escapeFieldName(fieldName)}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
           }
           if (field.type === 'time') {
-            return `TO_CHAR(${fieldName}, 'HH24:MI:SS')`
+            return `TO_CHAR(${escapeFieldName(fieldName)}, 'HH24:MI:SS')`
           }
         }
         return match // Keep original for non-date fields (e.g., num::TEXT)
@@ -174,7 +286,13 @@ export const translateFormulaToPostgres = (
   // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
   const withSubstring = withDateToText.replace(
     /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
-    (_, text, start, length) => `SUBSTRING(${text.trim()} FROM ${start} FOR ${length})`
+    (_, text, start, length) => {
+      const trimmedText = text.trim()
+      // Only escape if it's a field name (not already a function call or quoted)
+      const escapedText =
+        trimmedText.match(/^\w+$/) ? escapeFieldName(trimmedText) : trimmedText
+      return `SUBSTRING(${escapedText} FROM ${start} FOR ${length})`
+    }
   )
 
   // ROUND with double precision functions (SQRT, POWER, EXP, LN, LOG) needs ::NUMERIC cast
@@ -197,8 +315,27 @@ export const translateFormulaToPostgres = (
   // Sort immutably using toSorted (ES2023)
   const sortedReplacements = replacements.toSorted((a, b) => b.start - a.start)
 
-  return sortedReplacements.reduce(
+  const withRoundCast = sortedReplacements.reduce(
     (result, { start, end, replacement }) => result.slice(0, start) + replacement + result.slice(end),
     withSubstring
   )
+
+  // Escape field names in formulas (match word boundaries to avoid escaping function names)
+  // This handles references like "order_num * 2" → "\"order_num\" * 2"
+  if (allFields) {
+    return allFields.reduce((acc, field) => {
+      // Only escape this field if it needs escaping
+      if (!containsReservedWord(field.name)) {
+        return acc
+      }
+
+      // Create a regex that matches the field name as a whole word
+      // Use word boundaries (\b) to ensure we only match complete field names
+      // Use negative lookbehind to avoid matching if already quoted
+      const fieldRegex = new RegExp(`(?<!["'])\\b${field.name}\\b(?!["'])`, 'gi')
+      return acc.replace(fieldRegex, (match) => escapeFieldName(match))
+    }, withRoundCast)
+  }
+
+  return withRoundCast
 }
