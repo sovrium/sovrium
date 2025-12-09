@@ -620,7 +620,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-009: should reject organizationScoped table with wrong organization_id field type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
