@@ -4449,7 +4449,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-125: should reject circular formula dependencies',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
