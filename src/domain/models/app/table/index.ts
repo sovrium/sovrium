@@ -341,6 +341,17 @@ export const TableSchema = Schema.Struct({
       }
     }
 
+    // Validate organizationScoped requires organization_id field
+    if (table.permissions?.organizationScoped === true) {
+      const hasOrganizationIdField = table.fields.some((field) => field.name === 'organization_id')
+      if (!hasOrganizationIdField) {
+        return {
+          message: 'organizationScoped requires organization_id field',
+          path: ['permissions', 'organizationScoped'],
+        }
+      }
+    }
+
     return true
   }),
   Schema.annotations({
