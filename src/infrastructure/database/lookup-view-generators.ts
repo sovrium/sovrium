@@ -119,18 +119,19 @@ const generateLookupExpression = (
     if (filters) {
       const whereClause = buildWhereClause(filters, alias)
       return `(
-        SELECT ${alias}.${relatedField}::TEXT
+        SELECT ${alias}.${relatedField}
         FROM ${relatedTable} AS ${alias}
         WHERE ${alias}.id = ${tableName}.${relationshipField} AND ${whereClause}
       ) AS ${lookupName}`
     }
 
     // Direct column reference via LEFT JOIN (handled in main VIEW SELECT)
-    return `${alias}.${relatedField}::TEXT AS ${lookupName}`
+    // Preserve original type (no ::TEXT cast)
+    return `${alias}.${relatedField} AS ${lookupName}`
   }
 
   // Fallback: NULL if relationship is invalid
-  return `NULL::TEXT AS ${lookupName}`
+  return `NULL AS ${lookupName}`
 }
 
 /**
@@ -198,3 +199,113 @@ export const getBaseTableName = (tableName: string): string => `${tableName}_bas
  * Check if a table should use a VIEW (has lookup fields)
  */
 export const shouldUseView = (table: Table): boolean => hasLookupFields(table)
+
+/**
+ * Get base fields (non-lookup, non-id fields)
+ */
+const getBaseFields = (table: Table): readonly string[] =>
+  table.fields.filter((field) => field.type !== 'lookup' && field.name !== 'id').map((field) => field.name)
+
+/**
+ * Generate INSTEAD OF INSERT trigger for a VIEW
+ */
+const generateInsertTrigger = (
+  viewName: string,
+  baseTableName: string,
+  baseFields: readonly string[]
+): readonly string[] => {
+  const insertTriggerFunction = `${viewName}_instead_of_insert`
+  const insertTrigger = `${viewName}_insert_trigger`
+  const insertFieldsList = baseFields.join(', ')
+  const insertValuesList = baseFields.map((name) => `NEW.${name}`).join(', ')
+
+  return [
+    `CREATE OR REPLACE FUNCTION ${insertTriggerFunction}()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO ${baseTableName} (${insertFieldsList})
+  VALUES (${insertValuesList});
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`,
+    `DROP TRIGGER IF EXISTS ${insertTrigger} ON ${viewName}`,
+    `CREATE TRIGGER ${insertTrigger}
+INSTEAD OF INSERT ON ${viewName}
+FOR EACH ROW
+EXECUTE FUNCTION ${insertTriggerFunction}()`,
+  ]
+}
+
+/**
+ * Generate INSTEAD OF UPDATE trigger for a VIEW
+ */
+const generateUpdateTrigger = (
+  viewName: string,
+  baseTableName: string,
+  baseFields: readonly string[]
+): readonly string[] => {
+  const updateTriggerFunction = `${viewName}_instead_of_update`
+  const updateTrigger = `${viewName}_update_trigger`
+  const updateSetList = baseFields.map((name) => `${name} = NEW.${name}`).join(', ')
+
+  return [
+    `CREATE OR REPLACE FUNCTION ${updateTriggerFunction}()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE ${baseTableName}
+  SET ${updateSetList}
+  WHERE id = OLD.id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`,
+    `DROP TRIGGER IF EXISTS ${updateTrigger} ON ${viewName}`,
+    `CREATE TRIGGER ${updateTrigger}
+INSTEAD OF UPDATE ON ${viewName}
+FOR EACH ROW
+EXECUTE FUNCTION ${updateTriggerFunction}()`,
+  ]
+}
+
+/**
+ * Generate INSTEAD OF DELETE trigger for a VIEW
+ */
+const generateDeleteTrigger = (viewName: string, baseTableName: string): readonly string[] => {
+  const deleteTriggerFunction = `${viewName}_instead_of_delete`
+  const deleteTrigger = `${viewName}_delete_trigger`
+
+  return [
+    `CREATE OR REPLACE FUNCTION ${deleteTriggerFunction}()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM ${baseTableName}
+  WHERE id = OLD.id;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql`,
+    `DROP TRIGGER IF EXISTS ${deleteTrigger} ON ${viewName}`,
+    `CREATE TRIGGER ${deleteTrigger}
+INSTEAD OF DELETE ON ${viewName}
+FOR EACH ROW
+EXECUTE FUNCTION ${deleteTriggerFunction}()`,
+  ]
+}
+
+/**
+ * Generate INSTEAD OF triggers for a VIEW to make it writable
+ * These triggers redirect INSERT/UPDATE/DELETE operations to the base table
+ */
+export const generateLookupViewTriggers = (table: Table): readonly string[] => {
+  if (!shouldUseView(table)) {
+    return [] // No VIEW, no triggers needed
+  }
+
+  const baseTableName = getBaseTableName(table.name)
+  const viewName = table.name
+  const baseFields = getBaseFields(table)
+
+  return [
+    ...generateInsertTrigger(viewName, baseTableName, baseFields),
+    ...generateUpdateTrigger(viewName, baseTableName, baseFields),
+    ...generateDeleteTrigger(viewName, baseTableName),
+  ]
+}
