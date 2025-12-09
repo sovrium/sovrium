@@ -587,7 +587,7 @@ test.describe('Organization Data Isolation', () => {
   // Phase: Error Configuration Validation Tests (008-009)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-008: should reject organizationScoped table without organization_id field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

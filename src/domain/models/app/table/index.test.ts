@@ -433,6 +433,92 @@ describe('TableSchema', () => {
     })
   })
 
+  describe('Organization Isolation Validation', () => {
+    test('should reject organizationScoped table without organization_id field', () => {
+      // GIVEN: A table with organizationScoped=true but no organization_id field
+      const table = {
+        id: 1,
+        name: 'projects',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const },
+          { id: 2, name: 'name', type: 'single-line-text' as const },
+        ],
+        permissions: {
+          organizationScoped: true,
+        },
+      }
+
+      // WHEN/THEN: The table validation should fail with specific error message
+      expect(() => {
+        Schema.decodeUnknownSync(TableSchema)(table)
+      }).toThrow(/organizationScoped requires organization_id field/)
+    })
+
+    test('should accept organizationScoped table with organization_id field', () => {
+      // GIVEN: A table with organizationScoped=true and organization_id field
+      const table = {
+        id: 1,
+        name: 'projects',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const },
+          { id: 2, name: 'name', type: 'single-line-text' as const },
+          { id: 3, name: 'organization_id', type: 'single-line-text' as const },
+        ],
+        permissions: {
+          organizationScoped: true,
+        },
+      }
+
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should be accepted
+      expect(result.permissions?.organizationScoped).toBe(true)
+      expect(result.fields.some((f) => f.name === 'organization_id')).toBe(true)
+    })
+
+    test('should accept table without organizationScoped flag', () => {
+      // GIVEN: A table without organizationScoped flag (no organization_id required)
+      const table = {
+        id: 1,
+        name: 'public_table',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const },
+          { id: 2, name: 'title', type: 'single-line-text' as const },
+        ],
+      }
+
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should be accepted (no organization_id field required)
+      expect(result.permissions).toBeUndefined()
+      expect(result.fields.some((f) => f.name === 'organization_id')).toBe(false)
+    })
+
+    test('should accept table with organizationScoped=false', () => {
+      // GIVEN: A table with organizationScoped=false (no organization_id required)
+      const table = {
+        id: 1,
+        name: 'public_table',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const },
+          { id: 2, name: 'title', type: 'single-line-text' as const },
+        ],
+        permissions: {
+          organizationScoped: false,
+        },
+      }
+
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should be accepted (no organization_id field required)
+      expect(result.permissions?.organizationScoped).toBe(false)
+      expect(result.fields.some((f) => f.name === 'organization_id')).toBe(false)
+    })
+  })
+
   describe('Edge Cases', () => {
     test('should accept table with very large number of fields', () => {
       // GIVEN: A table with many fields
