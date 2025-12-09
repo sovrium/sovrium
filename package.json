@@ -142,7 +142,7 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.3.0",
     "drizzle-orm": "^0.44.7",
-    "effect": "^3.19.8",
+    "effect": "^3.19.10",
     "hono": "^4.10.7",
     "jiti": "^2.6.1",
     "lucide-react": "^0.555.0",
