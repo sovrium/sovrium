@@ -247,10 +247,10 @@ const parseRoundArgs = (
 }
 
 /**
- * Convert date/datetime/time field casts to TO_CHAR for immutability
+ * Translate date/datetime/time field casts to TEXT using TO_CHAR
  * DATE::TEXT depends on DateStyle (volatile), but TO_CHAR with format is immutable
  */
-const translateDateCastsToToChar = (
+const translateDateCastsToText = (
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string => {
@@ -275,7 +275,7 @@ const translateDateCastsToToChar = (
 }
 
 /**
- * Convert SUBSTR to SUBSTRING with PostgreSQL syntax
+ * Translate SUBSTR to PostgreSQL SUBSTRING syntax
  * SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
  */
 const translateSubstrToSubstring = (formula: string): string =>
@@ -291,10 +291,10 @@ const translateSubstrToSubstring = (formula: string): string =>
   )
 
 /**
- * Cast ROUND arguments to NUMERIC when input may be double precision
+ * Add NUMERIC casts to ROUND functions that use double precision functions
  * PostgreSQL's ROUND(numeric, integer) exists but ROUND(double precision, integer) does not
  */
-const addNumericCastToRound = (formula: string): string => {
+const addNumericCastsToRound = (formula: string): string => {
   // Find all ROUND( occurrences and build replacement list
   const roundMatches = [...formula.matchAll(/ROUND\s*\(/gi)]
   const replacements = roundMatches
@@ -308,7 +308,6 @@ const addNumericCastToRound = (formula: string): string => {
     }))
 
   // Apply replacements in reverse order to maintain indices
-  // Sort immutably using toSorted (ES2023)
   const sortedReplacements = replacements.toSorted((a, b) => b.start - a.start)
 
   return sortedReplacements.reduce(
@@ -318,8 +317,8 @@ const addNumericCastToRound = (formula: string): string => {
 }
 
 /**
- * Escape reserved word field names in formulas
- * Handles references like "order_num * 2" → "\"order_num\" * 2"
+ * Escape field names that contain reserved words
+ * This handles references like "order_num * 2" → "\"order_num\" * 2"
  */
 const escapeReservedFieldNames = (
   formula: string,
@@ -357,8 +356,8 @@ export const translateFormulaToPostgres = (
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string => {
-  const withDateToText = translateDateCastsToToChar(formula, allFields)
+  const withDateToText = translateDateCastsToText(formula, allFields)
   const withSubstring = translateSubstrToSubstring(withDateToText)
-  const withRoundCast = addNumericCastToRound(withSubstring)
+  const withRoundCast = addNumericCastsToRound(withSubstring)
   return escapeReservedFieldNames(withRoundCast, allFields)
 }
