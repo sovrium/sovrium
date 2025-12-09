@@ -4486,7 +4486,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-126: should reject formula with invalid syntax',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

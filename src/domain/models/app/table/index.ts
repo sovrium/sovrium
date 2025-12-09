@@ -96,7 +96,40 @@ const FORMULA_KEYWORDS = new Set([
   'mod',
   'greatest',
   'least',
+  'exp',
+  'trunc',
+  'log',
+  'ln',
+  'sign',
 ])
+
+/**
+ * Validate formula syntax to detect common syntax errors.
+ * Checks for patterns that would cause SQL syntax errors.
+ *
+ * @param formula - The formula expression to validate
+ * @returns Error message if invalid, undefined if valid
+ */
+const validateFormulaSyntax = (formula: string): string | undefined => {
+  // Check for consecutive operators (e.g., "* *", "+ +", "- -")
+  if (/[+\-*/%]\s*[+\-*/%]/.test(formula)) {
+    return 'Invalid formula syntax: consecutive operators detected'
+  }
+
+  // Check for unmatched parentheses
+  const openParens = (formula.match(/\(/g) || []).length
+  const closeParens = (formula.match(/\)/g) || []).length
+  if (openParens !== closeParens) {
+    return 'Invalid formula syntax: unmatched parentheses'
+  }
+
+  // Check for empty parentheses
+  if (/\(\s*\)/.test(formula)) {
+    return 'Invalid formula syntax: empty parentheses'
+  }
+
+  return undefined
+}
 
 /**
  * Extract potential field references from a formula expression.
@@ -267,6 +300,21 @@ export const TableSchema = Schema.Struct({
     const formulaFields = table.fields.filter(
       (field): field is Extract<typeof field, { type: 'formula' }> => field.type === 'formula'
     )
+
+    // Validate formula syntax first (before checking field references)
+    const syntaxError = formulaFields
+      .map((formulaField) => ({
+        field: formulaField,
+        error: validateFormulaSyntax(formulaField.formula),
+      }))
+      .find((result) => result.error !== undefined)
+
+    if (syntaxError?.error) {
+      return {
+        message: syntaxError.error,
+        path: ['fields'],
+      }
+    }
 
     // Find the first invalid field reference across all formula fields
     const invalidReference = formulaFields
