@@ -151,52 +151,6 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
 }
 
 /**
- * Default roles available in Sovrium.
- * These are the standard roles defined by the organization plugin.
- */
-const DEFAULT_ROLES = new Set(['owner', 'admin', 'member', 'viewer'])
-
-/**
- * Extract all role references from table permissions.
- * Checks table-level and field-level permissions for role references.
- *
- * @param permissions - Table permissions configuration
- * @returns Set of role names referenced in permissions
- */
-const extractRoleReferences = (
-  permissions: {
-    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly fields?: ReadonlyArray<{
-      readonly field: string
-      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    }>
-  }
-): ReadonlySet<string> => {
-  // Check table-level permissions
-  // eslint-disable-next-line drizzle/enforce-delete-with-where
-  const tableLevelPermissions = [permissions.read, permissions.create, permissions.update, permissions.delete]
-  const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
-    permission?.type === 'roles' && permission.roles ? permission.roles : []
-  )
-
-  // Check field-level permissions
-  const fieldLevelRoles = (permissions.fields || []).flatMap((fieldPermission) => [
-    ...(fieldPermission.read?.type === 'roles' && fieldPermission.read.roles
-      ? fieldPermission.read.roles
-      : []),
-    ...(fieldPermission.write?.type === 'roles' && fieldPermission.write.roles
-      ? fieldPermission.write.roles
-      : []),
-  ])
-
-  return new Set([...tableLevelRoles, ...fieldLevelRoles])
-}
-
-/**
  * Detect circular dependencies in formula fields using depth-first search.
  * A circular dependency exists when a formula field references itself directly or indirectly
  * through a chain of other formula fields.
@@ -406,16 +360,73 @@ export const TableSchema = Schema.Struct({
       }
     }
 
-    // Validate that all roles referenced in permissions exist
+    // Validate roles in permissions exist (owner, admin, member, viewer)
     if (table.permissions) {
-      const referencedRoles = extractRoleReferences(table.permissions)
-      const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
+      const VALID_ROLES = ['owner', 'admin', 'member', 'viewer'] as const
+      const validRolesSet = new Set(VALID_ROLES)
 
-      if (invalidRoles.length > 0) {
-        const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
-        return {
-          message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
-          path: ['permissions'],
+      // Helper to check roles in a permission config
+      const checkRolesInPermission = (
+        permission: unknown,
+        permissionPath: ReadonlyArray<string>
+      ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+        if (
+          permission &&
+          typeof permission === 'object' &&
+          'type' in permission &&
+          permission.type === 'roles' &&
+          'roles' in permission &&
+          Array.isArray(permission.roles)
+        ) {
+          const invalidRole = permission.roles.find((role) => !validRolesSet.has(role as string))
+          if (invalidRole) {
+            return {
+              message: `Invalid role '${invalidRole}': role not found. Valid roles are: ${VALID_ROLES.join(', ')}`,
+              path: permissionPath,
+            }
+          }
+        }
+        return undefined
+      }
+
+      // Check table-level permissions (read, create, update, delete)
+      const tableLevelChecks = [
+        { perm: table.permissions.read, path: ['permissions', 'read'] },
+        { perm: table.permissions.create, path: ['permissions', 'create'] },
+        { perm: table.permissions.update, path: ['permissions', 'update'] },
+        { perm: table.permissions.delete, path: ['permissions', 'delete'] },
+      ] as const
+
+      const tableLevelError = tableLevelChecks
+        .map((check) => checkRolesInPermission(check.perm, check.path))
+        .find((result) => result !== undefined)
+
+      if (tableLevelError) {
+        return tableLevelError
+      }
+
+      // Check field-level permissions
+      if (table.permissions.fields) {
+        const fieldPermissionError = table.permissions.fields
+          .map((fieldPerm, index) => {
+            const readError = checkRolesInPermission(fieldPerm.read, [
+              'permissions',
+              'fields',
+              String(index),
+              'read',
+            ])
+            if (readError) return readError
+
+            const writeError = checkRolesInPermission(
+              'write' in fieldPerm ? fieldPerm.write : undefined,
+              ['permissions', 'fields', String(index), 'write']
+            )
+            return writeError
+          })
+          .find((result) => result !== undefined)
+
+        if (fieldPermissionError) {
+          return fieldPermissionError
         }
       }
     }
