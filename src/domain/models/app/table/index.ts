@@ -61,6 +61,41 @@ const FORMULA_KEYWORDS = new Set([
   'true',
   'false',
   'null',
+  'case',
+  'when',
+  'end',
+  'ceil',
+  'floor',
+  'abs',
+  'current_date',
+  'current_time',
+  'current_timestamp',
+  'now',
+  'upper',
+  'lower',
+  'trim',
+  'length',
+  'substr',
+  'substring',
+  'replace',
+  'coalesce',
+  'nullif',
+  'cast',
+  'extract',
+  'date_add',
+  'date_sub',
+  'date_diff',
+  'year',
+  'month',
+  'day',
+  'hour',
+  'minute',
+  'second',
+  'power',
+  'sqrt',
+  'mod',
+  'greatest',
+  'least',
 ])
 
 /**
@@ -80,6 +115,74 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
   return matches
     .map((match) => match.toLowerCase())
     .filter((identifier) => !FORMULA_KEYWORDS.has(identifier))
+}
+
+/**
+ * Detect circular dependencies in formula fields using depth-first search.
+ * A circular dependency exists when a formula field references itself directly or indirectly
+ * through a chain of other formula fields.
+ *
+ * @param fields - Array of fields to validate
+ * @returns Array of field names involved in circular dependencies, or empty array if none found
+ */
+const detectCircularDependencies = (
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
+): ReadonlyArray<string> => {
+  // Build dependency graph: field name -> fields it references
+  const dependencyGraph = new Map<string, ReadonlyArray<string>>()
+
+  for (const field of fields) {
+    if ('formula' in field && typeof field.formula === 'string') {
+      const references = extractFieldReferences(field.formula)
+      dependencyGraph.set(field.name, references)
+    }
+  }
+
+  // Detect cycles using DFS with visited and recursion stack tracking
+  const visited = new Set<string>()
+  const recursionStack = new Set<string>()
+  const cycleNodes: string[] = []
+
+  const hasCycle = (node: string): boolean => {
+    if (recursionStack.has(node)) {
+      // Cycle detected - add to result
+      cycleNodes.push(node)
+      return true
+    }
+
+    if (visited.has(node)) {
+      // Already processed this node
+      return false
+    }
+
+    visited.add(node)
+    recursionStack.add(node)
+
+    const dependencies = dependencyGraph.get(node) || []
+    for (const dep of dependencies) {
+      if (dependencyGraph.has(dep) && hasCycle(dep)) {
+        // Propagate cycle detection
+        if (!cycleNodes.includes(node)) {
+          cycleNodes.push(node)
+        }
+        return true
+      }
+    }
+
+    recursionStack.delete(node)
+    return false
+  }
+
+  // Check all formula fields for cycles
+  for (const fieldName of dependencyGraph.keys()) {
+    if (!visited.has(fieldName)) {
+      if (hasCycle(fieldName)) {
+        break // Stop after finding first cycle
+      }
+    }
+  }
+
+  return cycleNodes
 }
 
 export const TableSchema = Schema.Struct({
@@ -139,6 +242,15 @@ export const TableSchema = Schema.Struct({
     if (invalidReference) {
       return {
         message: `Invalid field reference: field '${invalidReference.invalidField}' not found in formula '${invalidReference.formulaField.formula}'`,
+        path: ['fields'],
+      }
+    }
+
+    // Detect circular dependencies in formula fields
+    const circularFields = detectCircularDependencies(table.fields)
+    if (circularFields.length > 0) {
+      return {
+        message: `Circular dependency detected in formula fields: ${circularFields.join(' -> ')}`,
         path: ['fields'],
       }
     }
