@@ -4096,7 +4096,7 @@ test.describe('Formula Field', () => {
   // Phase 9: Integration Tests (116-123)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-115: should handle complex nested expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
