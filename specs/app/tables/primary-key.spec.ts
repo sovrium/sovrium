@@ -575,7 +575,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-010: should reject composite primary key with duplicate field references',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
