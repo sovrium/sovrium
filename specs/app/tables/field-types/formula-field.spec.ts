@@ -3893,7 +3893,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-109: should handle reserved word escaping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3922,7 +3922,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-110: should handle long formula expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3954,7 +3954,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-111: should handle deeply nested expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -3983,7 +3983,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-112: should support multiple formula fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4031,7 +4031,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-113: should reference another formula field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4062,7 +4062,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-114: should handle all NULL inputs',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4096,7 +4096,7 @@ test.describe('Formula Field', () => {
   // Phase 9: Integration Tests (116-123)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-115: should handle complex nested expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4129,7 +4129,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-116: should calculate invoice total',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4162,7 +4162,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-117: should calculate discount pricing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4196,7 +4196,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-118: should calculate age from birthdate',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4226,7 +4226,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-119: should derive status from conditions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4267,7 +4267,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-120: should format full name',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4299,7 +4299,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-121: should generate URL slug',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -4330,7 +4330,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-122: should track deadline status',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

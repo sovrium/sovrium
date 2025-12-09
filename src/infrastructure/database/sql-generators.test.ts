@@ -706,8 +706,10 @@ describe('sql-generators', () => {
       // When
       const result = generateColumnDefinition(field as any, false)
 
-      // Then
-      expect(result).toBe('result DECIMAL GENERATED ALWAYS AS (ROUND(SQRT(ABS(value)), 2)) STORED')
+      // Then: ROUND with SQRT requires NUMERIC cast because SQRT returns double precision
+      expect(result).toBe(
+        'result DECIMAL GENERATED ALWAYS AS (ROUND((SQRT(ABS(value)))::NUMERIC, 2)) STORED'
+      )
     })
   })
 
