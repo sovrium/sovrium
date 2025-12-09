@@ -157,6 +157,129 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
 const DEFAULT_ROLES = new Set(['owner', 'admin', 'member', 'viewer'])
 
 /**
+ * Validate formula fields in a table (syntax, field references, circular dependencies).
+ *
+ * @param fields - Array of fields to validate
+ * @returns Error object if invalid, undefined if valid
+ */
+const validateFormulaFields = (
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const fieldNames = new Set(fields.map((field) => field.name))
+  const formulaFields = fields.filter(
+    (field): field is typeof field & { readonly formula: string } =>
+      field.type === 'formula' && typeof field.formula === 'string'
+  )
+
+  // Validate formula syntax first (before checking field references)
+  const syntaxError = formulaFields
+    .map((formulaField) => ({
+      field: formulaField,
+      error: validateFormulaSyntax(formulaField.formula),
+    }))
+    .find((result) => result.error !== undefined)
+
+  if (syntaxError?.error) {
+    return {
+      message: syntaxError.error,
+      path: ['fields'],
+    }
+  }
+
+  // Find the first invalid field reference across all formula fields
+  const invalidReference = formulaFields
+    .flatMap((formulaField) => {
+      const referencedFields = extractFieldReferences(formulaField.formula)
+      const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
+      return invalidField ? [{ formulaField, invalidField }] : []
+    })
+    .at(0)
+
+  if (invalidReference) {
+    return {
+      message: `Invalid field reference: field '${invalidReference.invalidField}' not found in formula '${invalidReference.formulaField.formula}'`,
+      path: ['fields'],
+    }
+  }
+
+  // Detect circular dependencies in formula fields
+  const circularFields = detectCircularDependencies(fields)
+  if (circularFields.length > 0) {
+    return {
+      message: `Circular dependency detected in formula fields: ${circularFields.join(' -> ')}`,
+      path: ['fields'],
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate organizationScoped configuration requires organization_id field with correct type.
+ *
+ * @param table - Table to validate
+ * @returns Error object if invalid, undefined if valid
+ */
+const validateOrganizationScoped = (table: {
+  readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
+  readonly permissions?: { readonly organizationScoped?: boolean }
+}): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  if (table.permissions?.organizationScoped !== true) {
+    return undefined
+  }
+
+  const organizationIdField = table.fields.find((field) => field.name === 'organization_id')
+  if (!organizationIdField) {
+    return {
+      message: 'organizationScoped requires organization_id field',
+      path: ['permissions', 'organizationScoped'],
+    }
+  }
+
+  // Validate organization_id field type (must be text-based for Better Auth compatibility)
+  const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number']
+  if (!validTypes.includes(organizationIdField.type)) {
+    return {
+      message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
+      path: ['fields'],
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate that all roles referenced in permissions exist.
+ *
+ * @param permissions - Table permissions configuration
+ * @returns Error object if invalid, undefined if valid
+ */
+const validateRoleReferences = (permissions: {
+  readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly fields?: ReadonlyArray<{
+    readonly field: string
+    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  }>
+}): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const referencedRoles = extractRoleReferences(permissions)
+  const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
+
+  if (invalidRoles.length > 0) {
+    const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
+    return {
+      message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
+      path: ['permissions'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Extract all role references from table permissions.
  * Checks table-level and field-level permissions for role references.
  *
@@ -341,82 +464,23 @@ export const TableSchema = Schema.Struct({
   permissions: Schema.optional(TablePermissionsSchema),
 }).pipe(
   Schema.filter((table) => {
-    // Validate that formula fields only reference existing fields
-    const fieldNames = new Set(table.fields.map((field) => field.name))
-    const formulaFields = table.fields.filter(
-      (field): field is Extract<typeof field, { type: 'formula' }> => field.type === 'formula'
-    )
-
-    // Validate formula syntax first (before checking field references)
-    const syntaxError = formulaFields
-      .map((formulaField) => ({
-        field: formulaField,
-        error: validateFormulaSyntax(formulaField.formula),
-      }))
-      .find((result) => result.error !== undefined)
-
-    if (syntaxError?.error) {
-      return {
-        message: syntaxError.error,
-        path: ['fields'],
-      }
+    // Validate formula fields (syntax, references, circular dependencies)
+    const formulaError = validateFormulaFields(table.fields)
+    if (formulaError) {
+      return formulaError
     }
 
-    // Find the first invalid field reference across all formula fields
-    const invalidReference = formulaFields
-      .flatMap((formulaField) => {
-        const referencedFields = extractFieldReferences(formulaField.formula)
-        const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
-        return invalidField ? [{ formulaField, invalidField }] : []
-      })
-      .at(0)
-
-    if (invalidReference) {
-      return {
-        message: `Invalid field reference: field '${invalidReference.invalidField}' not found in formula '${invalidReference.formulaField.formula}'`,
-        path: ['fields'],
-      }
+    // Validate organizationScoped configuration
+    const orgScopedError = validateOrganizationScoped(table)
+    if (orgScopedError) {
+      return orgScopedError
     }
 
-    // Detect circular dependencies in formula fields
-    const circularFields = detectCircularDependencies(table.fields)
-    if (circularFields.length > 0) {
-      return {
-        message: `Circular dependency detected in formula fields: ${circularFields.join(' -> ')}`,
-        path: ['fields'],
-      }
-    }
-
-    // Validate organizationScoped requires organization_id field
-    if (table.permissions?.organizationScoped === true) {
-      const organizationIdField = table.fields.find((field) => field.name === 'organization_id')
-      if (!organizationIdField) {
-        return {
-          message: 'organizationScoped requires organization_id field',
-          path: ['permissions', 'organizationScoped'],
-        }
-      }
-      // Validate organization_id field type (must be text-based for Better Auth compatibility)
-      const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number']
-      if (!validTypes.includes(organizationIdField.type)) {
-        return {
-          message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
-          path: ['fields'],
-        }
-      }
-    }
-
-    // Validate that all roles referenced in permissions exist
+    // Validate role references in permissions
     if (table.permissions) {
-      const referencedRoles = extractRoleReferences(table.permissions)
-      const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
-
-      if (invalidRoles.length > 0) {
-        const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
-        return {
-          message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
-          path: ['permissions'],
-        }
+      const roleError = validateRoleReferences(table.permissions)
+      if (roleError) {
+        return roleError
       }
     }
 
