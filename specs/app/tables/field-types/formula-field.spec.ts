@@ -4330,7 +4330,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-122: should track deadline status',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
