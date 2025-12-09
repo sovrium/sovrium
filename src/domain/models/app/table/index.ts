@@ -157,59 +157,18 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
 const DEFAULT_ROLES = new Set(['owner', 'admin', 'member', 'viewer'])
 
 /**
- * Extract all role references from table permissions.
- * Checks table-level and field-level permissions for role references.
+ * Validate formula fields in a table (syntax, field references, circular dependencies).
  *
- * @param permissions - Table permissions configuration
- * @returns Set of role names referenced in permissions
- */
-const extractRoleReferences = (
-  permissions: {
-    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly fields?: ReadonlyArray<{
-      readonly field: string
-      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    }>
-  }
-): ReadonlySet<string> => {
-  // Check table-level permissions
-  // eslint-disable-next-line drizzle/enforce-delete-with-where
-  const tableLevelPermissions = [permissions.read, permissions.create, permissions.update, permissions.delete]
-  const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
-    permission?.type === 'roles' && permission.roles ? permission.roles : []
-  )
-
-  // Check field-level permissions
-  const fieldLevelRoles = (permissions.fields || []).flatMap((fieldPermission) => [
-    ...(fieldPermission.read?.type === 'roles' && fieldPermission.read.roles
-      ? fieldPermission.read.roles
-      : []),
-    ...(fieldPermission.write?.type === 'roles' && fieldPermission.write.roles
-      ? fieldPermission.write.roles
-      : []),
-  ])
-
-  return new Set([...tableLevelRoles, ...fieldLevelRoles])
-}
-
-/**
- * Validate formula fields for syntax errors, invalid field references, and circular dependencies.
- *
- * @param fields - Array of table fields
- * @param fieldNames - Set of valid field names in the table
- * @returns Error object if validation fails, undefined if valid
+ * @param fields - Array of fields to validate
+ * @returns Error object if invalid, undefined if valid
  */
 const validateFormulaFields = (
-  fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>,
-  fieldNames: ReadonlySet<string>
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const fieldNames = new Set(fields.map((field) => field.name))
   const formulaFields = fields.filter(
-    (field): field is typeof field & { readonly type: 'formula'; readonly formula: string } =>
-      field.type === 'formula' && 'formula' in field && typeof field.formula === 'string'
+    (field): field is typeof field & { readonly formula: string } =>
+      field.type === 'formula' && typeof field.formula === 'string'
   )
 
   // Validate formula syntax first (before checking field references)
@@ -256,15 +215,20 @@ const validateFormulaFields = (
 }
 
 /**
- * Validate organization-scoped table requirements.
+ * Validate organizationScoped configuration requires organization_id field with correct type.
  *
- * @param fields - Array of table fields
- * @returns Error object if validation fails, undefined if valid
+ * @param table - Table to validate
+ * @returns Error object if invalid, undefined if valid
  */
-const validateOrganizationScoped = (
-  fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
-): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  const organizationIdField = fields.find((field) => field.name === 'organization_id')
+const validateOrganizationScoped = (table: {
+  readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
+  readonly permissions?: { readonly organizationScoped?: boolean }
+}): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  if (table.permissions?.organizationScoped !== true) {
+    return undefined
+  }
+
+  const organizationIdField = table.fields.find((field) => field.name === 'organization_id')
   if (!organizationIdField) {
     return {
       message: 'organizationScoped requires organization_id field',
@@ -282,6 +246,77 @@ const validateOrganizationScoped = (
   }
 
   return undefined
+}
+
+/**
+ * Validate that all roles referenced in permissions exist.
+ *
+ * @param permissions - Table permissions configuration
+ * @returns Error object if invalid, undefined if valid
+ */
+const validateRoleReferences = (permissions: {
+  readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly fields?: ReadonlyArray<{
+    readonly field: string
+    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  }>
+}): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const referencedRoles = extractRoleReferences(permissions)
+  const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
+
+  if (invalidRoles.length > 0) {
+    const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
+    return {
+      message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
+      path: ['permissions'],
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Extract all role references from table permissions.
+ * Checks table-level and field-level permissions for role references.
+ *
+ * @param permissions - Table permissions configuration
+ * @returns Set of role names referenced in permissions
+ */
+const extractRoleReferences = (
+  permissions: {
+    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly fields?: ReadonlyArray<{
+      readonly field: string
+      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    }>
+  }
+): ReadonlySet<string> => {
+  // Check table-level permissions
+  // eslint-disable-next-line drizzle/enforce-delete-with-where
+  const tableLevelPermissions = [permissions.read, permissions.create, permissions.update, permissions.delete]
+  const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
+    permission?.type === 'roles' && permission.roles ? permission.roles : []
+  )
+
+  // Check field-level permissions
+  const fieldLevelRoles = (permissions.fields || []).flatMap((fieldPermission) => [
+    ...(fieldPermission.read?.type === 'roles' && fieldPermission.read.roles
+      ? fieldPermission.read.roles
+      : []),
+    ...(fieldPermission.write?.type === 'roles' && fieldPermission.write.roles
+      ? fieldPermission.write.roles
+      : []),
+  ])
+
+  return new Set([...tableLevelRoles, ...fieldLevelRoles])
 }
 
 /**
@@ -523,18 +558,16 @@ export const TableSchema = Schema.Struct({
   Schema.filter((table) => {
     const fieldNames = new Set(table.fields.map((field) => field.name))
 
-    // Validate formula fields
-    const formulaValidationError = validateFormulaFields(table.fields, fieldNames)
-    if (formulaValidationError) {
-      return formulaValidationError
+    // Validate formula fields (syntax, references, circular dependencies)
+    const formulaError = validateFormulaFields(table.fields)
+    if (formulaError) {
+      return formulaError
     }
 
-    // Validate organizationScoped requires organization_id field
-    if (table.permissions?.organizationScoped === true) {
-      const orgValidationError = validateOrganizationScoped(table.fields)
-      if (orgValidationError) {
-        return orgValidationError
-      }
+    // Validate organizationScoped configuration
+    const orgScopedError = validateOrganizationScoped(table)
+    if (orgScopedError) {
+      return orgScopedError
     }
 
     // Validate field permissions reference existing fields
@@ -553,17 +586,11 @@ export const TableSchema = Schema.Struct({
       }
     }
 
-    // Validate that all roles referenced in permissions exist
+    // Validate role references in permissions
     if (table.permissions) {
-      const referencedRoles = extractRoleReferences(table.permissions)
-      const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
-
-      if (invalidRoles.length > 0) {
-        const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
-        return {
-          message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
-          path: ['permissions'],
-        }
+      const roleError = validateRoleReferences(table.permissions)
+      if (roleError) {
+        return roleError
       }
     }
 
