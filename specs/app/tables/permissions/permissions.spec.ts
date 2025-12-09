@@ -578,7 +578,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-009: should reject record permission with invalid condition field reference',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

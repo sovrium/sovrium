@@ -323,6 +323,60 @@ const validateFieldPermissions = (
 }
 
 /**
+ * Extract field references from a condition string, excluding string literals.
+ * Removes quoted strings before extracting identifiers to avoid treating
+ * literal values as field names.
+ *
+ * @param condition - The condition expression
+ * @returns Array of field names referenced in the condition
+ */
+const extractFieldReferencesFromCondition = (condition: string): ReadonlyArray<string> => {
+  // Remove single-quoted and double-quoted string literals
+  // This prevents treating 'draft' or "admin" as field names
+  const withoutStringLiterals = condition
+    .replace(/'[^']*'/g, '') // Remove single-quoted strings
+    .replace(/"[^"]*"/g, '') // Remove double-quoted strings
+
+  return extractFieldReferences(withoutStringLiterals)
+}
+
+/**
+ * Validate that record permissions reference existing fields in their conditions.
+ *
+ * @param recordPermissions - Array of record permissions to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateRecordPermissions = (
+  recordPermissions: ReadonlyArray<{ readonly action: string; readonly condition: string }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Variable keywords that are allowed in conditions (RLS variables)
+  const variableKeywords = new Set(['userid', 'organizationid', 'roles'])
+
+  const invalidPermission = recordPermissions.find((permission) => {
+    const fieldRefs = extractFieldReferencesFromCondition(permission.condition)
+    const invalidField = fieldRefs.find(
+      (fieldRef) => !fieldNames.has(fieldRef) && !variableKeywords.has(fieldRef)
+    )
+    return invalidField !== undefined
+  })
+
+  if (invalidPermission) {
+    const fieldRefs = extractFieldReferencesFromCondition(invalidPermission.condition)
+    const invalidField = fieldRefs.find(
+      (fieldRef) => !fieldNames.has(fieldRef) && !variableKeywords.has(fieldRef)
+    )
+    return {
+      message: `Invalid field '${invalidField}' in condition - field not found in table`,
+      path: ['permissions', 'records'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Detect circular dependencies in formula fields using depth-first search.
  * A circular dependency exists when a formula field references itself directly or indirectly
  * through a chain of other formula fields.
@@ -488,6 +542,14 @@ export const TableSchema = Schema.Struct({
       const fieldPermissionsError = validateFieldPermissions(table.permissions.fields, fieldNames)
       if (fieldPermissionsError) {
         return fieldPermissionsError
+      }
+    }
+
+    // Validate record permissions reference existing fields
+    if (table.permissions?.records) {
+      const recordPermissionsError = validateRecordPermissions(table.permissions.records, fieldNames)
+      if (recordPermissionsError) {
+        return recordPermissionsError
       }
     }
 
