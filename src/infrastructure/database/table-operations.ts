@@ -13,6 +13,7 @@ import {
   shouldUseView,
   getBaseTableName,
   generateLookupViewSQL,
+  generateLookupViewTriggers,
 } from './lookup-view-generators'
 import {
   generateRLSPolicyStatements,
@@ -231,6 +232,10 @@ export const createLookupViews = async (
     const createViewSQL = generateLookupViewSQL(table)
     if (createViewSQL) {
       await tx.unsafe(createViewSQL)
+
+      // Create INSTEAD OF triggers to make the VIEW writable
+      const triggerStatements = generateLookupViewTriggers(table)
+      await executeSQLStatements(tx, triggerStatements)
     }
   }
 }

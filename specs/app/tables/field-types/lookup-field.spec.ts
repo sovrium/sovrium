@@ -466,7 +466,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-008: should lookup different field types (text, number, date)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -539,7 +539,7 @@ test.describe('Lookup Field', () => {
       const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
       expect(order.product_name).toBe('Widget Pro') // text
       expect(order.product_price).toBe(99.99) // decimal
-      expect(order.product_release_date).toEqual(new Date('2024-03-15')) // date
+      expect(order.product_release_date).toBe('2024-03-15') // date (returned as ISO string by pg fixtures)
       expect(order.product_in_stock).toBe(true) // boolean
     }
   )
