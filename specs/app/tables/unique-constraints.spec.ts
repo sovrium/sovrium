@@ -410,7 +410,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-009: should reject duplicate unique constraint names within the same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
