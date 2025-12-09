@@ -544,7 +544,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-009: should reject lookup field when relationshipField does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

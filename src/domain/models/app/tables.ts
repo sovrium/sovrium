@@ -227,6 +227,63 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     }
     return true
   }),
+  Schema.filter((tables) => {
+    // Validate lookup fields reference existing relationship fields (either in same table or reverse relationship)
+    const tablesByName = new Map(tables.map((table) => [table.name, table]))
+
+    const invalidLookup = tables.flatMap((table) =>
+      table.fields
+        .filter((field) => field.type === 'lookup')
+        .map((lookupField) => {
+          const { relationshipField } = lookupField as { relationshipField: string }
+
+          // Check if relationshipField exists in the same table (forward lookup)
+          const fieldInSameTable = table.fields.find((f) => f.name === relationshipField)
+          if (fieldInSameTable) {
+            // Relationship field found in same table - must be a relationship type
+            if (fieldInSameTable.type !== 'relationship') {
+              return {
+                table: table.name,
+                field: lookupField.name,
+                error: `relationshipField "${relationshipField}" must reference a relationship field`,
+              }
+            }
+            return undefined
+          }
+
+          // Check if relationshipField exists in other tables (reverse lookup)
+          const reverseRelationship = [...tablesByName.values()]
+            .flatMap((otherTable) =>
+              otherTable.fields
+                .filter(
+                  (field) =>
+                    field.type === 'relationship' &&
+                    field.name === relationshipField &&
+                    (field as { relatedTable?: string }).relatedTable === table.name
+                )
+                .map(() => ({ found: true }))
+            )
+            .at(0)
+
+          if (!reverseRelationship) {
+            return {
+              table: table.name,
+              field: lookupField.name,
+              error: `relationshipField "${relationshipField}" not found`,
+            }
+          }
+
+          return undefined
+        })
+        .filter((error) => error !== undefined)
+    ).at(0)
+
+    if (invalidLookup) {
+      return `Lookup field "${invalidLookup.table}.${invalidLookup.field}" ${invalidLookup.error}`
+    }
+
+    return true
+  }),
   Schema.annotations({
     title: 'Data Tables',
     description:
