@@ -40,6 +40,42 @@ import { ViewSchema } from './views'
  * @see docs/specifications/roadmap/tables.md for full specification
  */
 
+/**
+ * Extract potential field references from a formula expression.
+ * This is a simplified parser that extracts identifiers (words) from the formula.
+ * It doesn't handle complex syntax but catches common field reference patterns.
+ */
+const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
+  // Match word characters (field names) - exclude function names and operators
+  // This regex matches identifiers that could be field names
+  const identifierPattern = /\b([a-z_][a-z0-9_]*)\b/gi
+  const matches = formula.match(identifierPattern) || []
+
+  // Filter out common SQL/formula keywords and functions
+  const keywords = new Set([
+    'if',
+    'then',
+    'else',
+    'and',
+    'or',
+    'not',
+    'concat',
+    'round',
+    'sum',
+    'avg',
+    'max',
+    'min',
+    'count',
+    'true',
+    'false',
+    'null',
+  ])
+
+  return matches
+    .map((match) => match.toLowerCase())
+    .filter((identifier) => !keywords.has(identifier))
+}
+
 export const TableSchema = Schema.Struct({
   id: Schema.optional(TableIdSchema),
   name: NameSchema,
@@ -78,6 +114,31 @@ export const TableSchema = Schema.Struct({
    */
   permissions: Schema.optional(TablePermissionsSchema),
 }).pipe(
+  Schema.filter((table) => {
+    // Validate that formula fields only reference existing fields
+    const fieldNames = new Set(table.fields.map((field) => field.name))
+    const formulaFields = table.fields.filter((field) => field.type === 'formula')
+
+    const invalidFormulaField = formulaFields.find((formulaField) => {
+      const referencedFields = extractFieldReferences(
+        (formulaField as { formula: string }).formula
+      )
+      return referencedFields.some((refField) => !fieldNames.has(refField))
+    })
+
+    if (invalidFormulaField) {
+      const referencedFields = extractFieldReferences(
+        (invalidFormulaField as { formula: string }).formula
+      )
+      const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
+      return {
+        message: () => `Invalid field reference: field '${invalidField}' not found`,
+        path: ['fields'],
+      }
+    }
+
+    return true
+  }),
   Schema.annotations({
     title: 'Table',
     description:
