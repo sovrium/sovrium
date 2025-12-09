@@ -517,6 +517,54 @@ describe('TableSchema', () => {
       expect(result.permissions?.organizationScoped).toBe(false)
       expect(result.fields.some((f) => f.name === 'organization_id')).toBe(false)
     })
+
+    test('should reject organizationScoped table with wrong organization_id field type', () => {
+      // GIVEN: A table with organizationScoped=true but organization_id as integer (should be text)
+      const table = {
+        id: 1,
+        name: 'projects',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const },
+          { id: 2, name: 'name', type: 'single-line-text' as const },
+          { id: 3, name: 'organization_id', type: 'integer' as const }, // Should be text type!
+        ],
+        permissions: {
+          organizationScoped: true,
+        },
+      }
+
+      // WHEN/THEN: The table validation should fail with specific error message
+      expect(() => {
+        Schema.decodeUnknownSync(TableSchema)(table)
+      }).toThrow(/organization_id field must be a text type/)
+    })
+
+    test('should accept organizationScoped table with valid text-based organization_id types', () => {
+      // GIVEN: Valid text types for organization_id field
+      const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number'] as const
+
+      validTypes.forEach((fieldType) => {
+        const table = {
+          id: 1,
+          name: 'projects',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const },
+            { id: 2, name: 'name', type: 'single-line-text' as const },
+            { id: 3, name: 'organization_id', type: fieldType },
+          ],
+          permissions: {
+            organizationScoped: true,
+          },
+        }
+
+        // WHEN: The table is validated against the schema
+        const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+        // THEN: The table should be accepted for all valid text types
+        expect(result.permissions?.organizationScoped).toBe(true)
+        expect(result.fields.find((f) => f.name === 'organization_id')?.type).toBe(fieldType)
+      })
+    })
   })
 
   describe('Edge Cases', () => {

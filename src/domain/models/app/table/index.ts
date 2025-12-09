@@ -351,10 +351,10 @@ export const TableSchema = Schema.Struct({
         }
       }
       // Validate organization_id field type (must be text-based for Better Auth compatibility)
-      const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone']
+      const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number']
       if (!validTypes.includes(organizationIdField.type)) {
         return {
-          message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone), got: ${organizationIdField.type}`,
+          message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
           path: ['fields'],
         }
       }
