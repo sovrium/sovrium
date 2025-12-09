@@ -504,7 +504,8 @@ export const generateUniqueConstraints = (
  */
 const generateForeignKeyConstraints = (
   tableName: string,
-  fields: readonly Fields[number][]
+  fields: readonly Fields[number][],
+  tableUsesView?: ReadonlyMap<string, boolean>
 ): readonly string[] => {
   // Generate foreign keys for user fields (type: 'user')
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
@@ -515,7 +516,12 @@ const generateForeignKeyConstraints = (
   // Generate foreign keys for relationship fields (type: 'relationship')
   const relationshipFieldConstraints = fields.filter(isRelationshipField).map((field) => {
     const constraintName = `${tableName}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${field.relatedTable}(id)`
+    // If the related table uses a VIEW (has lookup fields), reference the base table instead
+    const relatedTableName =
+      tableUsesView?.get(field.relatedTable) === true
+        ? `${field.relatedTable}_base`
+        : field.relatedTable
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)`
   })
 
   // TODO: Re-enable foreign keys for created-by/updated-by fields
@@ -560,7 +566,10 @@ const generateCompositeUniqueConstraints = (table: Table): readonly string[] => 
 /**
  * Generate table constraints (CHECK constraints, UNIQUE constraints, FOREIGN KEY, primary key, etc.)
  */
-export const generateTableConstraints = (table: Table): readonly string[] => [
+export const generateTableConstraints = (
+  table: Table,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): readonly string[] => [
   ...generateArrayConstraints(table.fields),
   ...generateMultipleAttachmentsConstraints(table.fields),
   ...generateNumericConstraints(table.fields),
@@ -572,6 +581,6 @@ export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateColorConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateCompositeUniqueConstraints(table),
-  ...generateForeignKeyConstraints(table.name, table.fields),
+  ...generateForeignKeyConstraints(table.name, table.fields, tableUsesView),
   ...generatePrimaryKeyConstraint(table),
 ]

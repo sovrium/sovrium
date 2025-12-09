@@ -86,10 +86,29 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
       // Step 1: Drop tables that exist in database but not in schema
       await dropObsoleteTables(tx, tables)
 
-      // Step 2: Create or migrate tables defined in schema
+      // Step 2: Build map of which tables use VIEWs (have lookup fields)
+      // This is needed for foreign key generation to reference base tables correctly
+      const lookupViewModule = await import('./lookup-view-generators')
+      const tableOpsModule = await import('./table-operations')
+
+      const tableUsesView = new Map<string, boolean>(
+        tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
+      )
+
+      // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
       for (const table of tables) {
-        const exists = await tableExists(tx, table.name)
-        await createOrMigrateTable(tx, table, exists)
+        // Check if the physical table exists (base table for tables with lookup fields)
+        const physicalTableName = lookupViewModule.shouldUseView(table)
+          ? lookupViewModule.getBaseTableName(table.name)
+          : table.name
+        const exists = await tableExists(tx, physicalTableName)
+        await createOrMigrateTable(tx, table, exists, tableUsesView)
+      }
+
+      // Step 4: Create VIEWs for tables with lookup fields (after all base tables exist)
+      // This ensures lookup VIEWs can reference other tables without dependency issues
+      for (const table of tables) {
+        await tableOpsModule.createLookupViews(tx, table)
       }
     })
   } finally {
