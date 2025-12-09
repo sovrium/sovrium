@@ -294,6 +294,7 @@ export const TableSchema = Schema.Struct({
    */
   permissions: Schema.optional(TablePermissionsSchema),
 }).pipe(
+  // eslint-disable-next-line complexity
   Schema.filter((table) => {
     // Validate that formula fields only reference existing fields
     const fieldNames = new Set(table.fields.map((field) => field.name))
@@ -363,7 +364,7 @@ export const TableSchema = Schema.Struct({
     // Validate roles in permissions exist (owner, admin, member, viewer)
     if (table.permissions) {
       const VALID_ROLES = ['owner', 'admin', 'member', 'viewer'] as const
-      const validRolesSet = new Set(VALID_ROLES)
+      const validRolesSet = new Set<string>(VALID_ROLES)
 
       // Helper to check roles in a permission config
       const checkRolesInPermission = (
@@ -394,6 +395,7 @@ export const TableSchema = Schema.Struct({
         { perm: table.permissions.read, path: ['permissions', 'read'] },
         { perm: table.permissions.create, path: ['permissions', 'create'] },
         { perm: table.permissions.update, path: ['permissions', 'update'] },
+        // eslint-disable-next-line drizzle/enforce-delete-with-where
         { perm: table.permissions.delete, path: ['permissions', 'delete'] },
       ] as const
 
