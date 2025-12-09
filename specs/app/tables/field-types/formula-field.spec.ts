@@ -3893,7 +3893,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-109: should handle reserved word escaping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

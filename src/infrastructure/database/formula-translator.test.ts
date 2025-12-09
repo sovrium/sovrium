@@ -273,3 +273,153 @@ describe('isFormulaReturningArray', () => {
     expect(isFormulaReturningArray(formulaMixed)).toBe(false)
   })
 })
+
+describe('Reserved Word Escaping', () => {
+  describe('field names with reserved words', () => {
+    test('should escape field name that is a reserved word', () => {
+      const fields = [
+        { name: 'order', type: 'integer' },
+        { name: 'amount', type: 'decimal' },
+      ]
+      const input = 'order * 2'
+      const expected = '"order" * 2'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should escape field name containing reserved word token (order_num)', () => {
+      const fields = [
+        { name: 'order_num', type: 'integer' },
+        { name: 'total', type: 'decimal' },
+      ]
+      const input = 'order_num * 2'
+      const expected = '"order_num" * 2'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should escape field name containing reserved word token (user_id)', () => {
+      const fields = [
+        { name: 'user_id', type: 'integer' },
+        { name: 'total', type: 'decimal' },
+      ]
+      const input = 'user_id + 100'
+      const expected = '"user_id" + 100'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should not escape field names without reserved words', () => {
+      const fields = [
+        { name: 'created_at', type: 'date' },
+        { name: 'amount', type: 'decimal' },
+      ]
+      const input = 'amount * 1.1'
+      expect(translateFormulaToPostgres(input, fields)).toBe(input)
+    })
+
+    test('should escape multiple field names with reserved words in formula', () => {
+      const fields = [
+        { name: 'order_num', type: 'integer' },
+        { name: 'user_id', type: 'integer' },
+        { name: 'amount', type: 'decimal' },
+      ]
+      const input = 'order_num * user_id + amount'
+      const expected = '"order_num" * "user_id" + amount'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should handle case-insensitive escaping', () => {
+      const fields = [
+        { name: 'order_num', type: 'integer' },
+        { name: 'total', type: 'decimal' },
+      ]
+      const input = 'ORDER_NUM * 2'
+      const expected = '"ORDER_NUM" * 2'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should not escape field names in function calls', () => {
+      const fields = [
+        { name: 'order_num', type: 'integer' },
+        { name: 'name', type: 'text' },
+      ]
+      const input = 'UPPER(name)'
+      expect(translateFormulaToPostgres(input, fields)).toBe(input)
+    })
+
+    test('should escape in SUBSTR function arguments', () => {
+      const fields = [{ name: 'select', type: 'text' }]
+      const input = 'SUBSTR(select, 1, 3)'
+      const expected = 'SUBSTRING("select" FROM 1 FOR 3)'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should escape in date TO_CHAR conversions', () => {
+      const fields = [{ name: 'from', type: 'date' }]
+      const input = 'from::TEXT'
+      const expected = `TO_CHAR("from", 'YYYY-MM-DD')`
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+
+    test('should handle complex formulas with multiple reserved words', () => {
+      const fields = [
+        { name: 'order_num', type: 'integer' },
+        { name: 'user_id', type: 'integer' },
+        { name: 'amount', type: 'decimal' },
+      ]
+      const input = 'CONCAT(order_num, user_id) || amount::TEXT'
+      const expected = 'CONCAT("order_num", "user_id") || amount::TEXT'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+  })
+
+  describe('common PostgreSQL reserved words', () => {
+    const reservedWordTestCases = [
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'from',
+      'where',
+      'order',
+      'group',
+      'limit',
+      'user',
+    ]
+
+    reservedWordTestCases.forEach((word) => {
+      test(`should escape reserved word: ${word}`, () => {
+        const fields = [{ name: word, type: 'integer' }]
+        const input = `${word} * 2`
+        const expected = `"${word}" * 2`
+        expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+      })
+    })
+  })
+
+  describe('edge cases', () => {
+    test('should work without fields array (backward compatibility)', () => {
+      const input = 'order * 2'
+      // Without fields array, no escaping happens
+      expect(translateFormulaToPostgres(input)).toBe(input)
+    })
+
+    test('should not double-escape already quoted identifiers', () => {
+      const fields = [{ name: 'order', type: 'integer' }]
+      const input = '"order" * 2'
+      // Negative lookbehind prevents double-escaping
+      expect(translateFormulaToPostgres(input, fields)).toBe(input)
+    })
+
+    test('should handle empty field list', () => {
+      const fields: readonly { name: string; type: string }[] = []
+      const input = 'order * 2'
+      expect(translateFormulaToPostgres(input, fields)).toBe(input)
+    })
+
+    test('should preserve whitespace around operators', () => {
+      const fields = [{ name: 'order_num', type: 'integer' }]
+      const input = 'order_num  *  2'
+      const expected = '"order_num"  *  2'
+      expect(translateFormulaToPostgres(input, fields)).toBe(expected)
+    })
+  })
+})
