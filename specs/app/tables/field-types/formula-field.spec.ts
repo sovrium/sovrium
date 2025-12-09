@@ -3954,7 +3954,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-111: should handle deeply nested expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
