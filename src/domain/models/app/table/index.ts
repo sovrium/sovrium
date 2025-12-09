@@ -129,60 +129,98 @@ const detectCircularDependencies = (
   fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
 ): ReadonlyArray<string> => {
   // Build dependency graph: field name -> fields it references
-  const dependencyGraph = new Map<string, ReadonlyArray<string>>()
-
-  for (const field of fields) {
-    if ('formula' in field && typeof field.formula === 'string') {
-      const references = extractFieldReferences(field.formula)
-      dependencyGraph.set(field.name, references)
-    }
-  }
+  const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
+    fields
+      .filter((field): field is typeof field & { formula: string } =>
+        'formula' in field && typeof field.formula === 'string'
+      )
+      .map((field) => [field.name, extractFieldReferences(field.formula)] as const)
+  )
 
   // Detect cycles using DFS with visited and recursion stack tracking
-  const visited = new Set<string>()
-  const recursionStack = new Set<string>()
-  const cycleNodes: string[] = []
+  type DFSState = {
+    readonly visited: ReadonlySet<string>
+    readonly recursionStack: ReadonlySet<string>
+    readonly cycleNodes: ReadonlyArray<string>
+  }
 
-  const hasCycle = (node: string): boolean => {
-    if (recursionStack.has(node)) {
+  const hasCycle = (node: string, state: DFSState): { readonly found: boolean; readonly state: DFSState } => {
+    if (state.recursionStack.has(node)) {
       // Cycle detected - add to result
-      cycleNodes.push(node)
-      return true
-    }
-
-    if (visited.has(node)) {
-      // Already processed this node
-      return false
-    }
-
-    visited.add(node)
-    recursionStack.add(node)
-
-    const dependencies = dependencyGraph.get(node) || []
-    for (const dep of dependencies) {
-      if (dependencyGraph.has(dep) && hasCycle(dep)) {
-        // Propagate cycle detection
-        if (!cycleNodes.includes(node)) {
-          cycleNodes.push(node)
-        }
-        return true
+      return {
+        found: true,
+        state: {
+          ...state,
+          cycleNodes: [...state.cycleNodes, node],
+        },
       }
     }
 
-    recursionStack.delete(node)
-    return false
+    if (state.visited.has(node)) {
+      // Already processed this node
+      return { found: false, state }
+    }
+
+    const newState: DFSState = {
+      visited: new Set([...state.visited, node]),
+      recursionStack: new Set([...state.recursionStack, node]),
+      cycleNodes: state.cycleNodes,
+    }
+
+    const dependencies = dependencyGraph.get(node) || []
+    const result = dependencies.reduce<{ readonly found: boolean; readonly state: DFSState }>(
+      (acc, dep) => {
+        if (acc.found || !dependencyGraph.has(dep)) {
+          return acc
+        }
+        const depResult = hasCycle(dep, acc.state)
+        if (depResult.found) {
+          // Propagate cycle detection
+          const cycleNodes = depResult.state.cycleNodes.includes(node)
+            ? depResult.state.cycleNodes
+            : [...depResult.state.cycleNodes, node]
+          return {
+            found: true,
+            state: {
+              ...depResult.state,
+              cycleNodes,
+            },
+          }
+        }
+        return depResult
+      },
+      { found: false, state: newState }
+    )
+
+    // Remove from recursion stack after processing (immutable way)
+    const finalState: DFSState = {
+      ...result.state,
+      recursionStack: new Set(
+        [...result.state.recursionStack].filter((n) => n !== node)
+      ),
+    }
+
+    return { found: result.found, state: finalState }
   }
 
   // Check all formula fields for cycles
-  for (const fieldName of dependencyGraph.keys()) {
-    if (!visited.has(fieldName)) {
-      if (hasCycle(fieldName)) {
-        break // Stop after finding first cycle
-      }
-    }
+  const initialState: DFSState = {
+    visited: new Set(),
+    recursionStack: new Set(),
+    cycleNodes: [],
   }
 
-  return cycleNodes
+  const result = [...dependencyGraph.keys()].reduce<{ readonly found: boolean; readonly state: DFSState }>(
+    (acc, fieldName) => {
+      if (acc.found || acc.state.visited.has(fieldName)) {
+        return acc
+      }
+      return hasCycle(fieldName, acc.state)
+    },
+    { found: false, state: initialState }
+  )
+
+  return result.state.cycleNodes
 }
 
 export const TableSchema = Schema.Struct({
