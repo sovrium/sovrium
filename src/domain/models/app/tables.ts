@@ -49,6 +49,125 @@ const autoGenerateTableIds = (
 }
 
 /**
+ * Detect circular relationship dependencies between tables.
+ * A circular dependency exists when Table A references Table B, and Table B references Table A
+ * (directly or through a chain of other tables).
+ *
+ * Self-referencing relationships (e.g., employees.manager → employees) are NOT considered circular
+ * dependencies because they don't prevent table creation order determination.
+ *
+ * @param tables - Array of tables to validate
+ * @returns Array of table names involved in circular dependencies, or empty array if none found
+ */
+const detectCircularRelationships = (
+  tables: ReadonlyArray<{
+    readonly name: string
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+      readonly relatedTable?: string
+    }>
+  }>
+): ReadonlyArray<string> => {
+  // Build dependency graph: table name -> tables it references via relationship fields
+  // Exclude self-references as they don't create circular dependencies
+  const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
+    tables.map((table) => {
+      const relatedTables = table.fields
+        .filter((field) => field.type === 'relationship' && field.relatedTable !== undefined)
+        .map((field) => field.relatedTable as string)
+        .filter((relatedTable) => relatedTable !== table.name) // Exclude self-references
+      return [table.name, relatedTables] as const
+    })
+  )
+
+  // Detect cycles using DFS with visited and recursion stack tracking
+  type DFSState = {
+    readonly visited: ReadonlySet<string>
+    readonly recursionStack: ReadonlySet<string>
+    readonly cycleNodes: ReadonlyArray<string>
+  }
+
+  const hasCycle = (node: string, state: DFSState): { readonly found: boolean; readonly state: DFSState } => {
+    if (state.recursionStack.has(node)) {
+      // Cycle detected - add to result
+      return {
+        found: true,
+        state: {
+          ...state,
+          cycleNodes: [...state.cycleNodes, node],
+        },
+      }
+    }
+
+    if (state.visited.has(node)) {
+      // Already processed this node
+      return { found: false, state }
+    }
+
+    const newState: DFSState = {
+      visited: new Set([...state.visited, node]),
+      recursionStack: new Set([...state.recursionStack, node]),
+      cycleNodes: state.cycleNodes,
+    }
+
+    const dependencies = dependencyGraph.get(node) || []
+    const result = dependencies.reduce<{ readonly found: boolean; readonly state: DFSState }>(
+      (acc, dep) => {
+        if (acc.found || !dependencyGraph.has(dep)) {
+          return acc
+        }
+        const depResult = hasCycle(dep, acc.state)
+        if (depResult.found) {
+          // Propagate cycle detection
+          const cycleNodes = depResult.state.cycleNodes.includes(node)
+            ? depResult.state.cycleNodes
+            : [...depResult.state.cycleNodes, node]
+          return {
+            found: true,
+            state: {
+              ...depResult.state,
+              cycleNodes,
+            },
+          }
+        }
+        return depResult
+      },
+      { found: false, state: newState }
+    )
+
+    // Remove from recursion stack after processing (immutable way)
+    const finalState: DFSState = {
+      ...result.state,
+      recursionStack: new Set(
+        [...result.state.recursionStack].filter((n) => n !== node)
+      ),
+    }
+
+    return { found: result.found, state: finalState }
+  }
+
+  // Check all tables for cycles
+  const initialState: DFSState = {
+    visited: new Set(),
+    recursionStack: new Set(),
+    cycleNodes: [],
+  }
+
+  const result = [...dependencyGraph.keys()].reduce<{ readonly found: boolean; readonly state: DFSState }>(
+    (acc, tableName) => {
+      if (acc.found || acc.state.visited.has(tableName)) {
+        return acc
+      }
+      return hasCycle(tableName, acc.state)
+    },
+    { found: false, state: initialState }
+  )
+
+  return result.state.cycleNodes
+}
+
+/**
  * Data Tables
  *
  * Collection of database tables that define the data structure of your application.
@@ -100,6 +219,13 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     const names = tables.map((table) => table.name)
     const uniqueNames = new Set(names)
     return names.length === uniqueNames.size || 'Table names must be unique within the schema'
+  }),
+  Schema.filter((tables) => {
+    const circularTables = detectCircularRelationships(tables)
+    if (circularTables.length > 0) {
+      return `Circular relationship dependency detected: ${circularTables.join(' -> ')} - cannot resolve table creation order`
+    }
+    return true
   }),
   Schema.annotations({
     title: 'Data Tables',

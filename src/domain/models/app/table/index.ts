@@ -249,22 +249,55 @@ const validateOrganizationScoped = (table: {
 }
 
 /**
- * Validate that all roles referenced in permissions exist.
+ * Validate table permissions including field permissions, record permissions, and roles.
  *
- * @param permissions - Table permissions configuration
- * @returns Error object if invalid, undefined if valid
+ * @param permissions - Table permissions to validate
+ * @param fields - Table fields for validation
+ * @param fieldNames - Set of valid field names
+ * @returns Validation error object if invalid, undefined if valid
  */
-const validateRoleReferences = (permissions: {
-  readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly fields?: ReadonlyArray<{
-    readonly field: string
+const validateTablePermissions = (
+  permissions: {
+    readonly organizationScoped?: boolean
     readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  }>
-}): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly fields?: ReadonlyArray<{
+      readonly field: string
+      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    }>
+    readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
+  },
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Validate organizationScoped requires organization_id field
+  if (permissions.organizationScoped === true) {
+    const orgValidationError = validateOrganizationScoped({ fields, permissions })
+    if (orgValidationError) {
+      return orgValidationError
+    }
+  }
+
+  // Validate field permissions reference existing fields
+  if (permissions.fields) {
+    const fieldPermissionsError = validateFieldPermissions(permissions.fields, fieldNames)
+    if (fieldPermissionsError) {
+      return fieldPermissionsError
+    }
+  }
+
+  // Validate record permissions reference existing fields
+  if (permissions.records) {
+    const recordPermissionsError = validateRecordPermissions(permissions.records, fieldNames)
+    if (recordPermissionsError) {
+      return recordPermissionsError
+    }
+  }
+
+  // Validate that all roles referenced in permissions exist
   const referencedRoles = extractRoleReferences(permissions)
   const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
 
@@ -317,6 +350,50 @@ const extractRoleReferences = (
   ])
 
   return new Set([...tableLevelRoles, ...fieldLevelRoles])
+}
+
+/**
+ * Validate table schema including fields, permissions, and roles.
+ * Extracted to reduce cyclomatic complexity of the Schema.filter function.
+ *
+ * @param table - Table to validate
+ * @returns Validation error object if invalid, true if valid
+ */
+const validateTableSchema = (
+  table: {
+    readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
+    readonly permissions?: {
+      readonly organizationScoped?: boolean
+      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly fields?: ReadonlyArray<{
+        readonly field: string
+        readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+        readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      }>
+      readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
+    }
+  }
+): { readonly message: string; readonly path: ReadonlyArray<string> } | true => {
+  const fieldNames = new Set(table.fields.map((field) => field.name))
+
+  // Validate formula fields
+  const formulaValidationError = validateFormulaFields(table.fields)
+  if (formulaValidationError) {
+    return formulaValidationError
+  }
+
+  // Validate permissions if present
+  if (table.permissions) {
+    const permissionsValidationError = validateTablePermissions(table.permissions, table.fields, fieldNames)
+    if (permissionsValidationError) {
+      return permissionsValidationError
+    }
+  }
+
+  return true
 }
 
 /**
@@ -554,48 +631,7 @@ export const TableSchema = Schema.Struct({
    * @see TablePermissionsSchema for full configuration options
    */
   permissions: Schema.optional(TablePermissionsSchema),
-}).pipe(
-  Schema.filter((table) => {
-    const fieldNames = new Set(table.fields.map((field) => field.name))
-
-    // Validate formula fields (syntax, references, circular dependencies)
-    const formulaError = validateFormulaFields(table.fields)
-    if (formulaError) {
-      return formulaError
-    }
-
-    // Validate organizationScoped configuration
-    const orgScopedError = validateOrganizationScoped(table)
-    if (orgScopedError) {
-      return orgScopedError
-    }
-
-    // Validate field permissions reference existing fields
-    if (table.permissions?.fields) {
-      const fieldPermissionsError = validateFieldPermissions(table.permissions.fields, fieldNames)
-      if (fieldPermissionsError) {
-        return fieldPermissionsError
-      }
-    }
-
-    // Validate record permissions reference existing fields
-    if (table.permissions?.records) {
-      const recordPermissionsError = validateRecordPermissions(table.permissions.records, fieldNames)
-      if (recordPermissionsError) {
-        return recordPermissionsError
-      }
-    }
-
-    // Validate role references in permissions
-    if (table.permissions) {
-      const roleError = validateRoleReferences(table.permissions)
-      if (roleError) {
-        return roleError
-      }
-    }
-
-    return true
-  }),
+}).pipe(Schema.filter(validateTableSchema),
   Schema.annotations({
     title: 'Table',
     description:
