@@ -4196,7 +4196,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-118: should calculate age from birthdate',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
