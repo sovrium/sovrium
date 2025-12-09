@@ -565,6 +565,86 @@ describe('TableSchema', () => {
         expect(result.fields.find((f) => f.name === 'organization_id')?.type).toBe(fieldType)
       })
     })
+
+    test('should reject permissions with non-existent role', () => {
+      // GIVEN: A table with permissions referencing a non-existent role
+      const table = {
+        id: 1,
+        name: 'documents',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const, required: true },
+          { id: 2, name: 'title', type: 'single-line-text' as const },
+        ],
+        primaryKey: { type: 'composite' as const, fields: ['id'] },
+        permissions: {
+          read: {
+            type: 'roles' as const,
+            roles: ['super_admin'], // 'super_admin' role doesn't exist!
+          },
+        },
+      }
+
+      // WHEN/THEN: The table validation should fail with specific error message
+      expect(() => {
+        Schema.decodeUnknownSync(TableSchema)(table)
+      }).toThrow(/Invalid role.*super_admin.*not found/)
+    })
+
+    test('should accept permissions with valid roles', () => {
+      // GIVEN: A table with permissions using valid roles
+      const validRoles = ['owner', 'admin', 'member', 'viewer'] as const
+
+      validRoles.forEach((role) => {
+        const table = {
+          id: 1,
+          name: 'documents',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            { id: 2, name: 'title', type: 'single-line-text' as const },
+          ],
+          primaryKey: { type: 'composite' as const, fields: ['id'] },
+          permissions: {
+            read: {
+              type: 'roles' as const,
+              roles: [role],
+            },
+          },
+        }
+
+        // WHEN: The table is validated against the schema
+        const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+        // THEN: The table should be accepted for all valid roles
+        expect(result.permissions?.read).toBeDefined()
+        expect((result.permissions?.read as any)?.roles).toContain(role)
+      })
+    })
+
+    test('should reject field permissions with non-existent role', () => {
+      // GIVEN: A table with field permissions referencing a non-existent role
+      const table = {
+        id: 1,
+        name: 'users',
+        fields: [
+          { id: 1, name: 'id', type: 'integer' as const, required: true },
+          { id: 2, name: 'name', type: 'single-line-text' as const },
+          { id: 3, name: 'salary', type: 'decimal' as const },
+        ],
+        permissions: {
+          fields: [
+            {
+              field: 'salary',
+              read: { type: 'roles' as const, roles: ['finance_admin'] }, // Invalid role!
+            },
+          ],
+        },
+      }
+
+      // WHEN/THEN: The table validation should fail with specific error message
+      expect(() => {
+        Schema.decodeUnknownSync(TableSchema)(table)
+      }).toThrow(/Invalid role.*finance_admin.*not found/)
+    })
   })
 
   describe('Edge Cases', () => {

@@ -474,7 +474,7 @@ test.describe('Table Permissions', () => {
   // Phase: Error Configuration Validation Tests (006-009)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-006: should reject permission with non-existent role',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
