@@ -343,11 +343,19 @@ export const TableSchema = Schema.Struct({
 
     // Validate organizationScoped requires organization_id field
     if (table.permissions?.organizationScoped === true) {
-      const hasOrganizationIdField = table.fields.some((field) => field.name === 'organization_id')
-      if (!hasOrganizationIdField) {
+      const organizationIdField = table.fields.find((field) => field.name === 'organization_id')
+      if (!organizationIdField) {
         return {
           message: 'organizationScoped requires organization_id field',
           path: ['permissions', 'organizationScoped'],
+        }
+      }
+      // Validate organization_id field type (must be text-based for Better Auth compatibility)
+      const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone']
+      if (!validTypes.includes(organizationIdField.type)) {
+        return {
+          message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone), got: ${organizationIdField.type}`,
+          path: ['fields'],
         }
       }
     }
