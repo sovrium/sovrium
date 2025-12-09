@@ -655,7 +655,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-012: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -733,7 +733,7 @@ test.describe('Lookup Field', () => {
 
         expect(order.product_name).toBe('Widget Pro')
         expect(order.product_price).toBe(99.99)
-        expect(order.product_release_date).toEqual(new Date('2024-03-15'))
+        expect(order.product_release_date).toBe('2024-03-15')
         expect(order.product_in_stock).toBe(true)
       })
 
