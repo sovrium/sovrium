@@ -8,30 +8,6 @@
 import { Schema } from 'effect'
 
 /**
- * Validate that unique constraint names are not duplicated within the same table.
- *
- * @param constraints - Array of unique constraints to validate
- * @returns Error message with path if duplicates found, true if valid
- */
-const validateUniqueConstraintNames = (
-  constraints: ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<string> }>
-): { readonly message: string; readonly path: ReadonlyArray<PropertyKey> } | true => {
-  const constraintNames = constraints.map((c) => c.name)
-  const duplicateName = constraintNames.find(
-    (name, index) => constraintNames.indexOf(name) !== index
-  )
-
-  if (duplicateName) {
-    return {
-      message: `Duplicate constraint name '${duplicateName}' - constraint name must be unique within the table`,
-      path: [],
-    }
-  }
-
-  return true
-}
-
-/**
  * Unique Constraints
  *
  * Composite unique constraints ensure that combinations of multiple field values are unique across all rows. Use this when you need uniqueness across multiple fields (e.g., email + tenant_id must be unique together).
@@ -79,7 +55,14 @@ export const UniqueConstraintsSchema = Schema.Array(
     ).pipe(Schema.minItems(1, { message: () => 'At least one field is required' })),
   })
 ).pipe(
-  Schema.filter(validateUniqueConstraintNames),
+  Schema.filter((constraints) => {
+    const names = constraints.map((constraint) => constraint.name)
+    const uniqueNames = new Set(names)
+    return (
+      names.length === uniqueNames.size ||
+      'Duplicate constraint name - constraint name must be unique within the table'
+    )
+  }),
   Schema.annotations({
     title: 'Unique Constraints',
     description:
