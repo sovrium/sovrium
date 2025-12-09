@@ -4299,7 +4299,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-121: should generate URL slug',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
