@@ -567,7 +567,7 @@ const validateRecordPermissions = (
       (fieldRef) => !fieldNames.has(fieldRef) && !variableKeywords.has(fieldRef)
     )
     return {
-      message: `Invalid field '${invalidField}' in condition - field not found in table`,
+      message: `Column '${invalidField}' not found - field does not exist in table`,
       path: ['permissions', 'records'],
     }
   }

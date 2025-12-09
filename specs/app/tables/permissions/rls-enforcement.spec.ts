@@ -547,7 +547,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-010: should reject RLS policy referencing non-existent column',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
