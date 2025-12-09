@@ -4162,7 +4162,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-117: should calculate discount pricing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
