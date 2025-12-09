@@ -580,7 +580,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-011: should reject field permission read restriction on non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
