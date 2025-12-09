@@ -612,7 +612,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-011: should reject lookup when relatedField does not exist in related table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

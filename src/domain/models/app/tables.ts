@@ -235,7 +235,10 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       table.fields
         .filter((field) => field.type === 'lookup')
         .map((lookupField) => {
-          const { relationshipField } = lookupField as { relationshipField: string }
+          const { relationshipField, relatedField } = lookupField as {
+            relationshipField: string
+            relatedField: string
+          }
 
           // Check if relationshipField exists in the same table (forward lookup)
           const fieldInSameTable = table.fields.find((f) => f.name === relationshipField)
@@ -248,6 +251,24 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
                 error: `relationshipField "${relationshipField}" must reference a relationship field`,
               }
             }
+
+            // Get related table name from the relationship field
+            const relatedTableName = (fieldInSameTable as { relatedTable?: string }).relatedTable
+            if (relatedTableName) {
+              const relatedTable = tablesByName.get(relatedTableName)
+              if (relatedTable) {
+                // Check if relatedField exists in the related table
+                const relatedFieldExists = relatedTable.fields.some((f) => f.name === relatedField)
+                if (!relatedFieldExists) {
+                  return {
+                    table: table.name,
+                    field: lookupField.name,
+                    error: `relatedField "${relatedField}" not found in related table "${relatedTableName}"`,
+                  }
+                }
+              }
+            }
+
             return undefined
           }
 
@@ -261,7 +282,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
                     field.name === relationshipField &&
                     (field as { relatedTable?: string }).relatedTable === table.name
                 )
-                .map(() => ({ found: true }))
+                .map(() => ({ found: true, relatedTable: otherTable }))
             )
             .at(0)
 
@@ -270,6 +291,20 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
               table: table.name,
               field: lookupField.name,
               error: `relationshipField "${relationshipField}" not found`,
+            }
+          }
+
+          // For reverse lookup, check if relatedField exists in the table that has the relationship
+          if (reverseRelationship.relatedTable) {
+            const relatedFieldExists = reverseRelationship.relatedTable.fields.some(
+              (f) => f.name === relatedField
+            )
+            if (!relatedFieldExists) {
+              return {
+                table: table.name,
+                field: lookupField.name,
+                error: `relatedField "${relatedField}" not found in related table "${reverseRelationship.relatedTable.name}"`,
+              }
             }
           }
 
