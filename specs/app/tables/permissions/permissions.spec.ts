@@ -612,7 +612,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-010: should reject circular relationship dependency between tables',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

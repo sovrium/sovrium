@@ -481,6 +481,179 @@ describe('TablesSchema', () => {
     })
   })
 
+  describe('Circular Relationship Dependencies', () => {
+    test('should reject tables with direct circular relationship (A -> B -> A)', () => {
+      // GIVEN: Two tables with circular relationship dependencies
+      const tables = [
+        {
+          id: 1,
+          name: 'table_a',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_b_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_b',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+        {
+          id: 2,
+          name: 'table_b',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_a_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_a',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+      ]
+
+      // WHEN/THEN: Schema validation should fail with circular dependency error
+      expect(() => {
+        Schema.decodeUnknownSync(TablesSchema)(tables)
+      }).toThrow(/circular.*dependency|dependency.*cycle|cannot resolve.*order/i)
+    })
+
+    test('should reject tables with indirect circular relationship (A -> B -> C -> A)', () => {
+      // GIVEN: Three tables with indirect circular relationship
+      const tables = [
+        {
+          id: 1,
+          name: 'table_a',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_b_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_b',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+        {
+          id: 2,
+          name: 'table_b',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_c_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_c',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+        {
+          id: 3,
+          name: 'table_c',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_a_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_a',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+      ]
+
+      // WHEN/THEN: Schema validation should fail with circular dependency error
+      expect(() => {
+        Schema.decodeUnknownSync(TablesSchema)(tables)
+      }).toThrow(/circular.*dependency|dependency.*cycle|cannot resolve.*order/i)
+    })
+
+    test('should accept tables with acyclic relationships (A -> B, C -> B)', () => {
+      // GIVEN: Tables with acyclic relationship dependencies
+      const tables = [
+        {
+          id: 1,
+          name: 'table_a',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_b_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_b',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+        {
+          id: 2,
+          name: 'table_b',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            { id: 2, name: 'name', type: 'single-line-text' as const },
+          ],
+        },
+        {
+          id: 3,
+          name: 'table_c',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            {
+              id: 2,
+              name: 'table_b_ref',
+              type: 'relationship' as const,
+              relatedTable: 'table_b',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+      ]
+
+      // WHEN: Schema validation is performed
+      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
+
+      // THEN: All tables should be accepted
+      expect(result.length).toBe(3)
+      expect(result[0]!.name).toBe('table_a')
+      expect(result[1]!.name).toBe('table_b')
+      expect(result[2]!.name).toBe('table_c')
+    })
+
+    test('should accept tables with self-referencing relationship (valid use case)', () => {
+      // GIVEN: A table with a self-referencing relationship (e.g., employee -> manager)
+      const tables = [
+        {
+          id: 1,
+          name: 'employees',
+          fields: [
+            { id: 1, name: 'id', type: 'integer' as const, required: true },
+            { id: 2, name: 'name', type: 'single-line-text' as const },
+            {
+              id: 3,
+              name: 'manager',
+              type: 'relationship' as const,
+              relatedTable: 'employees',
+              relationType: 'many-to-one' as const,
+            },
+          ],
+        },
+      ]
+
+      // WHEN: Schema validation is performed
+      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
+
+      // THEN: Table should be accepted (self-reference is not a cycle in dependency sense)
+      expect(result.length).toBe(1)
+      expect(result[0]!.name).toBe('employees')
+    })
+  })
+
   describe('Edge Cases', () => {
     test('should accept very large array of tables', () => {
       // GIVEN: A large array of tables
