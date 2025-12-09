@@ -132,7 +132,7 @@ export const TableSchema = Schema.Struct({
       )
       const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
       return {
-        message: () => `Invalid field reference: field '${invalidField}' not found`,
+        message: `Invalid field reference: field '${invalidField}' not found`,
         path: ['fields'],
       }
     }
