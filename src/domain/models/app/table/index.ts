@@ -151,6 +151,52 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
 }
 
 /**
+ * Default roles available in Sovrium.
+ * These are the standard roles defined by the organization plugin.
+ */
+const DEFAULT_ROLES = new Set(['owner', 'admin', 'member', 'viewer'])
+
+/**
+ * Extract all role references from table permissions.
+ * Checks table-level and field-level permissions for role references.
+ *
+ * @param permissions - Table permissions configuration
+ * @returns Set of role names referenced in permissions
+ */
+const extractRoleReferences = (
+  permissions: {
+    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly fields?: ReadonlyArray<{
+      readonly field: string
+      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    }>
+  }
+): ReadonlySet<string> => {
+  // Check table-level permissions
+  // eslint-disable-next-line drizzle/enforce-delete-with-where
+  const tableLevelPermissions = [permissions.read, permissions.create, permissions.update, permissions.delete]
+  const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
+    permission?.type === 'roles' && permission.roles ? permission.roles : []
+  )
+
+  // Check field-level permissions
+  const fieldLevelRoles = (permissions.fields || []).flatMap((fieldPermission) => [
+    ...(fieldPermission.read?.type === 'roles' && fieldPermission.read.roles
+      ? fieldPermission.read.roles
+      : []),
+    ...(fieldPermission.write?.type === 'roles' && fieldPermission.write.roles
+      ? fieldPermission.write.roles
+      : []),
+  ])
+
+  return new Set([...tableLevelRoles, ...fieldLevelRoles])
+}
+
+/**
  * Detect circular dependencies in formula fields using depth-first search.
  * A circular dependency exists when a formula field references itself directly or indirectly
  * through a chain of other formula fields.
@@ -356,6 +402,20 @@ export const TableSchema = Schema.Struct({
         return {
           message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
           path: ['fields'],
+        }
+      }
+    }
+
+    // Validate that all roles referenced in permissions exist
+    if (table.permissions) {
+      const referencedRoles = extractRoleReferences(table.permissions)
+      const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
+
+      if (invalidRoles.length > 0) {
+        const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
+        return {
+          message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
+          path: ['permissions'],
         }
       }
     }
