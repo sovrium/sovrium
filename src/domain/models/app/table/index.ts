@@ -353,6 +353,48 @@ const extractRoleReferences = (
 }
 
 /**
+ * Validate primary key configuration (field references, duplicates).
+ *
+ * @param primaryKey - Primary key configuration to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validatePrimaryKey = (
+  primaryKey: { readonly type: string; readonly fields?: ReadonlyArray<string> } | undefined,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  if (!primaryKey || primaryKey.type !== 'composite' || !primaryKey.fields) {
+    return undefined
+  }
+
+  // Check for duplicate field references
+  const fieldReferences = primaryKey.fields
+  const uniqueFields = new Set(fieldReferences)
+
+  if (uniqueFields.size !== fieldReferences.length) {
+    const duplicateField = fieldReferences.find(
+      (field, index) => fieldReferences.indexOf(field) !== index
+    )
+    return {
+      message: `Primary key field '${duplicateField}' is not unique - duplicate field references in composite primary key`,
+      path: ['primaryKey', 'fields'],
+    }
+  }
+
+  // Check for non-existent field references
+  const invalidField = fieldReferences.find((field) => !fieldNames.has(field))
+
+  if (invalidField) {
+    return {
+      message: `Primary key references non-existent field '${invalidField}' - field not found in table`,
+      path: ['primaryKey', 'fields'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate table schema including fields, permissions, and roles.
  * Extracted to reduce cyclomatic complexity of the Schema.filter function.
  *
@@ -362,6 +404,7 @@ const extractRoleReferences = (
 const validateTableSchema = (
   table: {
     readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
+    readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
     readonly permissions?: {
       readonly organizationScoped?: boolean
       readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
@@ -383,6 +426,14 @@ const validateTableSchema = (
   const formulaValidationError = validateFormulaFields(table.fields)
   if (formulaValidationError) {
     return formulaValidationError
+  }
+
+  // Validate primary key if present
+  if (table.primaryKey) {
+    const primaryKeyValidationError = validatePrimaryKey(table.primaryKey, fieldNames)
+    if (primaryKeyValidationError) {
+      return primaryKeyValidationError
+    }
   }
 
   // Validate permissions if present
