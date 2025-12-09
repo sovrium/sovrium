@@ -504,6 +504,27 @@ const extractFieldReferencesFromCondition = (condition: string): ReadonlyArray<s
 }
 
 /**
+ * Validate RLS condition syntax to detect common SQL syntax errors.
+ * Checks for patterns that would cause PostgreSQL syntax errors.
+ *
+ * @param condition - The condition expression to validate
+ * @returns Error message if invalid, undefined if valid
+ */
+const validateConditionSyntax = (condition: string): string | undefined => {
+  // Check for JavaScript-style double equals (==) which is invalid in SQL
+  if (/==/.test(condition)) {
+    return 'Invalid condition syntax: use single = for equality, not =='
+  }
+
+  // Check for consecutive comparison operators (e.g., "= =", "> >")
+  if (/[=<>!]\s*[=<>!](?![=])/.test(condition)) {
+    return 'Invalid condition syntax: consecutive comparison operators detected'
+  }
+
+  return undefined
+}
+
+/**
  * Validate that record permissions reference existing fields in their conditions.
  *
  * @param recordPermissions - Array of record permissions to validate
@@ -514,6 +535,21 @@ const validateRecordPermissions = (
   recordPermissions: ReadonlyArray<{ readonly action: string; readonly condition: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Validate condition syntax first (before checking field references)
+  const syntaxError = recordPermissions
+    .map((permission) => ({
+      permission,
+      error: validateConditionSyntax(permission.condition),
+    }))
+    .find((result) => result.error !== undefined)
+
+  if (syntaxError?.error) {
+    return {
+      message: syntaxError.error,
+      path: ['permissions', 'records'],
+    }
+  }
+
   // Variable keywords that are allowed in conditions (RLS variables)
   const variableKeywords = new Set(['userid', 'organizationid', 'roles'])
 
@@ -531,7 +567,7 @@ const validateRecordPermissions = (
       (fieldRef) => !fieldNames.has(fieldRef) && !variableKeywords.has(fieldRef)
     )
     return {
-      message: `Invalid field '${invalidField}' in condition - field not found in table`,
+      message: `Column '${invalidField}' not found - field does not exist in table`,
       path: ['permissions', 'records'],
     }
   }

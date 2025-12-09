@@ -514,7 +514,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // Phase: Error Configuration Validation Tests (009-011)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-009: should reject RLS policy with syntax error in condition',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -547,7 +547,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-010: should reject RLS policy referencing non-existent column',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
