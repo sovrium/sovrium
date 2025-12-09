@@ -540,7 +540,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-008: should reject conflicting field permissions',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
