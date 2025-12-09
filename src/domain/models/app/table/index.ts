@@ -285,7 +285,7 @@ const validateOrganizationScoped = (
 }
 
 /**
- * Validate that field permissions reference existing fields.
+ * Validate that field permissions reference existing fields and don't have duplicates.
  *
  * @param fieldPermissions - Array of field permissions to validate
  * @param fieldNames - Set of valid field names in the table
@@ -295,6 +295,20 @@ const validateFieldPermissions = (
   fieldPermissions: ReadonlyArray<{ readonly field: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Check for duplicate field permissions
+  const fieldPermissionNames = fieldPermissions.map((fp) => fp.field)
+  const duplicateField = fieldPermissionNames.find(
+    (fieldName, index) => fieldPermissionNames.indexOf(fieldName) !== index
+  )
+
+  if (duplicateField) {
+    return {
+      message: `Duplicate field permission for field '${duplicateField}' - conflicting permission definitions`,
+      path: ['permissions', 'fields'],
+    }
+  }
+
+  // Check for non-existent field references
   const invalidFieldPermission = fieldPermissions
     .find((fieldPermission) => !fieldNames.has(fieldPermission.field))
 
