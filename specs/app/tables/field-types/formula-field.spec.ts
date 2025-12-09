@@ -4031,7 +4031,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-113: should reference another formula field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
