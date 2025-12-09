@@ -40,6 +40,189 @@ import { ViewSchema } from './views'
  * @see docs/specifications/roadmap/tables.md for full specification
  */
 
+/**
+ * Common SQL/formula keywords and functions that should be excluded from field references.
+ * Defined as a constant to avoid recreating the Set on every function call.
+ */
+const FORMULA_KEYWORDS = new Set([
+  'if',
+  'then',
+  'else',
+  'and',
+  'or',
+  'not',
+  'concat',
+  'round',
+  'sum',
+  'avg',
+  'max',
+  'min',
+  'count',
+  'true',
+  'false',
+  'null',
+  'case',
+  'when',
+  'end',
+  'ceil',
+  'floor',
+  'abs',
+  'current_date',
+  'current_time',
+  'current_timestamp',
+  'now',
+  'upper',
+  'lower',
+  'trim',
+  'length',
+  'substr',
+  'substring',
+  'replace',
+  'coalesce',
+  'nullif',
+  'cast',
+  'extract',
+  'date_add',
+  'date_sub',
+  'date_diff',
+  'year',
+  'month',
+  'day',
+  'hour',
+  'minute',
+  'second',
+  'power',
+  'sqrt',
+  'mod',
+  'greatest',
+  'least',
+])
+
+/**
+ * Extract potential field references from a formula expression.
+ * This is a simplified parser that extracts identifiers (words) from the formula.
+ * It doesn't handle complex syntax but catches common field reference patterns.
+ *
+ * @param formula - The formula expression to parse
+ * @returns Array of field names referenced in the formula
+ */
+const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
+  // Match word characters (field names) - exclude function names and operators
+  // This regex matches identifiers that could be field names
+  const identifierPattern = /\b([a-z_][a-z0-9_]*)\b/gi
+  const matches = formula.match(identifierPattern) || []
+
+  return matches
+    .map((match) => match.toLowerCase())
+    .filter((identifier) => !FORMULA_KEYWORDS.has(identifier))
+}
+
+/**
+ * Detect circular dependencies in formula fields using depth-first search.
+ * A circular dependency exists when a formula field references itself directly or indirectly
+ * through a chain of other formula fields.
+ *
+ * @param fields - Array of fields to validate
+ * @returns Array of field names involved in circular dependencies, or empty array if none found
+ */
+const detectCircularDependencies = (
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
+): ReadonlyArray<string> => {
+  // Build dependency graph: field name -> fields it references
+  const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
+    fields
+      .filter((field): field is typeof field & { formula: string } =>
+        'formula' in field && typeof field.formula === 'string'
+      )
+      .map((field) => [field.name, extractFieldReferences(field.formula)] as const)
+  )
+
+  // Detect cycles using DFS with visited and recursion stack tracking
+  type DFSState = {
+    readonly visited: ReadonlySet<string>
+    readonly recursionStack: ReadonlySet<string>
+    readonly cycleNodes: ReadonlyArray<string>
+  }
+
+  const hasCycle = (node: string, state: DFSState): { readonly found: boolean; readonly state: DFSState } => {
+    if (state.recursionStack.has(node)) {
+      // Cycle detected - add to result
+      return {
+        found: true,
+        state: {
+          ...state,
+          cycleNodes: [...state.cycleNodes, node],
+        },
+      }
+    }
+
+    if (state.visited.has(node)) {
+      // Already processed this node
+      return { found: false, state }
+    }
+
+    const newState: DFSState = {
+      visited: new Set([...state.visited, node]),
+      recursionStack: new Set([...state.recursionStack, node]),
+      cycleNodes: state.cycleNodes,
+    }
+
+    const dependencies = dependencyGraph.get(node) || []
+    const result = dependencies.reduce<{ readonly found: boolean; readonly state: DFSState }>(
+      (acc, dep) => {
+        if (acc.found || !dependencyGraph.has(dep)) {
+          return acc
+        }
+        const depResult = hasCycle(dep, acc.state)
+        if (depResult.found) {
+          // Propagate cycle detection
+          const cycleNodes = depResult.state.cycleNodes.includes(node)
+            ? depResult.state.cycleNodes
+            : [...depResult.state.cycleNodes, node]
+          return {
+            found: true,
+            state: {
+              ...depResult.state,
+              cycleNodes,
+            },
+          }
+        }
+        return depResult
+      },
+      { found: false, state: newState }
+    )
+
+    // Remove from recursion stack after processing (immutable way)
+    const finalState: DFSState = {
+      ...result.state,
+      recursionStack: new Set(
+        [...result.state.recursionStack].filter((n) => n !== node)
+      ),
+    }
+
+    return { found: result.found, state: finalState }
+  }
+
+  // Check all formula fields for cycles
+  const initialState: DFSState = {
+    visited: new Set(),
+    recursionStack: new Set(),
+    cycleNodes: [],
+  }
+
+  const result = [...dependencyGraph.keys()].reduce<{ readonly found: boolean; readonly state: DFSState }>(
+    (acc, fieldName) => {
+      if (acc.found || acc.state.visited.has(fieldName)) {
+        return acc
+      }
+      return hasCycle(fieldName, acc.state)
+    },
+    { found: false, state: initialState }
+  )
+
+  return result.state.cycleNodes
+}
+
 export const TableSchema = Schema.Struct({
   id: Schema.optional(TableIdSchema),
   name: NameSchema,
@@ -78,6 +261,40 @@ export const TableSchema = Schema.Struct({
    */
   permissions: Schema.optional(TablePermissionsSchema),
 }).pipe(
+  Schema.filter((table) => {
+    // Validate that formula fields only reference existing fields
+    const fieldNames = new Set(table.fields.map((field) => field.name))
+    const formulaFields = table.fields.filter(
+      (field): field is Extract<typeof field, { type: 'formula' }> => field.type === 'formula'
+    )
+
+    // Find the first invalid field reference across all formula fields
+    const invalidReference = formulaFields
+      .flatMap((formulaField) => {
+        const referencedFields = extractFieldReferences(formulaField.formula)
+        const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
+        return invalidField ? [{ formulaField, invalidField }] : []
+      })
+      .at(0)
+
+    if (invalidReference) {
+      return {
+        message: `Invalid field reference: field '${invalidReference.invalidField}' not found in formula '${invalidReference.formulaField.formula}'`,
+        path: ['fields'],
+      }
+    }
+
+    // Detect circular dependencies in formula fields
+    const circularFields = detectCircularDependencies(table.fields)
+    if (circularFields.length > 0) {
+      return {
+        message: `Circular dependency detected in formula fields: ${circularFields.join(' -> ')}`,
+        path: ['fields'],
+      }
+    }
+
+    return true
+  }),
   Schema.annotations({
     title: 'Table',
     description:

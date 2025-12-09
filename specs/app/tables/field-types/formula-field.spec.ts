@@ -4418,7 +4418,7 @@ test.describe('Formula Field', () => {
   // Phase 11: Error Configuration Validation Tests (124-126)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-124: should reject formula when referenced field does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -4449,7 +4449,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-125: should reject circular formula dependencies',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
