@@ -4129,7 +4129,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-116: should calculate invoice total',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
