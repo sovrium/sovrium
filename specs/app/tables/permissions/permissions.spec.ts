@@ -506,7 +506,7 @@ test.describe('Table Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSIONS-007: should reject field permission referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

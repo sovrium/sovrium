@@ -197,6 +197,118 @@ const extractRoleReferences = (
 }
 
 /**
+ * Validate formula fields for syntax errors, invalid field references, and circular dependencies.
+ *
+ * @param fields - Array of table fields
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateFormulaFields = (
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const formulaFields = fields.filter(
+    (field): field is typeof field & { readonly type: 'formula'; readonly formula: string } =>
+      field.type === 'formula' && 'formula' in field && typeof field.formula === 'string'
+  )
+
+  // Validate formula syntax first (before checking field references)
+  const syntaxError = formulaFields
+    .map((formulaField) => ({
+      field: formulaField,
+      error: validateFormulaSyntax(formulaField.formula),
+    }))
+    .find((result) => result.error !== undefined)
+
+  if (syntaxError?.error) {
+    return {
+      message: syntaxError.error,
+      path: ['fields'],
+    }
+  }
+
+  // Find the first invalid field reference across all formula fields
+  const invalidReference = formulaFields
+    .flatMap((formulaField) => {
+      const referencedFields = extractFieldReferences(formulaField.formula)
+      const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
+      return invalidField ? [{ formulaField, invalidField }] : []
+    })
+    .at(0)
+
+  if (invalidReference) {
+    return {
+      message: `Invalid field reference: field '${invalidReference.invalidField}' not found in formula '${invalidReference.formulaField.formula}'`,
+      path: ['fields'],
+    }
+  }
+
+  // Detect circular dependencies in formula fields
+  const circularFields = detectCircularDependencies(fields)
+  if (circularFields.length > 0) {
+    return {
+      message: `Circular dependency detected in formula fields: ${circularFields.join(' -> ')}`,
+      path: ['fields'],
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate organization-scoped table requirements.
+ *
+ * @param fields - Array of table fields
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateOrganizationScoped = (
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const organizationIdField = fields.find((field) => field.name === 'organization_id')
+  if (!organizationIdField) {
+    return {
+      message: 'organizationScoped requires organization_id field',
+      path: ['permissions', 'organizationScoped'],
+    }
+  }
+
+  // Validate organization_id field type (must be text-based for Better Auth compatibility)
+  const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number']
+  if (!validTypes.includes(organizationIdField.type)) {
+    return {
+      message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
+      path: ['fields'],
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate that field permissions reference existing fields.
+ *
+ * @param fieldPermissions - Array of field permissions to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateFieldPermissions = (
+  fieldPermissions: ReadonlyArray<{ readonly field: string }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const invalidFieldPermission = fieldPermissions
+    .find((fieldPermission) => !fieldNames.has(fieldPermission.field))
+
+  if (invalidFieldPermission) {
+    return {
+      message: `Field permission references non-existent field '${invalidFieldPermission.field}' - field does not exist in table`,
+      path: ['permissions', 'fields'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Detect circular dependencies in formula fields using depth-first search.
  * A circular dependency exists when a formula field references itself directly or indirectly
  * through a chain of other formula fields.
@@ -341,68 +453,27 @@ export const TableSchema = Schema.Struct({
   permissions: Schema.optional(TablePermissionsSchema),
 }).pipe(
   Schema.filter((table) => {
-    // Validate that formula fields only reference existing fields
     const fieldNames = new Set(table.fields.map((field) => field.name))
-    const formulaFields = table.fields.filter(
-      (field): field is Extract<typeof field, { type: 'formula' }> => field.type === 'formula'
-    )
 
-    // Validate formula syntax first (before checking field references)
-    const syntaxError = formulaFields
-      .map((formulaField) => ({
-        field: formulaField,
-        error: validateFormulaSyntax(formulaField.formula),
-      }))
-      .find((result) => result.error !== undefined)
-
-    if (syntaxError?.error) {
-      return {
-        message: syntaxError.error,
-        path: ['fields'],
-      }
-    }
-
-    // Find the first invalid field reference across all formula fields
-    const invalidReference = formulaFields
-      .flatMap((formulaField) => {
-        const referencedFields = extractFieldReferences(formulaField.formula)
-        const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
-        return invalidField ? [{ formulaField, invalidField }] : []
-      })
-      .at(0)
-
-    if (invalidReference) {
-      return {
-        message: `Invalid field reference: field '${invalidReference.invalidField}' not found in formula '${invalidReference.formulaField.formula}'`,
-        path: ['fields'],
-      }
-    }
-
-    // Detect circular dependencies in formula fields
-    const circularFields = detectCircularDependencies(table.fields)
-    if (circularFields.length > 0) {
-      return {
-        message: `Circular dependency detected in formula fields: ${circularFields.join(' -> ')}`,
-        path: ['fields'],
-      }
+    // Validate formula fields
+    const formulaValidationError = validateFormulaFields(table.fields, fieldNames)
+    if (formulaValidationError) {
+      return formulaValidationError
     }
 
     // Validate organizationScoped requires organization_id field
     if (table.permissions?.organizationScoped === true) {
-      const organizationIdField = table.fields.find((field) => field.name === 'organization_id')
-      if (!organizationIdField) {
-        return {
-          message: 'organizationScoped requires organization_id field',
-          path: ['permissions', 'organizationScoped'],
-        }
+      const orgValidationError = validateOrganizationScoped(table.fields)
+      if (orgValidationError) {
+        return orgValidationError
       }
-      // Validate organization_id field type (must be text-based for Better Auth compatibility)
-      const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number']
-      if (!validTypes.includes(organizationIdField.type)) {
-        return {
-          message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
-          path: ['fields'],
-        }
+    }
+
+    // Validate field permissions reference existing fields
+    if (table.permissions?.fields) {
+      const fieldPermissionsError = validateFieldPermissions(table.permissions.fields, fieldNames)
+      if (fieldPermissionsError) {
+        return fieldPermissionsError
       }
     }
 
