@@ -190,14 +190,73 @@ export const isFormulaReturningArray = (formula: string): boolean => {
 }
 
 /**
+ * Parse ROUND function arguments, handling nested parentheses
+ * Returns {firstArg, secondArg, start, end} or undefined if not a valid ROUND call
+ */
+const parseRoundArgs = (
+  formula: string,
+  matchIndex: number,
+  matchLength: number
+):
+  | { readonly firstArg: string; readonly secondArg: string; readonly start: number; readonly end: number }
+  | undefined => {
+  const argsStart = matchIndex + matchLength
+  const chars = [...formula.slice(argsStart)]
+
+  // Track state through the argument parsing
+  const state = chars.reduce<{
+    depth: number
+    firstArgEnd: number
+    currentIndex: number
+    done: boolean
+  }>(
+    (acc, char, idx) => {
+      if (acc.done) return acc
+
+      const absoluteIndex = argsStart + idx
+
+      if (char === '(') {
+        return { ...acc, depth: acc.depth + 1, currentIndex: absoluteIndex }
+      }
+
+      if (char === ')') {
+        const newDepth = acc.depth - 1
+        if (newDepth === 0) {
+          return { ...acc, depth: newDepth, currentIndex: absoluteIndex, done: true }
+        }
+        return { ...acc, depth: newDepth, currentIndex: absoluteIndex }
+      }
+
+      if (char === ',' && acc.depth === 1 && acc.firstArgEnd === -1) {
+        return { ...acc, firstArgEnd: absoluteIndex, currentIndex: absoluteIndex }
+      }
+
+      return { ...acc, currentIndex: absoluteIndex }
+    },
+    { depth: 1, firstArgEnd: -1, currentIndex: argsStart, done: false }
+  )
+
+  if (state.firstArgEnd === -1) return undefined
+
+  return {
+    firstArg: formula.slice(argsStart, state.firstArgEnd).trim(),
+    secondArg: formula.slice(state.firstArgEnd + 1, state.currentIndex).trim(),
+    start: matchIndex,
+    end: state.currentIndex + 1,
+  }
+}
+
+/**
  * Translate formula from user-friendly syntax to PostgreSQL syntax
  * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
  * Converts date_field::TEXT to TO_CHAR(date_field, 'YYYY-MM-DD') for immutability
+ * Casts ROUND arguments to NUMERIC when input may be double precision
  * Escapes field names that contain reserved words (e.g., order_num → "order_num")
  *
  * NOTE: PostgreSQL natively supports nested function calls like ROUND(SQRT(ABS(value)), 2)
- * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), so they don't
- * need translation and are passed through unchanged.
+ * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), but ROUND only
+ * accepts NUMERIC as first argument, not double precision. Functions like SQRT, POWER, EXP, LN
+ * return double precision, so we cast them to NUMERIC before passing to ROUND.
  */
 export const translateFormulaToPostgres = (
   formula: string,
@@ -225,7 +284,7 @@ export const translateFormulaToPostgres = (
     : formula
 
   // SUBSTR(text, start, length) → SUBSTRING(text FROM start FOR length)
-  const withSubstr = withDateToText.replace(
+  const withSubstring = withDateToText.replace(
     /SUBSTR\s*\(\s*([^,]+?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
     (_, text, start, length) => {
       const trimmedText = text.trim()
@@ -234,6 +293,31 @@ export const translateFormulaToPostgres = (
         trimmedText.match(/^\w+$/) ? escapeFieldName(trimmedText) : trimmedText
       return `SUBSTRING(${escapedText} FROM ${start} FOR ${length})`
     }
+  )
+
+  // ROUND with double precision functions (SQRT, POWER, EXP, LN, LOG) needs ::NUMERIC cast
+  // PostgreSQL's ROUND(numeric, integer) exists but ROUND(double precision, integer) does not
+  // We need to handle nested parentheses properly by finding matching pairs
+
+  // Find all ROUND( occurrences and build replacement list
+  const roundMatches = [...withSubstring.matchAll(/ROUND\s*\(/gi)]
+  const replacements = roundMatches
+    .map((match) => parseRoundArgs(withSubstring, match.index ?? 0, match[0].length))
+    .filter((parsed): parsed is NonNullable<typeof parsed> => parsed !== undefined)
+    .filter((parsed) => /SQRT|POWER|EXP|LN|LOG/i.test(parsed.firstArg))
+    .map((parsed) => ({
+      start: parsed.start,
+      end: parsed.end,
+      replacement: `ROUND((${parsed.firstArg})::NUMERIC, ${parsed.secondArg})`,
+    }))
+
+  // Apply replacements in reverse order to maintain indices
+  // Sort immutably using toSorted (ES2023)
+  const sortedReplacements = replacements.toSorted((a, b) => b.start - a.start)
+
+  const withRoundCast = sortedReplacements.reduce(
+    (result, { start, end, replacement }) => result.slice(0, start) + replacement + result.slice(end),
+    withSubstring
   )
 
   // Escape field names in formulas (match word boundaries to avoid escaping function names)
@@ -250,8 +334,8 @@ export const translateFormulaToPostgres = (
       // Use negative lookbehind to avoid matching if already quoted
       const fieldRegex = new RegExp(`(?<!["'])\\b${field.name}\\b(?!["'])`, 'gi')
       return acc.replace(fieldRegex, (match) => escapeFieldName(match))
-    }, withSubstr)
+    }, withRoundCast)
   }
 
-  return withSubstr
+  return withRoundCast
 }

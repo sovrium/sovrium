@@ -210,15 +210,49 @@ const generateDefaultClause = (field: Fields[number]): string => {
 }
 
 /**
+ * Generate formula column definition (GENERATED ALWAYS AS or trigger-based)
+ *
+ * NOTE: Formula fields with volatile functions (CURRENT_DATE, NOW(), etc.) cannot use
+ * GENERATED ALWAYS AS because PostgreSQL requires generated columns to be immutable.
+ * For volatile formulas, we create regular columns and handle computation via triggers.
+ */
+const generateFormulaColumn = (
+  field: Fields[number] & { type: 'formula'; formula: string },
+  allFields?: readonly Fields[number][]
+): string => {
+  const baseResultType =
+    'resultType' in field && field.resultType
+      ? mapFormulaResultTypeToPostgres(field.resultType)
+      : 'TEXT'
+
+  // Auto-detect array return type for functions like STRING_TO_ARRAY
+  // If formula returns an array but resultType doesn't specify array, append []
+  const resultType =
+    isFormulaReturningArray(field.formula) && !baseResultType.endsWith('[]')
+      ? `${baseResultType}[]`
+      : baseResultType
+
+  // Translate formula to PostgreSQL syntax with field type context
+  // Note: translateFormulaToPostgres handles ROUND with double precision by casting to NUMERIC
+  const translatedFormula = translateFormulaToPostgres(field.formula, allFields)
+
+  // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
+  // because PostgreSQL GENERATED columns must be immutable
+  if (isFormulaVolatile(field.formula)) {
+    // Create regular column - trigger will populate it
+    return `${field.name} ${resultType}`
+  }
+
+  // Immutable formulas can use GENERATED ALWAYS AS
+  return `${field.name} ${resultType} GENERATED ALWAYS AS (${translatedFormula}) STORED`
+}
+
+/**
  * Generate column definition with constraints
  *
  * NOTE: UNIQUE constraints are NOT generated inline. Named UNIQUE constraints
  * are generated at the table level via generateUniqueConstraints() to ensure
  * they appear in information_schema.table_constraints with queryable constraint names.
- *
- * NOTE: Formula fields with volatile functions (CURRENT_DATE, NOW(), etc.) cannot use
- * GENERATED ALWAYS AS because PostgreSQL requires generated columns to be immutable.
- * For volatile formulas, we create regular columns and handle computation via triggers.
  */
 export const generateColumnDefinition = (
   field: Fields[number],
@@ -232,30 +266,7 @@ export const generateColumnDefinition = (
 
   // Formula fields: check if formula is volatile
   if (field.type === 'formula' && 'formula' in field && field.formula) {
-    const baseResultType =
-      'resultType' in field && field.resultType
-        ? mapFormulaResultTypeToPostgres(field.resultType)
-        : 'TEXT'
-
-    // Auto-detect array return type for functions like STRING_TO_ARRAY
-    // If formula returns an array but resultType doesn't specify array, append []
-    const resultType =
-      isFormulaReturningArray(field.formula) && !baseResultType.endsWith('[]')
-        ? `${baseResultType}[]`
-        : baseResultType
-
-    // Translate formula to PostgreSQL syntax with field type context
-    const translatedFormula = translateFormulaToPostgres(field.formula, allFields)
-
-    // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
-    // because PostgreSQL GENERATED columns must be immutable
-    if (isFormulaVolatile(field.formula)) {
-      // Create regular column - trigger will populate it
-      return `${field.name} ${resultType}`
-    }
-
-    // Immutable formulas can use GENERATED ALWAYS AS
-    return `${field.name} ${resultType} GENERATED ALWAYS AS (${translatedFormula}) STORED`
+    return generateFormulaColumn(field, allFields)
   }
 
   const columnType = mapFieldTypeToPostgres(field)
