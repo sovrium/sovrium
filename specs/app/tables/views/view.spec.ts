@@ -24,7 +24,7 @@ test.describe('Table View', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-001: should be valid when validating view schema with id, name, and type properties',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -61,7 +61,7 @@ test.describe('Table View', () => {
 
       // View is queryable
       const viewRecords = await executeQuery('SELECT * FROM example_view')
-      expect(viewRecords).toEqual([])
+      expect(viewRecords.rows).toEqual([])
     }
   )
 
