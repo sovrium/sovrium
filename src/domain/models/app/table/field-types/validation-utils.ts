@@ -40,7 +40,7 @@ export const validateMinMaxRange = (field: {
  *
  * This schema factory is used by single-select and multi-select field types
  * to ensure consistent validation of options arrays. All select fields require
- * at least one option to be meaningful.
+ * at least one option to be meaningful, and option values must be unique.
  *
  * @param fieldType - The type of select field (for error messages)
  * @returns Effect Schema for validating options arrays
@@ -58,6 +58,10 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
     Schema.minItems(1),
     Schema.annotations({
       message: () => `At least one option is required for ${fieldType} field`,
+    }),
+    Schema.filter((options) => {
+      const uniqueOptions = new Set(options)
+      return options.length === uniqueOptions.size || 'Options must be unique (duplicate option found)'
     })
   )
 
