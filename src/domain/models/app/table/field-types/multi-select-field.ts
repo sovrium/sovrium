@@ -44,6 +44,12 @@ export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
       default: Schema.optional(Schema.Array(Schema.String)),
     })
   ),
+  Schema.filter((field) => {
+    if (field.maxSelections !== undefined && field.maxSelections > field.options.length) {
+      return 'maxSelections exceeds available options'
+    }
+    return true
+  }),
   Schema.annotations({
     title: 'Multi Select Field',
     description: 'Allows selection of multiple options from predefined list.',

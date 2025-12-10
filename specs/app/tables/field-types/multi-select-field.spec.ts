@@ -279,7 +279,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-008: should reject multi-select when maxSelections exceeds options length',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
