@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
 import { detectCycles } from './cycle-detection'
+import { findDuplicate } from './field-types/validation-utils'
 import { FieldsSchema } from './fields'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
@@ -456,13 +457,9 @@ const validatePrimaryKey = (
   }
 
   // Check for duplicate field references
-  const fieldReferences = primaryKey.fields
-  const uniqueFields = new Set(fieldReferences)
+  const duplicateField = findDuplicate(primaryKey.fields)
 
-  if (uniqueFields.size !== fieldReferences.length) {
-    const duplicateField = fieldReferences.find(
-      (field, index) => fieldReferences.indexOf(field) !== index
-    )
+  if (duplicateField) {
     return {
       message: `Primary key field '${duplicateField}' is not unique - duplicate field references in composite primary key`,
       path: ['primaryKey', 'fields'],
@@ -470,7 +467,7 @@ const validatePrimaryKey = (
   }
 
   // Check for non-existent field references
-  const invalidField = fieldReferences.find((field) => !fieldNames.has(field))
+  const invalidField = primaryKey.fields.find((field) => !fieldNames.has(field))
 
   if (invalidField) {
     return {
@@ -495,7 +492,7 @@ const validateViewIds = (
   const viewIds = views.map((view) => String(view.id))
 
   // Find duplicate view ID
-  const duplicateId = viewIds.find((id, index) => viewIds.indexOf(id) !== index)
+  const duplicateId = findDuplicate(viewIds)
 
   if (duplicateId) {
     return {
@@ -588,9 +585,7 @@ const validateFieldPermissions = (
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
   // Check for duplicate field permissions
   const fieldPermissionNames = fieldPermissions.map((fp) => fp.field)
-  const duplicateField = fieldPermissionNames.find(
-    (fieldName, index) => fieldPermissionNames.indexOf(fieldName) !== index
-  )
+  const duplicateField = findDuplicate(fieldPermissionNames)
 
   if (duplicateField) {
     return {

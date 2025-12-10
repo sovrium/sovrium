@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { Schema } from 'effect'
-import { validateMinMaxRange, createOptionsSchema, validateButtonAction } from './validation-utils'
+import { validateMinMaxRange, createOptionsSchema, validateButtonAction, findDuplicate } from './validation-utils'
 
 describe('validateMinMaxRange', () => {
   test('returns undefined when both min and max are valid (min < max)', () => {
@@ -148,5 +148,43 @@ describe('validateButtonAction', () => {
     expect(
       validateButtonAction({ action: 'automation', automation: 'approve', url: 'ignored' })
     ).toBe(true)
+  })
+})
+
+describe('findDuplicate', () => {
+  test('returns undefined when array has no duplicates', () => {
+    expect(findDuplicate(['a', 'b', 'c'])).toBeUndefined()
+  })
+
+  test('returns first duplicate when array has duplicates', () => {
+    expect(findDuplicate(['a', 'b', 'a', 'c'])).toBe('a')
+  })
+
+  test('returns correct duplicate when multiple duplicates exist', () => {
+    expect(findDuplicate(['x', 'y', 'z', 'y', 'x'])).toBe('y')
+  })
+
+  test('returns undefined for single-item array', () => {
+    expect(findDuplicate(['single'])).toBeUndefined()
+  })
+
+  test('returns undefined for empty array', () => {
+    expect(findDuplicate([])).toBeUndefined()
+  })
+
+  test('works with numeric arrays', () => {
+    expect(findDuplicate([1, 2, 3, 2, 4])).toBe(2)
+  })
+
+  test('works with mixed case sensitivity (treats as different values)', () => {
+    expect(findDuplicate(['Test', 'test', 'Test'])).toBe('Test')
+  })
+
+  test('detects duplicate in consecutive positions', () => {
+    expect(findDuplicate(['a', 'a', 'b'])).toBe('a')
+  })
+
+  test('detects duplicate in non-consecutive positions', () => {
+    expect(findDuplicate(['a', 'b', 'c', 'a'])).toBe('a')
   })
 })
