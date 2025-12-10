@@ -249,6 +249,35 @@ export interface TableViewProps {
 }
 
 /**
+ * Upload Button Component for Multiple Attachments Fields
+ */
+function UploadButtons({ fields }: { readonly fields: readonly Table['fields'][number][] }) {
+  const multipleAttachmentsFields = fields.filter((field) => field.type === 'multiple-attachments')
+
+  return (
+    <>
+      {multipleAttachmentsFields.map((field) => {
+        const allowedTypes =
+          'allowedFileTypes' in field && Array.isArray(field.allowedFileTypes)
+            ? field.allowedFileTypes.join(',')
+            : undefined
+
+        return (
+          <div key={field.id}>
+            <button type="button">Upload</button>
+            <input
+              type="file"
+              accept={allowedTypes}
+              style={{ display: 'none' }}
+            />
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+/**
  * Format date field value with optional time component
  *
  * @param dateField - Date field configuration
@@ -328,6 +357,7 @@ export function TableView({ table, records }: TableViewProps): React.JSX.Element
     <div className="table-view">
       <h1>{table.name}</h1>
       <button type="button">Add record</button>
+      <UploadButtons fields={table.fields} />
       <form id="add-record-form">
         {table.fields.map((field) => {
           if (field.type === 'duration') {
