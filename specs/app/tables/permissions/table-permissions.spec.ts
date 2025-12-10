@@ -127,9 +127,9 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
+      // RLS policies are auto-created by the server based on permissions config
+      // Grant privileges to test users for execution
       await executeQuery([
-        'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY admin_create ON documents FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
         'GRANT ALL PRIVILEGES ON documents TO admin_user, member_user',
         'GRANT ALL PRIVILEGES ON SEQUENCE documents_id_seq TO admin_user, member_user',
       ])
@@ -137,16 +137,16 @@ test.describe('Table-Level Permissions', () => {
       // WHEN: user with 'member' role attempts to create record
       // THEN: PostgreSQL RLS policy denies INSERT access
 
-      // RLS policy exists for admin create
+      // RLS policy exists for role-based create (auto-generated as documents_role_create)
       const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'"
+        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='documents_role_create'"
       )
       // THEN: assertion
       expect(policyCount.count).toBe(1)
 
       // Policy uses WITH CHECK clause for INSERT
       const policyDetails = await executeQuery(
-        "SELECT cmd, with_check FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'"
+        "SELECT cmd, with_check FROM pg_policies WHERE tablename='documents' AND policyname='documents_role_create'"
       )
       // THEN: assertion
       expect(policyDetails).toMatchObject({
@@ -298,7 +298,8 @@ test.describe('Table-Level Permissions', () => {
       // Unauthenticated user cannot UPDATE records
       // THEN: assertion
       try {
-        await executeQuery("UPDATE profiles SET bio = 'Hacked' WHERE id = 1")
+        // Switch to non-superuser role without setting app.user_id (unauthenticated)
+        await executeQuery("SET ROLE authenticated_user; UPDATE profiles SET bio = 'Hacked' WHERE id = 1")
         throw new Error('Expected UPDATE to fail for unauthenticated user')
       } catch (error: any) {
         expect(error.message).toContain('new row violates row-level security policy')
@@ -438,7 +439,7 @@ test.describe('Table-Level Permissions', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-008: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -474,15 +475,11 @@ test.describe('Table-Level Permissions', () => {
         })
       })
 
-      await test.step('Create test user and RLS policies', async () => {
+      await test.step('Create test user and verify RLS policies were auto-created', async () => {
         user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
 
-        await executeQuery([
-          'ALTER TABLE data ENABLE ROW LEVEL SECURITY',
-          'CREATE POLICY authenticated_read ON data FOR SELECT USING (auth.is_authenticated())',
-          "CREATE POLICY admin_create ON data FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
-          `INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`,
-        ])
+        // Insert test data (RLS policies are auto-created by the server based on permissions config)
+        await executeQuery(`INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`)
       })
 
       await test.step('Verify RLS policies exist', async () => {
@@ -493,15 +490,17 @@ test.describe('Table-Level Permissions', () => {
       })
 
       await test.step('Verify authenticated user can read', async () => {
+        // Set session context to simulate authenticated user, then switch role
         const readResult = await executeQuery(
-          'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM data'
+          `SET app.user_id = '${user1.user.id}'; SET ROLE authenticated_user; SELECT COUNT(*) as count FROM data`
         )
         expect(readResult.count).toBe(1)
       })
 
       await test.step('Verify admin can create', async () => {
+        // Set user context and role for admin user, then switch database role
         const createResult = await executeQuery(
-          "SET ROLE admin_user; INSERT INTO data (content, owner_id) VALUES ('Data 2', 2) RETURNING id"
+          `SET app.user_id = '${user1.user.id}'; SET app.user_role = 'admin'; SET ROLE admin_user; INSERT INTO data (content, owner_id) VALUES ('Data 2', '${user1.user.id}') RETURNING id`
         )
         expect(createResult.id).toBe(2)
       })
