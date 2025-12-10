@@ -133,6 +133,27 @@ export const generateTableViewStatements = (table: Table): readonly string[] => 
 }
 
 /**
+ * Check if a view name belongs to a table
+ * Simple heuristic: view name contains table name or starts with table name
+ */
+const viewBelongsToTable = (viewName: string, tableName: string): boolean => {
+  return viewName.includes(tableName) || viewName.startsWith(tableName.replace(/_/g, ''))
+}
+
+/**
+ * Filter views that should be dropped (exist in DB but not in schema)
+ */
+const findObsoleteViews = (
+  existingViews: ReadonlySet<string>,
+  schemaViews: ReadonlySet<string>,
+  tableName: string
+): readonly string[] => {
+  return Array.from(existingViews).filter(
+    (viewName) => viewBelongsToTable(viewName, tableName) && !schemaViews.has(viewName)
+  )
+}
+
+/**
  * Drop views that no longer exist in the schema
  * This is called before creating views to ensure clean state
  */
@@ -160,21 +181,9 @@ export const generateDropObsoleteViewsSQL = async (
   // Convert view IDs to strings (ViewId can be number or string)
   const schemaViews = new Set((table.views || []).map((v) => String(v.id)))
 
-  // Find regular views to drop (exist in database but not in schema)
-  const viewsToDrop = Array.from(existingViews).filter((viewName) => {
-    // Only drop views that look like they belong to this table
-    // Simple heuristic: view name contains table name or starts with table name
-    const belongsToTable =
-      viewName.includes(table.name) || viewName.startsWith(table.name.replace(/_/g, ''))
-    return belongsToTable && !schemaViews.has(viewName)
-  })
-
-  // Find materialized views to drop (exist in database but not in schema)
-  const matViewsToDrop = Array.from(existingMatViews).filter((viewName) => {
-    const belongsToTable =
-      viewName.includes(table.name) || viewName.startsWith(table.name.replace(/_/g, ''))
-    return belongsToTable && !schemaViews.has(viewName)
-  })
+  // Find views to drop using shared logic
+  const viewsToDrop = findObsoleteViews(existingViews, schemaViews, table.name)
+  const matViewsToDrop = findObsoleteViews(existingMatViews, schemaViews, table.name)
 
   // Drop obsolete regular views
   await Promise.all(
