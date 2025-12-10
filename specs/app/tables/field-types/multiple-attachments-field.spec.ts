@@ -270,7 +270,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-009: should store metadata for each attachment',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -302,10 +302,9 @@ test.describe('Multiple Attachments Field', () => {
 
       // THEN: metadata is stored for each file type
       const result = await executeQuery('SELECT files FROM media WHERE id = 1')
-      const files = JSON.parse(result.files)
-      expect(files[0].width).toBe(1024)
-      expect(files[0].height).toBe(768)
-      expect(files[1].duration).toBe(60)
+      expect(result.files[0].width).toBe(1024)
+      expect(result.files[0].height).toBe(768)
+      expect(result.files[1].duration).toBe(60)
     }
   )
 
