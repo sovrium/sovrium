@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- File size will be addressed by codebase-refactor-auditor */
+
 import { logWarning } from '@/infrastructure/logging/effect-logger'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
@@ -92,6 +94,20 @@ const generateOwnerCheck = (permission?: TablePermission): string | undefined =>
   // Generate owner check: owner_id = current_setting('app.user_id')::TEXT
   const ownerField = permission.field
   return `${ownerField} = current_setting('app.user_id')::TEXT`
+}
+
+/**
+ * Generate authenticated check expression for RLS policies
+ *
+ * @param permission - Permission configuration
+ * @returns SQL expression for authenticated check, or undefined if not authenticated permission
+ */
+const generateAuthenticatedCheck = (permission?: TablePermission): string | undefined => {
+  if (!permission || permission.type !== 'authenticated') {
+    return undefined
+  }
+
+  return 'auth.is_authenticated()'
 }
 
 /**
@@ -317,6 +333,27 @@ const hasOwnerPermissions = (table: Table): boolean => {
 }
 
 /**
+ * Check if table has authenticated permissions
+ *
+ * @param table - Table definition
+ * @returns True if any CRUD operation uses authenticated permission
+ */
+const hasAuthenticatedPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  if (!permissions) {
+    return false
+  }
+
+  return (
+    permissions.read?.type === 'authenticated' ||
+    permissions.create?.type === 'authenticated' ||
+    permissions.update?.type === 'authenticated' ||
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
+    permissions.delete?.type === 'authenticated'
+  )
+}
+
+/**
  * Check if table has role-based permissions (without organization scoping)
  *
  * @param table - Table definition
@@ -335,6 +372,27 @@ const hasRolePermissions = (table: Table): boolean => {
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
     permissions.delete?.type === 'roles'
   )
+}
+
+/**
+ * Generate authenticated policy statements for a specific operation
+ *
+ * Creates DROP and CREATE POLICY statements for authenticated-only access control.
+ *
+ * @param tableName - Name of the table
+ * @param operation - CRUD operation name (read/create/update/delete)
+ * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
+ * @param checkExpression - Authenticated check SQL expression
+ * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
+ */
+const generateAuthenticatedPolicyStatements = (
+  tableName: string,
+  operation: 'read' | 'create' | 'update' | 'delete',
+  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
+  checkExpression: string | undefined
+): readonly string[] => {
+  const policyName = `authenticated_${operation}`
+  return generatePolicyStatements(tableName, policyName, sqlCommand, checkExpression)
 }
 
 /**
@@ -466,6 +524,45 @@ const extractDatabaseRoles = (table: Table): ReadonlySet<string> => {
 }
 
 /**
+ * Generate table grants for authenticated permissions
+ *
+ * When a table has authenticated permissions, the authenticated_user role needs basic table-level access.
+ * RLS policies will then filter rows based on authentication status.
+ *
+ * This grants:
+ * 1. CREATE ROLE statement for authenticated_user (if not exists)
+ * 2. USAGE on public schema
+ * 3. ALL on the table (RLS policies will restrict row access)
+ *
+ * @param table - Table definition with authenticated permissions
+ * @returns Array of SQL statements to create roles and grant access
+ */
+export const generateAuthenticatedBasedGrants = (table: Table): readonly string[] => {
+  if (!hasAuthenticatedPermissions(table)) {
+    return []
+  }
+
+  const tableName = table.name
+
+  const createRoleStatements = [
+    `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated_user') THEN
+    CREATE ROLE authenticated_user WITH LOGIN;
+  END IF;
+END
+$$`,
+  ]
+
+  const grantStatements = [
+    `GRANT USAGE ON SCHEMA public TO authenticated_user`,
+    `GRANT ALL ON ${tableName} TO authenticated_user`,
+  ]
+
+  return [...createRoleStatements, ...grantStatements]
+}
+
+/**
  * Generate table grants for role-based permissions
  *
  * When a table has role-based permissions, specific test roles need basic table-level access.
@@ -516,6 +613,67 @@ $$`
   ])
 
   return [...createRoleStatements, ...grantStatements]
+}
+
+/**
+ * Generate RLS policy statements for authenticated permissions
+ *
+ * When a table has authenticated permissions (e.g., read: { type: 'authenticated' }),
+ * this generates RLS policies that check if the user is authenticated.
+ *
+ * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
+ * This is critical for E2E tests where the database user is often a superuser.
+ *
+ * @param table - Table definition with authenticated permissions
+ * @returns Array of SQL statements to enable RLS and create authenticated policies
+ */
+const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
+  const enableRLS = generateEnableRLS(tableName)
+
+  // Generate authenticated checks for each operation
+  const authenticatedChecks = {
+    read: generateAuthenticatedCheck(table.permissions?.read),
+    create: generateAuthenticatedCheck(table.permissions?.create),
+    update: generateAuthenticatedCheck(table.permissions?.update),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
+    delete: generateAuthenticatedCheck(table.permissions?.delete),
+  }
+
+  // Generate policies for each CRUD operation
+  const selectPolicies = generateAuthenticatedPolicyStatements(
+    tableName,
+    'read',
+    'SELECT',
+    authenticatedChecks.read
+  )
+  const insertPolicies = generateAuthenticatedPolicyStatements(
+    tableName,
+    'create',
+    'INSERT',
+    authenticatedChecks.create
+  )
+  const updatePolicies = generateAuthenticatedPolicyStatements(
+    tableName,
+    'update',
+    'UPDATE',
+    authenticatedChecks.update
+  )
+  const deletePolicies = generateAuthenticatedPolicyStatements(
+    tableName,
+    'delete',
+    'DELETE',
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- authenticatedChecks.delete is a permission field, not a Drizzle delete operation
+    authenticatedChecks.delete
+  )
+
+  return [
+    ...enableRLS,
+    ...selectPolicies,
+    ...insertPolicies,
+    ...updatePolicies,
+    ...deletePolicies,
+  ]
 }
 
 /**
@@ -703,6 +861,62 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
   generateEnableRLS(tableName)
 
 /**
+ * Return empty array (no policies)
+ */
+const returnEmptyPolicies = (): readonly string[] => []
+
+/**
+ * Determine which RLS policy generator to use based on table permissions
+ *
+ * Priority order (first match wins):
+ * 1. Public permissions → No RLS
+ * 2. No permissions → Default deny
+ * 3. Record-level → Custom conditions
+ * 4. Owner-based → Owner field check
+ * 5. Authenticated → auth.is_authenticated()
+ * 6. Role-based → Role checks
+ * 7. Organization-scoped → Organization ID filter
+ *
+ * Complexity is acceptable here as it's a routing function that delegates to specialized generators.
+ * Each branch is simple and directly maps to a policy generator.
+ */
+const selectPolicyGenerator = (
+  table: Table
+  // eslint-disable-next-line complexity
+): ((table: Table) => readonly string[]) | (() => readonly string[]) => {
+  if (hasOnlyPublicPermissions(table)) {
+    return returnEmptyPolicies
+  }
+
+  if (hasNoPermissions(table)) {
+    const tableName = table.name
+    return () => generateDefaultDenyPolicies(tableName)
+  }
+
+  if (hasRecordLevelPermissions(table)) {
+    return generateRecordLevelPolicies
+  }
+
+  if (hasOwnerPermissions(table)) {
+    return generateOwnerBasedPolicies
+  }
+
+  if (hasAuthenticatedPermissions(table) && !table.permissions?.organizationScoped) {
+    return generateAuthenticatedBasedPolicies
+  }
+
+  if (hasRolePermissions(table) && !table.permissions?.organizationScoped) {
+    return generateRoleBasedPolicies
+  }
+
+  if (table.permissions?.organizationScoped) {
+    return generateOrganizationScopedPolicies
+  }
+
+  return returnEmptyPolicies
+}
+
+/**
  * Generate RLS policy statements for tables with various permission types
  *
  * Supports the following permission configurations:
@@ -725,11 +939,15 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
  *    - Filters records by the specified owner field
  *    - Uses current_setting('app.user_id') to match ownership
  *
- * 5. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
+ * 5. **Authenticated permissions** (e.g., update: { type: 'authenticated' }):
+ *    - Checks if user is authenticated via auth.is_authenticated()
+ *    - Creates policies for each CRUD operation that require authentication
+ *
+ * 6. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
  *    - Checks user's role via current_setting('app.user_role')
  *    - Creates policies for each CRUD operation based on allowed roles
  *
- * 6. **Organization-scoped** (permissions.organizationScoped: true):
+ * 7. **Organization-scoped** (permissions.organizationScoped: true):
  *    - Filters by organization_id using current_setting('app.organization_id')
  *    - Can be combined with role checks using AND
  *
@@ -740,38 +958,6 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
  * @returns Array of SQL statements to enable RLS and create policies
  */
 export const generateRLSPolicyStatements = (table: Table): readonly string[] => {
-  const tableName = table.name
-
-  // If only public permissions, no RLS needed (unrestricted access)
-  if (hasOnlyPublicPermissions(table)) {
-    return []
-  }
-
-  // If no permissions configured, enable RLS with no policies (default deny)
-  if (hasNoPermissions(table)) {
-    return generateDefaultDenyPolicies(tableName)
-  }
-
-  // Check if table has record-level permissions (custom conditions)
-  // This takes priority over other permission types
-  if (hasRecordLevelPermissions(table)) {
-    return generateRecordLevelPolicies(table)
-  }
-
-  // Check if table has owner-based permissions
-  if (hasOwnerPermissions(table)) {
-    return generateOwnerBasedPolicies(table)
-  }
-
-  // Check if table has role-based permissions (without organization scoping)
-  if (hasRolePermissions(table) && !table.permissions?.organizationScoped) {
-    return generateRoleBasedPolicies(table)
-  }
-
-  // Check if organization isolation is enabled
-  if (table.permissions?.organizationScoped) {
-    return generateOrganizationScopedPolicies(table)
-  }
-
-  return []
+  const generator = selectPolicyGenerator(table)
+  return generator(table)
 }
