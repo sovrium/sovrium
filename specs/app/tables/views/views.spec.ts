@@ -86,7 +86,7 @@ test.describe('Table Views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-002: should combine conditions with AND operator when view has multiple AND conditions (status = active AND priority > 2)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -138,22 +138,22 @@ test.describe('Table Views', () => {
       // View returns only records matching ALL conditions
       const viewRecords = await executeQuery('SELECT * FROM high_priority_active')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(1)
-      expect(viewRecords[0].name).toBe('Project B')
+      expect(viewRecords.rowCount).toBe(1)
+      expect(viewRecords.name).toBe('Project B')
 
       // Project A excluded (priority not > 2)
       const projectA = await executeQuery(
         "SELECT * FROM high_priority_active WHERE name = 'Project A'"
       )
       // THEN: assertion
-      expect(projectA).toHaveLength(0)
+      expect(projectA.rowCount).toBe(0)
 
       // Project C excluded (status not active)
       const projectC = await executeQuery(
         "SELECT * FROM high_priority_active WHERE name = 'Project C'"
       )
       // THEN: assertion
-      expect(projectC).toHaveLength(0)
+      expect(projectC.rowCount).toBe(0)
     }
   )
 

@@ -9,8 +9,35 @@ import type { Table } from '@/domain/models/app/table'
 import type { View } from '@/domain/models/app/table/views'
 
 /**
+ * Escape a string value for safe SQL interpolation
+ * Doubles single quotes to prevent SQL injection (PostgreSQL standard)
+ */
+const escapeSqlString = (value: string): string => {
+  return value.replace(/'/g, "''")
+}
+
+/**
+ * Format a value for SQL interpolation
+ * Strings are escaped and quoted, numbers/booleans are used directly
+ */
+const formatSqlValue = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return `'${escapeSqlString(value)}'`
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  if (value === null) {
+    return 'NULL'
+  }
+  // For other types (objects, arrays), convert to JSON string
+  return `'${escapeSqlString(JSON.stringify(value))}'`
+}
+
+/**
  * Generate SQL WHERE clause from view filters
- * Currently supports simple equality filters for basic views
+ * Supports comparison operators (equals, greaterThan, lessThan, etc.)
+ * Values are properly escaped to prevent SQL injection
  */
 const generateWhereClause = (filters: View['filters']): string => {
   if (!filters) return ''
@@ -20,10 +47,21 @@ const generateWhereClause = (filters: View['filters']): string => {
     const conditions = filters.and.map((condition) => {
       if ('field' in condition && 'operator' in condition && 'value' in condition) {
         const { field, operator, value: rawValue } = condition
-        const value = typeof rawValue === 'string' ? `'${rawValue}'` : rawValue
 
-        if (operator === 'equals') {
-          return `${field} = ${value}`
+        // Map domain operators to SQL operators
+        const operatorMap: Record<string, string> = {
+          equals: '=',
+          greaterThan: '>',
+          lessThan: '<',
+          greaterThanOrEqual: '>=',
+          lessThanOrEqual: '<=',
+        }
+
+        const sqlOperator = operatorMap[operator]
+        if (sqlOperator) {
+          // Format value with proper escaping
+          const formattedValue = formatSqlValue(rawValue)
+          return `${field} ${sqlOperator} ${formattedValue}`
         }
       }
       return ''
