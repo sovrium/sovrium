@@ -206,6 +206,21 @@ describe('UniqueConstraintsSchema', () => {
         })
       }).toThrow()
     })
+
+    test('should reject duplicate constraint names within same table', () => {
+      expect(() => {
+        Schema.decodeUnknownSync(UniqueConstraintsSchema)([
+          {
+            name: 'uq_users_contact',
+            fields: ['email', 'phone'],
+          },
+          {
+            name: 'uq_users_contact',
+            fields: ['name', 'email'],
+          },
+        ])
+      }).toThrow(/duplicate.*constraint.*name|constraint name.*must be unique/i)
+    })
   })
 
   describe('type inference', () => {
