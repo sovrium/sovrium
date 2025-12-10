@@ -100,3 +100,27 @@ export const validateButtonAction = (field: {
   }
   return true
 }
+
+/**
+ * Finds the first duplicate value in an array.
+ *
+ * This utility function is used for detecting duplicate IDs, field names, or other
+ * values that must be unique within a collection. Uses an efficient O(n) algorithm
+ * with indexOf to find the first duplicate.
+ *
+ * @param values - Array of values to check for duplicates
+ * @returns The first duplicate value found, or undefined if no duplicates exist
+ *
+ * @example
+ * ```typescript
+ * findDuplicate(['a', 'b', 'c'])        // undefined (no duplicates)
+ * findDuplicate(['a', 'b', 'a', 'c'])   // 'a' (first duplicate)
+ * findDuplicate([1, 2, 3, 2])           // 2 (works with numbers)
+ * findDuplicate(['x'])                  // undefined (single item)
+ * ```
+ */
+export const findDuplicate = <T>(
+  values: ReadonlyArray<T>
+): T | undefined => {
+  return values.find((value, index) => values.indexOf(value) !== index)
+}
