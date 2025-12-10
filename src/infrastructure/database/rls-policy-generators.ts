@@ -866,16 +866,122 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
 const returnEmptyPolicies = (): readonly string[] => []
 
 /**
+ * Generate policy name based on operation and permission type
+ *
+ * @param tableName - Name of the table
+ * @param operation - CRUD operation (read/create/update/delete)
+ * @param permission - Permission configuration
+ * @returns Policy name
+ */
+const generatePolicyName = (
+  tableName: string,
+  operation: string,
+  permission: TablePermission | undefined
+): string => {
+  if (!permission) {
+    return `${tableName}_${operation}`
+  }
+
+  if (permission.type === 'authenticated') {
+    return `authenticated_${operation}`
+  }
+
+  if (permission.type === 'roles') {
+    return `${tableName}_role_${operation}`
+  }
+
+  if (permission.type === 'owner') {
+    return `${tableName}_owner_${operation}`
+  }
+
+  return `${tableName}_${operation}`
+}
+
+/**
+ * Generate permission check for a specific operation
+ *
+ * @param permission - Permission configuration
+ * @returns SQL expression for permission check
+ */
+const generateOperationCheck = (permission: TablePermission | undefined): string | undefined =>
+  generateAuthenticatedCheck(permission) ||
+  generateRoleCheck(permission) ||
+  generateOwnerCheck(permission)
+
+/**
+ * Generate mixed permission policies (authenticated + role-based combinations)
+ *
+ * When a table has different permission types for different CRUD operations
+ * (e.g., authenticated read + role-based create), this generates policies
+ * for each operation based on its individual permission type.
+ *
+ * @param table - Table definition with mixed permissions
+ * @returns Array of SQL statements to enable RLS and create mixed policies
+ */
+const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
+  const enableRLS = generateEnableRLS(tableName)
+
+  // Generate checks and policy names for each operation
+  const readCheck = generateOperationCheck(table.permissions?.read)
+  const createCheck = generateOperationCheck(table.permissions?.create)
+  const updateCheck = generateOperationCheck(table.permissions?.update)
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
+  const deleteCheck = generateOperationCheck(table.permissions?.delete)
+
+  const readPolicyName = generatePolicyName(tableName, 'read', table.permissions?.read)
+  const createPolicyName = generatePolicyName(tableName, 'create', table.permissions?.create)
+  const updatePolicyName = generatePolicyName(tableName, 'update', table.permissions?.update)
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
+  const deletePolicyName = generatePolicyName(tableName, 'delete', table.permissions?.delete)
+
+  // Generate policies for each CRUD operation
+  const selectPolicies = generatePolicyStatements(tableName, readPolicyName, 'SELECT', readCheck)
+  const insertPolicies = generatePolicyStatements(tableName, createPolicyName, 'INSERT', createCheck)
+  const updatePolicies = generatePolicyStatements(tableName, updatePolicyName, 'UPDATE', updateCheck)
+  const deletePolicies = generatePolicyStatements(tableName, deletePolicyName, 'DELETE', deleteCheck)
+
+  return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
+}
+
+/**
+ * Check if table has mixed permission types (different types for different CRUD operations)
+ *
+ * @param table - Table definition
+ * @returns True if table has mixed authenticated/role/owner permissions
+ */
+const hasMixedPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  if (!permissions || permissions.organizationScoped) {
+    return false
+  }
+
+  // Get permission types for each operation (excluding public and record-level)
+  const permissionTypes = [
+    permissions.read?.type,
+    permissions.create?.type,
+    permissions.update?.type,
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
+    permissions.delete?.type,
+  ].filter((type) => type && type !== 'public')
+
+  // If there are at least 2 permission types, it's mixed
+  const uniqueTypes = new Set(permissionTypes)
+  return uniqueTypes.size >= 2
+}
+
+/**
  * Determine which RLS policy generator to use based on table permissions
  *
  * Priority order (first match wins):
  * 1. Public permissions → No RLS
  * 2. No permissions → Default deny
  * 3. Record-level → Custom conditions
- * 4. Owner-based → Owner field check
- * 5. Authenticated → auth.is_authenticated()
- * 6. Role-based → Role checks
- * 7. Organization-scoped → Organization ID filter
+ * 4. Mixed permissions → Individual policies per operation
+ * 5. Owner-based → Owner field check
+ * 6. Authenticated → auth.is_authenticated()
+ * 7. Role-based → Role checks
+ * 8. Organization-scoped → Organization ID filter
  *
  * Complexity is acceptable here as it's a routing function that delegates to specialized generators.
  * Each branch is simple and directly maps to a policy generator.
@@ -895,6 +1001,11 @@ const selectPolicyGenerator = (
 
   if (hasRecordLevelPermissions(table)) {
     return generateRecordLevelPolicies
+  }
+
+  // Handle mixed permissions (authenticated read + role create, etc.)
+  if (hasMixedPermissions(table)) {
+    return generateMixedPermissionPolicies
   }
 
   if (hasOwnerPermissions(table)) {
