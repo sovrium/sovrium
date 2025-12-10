@@ -265,11 +265,14 @@ export const createTableViews = async (
 
   // Drop and recreate each view (PostgreSQL doesn't support IF NOT EXISTS for views)
   for (const view of table.views) {
+    // Convert view.id to string (ViewId can be number or string)
+    const viewIdStr = String(view.id)
+
     // Drop existing view (if any)
-    await tx.unsafe(`DROP VIEW IF EXISTS ${view.id} CASCADE`)
+    await tx.unsafe(`DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
 
     // Create view
-    const viewSQL = generateTableViewStatements(table).find((sql) => sql.includes(view.id))
+    const viewSQL = generateTableViewStatements(table).find((sql) => sql.includes(viewIdStr))
     if (viewSQL) {
       await tx.unsafe(viewSQL)
     }

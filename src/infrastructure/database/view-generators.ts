@@ -53,10 +53,12 @@ const generateOrderByClause = (sorts: View['sorts']): string => {
  */
 export const generateViewSQL = (table: Table, view: View): string => {
   const viewType = view.materialized ? 'MATERIALIZED VIEW' : 'VIEW'
+  // Convert view.id to string (ViewId can be number or string)
+  const viewIdStr = String(view.id)
 
   // If view has a custom query, use it directly
   if (view.query) {
-    return `CREATE ${viewType} ${view.id} AS ${view.query}`
+    return `CREATE ${viewType} ${viewIdStr} AS ${view.query}`
   }
 
   // Otherwise, build query from filters, sorts, fields
@@ -73,7 +75,7 @@ export const generateViewSQL = (table: Table, view: View): string => {
 
   const query = clauses.join(' ')
 
-  return `CREATE ${viewType} ${view.id} AS ${query}`
+  return `CREATE ${viewType} ${viewIdStr} AS ${query}`
 }
 
 /**
@@ -102,7 +104,8 @@ export const generateDropObsoleteViewsSQL = async (
   `)) as readonly { viewname: string }[]
 
   const existingViews = new Set(existingViewsResult.map((r) => r.viewname))
-  const schemaViews = new Set((table.views || []).map((v) => v.id))
+  // Convert view IDs to strings (ViewId can be number or string)
+  const schemaViews = new Set((table.views || []).map((v) => String(v.id)))
 
   // Find views to drop (exist in database but not in schema)
   const viewsToDrop = Array.from(existingViews).filter((viewName) => {
