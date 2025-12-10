@@ -401,7 +401,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-007: should reject owner permission field that is not a user type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
