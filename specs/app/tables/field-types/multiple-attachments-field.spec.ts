@@ -165,7 +165,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: should restrict file uploads to allowed MIME types',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -200,7 +200,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-007: should enforce maximum file size per attachment',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -233,7 +233,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-008: should generate thumbnails for image attachments in array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -265,13 +265,12 @@ test.describe('Multiple Attachments Field', () => {
 
       // THEN: each image has a thumbnail generated
       const result = await executeQuery('SELECT images FROM galleries WHERE id = 1')
-      const images = JSON.parse(result.images)
-      expect(images[0].thumbnail).toBeTruthy()
-      expect(images[1].thumbnail).toBeTruthy()
+      expect(result.images[0].thumbnail).toBeTruthy()
+      expect(result.images[1].thumbnail).toBeTruthy()
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-009: should store metadata for each attachment',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -303,10 +302,9 @@ test.describe('Multiple Attachments Field', () => {
 
       // THEN: metadata is stored for each file type
       const result = await executeQuery('SELECT files FROM media WHERE id = 1')
-      const files = JSON.parse(result.files)
-      expect(files[0].width).toBe(1024)
-      expect(files[0].height).toBe(768)
-      expect(files[1].duration).toBe(60)
+      expect(result.files[0].width).toBe(1024)
+      expect(result.files[0].height).toBe(768)
+      expect(result.files[1].duration).toBe(60)
     }
   )
 
