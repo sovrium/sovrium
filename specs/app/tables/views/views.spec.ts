@@ -24,7 +24,7 @@ test.describe('Table Views', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-001: should filter records by condition when view has filter configuration (status = active)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -71,8 +71,8 @@ test.describe('Table Views', () => {
       // View filters records automatically
       const viewRecords = await executeQuery('SELECT * FROM active_tasks ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows).toEqual([
         expect.objectContaining({ title: 'Task 1', status: 'active' }),
         expect.objectContaining({ title: 'Task 3', status: 'active' }),
       ])
@@ -82,7 +82,7 @@ test.describe('Table Views', () => {
         "SELECT * FROM active_tasks WHERE status = 'completed'"
       )
       // THEN: assertion
-      expect(completedInView).toHaveLength(0)
+      expect(completedInView.rows).toHaveLength(0)
     }
   )
 

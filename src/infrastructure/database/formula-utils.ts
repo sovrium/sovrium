@@ -198,7 +198,12 @@ const parseRoundArgs = (
   matchIndex: number,
   matchLength: number
 ):
-  | { readonly firstArg: string; readonly secondArg: string; readonly start: number; readonly end: number }
+  | {
+      readonly firstArg: string
+      readonly secondArg: string
+      readonly start: number
+      readonly end: number
+    }
   | undefined => {
   const argsStart = matchIndex + matchLength
   const chars = [...formula.slice(argsStart)]
@@ -284,8 +289,7 @@ const translateSubstrToSubstring = (formula: string): string =>
     (_, text, start, length) => {
       const trimmedText = text.trim()
       // Only escape if it's a field name (not already a function call or quoted)
-      const escapedText =
-        trimmedText.match(/^\w+$/) ? escapeFieldName(trimmedText) : trimmedText
+      const escapedText = trimmedText.match(/^\w+$/) ? escapeFieldName(trimmedText) : trimmedText
       return `SUBSTRING(${escapedText} FROM ${start} FOR ${length})`
     }
   )
@@ -311,7 +315,8 @@ const addNumericCastsToRound = (formula: string): string => {
   const sortedReplacements = replacements.toSorted((a, b) => b.start - a.start)
 
   return sortedReplacements.reduce(
-    (result, { start, end, replacement }) => result.slice(0, start) + replacement + result.slice(end),
+    (result, { start, end, replacement }) =>
+      result.slice(0, start) + replacement + result.slice(end),
     formula
   )
 }

@@ -299,7 +299,9 @@ test.describe('Table-Level Permissions', () => {
       // THEN: assertion
       try {
         // Switch to non-superuser role without setting app.user_id (unauthenticated)
-        await executeQuery("SET ROLE authenticated_user; UPDATE profiles SET bio = 'Hacked' WHERE id = 1")
+        await executeQuery(
+          "SET ROLE authenticated_user; UPDATE profiles SET bio = 'Hacked' WHERE id = 1"
+        )
         throw new Error('Expected UPDATE to fail for unauthenticated user')
       } catch (error: any) {
         expect(error.message).toContain('new row violates row-level security policy')
@@ -479,7 +481,9 @@ test.describe('Table-Level Permissions', () => {
         user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
 
         // Insert test data (RLS policies are auto-created by the server based on permissions config)
-        await executeQuery(`INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`)
+        await executeQuery(
+          `INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`
+        )
       })
 
       await test.step('Verify RLS policies exist', async () => {

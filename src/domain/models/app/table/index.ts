@@ -280,7 +280,8 @@ const validateOwnerPermissions = (
   const userTypeFields = new Set(['user', 'created-by', 'updated-by'])
 
   const invalidOwnerPermission = tableLevelPermissions.find(
-    ({ permission }) => permission?.type === 'owner' && permission.field && !fieldNames.has(permission.field)
+    ({ permission }) =>
+      permission?.type === 'owner' && permission.field && !fieldNames.has(permission.field)
   )
 
   if (invalidOwnerPermission?.permission?.field) {
@@ -321,10 +322,26 @@ const validateOwnerPermissions = (
 const validateTablePermissions = (
   permissions: {
     readonly organizationScoped?: boolean
-    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
-    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
-    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
-    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
+    readonly read?: {
+      readonly type: string
+      readonly roles?: ReadonlyArray<string>
+      readonly field?: string
+    }
+    readonly create?: {
+      readonly type: string
+      readonly roles?: ReadonlyArray<string>
+      readonly field?: string
+    }
+    readonly update?: {
+      readonly type: string
+      readonly roles?: ReadonlyArray<string>
+      readonly field?: string
+    }
+    readonly delete?: {
+      readonly type: string
+      readonly roles?: ReadonlyArray<string>
+      readonly field?: string
+    }
     readonly fields?: ReadonlyArray<{
       readonly field: string
       readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
@@ -387,22 +404,25 @@ const validateTablePermissions = (
  * @param permissions - Table permissions configuration
  * @returns Set of role names referenced in permissions
  */
-const extractRoleReferences = (
-  permissions: {
+const extractRoleReferences = (permissions: {
+  readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  readonly fields?: ReadonlyArray<{
+    readonly field: string
     readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly fields?: ReadonlyArray<{
-      readonly field: string
-      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    }>
-  }
-): ReadonlySet<string> => {
+    readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+  }>
+}): ReadonlySet<string> => {
   // Check table-level permissions
   // eslint-disable-next-line drizzle/enforce-delete-with-where
-  const tableLevelPermissions = [permissions.read, permissions.create, permissions.update, permissions.delete]
+  const tableLevelPermissions = [
+    permissions.read,
+    permissions.create,
+    permissions.update,
+    permissions.delete,
+  ]
   const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
     permission?.type === 'roles' && permission.roles ? permission.roles : []
   )
@@ -469,25 +489,27 @@ const validatePrimaryKey = (
  * @param table - Table to validate
  * @returns Validation error object if invalid, true if valid
  */
-const validateTableSchema = (
-  table: {
-    readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string; readonly formula?: string }>
-    readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
-    readonly permissions?: {
-      readonly organizationScoped?: boolean
+const validateTableSchema = (table: {
+  readonly fields: ReadonlyArray<{
+    readonly name: string
+    readonly type: string
+    readonly formula?: string
+  }>
+  readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
+  readonly permissions?: {
+    readonly organizationScoped?: boolean
+    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly fields?: ReadonlyArray<{
+      readonly field: string
       readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly fields?: ReadonlyArray<{
-        readonly field: string
-        readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-        readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      }>
-      readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
-    }
+      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    }>
+    readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
   }
-): { readonly message: string; readonly path: ReadonlyArray<string> } | true => {
+}): { readonly message: string; readonly path: ReadonlyArray<string> } | true => {
   const fieldNames = new Set(table.fields.map((field) => field.name))
 
   // Validate formula fields
@@ -506,7 +528,11 @@ const validateTableSchema = (
 
   // Validate permissions if present
   if (table.permissions) {
-    const permissionsValidationError = validateTablePermissions(table.permissions, table.fields, fieldNames)
+    const permissionsValidationError = validateTablePermissions(
+      table.permissions,
+      table.fields,
+      fieldNames
+    )
     if (permissionsValidationError) {
       return permissionsValidationError
     }
@@ -540,8 +566,9 @@ const validateFieldPermissions = (
   }
 
   // Check for non-existent field references
-  const invalidFieldPermission = fieldPermissions
-    .find((fieldPermission) => !fieldNames.has(fieldPermission.field))
+  const invalidFieldPermission = fieldPermissions.find(
+    (fieldPermission) => !fieldNames.has(fieldPermission.field)
+  )
 
   if (invalidFieldPermission) {
     return {
@@ -657,8 +684,9 @@ const detectCircularDependencies = (
   // Build dependency graph: field name -> fields it references
   const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
     fields
-      .filter((field): field is typeof field & { formula: string } =>
-        'formula' in field && typeof field.formula === 'string'
+      .filter(
+        (field): field is typeof field & { formula: string } =>
+          'formula' in field && typeof field.formula === 'string'
       )
       .map((field) => [field.name, extractFieldReferences(field.formula)] as const)
   )
@@ -704,7 +732,8 @@ export const TableSchema = Schema.Struct({
    * @see TablePermissionsSchema for full configuration options
    */
   permissions: Schema.optional(TablePermissionsSchema),
-}).pipe(Schema.filter(validateTableSchema),
+}).pipe(
+  Schema.filter(validateTableSchema),
   Schema.annotations({
     title: 'Table',
     description:

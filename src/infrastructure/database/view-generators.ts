@@ -66,12 +66,9 @@ export const generateViewSQL = (table: Table, view: View): string => {
   const whereClause = generateWhereClause(view.filters)
   const orderByClause = generateOrderByClause(view.sorts)
 
-  const clauses = [
-    `SELECT ${fields}`,
-    `FROM ${table.name}`,
-    whereClause,
-    orderByClause,
-  ].filter((clause) => clause !== '')
+  const clauses = [`SELECT ${fields}`, `FROM ${table.name}`, whereClause, orderByClause].filter(
+    (clause) => clause !== ''
+  )
 
   const query = clauses.join(' ')
 
