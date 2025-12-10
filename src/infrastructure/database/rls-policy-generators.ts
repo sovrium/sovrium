@@ -172,6 +172,62 @@ const generateCreatePolicies = (
 }
 
 /**
+ * Check if a permission is public (unrestricted access)
+ *
+ * @param permission - Permission configuration
+ * @returns True if permission type is 'public'
+ */
+const isPublicPermission = (permission?: TablePermission): boolean =>
+  permission?.type === 'public'
+
+/**
+ * Check if table has only public permissions (no RLS needed)
+ *
+ * When all CRUD permissions are either undefined or public,
+ * the table doesn't need RLS policies - it's fully accessible.
+ *
+ * @param table - Table definition
+ * @returns True if all permissions are public or undefined
+ */
+const hasOnlyPublicPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  if (!permissions) {
+    return false
+  }
+
+  // If organizationScoped is set, it's not public
+  if (permissions.organizationScoped) {
+    return false
+  }
+
+  // If field-level or record-level permissions exist, it's not fully public
+  if (permissions.fields && permissions.fields.length > 0) {
+    return false
+  }
+  if (permissions.records && permissions.records.length > 0) {
+    return false
+  }
+
+  // Check if all CRUD permissions are either undefined or public
+  const crudPermissions = [
+    permissions.read,
+    permissions.create,
+    permissions.update,
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
+    permissions.delete,
+  ]
+
+  // At least one permission must be defined for this to be a "public permissions" table
+  const hasAnyPermission = crudPermissions.some((p) => p !== undefined)
+  if (!hasAnyPermission) {
+    return false
+  }
+
+  // All defined permissions must be public
+  return crudPermissions.every((p) => p === undefined || isPublicPermission(p))
+}
+
+/**
  * Check if table has no permissions configured (default deny)
  *
  * @param table - Table definition
@@ -651,24 +707,29 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
  *
  * Supports the following permission configurations:
  *
- * 1. **No permissions** (default deny):
+ * 1. **Public permissions** (e.g., read: { type: 'public' }):
+ *    - No RLS is enabled
+ *    - All access is unrestricted
+ *    - Returns empty array (no SQL statements)
+ *
+ * 2. **No permissions** (default deny):
  *    - Enables RLS with no policies
  *    - All access is blocked
  *
- * 2. **Record-level permissions** (permissions.records array):
+ * 3. **Record-level permissions** (permissions.records array):
  *    - Custom RLS conditions defined per CRUD action
  *    - Supports variable substitution: {userId}, {organizationId}, {user.property}
  *    - Example: { action: 'delete', condition: "{userId} = created_by AND status = 'draft'" }
  *
- * 3. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
+ * 4. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
  *    - Filters records by the specified owner field
  *    - Uses current_setting('app.user_id') to match ownership
  *
- * 4. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
+ * 5. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
  *    - Checks user's role via current_setting('app.user_role')
  *    - Creates policies for each CRUD operation based on allowed roles
  *
- * 5. **Organization-scoped** (permissions.organizationScoped: true):
+ * 6. **Organization-scoped** (permissions.organizationScoped: true):
  *    - Filters by organization_id using current_setting('app.organization_id')
  *    - Can be combined with role checks using AND
  *
@@ -680,6 +741,11 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
  */
 export const generateRLSPolicyStatements = (table: Table): readonly string[] => {
   const tableName = table.name
+
+  // If only public permissions, no RLS needed (unrestricted access)
+  if (hasOnlyPublicPermissions(table)) {
+    return []
+  }
 
   // If no permissions configured, enable RLS with no policies (default deny)
   if (hasNoPermissions(table)) {

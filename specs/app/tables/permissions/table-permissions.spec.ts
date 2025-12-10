@@ -178,7 +178,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-003: should allow SELECT without RLS policy when table has public read permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
