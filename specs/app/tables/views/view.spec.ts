@@ -101,7 +101,7 @@ test.describe('Table View', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-003: should be applied automatically when view marked as isDefault: true and no specific view is requested via API',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -148,8 +148,8 @@ test.describe('Table View', () => {
       // View filters records based on isDefault configuration
       const viewRecords = await executeQuery('SELECT title, status FROM active_tasks ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows).toEqual([
         { title: 'Task 1', status: 'active' },
         { title: 'Task 3', status: 'active' },
       ])
