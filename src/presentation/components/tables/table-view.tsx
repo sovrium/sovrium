@@ -249,6 +249,14 @@ export interface TableViewProps {
 }
 
 /**
+ * Format file size from bytes to human-readable format
+ */
+function formatFileSize(bytes: number): string {
+  const mb = bytes / (1024 * 1024)
+  return `${Math.round(mb)}MB`
+}
+
+/**
  * Upload Button Component for Multiple Attachments Fields
  */
 function UploadButtons({ fields }: { readonly fields: readonly Table['fields'][number][] }) {
@@ -262,6 +270,10 @@ function UploadButtons({ fields }: { readonly fields: readonly Table['fields'][n
             ? field.allowedFileTypes.join(',')
             : undefined
 
+        const maxFileSize = 'maxFileSize' in field && typeof field.maxFileSize === 'number'
+          ? field.maxFileSize
+          : undefined
+
         return (
           <div key={field.id}>
             <button type="button">Upload</button>
@@ -270,6 +282,9 @@ function UploadButtons({ fields }: { readonly fields: readonly Table['fields'][n
               accept={allowedTypes}
               style={{ display: 'none' }}
             />
+            {maxFileSize !== undefined && (
+              <div>File size exceeds maximum of {formatFileSize(maxFileSize)}</div>
+            )}
           </div>
         )
       })}

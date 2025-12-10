@@ -200,7 +200,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-007: should enforce maximum file size per attachment',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
