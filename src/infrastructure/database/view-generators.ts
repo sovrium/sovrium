@@ -75,14 +75,24 @@ const generateWhereClause = (filters: View['filters']): string => {
 }
 
 /**
- * Generate SQL ORDER BY clause from view sorts
+ * Generate SQL ORDER BY clause from view sorts and groupBy
+ * GroupBy takes precedence - when present, it's used for ordering
+ * If both groupBy and sorts are present, groupBy is applied first
  */
-const generateOrderByClause = (sorts: View['sorts']): string => {
-  if (!sorts || sorts.length === 0) return ''
+const generateOrderByClause = (sorts: View['sorts'], groupBy: View['groupBy']): string => {
+  // Build order items immutably
+  const groupByItems = groupBy
+    ? [`${groupBy.field} ${(groupBy.direction || 'asc').toUpperCase()}`]
+    : []
 
-  const orderItems = sorts.map((sort) => `${sort.field} ${sort.direction.toUpperCase()}`)
+  const sortItems =
+    sorts && sorts.length > 0 && !groupBy
+      ? sorts.map((sort) => `${sort.field} ${sort.direction.toUpperCase()}`)
+      : []
 
-  return `ORDER BY ${orderItems.join(', ')}`
+  const orderItems = [...groupByItems, ...sortItems]
+
+  return orderItems.length > 0 ? `ORDER BY ${orderItems.join(', ')}` : ''
 }
 
 /**
@@ -99,10 +109,10 @@ export const generateViewSQL = (table: Table, view: View): string => {
     return `CREATE ${viewType} ${viewIdStr} AS ${view.query}`
   }
 
-  // Otherwise, build query from filters, sorts, fields
+  // Otherwise, build query from filters, sorts, fields, groupBy
   const fields = view.fields && view.fields.length > 0 ? view.fields.join(', ') : '*'
   const whereClause = generateWhereClause(view.filters)
-  const orderByClause = generateOrderByClause(view.sorts)
+  const orderByClause = generateOrderByClause(view.sorts, view.groupBy)
 
   const clauses = [`SELECT ${fields}`, `FROM ${table.name}`, whereClause, orderByClause].filter(
     (clause) => clause !== ''

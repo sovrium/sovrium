@@ -218,7 +218,7 @@ test.describe('Table Views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-004: should aggregate records by field when view has groupBy configuration (GROUP BY department)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -260,7 +260,7 @@ test.describe('Table Views', () => {
       // View returns records ordered by department (groupBy field)
       const viewRecords = await executeQuery('SELECT name, department FROM by_department')
       // THEN: assertion
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toEqual([
         { name: 'Alice', department: 'Engineering' },
         { name: 'Bob', department: 'Engineering' },
         { name: 'Charlie', department: 'Marketing' },
@@ -269,7 +269,7 @@ test.describe('Table Views', () => {
       // Records within same department are adjacent
       const departments = await executeQuery('SELECT DISTINCT department FROM by_department')
       // THEN: assertion
-      expect(departments).toHaveLength(2)
+      expect(departments.rows).toHaveLength(2)
 
       // Engineering records come first (asc order)
       const firstRecord = await executeQuery('SELECT department FROM by_department LIMIT 1')
