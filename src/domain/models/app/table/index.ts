@@ -505,6 +505,27 @@ const validateViewIds = (
 }
 
 /**
+ * Validate that only one view is marked as default within a table.
+ *
+ * @param views - Array of views to validate
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateDefaultViews = (
+  views: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const defaultViews = views.filter((view) => view.isDefault === true)
+
+  if (defaultViews.length > 1) {
+    return {
+      message: 'Only one default view is allowed per table - multiple default views found',
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate table schema including fields, permissions, views, and roles.
  * Extracted to reduce cyclomatic complexity of the Schema.filter function.
  *
@@ -518,7 +539,7 @@ const validateTableSchema = (table: {
     readonly formula?: string
   }>
   readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
-  readonly views?: ReadonlyArray<{ readonly id: string | number }>
+  readonly views?: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
   readonly permissions?: {
     readonly organizationScoped?: boolean
     readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
@@ -566,6 +587,11 @@ const validateTableSchema = (table: {
     const viewsValidationError = validateViewIds(table.views)
     if (viewsValidationError) {
       return viewsValidationError
+    }
+
+    const defaultViewsValidationError = validateDefaultViews(table.views)
+    if (defaultViewsValidationError) {
+      return defaultViewsValidationError
     }
   }
 

@@ -413,7 +413,7 @@ test.describe('Table Views', () => {
   // Phase: Error Configuration Validation Tests (007-008)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-007: should reject multiple default views in the same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
