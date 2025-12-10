@@ -65,7 +65,7 @@ test.describe('Table View', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-002: should fail with pattern mismatch error when validating view schema with invalid id format (contains uppercase or spaces)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
