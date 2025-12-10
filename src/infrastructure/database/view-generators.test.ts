@@ -390,9 +390,7 @@ describe('generateViewSQL', () => {
 
       const sql = generateViewSQL(baseTable, view)
 
-      expect(sql).toContain(
-        "WHERE status = 'active' AND priority > 2 AND archived = false"
-      )
+      expect(sql).toContain("WHERE status = 'active' AND priority > 2 AND archived = false")
     })
   })
 
@@ -412,7 +410,7 @@ describe('generateViewSQL', () => {
       const view: View = {
         id: 'custom_view',
         name: 'Custom View',
-        query: 'SELECT name, status FROM projects WHERE status = \'active\'',
+        query: "SELECT name, status FROM projects WHERE status = 'active'",
       }
 
       const sql = generateViewSQL(baseTable, view)
@@ -565,9 +563,7 @@ describe('generateViewSQL', () => {
       const sql = generateViewSQL(baseTable, view)
 
       // The entire malicious payload should be treated as a string value
-      expect(sql).toContain(
-        "status = 'active'' UNION SELECT * FROM users WHERE ''1''=''1'"
-      )
+      expect(sql).toContain("status = 'active'' UNION SELECT * FROM users WHERE ''1''=''1'")
     })
 
     test('should prevent SQL injection via comment injection', () => {
