@@ -45,7 +45,10 @@ const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): str
 
   const operatorHandlers: Record<string, () => string> = {
     equals: equalsHandler,
-    notEquals: () => (typeof value === 'string' ? `${column} != '${escapeSQLValue(value)}'` : `${column} != ${value}`),
+    notEquals: () =>
+      typeof value === 'string'
+        ? `${column} != '${escapeSQLValue(value)}'`
+        : `${column} != ${value}`,
     greaterThan: () => `${column} > ${value}`,
     lessThan: () => `${column} < ${value}`,
     greaterThanOrEqual: () => `${column} >= ${value}`,
@@ -111,8 +114,11 @@ const generateLookupExpression = (
   }
 
   // Forward lookup (many-to-one): follow the foreign key
-  if ('relatedTable' in relationshipFieldDef && typeof relationshipFieldDef.relatedTable === 'string') {
-    const {relatedTable} = relationshipFieldDef
+  if (
+    'relatedTable' in relationshipFieldDef &&
+    typeof relationshipFieldDef.relatedTable === 'string'
+  ) {
+    const { relatedTable } = relationshipFieldDef
     const alias = `${relatedTable}_for_${lookupName}`
 
     // Simple JOIN for forward lookup (filters not typical here, but supported)
@@ -172,7 +178,7 @@ export const generateLookupViewSQL = (table: Table): string => {
       if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
         return ''
       }
-      const {relatedTable} = (relationshipFieldDef as unknown as { relatedTable: string })
+      const { relatedTable } = relationshipFieldDef as unknown as { relatedTable: string }
       const alias = `${relatedTable}_for_${field.name}`
       return `LEFT JOIN ${relatedTable} AS ${alias} ON ${alias}.id = base.${field.relationshipField}`
     })
@@ -204,7 +210,9 @@ export const shouldUseView = (table: Table): boolean => hasLookupFields(table)
  * Get base fields (non-lookup, non-id fields)
  */
 const getBaseFields = (table: Table): readonly string[] =>
-  table.fields.filter((field) => field.type !== 'lookup' && field.name !== 'id').map((field) => field.name)
+  table.fields
+    .filter((field) => field.type !== 'lookup' && field.name !== 'id')
+    .map((field) => field.name)
 
 /**
  * Generate INSTEAD OF INSERT trigger for a VIEW

@@ -270,9 +270,10 @@ function UploadButtons({ fields }: { readonly fields: readonly Table['fields'][n
             ? field.allowedFileTypes.join(',')
             : undefined
 
-        const maxFileSize = 'maxFileSize' in field && typeof field.maxFileSize === 'number'
-          ? field.maxFileSize
-          : undefined
+        const maxFileSize =
+          'maxFileSize' in field && typeof field.maxFileSize === 'number'
+            ? field.maxFileSize
+            : undefined
 
         return (
           <div key={field.id}>

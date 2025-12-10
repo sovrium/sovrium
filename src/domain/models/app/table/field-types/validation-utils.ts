@@ -61,7 +61,9 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
     }),
     Schema.filter((options) => {
       const uniqueOptions = new Set(options)
-      return options.length === uniqueOptions.size || 'Options must be unique (duplicate option found)'
+      return (
+        options.length === uniqueOptions.size || 'Options must be unique (duplicate option found)'
+      )
     })
   )
 

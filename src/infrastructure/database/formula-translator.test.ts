@@ -137,28 +137,28 @@ describe('isFormulaVolatile', () => {
 
   describe('volatile type casts', () => {
     test('should detect ::TIMESTAMP cast', () => {
-      expect(isFormulaVolatile("EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)")).toBe(true)
+      expect(isFormulaVolatile('EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)')).toBe(true)
     })
 
     test('should detect ::TIMESTAMPTZ cast', () => {
-      expect(isFormulaVolatile("created_at::TIMESTAMPTZ")).toBe(true)
+      expect(isFormulaVolatile('created_at::TIMESTAMPTZ')).toBe(true)
     })
 
     test('should detect ::DATE cast', () => {
-      expect(isFormulaVolatile("date_string::DATE")).toBe(true)
+      expect(isFormulaVolatile('date_string::DATE')).toBe(true)
     })
 
     test('should detect ::TIME cast', () => {
-      expect(isFormulaVolatile("time_string::TIME")).toBe(true)
+      expect(isFormulaVolatile('time_string::TIME')).toBe(true)
     })
 
     test('should be case-insensitive for type casts', () => {
-      expect(isFormulaVolatile("timestamp_value::timestamp")).toBe(true)
-      expect(isFormulaVolatile("timestamp_value::Timestamp")).toBe(true)
+      expect(isFormulaVolatile('timestamp_value::timestamp')).toBe(true)
+      expect(isFormulaVolatile('timestamp_value::Timestamp')).toBe(true)
     })
 
     test('should detect type cast in complex formula', () => {
-      expect(isFormulaVolatile("EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)::INTEGER")).toBe(true)
+      expect(isFormulaVolatile('EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)::INTEGER')).toBe(true)
     })
   })
 
@@ -265,9 +265,9 @@ describe('isFormulaReturningArray', () => {
   })
 
   test('should return false when CARDINALITY is at the start (case-insensitive)', () => {
-    const formulaUpper = "CARDINALITY(some_array)"
-    const formulaLower = "cardinality(some_array)"
-    const formulaMixed = "Cardinality(some_array)"
+    const formulaUpper = 'CARDINALITY(some_array)'
+    const formulaLower = 'cardinality(some_array)'
+    const formulaMixed = 'Cardinality(some_array)'
     expect(isFormulaReturningArray(formulaUpper)).toBe(false)
     expect(isFormulaReturningArray(formulaLower)).toBe(false)
     expect(isFormulaReturningArray(formulaMixed)).toBe(false)

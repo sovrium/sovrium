@@ -193,8 +193,7 @@ const generateCreatePolicies = (
  * @param permission - Permission configuration
  * @returns True if permission type is 'public'
  */
-const isPublicPermission = (permission?: TablePermission): boolean =>
-  permission?.type === 'public'
+const isPublicPermission = (permission?: TablePermission): boolean => permission?.type === 'public'
 
 /**
  * Check if table has only public permissions (no RLS needed)
@@ -667,13 +666,7 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
     authenticatedChecks.delete
   )
 
-  return [
-    ...enableRLS,
-    ...selectPolicies,
-    ...insertPolicies,
-    ...updatePolicies,
-    ...deletePolicies,
-  ]
+  return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
 
 /**
@@ -937,9 +930,24 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
 
   // Generate policies for each CRUD operation
   const selectPolicies = generatePolicyStatements(tableName, readPolicyName, 'SELECT', readCheck)
-  const insertPolicies = generatePolicyStatements(tableName, createPolicyName, 'INSERT', createCheck)
-  const updatePolicies = generatePolicyStatements(tableName, updatePolicyName, 'UPDATE', updateCheck)
-  const deletePolicies = generatePolicyStatements(tableName, deletePolicyName, 'DELETE', deleteCheck)
+  const insertPolicies = generatePolicyStatements(
+    tableName,
+    createPolicyName,
+    'INSERT',
+    createCheck
+  )
+  const updatePolicies = generatePolicyStatements(
+    tableName,
+    updatePolicyName,
+    'UPDATE',
+    updateCheck
+  )
+  const deletePolicies = generatePolicyStatements(
+    tableName,
+    deletePolicyName,
+    'DELETE',
+    deleteCheck
+  )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }

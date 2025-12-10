@@ -52,10 +52,7 @@ const generateIdColumn = (primaryKeyType: string | undefined): string => {
 /**
  * Determine if table needs an automatic id column
  */
-const needsAutomaticIdColumn = (
-  table: Table,
-  primaryKeyFields: readonly string[]
-): boolean => {
+const needsAutomaticIdColumn = (table: Table, primaryKeyFields: readonly string[]): boolean => {
   const hasIdField = table.fields.some((field) => field.name === 'id')
   const hasCustomPrimaryKey = primaryKeyFields.length > 0
   return !hasIdField && !hasCustomPrimaryKey
@@ -139,9 +136,7 @@ const applyTableFeatures = async (
   const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
 
   // Create table object with physical table name for trigger/policy generation
-  const physicalTable = shouldUseView(table)
-    ? { ...table, name: physicalTableName }
-    : table
+  const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
   // Indexes (IF NOT EXISTS prevents errors)
   await executeSQLStatements(tx, generateIndexStatements(physicalTable))
