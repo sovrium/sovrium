@@ -141,18 +141,26 @@ export const generateDropObsoleteViewsSQL = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   table: Table
 ): Promise<void> => {
-  // Get existing views for this table
+  // Get existing regular views for this table
   const existingViewsResult = (await tx.unsafe(`
     SELECT viewname
     FROM pg_views
     WHERE schemaname = 'public'
   `)) as readonly { viewname: string }[]
 
+  // Get existing materialized views for this table
+  const existingMatViewsResult = (await tx.unsafe(`
+    SELECT matviewname
+    FROM pg_matviews
+    WHERE schemaname = 'public'
+  `)) as readonly { matviewname: string }[]
+
   const existingViews = new Set(existingViewsResult.map((r) => r.viewname))
+  const existingMatViews = new Set(existingMatViewsResult.map((r) => r.matviewname))
   // Convert view IDs to strings (ViewId can be number or string)
   const schemaViews = new Set((table.views || []).map((v) => String(v.id)))
 
-  // Find views to drop (exist in database but not in schema)
+  // Find regular views to drop (exist in database but not in schema)
   const viewsToDrop = Array.from(existingViews).filter((viewName) => {
     // Only drop views that look like they belong to this table
     // Simple heuristic: view name contains table name or starts with table name
@@ -161,9 +169,23 @@ export const generateDropObsoleteViewsSQL = async (
     return belongsToTable && !schemaViews.has(viewName)
   })
 
-  // Drop obsolete views
+  // Find materialized views to drop (exist in database but not in schema)
+  const matViewsToDrop = Array.from(existingMatViews).filter((viewName) => {
+    const belongsToTable =
+      viewName.includes(table.name) || viewName.startsWith(table.name.replace(/_/g, ''))
+    return belongsToTable && !schemaViews.has(viewName)
+  })
+
+  // Drop obsolete regular views
   await Promise.all(
     viewsToDrop.map((viewName) => tx.unsafe(`DROP VIEW IF EXISTS ${viewName} CASCADE`))
+  )
+
+  // Drop obsolete materialized views
+  await Promise.all(
+    matViewsToDrop.map((viewName) =>
+      tx.unsafe(`DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`)
+    )
   )
 }
 /* eslint-enable functional/no-expression-statements */

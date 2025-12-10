@@ -349,7 +349,7 @@ test.describe('Database Views Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-007: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
