@@ -79,6 +79,26 @@ describe('createOptionsSchema', () => {
     expect(() => Schema.decodeSync(singleSelectSchema)([])).toThrow(/single-select/)
     expect(() => Schema.decodeSync(multiSelectSchema)([])).toThrow(/multi-select/)
   })
+
+  test('rejects options array with duplicate values', () => {
+    const schema = createOptionsSchema('multi-select')
+    expect(() => {
+      Schema.decodeSync(schema)(['tech', 'health', 'tech'])
+    }).toThrow(/duplicate.*option|options.*unique/i)
+  })
+
+  test('accepts options array with unique values', () => {
+    const schema = createOptionsSchema('multi-select')
+    const result = Schema.decodeSync(schema)(['tech', 'health', 'finance'])
+    expect(result).toEqual(['tech', 'health', 'finance'])
+  })
+
+  test('rejects single-select with duplicate values', () => {
+    const schema = createOptionsSchema('single-select')
+    expect(() => {
+      Schema.decodeSync(schema)(['red', 'blue', 'red'])
+    }).toThrow(/duplicate.*option|options.*unique/i)
+  })
 })
 
 describe('validateButtonAction', () => {

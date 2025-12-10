@@ -248,7 +248,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-007: should reject multi-select with duplicate option values',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
