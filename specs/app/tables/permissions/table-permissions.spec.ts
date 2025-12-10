@@ -306,7 +306,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-005: should deny all SELECT access by default when table has no read permission specified',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
