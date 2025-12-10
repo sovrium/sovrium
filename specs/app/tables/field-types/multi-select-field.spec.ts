@@ -217,7 +217,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: should reject multi-select with empty options array',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -244,7 +244,7 @@ test.describe('Multi Select Field', () => {
             },
           ],
         })
-      ).rejects.toThrow(/options.*empty|at least one option required/i)
+      ).rejects.toThrow(/options.*empty|at least one option.*required/i)
     }
   )
 
