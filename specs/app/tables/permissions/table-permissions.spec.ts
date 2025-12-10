@@ -369,7 +369,7 @@ test.describe('Table-Level Permissions', () => {
   // Phase: Error Configuration Validation Tests (006-007)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-006: should reject owner permission referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

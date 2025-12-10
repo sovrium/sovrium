@@ -250,6 +250,45 @@ const validateOrganizationScoped = (table: {
 }
 
 /**
+ * Validate owner permissions reference existing fields in the table.
+ *
+ * @param permissions - Table permissions to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateOwnerPermissions = (
+  permissions: {
+    readonly read?: { readonly type: string; readonly field?: string }
+    readonly create?: { readonly type: string; readonly field?: string }
+    readonly update?: { readonly type: string; readonly field?: string }
+    readonly delete?: { readonly type: string; readonly field?: string }
+  },
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Check table-level permissions for owner type
+  const tableLevelPermissions = [
+    { name: 'read', permission: permissions.read },
+    { name: 'create', permission: permissions.create },
+    { name: 'update', permission: permissions.update },
+    // eslint-disable-next-line drizzle/enforce-delete-with-where
+    { name: 'delete', permission: permissions.delete },
+  ]
+
+  const invalidOwnerPermission = tableLevelPermissions.find(
+    ({ permission }) => permission?.type === 'owner' && permission.field && !fieldNames.has(permission.field)
+  )
+
+  if (invalidOwnerPermission?.permission?.field) {
+    return {
+      message: `Owner field '${invalidOwnerPermission.permission.field}' does not exist in table - field not found`,
+      path: ['permissions', invalidOwnerPermission.name],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate table permissions including field permissions, record permissions, and roles.
  *
  * @param permissions - Table permissions to validate
@@ -260,10 +299,10 @@ const validateOrganizationScoped = (table: {
 const validateTablePermissions = (
   permissions: {
     readonly organizationScoped?: boolean
-    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
+    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
+    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
+    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string>; readonly field?: string }
     readonly fields?: ReadonlyArray<{
       readonly field: string
       readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
@@ -280,6 +319,12 @@ const validateTablePermissions = (
     if (orgValidationError) {
       return orgValidationError
     }
+  }
+
+  // Validate owner permissions reference existing fields
+  const ownerPermissionsError = validateOwnerPermissions(permissions, fieldNames)
+  if (ownerPermissionsError) {
+    return ownerPermissionsError
   }
 
   // Validate field permissions reference existing fields
