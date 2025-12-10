@@ -278,7 +278,7 @@ test.describe('Table Views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-005: should include only specified columns when view has field visibility configuration (only name, email visible)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -318,21 +318,21 @@ test.describe('Table Views', () => {
       // View exposes only name and email columns
       const viewRecords = await executeQuery('SELECT * FROM contact_info')
       // THEN: assertion
-      expect(viewRecords).toEqual([{ name: 'Alice', email: 'alice@example.com' }])
+      expect(viewRecords.rows).toEqual([{ name: 'Alice', email: 'alice@example.com' }])
 
       // View columns match visibleFields configuration
       const viewColumns = await executeQuery(
         "SELECT column_name FROM information_schema.columns WHERE table_name='contact_info' ORDER BY ordinal_position"
       )
       // THEN: assertion
-      expect(viewColumns).toEqual([{ column_name: 'name' }, { column_name: 'email' }])
+      expect(viewColumns.rows).toEqual([{ column_name: 'name' }, { column_name: 'email' }])
 
       // Hidden fields (phone, salary) not accessible through view
       const viewColumnCount = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='contact_info'"
       )
       // THEN: assertion
-      expect(viewColumnCount.count).toBe(2)
+      expect(Number(viewColumnCount.count)).toBe(2)
     }
   )
 
