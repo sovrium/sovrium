@@ -336,7 +336,7 @@ test.describe('Table Views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-006: should apply default view configuration to query when default view configured (isDefault: true)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -390,7 +390,7 @@ test.describe('Table Views', () => {
       // Default view filters and sorts records
       const viewRecords = await executeQuery('SELECT title, status FROM published_posts')
       // THEN: assertion
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toEqual([
         { title: 'Post 3', status: 'published' },
         { title: 'Post 1', status: 'published' },
       ])
@@ -398,7 +398,7 @@ test.describe('Table Views', () => {
       // View excludes draft posts
       const draftInView = await executeQuery("SELECT * FROM published_posts WHERE status = 'draft'")
       // THEN: assertion
-      expect(draftInView).toHaveLength(0)
+      expect(draftInView.rows).toHaveLength(0)
 
       // View is marked as default (metadata check)
       const viewExists = await executeQuery(
