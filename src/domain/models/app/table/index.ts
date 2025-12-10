@@ -416,11 +416,11 @@ const extractRoleReferences = (permissions: {
   }>
 }): ReadonlySet<string> => {
   // Check table-level permissions
-  // eslint-disable-next-line drizzle/enforce-delete-with-where
   const tableLevelPermissions = [
     permissions.read,
     permissions.create,
     permissions.update,
+    // eslint-disable-next-line drizzle/enforce-delete-with-where
     permissions.delete,
   ]
   const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
