@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { TableSchema } from '@/domain/models/app/table'
+import { detectCycles } from '@/domain/models/app/table/cycle-detection'
 
 /**
  * Auto-generate table IDs for tables that don't have one
@@ -81,90 +82,8 @@ const detectCircularRelationships = (
     })
   )
 
-  // Detect cycles using DFS with visited and recursion stack tracking
-  type DFSState = {
-    readonly visited: ReadonlySet<string>
-    readonly recursionStack: ReadonlySet<string>
-    readonly cycleNodes: ReadonlyArray<string>
-  }
-
-  const hasCycle = (node: string, state: DFSState): { readonly found: boolean; readonly state: DFSState } => {
-    if (state.recursionStack.has(node)) {
-      // Cycle detected - add to result
-      return {
-        found: true,
-        state: {
-          ...state,
-          cycleNodes: [...state.cycleNodes, node],
-        },
-      }
-    }
-
-    if (state.visited.has(node)) {
-      // Already processed this node
-      return { found: false, state }
-    }
-
-    const newState: DFSState = {
-      visited: new Set([...state.visited, node]),
-      recursionStack: new Set([...state.recursionStack, node]),
-      cycleNodes: state.cycleNodes,
-    }
-
-    const dependencies = dependencyGraph.get(node) || []
-    const result = dependencies.reduce<{ readonly found: boolean; readonly state: DFSState }>(
-      (acc, dep) => {
-        if (acc.found || !dependencyGraph.has(dep)) {
-          return acc
-        }
-        const depResult = hasCycle(dep, acc.state)
-        if (depResult.found) {
-          // Propagate cycle detection
-          const cycleNodes = depResult.state.cycleNodes.includes(node)
-            ? depResult.state.cycleNodes
-            : [...depResult.state.cycleNodes, node]
-          return {
-            found: true,
-            state: {
-              ...depResult.state,
-              cycleNodes,
-            },
-          }
-        }
-        return depResult
-      },
-      { found: false, state: newState }
-    )
-
-    // Remove from recursion stack after processing (immutable way)
-    const finalState: DFSState = {
-      ...result.state,
-      recursionStack: new Set(
-        [...result.state.recursionStack].filter((n) => n !== node)
-      ),
-    }
-
-    return { found: result.found, state: finalState }
-  }
-
-  // Check all tables for cycles
-  const initialState: DFSState = {
-    visited: new Set(),
-    recursionStack: new Set(),
-    cycleNodes: [],
-  }
-
-  const result = [...dependencyGraph.keys()].reduce<{ readonly found: boolean; readonly state: DFSState }>(
-    (acc, tableName) => {
-      if (acc.found || acc.state.visited.has(tableName)) {
-        return acc
-      }
-      return hasCycle(tableName, acc.state)
-    },
-    { found: false, state: initialState }
-  )
-
-  return result.state.cycleNodes
+  // Use shared cycle detection utility
+  return detectCycles(dependencyGraph)
 }
 
 /**
