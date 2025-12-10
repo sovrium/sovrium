@@ -233,7 +233,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-008: should generate thumbnails for image attachments in array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -265,9 +265,8 @@ test.describe('Multiple Attachments Field', () => {
 
       // THEN: each image has a thumbnail generated
       const result = await executeQuery('SELECT images FROM galleries WHERE id = 1')
-      const images = JSON.parse(result.images)
-      expect(images[0].thumbnail).toBeTruthy()
-      expect(images[1].thumbnail).toBeTruthy()
+      expect(result.images[0].thumbnail).toBeTruthy()
+      expect(result.images[1].thumbnail).toBeTruthy()
     }
   )
 
