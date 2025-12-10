@@ -54,20 +54,29 @@ describe('ViewIdSchema', () => {
       // THEN: The ID should be accepted
       expect(result).toBe(0)
     })
-
-    test('should accept empty string as ID', () => {
-      // GIVEN: An empty string ID
-      const id = ''
-
-      // WHEN: The ID is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewIdSchema)(id)
-
-      // THEN: The ID should be accepted
-      expect(result).toBe('')
-    })
   })
 
   describe('Invalid IDs', () => {
+    test('should reject empty string as ID (pattern validation)', () => {
+      // GIVEN: An empty string ID
+      const id = ''
+
+      // WHEN/THEN: The ID validation should fail due to pattern mismatch
+      expect(() => {
+        Schema.decodeUnknownSync(ViewIdSchema)(id)
+      }).toThrow()
+    })
+
+    test('should reject uppercase and spaces in string ID', () => {
+      // GIVEN: A string ID with uppercase and spaces
+      const id = 'Invalid View ID'
+
+      // WHEN/THEN: The ID validation should fail due to pattern mismatch
+      expect(() => {
+        Schema.decodeUnknownSync(ViewIdSchema)(id)
+      }).toThrow()
+    })
+
     test('should reject null', () => {
       // GIVEN: A null value
       const id = null
