@@ -253,6 +253,7 @@ const validateOrganizationScoped = (table: {
  * Validate owner permissions reference existing fields in the table.
  *
  * @param permissions - Table permissions to validate
+ * @param fields - Table fields for validation
  * @param fieldNames - Set of valid field names in the table
  * @returns Error object if validation fails, undefined if valid
  */
@@ -263,6 +264,7 @@ const validateOwnerPermissions = (
     readonly update?: { readonly type: string; readonly field?: string }
     readonly delete?: { readonly type: string; readonly field?: string }
   },
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
   // Check table-level permissions for owner type
@@ -274,6 +276,9 @@ const validateOwnerPermissions = (
     { name: 'delete', permission: permissions.delete },
   ]
 
+  // User-type fields that can be used for owner permissions
+  const userTypeFields = new Set(['user', 'created-by', 'updated-by'])
+
   const invalidOwnerPermission = tableLevelPermissions.find(
     ({ permission }) => permission?.type === 'owner' && permission.field && !fieldNames.has(permission.field)
   )
@@ -282,6 +287,23 @@ const validateOwnerPermissions = (
     return {
       message: `Owner field '${invalidOwnerPermission.permission.field}' does not exist in table - field not found`,
       path: ['permissions', invalidOwnerPermission.name],
+    }
+  }
+
+  // Check that owner permission fields are user types
+  const nonUserTypeOwnerPermission = tableLevelPermissions.find(({ permission }) => {
+    if (permission?.type !== 'owner' || !permission.field) {
+      return false
+    }
+    const field = fields.find((f) => f.name === permission.field)
+    return field && !userTypeFields.has(field.type)
+  })
+
+  if (nonUserTypeOwnerPermission?.permission?.field) {
+    const field = fields.find((f) => f.name === nonUserTypeOwnerPermission.permission?.field)
+    return {
+      message: `Owner permission field '${nonUserTypeOwnerPermission.permission.field}' must be a user type (user, created-by, or updated-by), but field has type '${field?.type}'`,
+      path: ['permissions', nonUserTypeOwnerPermission.name],
     }
   }
 
@@ -322,7 +344,7 @@ const validateTablePermissions = (
   }
 
   // Validate owner permissions reference existing fields
-  const ownerPermissionsError = validateOwnerPermissions(permissions, fieldNames)
+  const ownerPermissionsError = validateOwnerPermissions(permissions, fields, fieldNames)
   if (ownerPermissionsError) {
     return ownerPermissionsError
   }
