@@ -33,6 +33,7 @@ import {
   generateAutonumberTriggers,
   generateUpdatedByTriggers,
 } from './trigger-generators'
+import { generateTableViewStatements, generateDropObsoleteViewsSQL } from './view-generators'
 import type { Table } from '@/domain/models/app/table'
 
 /**
@@ -244,6 +245,37 @@ export const createLookupViews = async (
   }
 }
 /* eslint-enable functional/no-expression-statements */
+
+/**
+ * Create table views (user-defined VIEWs from table.views configuration)
+ * Called after all tables and lookup views have been created
+ */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+export const createTableViews = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  table: Table
+): Promise<void> => {
+  // Only process tables that have views defined
+  if (!table.views || table.views.length === 0) {
+    return
+  }
+
+  // Drop obsolete views first
+  await generateDropObsoleteViewsSQL(tx, table)
+
+  // Drop and recreate each view (PostgreSQL doesn't support IF NOT EXISTS for views)
+  for (const view of table.views) {
+    // Drop existing view (if any)
+    await tx.unsafe(`DROP VIEW IF EXISTS ${view.id} CASCADE`)
+
+    // Create view
+    const viewSQL = generateTableViewStatements(table).find((sql) => sql.includes(view.id))
+    if (viewSQL) {
+      await tx.unsafe(viewSQL)
+    }
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
 /**
  * Create or migrate table based on existence

@@ -110,6 +110,12 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
       for (const table of tables) {
         await tableOpsModule.createLookupViews(tx, table)
       }
+
+      // Step 5: Create user-defined VIEWs from table.views configuration
+      // This is done after lookup views to ensure all base tables and lookup views exist
+      for (const table of tables) {
+        await tableOpsModule.createTableViews(tx, table)
+      }
     })
   } finally {
     // Close connection
