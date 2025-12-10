@@ -165,7 +165,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: should restrict file uploads to allowed MIME types',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
