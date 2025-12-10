@@ -483,7 +483,32 @@ const validatePrimaryKey = (
 }
 
 /**
- * Validate table schema including fields, permissions, and roles.
+ * Validate that view IDs are unique within a table.
+ *
+ * @param views - Array of views to validate
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViewIds = (
+  views: ReadonlyArray<{ readonly id: string | number }>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Convert all view IDs to strings for comparison (ViewId can be number or string)
+  const viewIds = views.map((view) => String(view.id))
+
+  // Find duplicate view ID
+  const duplicateId = viewIds.find((id, index) => viewIds.indexOf(id) !== index)
+
+  if (duplicateId) {
+    return {
+      message: `Duplicate view id '${duplicateId}' - view id must be unique within the table`,
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate table schema including fields, permissions, views, and roles.
  * Extracted to reduce cyclomatic complexity of the Schema.filter function.
  *
  * @param table - Table to validate
@@ -496,6 +521,7 @@ const validateTableSchema = (table: {
     readonly formula?: string
   }>
   readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
+  readonly views?: ReadonlyArray<{ readonly id: string | number }>
   readonly permissions?: {
     readonly organizationScoped?: boolean
     readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
@@ -535,6 +561,14 @@ const validateTableSchema = (table: {
     )
     if (permissionsValidationError) {
       return permissionsValidationError
+    }
+  }
+
+  // Validate views if present
+  if (table.views && table.views.length > 0) {
+    const viewsValidationError = validateViewIds(table.views)
+    if (viewsValidationError) {
+      return viewsValidationError
     }
   }
 
