@@ -450,7 +450,7 @@ test.describe('Table Views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-008: should reject view with empty name',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
