@@ -22,8 +22,17 @@ const generateWhereClause = (filters: View['filters']): string => {
         const { field, operator, value: rawValue } = condition
         const value = typeof rawValue === 'string' ? `'${rawValue}'` : rawValue
 
-        if (operator === 'equals') {
-          return `${field} = ${value}`
+        const operatorMap: Record<string, string> = {
+          equals: '=',
+          greaterThan: '>',
+          lessThan: '<',
+          greaterThanOrEqual: '>=',
+          lessThanOrEqual: '<=',
+        }
+
+        const sqlOperator = operatorMap[operator]
+        if (sqlOperator) {
+          return `${field} ${sqlOperator} ${value}`
         }
       }
       return ''
