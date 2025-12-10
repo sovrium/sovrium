@@ -199,7 +199,7 @@ test.describe('Table View', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-005: user can complete full view workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -252,7 +252,7 @@ test.describe('Table View', () => {
 
       await test.step('Verify view filters and sorts records correctly', async () => {
         const viewRecords = await executeQuery('SELECT title, status, priority FROM default_view')
-        expect(viewRecords).toEqual([
+        expect(viewRecords.rows).toEqual([
           { title: 'Item 3', status: 'active', priority: 3 },
           { title: 'Item 1', status: 'active', priority: 1 },
         ])
@@ -262,7 +262,7 @@ test.describe('Table View', () => {
         const inactiveInView = await executeQuery(
           "SELECT * FROM default_view WHERE status = 'inactive'"
         )
-        expect(inactiveInView).toHaveLength(0)
+        expect(inactiveInView.rows).toHaveLength(0)
       })
 
       await test.step('Error handling: duplicate view IDs rejected', async () => {
