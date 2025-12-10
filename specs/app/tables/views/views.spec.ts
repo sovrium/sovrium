@@ -157,7 +157,7 @@ test.describe('Table Views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-003: should sort records accordingly when view has sort configuration (ORDER BY created_at DESC)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -200,7 +200,7 @@ test.describe('Table Views', () => {
       // View returns records in sorted order
       const viewRecords = await executeQuery('SELECT title FROM recent_first')
       // THEN: assertion
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toEqual([
         { title: 'Article 2' },
         { title: 'Article 3' },
         { title: 'Article 1' },
