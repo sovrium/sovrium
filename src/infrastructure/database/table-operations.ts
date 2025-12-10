@@ -18,6 +18,7 @@ import {
 import {
   generateRLSPolicyStatements,
   generateBasicTableGrants,
+  generateAuthenticatedBasedGrants,
   generateRoleBasedGrants,
 } from './rls-policy-generators'
 import {
@@ -161,6 +162,9 @@ const applyTableFeatures = async (
 
   // Basic table grants for tables with no permissions (default deny)
   await executeSQLStatements(tx, generateBasicTableGrants(physicalTable))
+
+  // Authenticated table grants for tables with authenticated permissions
+  await executeSQLStatements(tx, generateAuthenticatedBasedGrants(physicalTable))
 
   // Role-based table grants for tables with role-based permissions
   await executeSQLStatements(tx, generateRoleBasedGrants(physicalTable))

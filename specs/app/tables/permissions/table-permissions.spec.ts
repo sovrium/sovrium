@@ -237,7 +237,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-004: should grant UPDATE access to authenticated users when table has authenticated-only update permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
@@ -263,11 +263,8 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
-      await executeQuery([
-        'ALTER TABLE profiles ENABLE ROW LEVEL SECURITY',
-        'CREATE POLICY authenticated_update ON profiles FOR UPDATE USING (auth.is_authenticated()) WITH CHECK (auth.is_authenticated())',
-        "INSERT INTO profiles (name, bio) VALUES ('Alice', 'Bio 1')",
-      ])
+      // Insert test data (RLS policies are auto-generated from permissions config)
+      await executeQuery(["INSERT INTO profiles (id, name, bio) VALUES (1, 'Alice', 'Bio 1')"])
 
       // WHEN: authenticated user attempts to update record
       // THEN: PostgreSQL RLS policy grants UPDATE access to authenticated users
@@ -284,24 +281,28 @@ test.describe('Table-Level Permissions', () => {
         "SELECT cmd, qual, with_check FROM pg_policies WHERE tablename='profiles' AND policyname='authenticated_update'"
       )
       // THEN: assertion
-      expect(policyDetails).toEqual({
+      expect(policyDetails).toMatchObject({
         cmd: 'UPDATE',
         qual: 'auth.is_authenticated()',
         with_check: 'auth.is_authenticated()',
       })
 
       // Authenticated user can UPDATE records
-      const authUpdate = await executeQuery(
-        "SET ROLE authenticated_user; UPDATE profiles SET bio = 'Updated bio' WHERE id = 1 RETURNING bio"
-      )
+      const authUpdate = await executeQuery([
+        "SET LOCAL app.user_id = 'test-user-123'",
+        "UPDATE profiles SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
+      ])
       // THEN: assertion
       expect(authUpdate.bio).toBe('Updated bio')
 
       // Unauthenticated user cannot UPDATE records
       // THEN: assertion
-      await expect(async () => {
-        await executeQuery("RESET ROLE; UPDATE profiles SET bio = 'Hacked' WHERE id = 1")
-      }).rejects.toThrow('new row violates row-level security policy')
+      try {
+        await executeQuery("UPDATE profiles SET bio = 'Hacked' WHERE id = 1")
+        throw new Error('Expected UPDATE to fail for unauthenticated user')
+      } catch (error: any) {
+        expect(error.message).toContain('new row violates row-level security policy')
+      }
     }
   )
 
