@@ -19,16 +19,17 @@ const generateWhereClause = (filters: View['filters']): string => {
 
   // Handle AND filters
   if ('and' in filters && filters.and) {
-    const conditions = filters.and.map((condition) => {
-      if ('field' in condition && 'operator' in condition && 'value' in condition) {
-        const { field, operator, value } = condition
-        return generateSqlCondition(field, operator, value)
-      }
-      return ''
-    })
+    const conditions = filters.and
+      .map((condition) => {
+        if ('field' in condition && 'operator' in condition && 'value' in condition) {
+          const { field, operator, value } = condition
+          return generateSqlCondition(field, operator, value)
+        }
+        return ''
+      })
+      .filter((c) => c !== '')
 
-    const validConditions = conditions.filter((c) => c !== '')
-    return validConditions.length > 0 ? `WHERE ${validConditions.join(' AND ')}` : ''
+    return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
   }
 
   return ''
