@@ -185,7 +185,7 @@ test.describe('View Group By', () => {
   // Phase: Error Configuration Validation Tests (004)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-GROUP-BY-004: should reject groupBy referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
