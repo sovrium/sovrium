@@ -749,6 +749,37 @@ const validateViewFields = (
 }
 
 /**
+ * Validate that view groupBy references existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViewGroupBy = (
+  views: ReadonlyArray<{
+    readonly id: string | number
+    readonly groupBy?: { readonly field: string }
+  }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const invalidView = views
+    .filter(
+      (view): view is typeof view & { readonly groupBy: { readonly field: string } } =>
+        view.groupBy !== undefined
+    )
+    .find((view) => !fieldNames.has(view.groupBy.field))
+
+  if (invalidView) {
+    return {
+      message: `groupBy references non-existent field '${invalidView.groupBy.field}' - field not found in table`,
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate views configuration (IDs, default views, field references, filter references).
  *
  * @param views - Array of views to validate
@@ -779,6 +810,11 @@ const validateViews = (
   const viewFiltersValidationError = validateViewFilters(views, fieldNames)
   if (viewFiltersValidationError) {
     return viewFiltersValidationError
+  }
+
+  const viewGroupByValidationError = validateViewGroupBy(views, fieldNames)
+  if (viewGroupByValidationError) {
+    return viewGroupByValidationError
   }
 
   const operatorCompatibilityError = validateFilterOperatorCompatibility(views, fields)
