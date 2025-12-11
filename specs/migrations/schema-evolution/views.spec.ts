@@ -379,7 +379,7 @@ test.describe('Database Views Migration', () => {
 
         // Seed test data after table creation
         await executeQuery([
-          `INSERT INTO products (name, price, in_stock) VALUES ('Widget', 19.99, true), ('Gadget', 29.99, true), ('Obsolete', 9.99, false)`,
+          `INSERT INTO products (id, name, price, in_stock) VALUES (1, 'Widget', 19.99, true), (2, 'Gadget', 29.99, true), (3, 'Obsolete', 9.99, false)`,
         ])
       })
 
