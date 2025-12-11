@@ -35,7 +35,7 @@ const handlePatternOperator = (
 }
 
 /**
- * Handle NULL check operators (isNull, isNotNull)
+ * Handle NULL check operators (isNull, isNotNull, isEmpty)
  */
 const handleNullOperator = (field: string, operator: string): string | undefined => {
   if (operator === 'isNull') {
@@ -43,6 +43,9 @@ const handleNullOperator = (field: string, operator: string): string | undefined
   }
   if (operator === 'isNotNull') {
     return `${field} IS NOT NULL`
+  }
+  if (operator === 'isEmpty') {
+    return `(${field} IS NULL OR ${field} = '')`
   }
   return undefined
 }
