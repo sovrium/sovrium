@@ -184,7 +184,7 @@ test.describe('View Fields', () => {
   // Phase: Error Configuration Validation Tests (004)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FIELDS-004: should reject fields array containing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
