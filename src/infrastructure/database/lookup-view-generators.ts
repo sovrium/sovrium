@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { escapeSqlString, formatLikePattern } from './sql-utils'
+import { generateSqlCondition } from './filter-operators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 import type { ViewFilterCondition } from '@/domain/models/app/table/views/filters'
@@ -39,30 +39,8 @@ export const hasLookupFields = (table: Table): boolean =>
 const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): string => {
   const { field, operator, value } = filter
   const column = `${aliasPrefix}.${field}`
-
-  // Default equals handler
-  const equalsHandler = (): string =>
-    typeof value === 'string' ? `${column} = '${escapeSqlString(value)}'` : `${column} = ${value}`
-
-  const operatorHandlers: Record<string, () => string> = {
-    equals: equalsHandler,
-    notEquals: () =>
-      typeof value === 'string'
-        ? `${column} != '${escapeSqlString(value)}'`
-        : `${column} != ${value}`,
-    greaterThan: () => `${column} > ${value}`,
-    lessThan: () => `${column} < ${value}`,
-    greaterThanOrEqual: () => `${column} >= ${value}`,
-    lessThanOrEqual: () => `${column} <= ${value}`,
-    contains: () => `${column} LIKE ${formatLikePattern(value, 'contains')}`,
-    startsWith: () => `${column} LIKE ${formatLikePattern(value, 'startsWith')}`,
-    endsWith: () => `${column} LIKE ${formatLikePattern(value, 'endsWith')}`,
-    isNull: () => `${column} IS NULL`,
-    isNotNull: () => `${column} IS NOT NULL`,
-  }
-
-  const handler = operatorHandlers[operator]
-  return handler ? handler() : equalsHandler()
+  // Use legacy string escaping mode for backward compatibility
+  return generateSqlCondition(column, operator, value, { useEscapeSqlString: true })
 }
 
 /**
