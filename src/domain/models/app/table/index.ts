@@ -571,6 +571,140 @@ const extractFieldReferencesFromFilter = (
 }
 
 /**
+ * Map of valid operators for each field type.
+ * If a field type is not in this map, all operators are allowed.
+ */
+const VALID_OPERATORS_BY_FIELD_TYPE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['checkbox', new Set(['equals', 'notEquals', 'isTrue', 'isFalse', 'isNull', 'isNotNull'])],
+  [
+    'integer',
+    new Set([
+      'equals',
+      'notEquals',
+      'greaterThan',
+      'lessThan',
+      'greaterThanOrEqual',
+      'lessThanOrEqual',
+      'isNull',
+      'isNotNull',
+      'in',
+    ]),
+  ],
+  [
+    'decimal',
+    new Set([
+      'equals',
+      'notEquals',
+      'greaterThan',
+      'lessThan',
+      'greaterThanOrEqual',
+      'lessThanOrEqual',
+      'isNull',
+      'isNotNull',
+      'in',
+    ]),
+  ],
+])
+
+/**
+ * Extract filter conditions recursively from a filter node.
+ * Returns all leaf conditions (field, operator, value) from the filter tree.
+ *
+ * @param filterNode - The filter node to extract conditions from
+ * @returns Array of filter conditions
+ */
+const extractFilterConditions = (
+  filterNode:
+    | { readonly field: string; readonly operator: string; readonly value: unknown }
+    | { readonly and: ReadonlyArray<unknown> }
+    | { readonly or: ReadonlyArray<unknown> }
+): ReadonlyArray<{ readonly field: string; readonly operator: string }> => {
+  // Single condition - return it
+  if ('field' in filterNode && 'operator' in filterNode) {
+    return [{ field: filterNode.field, operator: filterNode.operator }]
+  }
+
+  // AND group - recursively extract from all conditions
+  if ('and' in filterNode && Array.isArray(filterNode.and)) {
+    return filterNode.and.flatMap((node) =>
+      extractFilterConditions(
+        node as
+          | { readonly field: string; readonly operator: string; readonly value: unknown }
+          | { readonly and: ReadonlyArray<unknown> }
+          | { readonly or: ReadonlyArray<unknown> }
+      )
+    )
+  }
+
+  // OR group - recursively extract from all conditions
+  if ('or' in filterNode && Array.isArray(filterNode.or)) {
+    return filterNode.or.flatMap((node) =>
+      extractFilterConditions(
+        node as
+          | { readonly field: string; readonly operator: string; readonly value: unknown }
+          | { readonly and: ReadonlyArray<unknown> }
+          | { readonly or: ReadonlyArray<unknown> }
+      )
+    )
+  }
+
+  return []
+}
+
+/**
+ * Validate that view filter operators are compatible with field types.
+ *
+ * @param views - Array of views to validate
+ * @param fields - Array of table fields
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViewFilterOperators = (
+  views: ReadonlyArray<{
+    readonly id: string | number
+    readonly filters?:
+      | { readonly field: string; readonly operator: string; readonly value: unknown }
+      | { readonly and: ReadonlyArray<unknown> }
+      | { readonly or: ReadonlyArray<unknown> }
+  }>,
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const fieldTypeMap = new Map(fields.map((field) => [field.name, field.type]))
+
+  const invalidOperator = views
+    .filter((view) => view.filters !== undefined)
+    .flatMap((view) => {
+      const conditions = extractFilterConditions(view.filters!)
+      return conditions
+        .map((condition) => {
+          const fieldType = fieldTypeMap.get(condition.field)
+          if (!fieldType) return undefined
+
+          const validOperators = VALID_OPERATORS_BY_FIELD_TYPE.get(fieldType)
+          if (!validOperators) return undefined
+
+          if (!validOperators.has(condition.operator)) {
+            return { view, condition, fieldType }
+          }
+          return undefined
+        })
+        .filter((result) => result !== undefined)
+    })
+    .at(0)
+
+  if (invalidOperator) {
+    const validOps = Array.from(
+      VALID_OPERATORS_BY_FIELD_TYPE.get(invalidOperator.fieldType) || []
+    ).join(', ')
+    return {
+      message: `Operator '${invalidOperator.condition.operator}' is invalid for field type '${invalidOperator.fieldType}' - incompatible operator (valid operators: ${validOps})`,
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate that view filters reference existing fields in the table.
  *
  * @param views - Array of views to validate
@@ -639,14 +773,16 @@ const validateViewFields = (
 }
 
 /**
- * Validate views configuration (IDs, default views, field references, filter references).
+ * Validate views configuration (IDs, default views, field references, filter references, operator compatibility).
  *
  * @param views - Array of views to validate
+ * @param fields - Array of table fields
  * @param fieldNames - Set of valid field names in the table
  * @returns Error object if validation fails, undefined if valid
  */
 const validateViews = (
   views: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>,
+  fields: ReadonlyArray<{ readonly name: string; readonly type: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
   const viewsValidationError = validateViewIds(views)
@@ -667,6 +803,11 @@ const validateViews = (
   const viewFiltersValidationError = validateViewFilters(views, fieldNames)
   if (viewFiltersValidationError) {
     return viewFiltersValidationError
+  }
+
+  const viewFilterOperatorsError = validateViewFilterOperators(views, fields)
+  if (viewFilterOperatorsError) {
+    return viewFilterOperatorsError
   }
 
   return undefined
@@ -731,7 +872,7 @@ const validateTableSchema = (table: {
 
   // Validate views if present
   if (table.views && table.views.length > 0) {
-    const viewsValidationError = validateViews(table.views, fieldNames)
+    const viewsValidationError = validateViews(table.views, table.fields, fieldNames)
     if (viewsValidationError) {
       return viewsValidationError
     }

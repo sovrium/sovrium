@@ -247,7 +247,7 @@ test.describe('View Filters', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-006: user can complete full view-filters workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -290,7 +290,9 @@ test.describe('View Filters', () => {
       await test.step('Verify view returns only records matching all conditions', async () => {
         const viewRecords = await executeQuery('SELECT * FROM filtered_view')
         expect(viewRecords.rows).toHaveLength(1)
-        expect(viewRecords.rows[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
+        expect(viewRecords.rows[0]).toEqual(
+          expect.objectContaining({ category: 'A', status: 'active' })
+        )
       })
 
       await test.step('Error handling: filter references non-existent field', async () => {

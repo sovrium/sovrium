@@ -119,8 +119,6 @@ export const validateButtonAction = (field: {
  * findDuplicate(['x'])                  // undefined (single item)
  * ```
  */
-export const findDuplicate = <T>(
-  values: ReadonlyArray<T>
-): T | undefined => {
+export const findDuplicate = <T>(values: ReadonlyArray<T>): T | undefined => {
   return values.find((value, index) => values.indexOf(value) !== index)
 }
