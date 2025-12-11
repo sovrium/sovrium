@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { formatSqlValue, formatLikePattern } from './sql-utils'
+import { generateSqlCondition } from './filter-operators'
 import type { Table } from '@/domain/models/app/table'
 import type { View } from '@/domain/models/app/table/views'
 
@@ -21,28 +21,8 @@ const generateWhereClause = (filters: View['filters']): string => {
   if ('and' in filters && filters.and) {
     const conditions = filters.and.map((condition) => {
       if ('field' in condition && 'operator' in condition && 'value' in condition) {
-        const { field, operator, value: rawValue } = condition
-
-        // Handle 'contains' operator separately (uses LIKE with wildcards)
-        if (operator === 'contains') {
-          return `${field} LIKE ${formatLikePattern(rawValue, 'contains')}`
-        }
-
-        // Map domain operators to SQL operators
-        const operatorMap: Record<string, string> = {
-          equals: '=',
-          greaterThan: '>',
-          lessThan: '<',
-          greaterThanOrEqual: '>=',
-          lessThanOrEqual: '<=',
-        }
-
-        const sqlOperator = operatorMap[operator]
-        if (sqlOperator) {
-          // Format value with proper escaping
-          const formattedValue = formatSqlValue(rawValue)
-          return `${field} ${sqlOperator} ${formattedValue}`
-        }
+        const { field, operator, value } = condition
+        return generateSqlCondition(field, operator, value)
       }
       return ''
     })
