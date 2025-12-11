@@ -24,7 +24,7 @@ test.describe('View Group By', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-GROUP-BY-001: should organize records into groups by status values when a view is grouped by status field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -70,7 +70,7 @@ test.describe('View Group By', () => {
       // Records are ordered by groupBy field (grouping puts same values together)
       const viewRecords = await executeQuery('SELECT title, status FROM by_status')
       // Records with same status should be adjacent (grouped)
-      expect(viewRecords).toHaveLength(3)
+      expect(viewRecords.rows).toHaveLength(3)
 
       // Count records per status group
       const activeCount = await executeQuery(
