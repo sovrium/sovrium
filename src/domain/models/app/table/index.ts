@@ -537,9 +537,12 @@ const validateViewFields = (
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
   const invalidView = views
-    .filter((view) => view.fields && view.fields.length > 0)
+    .filter(
+      (view): view is typeof view & { readonly fields: ReadonlyArray<string> } =>
+        view.fields !== undefined && view.fields.length > 0
+    )
     .flatMap((view) => {
-      const invalidFields = view.fields!.filter((fieldName) => !fieldNames.has(fieldName))
+      const invalidFields = view.fields.filter((fieldName) => !fieldNames.has(fieldName))
       return invalidFields.map((invalidField) => ({ view, invalidField }))
     })
     .at(0)
@@ -549,6 +552,35 @@ const validateViewFields = (
       message: `View field '${invalidView.invalidField}' not found - view fields must reference existing table fields (non-existent field in view)`,
       path: ['views'],
     }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate views configuration (IDs, default views, field references).
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViews = (
+  views: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const viewsValidationError = validateViewIds(views)
+  if (viewsValidationError) {
+    return viewsValidationError
+  }
+
+  const defaultViewsValidationError = validateDefaultViews(views)
+  if (defaultViewsValidationError) {
+    return defaultViewsValidationError
+  }
+
+  const viewFieldsValidationError = validateViewFields(views, fieldNames)
+  if (viewFieldsValidationError) {
+    return viewFieldsValidationError
   }
 
   return undefined
@@ -613,19 +645,9 @@ const validateTableSchema = (table: {
 
   // Validate views if present
   if (table.views && table.views.length > 0) {
-    const viewsValidationError = validateViewIds(table.views)
+    const viewsValidationError = validateViews(table.views, fieldNames)
     if (viewsValidationError) {
       return viewsValidationError
-    }
-
-    const defaultViewsValidationError = validateDefaultViews(table.views)
-    if (defaultViewsValidationError) {
-      return defaultViewsValidationError
-    }
-
-    const viewFieldsValidationError = validateViewFields(table.views, fieldNames)
-    if (viewFieldsValidationError) {
-      return viewFieldsValidationError
     }
   }
 

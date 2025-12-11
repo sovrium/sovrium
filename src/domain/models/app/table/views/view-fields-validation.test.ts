@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { TableSchema } from '../index'
+import { TableSchema } from '..'
 
 describe('View Fields Validation', () => {
   test('should reject view with non-existent field reference', () => {
