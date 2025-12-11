@@ -164,7 +164,7 @@ test.describe('Filter Condition', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-CONDITION-004: should pass only records where field is null or empty when a condition has isEmpty operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
