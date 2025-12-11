@@ -349,18 +349,11 @@ test.describe('Database Views Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-007: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: create products table with stock status', async () => {
-        await executeQuery([
-          `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price NUMERIC(10,2), in_stock BOOLEAN DEFAULT true)`,
-          `INSERT INTO products (name, price, in_stock) VALUES ('Widget', 19.99, true), ('Gadget', 29.99, true), ('Obsolete', 9.99, false)`,
-        ])
-      })
-
-      await test.step('Create view for available products', async () => {
+      await test.step('Create table with view and seed data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
@@ -383,6 +376,11 @@ test.describe('Database Views Migration', () => {
             },
           ],
         })
+
+        // Seed test data after table creation
+        await executeQuery([
+          `INSERT INTO products (id, name, price, in_stock) VALUES (1, 'Widget', 19.99, true), (2, 'Gadget', 29.99, true), (3, 'Obsolete', 9.99, false)`,
+        ])
       })
 
       await test.step('Verify view returns only in-stock products', async () => {

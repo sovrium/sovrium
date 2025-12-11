@@ -263,13 +263,23 @@ export const createTableViews = async (
     // Convert view.id to string (ViewId can be number or string)
     const viewIdStr = String(view.id)
 
-    // Drop existing view (if any)
-    await tx.unsafe(`DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
+    // Drop existing view or materialized view (if any)
+    // Try both types since we don't know what exists in the database
+    if (view.materialized) {
+      await tx.unsafe(`DROP MATERIALIZED VIEW IF EXISTS ${viewIdStr} CASCADE`)
+    } else {
+      await tx.unsafe(`DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
+    }
 
-    // Create view
+    // Create view (regular or materialized)
     const viewSQL = generateTableViewStatements(table).find((sql) => sql.includes(viewIdStr))
     if (viewSQL) {
       await tx.unsafe(viewSQL)
+
+      // Refresh materialized view if requested
+      if (view.materialized && view.refreshOnMigration) {
+        await tx.unsafe(`REFRESH MATERIALIZED VIEW ${viewIdStr}`)
+      }
     }
   }
 }
