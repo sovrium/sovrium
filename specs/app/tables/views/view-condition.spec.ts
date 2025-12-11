@@ -111,8 +111,8 @@ test.describe('Filter Condition', () => {
       // View returns records where name contains 'test'
       const viewRecords = await executeQuery('SELECT name FROM test_products ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([{ name: 'test product' }, { name: 'another test' }])
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows).toEqual([{ name: 'test product' }, { name: 'another test' }])
     }
   )
 
@@ -156,8 +156,8 @@ test.describe('Filter Condition', () => {
       // View returns records where age > 18
       const viewRecords = await executeQuery('SELECT name, age FROM adults ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows).toEqual([
         { name: 'Alice', age: 25 },
         { name: 'Charlie', age: 30 },
       ])
@@ -204,9 +204,9 @@ test.describe('Filter Condition', () => {
       // View returns records where email is empty
       const viewRecords = await executeQuery('SELECT name, email FROM no_email ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords[0].name).toBe('Bob')
-      expect(viewRecords[1].name).toBe('Charlie')
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows[0].name).toBe('Bob')
+      expect(viewRecords.rows[1].name).toBe('Charlie')
     }
   )
 
@@ -256,8 +256,8 @@ test.describe('Filter Condition', () => {
       // View returns records where category is in ['electronics', 'computers', 'phones']
       const viewRecords = await executeQuery('SELECT name, category FROM tech_items ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(3)
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toHaveLength(3)
+      expect(viewRecords.rows).toEqual([
         { name: 'Laptop', category: 'computers' },
         { name: 'Phone', category: 'phones' },
         { name: 'Tablet', category: 'electronics' },
@@ -315,8 +315,8 @@ test.describe('Filter Condition', () => {
         const viewRecords = await executeQuery(
           'SELECT status, value, category FROM filtered_view ORDER BY id'
         )
-        expect(viewRecords).toHaveLength(2)
-        expect(viewRecords).toEqual([
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows).toEqual([
           { status: 'active', value: 15, category: 'A' },
           { status: 'active', value: 12, category: 'B' },
         ])
