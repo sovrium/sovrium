@@ -171,7 +171,7 @@ test.describe('View Filters', () => {
   // Phase: Error Configuration Validation Tests (004-005)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-004: should reject filter referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
