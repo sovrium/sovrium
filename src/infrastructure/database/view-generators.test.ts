@@ -236,6 +236,86 @@ describe('generateViewSQL', () => {
   })
 
   describe('Comparison Operators', () => {
+    test('should generate in operator with array of values', () => {
+      const view: View = {
+        id: 'test_view',
+        name: 'Test View',
+        filters: {
+          and: [
+            {
+              field: 'status',
+              operator: 'in',
+              value: ['active', 'pending', 'review'],
+            },
+          ],
+        },
+      }
+
+      const sql = generateViewSQL(baseTable, view)
+
+      expect(sql).toContain("status IN ('active', 'pending', 'review')")
+    })
+
+    test('should generate in operator with numeric array', () => {
+      const view: View = {
+        id: 'test_view',
+        name: 'Test View',
+        filters: {
+          and: [
+            {
+              field: 'priority',
+              operator: 'in',
+              value: [1, 2, 3],
+            },
+          ],
+        },
+      }
+
+      const sql = generateViewSQL(baseTable, view)
+
+      expect(sql).toContain('priority IN (1, 2, 3)')
+    })
+
+    test('should generate in operator with mixed types', () => {
+      const view: View = {
+        id: 'test_view',
+        name: 'Test View',
+        filters: {
+          and: [
+            {
+              field: 'value',
+              operator: 'in',
+              value: ['text', 123, true],
+            },
+          ],
+        },
+      }
+
+      const sql = generateViewSQL(baseTable, view)
+
+      expect(sql).toContain("value IN ('text', 123, true)")
+    })
+
+    test('should escape single quotes in in operator values', () => {
+      const view: View = {
+        id: 'test_view',
+        name: 'Test View',
+        filters: {
+          and: [
+            {
+              field: 'name',
+              operator: 'in',
+              value: ["Alice's project", "Bob's work"],
+            },
+          ],
+        },
+      }
+
+      const sql = generateViewSQL(baseTable, view)
+
+      expect(sql).toContain("name IN ('Alice''s project', 'Bob''s work')")
+    })
+
     test('should generate equals operator', () => {
       const view: View = {
         id: 'test_view',

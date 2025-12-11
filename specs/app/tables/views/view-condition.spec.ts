@@ -210,7 +210,7 @@ test.describe('Filter Condition', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-CONDITION-005: should pass records where field matches any value in the array when a condition has in operator and array of values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
