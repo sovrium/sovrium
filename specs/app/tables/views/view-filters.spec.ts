@@ -123,7 +123,7 @@ test.describe('View Filters', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-003: should use AND operator by default when filters have no operator specified',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
