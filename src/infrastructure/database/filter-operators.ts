@@ -51,6 +51,21 @@ const handleNullOperator = (field: string, operator: string): string | undefined
 }
 
 /**
+ * Handle IN operator (field matches any value in array)
+ */
+const handleInOperator = (field: string, operator: string, value: unknown): string | undefined => {
+  if (operator === 'in') {
+    if (!Array.isArray(value)) {
+      return undefined
+    }
+    // Format each value in the array immutably
+    const formattedValues = value.map((v) => formatSqlValue(v))
+    return `${field} IN (${formattedValues.join(', ')})`
+  }
+  return undefined
+}
+
+/**
  * Format value based on options
  */
 const formatValue = (
@@ -89,6 +104,10 @@ export const generateSqlCondition = (
   // Handle NULL operators
   const nullCondition = handleNullOperator(field, operator)
   if (nullCondition) return nullCondition
+
+  // Handle IN operator
+  const inCondition = handleInOperator(field, operator, value)
+  if (inCondition) return inCondition
 
   // Handle comparison operators
   const sqlOperator = SQL_OPERATOR_MAP[operator]
