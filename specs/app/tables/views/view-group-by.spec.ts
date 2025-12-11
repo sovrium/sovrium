@@ -133,7 +133,7 @@ test.describe('View Group By', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-GROUP-BY-003: should order groups from highest to lowest when a view is grouped by field with descending direction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
