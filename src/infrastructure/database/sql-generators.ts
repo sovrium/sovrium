@@ -10,6 +10,7 @@ import {
   isFormulaReturningArray,
   translateFormulaToPostgres,
 } from './formula-utils'
+import { escapeSqlString } from './sql-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -161,7 +162,7 @@ const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean)
  * Format array default value as PostgreSQL ARRAY literal
  */
 const formatArrayDefault = (defaultValue: readonly unknown[]): string => {
-  const arrayValues = defaultValue.map((val) => `'${escapeSQLString(String(val))}'`).join(', ')
+  const arrayValues = defaultValue.map((val) => `'${escapeSqlString(String(val))}'`).join(', ')
   return ` DEFAULT ARRAY[${arrayValues}]`
 }
 
@@ -356,12 +357,6 @@ const generateProgressConstraints = (fields: readonly Fields[number][]): readonl
     })
 
 /**
- * Escape single quotes in SQL string literals to prevent SQL injection
- * PostgreSQL escapes single quotes by doubling them: ' becomes ''
- */
-const escapeSQLString = (value: string): string => value.replace(/'/g, "''")
-
-/**
  * Extract string values from field options
  * Handles both simple string arrays (single-select) and object arrays with value property (status)
  */
@@ -390,7 +385,7 @@ const generateEnumCheckConstraint = (
   const values = options
     .map((opt) => {
       const value = typeof opt === 'string' ? opt : (opt as { value: string }).value
-      return `'${escapeSQLString(value)}'`
+      return `'${escapeSqlString(value)}'`
     })
     .join(', ')
   const constraintName = `check_${field.name}_enum`

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeSqlString, formatLikePattern } from './sql-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 import type { ViewFilterCondition } from '@/domain/models/app/table/views/filters'
@@ -41,21 +42,21 @@ const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): str
 
   // Default equals handler
   const equalsHandler = (): string =>
-    typeof value === 'string' ? `${column} = '${escapeSQLValue(value)}'` : `${column} = ${value}`
+    typeof value === 'string' ? `${column} = '${escapeSqlString(value)}'` : `${column} = ${value}`
 
   const operatorHandlers: Record<string, () => string> = {
     equals: equalsHandler,
     notEquals: () =>
       typeof value === 'string'
-        ? `${column} != '${escapeSQLValue(value)}'`
+        ? `${column} != '${escapeSqlString(value)}'`
         : `${column} != ${value}`,
     greaterThan: () => `${column} > ${value}`,
     lessThan: () => `${column} < ${value}`,
     greaterThanOrEqual: () => `${column} >= ${value}`,
     lessThanOrEqual: () => `${column} <= ${value}`,
-    contains: () => `${column} LIKE '%${escapeSQLValue(String(value))}%'`,
-    startsWith: () => `${column} LIKE '${escapeSQLValue(String(value))}%'`,
-    endsWith: () => `${column} LIKE '%${escapeSQLValue(String(value))}'`,
+    contains: () => `${column} LIKE ${formatLikePattern(value, 'contains')}`,
+    startsWith: () => `${column} LIKE ${formatLikePattern(value, 'startsWith')}`,
+    endsWith: () => `${column} LIKE ${formatLikePattern(value, 'endsWith')}`,
     isNull: () => `${column} IS NULL`,
     isNotNull: () => `${column} IS NOT NULL`,
   }
@@ -63,11 +64,6 @@ const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): str
   const handler = operatorHandlers[operator]
   return handler ? handler() : equalsHandler()
 }
-
-/**
- * Escape SQL string values to prevent injection
- */
-const escapeSQLValue = (value: string): string => value.replace(/'/g, "''")
 
 /**
  * Generate lookup column expression
