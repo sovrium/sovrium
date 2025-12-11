@@ -32,6 +32,21 @@ const generateWhereClause = (filters: View['filters']): string => {
     return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
   }
 
+  // Handle OR filters
+  if ('or' in filters && filters.or) {
+    const conditions = filters.or
+      .map((condition) => {
+        if ('field' in condition && 'operator' in condition && 'value' in condition) {
+          const { field, operator, value } = condition
+          return generateSqlCondition(field, operator, value)
+        }
+        return ''
+      })
+      .filter((c) => c !== '')
+
+    return conditions.length > 0 ? `WHERE ${conditions.join(' OR ')}` : ''
+  }
+
   return ''
 }
 
