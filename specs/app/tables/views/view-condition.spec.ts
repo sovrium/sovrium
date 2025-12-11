@@ -269,7 +269,7 @@ test.describe('Filter Condition', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-CONDITION-006: user can complete full filter-condition workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
