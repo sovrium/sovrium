@@ -24,7 +24,7 @@ test.describe('View Fields', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FIELDS-001: should show only configured fields when a view has specific fields configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -64,7 +64,7 @@ test.describe('View Fields', () => {
       const viewColumns = await executeQuery(
         "SELECT column_name FROM information_schema.columns WHERE table_name = 'public_view' ORDER BY ordinal_position"
       )
-      expect(viewColumns).toEqual([
+      expect(viewColumns.rows).toEqual([
         { column_name: 'id' },
         { column_name: 'name' },
         { column_name: 'price' },
@@ -72,10 +72,10 @@ test.describe('View Fields', () => {
 
       // View returns only visible fields
       const viewRecords = await executeQuery('SELECT * FROM public_view')
-      expect(viewRecords[0]).toHaveProperty('id')
-      expect(viewRecords[0]).toHaveProperty('name')
-      expect(viewRecords[0]).toHaveProperty('price')
-      expect(viewRecords[0]).not.toHaveProperty('internal_notes')
+      expect(viewRecords).toHaveProperty('id')
+      expect(viewRecords).toHaveProperty('name')
+      expect(viewRecords).toHaveProperty('price')
+      expect(viewRecords).not.toHaveProperty('internal_notes')
     }
   )
 
