@@ -571,44 +571,8 @@ const extractFieldReferencesFromFilter = (
 }
 
 /**
- * Map of valid operators for each field type.
- * If a field type is not in this map, all operators are allowed.
- */
-const VALID_OPERATORS_BY_FIELD_TYPE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  ['checkbox', new Set(['equals', 'notEquals', 'isTrue', 'isFalse', 'isNull', 'isNotNull'])],
-  [
-    'integer',
-    new Set([
-      'equals',
-      'notEquals',
-      'greaterThan',
-      'lessThan',
-      'greaterThanOrEqual',
-      'lessThanOrEqual',
-      'isNull',
-      'isNotNull',
-      'in',
-    ]),
-  ],
-  [
-    'decimal',
-    new Set([
-      'equals',
-      'notEquals',
-      'greaterThan',
-      'lessThan',
-      'greaterThanOrEqual',
-      'lessThanOrEqual',
-      'isNull',
-      'isNotNull',
-      'in',
-    ]),
-  ],
-])
-
-/**
- * Extract filter conditions recursively from a filter node.
- * Returns all leaf conditions (field, operator, value) from the filter tree.
+ * Extract filter conditions from a filter node recursively.
+ * Returns array of conditions with field, operator, and value.
  *
  * @param filterNode - The filter node to extract conditions from
  * @returns Array of filter conditions
@@ -618,10 +582,10 @@ const extractFilterConditions = (
     | { readonly field: string; readonly operator: string; readonly value: unknown }
     | { readonly and: ReadonlyArray<unknown> }
     | { readonly or: ReadonlyArray<unknown> }
-): ReadonlyArray<{ readonly field: string; readonly operator: string }> => {
-  // Single condition - return it
-  if ('field' in filterNode && 'operator' in filterNode) {
-    return [{ field: filterNode.field, operator: filterNode.operator }]
+): ReadonlyArray<{ readonly field: string; readonly operator: string; readonly value: unknown }> => {
+  // Single condition - return as array
+  if ('field' in filterNode) {
+    return [filterNode]
   }
 
   // AND group - recursively extract from all conditions
@@ -652,13 +616,24 @@ const extractFilterConditions = (
 }
 
 /**
- * Validate that view filter operators are compatible with field types.
+ * Operator compatibility rules for field types.
+ * Maps field types to their valid operators.
+ * Only enforces restrictions for specific field types (e.g., checkbox cannot use 'contains').
+ * Other operators are allowed by default to avoid breaking valid use cases.
+ */
+const FIELD_TYPE_OPERATORS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  // Checkbox: only boolean operators allowed
+  ['checkbox', new Set(['equals', 'isTrue', 'isFalse'])],
+])
+
+/**
+ * Validate that filter operators are compatible with field types.
  *
  * @param views - Array of views to validate
- * @param fields - Array of table fields
+ * @param fields - Array of fields in the table
  * @returns Error object if validation fails, undefined if valid
  */
-const validateViewFilterOperators = (
+const validateFilterOperatorCompatibility = (
   views: ReadonlyArray<{
     readonly id: string | number
     readonly filters?:
@@ -670,33 +645,34 @@ const validateViewFilterOperators = (
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
   const fieldTypeMap = new Map(fields.map((field) => [field.name, field.type]))
 
-  const invalidOperator = views
+  const incompatibleFilter = views
     .filter((view) => view.filters !== undefined)
     .flatMap((view) => {
       const conditions = extractFilterConditions(view.filters!)
-      return conditions
-        .map((condition) => {
-          const fieldType = fieldTypeMap.get(condition.field)
-          if (!fieldType) return undefined
+      return conditions.flatMap((condition) => {
+        const fieldType = fieldTypeMap.get(condition.field)
+        if (!fieldType) {
+          return []
+        }
 
-          const validOperators = VALID_OPERATORS_BY_FIELD_TYPE.get(fieldType)
-          if (!validOperators) return undefined
+        const validOperators = FIELD_TYPE_OPERATORS.get(fieldType)
+        if (!validOperators) {
+          // No restrictions defined for this field type
+          return []
+        }
 
-          if (!validOperators.has(condition.operator)) {
-            return { view, condition, fieldType }
-          }
-          return undefined
-        })
-        .filter((result) => result !== undefined)
+        if (!validOperators.has(condition.operator)) {
+          return [{ view, condition, fieldType }]
+        }
+
+        return []
+      })
     })
     .at(0)
 
-  if (invalidOperator) {
-    const validOps = Array.from(
-      VALID_OPERATORS_BY_FIELD_TYPE.get(invalidOperator.fieldType) || []
-    ).join(', ')
+  if (incompatibleFilter) {
     return {
-      message: `Operator '${invalidOperator.condition.operator}' is invalid for field type '${invalidOperator.fieldType}' - incompatible operator (valid operators: ${validOps})`,
+      message: `Incompatible operator '${incompatibleFilter.condition.operator}' for field '${incompatibleFilter.condition.field}' with type '${incompatibleFilter.fieldType}' - operator is invalid for checkbox field type`,
       path: ['views'],
     }
   }
@@ -773,10 +749,10 @@ const validateViewFields = (
 }
 
 /**
- * Validate views configuration (IDs, default views, field references, filter references, operator compatibility).
+ * Validate views configuration (IDs, default views, field references, filter references).
  *
  * @param views - Array of views to validate
- * @param fields - Array of table fields
+ * @param fields - Array of fields in the table
  * @param fieldNames - Set of valid field names in the table
  * @returns Error object if validation fails, undefined if valid
  */
@@ -805,9 +781,9 @@ const validateViews = (
     return viewFiltersValidationError
   }
 
-  const viewFilterOperatorsError = validateViewFilterOperators(views, fields)
-  if (viewFilterOperatorsError) {
-    return viewFilterOperatorsError
+  const operatorCompatibilityError = validateFilterOperatorCompatibility(views, fields)
+  if (operatorCompatibilityError) {
+    return operatorCompatibilityError
   }
 
   return undefined
