@@ -94,6 +94,27 @@ export const generateTableViewStatements = (table: Table): readonly string[] => 
 }
 
 /**
+ * Check if a view name belongs to a table
+ * Simple heuristic: view name contains table name or starts with table name
+ */
+const viewBelongsToTable = (viewName: string, tableName: string): boolean => {
+  return viewName.includes(tableName) || viewName.startsWith(tableName.replace(/_/g, ''))
+}
+
+/**
+ * Filter views that should be dropped (exist in DB but not in schema)
+ */
+const findObsoleteViews = (
+  existingViews: ReadonlySet<string>,
+  schemaViews: ReadonlySet<string>,
+  tableName: string
+): readonly string[] => {
+  return Array.from(existingViews).filter(
+    (viewName) => viewBelongsToTable(viewName, tableName) && !schemaViews.has(viewName)
+  )
+}
+
+/**
  * Drop views that no longer exist in the schema
  * This is called before creating views to ensure clean state
  */
@@ -102,29 +123,39 @@ export const generateDropObsoleteViewsSQL = async (
   tx: { unsafe: (sql: string) => Promise<unknown> },
   table: Table
 ): Promise<void> => {
-  // Get existing views for this table
+  // Get existing regular views for this table
   const existingViewsResult = (await tx.unsafe(`
     SELECT viewname
     FROM pg_views
     WHERE schemaname = 'public'
   `)) as readonly { viewname: string }[]
 
+  // Get existing materialized views for this table
+  const existingMatViewsResult = (await tx.unsafe(`
+    SELECT matviewname
+    FROM pg_matviews
+    WHERE schemaname = 'public'
+  `)) as readonly { matviewname: string }[]
+
   const existingViews = new Set(existingViewsResult.map((r) => r.viewname))
+  const existingMatViews = new Set(existingMatViewsResult.map((r) => r.matviewname))
   // Convert view IDs to strings (ViewId can be number or string)
   const schemaViews = new Set((table.views || []).map((v) => String(v.id)))
 
-  // Find views to drop (exist in database but not in schema)
-  const viewsToDrop = Array.from(existingViews).filter((viewName) => {
-    // Only drop views that look like they belong to this table
-    // Simple heuristic: view name contains table name or starts with table name
-    const belongsToTable =
-      viewName.includes(table.name) || viewName.startsWith(table.name.replace(/_/g, ''))
-    return belongsToTable && !schemaViews.has(viewName)
-  })
+  // Find views to drop using shared logic
+  const viewsToDrop = findObsoleteViews(existingViews, schemaViews, table.name)
+  const matViewsToDrop = findObsoleteViews(existingMatViews, schemaViews, table.name)
 
-  // Drop obsolete views
+  // Drop obsolete regular views
   await Promise.all(
     viewsToDrop.map((viewName) => tx.unsafe(`DROP VIEW IF EXISTS ${viewName} CASCADE`))
+  )
+
+  // Drop obsolete materialized views
+  await Promise.all(
+    matViewsToDrop.map((viewName) =>
+      tx.unsafe(`DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`)
+    )
   )
 }
 /* eslint-enable functional/no-expression-statements */
