@@ -85,7 +85,7 @@ test.describe('View Group By', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-GROUP-BY-002: should order groups alphabetically/numerically from lowest to highest when a view is grouped by field with ascending direction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -125,7 +125,7 @@ test.describe('View Group By', () => {
 
       // View returns records ordered by priority ascending
       const viewRecords = await executeQuery('SELECT name, priority FROM by_priority_asc')
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toEqual([
         { name: 'Item 2', priority: 1 },
         { name: 'Item 3', priority: 2 },
         { name: 'Item 1', priority: 3 },
@@ -173,7 +173,7 @@ test.describe('View Group By', () => {
 
       // View returns records ordered by rating descending
       const viewRecords = await executeQuery('SELECT name, rating FROM by_rating_desc')
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toEqual([
         { name: 'Product 2', rating: 5 },
         { name: 'Product 3', rating: 4 },
         { name: 'Product 1', rating: 3 },
@@ -271,7 +271,7 @@ test.describe('View Group By', () => {
 
       await test.step('Verify view returns records ordered by category', async () => {
         const viewRecords = await executeQuery('SELECT category, value FROM grouped_view')
-        expect(viewRecords).toEqual([
+        expect(viewRecords.rows).toEqual([
           { category: 'A', value: 1 },
           { category: 'A', value: 3 },
           { category: 'B', value: 2 },
