@@ -116,7 +116,7 @@ test.describe('Filter Condition', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-CONDITION-003: should pass only records with field value greater than specified value when a condition has greaterThan operator on numeric field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
