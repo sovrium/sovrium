@@ -24,7 +24,7 @@ test.describe('View Filters', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-001: should include only records matching all conditions when filters have AND operator and multiple conditions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -67,8 +67,8 @@ test.describe('View Filters', () => {
       // View returns only records matching ALL conditions
       const viewRecords = await executeQuery('SELECT * FROM active_adults')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(1)
-      expect(viewRecords[0]).toEqual(expect.objectContaining({ status: 'active', age: 25 }))
+      expect(viewRecords.rows).toHaveLength(1)
+      expect(viewRecords.rows[0]).toEqual(expect.objectContaining({ status: 'active', age: 25 }))
     }
   )
 
@@ -115,11 +115,11 @@ test.describe('View Filters', () => {
       // View returns records matching ANY condition
       const viewRecords = await executeQuery('SELECT * FROM important_tasks ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords.rows).toHaveLength(2)
       // First record: high priority, not urgent
       // Second record: low priority, urgent
-      expect(viewRecords[0].priority).toBe('high')
-      expect(viewRecords[1].urgent).toBe(true)
+      expect(viewRecords.rows[0].priority).toBe('high')
+      expect(viewRecords.rows[1].urgent).toBe(true)
     }
   )
 
@@ -162,8 +162,8 @@ test.describe('View Filters', () => {
       // View returns records where name contains 'test'
       const viewRecords = await executeQuery('SELECT name FROM test_view ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([{ name: 'test item' }, { name: 'test case' }])
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows).toEqual([{ name: 'test item' }, { name: 'test case' }])
     }
   )
 
@@ -289,8 +289,8 @@ test.describe('View Filters', () => {
 
       await test.step('Verify view returns only records matching all conditions', async () => {
         const viewRecords = await executeQuery('SELECT * FROM filtered_view')
-        expect(viewRecords).toHaveLength(1)
-        expect(viewRecords[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
+        expect(viewRecords.rows).toHaveLength(1)
+        expect(viewRecords.rows[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
       })
 
       await test.step('Error handling: filter references non-existent field', async () => {
