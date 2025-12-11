@@ -5,34 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { formatSqlValue, formatLikePattern } from './sql-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { View } from '@/domain/models/app/table/views'
-
-/**
- * Escape a string value for safe SQL interpolation
- * Doubles single quotes to prevent SQL injection (PostgreSQL standard)
- */
-const escapeSqlString = (value: string): string => {
-  return value.replace(/'/g, "''")
-}
-
-/**
- * Format a value for SQL interpolation
- * Strings are escaped and quoted, numbers/booleans are used directly
- */
-const formatSqlValue = (value: unknown): string => {
-  if (typeof value === 'string') {
-    return `'${escapeSqlString(value)}'`
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-  if (value === null) {
-    return 'NULL'
-  }
-  // For other types (objects, arrays), convert to JSON string
-  return `'${escapeSqlString(JSON.stringify(value))}'`
-}
 
 /**
  * Generate SQL WHERE clause from view filters
@@ -50,9 +25,7 @@ const generateWhereClause = (filters: View['filters']): string => {
 
         // Handle 'contains' operator separately (uses LIKE with wildcards)
         if (operator === 'contains') {
-          const formattedValue =
-            typeof rawValue === 'string' ? `'%${escapeSqlString(rawValue)}%'` : formatSqlValue(rawValue)
-          return `${field} LIKE ${formattedValue}`
+          return `${field} LIKE ${formatLikePattern(rawValue, 'contains')}`
         }
 
         // Map domain operators to SQL operators
