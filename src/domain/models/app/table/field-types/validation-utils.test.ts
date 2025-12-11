@@ -7,7 +7,12 @@
 
 import { describe, test, expect } from 'bun:test'
 import { Schema } from 'effect'
-import { validateMinMaxRange, createOptionsSchema, validateButtonAction, findDuplicate } from './validation-utils'
+import {
+  validateMinMaxRange,
+  createOptionsSchema,
+  validateButtonAction,
+  findDuplicate,
+} from './validation-utils'
 
 describe('validateMinMaxRange', () => {
   test('returns undefined when both min and max are valid (min < max)', () => {

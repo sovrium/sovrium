@@ -51,6 +51,19 @@ const handleNullOperator = (field: string, operator: string): string | undefined
 }
 
 /**
+ * Handle boolean operators (isTrue, isFalse)
+ */
+const handleBooleanOperator = (field: string, operator: string): string | undefined => {
+  if (operator === 'isTrue') {
+    return `${field} = true`
+  }
+  if (operator === 'isFalse') {
+    return `${field} = false`
+  }
+  return undefined
+}
+
+/**
  * Handle IN operator (field matches any value in array)
  */
 const handleInOperator = (field: string, operator: string, value: unknown): string | undefined => {
@@ -68,10 +81,7 @@ const handleInOperator = (field: string, operator: string, value: unknown): stri
 /**
  * Format value based on options
  */
-const formatValue = (
-  value: unknown,
-  useEscapeSqlString: boolean
-): string => {
+const formatValue = (value: unknown, useEscapeSqlString: boolean): string => {
   if (useEscapeSqlString && typeof value === 'string') {
     return `'${escapeSqlString(value)}'`
   }
@@ -104,6 +114,10 @@ export const generateSqlCondition = (
   // Handle NULL operators
   const nullCondition = handleNullOperator(field, operator)
   if (nullCondition) return nullCondition
+
+  // Handle boolean operators
+  const booleanCondition = handleBooleanOperator(field, operator)
+  if (booleanCondition) return booleanCondition
 
   // Handle IN operator
   const inCondition = handleInOperator(field, operator, value)
