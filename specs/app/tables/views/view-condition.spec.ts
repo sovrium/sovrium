@@ -24,7 +24,7 @@ test.describe('Filter Condition', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-CONDITION-001: should pass only records with exact field value match when a condition has equals operator and matching value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -64,8 +64,8 @@ test.describe('Filter Condition', () => {
       // View returns only records where status equals 'active'
       const viewRecords = await executeQuery('SELECT name, status FROM active_users ORDER BY id')
       // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([
+      expect(viewRecords.rows).toHaveLength(2)
+      expect(viewRecords.rows).toEqual([
         { name: 'Alice', status: 'active' },
         { name: 'Charlie', status: 'active' },
       ])
