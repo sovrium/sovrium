@@ -526,6 +526,35 @@ const validateDefaultViews = (
 }
 
 /**
+ * Validate that view fields reference existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViewFields = (
+  views: ReadonlyArray<{ readonly id: string | number; readonly fields?: ReadonlyArray<string> }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const invalidView = views
+    .filter((view) => view.fields && view.fields.length > 0)
+    .flatMap((view) => {
+      const invalidFields = view.fields!.filter((fieldName) => !fieldNames.has(fieldName))
+      return invalidFields.map((invalidField) => ({ view, invalidField }))
+    })
+    .at(0)
+
+  if (invalidView) {
+    return {
+      message: `View field '${invalidView.invalidField}' not found - view fields must reference existing table fields (non-existent field in view)`,
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate table schema including fields, permissions, views, and roles.
  * Extracted to reduce cyclomatic complexity of the Schema.filter function.
  *
@@ -592,6 +621,11 @@ const validateTableSchema = (table: {
     const defaultViewsValidationError = validateDefaultViews(table.views)
     if (defaultViewsValidationError) {
       return defaultViewsValidationError
+    }
+
+    const viewFieldsValidationError = validateViewFields(table.views, fieldNames)
+    if (viewFieldsValidationError) {
+      return viewFieldsValidationError
     }
   }
 
