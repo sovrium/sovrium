@@ -207,7 +207,7 @@ test.describe('View Filters', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-005: should reject filter with invalid operator for field type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
