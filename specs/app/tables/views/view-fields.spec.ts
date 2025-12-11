@@ -128,7 +128,7 @@ test.describe('View Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FIELDS-003: should not show field when it is not included in the view fields array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -168,7 +168,7 @@ test.describe('View Fields', () => {
       const viewColumns = await executeQuery(
         "SELECT column_name FROM information_schema.columns WHERE table_name = 'safe_view' ORDER BY ordinal_position"
       )
-      expect(viewColumns).toEqual([
+      expect(viewColumns.rows).toEqual([
         { column_name: 'id' },
         { column_name: 'username' },
         { column_name: 'email' },
@@ -176,7 +176,7 @@ test.describe('View Fields', () => {
 
       // View record does not have password field
       const viewRecords = await executeQuery('SELECT * FROM safe_view')
-      expect(viewRecords[0]).not.toHaveProperty('password')
+      expect(viewRecords).not.toHaveProperty('password')
     }
   )
 
