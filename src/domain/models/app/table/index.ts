@@ -526,6 +526,87 @@ const validateDefaultViews = (
 }
 
 /**
+ * Extract field references from a filter node recursively.
+ * Handles single conditions, AND groups, and OR groups.
+ *
+ * @param filterNode - The filter node to extract fields from
+ * @returns Array of field names referenced in the filter
+ */
+const extractFieldReferencesFromFilter = (
+  filterNode:
+    | { readonly field: string; readonly operator: string; readonly value: unknown }
+    | { readonly and: ReadonlyArray<unknown> }
+    | { readonly or: ReadonlyArray<unknown> }
+): ReadonlyArray<string> => {
+  // Single condition - extract field name
+  if ('field' in filterNode) {
+    return [filterNode.field]
+  }
+
+  // AND group - recursively extract from all conditions
+  if ('and' in filterNode && Array.isArray(filterNode.and)) {
+    return filterNode.and.flatMap((node) =>
+      extractFieldReferencesFromFilter(
+        node as
+          | { readonly field: string; readonly operator: string; readonly value: unknown }
+          | { readonly and: ReadonlyArray<unknown> }
+          | { readonly or: ReadonlyArray<unknown> }
+      )
+    )
+  }
+
+  // OR group - recursively extract from all conditions
+  if ('or' in filterNode && Array.isArray(filterNode.or)) {
+    return filterNode.or.flatMap((node) =>
+      extractFieldReferencesFromFilter(
+        node as
+          | { readonly field: string; readonly operator: string; readonly value: unknown }
+          | { readonly and: ReadonlyArray<unknown> }
+          | { readonly or: ReadonlyArray<unknown> }
+      )
+    )
+  }
+
+  return []
+}
+
+/**
+ * Validate that view filters reference existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViewFilters = (
+  views: ReadonlyArray<{
+    readonly id: string | number
+    readonly filters?:
+      | { readonly field: string; readonly operator: string; readonly value: unknown }
+      | { readonly and: ReadonlyArray<unknown> }
+      | { readonly or: ReadonlyArray<unknown> }
+  }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const invalidView = views
+    .filter((view) => view.filters !== undefined)
+    .flatMap((view) => {
+      const referencedFields = extractFieldReferencesFromFilter(view.filters!)
+      const invalidFields = referencedFields.filter((fieldName) => !fieldNames.has(fieldName))
+      return invalidFields.map((invalidField) => ({ view, invalidField }))
+    })
+    .at(0)
+
+  if (invalidView) {
+    return {
+      message: `Filter references non-existent field '${invalidView.invalidField}' - field not found in table`,
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate that view fields reference existing fields in the table.
  *
  * @param views - Array of views to validate
@@ -558,7 +639,7 @@ const validateViewFields = (
 }
 
 /**
- * Validate views configuration (IDs, default views, field references).
+ * Validate views configuration (IDs, default views, field references, filter references).
  *
  * @param views - Array of views to validate
  * @param fieldNames - Set of valid field names in the table
@@ -581,6 +662,11 @@ const validateViews = (
   const viewFieldsValidationError = validateViewFields(views, fieldNames)
   if (viewFieldsValidationError) {
     return viewFieldsValidationError
+  }
+
+  const viewFiltersValidationError = validateViewFilters(views, fieldNames)
+  if (viewFiltersValidationError) {
+    return viewFiltersValidationError
   }
 
   return undefined
