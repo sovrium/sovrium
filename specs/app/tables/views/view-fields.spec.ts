@@ -220,7 +220,7 @@ test.describe('View Fields', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FIELDS-005: user can complete full view-fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -260,7 +260,7 @@ test.describe('View Fields', () => {
         const viewColumns = await executeQuery(
           "SELECT column_name FROM information_schema.columns WHERE table_name = 'custom_view' ORDER BY ordinal_position"
         )
-        expect(viewColumns).toEqual([
+        expect(viewColumns.rows).toEqual([
           { column_name: 'status' },
           { column_name: 'name' },
           { column_name: 'id' },
@@ -269,10 +269,10 @@ test.describe('View Fields', () => {
 
       await test.step('Verify view record contains only visible fields', async () => {
         const viewRecords = await executeQuery('SELECT * FROM custom_view')
-        expect(viewRecords[0]).toHaveProperty('status')
-        expect(viewRecords[0]).toHaveProperty('name')
-        expect(viewRecords[0]).toHaveProperty('id')
-        expect(viewRecords[0]).not.toHaveProperty('secret')
+        expect(viewRecords).toHaveProperty('status')
+        expect(viewRecords).toHaveProperty('name')
+        expect(viewRecords).toHaveProperty('id')
+        expect(viewRecords).not.toHaveProperty('secret')
       })
 
       await test.step('Error handling: fields array contains non-existent field', async () => {
