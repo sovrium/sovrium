@@ -72,7 +72,7 @@ test.describe('View Filters', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-002: should include records matching at least one condition when filters have OR operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
