@@ -48,6 +48,13 @@ const generateWhereClause = (filters: View['filters']): string => {
       if ('field' in condition && 'operator' in condition && 'value' in condition) {
         const { field, operator, value: rawValue } = condition
 
+        // Handle 'contains' operator separately (uses LIKE with wildcards)
+        if (operator === 'contains') {
+          const formattedValue =
+            typeof rawValue === 'string' ? `'%${escapeSqlString(rawValue)}%'` : formatSqlValue(rawValue)
+          return `${field} LIKE ${formattedValue}`
+        }
+
         // Map domain operators to SQL operators
         const operatorMap: Record<string, string> = {
           equals: '=',

@@ -72,7 +72,7 @@ test.describe('Filter Condition', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-CONDITION-002: should pass records with substring match when a condition has contains operator on text field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
