@@ -79,7 +79,7 @@ test.describe('View Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FIELDS-002: should display fields in the specified order when a view has fields configured with custom order',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -119,7 +119,7 @@ test.describe('View Fields', () => {
       const viewColumns = await executeQuery(
         "SELECT column_name FROM information_schema.columns WHERE table_name = 'ordered_view' ORDER BY ordinal_position"
       )
-      expect(viewColumns).toEqual([
+      expect(viewColumns.rows).toEqual([
         { column_name: 'priority' },
         { column_name: 'status' },
         { column_name: 'title' },
