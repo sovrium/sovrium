@@ -8,6 +8,23 @@
 import { generateSqlCondition } from './filter-operators'
 import type { Table } from '@/domain/models/app/table'
 import type { View } from '@/domain/models/app/table/views'
+import type { ViewFilterNode } from '@/domain/models/app/table/views/filters'
+
+/**
+ * Map filter nodes to SQL condition strings
+ * Extracts field, operator, value from each condition and generates SQL
+ * Handles leaf conditions only (not nested AND/OR groups)
+ */
+const mapFilterConditions = (nodes: readonly ViewFilterNode[]): readonly string[] => {
+  return nodes
+    .map((node) => {
+      if ('field' in node && 'operator' in node && 'value' in node) {
+        return generateSqlCondition(node.field, node.operator, node.value)
+      }
+      return ''
+    })
+    .filter((c) => c !== '')
+}
 
 /**
  * Generate SQL WHERE clause from view filters
@@ -19,31 +36,13 @@ const generateWhereClause = (filters: View['filters']): string => {
 
   // Handle AND filters
   if ('and' in filters && filters.and) {
-    const conditions = filters.and
-      .map((condition) => {
-        if ('field' in condition && 'operator' in condition && 'value' in condition) {
-          const { field, operator, value } = condition
-          return generateSqlCondition(field, operator, value)
-        }
-        return ''
-      })
-      .filter((c) => c !== '')
-
+    const conditions = mapFilterConditions(filters.and)
     return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
   }
 
   // Handle OR filters
   if ('or' in filters && filters.or) {
-    const conditions = filters.or
-      .map((condition) => {
-        if ('field' in condition && 'operator' in condition && 'value' in condition) {
-          const { field, operator, value } = condition
-          return generateSqlCondition(field, operator, value)
-        }
-        return ''
-      })
-      .filter((c) => c !== '')
-
+    const conditions = mapFilterConditions(filters.or)
     return conditions.length > 0 ? `WHERE ${conditions.join(' OR ')}` : ''
   }
 
