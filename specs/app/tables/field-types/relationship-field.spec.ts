@@ -205,7 +205,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-005: should RESTRICT deletion when child records exist',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
