@@ -257,7 +257,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-004: should efficiently aggregate across multiple parent records with GROUP BY',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
