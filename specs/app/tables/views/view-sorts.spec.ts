@@ -24,7 +24,7 @@ test.describe('View Sorts', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-SORTS-001: should order records from lowest to highest by that field when sort is by single field with ascending direction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -64,7 +64,7 @@ test.describe('View Sorts', () => {
       // WHEN: applying sort to records
       // THEN: records should be ordered from lowest to highest by that field
       const result = await executeQuery('SELECT name FROM products ORDER BY price ASC')
-      expect(result).toEqual([{ name: 'Product A' }, { name: 'Product B' }, { name: 'Product C' }])
+      expect(result.rows).toEqual([{ name: 'Product A' }, { name: 'Product B' }, { name: 'Product C' }])
     }
   )
 
