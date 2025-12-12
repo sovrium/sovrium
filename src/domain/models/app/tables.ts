@@ -98,6 +98,90 @@ const detectCircularRelationships = (
 }
 
 /**
+ * Validate that a relationship field reference is valid.
+ *
+ * This helper validates that:
+ * 1. The relationshipField exists in the current table
+ * 2. The relationshipField is a relationship type
+ * 3. The relatedField exists in the related table (if applicable)
+ *
+ * Used by both lookup and rollup field validation.
+ *
+ * @param params - Validation parameters
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateRelationshipFieldReference = (params: {
+  readonly table: {
+    readonly name: string
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+    }>
+  }
+  readonly fieldName: string
+  readonly relationshipField: string
+  readonly relatedField: string | undefined
+  readonly tablesByName: ReadonlyMap<
+    string,
+    {
+      readonly name: string
+      readonly fields: ReadonlyArray<{
+        readonly name: string
+        readonly type: string
+      }>
+    }
+  >
+}):
+  | {
+      readonly table: string
+      readonly field: string
+      readonly error: string
+    }
+  | undefined => {
+  const { table, fieldName, relationshipField, relatedField, tablesByName } = params
+
+  // Check if relationshipField exists in the same table
+  const fieldInSameTable = table.fields.find((f) => f.name === relationshipField)
+  if (!fieldInSameTable) {
+    return {
+      table: table.name,
+      field: fieldName,
+      error: `relationshipField "${relationshipField}" not found`,
+    }
+  }
+
+  // Relationship field must be a relationship type
+  if (fieldInSameTable.type !== 'relationship') {
+    return {
+      table: table.name,
+      field: fieldName,
+      error: `relationshipField "${relationshipField}" must reference a relationship field`,
+    }
+  }
+
+  // Validate relatedField if provided
+  if (relatedField !== undefined) {
+    const relatedTableName = (fieldInSameTable as { relatedTable?: string }).relatedTable
+    if (relatedTableName) {
+      const relatedTable = tablesByName.get(relatedTableName)
+      if (relatedTable) {
+        // Check if relatedField exists in the related table
+        const relatedFieldExists = relatedTable.fields.some((f) => f.name === relatedField)
+        if (!relatedFieldExists) {
+          return {
+            table: table.name,
+            field: fieldName,
+            error: `relatedField "${relatedField}" not found in related table "${relatedTableName}"`,
+          }
+        }
+      }
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Data Tables
  *
  * Collection of database tables that define the data structure of your application.
@@ -174,35 +258,14 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
             // Check if relationshipField exists in the same table (forward lookup)
             const fieldInSameTable = table.fields.find((f) => f.name === relationshipField)
             if (fieldInSameTable) {
-              // Relationship field found in same table - must be a relationship type
-              if (fieldInSameTable.type !== 'relationship') {
-                return {
-                  table: table.name,
-                  field: lookupField.name,
-                  error: `relationshipField "${relationshipField}" must reference a relationship field`,
-                }
-              }
-
-              // Get related table name from the relationship field
-              const relatedTableName = (fieldInSameTable as { relatedTable?: string }).relatedTable
-              if (relatedTableName) {
-                const relatedTable = tablesByName.get(relatedTableName)
-                if (relatedTable) {
-                  // Check if relatedField exists in the related table
-                  const relatedFieldExists = relatedTable.fields.some(
-                    (f) => f.name === relatedField
-                  )
-                  if (!relatedFieldExists) {
-                    return {
-                      table: table.name,
-                      field: lookupField.name,
-                      error: `relatedField "${relatedField}" not found in related table "${relatedTableName}"`,
-                    }
-                  }
-                }
-              }
-
-              return undefined
+              // Use shared validation helper for forward lookup
+              return validateRelationshipFieldReference({
+                table,
+                fieldName: lookupField.name,
+                relationshipField,
+                relatedField,
+                tablesByName,
+              })
             }
 
             // Check if relationshipField exists in other tables (reverse lookup)
@@ -249,6 +312,38 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
 
     if (invalidLookup) {
       return `Lookup field "${invalidLookup.table}.${invalidLookup.field}" ${invalidLookup.error}`
+    }
+
+    return true
+  }),
+  Schema.filter((tables) => {
+    // Validate rollup fields reference existing relationship fields and related fields
+    const tablesByName = new Map(tables.map((table) => [table.name, table]))
+
+    const invalidRollup = tables
+      .flatMap((table) =>
+        table.fields
+          .filter((field) => field.type === 'rollup')
+          .map((rollupField) => {
+            const { relationshipField, relatedField } = rollupField as {
+              relationshipField: string
+              relatedField: string
+            }
+
+            return validateRelationshipFieldReference({
+              table,
+              fieldName: rollupField.name,
+              relationshipField,
+              relatedField,
+              tablesByName,
+            })
+          })
+          .filter((error) => error !== undefined)
+      )
+      .at(0)
+
+    if (invalidRollup) {
+      return `Rollup field "${invalidRollup.table}.${invalidRollup.field}" ${invalidRollup.error}`
     }
 
     return true
