@@ -253,6 +253,48 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
 
     return true
   }),
+  Schema.filter((tables) => {
+    // Validate rollup fields reference existing relationship fields
+    const invalidRollup = tables
+      .flatMap((table) =>
+        table.fields
+          .filter((field) => field.type === 'rollup')
+          .map((rollupField) => {
+            const { relationshipField } = rollupField as {
+              relationshipField: string
+            }
+
+            // Check if relationshipField exists in the same table
+            const fieldInSameTable = table.fields.find((f) => f.name === relationshipField)
+            if (!fieldInSameTable) {
+              return {
+                table: table.name,
+                field: rollupField.name,
+                error: `relationshipField "${relationshipField}" not found`,
+              }
+            }
+
+            // Relationship field must be a relationship type
+            if (fieldInSameTable.type !== 'relationship') {
+              return {
+                table: table.name,
+                field: rollupField.name,
+                error: `relationshipField "${relationshipField}" must reference a relationship field`,
+              }
+            }
+
+            return undefined
+          })
+          .filter((error) => error !== undefined)
+      )
+      .at(0)
+
+    if (invalidRollup) {
+      return `Rollup field "${invalidRollup.table}.${invalidRollup.field}" ${invalidRollup.error}`
+    }
+
+    return true
+  }),
   Schema.annotations({
     title: 'Data Tables',
     description:
