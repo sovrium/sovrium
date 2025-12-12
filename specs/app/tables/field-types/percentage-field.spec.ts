@@ -187,7 +187,7 @@ test.describe('Percentage Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-005: should create btree index for fast queries when percentage field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -219,10 +219,8 @@ test.describe('Percentage Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_reviews_rating'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_reviews_rating',
-        tablename: 'reviews',
-      })
+      expect(indexExists.indexname).toBe('idx_reviews_rating')
+      expect(indexExists.tablename).toBe('reviews')
     }
   )
 
