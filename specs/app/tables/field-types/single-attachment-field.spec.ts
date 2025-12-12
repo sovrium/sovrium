@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/single-attachment-field.ts
  * Domain: app
- * Spec Count: 10
+ * Spec Count: 8
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria
@@ -154,109 +154,11 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: should restrict file uploads to allowed MIME types',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, page }) => {
-      // GIVEN: table with single-attachment field restricted to images only
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'profiles',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'avatar',
-                type: 'single-attachment',
-                allowedFileTypes: ['image/png', 'image/jpeg', 'image/gif'],
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      // WHEN: user attempts to upload a PDF file
-      await page.goto('/tables/profiles')
-      await page.getByRole('button', { name: 'Upload' }).click()
-
-      // THEN: file picker only allows image types and rejects PDF
-      const fileInput = page.locator('input[type="file"]')
-      await expect(fileInput).toHaveAttribute('accept', 'image/png,image/jpeg,image/gif')
-    }
-  )
-
-  test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: should enforce maximum file size limit',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, page }) => {
-      // GIVEN: table with single-attachment field with 5MB max file size
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 8,
-            name: 'documents',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'file',
-                type: 'single-attachment',
-                maxFileSize: 5_242_880, // 5MB in bytes
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      // WHEN: user attempts to upload a 10MB file
-      await page.goto('/tables/documents')
-      // Simulate upload attempt (implementation depends on upload UI)
-
-      // THEN: upload is rejected with error message
-      await expect(page.getByText(/File size exceeds maximum of 5MB/)).toBeVisible()
-    }
-  )
-
-  test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-008: should generate thumbnails for image attachments',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, page }) => {
-      // GIVEN: table with single-attachment field configured for thumbnail generation
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 9,
-            name: 'photos',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'image',
-                type: 'single-attachment',
-                generateThumbnail: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      // WHEN: user uploads an image file
-      await page.goto('/tables/photos')
-      // Upload image (implementation specific)
-
-      // THEN: thumbnail is generated and stored in metadata
-      const metadata = await executeQuery('SELECT image FROM photos WHERE id = 1')
-      expect(metadata.image).toContain('thumbnail')
-    }
-  )
+  // NOTE: UI upload tests (MIME type restriction, max file size, thumbnail generation)
+  // have been moved to:
+  // specs/api/tables/{tableId}/records/format.spec.ts (for metadata display)
+  // Future: specs/api/upload/post.spec.ts (when upload endpoint is implemented)
+  // These tests now validate API responses rather than UI interactions.
 
   test.fixme(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-009: should store image dimensions in metadata',

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/multiple-attachments-field.ts
  * Domain: app
- * Spec Count: 9
+ * Spec Count: 8
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (10 tests) - Exhaustive acceptance criteria
@@ -165,73 +165,11 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test(
-    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: should restrict file uploads to allowed MIME types',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, page }) => {
-      // GIVEN: table with multiple-attachments field restricted to documents only
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'documents',
-                type: 'multiple-attachments',
-                allowedFileTypes: ['application/pdf', 'application/msword'],
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      // WHEN: user attempts to upload files
-      await page.goto('/tables/projects')
-      await page.getByRole('button', { name: 'Upload' }).click()
-
-      // THEN: file picker only allows specified document types
-      const fileInput = page.locator('input[type="file"]')
-      await expect(fileInput).toHaveAttribute('accept', 'application/pdf,application/msword')
-    }
-  )
-
-  test(
-    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-007: should enforce maximum file size per attachment',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, page }) => {
-      // GIVEN: table with multiple-attachments field with 10MB max file size
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 8,
-            name: 'reports',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'files',
-                type: 'multiple-attachments',
-                maxFileSize: 10_485_760, // 10MB in bytes
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      // WHEN: user attempts to upload a file exceeding max size
-      await page.goto('/tables/reports')
-
-      // THEN: upload is rejected with error message
-      await expect(page.getByText(/File size exceeds maximum of 10MB/)).toBeVisible()
-    }
-  )
+  // NOTE: UI upload tests (MIME type restriction, max file size per attachment)
+  // have been moved to:
+  // specs/api/tables/{tableId}/records/format.spec.ts (for metadata display)
+  // Future: specs/api/upload/post.spec.ts (when upload endpoint is implemented)
+  // These tests now validate API responses rather than UI interactions.
 
   test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-008: should generate thumbnails for image attachments in array',
