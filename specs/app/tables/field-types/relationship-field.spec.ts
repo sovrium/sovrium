@@ -340,7 +340,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-008: should support self-referencing relationships',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
