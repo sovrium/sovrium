@@ -18,6 +18,7 @@ import { CreatedByFieldSchema } from './field-types/created-by-field'
 import { CurrencyFieldSchema } from './field-types/currency-field'
 import { DateFieldSchema } from './field-types/date-field'
 import { DecimalFieldSchema } from './field-types/decimal-field'
+import { DeletedAtFieldSchema } from './field-types/deleted-at-field'
 import { DurationFieldSchema } from './field-types/duration-field'
 import { EmailFieldSchema } from './field-types/email-field'
 import { FormulaFieldSchema } from './field-types/formula-field'
@@ -84,6 +85,7 @@ export const FieldsSchema = Schema.Array(
     CreatedByFieldSchema,
     UpdatedAtFieldSchema,
     UpdatedByFieldSchema,
+    DeletedAtFieldSchema,
     RatingFieldSchema,
     DurationFieldSchema,
     RichTextFieldSchema,

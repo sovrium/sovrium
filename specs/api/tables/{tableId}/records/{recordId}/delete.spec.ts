@@ -9,14 +9,20 @@ import { test, expect } from '@/specs/fixtures'
 
 /* eslint-disable drizzle/enforce-delete-with-where */
 /**
- * E2E Tests for Delete record
+ * E2E Tests for Delete record (Soft Delete)
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/delete.json
  * Domain: api
- * Spec Count: 10
+ * Spec Count: 15
+ *
+ * Soft Delete Behavior:
+ * - DELETE sets deleted_at timestamp (soft delete by default)
+ * - DELETE with ?permanent=true removes record permanently (admin/owner only)
+ * - Soft-deleted records are excluded from normal queries
+ * - Soft-deleted records can be restored via POST /restore endpoint
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (10 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (14 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -26,17 +32,20 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and remove record',
+    'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and soft delete record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table 'users' with record ID=1
+      // GIVEN: Table 'users' with record ID=1 and deleted_at field for soft delete
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           {
             id: 1,
             name: 'users',
-            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
           },
         ],
       })
@@ -47,13 +56,12 @@ test.describe('Delete record', () => {
       // WHEN: User deletes record by ID
       const response = await request.delete('/api/tables/1/records/1', {})
 
-      // THEN: Returns 204 No Content and record is removed from database
+      // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
 
-      // Verify record no longer exists in database
-      const result = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      // THEN: Record still exists but deleted_at is set (soft delete)
+      const result = await executeQuery(`SELECT deleted_at FROM users WHERE id=1`)
+      expect(result.deleted_at).toBeTruthy()
     }
   )
 
@@ -68,7 +76,10 @@ test.describe('Delete record', () => {
           {
             id: 2,
             name: 'users',
-            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
           },
         ],
       })
@@ -100,6 +111,7 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -120,10 +132,9 @@ test.describe('Delete record', () => {
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
 
-      // Verify record remains in database (not deleted)
-      const result = await executeQuery(`SELECT COUNT(*) as count FROM employees WHERE id=1`)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(1)
+      // Verify record remains active (deleted_at is NULL)
+      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+      expect(result.deleted_at).toBeNull()
     }
   )
 
@@ -141,6 +152,7 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -163,10 +175,9 @@ test.describe('Delete record', () => {
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
-      // Verify record remains in database
-      const result = await executeQuery(`SELECT COUNT(*) as count FROM employees WHERE id=1`)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(1)
+      // Verify record remains active (deleted_at is NULL)
+      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+      expect(result.deleted_at).toBeNull()
     }
   )
 
@@ -184,6 +195,7 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -222,6 +234,7 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -242,13 +255,9 @@ test.describe('Delete record', () => {
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
 
-      // Verify record remains in database (not deleted)
-      const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees
-        WHERE id=1 AND organization_id='org_456'
-      `)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(1)
+      // Verify record remains active (deleted_at is NULL)
+      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+      expect(result.deleted_at).toBeNull()
     }
   )
 
@@ -266,6 +275,7 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -278,13 +288,12 @@ test.describe('Delete record', () => {
       // WHEN: Admin deletes a record from their organization
       const response = await request.delete('/api/tables/1/records/1', {})
 
-      // THEN: Returns 204 No Content and record is deleted
+      // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
 
-      // Verify record is deleted from database
-      const result = await executeQuery(`SELECT COUNT(*) as count FROM employees WHERE id=1`)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      // THEN: Record is soft deleted (deleted_at is set)
+      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+      expect(result.deleted_at).toBeTruthy()
     }
   )
 
@@ -303,6 +312,7 @@ test.describe('Delete record', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'status', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -315,13 +325,12 @@ test.describe('Delete record', () => {
       // WHEN: Owner deletes a record from their organization
       const response = await request.delete('/api/tables/1/records/1', {})
 
-      // THEN: Returns 204 No Content and record is deleted
+      // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
 
-      // Verify record is deleted from database
-      const result = await executeQuery(`SELECT COUNT(*) as count FROM projects WHERE id=1`)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      // THEN: Record is soft deleted (deleted_at is set)
+      const result = await executeQuery(`SELECT deleted_at FROM projects WHERE id=1`)
+      expect(result.deleted_at).toBeTruthy()
     }
   )
 
@@ -340,6 +349,7 @@ test.describe('Delete record', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'organization_id', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -360,13 +370,9 @@ test.describe('Delete record', () => {
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
 
-      // Verify record remains in database (not deleted)
-      const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees
-        WHERE id=1 AND organization_id='org_456'
-      `)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(1)
+      // Verify record remains active (deleted_at is NULL)
+      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+      expect(result.deleted_at).toBeNull()
     }
   )
 
@@ -384,6 +390,7 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -407,11 +414,153 @@ test.describe('Delete record', () => {
   )
 
   // ============================================================================
+  // Soft Delete Specific Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-012: should return 404 when deleting already soft-deleted record',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A soft-deleted record exists
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 12,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO tasks (id, title, deleted_at) VALUES (1, 'Completed Task', NOW())
+      `)
+
+      // WHEN: User attempts to delete an already soft-deleted record
+      const response = await request.delete('/api/tables/1/records/1', {})
+
+      // THEN: Returns 404 Not Found (soft-deleted records are not visible)
+      expect(response.status()).toBe(404)
+
+      const data = await response.json()
+      expect(data.error).toBe('Record not found')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-013: should set deleted_at to current timestamp',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An active record exists
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 13,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      const beforeDelete = new Date()
+      await executeQuery(`INSERT INTO items (id, name) VALUES (1, 'Test Item')`)
+
+      // WHEN: User deletes the record
+      const response = await request.delete('/api/tables/1/records/1', {})
+
+      // THEN: Returns 204 No Content
+      expect(response.status()).toBe(204)
+
+      // THEN: deleted_at is set to approximately current time
+      const result = await executeQuery(`SELECT deleted_at FROM items WHERE id=1`)
+      const deletedAt = new Date(result.deleted_at)
+      const afterDelete = new Date()
+
+      expect(deletedAt.getTime()).toBeGreaterThanOrEqual(beforeDelete.getTime())
+      expect(deletedAt.getTime()).toBeLessThanOrEqual(afterDelete.getTime())
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-014: should hard delete with permanent=true query param (admin only)',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An admin user and an active record
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 14,
+            name: 'logs',
+            fields: [
+              { id: 1, name: 'message', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`INSERT INTO logs (id, message) VALUES (1, 'Important log')`)
+
+      // WHEN: Admin deletes with permanent=true
+      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+
+      // THEN: Returns 204 No Content
+      expect(response.status()).toBe(204)
+
+      // THEN: Record is permanently removed from database
+      const result = await executeQuery(`SELECT COUNT(*) as count FROM logs WHERE id=1`)
+      expect(result.rows[0].count).toBe(0)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-015: should return 403 for member using permanent=true',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A member user (without permanent delete permission)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 15,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'value', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`INSERT INTO data (id, value) VALUES (1, 'Sensitive data')`)
+
+      // WHEN: Member attempts to permanently delete
+      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+
+      // THEN: Returns 403 Forbidden (only admin/owner can hard delete)
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('Only admins and owners can permanently delete records')
+
+      // THEN: Record remains in database
+      const result = await executeQuery(`SELECT COUNT(*) as count FROM data WHERE id=1`)
+      expect(result.rows[0].count).toBe(1)
+    }
+  )
+
+  // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-011: user can complete full record deletion workflow',
+    'API-TABLES-RECORDS-DELETE-016: user can complete full soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {
@@ -419,11 +568,12 @@ test.describe('Delete record', () => {
           name: 'test-app',
           tables: [
             {
-              id: 11,
+              id: 16,
               name: 'users',
               fields: [
                 { id: 1, name: 'email', type: 'email', required: true },
                 { id: 2, name: 'organization_id', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
@@ -434,32 +584,43 @@ test.describe('Delete record', () => {
         await executeQuery(`
           INSERT INTO users (id, email, organization_id) VALUES
             (1, 'admin@example.com', 'org_123'),
-            (2, 'member@example.com', 'org_123')
+            (2, 'member@example.com', 'org_123'),
+            (3, 'viewer@example.com', 'org_123')
         `)
       })
 
-      await test.step('Delete record successfully', async () => {
+      await test.step('Soft delete record successfully', async () => {
         const successResponse = await request.delete('/api/tables/1/records/1', {})
         expect(successResponse.status()).toBe(204)
       })
 
-      await test.step('Verify deletion in database', async () => {
-        const verifyDelete = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
-        expect(verifyDelete.rows[0].count).toBe(0)
+      await test.step('Verify soft deletion in database', async () => {
+        const result = await executeQuery(`SELECT deleted_at FROM users WHERE id=1`)
+        expect(result.deleted_at).toBeTruthy()
       })
 
-      await test.step('Verify delete non-existent record fails', async () => {
-        const notFoundResponse = await request.delete('/api/tables/1/records/9999', {})
-        expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify soft-deleted record is not visible in queries', async () => {
+        const activeUsers = await executeQuery(`
+          SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL
+        `)
+        expect(activeUsers.rows[0].count).toBe(2)
       })
 
-      await test.step('Verify unauthorized delete fails', async () => {
-        const forbiddenResponse = await request.delete('/api/tables/1/records/2', {})
-        expect(forbiddenResponse.status()).toBe(403)
+      await test.step('Verify deleting already-deleted record fails', async () => {
+        const deleteAgainResponse = await request.delete('/api/tables/1/records/1', {})
+        expect(deleteAgainResponse.status()).toBe(404)
+      })
+
+      await test.step('Verify permanent delete (admin)', async () => {
+        const permanentResponse = await request.delete('/api/tables/1/records/2?permanent=true', {})
+        expect(permanentResponse.status()).toBe(204)
+
+        const verifyPermanent = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=2`)
+        expect(verifyPermanent.rows[0].count).toBe(0)
       })
 
       await test.step('Verify unauthenticated delete fails', async () => {
-        const unauthorizedResponse = await request.delete('/api/tables/1/records/2')
+        const unauthorizedResponse = await request.delete('/api/tables/1/records/3')
         expect(unauthorizedResponse.status()).toBe(401)
       })
     }

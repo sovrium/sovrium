@@ -12,10 +12,14 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/get.json
  * Domain: api
- * Spec Count: 10
+ * Spec Count: 12
+ *
+ * Soft Delete Behavior:
+ * - By default, soft-deleted records (deleted_at IS NOT NULL) return 404
+ * - Use includeDeleted=true query param to fetch soft-deleted records
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (10 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (12 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -403,11 +407,92 @@ test.describe('Get record by ID', () => {
   )
 
   // ============================================================================
+  // Soft Delete Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-GET-011: should return 404 for soft-deleted record',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Table with a soft-deleted record
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 11,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO tasks (id, title, deleted_at) VALUES (1, 'Deleted Task', NOW())
+      `)
+
+      // WHEN: User requests a soft-deleted record without includeDeleted param
+      const response = await request.get('/api/tables/1/records/1', {})
+
+      // THEN: Returns 404 Not Found (soft-deleted records are hidden by default)
+      expect(response.status()).toBe(404)
+
+      const data = await response.json()
+      expect(data.error).toBe('Record not found')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-GET-012: should return soft-deleted record with includeDeleted=true',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Table with a soft-deleted record
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 12,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status, deleted_at)
+        VALUES (1, 'Deleted Task', 'completed', NOW())
+      `)
+
+      // WHEN: User requests a soft-deleted record with includeDeleted=true
+      const response = await request.get('/api/tables/1/records/1', {
+        params: {
+          includeDeleted: 'true',
+        },
+      })
+
+      // THEN: Returns 200 with the soft-deleted record
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.record).toBeDefined()
+      expect(data.record.id).toBe(1)
+      expect(data.record.fields.title).toBe('Deleted Task')
+      expect(data.record.fields.status).toBe('completed')
+      // THEN: deleted_at field is populated
+      expect(data.record.fields.deleted_at).toBeTruthy()
+    }
+  )
+
+  // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-011: user can complete full get record workflow',
+    'API-TABLES-RECORDS-GET-013: user can complete full get record workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {
@@ -415,7 +500,7 @@ test.describe('Get record by ID', () => {
           name: 'test-app',
           tables: [
             {
-              id: 11,
+              id: 13,
               name: 'users',
               fields: [
                 { id: 1, name: 'email', type: 'email', required: true },

@@ -9,14 +9,20 @@ import { test, expect } from '@/specs/fixtures'
 
 /* eslint-disable drizzle/enforce-delete-with-where */
 /**
- * E2E Tests for Batch delete records
+ * E2E Tests for Batch delete records (Soft Delete)
  *
  * Source: specs/api/paths/tables/{tableId}/records/batch/delete.json
  * Domain: api
- * Spec Count: 11
+ * Spec Count: 14
+ *
+ * Soft Delete Behavior:
+ * - DELETE sets deleted_at timestamp for all records in batch
+ * - DELETE with ?permanent=true removes records permanently (admin/owner only)
+ * - Soft-deleted records are excluded from normal queries
+ * - Already soft-deleted records are skipped in batch operations
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (13 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -26,7 +32,7 @@ test.describe('Batch delete records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-001: should return 200 with deleted count',
+    'API-TABLES-RECORDS-BATCH-DELETE-001: should return 200 with soft deleted count',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with 3 records (ID=1, ID=2, ID=3)
@@ -39,6 +45,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'email', type: 'email', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -60,26 +67,23 @@ test.describe('Batch delete records', () => {
         },
       })
 
-      // THEN: Returns 200 with deleted=2, records removed from database
+      // THEN: Returns 200 with deleted=2
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.deleted).toBe(2)
 
-      // Verify deleted records no longer exist
+      // THEN: Records are soft deleted (deleted_at is set)
       const deletedCheck = await executeQuery(`
-        SELECT COUNT(*) as count FROM users WHERE id IN (1, 2)
+        SELECT COUNT(*) as count FROM users WHERE id IN (1, 2) AND deleted_at IS NOT NULL
       `)
-      // THEN: assertion
-      expect(deletedCheck.rows[0].count).toBe(0)
+      expect(deletedCheck.rows[0].count).toBe(2)
 
-      // Verify remaining record still exists
+      // THEN: Remaining record is still active (deleted_at is NULL)
       const remainingCheck = await executeQuery(`
-        SELECT COUNT(*) as count FROM users WHERE id=3
+        SELECT deleted_at FROM users WHERE id=3
       `)
-      // THEN: assertion
-      expect(remainingCheck.rows[0].count).toBe(1)
+      expect(remainingCheck.deleted_at).toBeNull()
     }
   )
 
@@ -97,6 +101,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'email', type: 'email', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -115,19 +120,17 @@ test.describe('Batch delete records', () => {
         },
       })
 
-      // THEN: Returns 404 NotFound, no records deleted (rollback)
+      // THEN: Returns 404 NotFound, no records soft deleted (rollback)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBeDefined()
 
-      // Verify no records deleted due to transaction rollback
+      // THEN: Record remains active due to transaction rollback
       const rollbackCheck = await executeQuery(`
-        SELECT COUNT(*) as count FROM users WHERE id=1
+        SELECT deleted_at FROM users WHERE id=1
       `)
-      // THEN: assertion
-      expect(rollbackCheck.rows[0].count).toBe(1)
+      expect(rollbackCheck.deleted_at).toBeNull()
     }
   )
 
@@ -142,7 +145,10 @@ test.describe('Batch delete records', () => {
           {
             id: 3,
             name: 'users',
-            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
           },
         ],
       })
@@ -162,7 +168,6 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(413)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBe('PayloadTooLarge')
     }
   )
@@ -181,6 +186,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -204,11 +210,10 @@ test.describe('Batch delete records', () => {
       // THEN: Returns 401 Unauthorized error
       expect(response.status()).toBe(401)
 
-      // Verify no records deleted in database
+      // THEN: Records remain active (not soft deleted)
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees
+        SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
       `)
-      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -227,6 +232,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -251,15 +257,13 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
-      // Verify no records deleted
+      // THEN: Records remain active
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees
+        SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
       `)
-      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -278,6 +282,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -302,7 +307,6 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
     }
@@ -322,6 +326,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -346,14 +351,12 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBe('Record not found')
 
-      // Verify no records deleted (original values preserved)
+      // THEN: Records remain active (not soft deleted)
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees WHERE organization_id='org_456'
+        SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
       `)
-      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -373,6 +376,7 @@ test.describe('Batch delete records', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'organization_id', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -394,26 +398,23 @@ test.describe('Batch delete records', () => {
         },
       })
 
-      // THEN: Returns 200 with deleted count and records are removed
+      // THEN: Returns 200 with deleted count
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.deleted).toBe(2)
 
-      // Verify records are deleted from database
+      // THEN: Records are soft deleted (deleted_at is set)
       const deletedCheck = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2)
+        SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2) AND deleted_at IS NOT NULL
       `)
-      // THEN: assertion
-      expect(deletedCheck.rows[0].count).toBe(0)
+      expect(deletedCheck.rows[0].count).toBe(2)
 
-      // Verify remaining record still exists
+      // THEN: Remaining record is still active
       const remainingCheck = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees WHERE id=3
+        SELECT deleted_at FROM employees WHERE id=3
       `)
-      // THEN: assertion
-      expect(remainingCheck.rows[0].count).toBe(1)
+      expect(remainingCheck.deleted_at).toBeNull()
     }
   )
 
@@ -432,6 +433,7 @@ test.describe('Batch delete records', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'status', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -453,19 +455,17 @@ test.describe('Batch delete records', () => {
         },
       })
 
-      // THEN: Returns 200 with deleted count and records are removed
+      // THEN: Returns 200 with deleted count
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.deleted).toBe(2)
 
-      // Verify records are deleted from database
+      // THEN: Records are soft deleted
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2)
+        SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2) AND deleted_at IS NOT NULL
       `)
-      // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      expect(result.rows[0].count).toBe(2)
     }
   )
 
@@ -483,6 +483,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -507,7 +508,6 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBe('Record not found')
     }
   )
@@ -526,6 +526,7 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -550,8 +551,114 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      // THEN: assertion
       expect(data.error).toBe('Record not found')
+    }
+  )
+
+  // ============================================================================
+  // Soft Delete Specific Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-DELETE-012: should skip already soft-deleted records in batch',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Mix of active and soft-deleted records
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 12,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO tasks (id, title, deleted_at) VALUES
+          (1, 'Active Task', NULL),
+          (2, 'Already Deleted', NOW()),
+          (3, 'Another Active', NULL)
+      `)
+
+      // WHEN: Batch delete includes both active and already-deleted records
+      const response = await request.delete('/api/tables/1/records/batch', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          ids: [1, 2, 3],
+        },
+      })
+
+      // THEN: Returns 200 with count of newly deleted records only
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      // Only 2 records were active and got soft-deleted
+      expect(data.deleted).toBe(2)
+
+      // THEN: All 3 records now have deleted_at set
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL
+      `)
+      expect(result.rows[0].count).toBe(3)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-DELETE-013: should hard delete batch with permanent=true (admin only)',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An admin user and active records
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 13,
+            name: 'logs',
+            fields: [
+              { id: 1, name: 'message', type: 'single-line-text', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO logs (id, message) VALUES
+          (1, 'Log entry 1'),
+          (2, 'Log entry 2'),
+          (3, 'Log entry 3')
+      `)
+
+      // WHEN: Admin batch deletes with permanent=true
+      const response = await request.delete('/api/tables/1/records/batch?permanent=true', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          ids: [1, 2],
+        },
+      })
+
+      // THEN: Returns 200 with deleted count
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.deleted).toBe(2)
+
+      // THEN: Records are permanently removed from database
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM logs WHERE id IN (1, 2)
+      `)
+      expect(result.rows[0].count).toBe(0)
+
+      // THEN: Remaining record still exists
+      const remaining = await executeQuery(`SELECT COUNT(*) as count FROM logs WHERE id=3`)
+      expect(remaining.rows[0].count).toBe(1)
     }
   )
 
@@ -560,7 +667,7 @@ test.describe('Batch delete records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-012: user can complete full batch delete workflow',
+    'API-TABLES-RECORDS-BATCH-DELETE-014: user can complete full batch soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with tasks table', async () => {
@@ -568,11 +675,12 @@ test.describe('Batch delete records', () => {
           name: 'test-app',
           tables: [
             {
-              id: 12,
+              id: 14,
               name: 'tasks',
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
                 { id: 2, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
@@ -590,7 +698,7 @@ test.describe('Batch delete records', () => {
         `)
       })
 
-      await test.step('Batch delete records successfully', async () => {
+      await test.step('Batch soft delete records successfully', async () => {
         const successResponse = await request.delete('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
@@ -605,11 +713,18 @@ test.describe('Batch delete records', () => {
         expect(result.deleted).toBe(3)
       })
 
-      await test.step('Verify deletion in database', async () => {
+      await test.step('Verify soft deletion in database', async () => {
         const afterDelete = await executeQuery(`
-          SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3)
+          SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3) AND deleted_at IS NOT NULL
         `)
-        expect(afterDelete.rows[0].count).toBe(0)
+        expect(afterDelete.rows[0].count).toBe(3)
+      })
+
+      await test.step('Verify active records count', async () => {
+        const activeCount = await executeQuery(`
+          SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL
+        `)
+        expect(activeCount.rows[0].count).toBe(2)
       })
 
       await test.step('Verify partial failure triggers rollback', async () => {
@@ -625,9 +740,30 @@ test.describe('Batch delete records', () => {
         expect(rollbackResponse.status()).toBe(404)
 
         const afterRollback = await executeQuery(`
-          SELECT COUNT(*) as count FROM tasks WHERE id=4
+          SELECT deleted_at FROM tasks WHERE id=4
         `)
-        expect(afterRollback.rows[0].count).toBe(1)
+        expect(afterRollback.deleted_at).toBeNull()
+      })
+
+      await test.step('Verify permanent delete (admin)', async () => {
+        const permanentResponse = await request.delete(
+          '/api/tables/1/records/batch?permanent=true',
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              ids: [4, 5],
+            },
+          }
+        )
+
+        expect(permanentResponse.status()).toBe(200)
+
+        const verifyPermanent = await executeQuery(`
+          SELECT COUNT(*) as count FROM tasks WHERE id IN (4, 5)
+        `)
+        expect(verifyPermanent.rows[0].count).toBe(0)
       })
 
       await test.step('Verify payload size limit enforced', async () => {

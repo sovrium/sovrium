@@ -12,7 +12,11 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/get.json
  * Domain: api
- * Spec Count: 26
+ * Spec Count: 28
+ *
+ * Soft Delete Behavior:
+ * - By default, soft-deleted records (deleted_at IS NOT NULL) are excluded
+ * - Use includeDeleted=true query param to include soft-deleted records
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (28 tests) - Exhaustive acceptance criteria
@@ -1041,11 +1045,111 @@ test.describe('List records in table', () => {
   )
 
   // ============================================================================
+  // Soft Delete Filtering Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-LIST-028: should exclude soft-deleted records by default',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Table with mix of active and soft-deleted records
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 27,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status, deleted_at) VALUES
+          (1, 'Active Task 1', 'pending', NULL),
+          (2, 'Deleted Task', 'completed', NOW()),
+          (3, 'Active Task 2', 'in_progress', NULL),
+          (4, 'Another Deleted', 'pending', NOW())
+      `)
+
+      // WHEN: User requests records without includeDeleted parameter
+      const response = await request.get('/api/tables/1/records', {})
+
+      // THEN: Returns 200 with only active (non-deleted) records
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      // THEN: Only 2 active records returned (soft-deleted excluded)
+      expect(data.records).toHaveLength(2)
+      expect(data.pagination.total).toBe(2)
+
+      // Verify no soft-deleted records in response
+      const titles = data.records.map((r: { fields: { title: string } }) => r.fields.title)
+      expect(titles).toContain('Active Task 1')
+      expect(titles).toContain('Active Task 2')
+      expect(titles).not.toContain('Deleted Task')
+      expect(titles).not.toContain('Another Deleted')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-LIST-029: should include deleted with includeDeleted=true',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Table with mix of active and soft-deleted records
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 28,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status, deleted_at) VALUES
+          (1, 'Active Task', 'pending', NULL),
+          (2, 'Deleted Task 1', 'completed', NOW()),
+          (3, 'Deleted Task 2', 'in_progress', NOW())
+      `)
+
+      // WHEN: User requests records with includeDeleted=true
+      const response = await request.get('/api/tables/1/records', {
+        params: {
+          includeDeleted: 'true',
+        },
+      })
+
+      // THEN: Returns 200 with all records (including soft-deleted)
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      // THEN: All 3 records returned (active + soft-deleted)
+      expect(data.records).toHaveLength(3)
+      expect(data.pagination.total).toBe(3)
+
+      // THEN: Deleted records should have deleted_at field populated
+      const deletedRecords = data.records.filter(
+        (r: { fields: { deleted_at: string | null } }) => r.fields.deleted_at !== null
+      )
+      expect(deletedRecords).toHaveLength(2)
+    }
+  )
+
+  // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-027: user can complete full list records workflow',
+    'API-TABLES-RECORDS-LIST-030: user can complete full list records workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with projects table', async () => {

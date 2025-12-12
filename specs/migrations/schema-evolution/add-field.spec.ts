@@ -12,10 +12,15 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts (Effect Schema)
  * Domain: migrations
- * Spec Count: 4
+ * Spec Count: 6
+ *
+ * Soft Delete Migration:
+ * - Adding deleted_at field to existing table creates TIMESTAMP NULL column
+ * - Existing records remain active (deleted_at = NULL) after migration
+ * - Index is created when indexed=true for fast soft-delete queries
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -210,11 +215,111 @@ test.describe('Add Field Migration', () => {
   )
 
   // ============================================================================
+  // Soft Delete Migration Tests
+  // ============================================================================
+
+  test.fixme(
+    'MIGRATION-ALTER-ADD-005: should add deleted_at TIMESTAMP NULL column with index',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'tasks' exists without deleted_at field
+      await executeQuery([
+        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
+        `INSERT INTO tasks (title) VALUES ('Task 1'), ('Task 2'), ('Task 3')`,
+      ])
+
+      // WHEN: deleted_at field with index is added via schema migration
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      // THEN: PostgreSQL adds TIMESTAMP NULL column (nullable by design)
+      const columnCheck = await executeQuery(
+        `SELECT column_name, data_type, is_nullable, column_default
+         FROM information_schema.columns
+         WHERE table_name='tasks' AND column_name='deleted_at'`
+      )
+      expect(columnCheck.column_name).toBe('deleted_at')
+      expect(columnCheck.data_type).toMatch(/timestamp/)
+      expect(columnCheck.is_nullable).toBe('YES') // Must be nullable for soft delete
+      expect(columnCheck.column_default).toBeNull() // No default (unlike created_at)
+
+      // THEN: Btree index is created for fast soft-delete queries
+      const indexCheck = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tasks_deleted_at'`
+      )
+      expect(indexCheck.indexname).toBe('idx_tasks_deleted_at')
+    }
+  )
+
+  test.fixme(
+    'MIGRATION-ALTER-ADD-006: should preserve existing records as non-deleted (NULL)',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'items' exists with data, no deleted_at field
+      await executeQuery([
+        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50))`,
+        `INSERT INTO items (name, status) VALUES
+          ('Item 1', 'active'),
+          ('Item 2', 'pending'),
+          ('Item 3', 'completed')`,
+      ])
+
+      // WHEN: deleted_at field is added via schema migration
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at' },
+            ],
+          },
+        ],
+      })
+
+      // THEN: All existing records remain active (deleted_at = NULL)
+      const recordsCheck = await executeQuery(`SELECT id, name, deleted_at FROM items ORDER BY id`)
+      expect(recordsCheck.rows).toHaveLength(3)
+      expect(recordsCheck.rows[0].deleted_at).toBeNull()
+      expect(recordsCheck.rows[1].deleted_at).toBeNull()
+      expect(recordsCheck.rows[2].deleted_at).toBeNull()
+
+      // THEN: New records can still use soft delete
+      await executeQuery(
+        `INSERT INTO items (name, status, deleted_at) VALUES ('Item 4', 'deleted', NOW())`
+      )
+      const newRecord = await executeQuery(`SELECT deleted_at FROM items WHERE name = 'Item 4'`)
+      expect(newRecord.deleted_at).toBeTruthy()
+
+      // THEN: Soft delete can be applied to existing records
+      await executeQuery(`UPDATE items SET deleted_at = NOW() WHERE id = 2`)
+      const softDeletedRecord = await executeQuery(`SELECT deleted_at FROM items WHERE id = 2`)
+      expect(softDeletedRecord.deleted_at).toBeTruthy()
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'MIGRATION-ALTER-ADD-005: user can complete full add-field-migration workflow',
+    'MIGRATION-ALTER-ADD-007: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create table with existing data', async () => {
@@ -229,7 +334,7 @@ test.describe('Add Field Migration', () => {
           name: 'test-app',
           tables: [
             {
-              id: 5,
+              id: 7,
               name: 'data',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
