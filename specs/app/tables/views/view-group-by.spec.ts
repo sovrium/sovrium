@@ -224,7 +224,7 @@ test.describe('View Group By', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-GROUP-BY-005: user can complete full view-group-by workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
