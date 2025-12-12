@@ -533,7 +533,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-008: should support MIN and MAX aggregation with date fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -602,8 +602,8 @@ test.describe('Rollup Field', () => {
 
       // THEN: MIN/MAX date rollups are directly accessible
       const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
-      expect(project.earliest_task_date).toEqual(new Date('2024-01-15'))
-      expect(project.latest_task_date).toEqual(new Date('2024-03-31'))
+      expect(project.earliest_task_date).toBe('2024-01-15')
+      expect(project.latest_task_date).toBe('2024-03-31')
     }
   )
 
