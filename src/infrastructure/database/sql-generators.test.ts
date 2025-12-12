@@ -515,7 +515,7 @@ describe('sql-generators', () => {
       const result = generateColumnDefinition(field as any, true)
 
       // Then
-      expect(result).toBe('id SERIAL NOT NULL')
+      expect(result).toBe('id SERIAL PRIMARY KEY')
     })
 
     test('generates definition for created-at with CURRENT_TIMESTAMP', () => {

@@ -83,7 +83,9 @@ export const generateCreateTableSQL = (
   const columnDefinitions = table.fields
     .filter((field) => shouldCreateDatabaseColumn(field) && field.type !== 'lookup' && field.type !== 'rollup')
     .map((field) => {
-      const isPrimaryKey = primaryKeyFields.includes(field.name)
+      // Only add inline PRIMARY KEY for single-field composite keys (handled by generateSerialColumn)
+      // Multi-field composite keys must have PRIMARY KEY at table level to avoid "multiple primary keys" error
+      const isPrimaryKey = primaryKeyFields.includes(field.name) && primaryKeyFields.length === 1
       return generateColumnDefinition(field, isPrimaryKey, table.fields)
     })
 

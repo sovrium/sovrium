@@ -109,8 +109,10 @@ const formatDefaultValue = (defaultValue: unknown): string =>
 
 /**
  * Generate SERIAL column definition for auto-increment fields
+ * When isPrimaryKey is true and it's a single-field PK, add PRIMARY KEY inline for better PostgreSQL constraint recognition
  */
-const generateSerialColumn = (fieldName: string): string => `${fieldName} SERIAL NOT NULL`
+const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false): string =>
+  isPrimaryKey ? `${fieldName} SERIAL PRIMARY KEY` : `${fieldName} SERIAL NOT NULL`
 
 /**
  * Check if field should use SERIAL type
@@ -262,7 +264,7 @@ export const generateColumnDefinition = (
 ): string => {
   // SERIAL columns for auto-increment fields
   if (shouldUseSerial(field, isPrimaryKey)) {
-    return generateSerialColumn(field.name)
+    return generateSerialColumn(field.name, isPrimaryKey)
   }
 
   // Formula fields: check if formula is volatile
@@ -579,9 +581,19 @@ const generateForeignKeyConstraints = (
 
 /**
  * Generate primary key constraint if defined
+ * Skips single-field composite keys when the field is SERIAL (PRIMARY KEY is already inline)
  */
 const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
   if (table.primaryKey?.type === 'composite' && table.primaryKey.fields) {
+    // For single-field composite keys, check if the field is SERIAL (PRIMARY KEY already inline)
+    if (table.primaryKey.fields.length === 1) {
+      const pkFieldName = table.primaryKey.fields[0]
+      const pkField = table.fields.find((f) => f.name === pkFieldName)
+      if (pkField && shouldUseSerial(pkField, true)) {
+        // PRIMARY KEY is already inline in the SERIAL column definition
+        return []
+      }
+    }
     return [`PRIMARY KEY (${table.primaryKey.fields.join(', ')})`]
   }
   return []
@@ -618,8 +630,8 @@ export const generateTableConstraints = (
   ...generateRichTextConstraints(table.fields),
   ...generateBarcodeConstraints(table.fields),
   ...generateColorConstraints(table.fields),
+  ...generatePrimaryKeyConstraint(table),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateCompositeUniqueConstraints(table),
   ...generateForeignKeyConstraints(table.name, table.fields, tableUsesView),
-  ...generatePrimaryKeyConstraint(table),
 ]

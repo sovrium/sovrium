@@ -249,7 +249,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-006: should support one-to-one relationship with UNIQUE constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
