@@ -17,8 +17,9 @@ import {
   ensureUpdatedByTriggerFunction,
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
+import { isManyToManyRelationship } from './field-utils'
 import { tableExists, dropObsoleteTables } from './schema-migration-helpers'
-import { isRelationshipField } from './sql-generators'
+import { isRelationshipField, generateJunctionTableDDL, generateJunctionTableName } from './sql-generators'
 import { createOrMigrateTable } from './table-operations'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
@@ -149,7 +150,7 @@ const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] =>
  * This pattern is standard for schema migration tools (Drizzle, Prisma, etc.)
  * which all generate and execute DDL strings directly.
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements, max-lines-per-function */
 const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]): Promise<void> => {
   const db = new SQL(databaseUrl)
 
@@ -203,13 +204,32 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
         await logInfo(`[Created/migrated table] ${table.name}`)
       }
 
-      // Step 4: Create VIEWs for tables with lookup fields (after all base tables exist)
+      // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
+      // Junction tables must be created after both source and related tables exist
+      const junctionTablesCreated = new Set<string>()
+      for (const table of sortedTables) {
+        const manyToManyFields = table.fields.filter(isManyToManyRelationship)
+        for (const field of manyToManyFields) {
+          const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
+          // Avoid creating duplicate junction tables (if both sides define the relationship)
+          if (!junctionTablesCreated.has(junctionTableName)) {
+            await logInfo(`[Creating junction table] ${junctionTableName}`)
+            const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
+            await tx.unsafe(ddl)
+            // eslint-disable-next-line functional/immutable-data
+            junctionTablesCreated.add(junctionTableName)
+            await logInfo(`[Created junction table] ${junctionTableName}`)
+          }
+        }
+      }
+
+      // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
       // This ensures lookup VIEWs can reference other tables without dependency issues
       for (const table of sortedTables) {
         await tableOpsModule.createLookupViews(tx, table)
       }
 
-      // Step 5: Create user-defined VIEWs from table.views configuration
+      // Step 6: Create user-defined VIEWs from table.views configuration
       // This is done after lookup views to ensure all base tables and lookup views exist
       for (const table of sortedTables) {
         await tableOpsModule.createTableViews(tx, table)

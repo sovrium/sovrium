@@ -293,7 +293,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-007: should support many-to-many via auto-generated junction table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
