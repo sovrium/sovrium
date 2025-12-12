@@ -231,6 +231,10 @@ export const createLookupViews = async (
   if (shouldUseView(table)) {
     const createViewSQL = generateLookupViewSQL(table)
     if (createViewSQL) {
+      // Drop existing table if it exists (to allow VIEW creation)
+      // This handles the transition from TABLE to VIEW when rollup/lookup fields are added
+      await tx.unsafe(`DROP TABLE IF EXISTS ${table.name} CASCADE`)
+
       await tx.unsafe(createViewSQL)
 
       // Create INSTEAD OF triggers to make the VIEW writable
