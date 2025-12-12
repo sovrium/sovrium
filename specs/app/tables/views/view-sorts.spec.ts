@@ -173,7 +173,7 @@ test.describe('View Sorts', () => {
   // Phase: Error Configuration Validation Tests (004)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-SORTS-004: should reject sort referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

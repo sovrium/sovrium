@@ -780,6 +780,41 @@ const validateViewGroupBy = (
 }
 
 /**
+ * Validate that view sorts reference existing fields in the table.
+ *
+ * @param views - Array of views to validate
+ * @param fieldNames - Set of valid field names in the table
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateViewSorts = (
+  views: ReadonlyArray<{
+    readonly id: string | number
+    readonly sorts?: ReadonlyArray<{ readonly field: string; readonly direction: string }>
+  }>,
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  const invalidView = views
+    .filter(
+      (view): view is typeof view & { readonly sorts: ReadonlyArray<{ readonly field: string; readonly direction: string }> } =>
+        view.sorts !== undefined && view.sorts.length > 0
+    )
+    .flatMap((view) => {
+      const invalidFields = view.sorts.filter((sort) => !fieldNames.has(sort.field))
+      return invalidFields.map((sort) => ({ view, invalidField: sort.field }))
+    })
+    .at(0)
+
+  if (invalidView) {
+    return {
+      message: `Sort references non-existent field '${invalidView.invalidField}' - field not found in table`,
+      path: ['views'],
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Validate views configuration (IDs, default views, field references, filter references).
  *
  * @param views - Array of views to validate
@@ -810,6 +845,11 @@ const validateViews = (
   const viewFiltersValidationError = validateViewFilters(views, fieldNames)
   if (viewFiltersValidationError) {
     return viewFiltersValidationError
+  }
+
+  const viewSortsValidationError = validateViewSorts(views, fieldNames)
+  if (viewSortsValidationError) {
+    return viewSortsValidationError
   }
 
   const viewGroupByValidationError = validateViewGroupBy(views, fieldNames)
