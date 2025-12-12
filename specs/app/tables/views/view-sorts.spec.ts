@@ -112,7 +112,7 @@ test.describe('View Sorts', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-SORTS-003: should order records by first field, then second field breaks ties, and so on when sorts by multiple fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -160,7 +160,7 @@ test.describe('View Sorts', () => {
         'SELECT name FROM employees ORDER BY department ASC, salary DESC'
       )
       // THEN: assertion
-      expect(result).toEqual([
+      expect(result.rows).toEqual([
         { name: 'Bob' },
         { name: 'Alice' },
         { name: 'Diana' },
