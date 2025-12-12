@@ -107,12 +107,6 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
 }
 
 /**
- * Default roles available in Sovrium.
- * These are the standard roles defined by the organization plugin.
- */
-const DEFAULT_ROLES = new Set(['owner', 'admin', 'member', 'viewer'])
-
-/**
  * Special field references that are always available in formulas.
  * These are system-managed fields that exist on all tables.
  */
@@ -345,62 +339,23 @@ const validateTablePermissions = (
     }
   }
 
-  // Validate that all roles referenced in permissions exist
-  const referencedRoles = extractRoleReferences(permissions)
-  const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
-
-  if (invalidRoles.length > 0) {
-    const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
-    return {
-      message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
-      path: ['permissions'],
-    }
-  }
+  // Note: Role validation disabled - allow custom roles beyond the default set
+  // Default roles: owner, admin, member, viewer
+  // Custom roles can be added by applications (e.g., 'hr', 'manager', 'finance_admin')
+  //
+  // Previously, this validation would reject roles not in DEFAULT_ROLES:
+  // const referencedRoles = extractRoleReferences(permissions)
+  // const invalidRoles = [...referencedRoles].filter((role) => !DEFAULT_ROLES.has(role))
+  //
+  // if (invalidRoles.length > 0) {
+  //   const roleList = invalidRoles.map((r) => `'${r}'`).join(', ')
+  //   return {
+  //     message: `Invalid role ${roleList} not found. Available roles: ${[...DEFAULT_ROLES].map((r) => `'${r}'`).join(', ')}`,
+  //     path: ['permissions'],
+  //   }
+  // }
 
   return undefined
-}
-
-/**
- * Extract all role references from table permissions.
- * Checks table-level and field-level permissions for role references.
- *
- * @param permissions - Table permissions configuration
- * @returns Set of role names referenced in permissions
- */
-const extractRoleReferences = (permissions: {
-  readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  readonly fields?: ReadonlyArray<{
-    readonly field: string
-    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-  }>
-}): ReadonlySet<string> => {
-  // Check table-level permissions
-  const tableLevelPermissions = [
-    permissions.read,
-    permissions.create,
-    permissions.update,
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
-    permissions.delete,
-  ]
-  const tableLevelRoles = tableLevelPermissions.flatMap((permission) =>
-    permission?.type === 'roles' && permission.roles ? permission.roles : []
-  )
-
-  // Check field-level permissions
-  const fieldLevelRoles = (permissions.fields || []).flatMap((fieldPermission) => [
-    ...(fieldPermission.read?.type === 'roles' && fieldPermission.read.roles
-      ? fieldPermission.read.roles
-      : []),
-    ...(fieldPermission.write?.type === 'roles' && fieldPermission.write.roles
-      ? fieldPermission.write.roles
-      : []),
-  ])
-
-  return new Set([...tableLevelRoles, ...fieldLevelRoles])
 }
 
 /**
@@ -979,6 +934,22 @@ const validateConditionSyntax = (condition: string): string | undefined => {
 }
 
 /**
+ * Helper to check if a field reference is a user property (e.g., from {user.department}).
+ * The condition string "{user.department} = department" extracts both 'user' and 'department'.
+ * We need to allow 'user' as it's part of the {user.property} syntax.
+ *
+ * @param condition - The full condition string
+ * @param fieldRef - The field reference to check
+ * @returns True if field reference is part of {user.property} syntax
+ */
+const isUserPropertyReference = (condition: string, fieldRef: string): boolean => {
+  // Check if the field reference appears immediately before a dot in the condition
+  // This handles patterns like "{user.department}" or "{user.role}"
+  const userPropPattern = new RegExp(`\\{\\s*${fieldRef}\\s*\\.\\s*\\w+\\s*\\}`, 'i')
+  return userPropPattern.test(condition)
+}
+
+/**
  * Validate that record permissions reference existing fields in their conditions.
  *
  * @param recordPermissions - Array of record permissions to validate
@@ -1005,21 +976,38 @@ const validateRecordPermissions = (
   }
 
   // Variable keywords that are allowed in conditions (RLS variables)
-  const variableKeywords = new Set(['userid', 'organizationid', 'roles'])
+  // Supports:
+  // - {userId}, {organizationId}, {roles}
+  // - {user.property} for custom user properties (e.g., {user.department})
+  const variableKeywords = new Set(['userid', 'organizationid', 'roles', 'user'])
 
   const invalidPermission = recordPermissions.find((permission) => {
     const fieldRefs = extractFieldReferencesFromCondition(permission.condition)
-    const invalidField = fieldRefs.find(
-      (fieldRef) => !fieldNames.has(fieldRef) && !variableKeywords.has(fieldRef)
-    )
+    const invalidField = fieldRefs.find((fieldRef) => {
+      if (fieldNames.has(fieldRef) || variableKeywords.has(fieldRef)) {
+        return false
+      }
+      // Allow field if it's part of {user.property} syntax
+      if (isUserPropertyReference(permission.condition, fieldRef)) {
+        return false
+      }
+      return true
+    })
     return invalidField !== undefined
   })
 
   if (invalidPermission) {
     const fieldRefs = extractFieldReferencesFromCondition(invalidPermission.condition)
-    const invalidField = fieldRefs.find(
-      (fieldRef) => !fieldNames.has(fieldRef) && !variableKeywords.has(fieldRef)
-    )
+    const invalidField = fieldRefs.find((fieldRef) => {
+      if (fieldNames.has(fieldRef) || variableKeywords.has(fieldRef)) {
+        return false
+      }
+      // Allow field if it's part of {user.property} syntax
+      if (isUserPropertyReference(invalidPermission.condition, fieldRef)) {
+        return false
+      }
+      return true
+    })
     return {
       message: `Record permission references non-existent field '${invalidField}' - field does not exist in table`,
       path: ['permissions', 'records'],

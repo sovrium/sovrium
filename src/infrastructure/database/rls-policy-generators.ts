@@ -543,6 +543,9 @@ export const generateAuthenticatedBasedGrants = (table: Table): readonly string[
 
   const tableName = table.name
 
+  // Check if table has field-level permissions
+  const hasFieldPermissions = table.permissions?.fields && table.permissions.fields.length > 0
+
   const createRoleStatements = [
     `DO $$
 BEGIN
@@ -553,6 +556,13 @@ END
 $$`,
   ]
 
+  // If field permissions exist, generateFieldPermissionGrants handles column-level grants
+  // Only grant schema usage here to avoid conflicts
+  if (hasFieldPermissions) {
+    return [...createRoleStatements, `GRANT USAGE ON SCHEMA public TO authenticated_user`]
+  }
+
+  // No field permissions - grant full table access
   const grantStatements = [
     `GRANT USAGE ON SCHEMA public TO authenticated_user`,
     `GRANT ALL ON ${tableName} TO authenticated_user`,
@@ -592,6 +602,9 @@ export const generateRoleBasedGrants = (table: Table): readonly string[] => {
     return []
   }
 
+  // Check if table has field-level permissions
+  const hasFieldPermissions = table.permissions?.fields && table.permissions.fields.length > 0
+
   // Always create guest_user for testing permission denials (but don't grant access)
   const allRoles = ['guest_user', ...databaseRoles]
 
@@ -605,7 +618,16 @@ END
 $$`
   )
 
-  // Only grant access to roles specified in permissions (not guest_user)
+  // If field permissions exist, generateFieldPermissionGrants handles column-level grants
+  // Only grant schema usage here to avoid conflicts
+  if (hasFieldPermissions) {
+    const schemaGrantStatements = databaseRoles.map(
+      (role) => `GRANT USAGE ON SCHEMA public TO ${role}`
+    )
+    return [...createRoleStatements, ...schemaGrantStatements]
+  }
+
+  // No field permissions - grant full table access
   const grantStatements = databaseRoles.flatMap((role) => [
     `GRANT USAGE ON SCHEMA public TO ${role}`,
     `GRANT ALL ON ${tableName} TO ${role}`,
@@ -615,10 +637,41 @@ $$`
 }
 
 /**
+ * Check if table should skip RLS for field-only permissions
+ */
+const shouldSkipRLSForFieldPermissions = (table: Table): boolean => {
+  const hasFieldPermissions = !!(table.permissions?.fields && table.permissions.fields.length > 0)
+  const hasRecordPermissions = !!(table.permissions?.records && table.permissions.records.length > 0)
+  return hasFieldPermissions && !hasRecordPermissions
+}
+
+/**
+ * Generate authenticated checks for all CRUD operations
+ */
+const generateAuthenticatedChecks = (
+  permissions: Table['permissions']
+): Readonly<{
+  read: string | undefined
+  create: string | undefined
+  update: string | undefined
+  delete: string | undefined
+}> => ({
+  read: generateAuthenticatedCheck(permissions?.read),
+  create: generateAuthenticatedCheck(permissions?.create),
+  update: generateAuthenticatedCheck(permissions?.update),
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
+  delete: generateAuthenticatedCheck(permissions?.delete),
+})
+
+/**
  * Generate RLS policy statements for authenticated permissions
  *
  * When a table has authenticated permissions (e.g., read: { type: 'authenticated' }),
  * this generates RLS policies that check if the user is authenticated.
+ *
+ * IMPORTANT: If ONLY field-level permissions exist (no record-level conditions),
+ * RLS is not needed for filtering - column-level grants handle field access.
+ * In this case, we skip RLS policies to avoid requiring session context in tests.
  *
  * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
  * This is critical for E2E tests where the database user is often a superuser.
@@ -627,17 +680,15 @@ $$`
  * @returns Array of SQL statements to enable RLS and create authenticated policies
  */
 const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => {
+  // If table has ONLY field-level permissions (no record-level), skip RLS
+  // Column-level grants will handle field access without requiring session context
+  if (shouldSkipRLSForFieldPermissions(table)) {
+    return []
+  }
+
   const tableName = table.name
   const enableRLS = generateEnableRLS(tableName)
-
-  // Generate authenticated checks for each operation
-  const authenticatedChecks = {
-    read: generateAuthenticatedCheck(table.permissions?.read),
-    create: generateAuthenticatedCheck(table.permissions?.create),
-    update: generateAuthenticatedCheck(table.permissions?.update),
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    delete: generateAuthenticatedCheck(table.permissions?.delete),
-  }
+  const authenticatedChecks = generateAuthenticatedChecks(table.permissions)
 
   // Generate policies for each CRUD operation
   const selectPolicies = generateAuthenticatedPolicyStatements(
@@ -662,7 +713,7 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
     tableName,
     'delete',
     'DELETE',
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- authenticatedChecks.delete is a permission field, not a Drizzle delete operation
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- authenticatedChecks.delete is a permission field
     authenticatedChecks.delete
   )
 

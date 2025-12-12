@@ -566,8 +566,8 @@ describe('TableSchema', () => {
       })
     })
 
-    test('should reject permissions with non-existent role', () => {
-      // GIVEN: A table with permissions referencing a non-existent role
+    test('should accept permissions with custom roles', () => {
+      // GIVEN: A table with permissions referencing a custom role (beyond the default 4)
       const table = {
         id: 1,
         name: 'documents',
@@ -579,15 +579,17 @@ describe('TableSchema', () => {
         permissions: {
           read: {
             type: 'roles' as const,
-            roles: ['super_admin'], // 'super_admin' role doesn't exist!
+            roles: ['super_admin'], // Custom role (not in default owner/admin/member/viewer)
           },
         },
       }
 
-      // WHEN/THEN: The table validation should fail with specific error message
-      expect(() => {
-        Schema.decodeUnknownSync(TableSchema)(table)
-      }).toThrow(/Invalid role.*super_admin.*not found/)
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should accept custom roles beyond the default 4
+      expect(result.permissions?.read).toBeDefined()
+      expect((result.permissions?.read as any)?.roles).toContain('super_admin')
     })
 
     test('should accept permissions with valid roles', () => {
@@ -620,8 +622,8 @@ describe('TableSchema', () => {
       })
     })
 
-    test('should reject field permissions with non-existent role', () => {
-      // GIVEN: A table with field permissions referencing a non-existent role
+    test('should accept field permissions with custom roles', () => {
+      // GIVEN: A table with field permissions referencing a custom role
       const table = {
         id: 1,
         name: 'users',
@@ -634,16 +636,19 @@ describe('TableSchema', () => {
           fields: [
             {
               field: 'salary',
-              read: { type: 'roles' as const, roles: ['finance_admin'] }, // Invalid role!
+              read: { type: 'roles' as const, roles: ['finance_admin'] }, // Custom role!
             },
           ],
         },
       }
 
-      // WHEN/THEN: The table validation should fail with specific error message
-      expect(() => {
-        Schema.decodeUnknownSync(TableSchema)(table)
-      }).toThrow(/Invalid role.*finance_admin.*not found/)
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should accept custom roles in field permissions
+      expect(result.permissions?.fields).toBeDefined()
+      expect(result.permissions?.fields?.[0]?.read).toBeDefined()
+      expect((result.permissions?.fields?.[0]?.read as any)?.roles).toContain('finance_admin')
     })
   })
 

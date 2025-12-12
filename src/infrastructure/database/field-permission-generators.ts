@@ -84,6 +84,7 @@ const addBaseFieldsToRestrictedRoles = (
  *
  * Example:
  * - Table 'users' has columns: id, name, email, salary
+ * - Table permission: read = { type: 'authenticated' }
  * - Field permission: salary.read = { type: 'roles', roles: ['admin'] }
  * - Result:
  *   - CREATE ROLE IF NOT EXISTS authenticated_user
@@ -98,7 +99,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   const tableName = table.name
   const fieldPermissions = table.permissions?.fields ?? []
 
-  // If no field permissions configured, grant full access
+  // If no field permissions configured, no column-level grants needed
   if (fieldPermissions.length === 0) {
     return []
   }
@@ -106,24 +107,24 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Map fields to their read permissions
   const tableReadPermission = table.permissions?.read
 
-  const baseFieldPermissions = table.fields
-    .filter(shouldCreateDatabaseColumn)
-    .map((field) => ({ field: field.name, permission: tableReadPermission }))
+  // Get all database columns
+  const databaseColumns = table.fields.filter(shouldCreateDatabaseColumn)
 
-  const overriddenFieldPermissions = fieldPermissions
-    .filter((fp) => fp.read)
-    .map((fp) => ({ field: fp.field, permission: fp.read }))
-
-  // Merge base and overridden permissions (override wins)
-  const allFieldPermissions = baseFieldPermissions.map((base) => {
-    const override = overriddenFieldPermissions.find((o) => o.field === base.field)
-    return override ?? base
+  // Build field permissions map:
+  // - Fields with specific read permissions: use their specific permission
+  // - Fields without specific permissions: use table-level permission
+  const allFieldPermissions = databaseColumns.map((field) => {
+    const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
+    return {
+      field: field.name,
+      permission: fieldPermission?.read ?? tableReadPermission,
+    }
   })
 
   // Build role-to-fields mapping
   const roleFieldsMap = buildRoleFieldsMap(allFieldPermissions)
 
-  // Add base fields to restricted roles
+  // Add base fields to restricted roles (fields they can access beyond restricted ones)
   const baseRoles = tableReadPermission ? extractRoles(tableReadPermission) : []
   const roleFieldsWithBase = addBaseFieldsToRestrictedRoles(roleFieldsMap, baseRoles)
 
@@ -145,10 +146,19 @@ $$`
 
   const schemaGrantStatements = finalRoles.map((role) => `GRANT USAGE ON SCHEMA public TO ${role}`)
 
+  // CRITICAL: REVOKE table-level SELECT before granting column-level SELECT
+  // Otherwise, any existing table-level grants would allow access to all columns
+  const revokeStatements = finalRoles.map((role) => `REVOKE ALL ON ${tableName} FROM ${role}`)
+
   const columnGrantStatements = Array.from(roleFieldsWithBase.entries()).map(([role, fields]) => {
     const columnList = fields.map((f) => `"${f}"`).join(', ')
     return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
   })
 
-  return [...createRoleStatements, ...schemaGrantStatements, ...columnGrantStatements]
+  return [
+    ...createRoleStatements,
+    ...schemaGrantStatements,
+    ...revokeStatements,
+    ...columnGrantStatements,
+  ]
 }
