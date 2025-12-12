@@ -113,7 +113,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-003: should CASCADE delete child records when parent deleted',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

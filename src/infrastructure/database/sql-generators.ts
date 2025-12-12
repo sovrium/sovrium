@@ -495,6 +495,32 @@ export const generateUniqueConstraints = (
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
 
 /**
+ * Map onDelete/onUpdate values to PostgreSQL referential actions
+ *
+ * @param action - The referential action (cascade, set-null, restrict, etc.)
+ * @param clauseType - The type of clause (delete or update)
+ * @returns PostgreSQL referential action clause (e.g., " ON DELETE CASCADE")
+ */
+const mapReferentialAction = (action: string | undefined, clauseType: 'delete' | 'update'): string => {
+  if (!action) return ''
+  const upperAction = action.toUpperCase()
+  const validActions = ['CASCADE', 'SET NULL', 'SET DEFAULT', 'RESTRICT', 'NO ACTION']
+
+  // Map 'set-null' to 'SET NULL' for PostgreSQL compatibility
+  const normalizedAction = upperAction === 'SET-NULL' ? 'SET NULL' : upperAction
+
+  // Find matching PostgreSQL action
+  const postgresAction = validActions.find(
+    (valid) => valid.replace(' ', '-') === normalizedAction || valid === normalizedAction
+  )
+
+  if (!postgresAction) return ''
+
+  const clausePrefix = clauseType === 'delete' ? 'ON DELETE' : 'ON UPDATE'
+  return ` ${clausePrefix} ${postgresAction}`
+}
+
+/**
  * Generate FOREIGN KEY constraints for user fields and relationship fields
  */
 const generateForeignKeyConstraints = (
@@ -516,7 +542,12 @@ const generateForeignKeyConstraints = (
       tableUsesView?.get(field.relatedTable) === true
         ? `${field.relatedTable}_base`
         : field.relatedTable
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)`
+
+    // Build referential actions (ON DELETE, ON UPDATE)
+    const onDeleteClause = 'onDelete' in field ? mapReferentialAction(field.onDelete as string | undefined, 'delete') : ''
+    const onUpdateClause = 'onUpdate' in field ? mapReferentialAction(field.onUpdate as string | undefined, 'update') : ''
+
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
   })
 
   // TODO: Re-enable foreign keys for created-by/updated-by fields
