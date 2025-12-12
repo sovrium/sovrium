@@ -420,7 +420,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-010: should support CASCADE updates when onUpdate=cascade',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
