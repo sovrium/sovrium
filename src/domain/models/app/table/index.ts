@@ -582,7 +582,11 @@ const extractFilterConditions = (
     | { readonly field: string; readonly operator: string; readonly value: unknown }
     | { readonly and: ReadonlyArray<unknown> }
     | { readonly or: ReadonlyArray<unknown> }
-): ReadonlyArray<{ readonly field: string; readonly operator: string; readonly value: unknown }> => {
+): ReadonlyArray<{
+  readonly field: string
+  readonly operator: string
+  readonly value: unknown
+}> => {
   // Single condition - return as array
   if ('field' in filterNode) {
     return [filterNode]
@@ -795,8 +799,11 @@ const validateViewSorts = (
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
   const invalidView = views
     .filter(
-      (view): view is typeof view & { readonly sorts: ReadonlyArray<{ readonly field: string; readonly direction: string }> } =>
-        view.sorts !== undefined && view.sorts.length > 0
+      (
+        view
+      ): view is typeof view & {
+        readonly sorts: ReadonlyArray<{ readonly field: string; readonly direction: string }>
+      } => view.sorts !== undefined && view.sorts.length > 0
     )
     .flatMap((view) => {
       const invalidFields = view.sorts.filter((sort) => !fieldNames.has(sort.field))
