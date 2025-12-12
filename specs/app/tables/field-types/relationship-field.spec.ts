@@ -159,7 +159,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-004: should SET NULL on delete when onDelete=set-null',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
