@@ -282,3 +282,16 @@ export const getExistingColumnsAsync = async (
  */
 export const getExistingTableNamesAsync = async (tx: TransactionLike): Promise<readonly string[]> =>
   Effect.runPromise(getExistingTableNames(tx))
+
+/**
+ * Execute SQL statements in parallel (async version for backward compatibility)
+ * @deprecated Prefer using executeSQLStatementsParallel Effect version directly
+ */
+/* eslint-disable functional/no-expression-statements */
+export const executeSQLStatementsParallelAsync = async (
+  tx: TransactionLike,
+  statements: readonly string[]
+): Promise<void> => {
+  await Effect.runPromise(executeSQLStatementsParallel(tx, statements))
+}
+/* eslint-enable functional/no-expression-statements */

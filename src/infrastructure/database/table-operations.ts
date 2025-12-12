@@ -29,6 +29,7 @@ import {
 } from './schema-migration-helpers'
 import {
   executeSQLStatementsAsync,
+  executeSQLStatementsParallelAsync,
   getExistingColumnsAsync,
   type TransactionLike,
 } from './sql-execution'
@@ -123,6 +124,11 @@ export const generateCreateTableSQL = (
  * Apply table features (indexes, triggers, RLS policies, field permissions)
  * Shared by both createNewTable and migrateExistingTable
  * Note: Triggers and policies are applied to the base table, not the VIEW
+ *
+ * Performance optimization: Operations are grouped by dependency:
+ * - Group 1 (parallel): indexes, triggers (created-at, autonumber, updated-by, formula)
+ * - Group 2 (sequential): RLS policies (depends on table existing)
+ * - Group 3 (parallel): grants (basic, authenticated, role-based, field-level)
  */
 /* eslint-disable functional/no-expression-statements */
 const applyTableFeatures = async (tx: TransactionLike, table: Table): Promise<void> => {
@@ -132,35 +138,28 @@ const applyTableFeatures = async (tx: TransactionLike, table: Table): Promise<vo
   // Create table object with physical table name for trigger/policy generation
   const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
-  // Indexes (IF NOT EXISTS prevents errors)
-  await executeSQLStatementsAsync(tx, generateIndexStatements(physicalTable))
+  // Group 1: Indexes and triggers (can run in parallel - all independent)
+  // These create IF NOT EXISTS so order doesn't matter
+  await Promise.all([
+    executeSQLStatementsParallelAsync(tx, generateIndexStatements(physicalTable)),
+    executeSQLStatementsAsync(tx, generateCreatedAtTriggers(physicalTable)),
+    executeSQLStatementsAsync(tx, generateAutonumberTriggers(physicalTable)),
+    executeSQLStatementsAsync(tx, generateUpdatedByTriggers(physicalTable)),
+    createVolatileFormulaTriggers(tx, physicalTableName, table.fields),
+  ])
 
-  // Triggers for created-at fields
-  await executeSQLStatementsAsync(tx, generateCreatedAtTriggers(physicalTable))
-
-  // Triggers for autonumber fields
-  await executeSQLStatementsAsync(tx, generateAutonumberTriggers(physicalTable))
-
-  // Triggers for updated-by fields
-  await executeSQLStatementsAsync(tx, generateUpdatedByTriggers(physicalTable))
-
-  // Triggers for volatile formula fields
-  await createVolatileFormulaTriggers(tx, physicalTableName, table.fields)
-
-  // RLS policies for organization-scoped tables OR default deny when no permissions
+  // Group 2: RLS policies (sequential - must run after table is fully set up)
+  // RLS policies depend on the table existing with all columns
   await executeSQLStatementsAsync(tx, generateRLSPolicyStatements(physicalTable))
 
-  // Basic table grants for tables with no permissions (default deny)
-  await executeSQLStatementsAsync(tx, generateBasicTableGrants(physicalTable))
-
-  // Authenticated table grants for tables with authenticated permissions
-  await executeSQLStatementsAsync(tx, generateAuthenticatedBasedGrants(physicalTable))
-
-  // Role-based table grants for tables with role-based permissions
-  await executeSQLStatementsAsync(tx, generateRoleBasedGrants(physicalTable))
-
-  // Field-level permissions (column grants)
-  await executeSQLStatementsAsync(tx, generateFieldPermissionGrants(physicalTable))
+  // Group 3: Grants (can run in parallel - all independent)
+  // Grant operations don't depend on each other
+  await Promise.all([
+    executeSQLStatementsParallelAsync(tx, generateBasicTableGrants(physicalTable)),
+    executeSQLStatementsParallelAsync(tx, generateAuthenticatedBasedGrants(physicalTable)),
+    executeSQLStatementsParallelAsync(tx, generateRoleBasedGrants(physicalTable)),
+    executeSQLStatementsParallelAsync(tx, generateFieldPermissionGrants(physicalTable)),
+  ])
 }
 /* eslint-enable functional/no-expression-statements */
 
