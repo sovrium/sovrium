@@ -78,10 +78,10 @@ export const generateCreateTableSQL = (
     ? [generateIdColumn(table.primaryKey?.type)]
     : []
 
-  // Filter out UI-only fields (like button) and lookup fields (handled by VIEW)
-  // Lookup fields don't exist as columns in the base table
+  // Filter out UI-only fields (like button), lookup fields, and rollup fields (handled by VIEW)
+  // Lookup and rollup fields don't exist as columns in the base table
   const columnDefinitions = table.fields
-    .filter((field) => shouldCreateDatabaseColumn(field) && field.type !== 'lookup')
+    .filter((field) => shouldCreateDatabaseColumn(field) && field.type !== 'lookup' && field.type !== 'rollup')
     .map((field) => {
       const isPrimaryKey = primaryKeyFields.includes(field.name)
       return generateColumnDefinition(field, isPrimaryKey, table.fields)

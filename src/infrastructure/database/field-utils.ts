@@ -13,6 +13,7 @@ import type { Fields } from '@/domain/models/app/table/fields'
  * Some field types are UI-only and don't need database columns:
  * - button: UI-only action field (no data stored)
  * - count: Virtual/computed field (calculated from relationships)
+ * - relationship with relationType='one-to-many': Foreign key is in the related table, not this table
  *
  * This utility is used by:
  * - table-operations.ts: CREATE TABLE generation
@@ -22,5 +23,15 @@ import type { Fields } from '@/domain/models/app/table/fields'
  * @param field - Field configuration from table schema
  * @returns true if field needs a database column, false if UI-only/virtual
  */
-export const shouldCreateDatabaseColumn = (field: Fields[number]): boolean =>
-  field.type !== 'button' && field.type !== 'count'
+export const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => {
+  if (field.type === 'button' || field.type === 'count') {
+    return false
+  }
+
+  // For one-to-many relationships, the foreign key is in the related table, not this table
+  if (field.type === 'relationship' && 'relationType' in field && field.relationType === 'one-to-many') {
+    return false
+  }
+
+  return true
+}
