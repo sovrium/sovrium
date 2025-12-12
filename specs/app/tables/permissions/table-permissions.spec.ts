@@ -156,7 +156,7 @@ test.describe('Table-Level Permissions', () => {
 
       // Admin user can INSERT records
       const adminInsert = await executeQuery(
-        "SET ROLE admin_user; SET app.user_role = 'admin'; INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id"
+        "SET ROLE admin_user; SET LOCAL app.user_role = 'admin'; INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id"
       )
       // THEN: assertion
       expect(adminInsert.id).toBe(1)
@@ -167,7 +167,7 @@ test.describe('Table-Level Permissions', () => {
       let errorMessage = ''
       try {
         await executeQuery(
-          "SET ROLE member_user; SET app.user_role = 'member'; INSERT INTO documents (title) VALUES ('Doc 2')"
+          "SET ROLE member_user; SET LOCAL app.user_role = 'member'; INSERT INTO documents (title) VALUES ('Doc 2')"
         )
       } catch (error) {
         memberInsertFailed = true
@@ -300,7 +300,7 @@ test.describe('Table-Level Permissions', () => {
       try {
         // Switch to non-superuser role without setting app.user_id (unauthenticated)
         await executeQuery(
-          "SET ROLE authenticated_user; UPDATE profiles SET bio = 'Hacked' WHERE id = 1"
+          "SET ROLE app_user; SET LOCAL app.user_id = ''; UPDATE profiles SET bio = 'Hacked' WHERE id = 1"
         )
         throw new Error('Expected UPDATE to fail for unauthenticated user')
       } catch (error: any) {

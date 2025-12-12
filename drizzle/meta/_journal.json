@@ -36,6 +36,13 @@
       "when": 1733270400000,
       "tag": "0004_grant_test_role_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1733961600000,
+      "tag": "0005_grant_test_user_role_membership",
+      "breakpoints": true
     }
   ]
 }

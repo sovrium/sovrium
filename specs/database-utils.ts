@@ -100,6 +100,8 @@ export class DatabaseTemplateManager {
         GRANT USAGE ON SCHEMA public TO app_user;
         GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
         GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
+        GRANT USAGE ON SCHEMA auth TO app_user;
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO app_user;
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO app_user;
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO app_user;
       `)

@@ -641,7 +641,9 @@ $$`
  */
 const shouldSkipRLSForFieldPermissions = (table: Table): boolean => {
   const hasFieldPermissions = !!(table.permissions?.fields && table.permissions.fields.length > 0)
-  const hasRecordPermissions = !!(table.permissions?.records && table.permissions.records.length > 0)
+  const hasRecordPermissions = !!(
+    table.permissions?.records && table.permissions.records.length > 0
+  )
   return hasFieldPermissions && !hasRecordPermissions
 }
 

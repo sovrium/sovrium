@@ -608,7 +608,9 @@ test.describe('Table Permissions', () => {
             },
           ],
         })
-      ).rejects.toThrow(/field.*owner_id.*not found|invalid.*field.*condition/i)
+      ).rejects.toThrow(
+        /references non-existent field.*owner_id|field.*owner_id.*not found|invalid.*field.*condition/i
+      )
     }
   )
 
