@@ -329,3 +329,47 @@ export const syncUniqueConstraints = async (
   }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+
+/**
+ * Sync foreign key constraints for existing table
+ * Drops and recreates FK constraints to ensure referential actions (ON DELETE, ON UPDATE) are up-to-date
+ * This is needed when table schema is updated with new referential actions
+ */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+export const syncForeignKeyConstraints = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  table: Table,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): Promise<void> => {
+  const { generateForeignKeyConstraints } = await import('./sql-generators')
+  const fkConstraints = generateForeignKeyConstraints(table.name, table.fields, tableUsesView)
+
+  // For each FK constraint, drop existing and recreate
+  for (const constraint of fkConstraints) {
+    // Extract constraint name from the constraint SQL
+    // Format: "CONSTRAINT {constraintName} FOREIGN KEY ..."
+    const match = constraint.match(/CONSTRAINT\s+(\w+)\s+FOREIGN KEY/)
+    if (!match) continue
+
+    const constraintName = match[1]
+
+    // Drop existing constraint if it exists
+    await tx.unsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = '${table.name}'
+            AND constraint_type = 'FOREIGN KEY'
+            AND constraint_name = '${constraintName}'
+        ) THEN
+          ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
+        END IF;
+      END$$;
+    `)
+
+    // Add constraint with updated referential actions
+    await tx.unsafe(`ALTER TABLE ${table.name} ADD ${constraint}`)
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */

@@ -532,8 +532,9 @@ const mapReferentialAction = (
 
 /**
  * Generate FOREIGN KEY constraints for user fields and relationship fields
+ * Exported for use in migration system to sync FK constraints
  */
-const generateForeignKeyConstraints = (
+export const generateForeignKeyConstraints = (
   tableName: string,
   fields: readonly Fields[number][],
   tableUsesView?: ReadonlyMap<string, boolean>

@@ -25,6 +25,7 @@ import {
   getExistingColumns,
   generateAlterTableStatements,
   syncUniqueConstraints,
+  syncForeignKeyConstraints,
   type BunSQLTransaction,
 } from './schema-migration-helpers'
 import { generateColumnDefinition, generateTableConstraints } from './sql-generators'
@@ -200,6 +201,9 @@ export const migrateExistingTable = async (
 
   // Always add/update unique constraints for existing tables
   await syncUniqueConstraints(tx, table)
+
+  // Always sync foreign key constraints to ensure referential actions are up-to-date
+  await syncForeignKeyConstraints(tx, table, tableUsesView)
 
   // Apply all table features (indexes, triggers, RLS)
   await applyTableFeatures(tx, table)

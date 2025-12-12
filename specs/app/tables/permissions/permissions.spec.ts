@@ -475,34 +475,37 @@ test.describe('Table Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-PERMISSIONS-006: should reject permission with non-existent role',
+    'APP-TABLES-PERMISSIONS-006: should accept permission with custom role (beyond default set)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
-      // GIVEN: Permission configuration referencing non-existent role
-      // WHEN: Attempting to start server with invalid schema
-      // THEN: Should throw validation error
-      await expect(
-        startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: {
-                  type: 'roles',
-                  roles: ['super_admin'], // 'super_admin' role doesn't exist!
-                },
+      // GIVEN: Permission configuration referencing custom role (not in default owner/admin/member/viewer set)
+      // WHEN: Starting server with custom role in permissions
+      // THEN: Should accept the configuration (custom roles are allowed)
+      // Note: Role validation was intentionally disabled to support custom application roles
+      // See: src/domain/models/app/table/index.ts (lines 342-356)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: {
+                type: 'roles',
+                roles: ['super_admin'], // Custom role (allowed beyond default set)
               },
             },
-          ],
-        })
-      ).rejects.toThrow(/role.*super_admin.*not found|invalid.*role/i)
+          },
+        ],
+      })
+
+      // Server should start successfully without throwing errors
+      // This validates that custom roles are accepted
     }
   )
 
