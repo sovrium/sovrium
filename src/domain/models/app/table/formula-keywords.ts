@@ -259,21 +259,68 @@ export const FORMULA_KEYWORDS = new Set([
 // ============================================================================
 
 /**
- * All keyword categories for programmatic iteration
+ * All keyword categories organized for programmatic access and iteration.
+ *
+ * This object groups all SQL keywords, operators, functions, and data types
+ * by their semantic category. Each category is a ReadonlySet<string> containing
+ * lowercase keyword strings.
+ *
+ * @remarks
+ * Use this export when you need to:
+ * - Iterate over all keyword categories programmatically
+ * - Access keywords by specific category (e.g., only string functions)
+ * - Build category-specific validation or autocomplete features
+ * - Generate documentation or UI based on keyword categories
+ *
+ * For simple keyword filtering in formulas, prefer the `FORMULA_KEYWORDS`
+ * combined export which merges all categories into a single Set.
+ *
+ * @example
+ * ```typescript
+ * // Iterate over all categories
+ * Object.entries(KEYWORD_CATEGORIES).forEach(([name, keywords]) => {
+ *   console.log(`${name}: ${keywords.size} keywords`)
+ * })
+ *
+ * // Access specific category
+ * const stringFuncs = KEYWORD_CATEGORIES.STRING_FUNCTIONS
+ * console.log(stringFuncs.has('concat')) // true
+ *
+ * // Build category-specific autocomplete
+ * function getAutocomplete(category: keyof typeof KEYWORD_CATEGORIES) {
+ *   return Array.from(KEYWORD_CATEGORIES[category])
+ * }
+ * ```
+ *
+ * @see {@link FORMULA_KEYWORDS} - Combined set of all keywords for filtering
  */
 export const KEYWORD_CATEGORIES = {
+  /** SQL query keywords (SELECT, JOIN, WHERE, etc.) */
   SQL_KEYWORDS,
+  /** Logical operators for boolean expressions (AND, OR, NOT, IF/THEN/ELSE) */
   LOGICAL_OPERATORS,
+  /** Boolean and null literals (true, false, null) */
   LITERALS,
+  /** Control flow keywords (CASE, WHEN, END) */
   CONTROL_FLOW,
+  /** String manipulation functions (CONCAT, UPPER, TRIM, etc.) */
   STRING_FUNCTIONS,
+  /** Mathematical functions (ROUND, ABS, SQRT, etc.) */
   MATH_FUNCTIONS,
+  /** Aggregate functions for grouping (SUM, AVG, COUNT, etc.) */
   AGGREGATE_FUNCTIONS,
+  /** Date and time functions (NOW, EXTRACT, DATE_ADD, etc.) */
   DATE_FUNCTIONS,
+  /** Date part keywords used with EXTRACT (YEAR, MONTH, DOW, etc.) */
   DATE_PART_KEYWORDS,
+  /** Type conversion functions (CAST, COALESCE, NULLIF) */
   TYPE_CONVERSIONS,
+  /** PostgreSQL data type names (INTEGER, TEXT, TIMESTAMP, etc.) */
   DATA_TYPES,
+  /** Array manipulation functions (ARRAY, ARRAY_LENGTH, UNNEST, etc.) */
   ARRAY_FUNCTIONS,
+  /** Regular expression functions (REGEXP_MATCH, REGEXP_REPLACE) */
   REGEX_FUNCTIONS,
+  /** Binary and encoding functions (CONVERT_FROM) */
   BINARY_FUNCTIONS,
 } as const

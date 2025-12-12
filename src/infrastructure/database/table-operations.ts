@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { generateFieldPermissionGrants } from './field-permission-generators'
 import { shouldCreateDatabaseColumn } from './field-utils'
 import { createVolatileFormulaTriggers } from './formula-trigger-generators'
@@ -28,10 +29,12 @@ import {
   type BunSQLTransaction,
 } from './schema-migration-helpers'
 import {
-  executeSQLStatementsAsync,
-  executeSQLStatementsParallelAsync,
-  getExistingColumnsAsync,
+  executeSQL,
+  executeSQLStatements,
+  executeSQLStatementsParallel,
+  getExistingColumns,
   type TransactionLike,
+  type SQLExecutionError,
 } from './sql-execution'
 import { generateColumnDefinition, generateTableConstraints } from './sql-generators'
 import {
@@ -130,41 +133,83 @@ export const generateCreateTableSQL = (
  * - Group 2 (sequential): RLS policies (depends on table existing)
  * - Group 3 (parallel): grants (basic, authenticated, role-based, field-level)
  */
-/* eslint-disable functional/no-expression-statements */
-const applyTableFeatures = async (tx: TransactionLike, table: Table): Promise<void> => {
-  // Determine actual table name (base table if using VIEW)
-  const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+const applyTableFeatures = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    // Determine actual table name (base table if using VIEW)
+    const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
 
-  // Create table object with physical table name for trigger/policy generation
-  const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
+    // Create table object with physical table name for trigger/policy generation
+    const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
-  // Group 1: Indexes and triggers (can run in parallel - all independent)
-  // These create IF NOT EXISTS so order doesn't matter
-  await Promise.all([
-    executeSQLStatementsParallelAsync(tx, generateIndexStatements(physicalTable)),
-    executeSQLStatementsAsync(tx, generateCreatedAtTriggers(physicalTable)),
-    executeSQLStatementsAsync(tx, generateAutonumberTriggers(physicalTable)),
-    executeSQLStatementsAsync(tx, generateUpdatedByTriggers(physicalTable)),
-    createVolatileFormulaTriggers(tx, physicalTableName, table.fields),
-  ])
+    // Group 1: Indexes and triggers (can run in parallel - all independent)
+    // These create IF NOT EXISTS so order doesn't matter
+    yield* Effect.all(
+      [
+        executeSQLStatementsParallel(tx, generateIndexStatements(physicalTable)),
+        executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),
+        executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
+        executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
+        Effect.promise(() => createVolatileFormulaTriggers(tx, physicalTableName, table.fields)),
+      ],
+      { concurrency: 'unbounded' }
+    )
 
-  // Group 2: RLS policies (sequential - must run after table is fully set up)
-  // RLS policies depend on the table existing with all columns
-  await executeSQLStatementsAsync(tx, generateRLSPolicyStatements(physicalTable))
+    // Group 2: RLS policies (sequential - must run after table is fully set up)
+    // RLS policies depend on the table existing with all columns
+    yield* executeSQLStatements(tx, generateRLSPolicyStatements(physicalTable))
 
-  // Group 3: Grants (can run in parallel - all independent)
-  // Grant operations don't depend on each other
-  await Promise.all([
-    executeSQLStatementsParallelAsync(tx, generateBasicTableGrants(physicalTable)),
-    executeSQLStatementsParallelAsync(tx, generateAuthenticatedBasedGrants(physicalTable)),
-    executeSQLStatementsParallelAsync(tx, generateRoleBasedGrants(physicalTable)),
-    executeSQLStatementsParallelAsync(tx, generateFieldPermissionGrants(physicalTable)),
-  ])
-}
-/* eslint-enable functional/no-expression-statements */
+    // Group 3: Grants (can run in parallel - all independent)
+    // Grant operations don't depend on each other
+    yield* Effect.all(
+      [
+        executeSQLStatementsParallel(tx, generateBasicTableGrants(physicalTable)),
+        executeSQLStatementsParallel(tx, generateAuthenticatedBasedGrants(physicalTable)),
+        executeSQLStatementsParallel(tx, generateRoleBasedGrants(physicalTable)),
+        executeSQLStatementsParallel(tx, generateFieldPermissionGrants(physicalTable)),
+      ],
+      { concurrency: 'unbounded' }
+    )
+  })
 
 /**
  * Migrate existing table (ALTER statements + constraints + indexes)
+ */
+export const migrateExistingTableEffect = (
+  tx: TransactionLike,
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const alterStatements = generateAlterTableStatements(table, existingColumns)
+
+    // If alterStatements is empty, table has incompatible schema changes
+    // (e.g., primary key type change) - drop and recreate
+    if (alterStatements.length === 0) {
+      yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
+      const createTableSQL = generateCreateTableSQL(table, tableUsesView)
+      yield* executeSQL(tx, createTableSQL)
+    } else {
+      // Apply incremental migrations
+      yield* executeSQLStatements(tx, alterStatements)
+    }
+
+    // Always add/update unique constraints for existing tables
+    yield* Effect.promise(() => syncUniqueConstraints(tx, table))
+
+    // Always sync foreign key constraints to ensure referential actions are up-to-date
+    yield* Effect.promise(() => syncForeignKeyConstraints(tx, table, tableUsesView))
+
+    // Apply all table features (indexes, triggers, RLS)
+    yield* applyTableFeatures(tx, table)
+  })
+
+/**
+ * Migrate existing table (async version for backward compatibility)
+ * @deprecated Prefer using migrateExistingTableEffect directly
  */
 /* eslint-disable functional/no-expression-statements */
 export const migrateExistingTable = async (
@@ -173,27 +218,7 @@ export const migrateExistingTable = async (
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Promise<void> => {
-  const alterStatements = generateAlterTableStatements(table, existingColumns)
-
-  // If alterStatements is empty, table has incompatible schema changes
-  // (e.g., primary key type change) - drop and recreate
-  if (alterStatements.length === 0) {
-    await tx.unsafe(`DROP TABLE ${table.name} CASCADE`)
-    const createTableSQL = generateCreateTableSQL(table, tableUsesView)
-    await tx.unsafe(createTableSQL)
-  } else {
-    // Apply incremental migrations
-    await executeSQLStatementsAsync(tx, alterStatements)
-  }
-
-  // Always add/update unique constraints for existing tables
-  await syncUniqueConstraints(tx, table)
-
-  // Always sync foreign key constraints to ensure referential actions are up-to-date
-  await syncForeignKeyConstraints(tx, table, tableUsesView)
-
-  // Apply all table features (indexes, triggers, RLS)
-  await applyTableFeatures(tx, table)
+  await Effect.runPromise(migrateExistingTableEffect(tx, table, existingColumns, tableUsesView))
 }
 /* eslint-enable functional/no-expression-statements */
 
@@ -201,17 +226,30 @@ export const migrateExistingTable = async (
  * Create new table (CREATE statement + indexes + triggers)
  * Note: VIEWs are created in a separate phase after all base tables exist
  */
+export const createNewTableEffect = (
+  tx: TransactionLike,
+  table: Table,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const createTableSQL = generateCreateTableSQL(table, tableUsesView)
+    yield* executeSQL(tx, createTableSQL)
+
+    // Apply all table features (indexes, triggers, RLS)
+    yield* applyTableFeatures(tx, table)
+  })
+
+/**
+ * Create new table (async version for backward compatibility)
+ * @deprecated Prefer using createNewTableEffect directly
+ */
 /* eslint-disable functional/no-expression-statements */
 export const createNewTable = async (
   tx: TransactionLike,
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Promise<void> => {
-  const createTableSQL = generateCreateTableSQL(table, tableUsesView)
-  await tx.unsafe(createTableSQL)
-
-  // Apply all table features (indexes, triggers, RLS)
-  await applyTableFeatures(tx, table)
+  await Effect.runPromise(createNewTableEffect(tx, table, tableUsesView))
 }
 /* eslint-enable functional/no-expression-statements */
 
@@ -219,22 +257,34 @@ export const createNewTable = async (
  * Create lookup VIEWs for tables with lookup fields
  * Called after all base tables have been created to avoid dependency issues
  */
+export const createLookupViewsEffect = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    if (shouldUseView(table)) {
+      const createViewSQL = generateLookupViewSQL(table)
+      if (createViewSQL) {
+        // Drop existing table if it exists (to allow VIEW creation)
+        // This handles the transition from TABLE to VIEW when rollup/lookup fields are added
+        yield* executeSQL(tx, `DROP TABLE IF EXISTS ${table.name} CASCADE`)
+
+        yield* executeSQL(tx, createViewSQL)
+
+        // Create INSTEAD OF triggers to make the VIEW writable
+        const triggerStatements = generateLookupViewTriggers(table)
+        yield* executeSQLStatements(tx, triggerStatements)
+      }
+    }
+  })
+
+/**
+ * Create lookup VIEWs (async version for backward compatibility)
+ * @deprecated Prefer using createLookupViewsEffect directly
+ */
 /* eslint-disable functional/no-expression-statements */
 export const createLookupViews = async (tx: TransactionLike, table: Table): Promise<void> => {
-  if (shouldUseView(table)) {
-    const createViewSQL = generateLookupViewSQL(table)
-    if (createViewSQL) {
-      // Drop existing table if it exists (to allow VIEW creation)
-      // This handles the transition from TABLE to VIEW when rollup/lookup fields are added
-      await tx.unsafe(`DROP TABLE IF EXISTS ${table.name} CASCADE`)
-
-      await tx.unsafe(createViewSQL)
-
-      // Create INSTEAD OF triggers to make the VIEW writable
-      const triggerStatements = generateLookupViewTriggers(table)
-      await executeSQLStatementsAsync(tx, triggerStatements)
-    }
-  }
+  await Effect.runPromise(createLookupViewsEffect(tx, table))
 }
 /* eslint-enable functional/no-expression-statements */
 
@@ -242,45 +292,81 @@ export const createLookupViews = async (tx: TransactionLike, table: Table): Prom
  * Create table views (user-defined VIEWs from table.views configuration)
  * Called after all tables and lookup views have been created
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
-export const createTableViews = async (tx: TransactionLike, table: Table): Promise<void> => {
-  // Only process tables that have views defined
-  if (!table.views || table.views.length === 0) {
-    return
-  }
-
-  // Drop obsolete views first
-  await generateDropObsoleteViewsSQL(tx, table)
-
-  // Drop and recreate each view (PostgreSQL doesn't support IF NOT EXISTS for views)
-  for (const view of table.views) {
-    // Convert view.id to string (ViewId can be number or string)
-    const viewIdStr = String(view.id)
-
-    // Drop existing view or materialized view (if any)
-    // Try both types since we don't know what exists in the database
-    if (view.materialized) {
-      await tx.unsafe(`DROP MATERIALIZED VIEW IF EXISTS ${viewIdStr} CASCADE`)
-    } else {
-      await tx.unsafe(`DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
+export const createTableViewsEffect = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    // Only process tables that have views defined
+    if (!table.views || table.views.length === 0) {
+      return
     }
 
-    // Create view (regular or materialized)
-    const viewSQL = generateTableViewStatements(table).find((sql) => sql.includes(viewIdStr))
-    if (viewSQL) {
-      await tx.unsafe(viewSQL)
+    // Drop obsolete views first
+    yield* Effect.promise(() => generateDropObsoleteViewsSQL(tx, table))
 
-      // Refresh materialized view if requested
-      if (view.materialized && view.refreshOnMigration) {
-        await tx.unsafe(`REFRESH MATERIALIZED VIEW ${viewIdStr}`)
+    // Drop and recreate each view (PostgreSQL doesn't support IF NOT EXISTS for views)
+    const viewSQL = generateTableViewStatements(table)
+
+    // Process each view sequentially (views may depend on each other)
+    /* eslint-disable functional/no-loop-statements */
+    for (const view of table.views) {
+      // Convert view.id to string (ViewId can be number or string)
+      const viewIdStr = String(view.id)
+
+      // Drop existing view or materialized view (if any)
+      // Try both types since we don't know what exists in the database
+      if (view.materialized) {
+        yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${viewIdStr} CASCADE`)
+      } else {
+        yield* executeSQL(tx, `DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
+      }
+
+      // Create view (regular or materialized)
+      const createSQL = viewSQL.find((sql) => sql.includes(viewIdStr))
+      if (createSQL) {
+        yield* executeSQL(tx, createSQL)
+
+        // Refresh materialized view if requested
+        if (view.materialized && view.refreshOnMigration) {
+          yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${viewIdStr}`)
+        }
       }
     }
-  }
+    /* eslint-enable functional/no-loop-statements */
+  })
+
+/**
+ * Create table views (async version for backward compatibility)
+ * @deprecated Prefer using createTableViewsEffect directly
+ */
+/* eslint-disable functional/no-expression-statements */
+export const createTableViews = async (tx: TransactionLike, table: Table): Promise<void> => {
+  await Effect.runPromise(createTableViewsEffect(tx, table))
 }
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+/* eslint-enable functional/no-expression-statements */
 
 /**
  * Create or migrate table based on existence
+ */
+export const createOrMigrateTableEffect = (
+  tx: BunSQLTransaction,
+  table: Table,
+  exists: boolean,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    if (exists) {
+      const existingColumns = yield* getExistingColumns(tx, table.name)
+      yield* migrateExistingTableEffect(tx, table, existingColumns, tableUsesView)
+    } else {
+      yield* createNewTableEffect(tx, table, tableUsesView)
+    }
+  })
+
+/**
+ * Create or migrate table (async version for backward compatibility)
+ * @deprecated Prefer using createOrMigrateTableEffect directly
  */
 /* eslint-disable functional/no-expression-statements */
 export const createOrMigrateTable = async (
@@ -289,11 +375,6 @@ export const createOrMigrateTable = async (
   exists: boolean,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Promise<void> => {
-  if (exists) {
-    const existingColumns = await getExistingColumnsAsync(tx, table.name)
-    await migrateExistingTable(tx, table, existingColumns, tableUsesView)
-  } else {
-    await createNewTable(tx, table, tableUsesView)
-  }
+  await Effect.runPromise(createOrMigrateTableEffect(tx, table, exists, tableUsesView))
 }
 /* eslint-enable functional/no-expression-statements */
