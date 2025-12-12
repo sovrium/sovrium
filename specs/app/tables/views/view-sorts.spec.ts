@@ -64,7 +64,11 @@ test.describe('View Sorts', () => {
       // WHEN: applying sort to records
       // THEN: records should be ordered from lowest to highest by that field
       const result = await executeQuery('SELECT name FROM products ORDER BY price ASC')
-      expect(result.rows).toEqual([{ name: 'Product A' }, { name: 'Product B' }, { name: 'Product C' }])
+      expect(result.rows).toEqual([
+        { name: 'Product A' },
+        { name: 'Product B' },
+        { name: 'Product C' },
+      ])
     }
   )
 
@@ -211,7 +215,7 @@ test.describe('View Sorts', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-SORTS-005: user can complete full view-sorts workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -259,7 +263,7 @@ test.describe('View Sorts', () => {
         const result = await executeQuery(
           'SELECT category, value FROM data ORDER BY category ASC, value DESC'
         )
-        expect(result).toEqual([
+        expect(result.rows).toEqual([
           { category: 'A', value: 3 },
           { category: 'A', value: 1 },
           { category: 'B', value: 4 },
