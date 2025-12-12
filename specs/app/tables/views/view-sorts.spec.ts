@@ -68,7 +68,7 @@ test.describe('View Sorts', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-SORTS-002: should order records from highest to lowest by that field when sort is by single field with descending direction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -108,7 +108,7 @@ test.describe('View Sorts', () => {
       // WHEN: applying sort to records
       // THEN: records should be ordered from highest to lowest by that field
       const result = await executeQuery('SELECT title FROM tasks ORDER BY priority DESC')
-      expect(result).toEqual([{ title: 'Task C' }, { title: 'Task B' }, { title: 'Task A' }])
+      expect(result.rows).toEqual([{ title: 'Task C' }, { title: 'Task B' }, { title: 'Task A' }])
     }
   )
 
