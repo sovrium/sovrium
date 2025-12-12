@@ -105,6 +105,15 @@ export class DatabaseTemplateManager {
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO app_user;
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO app_user;
       `)
+
+      // Grant test roles to app_user so it can switch roles via SET ROLE
+      // This allows app_user (non-superuser) to test RLS policies with different permission levels
+      await templatePool.query(`
+        GRANT admin_user TO app_user;
+        GRANT member_user TO app_user;
+        GRANT authenticated_user TO app_user;
+        GRANT guest_user TO app_user;
+      `)
     } finally {
       await templatePool.end()
     }

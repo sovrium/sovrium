@@ -42,5 +42,17 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated_user') THEN
     CREATE ROLE authenticated_user;
   END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'guest_user') THEN
+    CREATE ROLE guest_user;
+  END IF;
 END
 $$;
+--> statement-breakpoint
+
+-- Grant test roles to app_user so it can switch roles via SET ROLE
+-- This allows app_user (non-superuser) to test RLS policies with different permission levels
+GRANT admin_user TO app_user;
+GRANT member_user TO app_user;
+GRANT authenticated_user TO app_user;
+GRANT guest_user TO app_user;
