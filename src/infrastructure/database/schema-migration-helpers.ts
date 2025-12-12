@@ -6,114 +6,26 @@
  */
 
 import { shouldCreateDatabaseColumn } from './field-utils'
+import {
+  tableExistsAsync,
+  getExistingColumnsAsync,
+  getExistingTableNamesAsync,
+  type TransactionLike,
+} from './sql-execution'
 import { mapFieldTypeToPostgres, generateColumnDefinition } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
 /**
  * Type definition for Bun SQL transaction
+ * Re-exported from sql-execution.ts for backward compatibility
  */
-export interface BunSQLTransaction {
-  readonly unsafe: (sql: string) => Promise<readonly unknown[]>
-}
+export type BunSQLTransaction = TransactionLike
 
-/**
- * Type definition for information_schema.columns row
- */
-interface ColumnInfo {
-  readonly column_name: string
-  readonly data_type: string
-  readonly is_nullable: string
-}
-
-/**
- * Get existing columns from a table
- *
- * SECURITY NOTE: String interpolation is used for tableName.
- * This is SAFE because:
- * 1. tableName comes from validated Effect Schema (Table.name field)
- * 2. Table names are defined in schema configuration, not user input
- * 3. The App schema is validated before reaching this code
- * 4. Bun SQL's tx.unsafe() does not support parameterized queries ($1 placeholders)
- * 5. information_schema queries are read-only (no data modification risk)
- */
-export const getExistingColumns = async (
-  tx: BunSQLTransaction,
-  tableName: string
-): Promise<ReadonlyMap<string, { dataType: string; isNullable: string }>> => {
-  const result = (await tx.unsafe(`
-    SELECT column_name, data_type, is_nullable
-    FROM information_schema.columns
-    WHERE table_name = '${tableName}'
-      AND table_schema = 'public'
-  `)) as readonly ColumnInfo[]
-
-  // Use Array.from() with map to build immutable Map (functional approach)
-  return new Map(
-    result.map((row) => [
-      row.column_name,
-      {
-        dataType: row.data_type,
-        isNullable: row.is_nullable,
-      },
-    ])
-  )
-}
-
-/**
- * Type definition for table existence query result
- */
-interface TableExistsResult {
-  readonly exists: boolean
-}
-
-/**
- * Check if a table exists in the database
- *
- * SECURITY NOTE: String interpolation is used for tableName.
- * This is SAFE because:
- * 1. tableName comes from validated Effect Schema (Table.name field)
- * 2. Table names are defined in schema configuration, not user input
- * 3. The App schema is validated before reaching this code
- * 4. Bun SQL's tx.unsafe() does not support parameterized queries ($1 placeholders)
- * 5. information_schema queries are read-only (no data modification risk)
- */
-export const tableExists = async (tx: BunSQLTransaction, tableName: string): Promise<boolean> => {
-  const result = (await tx.unsafe(`
-    SELECT EXISTS (
-      SELECT 1
-      FROM information_schema.tables
-      WHERE table_name = '${tableName}'
-        AND table_schema = 'public'
-    ) as exists
-  `)) as readonly TableExistsResult[]
-  return result[0]?.exists ?? false
-}
-
-/**
- * Type definition for table name query result
- */
-interface TableNameResult {
-  readonly tablename: string
-}
-
-/**
- * Get all existing table names in the public schema
- *
- * SECURITY NOTE: This query is read-only and uses information_schema.
- * This is SAFE because:
- * 1. No user input is involved (queries all tables in public schema)
- * 2. information_schema queries are read-only (no data modification risk)
- * 3. Only returns table names (no sensitive data)
- */
-export const getExistingTableNames = async (tx: BunSQLTransaction): Promise<readonly string[]> => {
-  const result = (await tx.unsafe(`
-    SELECT tablename
-    FROM pg_tables
-    WHERE schemaname = 'public'
-  `)) as readonly TableNameResult[]
-  return result.map((row) => row.tablename)
-}
+// Re-export async functions from sql-execution.ts for backward compatibility
+export const getExistingColumns = getExistingColumnsAsync
+export const tableExists = tableExistsAsync
+export const getExistingTableNames = getExistingTableNamesAsync
 
 /**
  * Better Auth system tables that should never be dropped

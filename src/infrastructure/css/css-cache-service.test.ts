@@ -7,7 +7,15 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { getCachedCSS, setCachedCSS, getThemeCacheKey, type CompiledCSS } from './css-cache-service'
+import {
+  getCachedCSS,
+  setCachedCSS,
+  getThemeCacheKey,
+  normalizeTheme,
+  clearCSSCache,
+  getOrComputeCachedCSS,
+  type CompiledCSS,
+} from './css-cache-service'
 import type { Theme } from '@/domain/models/app/theme'
 
 describe('CSS Cache Service', () => {
@@ -86,10 +94,8 @@ describe('CSS Cache Service', () => {
       expect(key).toContain('Inter')
     })
 
-    test('property order does not affect key (JSON.stringify sorting)', () => {
-      // Note: JavaScript object property order is insertion order
-      // JSON.stringify preserves insertion order
-      // So these will actually produce different keys
+    test('property order does not affect key (normalized sorting)', () => {
+      // With normalization, property order should not matter
       const theme1: Theme = {
         colors: { primary: '#3b82f6' },
         fonts: { sans: { family: 'Inter', fallback: 'system-ui' } },
@@ -103,8 +109,8 @@ describe('CSS Cache Service', () => {
       const key1 = getThemeCacheKey(theme1)
       const key2 = getThemeCacheKey(theme2)
 
-      // Keys will be different due to property order
-      expect(key1).not.toBe(key2)
+      // Keys should be the same due to normalization
+      expect(key1).toBe(key2)
     })
   })
 
@@ -321,6 +327,176 @@ describe('CSS Cache Service', () => {
       )
 
       expect(result).toEqual(compiled)
+    })
+  })
+
+  describe('normalizeTheme', () => {
+    test('returns undefined for undefined theme', () => {
+      const result = normalizeTheme(undefined)
+      expect(result).toBeUndefined()
+    })
+
+    test('sorts top-level keys alphabetically', () => {
+      const theme: Theme = {
+        fonts: { sans: { family: 'Inter', fallback: 'system-ui' } },
+        colors: { primary: '#3b82f6' },
+      }
+
+      const normalized = normalizeTheme(theme)
+      const keys = Object.keys(normalized!)
+
+      expect(keys[0]).toBe('colors')
+      expect(keys[1]).toBe('fonts')
+    })
+
+    test('sorts nested keys recursively', () => {
+      const theme: Theme = {
+        colors: {
+          secondary: '#8b5cf6',
+          primary: '#3b82f6',
+        },
+      }
+
+      const normalized = normalizeTheme(theme) as { colors: { primary: string; secondary: string } }
+      const colorKeys = Object.keys(normalized.colors)
+
+      expect(colorKeys[0]).toBe('primary')
+      expect(colorKeys[1]).toBe('secondary')
+    })
+
+    test('preserves array order (does not sort arrays)', () => {
+      const theme: Theme = {
+        fonts: {
+          sans: {
+            family: 'Inter',
+            fallback: 'system-ui',
+          },
+        },
+      }
+
+      const normalized = normalizeTheme(theme)
+      expect(normalized).toEqual(theme)
+    })
+  })
+
+  describe('clearCSSCache', () => {
+    test('clears all cached entries', async () => {
+      const cacheKey = 'clear-test-' + Date.now()
+      const compiled: CompiledCSS = {
+        css: '.clear { display: none; }',
+        timestamp: Date.now(),
+      }
+
+      const program = Effect.gen(function* () {
+        // Set cache
+        yield* setCachedCSS(cacheKey, compiled)
+
+        // Verify it's there
+        const beforeClear = yield* getCachedCSS(cacheKey)
+        expect(beforeClear).toBeDefined()
+
+        // Clear cache
+        yield* clearCSSCache()
+
+        // Verify it's gone
+        const afterClear = yield* getCachedCSS(cacheKey)
+        return afterClear
+      })
+
+      const result = await Effect.runPromise(program)
+      expect(result).toBeUndefined()
+    })
+  })
+
+  describe('getOrComputeCachedCSS', () => {
+    test('returns cached value if available', async () => {
+      const cacheKey = 'compute-cached-' + Date.now()
+      const compiled: CompiledCSS = {
+        css: '.cached { color: blue; }',
+        timestamp: 1000,
+      }
+
+      let computeCallCount = 0
+      const compute = Effect.sync(() => {
+        computeCallCount++
+        return { css: '.computed { color: red; }', timestamp: 2000 }
+      })
+
+      const program = Effect.gen(function* () {
+        // Pre-populate cache
+        yield* setCachedCSS(cacheKey, compiled)
+
+        // Get or compute - should return cached, not compute
+        const result = yield* getOrComputeCachedCSS(cacheKey, compute)
+        return result
+      })
+
+      const result = await Effect.runPromise(program)
+
+      expect(result).toEqual(compiled)
+      expect(computeCallCount).toBe(0) // compute should not have been called
+    })
+
+    test('computes and caches value if not available', async () => {
+      const cacheKey = 'compute-new-' + Date.now()
+      const computedCSS: CompiledCSS = {
+        css: '.computed { color: green; }',
+        timestamp: Date.now(),
+      }
+
+      let computeCallCount = 0
+      const compute = Effect.sync(() => {
+        computeCallCount++
+        return computedCSS
+      })
+
+      const program = Effect.gen(function* () {
+        // Get or compute - should compute and cache
+        const result = yield* getOrComputeCachedCSS(cacheKey, compute)
+
+        // Verify it's now cached
+        const cached = yield* getCachedCSS(cacheKey)
+
+        return { result, cached }
+      })
+
+      const { result, cached } = await Effect.runPromise(program)
+
+      expect(result).toEqual(computedCSS)
+      expect(cached).toEqual(computedCSS)
+      expect(computeCallCount).toBe(1)
+    })
+
+    test('only computes once on repeated calls with same key', async () => {
+      const cacheKey = 'compute-once-' + Date.now()
+      const computedCSS: CompiledCSS = {
+        css: '.once { color: purple; }',
+        timestamp: Date.now(),
+      }
+
+      let computeCallCount = 0
+      const compute = Effect.sync(() => {
+        computeCallCount++
+        return computedCSS
+      })
+
+      const program = Effect.gen(function* () {
+        // First call - computes
+        const result1 = yield* getOrComputeCachedCSS(cacheKey, compute)
+        // Second call - uses cache
+        const result2 = yield* getOrComputeCachedCSS(cacheKey, compute)
+        // Third call - uses cache
+        const result3 = yield* getOrComputeCachedCSS(cacheKey, compute)
+
+        return { result1, result2, result3 }
+      })
+
+      const { result1, result2, result3 } = await Effect.runPromise(program)
+
+      expect(result1).toEqual(computedCSS)
+      expect(result2).toEqual(computedCSS)
+      expect(result3).toEqual(computedCSS)
+      expect(computeCallCount).toBe(1) // only computed once
     })
   })
 })

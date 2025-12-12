@@ -6,15 +6,21 @@
  */
 
 /**
- * Common SQL/formula keywords and functions that should be excluded from field references.
- * This list includes SQL keywords, operators, functions, and data types that are part of
- * the PostgreSQL SQL syntax and should not be treated as field names when parsing formulas.
+ * Common SQL/formula keywords and functions organized by category.
+ * These should be excluded from field references when parsing formulas.
  *
- * Defined as a constant to avoid recreating the Set on every function call.
+ * Defined as constants to avoid recreating Sets on every function call.
  * Exported from a separate module to reduce main table index file size.
  */
-export const FORMULA_KEYWORDS = new Set([
-  // SQL keywords
+
+// ============================================================================
+// SQL Keywords
+// ============================================================================
+
+/**
+ * SQL keywords used in queries (SELECT, JOIN, WHERE, etc.)
+ */
+export const SQL_KEYWORDS: ReadonlySet<string> = new Set([
   'as',
   'from',
   'where',
@@ -44,22 +50,39 @@ export const FORMULA_KEYWORDS = new Set([
   'having',
   'limit',
   'offset',
-  // Logical operators
+  'select',
+])
+
+/**
+ * Logical operators for boolean expressions
+ */
+export const LOGICAL_OPERATORS: ReadonlySet<string> = new Set([
   'if',
   'then',
   'else',
   'and',
   'or',
   'not',
-  // Boolean literals
-  'true',
-  'false',
-  'null',
-  // Control flow
-  'case',
-  'when',
-  'end',
-  // String functions
+])
+
+/**
+ * Boolean and null literals
+ */
+export const LITERALS: ReadonlySet<string> = new Set(['true', 'false', 'null'])
+
+/**
+ * Control flow keywords (CASE/WHEN/END)
+ */
+export const CONTROL_FLOW: ReadonlySet<string> = new Set(['case', 'when', 'end'])
+
+// ============================================================================
+// Functions by Category
+// ============================================================================
+
+/**
+ * String manipulation functions
+ */
+export const STRING_FUNCTIONS: ReadonlySet<string> = new Set([
   'concat',
   'upper',
   'lower',
@@ -79,7 +102,12 @@ export const FORMULA_KEYWORDS = new Set([
   'decode',
   'initcap',
   'placing',
-  // Math functions
+])
+
+/**
+ * Mathematical functions
+ */
+export const MATH_FUNCTIONS: ReadonlySet<string> = new Set([
   'round',
   'ceil',
   'floor',
@@ -94,7 +122,12 @@ export const FORMULA_KEYWORDS = new Set([
   'log',
   'ln',
   'sign',
-  // Aggregate functions
+])
+
+/**
+ * Aggregate functions for grouping operations
+ */
+export const AGGREGATE_FUNCTIONS: ReadonlySet<string> = new Set([
   'sum',
   'avg',
   'max',
@@ -102,7 +135,12 @@ export const FORMULA_KEYWORDS = new Set([
   'count',
   'counta',
   'countall',
-  // Date/time functions
+])
+
+/**
+ * Date and time functions
+ */
+export const DATE_FUNCTIONS: ReadonlySet<string> = new Set([
   'current_date',
   'current_time',
   'current_timestamp',
@@ -122,11 +160,33 @@ export const FORMULA_KEYWORDS = new Set([
   'hour',
   'minute',
   'second',
-  // Type conversions
-  'cast',
-  'coalesce',
-  'nullif',
-  // Data types
+])
+
+/**
+ * Date part keywords used with EXTRACT
+ */
+export const DATE_PART_KEYWORDS: ReadonlySet<string> = new Set([
+  'dow',
+  'week',
+  'doy',
+  'epoch',
+  'isodow',
+  'isoweek',
+  'isoyear',
+  'julian',
+  'quarter',
+  'timezone',
+])
+
+/**
+ * Type conversion functions
+ */
+export const TYPE_CONVERSIONS: ReadonlySet<string> = new Set(['cast', 'coalesce', 'nullif'])
+
+/**
+ * PostgreSQL data type names
+ */
+export const DATA_TYPES: ReadonlySet<string> = new Set([
   'numeric',
   'integer',
   'int',
@@ -142,7 +202,12 @@ export const FORMULA_KEYWORDS = new Set([
   'time',
   'interval',
   'bytea',
-  // Array functions
+])
+
+/**
+ * Array manipulation functions
+ */
+export const ARRAY_FUNCTIONS: ReadonlySet<string> = new Set([
   'array',
   'array_length',
   'array_remove',
@@ -150,22 +215,65 @@ export const FORMULA_KEYWORDS = new Set([
   'arrayunique',
   'unnest',
   'flatten',
-  // Regex functions
-  'regexp_match',
-  'regexp_replace',
-  // Binary/encoding functions
-  'convert_from',
-  // Date part keywords
-  'dow',
-  'week',
-  'doy',
-  'epoch',
-  'isodow',
-  'isoweek',
-  'isoyear',
-  'julian',
-  'quarter',
-  'timezone',
-  // SQL statement keywords
-  'select',
 ])
+
+/**
+ * Regular expression functions
+ */
+export const REGEX_FUNCTIONS: ReadonlySet<string> = new Set(['regexp_match', 'regexp_replace'])
+
+/**
+ * Binary and encoding functions
+ */
+export const BINARY_FUNCTIONS: ReadonlySet<string> = new Set(['convert_from'])
+
+// ============================================================================
+// Combined Export (Backward Compatible)
+// ============================================================================
+
+/**
+ * All formula keywords combined.
+ * This is the main export for backward compatibility.
+ *
+ * Used to filter out SQL keywords when extracting field references from formulas.
+ */
+export const FORMULA_KEYWORDS = new Set([
+  ...SQL_KEYWORDS,
+  ...LOGICAL_OPERATORS,
+  ...LITERALS,
+  ...CONTROL_FLOW,
+  ...STRING_FUNCTIONS,
+  ...MATH_FUNCTIONS,
+  ...AGGREGATE_FUNCTIONS,
+  ...DATE_FUNCTIONS,
+  ...DATE_PART_KEYWORDS,
+  ...TYPE_CONVERSIONS,
+  ...DATA_TYPES,
+  ...ARRAY_FUNCTIONS,
+  ...REGEX_FUNCTIONS,
+  ...BINARY_FUNCTIONS,
+])
+
+// ============================================================================
+// Category Groups for Programmatic Access
+// ============================================================================
+
+/**
+ * All keyword categories for programmatic iteration
+ */
+export const KEYWORD_CATEGORIES = {
+  SQL_KEYWORDS,
+  LOGICAL_OPERATORS,
+  LITERALS,
+  CONTROL_FLOW,
+  STRING_FUNCTIONS,
+  MATH_FUNCTIONS,
+  AGGREGATE_FUNCTIONS,
+  DATE_FUNCTIONS,
+  DATE_PART_KEYWORDS,
+  TYPE_CONVERSIONS,
+  DATA_TYPES,
+  ARRAY_FUNCTIONS,
+  REGEX_FUNCTIONS,
+  BINARY_FUNCTIONS,
+} as const

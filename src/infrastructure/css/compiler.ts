@@ -14,9 +14,8 @@ import {
   generateUtilitiesLayer,
 } from '@/infrastructure/css/component-layer-generators'
 import {
-  getCachedCSS,
+  getOrComputeCachedCSS,
   getThemeCacheKey,
-  setCachedCSS,
   type CompiledCSS,
 } from '@/infrastructure/css/css-cache-service'
 import {
@@ -99,6 +98,36 @@ function buildSourceCSS(theme?: Theme): string {
 }
 
 /**
+ * Internal CSS compilation logic (without caching)
+ * Generates and compiles Tailwind CSS from theme configuration
+ */
+const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompilationError> =>
+  Effect.gen(function* () {
+    // Build SOURCE_CSS with theme
+    const sourceCSS = buildSourceCSS(theme)
+
+    // Process CSS through PostCSS with Tailwind plugin
+    const result = yield* Effect.tryPromise({
+      try: async () => {
+        const processor = postcss([tailwindcss()])
+        return await processor.process(sourceCSS, {
+          from: process.cwd() + '/src/styles/global.css', // Source context for import resolution
+          to: undefined, // No output file (in-memory compilation)
+        })
+      },
+      catch: (error) => new CSSCompilationError(error),
+    })
+
+    yield* Console.log('CSS compiled and cached')
+
+    // Create compiled CSS result
+    return {
+      css: result.css,
+      timestamp: Date.now(),
+    }
+  })
+
+/**
  * Compiles Tailwind CSS using PostCSS with @tailwindcss/postcss plugin
  *
  * This function:
@@ -107,6 +136,9 @@ function buildSourceCSS(theme?: Theme): string {
  * 3. Processes through PostCSS with Tailwind CSS v4 plugin
  * 4. Returns the compiled CSS string
  * 5. Caches the result in memory per theme (subsequent requests use cache)
+ *
+ * Uses getOrComputeCachedCSS for declarative caching with normalized theme keys.
+ * Same theme content always produces the same cache key regardless of property order.
  *
  * @param app - Optional app configuration containing theme
  * @returns Effect that yields compiled CSS string or CSSCompilationError
@@ -133,37 +165,13 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
     const theme = app?.theme
     const cacheKey = getThemeCacheKey(theme)
 
-    // Check cache first
-    const cached = yield* getCachedCSS(cacheKey)
-    if (cached !== undefined) {
+    // Use declarative cache helper with theme-based key
+    const result = yield* getOrComputeCachedCSS(cacheKey, compileCSSInternal(theme))
+
+    // Log cache status (hit if timestamp is old, compiled if fresh)
+    if (Date.now() - result.timestamp > 100) {
       yield* Console.log('CSS cache hit')
-      return cached
     }
 
-    // Build SOURCE_CSS with theme
-    const sourceCSS = buildSourceCSS(theme)
-
-    // Process CSS through PostCSS with Tailwind plugin
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        const processor = postcss([tailwindcss()])
-        return await processor.process(sourceCSS, {
-          from: process.cwd() + '/src/styles/global.css', // Source context for import resolution
-          to: undefined, // No output file (in-memory compilation)
-        })
-      },
-      catch: (error) => new CSSCompilationError(error),
-    })
-
-    // Create compiled CSS result
-    const compiled: CompiledCSS = {
-      css: result.css,
-      timestamp: Date.now(),
-    }
-
-    // Update cache
-    yield* setCachedCSS(cacheKey, compiled)
-    yield* Console.log('CSS compiled and cached')
-
-    return compiled
+    return result
   })

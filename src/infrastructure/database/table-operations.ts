@@ -22,12 +22,16 @@ import {
   generateRoleBasedGrants,
 } from './rls-policy-generators'
 import {
-  getExistingColumns,
   generateAlterTableStatements,
   syncUniqueConstraints,
   syncForeignKeyConstraints,
   type BunSQLTransaction,
 } from './schema-migration-helpers'
+import {
+  executeSQLStatementsAsync,
+  getExistingColumnsAsync,
+  type TransactionLike,
+} from './sql-execution'
 import { generateColumnDefinition, generateTableConstraints } from './sql-generators'
 import {
   generateCreatedAtTriggers,
@@ -113,20 +117,7 @@ export const generateCreateTableSQL = (
 )`
 }
 
-/**
- * Execute SQL statements from a generator
- * Helper to eliminate duplication in index/trigger/policy creation
- */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
-const executeSQLStatements = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
-  statements: readonly string[]
-): Promise<void> => {
-  for (const sql of statements) {
-    await tx.unsafe(sql)
-  }
-}
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+// executeSQLStatements is now imported from sql-execution.ts as executeSQLStatementsAsync
 
 /**
  * Apply table features (indexes, triggers, RLS policies, field permissions)
@@ -134,10 +125,7 @@ const executeSQLStatements = async (
  * Note: Triggers and policies are applied to the base table, not the VIEW
  */
 /* eslint-disable functional/no-expression-statements */
-const applyTableFeatures = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
-  table: Table
-): Promise<void> => {
+const applyTableFeatures = async (tx: TransactionLike, table: Table): Promise<void> => {
   // Determine actual table name (base table if using VIEW)
   const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
 
@@ -145,34 +133,34 @@ const applyTableFeatures = async (
   const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
   // Indexes (IF NOT EXISTS prevents errors)
-  await executeSQLStatements(tx, generateIndexStatements(physicalTable))
+  await executeSQLStatementsAsync(tx, generateIndexStatements(physicalTable))
 
   // Triggers for created-at fields
-  await executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable))
+  await executeSQLStatementsAsync(tx, generateCreatedAtTriggers(physicalTable))
 
   // Triggers for autonumber fields
-  await executeSQLStatements(tx, generateAutonumberTriggers(physicalTable))
+  await executeSQLStatementsAsync(tx, generateAutonumberTriggers(physicalTable))
 
   // Triggers for updated-by fields
-  await executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable))
+  await executeSQLStatementsAsync(tx, generateUpdatedByTriggers(physicalTable))
 
   // Triggers for volatile formula fields
   await createVolatileFormulaTriggers(tx, physicalTableName, table.fields)
 
   // RLS policies for organization-scoped tables OR default deny when no permissions
-  await executeSQLStatements(tx, generateRLSPolicyStatements(physicalTable))
+  await executeSQLStatementsAsync(tx, generateRLSPolicyStatements(physicalTable))
 
   // Basic table grants for tables with no permissions (default deny)
-  await executeSQLStatements(tx, generateBasicTableGrants(physicalTable))
+  await executeSQLStatementsAsync(tx, generateBasicTableGrants(physicalTable))
 
   // Authenticated table grants for tables with authenticated permissions
-  await executeSQLStatements(tx, generateAuthenticatedBasedGrants(physicalTable))
+  await executeSQLStatementsAsync(tx, generateAuthenticatedBasedGrants(physicalTable))
 
   // Role-based table grants for tables with role-based permissions
-  await executeSQLStatements(tx, generateRoleBasedGrants(physicalTable))
+  await executeSQLStatementsAsync(tx, generateRoleBasedGrants(physicalTable))
 
   // Field-level permissions (column grants)
-  await executeSQLStatements(tx, generateFieldPermissionGrants(physicalTable))
+  await executeSQLStatementsAsync(tx, generateFieldPermissionGrants(physicalTable))
 }
 /* eslint-enable functional/no-expression-statements */
 
@@ -181,7 +169,7 @@ const applyTableFeatures = async (
  */
 /* eslint-disable functional/no-expression-statements */
 export const migrateExistingTable = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
+  tx: TransactionLike,
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
   tableUsesView?: ReadonlyMap<string, boolean>
@@ -196,7 +184,7 @@ export const migrateExistingTable = async (
     await tx.unsafe(createTableSQL)
   } else {
     // Apply incremental migrations
-    await executeSQLStatements(tx, alterStatements)
+    await executeSQLStatementsAsync(tx, alterStatements)
   }
 
   // Always add/update unique constraints for existing tables
@@ -216,7 +204,7 @@ export const migrateExistingTable = async (
  */
 /* eslint-disable functional/no-expression-statements */
 export const createNewTable = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
+  tx: TransactionLike,
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Promise<void> => {
@@ -233,10 +221,7 @@ export const createNewTable = async (
  * Called after all base tables have been created to avoid dependency issues
  */
 /* eslint-disable functional/no-expression-statements */
-export const createLookupViews = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
-  table: Table
-): Promise<void> => {
+export const createLookupViews = async (tx: TransactionLike, table: Table): Promise<void> => {
   if (shouldUseView(table)) {
     const createViewSQL = generateLookupViewSQL(table)
     if (createViewSQL) {
@@ -248,7 +233,7 @@ export const createLookupViews = async (
 
       // Create INSTEAD OF triggers to make the VIEW writable
       const triggerStatements = generateLookupViewTriggers(table)
-      await executeSQLStatements(tx, triggerStatements)
+      await executeSQLStatementsAsync(tx, triggerStatements)
     }
   }
 }
@@ -259,10 +244,7 @@ export const createLookupViews = async (
  * Called after all tables and lookup views have been created
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
-export const createTableViews = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
-  table: Table
-): Promise<void> => {
+export const createTableViews = async (tx: TransactionLike, table: Table): Promise<void> => {
   // Only process tables that have views defined
   if (!table.views || table.views.length === 0) {
     return
@@ -309,7 +291,7 @@ export const createOrMigrateTable = async (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Promise<void> => {
   if (exists) {
-    const existingColumns = await getExistingColumns(tx, table.name)
+    const existingColumns = await getExistingColumnsAsync(tx, table.name)
     await migrateExistingTable(tx, table, existingColumns, tableUsesView)
   } else {
     await createNewTable(tx, table, tableUsesView)
