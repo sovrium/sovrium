@@ -539,7 +539,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-012: should enforce single link when allowMultiple is false',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
