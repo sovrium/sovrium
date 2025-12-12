@@ -48,6 +48,20 @@ const isRollupField = (
   typeof field.aggregation === 'string'
 
 /**
+ * Check if a field is a count field
+ */
+const isCountField = (
+  field: Fields[number]
+): field is Fields[number] & {
+  type: 'count'
+  relationshipField: string
+  conditions?: readonly ViewFilterCondition[]
+} =>
+  field.type === 'count' &&
+  'relationshipField' in field &&
+  typeof field.relationshipField === 'string'
+
+/**
  * Check if a table has any lookup fields
  */
 export const hasLookupFields = (table: Table): boolean =>
@@ -58,6 +72,12 @@ export const hasLookupFields = (table: Table): boolean =>
  */
 export const hasRollupFields = (table: Table): boolean =>
   table.fields.some((field) => isRollupField(field))
+
+/**
+ * Check if a table has any count fields
+ */
+export const hasCountFields = (table: Table): boolean =>
+  table.fields.some((field) => isCountField(field))
 
 /**
  * Build WHERE clause from filter condition
@@ -247,20 +267,79 @@ const generateRollupExpression = (
 }
 
 /**
- * Generate CREATE VIEW statement for a table with lookup and/or rollup fields
- * Replaces the base table with a VIEW that includes looked-up and aggregated columns
- * Returns empty string if table has no lookup or rollup fields
+ * Generate count column expression with optional filtering
+ * Counts linked records from a relationship field, with optional conditions
+ */
+const generateCountExpression = (
+  countField: Fields[number] & {
+    type: 'count'
+    relationshipField: string
+    conditions?: readonly ViewFilterCondition[]
+  },
+  tableName: string,
+  allFields: readonly Fields[number][]
+): string => {
+  const { name: countName, relationshipField, conditions } = countField
+
+  const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
+
+  // Count field must reference a valid relationship field in same table
+  if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
+    return `0 AS ${countName}`
+  }
+
+  if (
+    !('relatedTable' in relationshipFieldDef) ||
+    typeof relationshipFieldDef.relatedTable !== 'string'
+  ) {
+    return `0 AS ${countName}`
+  }
+
+  const { relatedTable } = relationshipFieldDef
+  const alias = `${relatedTable}_for_${countName}`
+
+  // Determine the foreign key column in the related table
+  // For one-to-many relationships, the foreignKey property specifies the FK column in the related table
+  // For many-to-one relationships, the relationship field itself is the FK column
+  const foreignKeyColumn =
+    'foreignKey' in relationshipFieldDef && typeof relationshipFieldDef.foreignKey === 'string'
+      ? relationshipFieldDef.foreignKey
+      : relationshipField
+
+  // Build WHERE clause with base condition + optional filter conditions
+  const baseCondition = `${alias}.${foreignKeyColumn} = ${tableName}.id`
+
+  // Convert conditions array to WHERE clauses
+  const filterConditions = conditions?.map((condition) => buildWhereClause(condition, alias)) ?? []
+
+  const whereConditions = [baseCondition, ...filterConditions]
+  const whereClause = whereConditions.join(' AND ')
+
+  // Use COALESCE to ensure 0 instead of NULL when no records match
+  return `COALESCE(
+    (SELECT COUNT(*)
+     FROM ${relatedTable} AS ${alias}
+     WHERE ${whereClause}),
+    0
+  ) AS ${countName}`
+}
+
+/**
+ * Generate CREATE VIEW statement for a table with lookup, rollup, and/or count fields
+ * Replaces the base table with a VIEW that includes looked-up, aggregated, and counted columns
+ * Returns empty string if table has no lookup, rollup, or count fields
  */
 export const generateLookupViewSQL = (table: Table): string => {
   const lookupFields = table.fields.filter(isLookupField)
   const rollupFields = table.fields.filter(isRollupField)
+  const countFields = table.fields.filter(isCountField)
 
-  if (lookupFields.length === 0 && rollupFields.length === 0) {
-    return '' // No lookup or rollup fields - no VIEW needed
+  if (lookupFields.length === 0 && rollupFields.length === 0 && countFields.length === 0) {
+    return '' // No lookup, rollup, or count fields - no VIEW needed
   }
 
   // Always include base.* to get all columns from the base table (including auto-generated id)
-  // Then add lookup and rollup fields as additional computed columns
+  // Then add lookup, rollup, and count fields as additional computed columns
   const baseFieldsWildcard = 'base.*'
 
   // Generate lookup expressions (subqueries or JOIN references)
@@ -271,6 +350,11 @@ export const generateLookupViewSQL = (table: Table): string => {
   // Generate rollup expressions (aggregation subqueries)
   const rollupExpressions = rollupFields.map((field) =>
     generateRollupExpression(field, 'base', table.fields)
+  )
+
+  // Generate count expressions (COUNT subqueries with optional filtering)
+  const countExpressions = countFields.map((field) =>
+    generateCountExpression(field, 'base', table.fields)
   )
 
   // Determine if we need JOINs for forward lookups
@@ -298,9 +382,12 @@ export const generateLookupViewSQL = (table: Table): string => {
     .join('\n  ')
 
   // Assemble the final VIEW SQL
-  const selectClause = [baseFieldsWildcard, ...lookupExpressions, ...rollupExpressions].join(
-    ',\n    '
-  )
+  const selectClause = [
+    baseFieldsWildcard,
+    ...lookupExpressions,
+    ...rollupExpressions,
+    ...countExpressions,
+  ].join(',\n    ')
 
   return `CREATE OR REPLACE VIEW ${table.name} AS
   SELECT
@@ -316,19 +403,19 @@ export const generateLookupViewSQL = (table: Table): string => {
 export const getBaseTableName = (tableName: string): string => `${tableName}_base`
 
 /**
- * Check if a table should use a VIEW (has lookup or rollup fields)
+ * Check if a table should use a VIEW (has lookup, rollup, or count fields)
  */
 export const shouldUseView = (table: Table): boolean =>
-  hasLookupFields(table) || hasRollupFields(table)
+  hasLookupFields(table) || hasRollupFields(table) || hasCountFields(table)
 
 /**
- * Get base fields (non-lookup, non-rollup, non-one-to-many, non-id fields)
+ * Get base fields (non-lookup, non-rollup, non-count, non-one-to-many, non-id fields)
  */
 const getBaseFields = (table: Table): readonly string[] =>
   table.fields
     .filter((field) => {
-      // Exclude lookup and rollup fields (handled by VIEW)
-      if (field.type === 'lookup' || field.type === 'rollup') {
+      // Exclude lookup, rollup, and count fields (handled by VIEW)
+      if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') {
         return false
       }
       // Exclude one-to-many relationship fields (don't create columns)

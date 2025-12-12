@@ -10,6 +10,7 @@ import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
 import { detectCycles } from './cycle-detection'
 import { findDuplicate } from './field-types/validation-utils'
 import { FieldsSchema } from './fields'
+import { FORMULA_KEYWORDS } from './formula-keywords'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
 import { TablePermissionsSchema } from './permissions'
@@ -43,69 +44,6 @@ import { ViewSchema } from './views'
  */
 
 /**
- * Common SQL/formula keywords and functions that should be excluded from field references.
- * Defined as a constant to avoid recreating the Set on every function call.
- */
-const FORMULA_KEYWORDS = new Set([
-  'if',
-  'then',
-  'else',
-  'and',
-  'or',
-  'not',
-  'concat',
-  'round',
-  'sum',
-  'avg',
-  'max',
-  'min',
-  'count',
-  'true',
-  'false',
-  'null',
-  'case',
-  'when',
-  'end',
-  'ceil',
-  'floor',
-  'abs',
-  'current_date',
-  'current_time',
-  'current_timestamp',
-  'now',
-  'upper',
-  'lower',
-  'trim',
-  'length',
-  'substr',
-  'substring',
-  'replace',
-  'coalesce',
-  'nullif',
-  'cast',
-  'extract',
-  'date_add',
-  'date_sub',
-  'date_diff',
-  'year',
-  'month',
-  'day',
-  'hour',
-  'minute',
-  'second',
-  'power',
-  'sqrt',
-  'mod',
-  'greatest',
-  'least',
-  'exp',
-  'trunc',
-  'log',
-  'ln',
-  'sign',
-])
-
-/**
  * Validate formula syntax to detect common syntax errors.
  * Checks for patterns that would cause SQL syntax errors.
  *
@@ -113,8 +51,17 @@ const FORMULA_KEYWORDS = new Set([
  * @returns Error message if invalid, undefined if valid
  */
 const validateFormulaSyntax = (formula: string): string | undefined => {
+  // Remove string literals and regex patterns to avoid false positives
+  // String literals: 'text' or "text"
+  // Regex patterns: text ~ 'pattern' or text ~ '^pattern$'
+  const withoutLiterals = formula
+    .replace(/'[^']*'/g, '') // Remove single-quoted strings
+    .replace(/"[^"]*"/g, '') // Remove double-quoted strings
+
   // Check for consecutive operators (e.g., "* *", "+ +", "- -")
-  if (/[+\-*/%]\s*[+\-*/%]/.test(formula)) {
+  // Only check outside of string literals and regex patterns
+  const consecutiveOperatorPattern = /[+\-*/%]\s*[+\-*/%]/
+  if (consecutiveOperatorPattern.test(withoutLiterals)) {
     return 'Invalid formula syntax: consecutive operators detected'
   }
 
@@ -135,17 +82,24 @@ const validateFormulaSyntax = (formula: string): string | undefined => {
 
 /**
  * Extract potential field references from a formula expression.
- * This is a simplified parser that extracts identifiers (words) from the formula.
+ * This is a simplified parser that extracts identifiers (words) from the formula,
+ * excluding string literals (content within quotes).
  * It doesn't handle complex syntax but catches common field reference patterns.
  *
  * @param formula - The formula expression to parse
  * @returns Array of field names referenced in the formula
  */
 const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
+  // Remove single-quoted and double-quoted string literals to avoid treating
+  // literal values as field names (e.g., 'World' in STRPOS(text, 'World'))
+  const withoutStringLiterals = formula
+    .replace(/'[^']*'/g, '') // Remove single-quoted strings
+    .replace(/"[^"]*"/g, '') // Remove double-quoted strings
+
   // Match word characters (field names) - exclude function names and operators
   // This regex matches identifiers that could be field names
   const identifierPattern = /\b([a-z_][a-z0-9_]*)\b/gi
-  const matches = formula.match(identifierPattern) || []
+  const matches = withoutStringLiterals.match(identifierPattern) || []
 
   return matches
     .map((match) => match.toLowerCase())
@@ -157,6 +111,12 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
  * These are the standard roles defined by the organization plugin.
  */
 const DEFAULT_ROLES = new Set(['owner', 'admin', 'member', 'viewer'])
+
+/**
+ * Special field references that are always available in formulas.
+ * These are system-managed fields that exist on all tables.
+ */
+const SPECIAL_FIELDS = new Set(['id', 'created_at', 'updated_at'])
 
 /**
  * Validate formula fields in a table (syntax, field references, circular dependencies).
@@ -192,7 +152,9 @@ const validateFormulaFields = (
   const invalidReference = formulaFields
     .flatMap((formulaField) => {
       const referencedFields = extractFieldReferences(formulaField.formula)
-      const invalidField = referencedFields.find((refField) => !fieldNames.has(refField))
+      const invalidField = referencedFields.find(
+        (refField) => !fieldNames.has(refField) && !SPECIAL_FIELDS.has(refField)
+      )
       return invalidField ? [{ formulaField, invalidField }] : []
     })
     .at(0)

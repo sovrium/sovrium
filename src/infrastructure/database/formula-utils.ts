@@ -119,6 +119,10 @@ const escapeFieldName = (fieldName: string): string =>
 /**
  * Volatile SQL functions that cannot be used in GENERATED ALWAYS AS columns
  * These functions return different values on each call or depend on external state
+ *
+ * NOTE: TO_CHAR is marked as STABLE (not IMMUTABLE) in PostgreSQL because its output
+ * can vary based on LC_TIME locale settings, making it unsuitable for GENERATED columns.
+ * Formulas using TO_CHAR will use trigger-based computation instead.
  */
 const volatileSQLFunctions = [
   'CURRENT_DATE',

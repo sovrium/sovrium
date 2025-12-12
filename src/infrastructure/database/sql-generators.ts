@@ -51,6 +51,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   relationship: 'INTEGER',
   lookup: 'TEXT',
   rollup: 'TEXT',
+  count: 'INTEGER',
   formula: 'TEXT',
   user: 'TEXT',
   'created-by': 'TEXT',
@@ -239,11 +240,13 @@ const generateFormulaColumn = (
 
   // Translate formula to PostgreSQL syntax with field type context
   // Note: translateFormulaToPostgres handles ROUND with double precision by casting to NUMERIC
+  // and converts date::TEXT to TO_CHAR(date, 'format') which is STABLE (not IMMUTABLE)
   const translatedFormula = translateFormulaToPostgres(field.formula, allFields)
 
   // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
   // because PostgreSQL GENERATED columns must be immutable
-  if (isFormulaVolatile(field.formula)) {
+  // Check volatility on TRANSLATED formula since date::TEXT becomes TO_CHAR (STABLE)
+  if (isFormulaVolatile(translatedFormula)) {
     // Create regular column - trigger will populate it
     return `${field.name} ${resultType}`
   }

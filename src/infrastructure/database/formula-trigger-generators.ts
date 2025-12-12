@@ -16,17 +16,21 @@ type VolatileFormulaField = Fields[number] & { readonly type: 'formula'; readonl
 /**
  * Get formula fields that contain volatile functions
  * These fields need trigger-based computation instead of GENERATED ALWAYS AS
+ *
+ * IMPORTANT: Check volatility on TRANSLATED formula because date::TEXT becomes
+ * TO_CHAR(date, 'format') which is STABLE, not IMMUTABLE.
  */
 const getVolatileFormulaFields = (
   fields: readonly Fields[number][]
 ): readonly VolatileFormulaField[] =>
-  fields.filter(
-    (field): field is VolatileFormulaField =>
-      field.type === 'formula' &&
-      'formula' in field &&
-      typeof field.formula === 'string' &&
-      isFormulaVolatile(field.formula)
-  )
+  fields.filter((field): field is VolatileFormulaField => {
+    if (field.type !== 'formula' || !('formula' in field) || typeof field.formula !== 'string') {
+      return false
+    }
+    // Translate formula first, then check volatility
+    const translatedFormula = translateFormulaToPostgres(field.formula, fields)
+    return isFormulaVolatile(translatedFormula)
+  })
 
 /**
  * Generate trigger function for volatile formula computation
