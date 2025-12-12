@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines */
+
 import {
   isFormulaVolatile,
   isFormulaReturningArray,
@@ -537,12 +539,16 @@ const generateForeignKeyConstraints = (
   })
 
   // Generate foreign keys for relationship fields (type: 'relationship')
-  // Exclude one-to-many relationships as they don't create FK constraints on the parent side
+  // Exclude one-to-many and many-to-many relationships as they don't create FK constraints on the parent side
   const relationshipFieldConstraints = fields
     .filter(isRelationshipField)
     .filter((field) => {
       // Only create FK for many-to-one relationships or relationships without explicit relationType
-      return !('relationType' in field) || field.relationType !== 'one-to-many'
+      // Exclude one-to-many (FK in related table) and many-to-many (uses junction table)
+      return (
+        !('relationType' in field) ||
+        (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
+      )
     })
     .map((field) => {
       const constraintName = `${tableName}_${field.name}_fkey`
@@ -635,3 +641,52 @@ export const generateTableConstraints = (
   ...generateCompositeUniqueConstraints(table),
   ...generateForeignKeyConstraints(table.name, table.fields, tableUsesView),
 ]
+
+/**
+ * Generate junction table name for many-to-many relationship
+ * Format: {table1}_{table2} (source table first, related table second)
+ */
+export const generateJunctionTableName = (sourceTable: string, relatedTable: string): string =>
+  `${sourceTable}_${relatedTable}`
+
+/**
+ * Convert table name to singular form for junction table column naming
+ * Simple heuristic: removes trailing 's' if present
+ * TODO: Add support for irregular plurals (e.g., 'people' -> 'person')
+ */
+const toSingular = (tableName: string): string =>
+  tableName.endsWith('s') ? tableName.slice(0, -1) : tableName
+
+/**
+ * Generate CREATE TABLE statement for junction table (many-to-many relationship)
+ *
+ * Junction tables have:
+ * - Two foreign key columns: {sourceTable}_id, {relatedTable}_id (singular form)
+ * - Composite primary key on both columns
+ * - Foreign key constraints to both tables
+ */
+export const generateJunctionTableDDL = (
+  sourceTable: string,
+  relatedTable: string,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): string => {
+  const junctionTableName = generateJunctionTableName(sourceTable, relatedTable)
+  const sourceColumnName = `${toSingular(sourceTable)}_id`
+  const relatedColumnName = `${toSingular(relatedTable)}_id`
+
+  // Determine actual table names (base tables if using views)
+  const sourceTableName =
+    tableUsesView?.get(sourceTable) === true ? `${sourceTable}_base` : sourceTable
+  const relatedTableName =
+    tableUsesView?.get(relatedTable) === true ? `${relatedTable}_base` : relatedTable
+
+  const columns = [
+    `${sourceColumnName} INTEGER NOT NULL`,
+    `${relatedColumnName} INTEGER NOT NULL`,
+    `PRIMARY KEY (${sourceColumnName}, ${relatedColumnName})`,
+    `CONSTRAINT ${junctionTableName}_${sourceColumnName}_fkey FOREIGN KEY (${sourceColumnName}) REFERENCES ${sourceTableName}(id)`,
+    `CONSTRAINT ${junctionTableName}_${relatedColumnName}_fkey FOREIGN KEY (${relatedColumnName}) REFERENCES ${relatedTableName}(id)`,
+  ]
+
+  return `CREATE TABLE IF NOT EXISTS ${junctionTableName} (\n  ${columns.join(',\n  ')}\n)`
+}
