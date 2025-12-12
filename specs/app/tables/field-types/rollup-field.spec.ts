@@ -684,7 +684,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-010: should return unique values with ARRAYUNIQUE aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

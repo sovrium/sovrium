@@ -162,7 +162,7 @@ const mapAggregationToPostgres = (aggregation: string, relatedField: string): st
     case 'COUNTALL':
       return `COUNT(*)`
     case 'ARRAYUNIQUE':
-      return `ARRAY_AGG(DISTINCT ${relatedField})`
+      return `ARRAY_AGG(DISTINCT ${relatedField} ORDER BY ${relatedField})`
     default:
       return `SUM(${relatedField})`
   }
