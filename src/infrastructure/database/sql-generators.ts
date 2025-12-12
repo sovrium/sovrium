@@ -495,6 +495,22 @@ export const generateUniqueConstraints = (
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
 
 /**
+ * Map onDelete/onUpdate values to PostgreSQL referential actions
+ */
+const mapReferentialAction = (action: string | undefined): string => {
+  if (!action) return ''
+  const upperAction = action.toUpperCase()
+  const validActions = ['CASCADE', 'SET NULL', 'SET DEFAULT', 'RESTRICT', 'NO ACTION']
+
+  // Map 'set-null' to 'SET NULL' for PostgreSQL compatibility
+  if (upperAction === 'SET-NULL') return ' ON DELETE SET NULL'
+
+  // Handle other actions
+  const postgresAction = validActions.find(valid => valid.replace(' ', '-') === upperAction || valid === upperAction)
+  return postgresAction ? ` ON DELETE ${postgresAction}` : ''
+}
+
+/**
  * Generate FOREIGN KEY constraints for user fields and relationship fields
  */
 const generateForeignKeyConstraints = (
@@ -516,7 +532,12 @@ const generateForeignKeyConstraints = (
       tableUsesView?.get(field.relatedTable) === true
         ? `${field.relatedTable}_base`
         : field.relatedTable
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)`
+
+    // Build referential actions (ON DELETE, ON UPDATE)
+    const onDeleteClause = 'onDelete' in field ? mapReferentialAction(field.onDelete as string | undefined) : ''
+    const onUpdateClause = 'onUpdate' in field ? mapReferentialAction(field.onUpdate as string | undefined).replace('ON DELETE', 'ON UPDATE') : ''
+
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
   })
 
   // TODO: Re-enable foreign keys for created-by/updated-by fields
