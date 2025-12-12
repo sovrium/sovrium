@@ -332,7 +332,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-005: should create VIEW to encapsulate rollup aggregation logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
