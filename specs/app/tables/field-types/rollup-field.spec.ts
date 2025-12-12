@@ -403,7 +403,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-006: should count non-empty values with COUNTA aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
