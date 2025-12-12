@@ -377,7 +377,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-009: should create btree index on foreign key when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
