@@ -607,7 +607,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-009: should apply conditions to filter rollup aggregation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
