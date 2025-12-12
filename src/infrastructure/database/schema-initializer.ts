@@ -18,6 +18,7 @@ import {
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
 import { tableExists, dropObsoleteTables } from './schema-migration-helpers'
+import { isRelationshipField } from './sql-generators'
 import { createOrMigrateTable } from './table-operations'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
@@ -30,6 +31,93 @@ export { BetterAuthUsersTableRequired } from './auth-validation'
 export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
+
+/**
+ * Sort tables by foreign key dependencies using topological sort
+ * Tables with no dependencies come first, tables with dependencies come after their referenced tables
+ *
+ * This ensures that when we CREATE TABLE statements, referenced tables exist before
+ * tables that reference them via foreign keys.
+ *
+ * Algorithm: Kahn's algorithm for topological sorting (functional implementation)
+ * - Build dependency graph (which tables does each table depend on)
+ * - Process tables with no dependencies first
+ * - Remove processed tables from dependency lists
+ * - Repeat until all tables are processed
+ *
+ * Handles circular dependencies by detecting them and keeping original order for those tables.
+ */
+const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] => {
+  // Build dependency map: tableName -> Set of tables it depends on
+  const tableMap = new Map(tables.map((t) => [t.name, t]))
+
+  const initialDeps = new Map(
+    tables.map((table) => {
+      const deps = new Set(
+        table.fields
+          .filter(isRelationshipField)
+          .map((f) => f.relatedTable)
+          .filter((name): name is string => name !== undefined && name !== table.name)
+      )
+      return [table.name, deps]
+    })
+  )
+
+  // Recursive helper to process tables in dependency order
+  const processTable = (
+    current: string,
+    remaining: ReadonlyMap<string, Set<string>>,
+    sorted: readonly Table[]
+  ): readonly Table[] => {
+    const table = tableMap.get(current)
+    if (!table) return sorted
+
+    // Add current table to sorted list
+    const newSorted = [...sorted, table]
+
+    // Remove current table from all dependency sets
+    const updated = new Map(
+      Array.from(remaining.entries()).map(([name, deps]) => {
+        const newDeps = new Set(deps)
+        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where
+        newDeps.delete(current)
+        return [name, newDeps]
+      })
+    )
+
+    // Remove current table from remaining
+    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where
+    updated.delete(current)
+
+    // Find next table with no dependencies
+    const next = Array.from(updated.entries()).find(([, deps]) => deps.size === 0)
+
+    if (next) {
+      return processTable(next[0], updated, newSorted)
+    }
+
+    // No more tables with zero dependencies - check for remaining tables
+    if (updated.size > 0) {
+      // Circular dependency or remaining tables - add in original order
+      return [
+        ...newSorted,
+        ...tables.filter((t) => !newSorted.includes(t) && updated.has(t.name)),
+      ]
+    }
+
+    return newSorted
+  }
+
+  // Find first table with no dependencies
+  const first = Array.from(initialDeps.entries()).find(([, deps]) => deps.size === 0)
+
+  if (first) {
+    return processTable(first[0], initialDeps, [])
+  }
+
+  // All tables have dependencies (circular) - return original order
+  return tables
+}
 
 /**
  * Execute schema initialization using bun:sql with transaction support
@@ -95,25 +183,35 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
         tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
       )
 
+      // Sort tables by dependencies to ensure referenced tables are created first
+      const sortedTables = sortTablesByDependencies(tables)
+
+      // Debug: log table creation order
+      await logInfo(
+        `[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`
+      )
+
       // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
-      for (const table of tables) {
+      for (const table of sortedTables) {
         // Check if the physical table exists (base table for tables with lookup fields)
         const physicalTableName = lookupViewModule.shouldUseView(table)
           ? lookupViewModule.getBaseTableName(table.name)
           : table.name
         const exists = await tableExists(tx, physicalTableName)
+        await logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
         await createOrMigrateTable(tx, table, exists, tableUsesView)
+        await logInfo(`[Created/migrated table] ${table.name}`)
       }
 
       // Step 4: Create VIEWs for tables with lookup fields (after all base tables exist)
       // This ensures lookup VIEWs can reference other tables without dependency issues
-      for (const table of tables) {
+      for (const table of sortedTables) {
         await tableOpsModule.createLookupViews(tx, table)
       }
 
       // Step 5: Create user-defined VIEWs from table.views configuration
       // This is done after lookup views to ensure all base tables and lookup views exist
-      for (const table of tables) {
+      for (const table of sortedTables) {
         await tableOpsModule.createTableViews(tx, table)
       }
     })
