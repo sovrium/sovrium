@@ -112,37 +112,38 @@ export const FieldsSchema = Schema.Array(
   Schema.filter((fields) => {
     // Validate count fields reference existing relationship-type fields
     const countFields = fields.filter((field) => field.type === 'count')
-    const fieldsByName = new Map(fields.map((field) => [field.name, field]))
 
-    const invalidCountField = countFields.find((countField) => {
-      const { relationshipField } = countField as { relationshipField: string }
-      const referencedField = fieldsByName.get(relationshipField)
+    const invalidResult = countFields
+      .map((countField) => {
+        const { relationshipField } = countField as { relationshipField: string }
+        return validateComputedFieldRelationship({
+          fields,
+          computedFieldName: countField.name,
+          computedFieldType: 'count',
+          relationshipField,
+        })
+      })
+      .find((result) => result !== true)
 
-      // Check if field exists
-      if (!referencedField) {
-        return true
-      }
+    return invalidResult !== undefined ? invalidResult : true
+  }),
+  Schema.filter((fields) => {
+    // Validate rollup fields reference existing relationship-type fields
+    const rollupFields = fields.filter((field) => field.type === 'rollup')
 
-      // Check if field is a relationship type
-      if (referencedField.type !== 'relationship') {
-        return true
-      }
+    const invalidResult = rollupFields
+      .map((rollupField) => {
+        const { relationshipField } = rollupField as { relationshipField: string }
+        return validateComputedFieldRelationship({
+          fields,
+          computedFieldName: rollupField.name,
+          computedFieldType: 'rollup',
+          relationshipField,
+        })
+      })
+      .find((result) => result !== true)
 
-      return false
-    })
-
-    if (!invalidCountField) {
-      return true
-    }
-
-    const { relationshipField } = invalidCountField as { relationshipField: string }
-    const referencedField = fieldsByName.get(relationshipField)
-
-    if (!referencedField) {
-      return `Count field "${invalidCountField.name}" references relationshipField "${relationshipField}" not found in the same table`
-    }
-
-    return `Count field "${invalidCountField.name}" relationshipField "${relationshipField}" must reference a relationship field`
+    return invalidResult !== undefined ? invalidResult : true
   }),
   Schema.annotations({
     title: 'Table Fields',
@@ -169,3 +170,38 @@ export const FieldsSchema = Schema.Array(
 )
 
 export type Fields = Schema.Schema.Type<typeof FieldsSchema>
+
+/**
+ * Validate that a computed field (count or rollup) references a valid relationship field.
+ *
+ * This helper validates that:
+ * 1. The relationshipField exists in the current table's fields
+ * 2. The relationshipField is a relationship type
+ *
+ * Used by both count and rollup field validation to ensure they reference valid relationships.
+ *
+ * @param params - Validation parameters
+ * @returns Error message if validation fails, true if valid
+ */
+export const validateComputedFieldRelationship = (params: {
+  readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
+  readonly computedFieldName: string
+  readonly computedFieldType: 'count' | 'rollup'
+  readonly relationshipField: string
+}): string | true => {
+  const { fields, computedFieldName, computedFieldType, relationshipField } = params
+  const fieldsByName = new Map(fields.map((field) => [field.name, field]))
+  const referencedField = fieldsByName.get(relationshipField)
+
+  if (!referencedField) {
+    const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
+    return `${capitalize(computedFieldType)} field "${computedFieldName}" references relationshipField "${relationshipField}" not found in the same table`
+  }
+
+  if (referencedField.type !== 'relationship') {
+    const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
+    return `${capitalize(computedFieldType)} field "${computedFieldName}" relationshipField "${relationshipField}" must reference a relationship field`
+  }
+
+  return true
+}

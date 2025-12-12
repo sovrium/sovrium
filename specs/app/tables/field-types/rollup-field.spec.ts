@@ -782,7 +782,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-012: should reject rollup field when relationshipField is not a relationship type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
