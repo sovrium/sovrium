@@ -19,7 +19,11 @@ import {
 } from './auth-validation'
 import { isManyToManyRelationship } from './field-utils'
 import { tableExists, dropObsoleteTables } from './schema-migration-helpers'
-import { isRelationshipField, generateJunctionTableDDL, generateJunctionTableName } from './sql-generators'
+import {
+  isRelationshipField,
+  generateJunctionTableDDL,
+  generateJunctionTableName,
+} from './sql-generators'
 import { createOrMigrateTable } from './table-operations'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
@@ -100,10 +104,7 @@ const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] =>
     // No more tables with zero dependencies - check for remaining tables
     if (updated.size > 0) {
       // Circular dependency or remaining tables - add in original order
-      return [
-        ...newSorted,
-        ...tables.filter((t) => !newSorted.includes(t) && updated.has(t.name)),
-      ]
+      return [...newSorted, ...tables.filter((t) => !newSorted.includes(t) && updated.has(t.name))]
     }
 
     return newSorted
@@ -188,9 +189,7 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
       const sortedTables = sortTablesByDependencies(tables)
 
       // Debug: log table creation order
-      await logInfo(
-        `[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`
-      )
+      await logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
 
       // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
       for (const table of sortedTables) {

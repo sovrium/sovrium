@@ -208,7 +208,10 @@ const generateRollupExpression = (
     return `${getDefaultValueForAggregation(aggregation)} AS ${rollupName}`
   }
 
-  if (!('relatedTable' in relationshipFieldDef) || typeof relationshipFieldDef.relatedTable !== 'string') {
+  if (
+    !('relatedTable' in relationshipFieldDef) ||
+    typeof relationshipFieldDef.relatedTable !== 'string'
+  ) {
     return `${getDefaultValueForAggregation(aggregation)} AS ${rollupName}`
   }
 
@@ -295,7 +298,9 @@ export const generateLookupViewSQL = (table: Table): string => {
     .join('\n  ')
 
   // Assemble the final VIEW SQL
-  const selectClause = [baseFieldsWildcard, ...lookupExpressions, ...rollupExpressions].join(',\n    ')
+  const selectClause = [baseFieldsWildcard, ...lookupExpressions, ...rollupExpressions].join(
+    ',\n    '
+  )
 
   return `CREATE OR REPLACE VIEW ${table.name} AS
   SELECT
@@ -313,7 +318,8 @@ export const getBaseTableName = (tableName: string): string => `${tableName}_bas
 /**
  * Check if a table should use a VIEW (has lookup or rollup fields)
  */
-export const shouldUseView = (table: Table): boolean => hasLookupFields(table) || hasRollupFields(table)
+export const shouldUseView = (table: Table): boolean =>
+  hasLookupFields(table) || hasRollupFields(table)
 
 /**
  * Get base fields (non-lookup, non-rollup, non-one-to-many, non-id fields)

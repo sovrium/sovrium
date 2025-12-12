@@ -13,7 +13,11 @@ import type { Fields } from '@/domain/models/app/table/fields'
  */
 export const isManyToManyRelationship = (
   field: Fields[number]
-): field is Fields[number] & { type: 'relationship'; relatedTable: string; relationType: 'many-to-many' } =>
+): field is Fields[number] & {
+  type: 'relationship'
+  relatedTable: string
+  relationType: 'many-to-many'
+} =>
   field.type === 'relationship' &&
   'relatedTable' in field &&
   typeof field.relatedTable === 'string' &&
@@ -43,7 +47,11 @@ export const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => {
   }
 
   // For one-to-many relationships, the foreign key is in the related table, not this table
-  if (field.type === 'relationship' && 'relationType' in field && field.relationType === 'one-to-many') {
+  if (
+    field.type === 'relationship' &&
+    'relationType' in field &&
+    field.relationType === 'one-to-many'
+  ) {
     return false
   }
 

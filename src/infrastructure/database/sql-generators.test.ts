@@ -1118,7 +1118,9 @@ describe('sql-generators', () => {
         'CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id)'
       )
       // Should NOT contain ON DELETE or ON UPDATE
-      expect(result.find((c) => c.includes('tasks_project_id_fkey'))).not.toMatch(/ON DELETE|ON UPDATE/)
+      expect(result.find((c) => c.includes('tasks_project_id_fkey'))).not.toMatch(
+        /ON DELETE|ON UPDATE/
+      )
     })
 
     test('generates PRIMARY KEY constraint for composite key', () => {

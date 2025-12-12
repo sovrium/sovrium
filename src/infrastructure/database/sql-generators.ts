@@ -505,7 +505,10 @@ export const generateUniqueConstraints = (
  * @param clauseType - The type of clause (delete or update)
  * @returns PostgreSQL referential action clause (e.g., " ON DELETE CASCADE")
  */
-const mapReferentialAction = (action: string | undefined, clauseType: 'delete' | 'update'): string => {
+const mapReferentialAction = (
+  action: string | undefined,
+  clauseType: 'delete' | 'update'
+): string => {
   if (!action) return ''
   const upperAction = action.toUpperCase()
   const validActions = ['CASCADE', 'SET NULL', 'SET DEFAULT', 'RESTRICT', 'NO ACTION']

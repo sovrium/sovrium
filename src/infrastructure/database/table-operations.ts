@@ -81,7 +81,10 @@ export const generateCreateTableSQL = (
   // Filter out UI-only fields (like button), lookup fields, and rollup fields (handled by VIEW)
   // Lookup and rollup fields don't exist as columns in the base table
   const columnDefinitions = table.fields
-    .filter((field) => shouldCreateDatabaseColumn(field) && field.type !== 'lookup' && field.type !== 'rollup')
+    .filter(
+      (field) =>
+        shouldCreateDatabaseColumn(field) && field.type !== 'lookup' && field.type !== 'rollup'
+    )
     .map((field) => {
       // Only add inline PRIMARY KEY for single-field composite keys (handled by generateSerialColumn)
       // Multi-field composite keys must have PRIMARY KEY at table level to avoid "multiple primary keys" error
