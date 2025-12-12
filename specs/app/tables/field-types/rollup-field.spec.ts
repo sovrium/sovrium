@@ -468,7 +468,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-007: should count all linked records with COUNTALL including empty',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
