@@ -945,6 +945,182 @@ describe('sql-generators', () => {
       )
     })
 
+    test('generates FOREIGN KEY constraint for relationship field', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'articles',
+        fields: [
+          {
+            name: 'author_id',
+            type: 'relationship',
+            relatedTable: 'authors',
+            relationType: 'many-to-one',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT articles_author_id_fkey FOREIGN KEY (author_id) REFERENCES authors(id)'
+      )
+    })
+
+    test('generates FOREIGN KEY with CASCADE delete for relationship field', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'comments',
+        fields: [
+          {
+            name: 'post_id',
+            type: 'relationship',
+            relatedTable: 'posts',
+            relationType: 'many-to-one',
+            onDelete: 'cascade',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE'
+      )
+    })
+
+    test('generates FOREIGN KEY with SET NULL delete for relationship field', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'products',
+        fields: [
+          {
+            name: 'category_id',
+            type: 'relationship',
+            relatedTable: 'categories',
+            relationType: 'many-to-one',
+            onDelete: 'set-null',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL'
+      )
+    })
+
+    test('generates FOREIGN KEY with RESTRICT delete for relationship field', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'books',
+        fields: [
+          {
+            name: 'author_id',
+            type: 'relationship',
+            relatedTable: 'authors',
+            relationType: 'many-to-one',
+            onDelete: 'restrict',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT books_author_id_fkey FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE RESTRICT'
+      )
+    })
+
+    test('generates FOREIGN KEY with CASCADE update for relationship field', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'members',
+        fields: [
+          {
+            name: 'team_id',
+            type: 'relationship',
+            relatedTable: 'teams',
+            relationType: 'many-to-one',
+            onUpdate: 'cascade',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT members_team_id_fkey FOREIGN KEY (team_id) REFERENCES teams(id) ON UPDATE CASCADE'
+      )
+    })
+
+    test('generates FOREIGN KEY with both onDelete and onUpdate for relationship field', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'orders',
+        fields: [
+          {
+            name: 'customer_id',
+            type: 'relationship',
+            relatedTable: 'customers',
+            relationType: 'many-to-one',
+            onDelete: 'cascade',
+            onUpdate: 'cascade',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE ON UPDATE CASCADE'
+      )
+    })
+
+    test('generates FOREIGN KEY without referential actions when not specified', () => {
+      // Given
+      const table = {
+        id: 1,
+        name: 'tasks',
+        fields: [
+          {
+            name: 'project_id',
+            type: 'relationship',
+            relatedTable: 'projects',
+            relationType: 'many-to-one',
+          },
+        ] as any,
+      }
+
+      // When
+      const result = generateTableConstraints(table as any)
+
+      // Then
+      expect(result).toContain(
+        'CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id)'
+      )
+      // Should NOT contain ON DELETE or ON UPDATE
+      expect(result.find((c) => c.includes('tasks_project_id_fkey'))).not.toMatch(/ON DELETE|ON UPDATE/)
+    })
+
     test('generates PRIMARY KEY constraint for composite key', () => {
       // Given
       const table = {
