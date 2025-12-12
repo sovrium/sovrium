@@ -28,10 +28,36 @@ const isLookupField = (
   typeof field.relatedField === 'string'
 
 /**
+ * Check if a field is a rollup field
+ */
+const isRollupField = (
+  field: Fields[number]
+): field is Fields[number] & {
+  type: 'rollup'
+  relationshipField: string
+  relatedField: string
+  aggregation: string
+  filters?: ViewFilterCondition
+} =>
+  field.type === 'rollup' &&
+  'relationshipField' in field &&
+  'relatedField' in field &&
+  'aggregation' in field &&
+  typeof field.relationshipField === 'string' &&
+  typeof field.relatedField === 'string' &&
+  typeof field.aggregation === 'string'
+
+/**
  * Check if a table has any lookup fields
  */
 export const hasLookupFields = (table: Table): boolean =>
   table.fields.some((field) => isLookupField(field))
+
+/**
+ * Check if a table has any rollup fields
+ */
+export const hasRollupFields = (table: Table): boolean =>
+  table.fields.some((field) => isRollupField(field))
 
 /**
  * Build WHERE clause from filter condition
@@ -115,24 +141,133 @@ const generateLookupExpression = (
 }
 
 /**
- * Generate CREATE VIEW statement for a table with lookup fields
- * Replaces the base table with a VIEW that includes looked-up columns
- * Returns empty string if table has no lookup fields
+ * Map aggregation function name to PostgreSQL aggregate function
+ */
+const mapAggregationToPostgres = (aggregation: string, relatedField: string): string => {
+  const upperAgg = aggregation.toUpperCase()
+
+  switch (upperAgg) {
+    case 'SUM':
+      return `SUM(${relatedField})`
+    case 'COUNT':
+      return `COUNT(${relatedField})`
+    case 'AVG':
+      return `AVG(${relatedField})`
+    case 'MIN':
+      return `MIN(${relatedField})`
+    case 'MAX':
+      return `MAX(${relatedField})`
+    case 'COUNTA':
+      return `COUNT(CASE WHEN ${relatedField} IS NOT NULL AND ${relatedField} != '' THEN 1 END)`
+    case 'COUNTALL':
+      return `COUNT(*)`
+    case 'ARRAYUNIQUE':
+      return `ARRAY_AGG(DISTINCT ${relatedField})`
+    default:
+      return `SUM(${relatedField})`
+  }
+}
+
+/**
+ * Generate default value for empty aggregation results
+ */
+const getDefaultValueForAggregation = (aggregation: string): string => {
+  const upperAgg = aggregation.toUpperCase()
+
+  switch (upperAgg) {
+    case 'AVG':
+    case 'MIN':
+    case 'MAX':
+      return 'NULL'
+    case 'ARRAYUNIQUE':
+      return 'ARRAY[]::TEXT[]'
+    default:
+      return '0'
+  }
+}
+
+/**
+ * Generate rollup column expression with aggregation
+ */
+const generateRollupExpression = (
+  rollupField: Fields[number] & {
+    type: 'rollup'
+    relationshipField: string
+    relatedField: string
+    aggregation: string
+    filters?: ViewFilterCondition
+  },
+  tableName: string,
+  allFields: readonly Fields[number][]
+): string => {
+  const { name: rollupName, relationshipField, relatedField, aggregation, filters } = rollupField
+
+  const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
+
+  if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
+    return `${getDefaultValueForAggregation(aggregation)} AS ${rollupName}`
+  }
+
+  if (!('relatedTable' in relationshipFieldDef) || typeof relationshipFieldDef.relatedTable !== 'string') {
+    return `${getDefaultValueForAggregation(aggregation)} AS ${rollupName}`
+  }
+
+  const { relatedTable } = relationshipFieldDef
+  const alias = `${relatedTable}_for_${rollupName}`
+
+  const aggregationExpr = mapAggregationToPostgres(aggregation, `${alias}.${relatedField}`)
+  const defaultValue = getDefaultValueForAggregation(aggregation)
+
+  // Determine the foreign key column in the related table
+  // For one-to-many relationships, the foreignKey property specifies the FK column in the related table
+  // For many-to-one relationships, the relationship field itself is the FK column
+  const foreignKeyColumn =
+    'foreignKey' in relationshipFieldDef && typeof relationshipFieldDef.foreignKey === 'string'
+      ? relationshipFieldDef.foreignKey
+      : relationshipField
+
+  const baseCondition = `${alias}.${foreignKeyColumn} = ${tableName}.id`
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
+
+  const whereClause = whereConditions.join(' AND ')
+
+  // Use the VIEW name (not base table) for rollup queries
+  // The VIEW will be created after all base tables exist, so it's safe to reference
+  return `COALESCE(
+    (SELECT ${aggregationExpr}
+     FROM ${relatedTable} AS ${alias}
+     WHERE ${whereClause}),
+    ${defaultValue}
+  ) AS ${rollupName}`
+}
+
+/**
+ * Generate CREATE VIEW statement for a table with lookup and/or rollup fields
+ * Replaces the base table with a VIEW that includes looked-up and aggregated columns
+ * Returns empty string if table has no lookup or rollup fields
  */
 export const generateLookupViewSQL = (table: Table): string => {
   const lookupFields = table.fields.filter(isLookupField)
+  const rollupFields = table.fields.filter(isRollupField)
 
-  if (lookupFields.length === 0) {
-    return '' // No lookup fields - no VIEW needed
+  if (lookupFields.length === 0 && rollupFields.length === 0) {
+    return '' // No lookup or rollup fields - no VIEW needed
   }
 
   // Always include base.* to get all columns from the base table (including auto-generated id)
-  // Then add lookup fields as additional computed columns
+  // Then add lookup and rollup fields as additional computed columns
   const baseFieldsWildcard = 'base.*'
 
   // Generate lookup expressions (subqueries or JOIN references)
   const lookupExpressions = lookupFields.map((field) =>
     generateLookupExpression(field, 'base', table.fields)
+  )
+
+  // Generate rollup expressions (aggregation subqueries)
+  const rollupExpressions = rollupFields.map((field) =>
+    generateRollupExpression(field, 'base', table.fields)
   )
 
   // Determine if we need JOINs for forward lookups
@@ -160,7 +295,7 @@ export const generateLookupViewSQL = (table: Table): string => {
     .join('\n  ')
 
   // Assemble the final VIEW SQL
-  const selectClause = [baseFieldsWildcard, ...lookupExpressions].join(',\n    ')
+  const selectClause = [baseFieldsWildcard, ...lookupExpressions, ...rollupExpressions].join(',\n    ')
 
   return `CREATE OR REPLACE VIEW ${table.name} AS
   SELECT
@@ -176,16 +311,34 @@ export const generateLookupViewSQL = (table: Table): string => {
 export const getBaseTableName = (tableName: string): string => `${tableName}_base`
 
 /**
- * Check if a table should use a VIEW (has lookup fields)
+ * Check if a table should use a VIEW (has lookup or rollup fields)
  */
-export const shouldUseView = (table: Table): boolean => hasLookupFields(table)
+export const shouldUseView = (table: Table): boolean => hasLookupFields(table) || hasRollupFields(table)
 
 /**
- * Get base fields (non-lookup, non-id fields)
+ * Get base fields (non-lookup, non-rollup, non-one-to-many, non-id fields)
  */
 const getBaseFields = (table: Table): readonly string[] =>
   table.fields
-    .filter((field) => field.type !== 'lookup' && field.name !== 'id')
+    .filter((field) => {
+      // Exclude lookup and rollup fields (handled by VIEW)
+      if (field.type === 'lookup' || field.type === 'rollup') {
+        return false
+      }
+      // Exclude one-to-many relationship fields (don't create columns)
+      if (
+        field.type === 'relationship' &&
+        'relationType' in field &&
+        field.relationType === 'one-to-many'
+      ) {
+        return false
+      }
+      // Exclude id field (auto-generated)
+      if (field.name === 'id') {
+        return false
+      }
+      return true
+    })
     .map((field) => field.name)
 
 /**

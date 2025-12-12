@@ -179,7 +179,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-003: should support AVG, MIN, MAX statistical aggregations',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -535,20 +535,33 @@ const generateForeignKeyConstraints = (
   })
 
   // Generate foreign keys for relationship fields (type: 'relationship')
-  const relationshipFieldConstraints = fields.filter(isRelationshipField).map((field) => {
-    const constraintName = `${tableName}_${field.name}_fkey`
-    // If the related table uses a VIEW (has lookup fields), reference the base table instead
-    const relatedTableName =
-      tableUsesView?.get(field.relatedTable) === true
-        ? `${field.relatedTable}_base`
-        : field.relatedTable
+  // Exclude one-to-many relationships as they don't create FK constraints on the parent side
+  const relationshipFieldConstraints = fields
+    .filter(isRelationshipField)
+    .filter((field) => {
+      // Only create FK for many-to-one relationships or relationships without explicit relationType
+      return !('relationType' in field) || field.relationType !== 'one-to-many'
+    })
+    .map((field) => {
+      const constraintName = `${tableName}_${field.name}_fkey`
+      // If the related table uses a VIEW (has lookup fields), reference the base table instead
+      const relatedTableName =
+        tableUsesView?.get(field.relatedTable) === true
+          ? `${field.relatedTable}_base`
+          : field.relatedTable
 
-    // Build referential actions (ON DELETE, ON UPDATE)
-    const onDeleteClause = 'onDelete' in field ? mapReferentialAction(field.onDelete as string | undefined, 'delete') : ''
-    const onUpdateClause = 'onUpdate' in field ? mapReferentialAction(field.onUpdate as string | undefined, 'update') : ''
+      // Build referential actions (ON DELETE, ON UPDATE)
+      const onDeleteClause =
+        'onDelete' in field
+          ? mapReferentialAction(field.onDelete as string | undefined, 'delete')
+          : ''
+      const onUpdateClause =
+        'onUpdate' in field
+          ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
+          : ''
 
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
-  })
+      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
+    })
 
   // TODO: Re-enable foreign keys for created-by/updated-by fields
   // Currently disabled due to PostgreSQL transaction visibility issue

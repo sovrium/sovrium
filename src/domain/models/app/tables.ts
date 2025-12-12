@@ -57,6 +57,10 @@ const autoGenerateTableIds = (
  * Self-referencing relationships (e.g., employees.manager → employees) are NOT considered circular
  * dependencies because they don't prevent table creation order determination.
  *
+ * Bidirectional relationships (one-to-many in one direction, many-to-one in the reverse) are also
+ * NOT circular dependencies because the foreign key is always on the "many" side, allowing proper
+ * table creation order (create "one" side first, then "many" side with FK).
+ *
  * @param tables - Array of tables to validate
  * @returns Array of table names involved in circular dependencies, or empty array if none found
  */
@@ -67,17 +71,24 @@ const detectCircularRelationships = (
       readonly name: string
       readonly type: string
       readonly relatedTable?: string
+      readonly relationType?: string
     }>
   }>
 ): ReadonlyArray<string> => {
-  // Build dependency graph: table name -> tables it references via relationship fields
-  // Exclude self-references as they don't create circular dependencies
+  // Build dependency graph: table name -> tables it references via many-to-one relationships
+  // We only track many-to-one relationships because those are the ones that require the related
+  // table to exist first (they have the foreign key)
   const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
     tables.map((table) => {
       const relatedTables = table.fields
-        .filter((field) => field.type === 'relationship' && field.relatedTable !== undefined)
+        .filter(
+          (field) =>
+            field.type === 'relationship' &&
+            field.relatedTable !== undefined &&
+            field.relatedTable !== table.name && // Exclude self-references
+            (field.relationType === 'many-to-one' || field.relationType === undefined) // Only track dependencies from FK side
+        )
         .map((field) => field.relatedTable as string)
-        .filter((relatedTable) => relatedTable !== table.name) // Exclude self-references
       return [table.name, relatedTables] as const
     })
   )
