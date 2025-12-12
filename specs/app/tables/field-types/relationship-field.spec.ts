@@ -469,7 +469,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-011: should create reciprocal link field in related table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -697,7 +697,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
