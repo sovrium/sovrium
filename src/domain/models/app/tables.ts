@@ -166,7 +166,9 @@ const validateRelationshipFieldReference = (params: {
       const relatedTable = tablesByName.get(relatedTableName)
       if (relatedTable) {
         // Check if relatedField exists in the related table
-        const relatedFieldExists = relatedTable.fields.some((f) => f.name === relatedField)
+        // Note: 'id' is always allowed as it's auto-generated (SERIAL primary key)
+        const relatedFieldExists =
+          relatedField === 'id' || relatedTable.fields.some((f) => f.name === relatedField)
         if (!relatedFieldExists) {
           return {
             table: table.name,

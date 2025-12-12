@@ -144,6 +144,41 @@ export const FieldsSchema = Schema.Array(
 
     return `Count field "${invalidCountField.name}" relationshipField "${relationshipField}" must reference a relationship field`
   }),
+  Schema.filter((fields) => {
+    // Validate rollup fields reference existing relationship-type fields
+    const rollupFields = fields.filter((field) => field.type === 'rollup')
+    const fieldsByName = new Map(fields.map((field) => [field.name, field]))
+
+    const invalidRollupField = rollupFields.find((rollupField) => {
+      const { relationshipField } = rollupField as { relationshipField: string }
+      const referencedField = fieldsByName.get(relationshipField)
+
+      // Check if field exists
+      if (!referencedField) {
+        return true
+      }
+
+      // Check if field is a relationship type
+      if (referencedField.type !== 'relationship') {
+        return true
+      }
+
+      return false
+    })
+
+    if (!invalidRollupField) {
+      return true
+    }
+
+    const { relationshipField } = invalidRollupField as { relationshipField: string }
+    const referencedField = fieldsByName.get(relationshipField)
+
+    if (!referencedField) {
+      return `Rollup field "${invalidRollupField.name}" references relationshipField "${relationshipField}" not found in the same table`
+    }
+
+    return `Rollup field "${invalidRollupField.name}" relationshipField "${relationshipField}" must reference a relationship field`
+  }),
   Schema.annotations({
     title: 'Table Fields',
     description:
