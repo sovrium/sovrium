@@ -26,7 +26,7 @@ export const StatusFieldSchema = BaseFieldSchema.pipe(
             )
           ),
         })
-      ),
+      ).pipe(Schema.minItems(1, { message: () => 'at least one option required' })),
       default: Schema.optional(Schema.String),
     })
   ),
