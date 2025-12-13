@@ -58,6 +58,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   'updated-by': 'TEXT',
   'created-at': 'TIMESTAMP',
   'updated-at': 'TIMESTAMP',
+  'deleted-at': 'TIMESTAMP',
   button: 'TEXT',
 }
 
