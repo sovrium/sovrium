@@ -7,33 +7,13 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
+import { createStatusOptionsSchema } from './validation-utils'
 
 export const StatusFieldSchema = BaseFieldSchema.pipe(
   Schema.extend(
     Schema.Struct({
       type: Schema.Literal('status'),
-      options: Schema.Array(
-        Schema.Struct({
-          value: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'value is required' })),
-          color: Schema.optional(
-            Schema.String.pipe(
-              Schema.pattern(/^#[0-9a-fA-F]{6}$/, {
-                message: () => 'Hex color code for the status',
-              }),
-              Schema.annotations({
-                description: 'Hex color code for the status',
-              })
-            )
-          ),
-        })
-      ).pipe(
-        Schema.minItems(1, { message: () => 'at least one option required' }),
-        Schema.filter((options) => {
-          const values = options.map((opt) => opt.value)
-          const uniqueValues = new Set(values)
-          return values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
-        })
-      ),
+      options: createStatusOptionsSchema(),
       default: Schema.optional(Schema.String),
     })
   ),
