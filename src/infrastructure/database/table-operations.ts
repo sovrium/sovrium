@@ -41,6 +41,7 @@ import {
   generateCreatedAtTriggers,
   generateAutonumberTriggers,
   generateUpdatedByTriggers,
+  generateUpdatedAtTriggers,
 } from './trigger-generators'
 import { generateTableViewStatements, generateDropObsoleteViewsSQL } from './view-generators'
 import type { Table } from '@/domain/models/app/table'
@@ -152,6 +153,7 @@ const applyTableFeatures = (
         executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),
         executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
         executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
+        executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable)),
         Effect.promise(() => createVolatileFormulaTriggers(tx, physicalTableName, table.fields)),
       ],
       { concurrency: 'unbounded' }

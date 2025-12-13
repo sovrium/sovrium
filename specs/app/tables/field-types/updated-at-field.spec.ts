@@ -51,7 +51,7 @@ test.describe('Updated At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-UPDATED-AT-002: should automatically update timestamp when row is modified',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

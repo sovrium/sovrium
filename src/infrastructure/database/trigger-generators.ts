@@ -84,3 +84,33 @@ FOR EACH ROW
 EXECUTE FUNCTION set_updated_by()`,
   ]
 }
+
+/**
+ * Generate trigger to automatically update updated-at fields on UPDATE
+ */
+export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
+  const updatedAtFields = table.fields.filter((field) => field.type === 'updated-at')
+
+  if (updatedAtFields.length === 0) return []
+
+  const fieldNames = updatedAtFields.map((f) => f.name)
+  const triggerFunctionName = `update_${table.name}_updated_at`
+  const triggerName = `trigger_${table.name}_updated_at`
+
+  return [
+    // Create trigger function
+    `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
+RETURNS TRIGGER AS $$
+BEGIN
+  ${fieldNames.map((name) => `NEW.${name} = CURRENT_TIMESTAMP;`).join('\n  ')}
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`,
+    // Create trigger
+    `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
+    `CREATE TRIGGER ${triggerName}
+BEFORE UPDATE ON ${table.name}
+FOR EACH ROW
+EXECUTE FUNCTION ${triggerFunctionName}()`,
+  ]
+}
