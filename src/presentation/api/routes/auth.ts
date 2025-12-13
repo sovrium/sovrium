@@ -9,6 +9,8 @@ import { zValidator } from '@hono/zod-validator'
 import { Effect } from 'effect'
 import { z } from 'zod'
 import { addMember } from '@/application/use-cases/organization/add-member'
+// eslint-disable-next-line boundaries/element-types -- Presentation layer imports infrastructure layer (AuthServiceLive) for DI composition
+import { AuthServiceLive } from '@/infrastructure/auth'
 import { addOrganizationMemberResponseSchema } from '@/presentation/api/schemas/auth-schemas'
 import type { Hono } from 'hono'
 
@@ -66,7 +68,7 @@ export const chainAuthRoutes = (app: Hono): Hono =>
         userId: body.userId,
         role: body.role,
         headers: c.req.raw.headers,
-      })
+      }).pipe(Effect.provide(AuthServiceLive))
 
       try {
         const result = await Effect.runPromise(program)

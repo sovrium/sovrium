@@ -45,10 +45,31 @@ import {
   updateRecord,
   deleteRecord,
 } from '@/presentation/api/utils/table-queries'
+import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Hono } from 'hono'
+
+// ============================================================================
+// Table ID Resolution
+// ============================================================================
+
+/**
+ * Get table name from tableId parameter
+ *
+ * Looks up the table in the app schema by either:
+ * - Table ID (numeric or string match)
+ * - Table name (exact match)
+ *
+ * @param app - Application configuration containing tables
+ * @param tableId - Table identifier from route parameter
+ * @returns Table name if found, undefined otherwise
+ */
+const getTableNameFromId = (app: App, tableId: string): string | undefined => {
+  const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+  return table?.name
+}
 
 // ============================================================================
 // Table Route Handlers
@@ -312,7 +333,7 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
 }
 
 // eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
-function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
+function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .get('/api/tables/:tableId/records', async (c) => {
       // Extract session from context (set by auth middleware)
@@ -321,8 +342,12 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
 
-      // Get table name from route parameter (in real implementation, query table metadata)
-      const tableName = 'records' // TODO: Map tableId to actual table name
+      // Get table name from route parameter
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
 
       return runEffect(c, createListRecordsProgram(session, tableName), listRecordsResponseSchema)
     })
@@ -335,7 +360,12 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       const result = await validateRequest(c, createRecordRequestSchema)
       if (!result.success) return result.response
 
-      const tableName = 'records' // TODO: Map tableId to actual table name
+      // Get table name from route parameter
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
 
       return runEffect(
         c,
@@ -349,7 +379,12 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
 
-      const tableName = 'records' // TODO: Map tableId to actual table name
+      // Get table name from route parameter
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
 
       return runEffect(
         c,
@@ -366,7 +401,12 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       const result = await validateRequest(c, updateRecordRequestSchema)
       if (!result.success) return result.response
 
-      const tableName = 'records' // TODO: Map tableId to actual table name
+      // Get table name from route parameter
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
 
       return runEffect(
         c,
@@ -380,7 +420,12 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
 
-      const tableName = 'records' // TODO: Map tableId to actual table name
+      // Get table name from route parameter
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
 
       return runEffect(
         c,
@@ -439,10 +484,11 @@ function chainViewRoutesMethods<T extends Hono>(honoApp: T) {
  * Uses method chaining for proper Hono RPC type inference.
  *
  * @param honoApp - Hono instance to chain routes onto
+ * @param app - Application configuration containing table metadata
  * @returns Hono app with table routes chained
  */
-export function chainTableRoutes<T extends Hono>(honoApp: T) {
+export function chainTableRoutes<T extends Hono>(honoApp: T, app: App) {
   return chainViewRoutesMethods(
-    chainBatchRoutesMethods(chainRecordRoutesMethods(chainTableRoutesMethods(honoApp)))
+    chainBatchRoutesMethods(chainRecordRoutesMethods(chainTableRoutesMethods(honoApp), app))
   )
 }

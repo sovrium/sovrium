@@ -95,7 +95,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   // Chain table routes (tables, records, views, permissions)
   // Routes now have access to session via c.var.session
-  const honoWithTables = chainTableRoutes(honoWithAuth)
+  // Pass app configuration for table metadata lookup (tableId → table name mapping)
+  const honoWithTables = chainTableRoutes(honoWithAuth, app)
 
   // Chain auth routes (organization member management)
   return chainAuthRoutes(honoWithTables)

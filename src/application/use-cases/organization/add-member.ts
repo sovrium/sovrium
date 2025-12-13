@@ -6,62 +6,43 @@
  */
 
 import { Effect } from 'effect'
-import { getDefaultAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import {
+  AuthService,
+  type AddMemberParams,
+  type AuthServiceError,
+} from '@/application/ports/auth-service'
 
 /**
  * Organization Service
  *
  * Application layer service for organization member management.
- * Wraps Better Auth SERVER_ONLY endpoints that need to be exposed via HTTP.
+ * Uses AuthService port for dependency injection, allowing the
+ * Application layer to remain decoupled from infrastructure.
  */
 
-export type AddMemberInput = Readonly<{
-  organizationId: string
-  userId: string
-  role?: 'owner' | 'admin' | 'member'
-  headers: Headers
-}>
+export type AddMemberInput = AddMemberParams
 
 export type AddMemberResult = Readonly<{
   member: unknown
 }>
 
-export type ServiceError = Readonly<{
-  message: string
-  status: number
-}>
+export type ServiceError = AuthServiceError
 
 /**
  * Add member to organization
  *
- * Wraps Better Auth's SERVER_ONLY auth.api.addMember() function.
+ * Uses the AuthService port to delegate to Better Auth's
+ * SERVER_ONLY auth.api.addMember() function.
  * This allows authenticated organization owners/admins to add users
  * directly to their organization without invitation flow.
  *
  * @param input - Add member request data with authentication headers
- * @returns Effect that resolves to member data or error
+ * @returns Effect that resolves to member data or error (requires AuthService)
  */
-export const addMember = (input: AddMemberInput): Effect.Effect<AddMemberResult, ServiceError> =>
+export const addMember = (
+  input: AddMemberInput
+): Effect.Effect<AddMemberResult, ServiceError, AuthService> =>
   Effect.gen(function* () {
-    const auth = getDefaultAuthInstance()
-
-    // Better Auth API returns the data directly (not a Response object)
-    const data = yield* Effect.tryPromise({
-      try: async () =>
-        auth.api.addMember({
-          body: {
-            userId: input.userId,
-            organizationId: input.organizationId,
-            // Better Auth expects specific role types
-            role: input.role ?? 'member',
-          },
-          headers: input.headers,
-        }),
-      catch: (error): ServiceError => ({
-        message: error instanceof Error ? error.message : 'Failed to add member',
-        status: 500,
-      }),
-    })
-
-    return { member: data }
+    const authService = yield* AuthService
+    return yield* authService.addMember(input)
   })

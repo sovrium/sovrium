@@ -6,8 +6,9 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
+import { AuthService, type AddMemberParams } from '@/application/ports/auth-service'
 import { AuthError } from '../../errors/auth-error'
-import { auth } from './auth'
+import { auth, getDefaultAuthInstance } from './auth'
 
 // Re-export AuthError for convenience
 export { AuthError }
@@ -71,6 +72,47 @@ export const AuthLive = Layer.succeed(
         }
 
         return session
+      }),
+  })
+)
+
+/**
+ * Live AuthService Layer
+ *
+ * Provides the production implementation of the AuthService port
+ * for the Application layer. This adapter wraps Better Auth operations
+ * to comply with the ports and adapters architecture.
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const authService = yield* AuthService
+ *   const result = yield* authService.addMember({ ... })
+ *   return result
+ * }).pipe(Effect.provide(AuthServiceLive))
+ * ```
+ */
+export const AuthServiceLive = Layer.succeed(
+  AuthService,
+  AuthService.of({
+    addMember: (params: AddMemberParams) =>
+      Effect.tryPromise({
+        try: async () => {
+          const authInstance = getDefaultAuthInstance()
+          const data = await authInstance.api.addMember({
+            body: {
+              userId: params.userId,
+              organizationId: params.organizationId,
+              role: params.role ?? 'member',
+            },
+            headers: params.headers,
+          })
+          return { member: data }
+        },
+        catch: (error) => ({
+          message: error instanceof Error ? error.message : 'Failed to add member',
+          status: 500,
+        }),
       }),
   })
 )

@@ -6,7 +6,8 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
+import { AuthService } from '@/application/ports/auth-service'
 import {
   addMember,
   type AddMemberInput,
@@ -18,10 +19,32 @@ import {
  * Unit tests for organization add-member use case
  *
  * Tests the application layer logic for adding members to organizations.
- *
- * Note: These tests verify the use case structure and error handling logic.
- * Integration with Better Auth is tested via E2E tests in specs/.
+ * Uses mock AuthService to test use case logic without Better Auth.
  */
+
+/**
+ * Mock AuthService for testing
+ * Returns a mock member for addMember calls
+ */
+const MockAuthServiceLive = Layer.succeed(AuthService, {
+  addMember: (params) =>
+    Effect.succeed({
+      member: {
+        id: 'member-123',
+        organizationId: params.organizationId,
+        userId: params.userId,
+        role: params.role ?? 'member',
+        createdAt: new Date().toISOString(),
+      },
+    }),
+})
+
+/**
+ * Mock AuthService that fails for error testing
+ */
+const MockAuthServiceFailing = Layer.succeed(AuthService, {
+  addMember: () => Effect.fail({ message: 'User not found', status: 404 }),
+})
 
 describe('addMember', () => {
   /**
@@ -110,6 +133,51 @@ describe('addMember', () => {
 
     // Verify it's an Effect (has pipe method)
     expect(typeof program.pipe).toBe('function')
+  })
+
+  /**
+   * Test successful member addition with mock service
+   *
+   * Verifies that the use case correctly delegates to AuthService.
+   */
+  test('should successfully add member with mock service', async () => {
+    const input: AddMemberInput = {
+      organizationId: 'org-789',
+      userId: 'user-456',
+      role: 'admin',
+      headers: new Headers(),
+    }
+
+    const program = addMember(input).pipe(Effect.provide(MockAuthServiceLive))
+    const result = await Effect.runPromise(program)
+
+    expect(result.member).toBeDefined()
+    const member = result.member as { id: string; organizationId: string; role: string }
+    expect(member.id).toBe('member-123')
+    expect(member.organizationId).toBe('org-789')
+    expect(member.role).toBe('admin')
+  })
+
+  /**
+   * Test error handling with mock service
+   *
+   * Verifies that errors from AuthService propagate correctly.
+   */
+  test('should propagate errors from AuthService', async () => {
+    const input: AddMemberInput = {
+      organizationId: 'org-789',
+      userId: 'user-456',
+      headers: new Headers(),
+    }
+
+    const program = addMember(input).pipe(Effect.provide(MockAuthServiceFailing), Effect.either)
+    const result = await Effect.runPromise(program)
+
+    expect(result._tag).toBe('Left')
+    if (result._tag === 'Left') {
+      expect(result.left.message).toBe('User not found')
+      expect(result.left.status).toBe(404)
+    }
   })
 
   /**

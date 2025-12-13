@@ -222,47 +222,61 @@ const executeSchemaInit = (
 
                 // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
                 // Junction tables must be created after both source and related tables exist
-                const junctionTablesCreated = new Set<string>()
-                /* eslint-disable functional/no-loop-statements */
-                for (const table of sortedTables) {
+                // Collect unique junction table DDLs first, then execute in parallel
+                const junctionTableSpecs = new Map<
+                  string,
+                  { name: string; ddl: string }
+                >()
+                sortedTables.forEach((table) => {
                   const manyToManyFields = table.fields.filter(isManyToManyRelationship)
-                  for (const field of manyToManyFields) {
+                  manyToManyFields.forEach((field) => {
                     const junctionTableName = generateJunctionTableName(
                       table.name,
                       field.relatedTable
                     )
                     // Avoid creating duplicate junction tables (if both sides define the relationship)
-                    if (!junctionTablesCreated.has(junctionTableName)) {
-                      logInfo(`[Creating junction table] ${junctionTableName}`)
+                    if (!junctionTableSpecs.has(junctionTableName)) {
                       const ddl = generateJunctionTableDDL(
                         table.name,
                         field.relatedTable,
                         tableUsesView
                       )
-                      yield* executeSQL(tx, ddl)
                       // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-                      junctionTablesCreated.add(junctionTableName)
-                      logInfo(`[Created junction table] ${junctionTableName}`)
+                      junctionTableSpecs.set(junctionTableName, { name: junctionTableName, ddl })
                     }
-                  }
+                  })
+                })
+
+                // Execute junction table creation in parallel
+                if (junctionTableSpecs.size > 0) {
+                  logInfo(
+                    `[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`
+                  )
+                  yield* Effect.all(
+                    Array.from(junctionTableSpecs.values()).map((spec) =>
+                      executeSQL(tx, spec.ddl).pipe(
+                        Effect.tap(() => logInfo(`[Created junction table] ${spec.name}`))
+                      )
+                    ),
+                    { concurrency: 'unbounded' }
+                  )
                 }
-                /* eslint-enable functional/no-loop-statements */
 
                 // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
                 // This ensures lookup VIEWs can reference other tables without dependency issues
-                /* eslint-disable functional/no-loop-statements */
-                for (const table of sortedTables) {
-                  yield* createLookupViewsEffect(tx, table)
-                }
-                /* eslint-enable functional/no-loop-statements */
+                // Execute in parallel - each table's lookup VIEW is independent
+                yield* Effect.all(
+                  sortedTables.map((table) => createLookupViewsEffect(tx, table)),
+                  { concurrency: 'unbounded' }
+                )
 
                 // Step 6: Create user-defined VIEWs from table.views configuration
                 // This is done after lookup views to ensure all base tables and lookup views exist
-                /* eslint-disable functional/no-loop-statements */
-                for (const table of sortedTables) {
-                  yield* createTableViewsEffect(tx, table)
-                }
-                /* eslint-enable functional/no-loop-statements */
+                // Execute in parallel - each table's user-defined VIEWs are independent
+                yield* Effect.all(
+                  sortedTables.map((table) => createTableViewsEffect(tx, table)),
+                  { concurrency: 'unbounded' }
+                )
               })
             )
           }),
