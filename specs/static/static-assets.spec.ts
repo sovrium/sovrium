@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/static-generation/assets.ts
  * Domain: static
- * Spec Count: 5
+ * Spec Count: 4
  *
  * Asset Management Behavior:
  * - Copies files from public/ directory to output

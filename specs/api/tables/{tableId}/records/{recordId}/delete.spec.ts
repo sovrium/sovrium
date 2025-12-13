@@ -13,7 +13,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/delete.json
  * Domain: api
- * Spec Count: 15
+ * Spec Count: 14
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp (soft delete by default)

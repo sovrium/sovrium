@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/static-generation/generator.ts
  * Domain: static
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Static Generation Behavior:
  * - Generates HTML files for all pages
