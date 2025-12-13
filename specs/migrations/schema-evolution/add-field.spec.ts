@@ -75,7 +75,7 @@ test.describe('Add Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-002: should add TEXT column without NOT NULL constraint when ALTER TABLE adds nullable column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
