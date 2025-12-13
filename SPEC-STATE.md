@@ -2,45 +2,44 @@
 
 > Generated: 2025-12-13T01:23:55.774Z
 >
-> 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 SPEC QUALITY REPORT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+> 📊 SPEC QUALITY REPORT
+> ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Quality Score: 91%
 
-Tests:       2215 total
-  ├─ @spec:       1988
-  ├─ @regression: 227
-  ├─ Passing:     1490
-  └─ Fixme:       725
+Tests: 2215 total
+├─ @spec: 1988
+├─ @regression: 227
+├─ Passing: 1490
+└─ Fixme: 725
 
-Issues:      0 total
-  ├─ Errors:      0
-  ├─ Warnings:    0
-  └─ Suggestions: 0
+Issues: 0 total
+├─ Errors: 0
+├─ Warnings: 0
+└─ Suggestions: 0
 
 🤖 TDD Automation:
-  ├─ Fixed (90d):  1183
-  ├─ Last 24h:     17
-  ├─ Last 7d:      210
-  ├─ Avg/Day:      27.6
-  └─ Remaining:    725
+├─ Fixed (90d): 1183
+├─ Last 24h: 17
+├─ Last 7d: 210
+├─ Avg/Day: 27.6
+└─ Remaining: 725
 
-⏱️  ETA: ~4 weeks (2026-01-09)
+⏱️ ETA: ~4 weeks (2026-01-09)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ Generated: /Users/thomasjeanneau/Codes/sovrium/SPEC-STATE.md
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- | 2025-12-12 | `a9ed82a` |
-| `APP-TABLES-FIELD-TYPES-ROLLUP-011`       | 2025-12-12 | `23ea63b` |
+| 2025-12-12 | `a9ed82a` |
+| `APP-TABLES-FIELD-TYPES-ROLLUP-011` | 2025-12-12 | `23ea63b` |
 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-011` | 2025-12-12 | `a48d9ef` |
-| `APP-TABLES-FIELD-TYPES-ROLLUP-010`       | 2025-12-12 | `c0036db` |
-| `APP-TABLES-FIELD-TYPES-ROLLUP-009`       | 2025-12-12 | `27d51ae` |
+| `APP-TABLES-FIELD-TYPES-ROLLUP-010` | 2025-12-12 | `c0036db` |
+| `APP-TABLES-FIELD-TYPES-ROLLUP-009` | 2025-12-12 | `27d51ae` |
 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-008` | 2025-12-12 | `46c9a3a` |
-| `APP-TABLES-FIELD-TYPES-ROLLUP-007`       | 2025-12-12 | `02a09ec` |
+| `APP-TABLES-FIELD-TYPES-ROLLUP-007` | 2025-12-12 | `02a09ec` |
 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-007` | 2025-12-12 | `33ce939` |
-| `APP-TABLES-FIELD-TYPES-ROLLUP-006`       | 2025-12-12 | `4eacc36` |
+| `APP-TABLES-FIELD-TYPES-ROLLUP-006` | 2025-12-12 | `4eacc36` |
 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-006` | 2025-12-12 | `575e416` |
 
 </details>
