@@ -418,7 +418,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-012: should return 404 when deleting already soft-deleted record',
+    'API-TABLES-RECORDS-DELETE-011: should return 404 when deleting already soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A soft-deleted record exists
@@ -451,7 +451,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-013: should set deleted_at to current timestamp',
+    'API-TABLES-RECORDS-DELETE-012: should set deleted_at to current timestamp',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An active record exists
@@ -488,7 +488,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-014: should hard delete with permanent=true query param (admin only)',
+    'API-TABLES-RECORDS-DELETE-013: should hard delete with permanent=true query param (admin only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user and an active record
@@ -520,7 +520,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-015: should return 403 for member using permanent=true',
+    'API-TABLES-RECORDS-DELETE-014: should return 403 for member using permanent=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user (without permanent delete permission)
@@ -560,7 +560,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-016: user can complete full soft delete workflow',
+    'API-TABLES-RECORDS-DELETE-015: user can complete full soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {

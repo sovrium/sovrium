@@ -172,7 +172,7 @@ test.describe('Multiple Attachments Field', () => {
   // These tests now validate API responses rather than UI interactions.
 
   test(
-    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-008: should generate thumbnails for image attachments in array',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: should generate thumbnails for image attachments in array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with multiple-attachments field configured for thumbnail generation
@@ -209,7 +209,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-009: should store metadata for each attachment',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-007: should store metadata for each attachment',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with multiple-attachments field for mixed media
@@ -251,7 +251,7 @@ test.describe('Multiple Attachments Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-010: user can complete full multiple-attachments-field workflow',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-008: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple-attachments field', async () => {

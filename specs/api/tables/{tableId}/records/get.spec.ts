@@ -1049,7 +1049,7 @@ test.describe('List records in table', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-028: should exclude soft-deleted records by default',
+    'API-TABLES-RECORDS-LIST-027: should exclude soft-deleted records by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with mix of active and soft-deleted records
@@ -1096,7 +1096,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-029: should include deleted with includeDeleted=true',
+    'API-TABLES-RECORDS-LIST-028: should include deleted with includeDeleted=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with mix of active and soft-deleted records
@@ -1149,7 +1149,7 @@ test.describe('List records in table', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-030: user can complete full list records workflow',
+    'API-TABLES-RECORDS-LIST-029: user can complete full list records workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with projects table', async () => {

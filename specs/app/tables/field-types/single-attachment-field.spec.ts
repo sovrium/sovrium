@@ -161,7 +161,7 @@ test.describe('Single Attachment Field', () => {
   // These tests now validate API responses rather than UI interactions.
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-009: should store image dimensions in metadata',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: should store image dimensions in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with single-attachment field for images
@@ -199,7 +199,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-010: should store video duration in metadata',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: should store video duration in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with single-attachment field for videos
@@ -240,7 +240,7 @@ test.describe('Single Attachment Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-011: user can complete full single-attachment-field workflow',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-008: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with single-attachment field', async () => {

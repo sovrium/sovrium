@@ -245,7 +245,7 @@ test.describe('Currency Field', () => {
   // These tests now validate API response formatting rather than UI display.
 
   test.fixme(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-012: user can complete full currency-field workflow',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with currency field', async () => {

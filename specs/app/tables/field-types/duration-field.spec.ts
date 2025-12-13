@@ -201,7 +201,7 @@ test.describe('Duration Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-DURATION-010: user can complete full duration-field workflow',
+    'APP-TABLES-FIELD-TYPES-DURATION-006: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with duration field', async () => {
