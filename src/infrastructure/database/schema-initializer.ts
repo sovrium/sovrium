@@ -18,6 +18,10 @@ import {
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
 import { isManyToManyRelationship } from './field-utils'
+import {
+  ensureMigrationHistoryTable,
+  recordMigration,
+} from './migration-audit-trail'
 import { dropObsoleteTables } from './schema-migration-helpers'
 import { tableExists, executeSQL } from './sql-execution'
 import {
@@ -156,7 +160,8 @@ const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] =>
 /* eslint-disable max-lines-per-function */
 const executeSchemaInit = (
   databaseUrl: string,
-  tables: readonly Table[]
+  tables: readonly Table[],
+  app: App
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
     const db = new SQL(databaseUrl)
@@ -276,6 +281,11 @@ const executeSchemaInit = (
                   sortedTables.map((table) => createTableViewsEffect(tx, table)),
                   { concurrency: 'unbounded' }
                 )
+
+                // Step 7: Record migration in history table
+                // Ensure migration history table exists before recording
+                yield* ensureMigrationHistoryTable(tx)
+                yield* recordMigration(tx, app)
               })
             )
           }),
@@ -356,7 +366,7 @@ const initializeSchemaInternal = (
     yield* Console.log('Initializing database schema...')
 
     // Execute schema initialization with bun:sql
-    yield* executeSchemaInit(databaseUrlConfig, app.tables!)
+    yield* executeSchemaInit(databaseUrlConfig, app.tables!, app)
 
     yield* Console.log('✓ Database schema initialized successfully')
   })
