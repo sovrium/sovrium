@@ -223,10 +223,7 @@ const executeSchemaInit = (
                 // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
                 // Junction tables must be created after both source and related tables exist
                 // Collect unique junction table DDLs first, then execute in parallel
-                const junctionTableSpecs = new Map<
-                  string,
-                  { name: string; ddl: string }
-                >()
+                const junctionTableSpecs = new Map<string, { name: string; ddl: string }>()
                 sortedTables.forEach((table) => {
                   const manyToManyFields = table.fields.filter(isManyToManyRelationship)
                   manyToManyFields.forEach((field) => {
