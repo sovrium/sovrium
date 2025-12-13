@@ -14,7 +14,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/static-generation/i18n.ts
  * Domain: static
- * Spec Count: 5
+ * Spec Count: 4
  *
  * Multi-Language Behavior:
  * - Generates language directories for each locale

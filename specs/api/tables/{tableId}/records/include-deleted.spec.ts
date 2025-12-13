@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/get.json
  * Domain: api
- * Spec Count: 5
+ * Spec Count: 4
  *
  * Include Deleted Behavior:
  * - By default (includeDeleted absent or false), soft-deleted records are excluded

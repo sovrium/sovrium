@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/server/server.ts
  * Domain: api
- * Spec Count: 1
+ * Spec Count: 3
  *
  * Health Endpoint Behavior:
  * - Returns JSON with status, timestamp, app name

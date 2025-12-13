@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/single-attachment-field.ts
  * Domain: app
- * Spec Count: 8
+ * Spec Count: 7
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria

@@ -18,7 +18,7 @@ const landingPageSchema = landingPageJson as unknown as App
  *
  * Source: templates/landing-page.ts
  * Domain: templates
- * Spec Count: 1
+ * Spec Count: 0
  *
  * This single comprehensive regression test validates the complete landing page
  * template functionality.

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/color-field.ts
  * Domain: app
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Color Field Behavior:
  * - Stores hex color values (#RRGGBB format)
