@@ -52,7 +52,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-002: should allow NULL values (nullable by design)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
