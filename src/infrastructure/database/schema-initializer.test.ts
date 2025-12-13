@@ -40,9 +40,11 @@ const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
   tables.some((table) => table.fields.some((field) => field.type === 'updated-by'))
 
 /**
- * Better Auth system tables that should never be dropped
+ * System tables that should never be dropped
+ * These tables are managed by Better Auth/Drizzle migrations or migration system, not by runtime schema
  */
 const PROTECTED_SYSTEM_TABLES = new Set([
+  // Better Auth tables
   'users',
   'sessions',
   'accounts',
@@ -50,6 +52,10 @@ const PROTECTED_SYSTEM_TABLES = new Set([
   'organizations',
   'members',
   'invitations',
+  // Migration system tables
+  '_sovrium_migration_history',
+  '_sovrium_migration_log',
+  '_sovrium_schema_checksum',
 ])
 
 describe('schema-initializer helpers', () => {
@@ -65,9 +71,16 @@ describe('schema-initializer helpers', () => {
       expect(PROTECTED_SYSTEM_TABLES.has('invitations')).toBe(true)
     })
 
-    test('has correct size (7 tables)', () => {
+    test('contains expected migration system tables', () => {
       // Then
-      expect(PROTECTED_SYSTEM_TABLES.size).toBe(7)
+      expect(PROTECTED_SYSTEM_TABLES.has('_sovrium_migration_history')).toBe(true)
+      expect(PROTECTED_SYSTEM_TABLES.has('_sovrium_migration_log')).toBe(true)
+      expect(PROTECTED_SYSTEM_TABLES.has('_sovrium_schema_checksum')).toBe(true)
+    })
+
+    test('has correct size (10 tables: 7 Better Auth + 3 migration system)', () => {
+      // Then
+      expect(PROTECTED_SYSTEM_TABLES.size).toBe(10)
     })
 
     test('does not contain application tables', () => {
