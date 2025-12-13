@@ -83,12 +83,12 @@ const generateOrderByClause = (sorts: View['sorts'], groupBy: View['groupBy']): 
  */
 export const generateViewSQL = (table: Table, view: View): string => {
   const viewType = view.materialized ? 'MATERIALIZED VIEW' : 'VIEW'
-  // Convert view.id to string (ViewId can be number or string)
-  const viewIdStr = String(view.id)
+  // Use view.name for the view identifier (view.id can be a number)
+  const viewName = view.name
 
   // If view has a custom query, use it directly
   if (view.query) {
-    return `CREATE ${viewType} ${viewIdStr} AS ${view.query}`
+    return `CREATE ${viewType} ${viewName} AS ${view.query}`
   }
 
   // Otherwise, build query from filters, sorts, fields, groupBy
@@ -102,7 +102,7 @@ export const generateViewSQL = (table: Table, view: View): string => {
 
   const query = clauses.join(' ')
 
-  return `CREATE ${viewType} ${viewIdStr} AS ${query}`
+  return `CREATE ${viewType} ${viewName} AS ${query}`
 }
 
 /**
@@ -154,8 +154,8 @@ export const generateDropObsoleteViewsSQL = async (
 
     const existingViews = new Set(existingViewNames)
     const existingMatViews = new Set(existingMatViewNames)
-    // Convert view IDs to strings (ViewId can be number or string)
-    const schemaViews = new Set((table.views || []).map((v) => String(v.id)))
+    // Use view.name for the view identifier (view.id can be a number)
+    const schemaViews = new Set((table.views || []).map((v) => v.name))
 
     // Find views to drop using shared logic
     const viewsToDrop = findObsoleteViews(existingViews, schemaViews, table.name)
