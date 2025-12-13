@@ -16,7 +16,7 @@ import type { App } from '@/domain/models/app'
  * Uses SHA-256 hash of the JSON-serialized schema
  */
 export const generateSchemaChecksum = (app: App): string => {
-  const schemaJson = JSON.stringify(app.tables ?? [], null, 2)
+  const schemaJson = JSON.stringify(app.tables ?? [], undefined, 2)
   return createHash('sha256').update(schemaJson).digest('hex')
 }
 
