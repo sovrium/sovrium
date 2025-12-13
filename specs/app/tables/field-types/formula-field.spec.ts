@@ -1956,6 +1956,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-047: should evaluate IF with CASE WHEN expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using CASE WHEN expression for grade calculation
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -1976,8 +1977,10 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting score values
       await executeQuery('INSERT INTO conditions (score) VALUES (95), (85), (70)')
 
+      // THEN: formula evaluates to correct grade based on score ranges
       const gradeA = await executeQuery('SELECT grade FROM conditions WHERE id = 1')
       expect(gradeA.grade).toBe('A')
 
@@ -1993,6 +1996,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-048: should evaluate OR logical operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using OR operator on two boolean fields
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2008,10 +2012,12 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting all OR truth table combinations
       await executeQuery(
         'INSERT INTO logic (a, b) VALUES (true, true), (true, false), (false, true), (false, false)'
       )
 
+      // THEN: formula evaluates OR operator correctly for all combinations
       expect((await executeQuery('SELECT result FROM logic WHERE id = 1')).result).toBe(true)
       expect((await executeQuery('SELECT result FROM logic WHERE id = 2')).result).toBe(true)
       expect((await executeQuery('SELECT result FROM logic WHERE id = 3')).result).toBe(true)
@@ -2023,6 +2029,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-049: should evaluate XOR logical operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field implementing XOR logic using (a OR b) AND NOT (a AND b)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2044,10 +2051,12 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting all XOR truth table combinations
       await executeQuery(
         'INSERT INTO logic (a, b) VALUES (true, true), (true, false), (false, true), (false, false)'
       )
 
+      // THEN: formula evaluates XOR operator correctly (true only when exactly one is true)
       expect((await executeQuery('SELECT result FROM logic WHERE id = 1')).result).toBe(false)
       expect((await executeQuery('SELECT result FROM logic WHERE id = 2')).result).toBe(true)
       expect((await executeQuery('SELECT result FROM logic WHERE id = 3')).result).toBe(true)
@@ -2059,6 +2068,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-050: should evaluate SWITCH with CASE expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using CASE expression for status label mapping
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2080,10 +2090,12 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting various status values
       await executeQuery(
         "INSERT INTO switches (status) VALUES ('pending'), ('active'), ('done'), ('other')"
       )
 
+      // THEN: formula maps each status to correct label
       expect((await executeQuery('SELECT label FROM switches WHERE id = 1')).label).toBe('Waiting')
       expect((await executeQuery('SELECT label FROM switches WHERE id = 2')).label).toBe(
         'In Progress'
@@ -2099,6 +2111,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-051: should return TRUE boolean constant',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field returning TRUE constant
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2119,7 +2132,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a record
       await executeQuery('INSERT INTO constants (dummy) VALUES (1)')
+      // THEN: formula always evaluates to true
       expect(
         (await executeQuery('SELECT always_true FROM constants WHERE id = 1')).always_true
       ).toBe(true)
@@ -2130,6 +2145,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-052: should return FALSE boolean constant',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field returning FALSE constant
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2150,7 +2166,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a record
       await executeQuery('INSERT INTO constants (dummy) VALUES (1)')
+      // THEN: formula always evaluates to false
       expect(
         (await executeQuery('SELECT always_false FROM constants WHERE id = 1')).always_false
       ).toBe(false)
@@ -2161,6 +2179,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-053: should return NULL with BLANK expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field returning NULL constant
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2175,7 +2194,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a record
       await executeQuery('INSERT INTO nulls (dummy) VALUES (1)')
+      // THEN: formula evaluates to NULL
       expect(
         (await executeQuery('SELECT blank_value FROM nulls WHERE id = 1')).blank_value
       ).toBeNull()
@@ -2186,6 +2207,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-054: should handle error with custom expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using CASE to handle negative values
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2206,7 +2228,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting positive and negative values
       await executeQuery('INSERT INTO errors (value) VALUES (10), (-5)')
+      // THEN: formula returns value if positive, NULL if negative
       expect((await executeQuery('SELECT checked FROM errors WHERE id = 1')).checked).toBe(10)
       expect((await executeQuery('SELECT checked FROM errors WHERE id = 2')).checked).toBeNull()
     }
@@ -2216,6 +2240,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-055: should detect errors with guarded expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field checking if divisor equals zero
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2236,7 +2261,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting zero and non-zero divisor values
       await executeQuery('INSERT INTO error_checks (divisor) VALUES (5), (0)')
+      // THEN: formula detects division-by-zero error condition
       expect((await executeQuery('SELECT is_error FROM error_checks WHERE id = 1')).is_error).toBe(
         false
       )
@@ -2250,6 +2277,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-056: should check for blank with IS NULL',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using IS NULL to check for blank values
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2270,7 +2298,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting text and NULL values
       await executeQuery("INSERT INTO blank_checks (value) VALUES ('hello'), (NULL)")
+      // THEN: formula correctly identifies NULL values
       expect((await executeQuery('SELECT is_blank FROM blank_checks WHERE id = 1')).is_blank).toBe(
         false
       )
@@ -2284,6 +2314,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-057: should use COALESCE for default values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using COALESCE to provide default value for NULL
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2304,7 +2335,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting text and NULL values
       await executeQuery("INSERT INTO defaults (value) VALUES ('hello'), (NULL)")
+      // THEN: formula returns original value or default 'N/A' if NULL
       expect(
         (await executeQuery('SELECT with_default FROM defaults WHERE id = 1')).with_default
       ).toBe('hello')
@@ -2322,6 +2355,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-058: should compare date with CURRENT_DATE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field comparing date with CURRENT_DATE
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2342,7 +2376,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting today's date
       await executeQuery('INSERT INTO timestamps (created) VALUES (CURRENT_DATE)')
+      // THEN: formula correctly identifies today's date
       expect((await executeQuery('SELECT is_today FROM timestamps WHERE id = 1')).is_today).toBe(
         true
       )
@@ -2353,6 +2389,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-059: should add interval to date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field adding 7 days interval to date
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2373,7 +2410,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a start date
       await executeQuery("INSERT INTO dates (start_date) VALUES ('2024-01-01')")
+      // THEN: formula correctly adds 7 days to the date
       const result = await executeQuery(
         'SELECT plus_week::date as plus_week FROM dates WHERE id = 1'
       )
@@ -2385,6 +2424,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-060: should compute date difference',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field computing difference between two dates
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2406,9 +2446,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting start and end dates
       await executeQuery(
         "INSERT INTO date_diffs (start_date, end_date) VALUES ('2024-01-01', '2024-01-15')"
       )
+      // THEN: formula correctly calculates days between dates
       expect(
         (await executeQuery('SELECT days_between FROM date_diffs WHERE id = 1')).days_between
       ).toBe(14)
@@ -2419,6 +2461,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-061: should format date with TO_CHAR',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field formatting date using TO_CHAR function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2439,7 +2482,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date value
       await executeQuery("INSERT INTO formatted_dates (date_value) VALUES ('2024-03-15')")
+      // THEN: formula formats date as text in YYYY-MM-DD format
       expect(
         (await executeQuery('SELECT formatted FROM formatted_dates WHERE id = 1')).formatted
       ).toBe('2024-03-15')
@@ -2450,6 +2495,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-062: should parse date from text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field parsing text to date using TO_DATE function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2470,7 +2516,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date as text
       await executeQuery("INSERT INTO parsed_dates (date_text) VALUES ('2024-03-15')")
+      // THEN: formula correctly parses text to date value
       expect(
         (await executeQuery('SELECT parsed::text FROM parsed_dates WHERE id = 1')).parsed
       ).toBe('2024-03-15')
@@ -2481,6 +2529,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-063: should extract year from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting year from date using EXTRACT function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2501,7 +2550,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date value
       await executeQuery("INSERT INTO date_parts (date_value) VALUES ('2024-06-15')")
+      // THEN: formula extracts the year component
       expect((await executeQuery('SELECT year FROM date_parts WHERE id = 1')).year).toBe(2024)
     }
   )
@@ -2510,6 +2561,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-064: should extract month from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting month from date using EXTRACT function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2530,7 +2582,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date value
       await executeQuery("INSERT INTO date_parts (date_value) VALUES ('2024-06-15')")
+      // THEN: formula extracts the month component
       expect((await executeQuery('SELECT month FROM date_parts WHERE id = 1')).month).toBe(6)
     }
   )
@@ -2539,6 +2593,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-065: should extract day from date',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting day from date using EXTRACT function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2559,7 +2614,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date value
       await executeQuery("INSERT INTO date_parts (date_value) VALUES ('2024-06-15')")
+      // THEN: formula extracts the day component
       expect((await executeQuery('SELECT day FROM date_parts WHERE id = 1')).day).toBe(15)
     }
   )
@@ -2568,6 +2625,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-066: should extract hour from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting hour from timestamp using EXTRACT function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2588,7 +2646,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a timestamp value
       await executeQuery("INSERT INTO time_parts (timestamp_value) VALUES ('2024-06-15 14:30:00')")
+      // THEN: formula extracts the hour component
       expect((await executeQuery('SELECT hour FROM time_parts WHERE id = 1')).hour).toBe(14)
     }
   )
@@ -2597,6 +2657,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-067: should extract minute from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting minute from timestamp using EXTRACT function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2617,7 +2678,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a timestamp value
       await executeQuery("INSERT INTO time_parts (timestamp_value) VALUES ('2024-06-15 14:30:45')")
+      // THEN: formula extracts the minute component
       expect((await executeQuery('SELECT minute FROM time_parts WHERE id = 1')).minute).toBe(30)
     }
   )
@@ -2626,6 +2689,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-068: should extract second from timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting second from timestamp using EXTRACT function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2646,7 +2710,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a timestamp value
       await executeQuery("INSERT INTO time_parts (timestamp_value) VALUES ('2024-06-15 14:30:45')")
+      // THEN: formula extracts the second component
       expect((await executeQuery('SELECT second FROM time_parts WHERE id = 1')).second).toBe(45)
     }
   )
@@ -2655,6 +2721,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-069: should get day of week',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting day of week using EXTRACT(DOW) function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2675,7 +2742,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date value
       await executeQuery("INSERT INTO weekdays (date_value) VALUES ('2024-01-01')")
+      // THEN: formula returns the day of week (0=Sunday, 1=Monday, etc.)
       expect((await executeQuery('SELECT weekday FROM weekdays WHERE id = 1')).weekday).toBe(1)
     }
   )
@@ -2684,6 +2753,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-070: should get week number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting week number using EXTRACT(WEEK) function
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2704,7 +2774,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a date value
       await executeQuery("INSERT INTO weeks (date_value) VALUES ('2024-01-15')")
+      // THEN: formula returns the week number of the year
       expect((await executeQuery('SELECT week_num FROM weeks WHERE id = 1')).week_num).toBe(3)
     }
   )
@@ -2713,6 +2785,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-071: should check if date is weekday',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field checking if date is a weekday (not Saturday or Sunday)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2733,7 +2806,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting weekday and weekend dates
       await executeQuery("INSERT INTO workdays (date_value) VALUES ('2024-01-15'), ('2024-01-13')")
+      // THEN: formula correctly identifies weekdays vs weekends
       expect((await executeQuery('SELECT is_weekday FROM workdays WHERE id = 1')).is_weekday).toBe(
         true
       )
@@ -2747,6 +2822,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-072: should count calendar days between dates',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field calculating calendar days between two dates
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2768,9 +2844,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting start and end dates
       await executeQuery(
         "INSERT INTO workday_counts (start_date, end_date) VALUES ('2024-01-08', '2024-01-12')"
       )
+      // THEN: formula calculates the number of calendar days between dates
       expect(
         (await executeQuery('SELECT calendar_days FROM workday_counts WHERE id = 1')).calendar_days
       ).toBe(4)
@@ -2781,6 +2859,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-073: should compare dates at same precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field comparing dates truncated to month precision
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2802,9 +2881,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting dates from same and different months
       await executeQuery(
         "INSERT INTO date_comparisons (date1, date2) VALUES ('2024-01-15', '2024-01-20'), ('2024-01-15', '2024-02-15')"
       )
+      // THEN: formula correctly identifies dates in same month
       expect(
         (await executeQuery('SELECT same_month FROM date_comparisons WHERE id = 1')).same_month
       ).toBe(true)
@@ -2818,6 +2899,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-074: should check if date is after another',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field checking if date1 is after date2
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2839,9 +2921,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting date pairs in different orders
       await executeQuery(
         "INSERT INTO date_order (date1, date2) VALUES ('2024-02-01', '2024-01-01'), ('2024-01-01', '2024-02-01')"
       )
+      // THEN: formula correctly identifies when date1 is after date2
       expect((await executeQuery('SELECT is_after FROM date_order WHERE id = 1')).is_after).toBe(
         true
       )
@@ -2855,6 +2939,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-075: should check if date is before another',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field checking if date1 is before date2
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2876,9 +2961,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting date pairs in different orders
       await executeQuery(
         "INSERT INTO date_order (date1, date2) VALUES ('2024-01-01', '2024-02-01'), ('2024-02-01', '2024-01-01')"
       )
+      // THEN: formula correctly identifies when date1 is before date2
       expect((await executeQuery('SELECT is_before FROM date_order WHERE id = 1')).is_before).toBe(
         true
       )
@@ -2897,6 +2984,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-076: should join array elements with ARRAY_TO_STRING',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field joining array elements with custom delimiter
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2917,7 +3005,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting comma-separated values
       await executeQuery("INSERT INTO arrays (items) VALUES ('a,b,c')")
+      // THEN: formula joins array elements with pipe delimiter
       expect((await executeQuery('SELECT joined FROM arrays WHERE id = 1')).joined).toBe(
         'a | b | c'
       )
@@ -2928,6 +3018,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-077: should get unique array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting unique elements from array
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2949,7 +3040,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting comma-separated values with duplicates
       await executeQuery("INSERT INTO arrays (items) VALUES ('a,b,a,c,b')")
+      // THEN: formula returns only unique elements
       const result = await executeQuery('SELECT unique_items FROM arrays WHERE id = 1')
       expect(result.unique_items).toContain('a')
       expect(result.unique_items).toContain('b')
@@ -2961,6 +3054,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-078: should remove empty elements from array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field removing empty elements from array
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -2981,7 +3075,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting comma-separated values with empty elements
       await executeQuery("INSERT INTO arrays (items) VALUES ('a,,b,,c')")
+      // THEN: formula removes empty elements from array
       expect((await executeQuery('SELECT compacted FROM arrays WHERE id = 1')).compacted).toBe(
         'a,b,c'
       )
@@ -2992,6 +3088,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-079: should flatten nested arrays',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field flattening array representation
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3012,7 +3109,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting comma-separated values
       await executeQuery("INSERT INTO arrays (items) VALUES ('a,b,c')")
+      // THEN: formula flattens the array structure
       expect((await executeQuery('SELECT flattened FROM arrays WHERE id = 1')).flattened).toBe(
         'a,b,c'
       )
@@ -3023,6 +3122,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-080: should slice array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field slicing first two elements from array
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3043,7 +3143,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting comma-separated values
       await executeQuery("INSERT INTO arrays (items) VALUES ('a,b,c,d,e')")
+      // THEN: formula returns only the first two elements
       expect((await executeQuery('SELECT sliced FROM arrays WHERE id = 1')).sliced).toBe('a,b')
     }
   )
@@ -3052,6 +3154,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-081: should count array elements',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field counting array elements using CARDINALITY
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3072,7 +3175,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting comma-separated values
       await executeQuery("INSERT INTO arrays (items) VALUES ('a,b,c,d,e')")
+      // THEN: formula returns the count of array elements
       expect((await executeQuery('SELECT count FROM arrays WHERE id = 1')).count).toBe(5)
     }
   )
@@ -3085,6 +3190,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-082: should return record ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field returning the record ID
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3099,7 +3205,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting multiple records
       await executeQuery("INSERT INTO records (name) VALUES ('first'), ('second')")
+      // THEN: formula returns the auto-incrementing record ID
       expect((await executeQuery('SELECT record_id FROM records WHERE id = 1')).record_id).toBe(1)
       expect((await executeQuery('SELECT record_id FROM records WHERE id = 2')).record_id).toBe(2)
     }
@@ -3109,6 +3217,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-083: should return created timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting date from created_at timestamp
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3130,7 +3239,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a record
       await executeQuery("INSERT INTO records (name) VALUES ('test')")
+      // THEN: formula returns the creation date
       const result = await executeQuery('SELECT created_date::text FROM records WHERE id = 1')
       expect(result.created_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     }
@@ -3140,6 +3251,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-084: should return last modified timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting date from updated_at timestamp
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3161,7 +3273,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a record
       await executeQuery("INSERT INTO records (name) VALUES ('test')")
+      // THEN: formula returns the last modified date
       const result = await executeQuery('SELECT updated_date::text FROM records WHERE id = 1')
       expect(result.updated_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     }
@@ -3175,6 +3289,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-085: should match regex pattern',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field checking if text matches email regex pattern
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3195,7 +3310,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting valid email and non-email text
       await executeQuery("INSERT INTO patterns (text) VALUES ('test@example.com'), ('not-email')")
+      // THEN: formula correctly validates email format
       expect((await executeQuery('SELECT is_email FROM patterns WHERE id = 1')).is_email).toBe(true)
       expect((await executeQuery('SELECT is_email FROM patterns WHERE id = 2')).is_email).toBe(
         false
@@ -3207,6 +3324,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-086: should extract regex match',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field extracting digits using SUBSTRING with regex
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3227,7 +3345,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting text with and without numbers
       await executeQuery("INSERT INTO extracts (text) VALUES ('order-12345'), ('no-numbers')")
+      // THEN: formula extracts digits or returns NULL if not found
       expect((await executeQuery('SELECT extracted FROM extracts WHERE id = 1')).extracted).toBe(
         '12345'
       )
@@ -3241,6 +3361,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-087: should replace with regex',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field replacing all digits with 'X' using REGEXP_REPLACE
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3261,7 +3382,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting text containing multiple digit sequences
       await executeQuery("INSERT INTO replacements (text) VALUES ('abc123def456')")
+      // THEN: formula replaces all digit sequences with 'X'
       expect((await executeQuery('SELECT replaced FROM replacements WHERE id = 1')).replaced).toBe(
         'abcXdefX'
       )
@@ -3276,6 +3399,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-088: should compute modulo with % operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field computing modulo using % operator
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3291,7 +3415,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values for modulo operation
       await executeQuery('INSERT INTO modulos (a, b) VALUES (10, 3)')
+      // THEN: formula returns the remainder
       expect((await executeQuery('SELECT result FROM modulos WHERE id = 1')).result).toBe(1)
     }
   )
@@ -3300,6 +3426,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-089: should handle NULL in arithmetic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field performing arithmetic with potentially NULL values
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3315,7 +3442,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting NULL and non-NULL values
       await executeQuery('INSERT INTO nulls (a, b) VALUES (NULL, 5)')
+      // THEN: formula returns NULL when any operand is NULL
       expect((await executeQuery('SELECT sum FROM nulls WHERE id = 1')).sum).toBeNull()
     }
   )
@@ -3324,6 +3453,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-090: should handle division by zero',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using CASE to safely handle division by zero
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3345,7 +3475,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values including division by zero
       await executeQuery('INSERT INTO divisions (a, b) VALUES (10, 0), (10, 2)')
+      // THEN: formula returns NULL for division by zero, otherwise the quotient
       expect(
         (await executeQuery('SELECT safe_div FROM divisions WHERE id = 1')).safe_div
       ).toBeNull()
@@ -3357,6 +3489,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-091: should coerce number to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field converting integer to text using ::TEXT cast
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3371,7 +3504,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting an integer value
       await executeQuery('INSERT INTO coercions (num) VALUES (42)')
+      // THEN: formula coerces number to text string
       expect((await executeQuery('SELECT as_text FROM coercions WHERE id = 1')).as_text).toBe('42')
     }
   )
@@ -3380,6 +3515,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-092: should coerce text to number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field converting text to decimal using ::NUMERIC cast
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3400,7 +3536,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a numeric text value
       await executeQuery("INSERT INTO coercions (text) VALUES ('42.5')")
+      // THEN: formula parses text to numeric value
       expect((await executeQuery('SELECT as_num FROM coercions WHERE id = 1')).as_num).toBe(42.5)
     }
   )
@@ -3409,6 +3547,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-093: should handle nested function calls',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using nested functions (ROUND, SQRT, ABS)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3429,7 +3568,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting a negative value
       await executeQuery('INSERT INTO nested (value) VALUES (-16)')
+      // THEN: formula applies ABS, then SQRT, then ROUND correctly
       expect((await executeQuery('SELECT result FROM nested WHERE id = 1')).result).toBe(4)
     }
   )
@@ -3438,6 +3579,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-094: should concatenate with & operator equivalent',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field concatenating text using || operator
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3459,7 +3601,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting two text values
       await executeQuery("INSERT INTO concat (a, b) VALUES ('Hello', 'World')")
+      // THEN: formula concatenates the strings
       expect((await executeQuery('SELECT result FROM concat WHERE id = 1')).result).toBe(
         'HelloWorld'
       )
@@ -3470,6 +3614,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-095: should compare with = operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using = operator for equality comparison
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3485,7 +3630,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting equal and non-equal value pairs
       await executeQuery('INSERT INTO comparisons (a, b) VALUES (5, 5), (5, 3)')
+      // THEN: formula correctly identifies equality
       expect((await executeQuery('SELECT is_equal FROM comparisons WHERE id = 1')).is_equal).toBe(
         true
       )
@@ -3499,6 +3646,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-096: should compare with != operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using != operator for inequality comparison
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3520,7 +3668,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting equal and non-equal value pairs
       await executeQuery('INSERT INTO comparisons (a, b) VALUES (5, 3), (5, 5)')
+      // THEN: formula correctly identifies inequality
       expect((await executeQuery('SELECT not_equal FROM comparisons WHERE id = 1')).not_equal).toBe(
         true
       )
@@ -3534,6 +3684,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-097: should compare with < operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using < operator for less-than comparison
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3549,7 +3700,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value pairs in different orders
       await executeQuery('INSERT INTO comparisons (a, b) VALUES (3, 5), (5, 3)')
+      // THEN: formula correctly identifies when a is less than b
       expect((await executeQuery('SELECT is_less FROM comparisons WHERE id = 1')).is_less).toBe(
         true
       )
@@ -3563,6 +3716,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-098: should compare with > operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using > operator for greater-than comparison
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3584,7 +3738,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value pairs in different orders
       await executeQuery('INSERT INTO comparisons (a, b) VALUES (5, 3), (3, 5)')
+      // THEN: formula correctly identifies when a is greater than b
       expect(
         (await executeQuery('SELECT is_greater FROM comparisons WHERE id = 1')).is_greater
       ).toBe(true)
@@ -3598,6 +3754,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-099: should compare with <= operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using <= operator for less-than-or-equal comparison
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3619,7 +3776,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting various value comparisons
       await executeQuery('INSERT INTO comparisons (a, b) VALUES (3, 5), (5, 5), (6, 5)')
+      // THEN: formula correctly identifies when a is less than or equal to b
       expect((await executeQuery('SELECT is_lte FROM comparisons WHERE id = 1')).is_lte).toBe(true)
       expect((await executeQuery('SELECT is_lte FROM comparisons WHERE id = 2')).is_lte).toBe(true)
       expect((await executeQuery('SELECT is_lte FROM comparisons WHERE id = 3')).is_lte).toBe(false)
@@ -3630,6 +3789,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-100: should compare with >= operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using >= operator for greater-than-or-equal comparison
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3651,7 +3811,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting various value comparisons
       await executeQuery('INSERT INTO comparisons (a, b) VALUES (5, 3), (5, 5), (4, 5)')
+      // THEN: formula correctly identifies when a is greater than or equal to b
       expect((await executeQuery('SELECT is_gte FROM comparisons WHERE id = 1')).is_gte).toBe(true)
       expect((await executeQuery('SELECT is_gte FROM comparisons WHERE id = 2')).is_gte).toBe(true)
       expect((await executeQuery('SELECT is_gte FROM comparisons WHERE id = 3')).is_gte).toBe(false)
@@ -3662,6 +3824,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-101: should apply unary minus operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using unary minus operator
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3676,7 +3839,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery('INSERT INTO negations (value) VALUES (5), (-3)')
+      // THEN: unary minus correctly negates values
       expect((await executeQuery('SELECT negated FROM negations WHERE id = 1')).negated).toBe(-5)
       expect((await executeQuery('SELECT negated FROM negations WHERE id = 2')).negated).toBe(3)
     }
@@ -3686,6 +3851,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-102: should respect parentheses grouping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using parentheses grouping
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3708,7 +3874,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery('INSERT INTO grouping (a, b, c) VALUES (2, 3, 4)')
+      // THEN: parentheses correctly group operations (2+3)*4=20
       expect((await executeQuery('SELECT result FROM grouping WHERE id = 1')).result).toBe(20)
     }
   )
@@ -3717,6 +3885,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-103: should mix arithmetic and text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field mixing arithmetic and text concatenation
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3738,7 +3907,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery("INSERT INTO mixed (quantity, unit) VALUES (5, 'items')")
+      // THEN: formula correctly mixes arithmetic result with text
       expect((await executeQuery('SELECT label FROM mixed WHERE id = 1')).label).toBe('5 items')
     }
   )
@@ -3747,6 +3918,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-104: should coerce boolean to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field coercing boolean to text
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3767,7 +3939,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery('INSERT INTO booleans (flag) VALUES (true), (false)')
+      // THEN: boolean is correctly coerced to text
       expect((await executeQuery('SELECT as_text FROM booleans WHERE id = 1')).as_text).toBe('Yes')
       expect((await executeQuery('SELECT as_text FROM booleans WHERE id = 2')).as_text).toBe('No')
     }
@@ -3777,6 +3951,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-105: should coerce date to text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field coercing date to text
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3797,7 +3972,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting date value
       await executeQuery("INSERT INTO dates (date_value) VALUES ('2024-01-15')")
+      // THEN: date is correctly coerced to text
       expect((await executeQuery('SELECT as_text FROM dates WHERE id = 1')).as_text).toBe(
         '2024-01-15'
       )
@@ -3808,6 +3985,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-106: should handle empty string',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field checking for empty string
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3828,7 +4006,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting empty and non-empty strings
       await executeQuery("INSERT INTO empties (text) VALUES (''), ('hello')")
+      // THEN: empty string detection works correctly
       expect((await executeQuery('SELECT is_empty FROM empties WHERE id = 1')).is_empty).toBe(true)
       expect((await executeQuery('SELECT is_empty FROM empties WHERE id = 2')).is_empty).toBe(false)
     }
@@ -3838,6 +4018,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-107: should handle whitespace in formulas',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field containing extra whitespace
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3859,7 +4040,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery('INSERT INTO whitespace (a, b) VALUES (3, 5)')
+      // THEN: formula with whitespace still evaluates correctly
       expect((await executeQuery('SELECT result FROM whitespace WHERE id = 1')).result).toBe(8)
     }
   )
@@ -3868,6 +4051,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-108: should handle case sensitivity in field names',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field referencing snake_case field name
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3888,7 +4072,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value
       await executeQuery('INSERT INTO cases (my_value) VALUES (5)')
+      // THEN: field name case is handled correctly
       expect((await executeQuery('SELECT doubled FROM cases WHERE id = 1')).doubled).toBe(10)
     }
   )
@@ -3897,6 +4083,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-109: should handle reserved word escaping',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field using reserved word field names
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3917,7 +4104,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value
       await executeQuery('INSERT INTO reserved (order_num) VALUES (5)')
+      // THEN: reserved word is properly escaped
       expect((await executeQuery('SELECT doubled FROM reserved WHERE id = 1')).doubled).toBe(10)
     }
   )
@@ -3926,6 +4115,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-110: should handle long formula expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with complex nested CASE WHEN formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3949,7 +4139,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery('INSERT INTO long_formulas (a, b, c) VALUES (1, 2, 3)')
+      // THEN: long formula evaluates correctly
       expect((await executeQuery('SELECT complex FROM long_formulas WHERE id = 1')).complex).toBe(6)
     }
   )
@@ -3958,6 +4150,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-111: should handle deeply nested expressions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with deeply nested function calls
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -3978,7 +4171,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value
       await executeQuery('INSERT INTO deep (value) VALUES (-5)')
+      // THEN: nested functions evaluate correctly
       expect((await executeQuery('SELECT result FROM deep WHERE id = 1')).result).toBe(5)
     }
   )
@@ -3987,6 +4182,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-112: should support multiple formula fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with multiple formula fields
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4021,7 +4217,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value
       await executeQuery('INSERT INTO multi_formula (base) VALUES (5)')
+      // THEN: all formula fields calculate correctly
       const result = await executeQuery(
         'SELECT doubled, tripled, squared FROM multi_formula WHERE id = 1'
       )
@@ -4035,6 +4233,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-113: should reference another formula field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with formula field referencing base field
       // Note: PostgreSQL GENERATED columns cannot reference other generated columns
       // This test verifies that cascading calculations work with proper field ordering
       await startServerWithSchema({
@@ -4057,7 +4256,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting value
       await executeQuery('INSERT INTO cascade (base) VALUES (5)')
+      // THEN: formula correctly references base field
       expect((await executeQuery('SELECT doubled FROM cascade WHERE id = 1')).doubled).toBe(10)
     }
   )
@@ -4066,6 +4267,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-114: should handle all NULL inputs',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with COALESCE handling NULL inputs
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4087,7 +4289,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting NULL values
       await executeQuery('INSERT INTO all_nulls (a, b) VALUES (NULL, NULL)')
+      // THEN: COALESCE handles NULLs with defaults
       expect((await executeQuery('SELECT result FROM all_nulls WHERE id = 1')).result).toBe(0)
     }
   )
@@ -4100,6 +4304,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-115: should handle complex nested expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with complex nested expression
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4122,7 +4327,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting values
       await executeQuery('INSERT INTO complex (price, quantity, discount) VALUES (99.99, 3, 10)')
+      // THEN: complex nested formula calculates correctly
       expect(
         (await executeQuery('SELECT final_price FROM complex WHERE id = 1')).final_price
       ).toBeCloseTo(269.97, 1)
@@ -4133,6 +4340,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-116: should calculate invoice total',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with invoice total formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4155,9 +4363,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting invoice data
       await executeQuery(
         'INSERT INTO invoices (subtotal, tax_rate, shipping) VALUES (100, 0.08, 5)'
       )
+      // THEN: invoice total is calculated correctly
       expect((await executeQuery('SELECT total FROM invoices WHERE id = 1')).total).toBe(113)
     }
   )
@@ -4166,6 +4376,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-117: should calculate discount pricing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with discount pricing formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4187,9 +4398,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting product with discount
       await executeQuery(
         'INSERT INTO products (original_price, discount_percent) VALUES (79.99, 25)'
       )
+      // THEN: sale price is calculated correctly
       expect((await executeQuery('SELECT sale_price FROM products WHERE id = 1')).sale_price).toBe(
         59.99
       )
@@ -4200,6 +4413,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-118: should calculate age from birthdate',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with age calculation formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4220,7 +4434,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting birth date
       await executeQuery("INSERT INTO people (birth_date) VALUES ('2000-01-01')")
+      // THEN: age is calculated from birthdate
       const result = await executeQuery('SELECT age_years FROM people WHERE id = 1')
       expect(result.age_years).toBeGreaterThanOrEqual(24)
     }
@@ -4230,6 +4446,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-119: should derive status from conditions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with status derived from order conditions
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4252,9 +4469,11 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting orders with different states
       await executeQuery(
         'INSERT INTO orders (shipped, delivered) VALUES (false, false), (true, false), (true, true)'
       )
+      // THEN: status is correctly derived from conditions
       expect((await executeQuery('SELECT status FROM orders WHERE id = 1')).status).toBe(
         'Processing'
       )
@@ -4271,6 +4490,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-120: should format full name',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with full name formatting formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4292,7 +4512,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting contact name
       await executeQuery("INSERT INTO contacts (first_name, last_name) VALUES ('john', 'doe')")
+      // THEN: display name is formatted correctly
       expect(
         (await executeQuery('SELECT display_name FROM contacts WHERE id = 1')).display_name
       ).toBe('John DOE')
@@ -4303,6 +4525,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-121: should generate URL slug',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with URL slug generation formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4323,7 +4546,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting article title
       await executeQuery("INSERT INTO articles (title) VALUES ('Hello World Article!')")
+      // THEN: URL slug is generated correctly
       expect((await executeQuery('SELECT slug FROM articles WHERE id = 1')).slug).toBe(
         'hello-world-article-'
       )
@@ -4334,6 +4559,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-122: should track deadline status',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with deadline status tracking formula
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -4356,7 +4582,9 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: inserting task with past due date
       await executeQuery("INSERT INTO tasks (due_date, completed) VALUES ('2020-01-01', false)")
+      // THEN: deadline status shows Overdue
       expect(
         (await executeQuery('SELECT deadline_status FROM tasks WHERE id = 1')).deadline_status
       ).toBe('Overdue')

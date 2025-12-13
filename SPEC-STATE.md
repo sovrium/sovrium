@@ -1,13 +1,14 @@
 # SPEC STATE
 
-> Generated: 2025-12-13T00:53:16.237Z
+> Generated: 2025-12-13T01:08:25.441Z
 >
-> 
+> ✅ Updated: /Users/thomasjeanneau/Codes/sovrium/README.md
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 SPEC QUALITY REPORT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Quality Score: 89%
+Quality Score: 91%
 
 Tests:       2215 total
   ├─ @spec:       1988
@@ -15,9 +16,9 @@ Tests:       2215 total
   ├─ Passing:     1490
   └─ Fixme:       725
 
-Issues:      228 total
+Issues:      0 total
   ├─ Errors:      0
-  ├─ Warnings:    228
+  ├─ Warnings:    0
   └─ Suggestions: 0
 
 🤖 TDD Automation:
@@ -32,8 +33,7 @@ Issues:      228 total
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ Generated: /Users/thomasjeanneau/Codes/sovrium/SPEC-STATE.md
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-025-12-12 | `a9ed82a` |
-| `APP-TABLES-FIELD-TYPES-ROLLUP-011`       | 2025-12-12 | `23ea63b` |
+P-011`       | 2025-12-12 | `23ea63b` |
 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-011` | 2025-12-12 | `a48d9ef` |
 | `APP-TABLES-FIELD-TYPES-ROLLUP-010`       | 2025-12-12 | `c0036db` |
 | `APP-TABLES-FIELD-TYPES-ROLLUP-009`       | 2025-12-12 | `27d51ae` |
@@ -66,467 +66,6 @@ Missing behaviors:
 - [ ] Boundary/edge cases
 
 > 💡 Consider adding tests for: Error handling scenarios, Empty/missing data scenarios, Boundary/edge cases
-
-## Quality Issues
-
-### Warnings
-
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:1955`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:1955`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:1955`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:1992`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:1992`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:1992`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2022`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2022`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2022`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2058`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2058`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2058`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2098`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2098`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2098`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2129`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2129`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2129`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2160`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2160`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2160`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2185`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2185`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2185`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2215`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2215`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2215`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2249`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2249`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2249`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2283`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2283`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2283`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2321`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2321`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2321`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2352`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2352`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2352`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2384`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2384`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2384`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2418`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2418`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2418`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2449`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2449`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2449`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2480`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2480`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2480`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2509`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2509`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2509`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2538`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2538`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2538`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2567`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2567`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2567`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2596`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2596`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2596`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2625`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2625`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2625`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2654`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2654`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2654`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2683`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2683`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2683`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2712`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2712`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2712`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2746`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2746`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2746`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2780`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2780`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2780`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2817`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2817`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2817`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2854`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2854`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2854`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2896`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2896`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2896`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2927`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2927`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2927`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2960`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2960`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2960`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:2991`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:2991`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:2991`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3022`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3022`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3022`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3051`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3051`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3051`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3084`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3084`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3084`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3108`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3108`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3108`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3139`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3139`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3139`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3174`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3174`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3174`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3206`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3206`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3206`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3240`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3240`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3240`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3275`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3275`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3275`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3299`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3299`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3299`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3323`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3323`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3323`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3356`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3356`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3356`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3379`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3379`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3379`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3408`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3408`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3408`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3437`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3437`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3437`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3469`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3469`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3469`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3498`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3498`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3498`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3533`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3533`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3533`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3562`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3562`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3562`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3597`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3597`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3597`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3629`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3629`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3629`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3661`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3661`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3661`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3685`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3685`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3685`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3716`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3716`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3716`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3746`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3746`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3746`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3776`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3776`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3776`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3807`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3807`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3807`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3837`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3837`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3837`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3867`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3867`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3867`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3896`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3896`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3896`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3925`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3925`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3925`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3957`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3957`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3957`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:3986`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:3986`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:3986`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4034`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4034`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4034`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4065`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4065`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4065`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4099`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4099`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4099`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4132`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4132`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4132`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4165`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4165`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4165`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4199`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4199`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4199`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4229`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4229`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4229`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4270`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4270`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4270`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4302`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4302`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4302`
-  Test missing THEN comment (assertion)
-- **MISSING_GIVEN** in `app/tables/field-types/formula-field.spec.ts:4333`
-  Test missing GIVEN comment (setup context)
-- **MISSING_WHEN** in `app/tables/field-types/formula-field.spec.ts:4333`
-  Test missing WHEN comment (action)
-- **MISSING_THEN** in `app/tables/field-types/formula-field.spec.ts:4333`
-  Test missing THEN comment (assertion)
 
 ## Specifications by Feature
 
@@ -8750,323 +8289,323 @@ APP-TABLES-FIELD-TYPES-FORMULA-046: should URL encode with custom expression
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-047** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-047: should evaluate IF with CASE WHEN expression
-`~G~/~W~/~T~` Line 1955
+`G/W/T` Line 1955
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-048** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-048: should evaluate OR logical operator
-`~G~/~W~/~T~` Line 1992
+`G/W/T` Line 1995
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-049** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-049: should evaluate XOR logical operator
-`~G~/~W~/~T~` Line 2022
+`G/W/T` Line 2028
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-050** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-050: should evaluate SWITCH with CASE expression
-`~G~/~W~/~T~` Line 2058
+`G/W/T` Line 2067
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-051** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-051: should return TRUE boolean constant
-`~G~/~W~/~T~` Line 2098
+`G/W/T` Line 2110
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-052** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-052: should return FALSE boolean constant
-`~G~/~W~/~T~` Line 2129
+`G/W/T` Line 2144
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-053** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-053: should return NULL with BLANK expression
-`~G~/~W~/~T~` Line 2160
+`G/W/T` Line 2178
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-054** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-054: should handle error with custom expression
-`~G~/~W~/~T~` Line 2185
+`G/W/T` Line 2206
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-055** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-055: should detect errors with guarded expression
-`~G~/~W~/~T~` Line 2215
+`G/W/T` Line 2239
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-056** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-056: should check for blank with IS NULL
-`~G~/~W~/~T~` Line 2249
+`G/W/T` Line 2276
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-057** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-057: should use COALESCE for default values
-`~G~/~W~/~T~` Line 2283
+`G/W/T` Line 2313
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-058** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-058: should compare date with CURRENT_DATE
-`~G~/~W~/~T~` Line 2321
+`G/W/T` Line 2354
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-059** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-059: should add interval to date
-`~G~/~W~/~T~` Line 2352
+`G/W/T` Line 2388
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-060** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-060: should compute date difference
-`~G~/~W~/~T~` Line 2384
+`G/W/T` Line 2423
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-061** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-061: should format date with TO_CHAR
-`~G~/~W~/~T~` Line 2418
+`G/W/T` Line 2460
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-062** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-062: should parse date from text
-`~G~/~W~/~T~` Line 2449
+`G/W/T` Line 2494
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-063** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-063: should extract year from date
-`~G~/~W~/~T~` Line 2480
+`G/W/T` Line 2528
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-064** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-064: should extract month from date
-`~G~/~W~/~T~` Line 2509
+`G/W/T` Line 2560
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-065** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-065: should extract day from date
-`~G~/~W~/~T~` Line 2538
+`G/W/T` Line 2592
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-066** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-066: should extract hour from timestamp
-`~G~/~W~/~T~` Line 2567
+`G/W/T` Line 2624
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-067** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-067: should extract minute from timestamp
-`~G~/~W~/~T~` Line 2596
+`G/W/T` Line 2656
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-068** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-068: should extract second from timestamp
-`~G~/~W~/~T~` Line 2625
+`G/W/T` Line 2688
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-069** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-069: should get day of week
-`~G~/~W~/~T~` Line 2654
+`G/W/T` Line 2720
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-070** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-070: should get week number
-`~G~/~W~/~T~` Line 2683
+`G/W/T` Line 2752
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-071** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-071: should check if date is weekday
-`~G~/~W~/~T~` Line 2712
+`G/W/T` Line 2784
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-072** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-072: should count calendar days between dates
-`~G~/~W~/~T~` Line 2746
+`G/W/T` Line 2821
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-073** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-073: should compare dates at same precision
-`~G~/~W~/~T~` Line 2780
+`G/W/T` Line 2858
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-074** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-074: should check if date is after another
-`~G~/~W~/~T~` Line 2817
+`G/W/T` Line 2898
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-075** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-075: should check if date is before another
-`~G~/~W~/~T~` Line 2854
+`G/W/T` Line 2938
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-076** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-076: should join array elements with ARRAY_TO_STRING
-`~G~/~W~/~T~` Line 2896
+`G/W/T` Line 2983
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-077** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-077: should get unique array elements
-`~G~/~W~/~T~` Line 2927
+`G/W/T` Line 3017
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-078** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-078: should remove empty elements from array
-`~G~/~W~/~T~` Line 2960
+`G/W/T` Line 3053
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-079** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-079: should flatten nested arrays
-`~G~/~W~/~T~` Line 2991
+`G/W/T` Line 3087
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-080** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-080: should slice array elements
-`~G~/~W~/~T~` Line 3022
+`G/W/T` Line 3121
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-081** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-081: should count array elements
-`~G~/~W~/~T~` Line 3051
+`G/W/T` Line 3153
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-082** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-082: should return record ID
-`~G~/~W~/~T~` Line 3084
+`G/W/T` Line 3189
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-083** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-083: should return created timestamp
-`~G~/~W~/~T~` Line 3108
+`G/W/T` Line 3216
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-084** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-084: should return last modified timestamp
-`~G~/~W~/~T~` Line 3139
+`G/W/T` Line 3250
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-085** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-085: should match regex pattern
-`~G~/~W~/~T~` Line 3174
+`G/W/T` Line 3288
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-086** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-086: should extract regex match
-`~G~/~W~/~T~` Line 3206
+`G/W/T` Line 3323
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-087** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-087: should replace with regex
-`~G~/~W~/~T~` Line 3240
+`G/W/T` Line 3360
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-088** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-088: should compute modulo with % operator
-`~G~/~W~/~T~` Line 3275
+`G/W/T` Line 3398
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-089** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-089: should handle NULL in arithmetic
-`~G~/~W~/~T~` Line 3299
+`G/W/T` Line 3425
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-090** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-090: should handle division by zero
-`~G~/~W~/~T~` Line 3323
+`G/W/T` Line 3452
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-091** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-091: should coerce number to text
-`~G~/~W~/~T~` Line 3356
+`G/W/T` Line 3488
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-092** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-092: should coerce text to number
-`~G~/~W~/~T~` Line 3379
+`G/W/T` Line 3514
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-093** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-093: should handle nested function calls
-`~G~/~W~/~T~` Line 3408
+`G/W/T` Line 3546
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-094** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-094: should concatenate with & operator equivalent
-`~G~/~W~/~T~` Line 3437
+`G/W/T` Line 3578
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-095** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-095: should compare with = operator
-`~G~/~W~/~T~` Line 3469
+`G/W/T` Line 3613
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-096** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-096: should compare with != operator
-`~G~/~W~/~T~` Line 3498
+`G/W/T` Line 3645
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-097** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-097: should compare with < operator
-`~G~/~W~/~T~` Line 3533
+`G/W/T` Line 3683
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-098** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-098: should compare with > operator
-`~G~/~W~/~T~` Line 3562
+`G/W/T` Line 3715
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-099** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-099: should compare with <= operator
-`~G~/~W~/~T~` Line 3597
+`G/W/T` Line 3753
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-100** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-100: should compare with >= operator
-`~G~/~W~/~T~` Line 3629
+`G/W/T` Line 3788
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-101** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-101: should apply unary minus operator
-`~G~/~W~/~T~` Line 3661
+`G/W/T` Line 3823
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-102** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-102: should respect parentheses grouping
-`~G~/~W~/~T~` Line 3685
+`G/W/T` Line 3850
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-103** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-103: should mix arithmetic and text
-`~G~/~W~/~T~` Line 3716
+`G/W/T` Line 3884
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-104** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-104: should coerce boolean to text
-`~G~/~W~/~T~` Line 3746
+`G/W/T` Line 3917
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-105** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-105: should coerce date to text
-`~G~/~W~/~T~` Line 3776
+`G/W/T` Line 3950
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-106** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-106: should handle empty string
-`~G~/~W~/~T~` Line 3807
+`G/W/T` Line 3984
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-107** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-107: should handle whitespace in formulas
-`~G~/~W~/~T~` Line 3837
+`G/W/T` Line 4017
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-108** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-108: should handle case sensitivity in field names
-`~G~/~W~/~T~` Line 3867
+`G/W/T` Line 4050
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-109** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-109: should handle reserved word escaping
-`~G~/~W~/~T~` Line 3896
+`G/W/T` Line 4082
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-110** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-110: should handle long formula expressions
-`~G~/~W~/~T~` Line 3925
+`G/W/T` Line 4114
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-111** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-111: should handle deeply nested expressions
-`~G~/~W~/~T~` Line 3957
+`G/W/T` Line 4149
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-112** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-112: should support multiple formula fields
-`~G~/~W~/~T~` Line 3986
+`G/W/T` Line 4181
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-113** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-113: should reference another formula field
-`~G~/~W~/~T~` Line 4034
+`G/W/T` Line 4232
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-114** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-114: should handle all NULL inputs
-`~G~/~W~/~T~` Line 4065
+`G/W/T` Line 4266
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-115** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-115: should handle complex nested expression
-`~G~/~W~/~T~` Line 4099
+`G/W/T` Line 4303
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-116** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-116: should calculate invoice total
-`~G~/~W~/~T~` Line 4132
+`G/W/T` Line 4339
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-117** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-117: should calculate discount pricing
-`~G~/~W~/~T~` Line 4165
+`G/W/T` Line 4375
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-118** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-118: should calculate age from birthdate
-`~G~/~W~/~T~` Line 4199
+`G/W/T` Line 4412
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-119** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-119: should derive status from conditions
-`~G~/~W~/~T~` Line 4229
+`G/W/T` Line 4445
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-120** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-120: should format full name
-`~G~/~W~/~T~` Line 4270
+`G/W/T` Line 4489
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-121** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-121: should generate URL slug
-`~G~/~W~/~T~` Line 4302
+`G/W/T` Line 4524
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-122** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-122: should track deadline status
-`~G~/~W~/~T~` Line 4333
+`G/W/T` Line 4558
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-123** `@regression`
 APP-TABLES-FIELD-TYPES-FORMULA-123: user can complete full formula-field workflow
-`~G~/~W~/~T~` Line 4370
+`~G~/~W~/~T~` Line 4598
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-124** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-124: should reject formula when referenced field does not exist
-`G/W/T` Line 4421
+`G/W/T` Line 4649
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-125** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-125: should reject circular formula dependencies
-`G/W/T` Line 4452
+`G/W/T` Line 4680
 
 ✅ **APP-TABLES-FIELD-TYPES-FORMULA-126** `@spec`
 APP-TABLES-FIELD-TYPES-FORMULA-126: should reject formula with invalid syntax
-`G/W/T` Line 4489
+`G/W/T` Line 4717
 
 </details>
 
