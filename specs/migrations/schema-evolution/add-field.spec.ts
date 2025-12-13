@@ -79,27 +79,29 @@ test.describe('Add Field Migration', () => {
     'MIGRATION-ALTER-ADD-002: should add TEXT column without NOT NULL constraint when ALTER TABLE adds nullable column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'products' with title field, new optional field 'description' (long-text) is added
-      await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-        `INSERT INTO products (title) VALUES ('MacBook Pro'), ('iPhone 15')`,
-      ])
-
       // WHEN: ALTER TABLE adds nullable column
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 2,
-            name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'description', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text' },
+                { id: 2, name: 'description', type: 'single-line-text' },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'products' with title field, new optional field 'description' (long-text) is added
+          setupQueries: [
+            `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255))`,
+            `INSERT INTO products (title) VALUES ('MacBook Pro'), ('iPhone 15')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL adds TEXT column without NOT NULL constraint
 

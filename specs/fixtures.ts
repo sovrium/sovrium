@@ -462,7 +462,11 @@ type AdminUserResult = {
 type ServerFixtures = {
   startServerWithSchema: (
     appSchema: App,
-    options?: { useDatabase?: boolean; database?: { url: string } }
+    options?: {
+      useDatabase?: boolean
+      database?: { url: string }
+      setupQueries?: readonly string[]
+    }
   ) => Promise<void>
   /**
    * Execute raw SQL queries against the test database.
@@ -853,76 +857,110 @@ export const test = base.extend<ServerFixtures>({
     let testDbName: string | null = null
 
     // Provide function to start server with custom schema
-    await use(async (appSchema: App, options?: { useDatabase?: boolean }) => {
-      let databaseUrl: string | undefined = undefined
+    await use(
+      async (
+        appSchema: App,
+        options?: {
+          useDatabase?: boolean
+          setupQueries?: readonly string[]
+        }
+      ) => {
+        let databaseUrl: string | undefined = undefined
 
-      // Enable database by default (can be disabled with useDatabase: false)
-      if (options?.useDatabase !== false) {
-        const templateManager = await getTemplateManager()
-        testDbName = generateTestDatabaseName(testInfo)
-        databaseUrl = await templateManager.duplicateTemplate(testDbName)
-        // Store database name for executeQuery fixture to use
-        ;(testInfo as any)._testDatabaseName = testDbName
+        // Enable database by default (can be disabled with useDatabase: false)
+        if (options?.useDatabase !== false) {
+          const templateManager = await getTemplateManager()
+          testDbName = generateTestDatabaseName(testInfo)
+          databaseUrl = await templateManager.duplicateTemplate(testDbName)
+          // Store database name for executeQuery fixture to use
+          ;(testInfo as any)._testDatabaseName = testDbName
+
+          // Execute setup queries if provided (for migration testing)
+          if (options?.setupQueries && options.setupQueries.length > 0) {
+            const { Client } = await import('pg')
+            const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
+            if (!connectionUrl) {
+              throw new Error('Database container not initialized')
+            }
+
+            // Parse connection URL and replace database name
+            const url = new URL(connectionUrl)
+            const pathParts = url.pathname.split('/')
+            pathParts[1] = testDbName
+            url.pathname = pathParts.join('/')
+
+            // Execute setup queries
+            const client = new Client({ connectionString: url.toString() })
+            await client.connect()
+            try {
+              for (const query of options.setupQueries) {
+                await client.query(query)
+              }
+            } finally {
+              await client.end()
+            }
+          }
+        }
+
+        // SMTP is automatically configured via environment variables from mailpit
+        // (configured in startCliServer - no need to pass email config in schema)
+        const server = await startCliServer(appSchema, databaseUrl)
+        serverProcess = server.process
+        serverUrl = server.url
+
+        // Set baseURL for page assertions (toHaveURL with relative paths)
+        // This needs to be done by navigating with baseURL or by creating a new page with baseURL
+        // Since we can't modify the context after creation, we'll override the page object
+        // @ts-expect-error - We need to set baseURL for relative URL assertions
+        page._browserContext._options.baseURL = serverUrl
+
+        // Override page.goto to prepend baseURL for relative paths
+        const originalGoto = page.goto.bind(page)
+        page.goto = (url: string, options?: Parameters<typeof page.goto>[1]) => {
+          const fullUrl = url.startsWith('/') ? `${serverUrl}${url}` : url
+          return originalGoto(fullUrl, options)
+        }
+
+        // Override page.request methods to prepend serverUrl for relative paths
+        const originalPost = page.request.post.bind(page.request)
+        const originalGet = page.request.get.bind(page.request)
+        const originalPut = page.request.put.bind(page.request)
+        // eslint-disable-next-line drizzle/enforce-delete-with-where
+        const originalDelete = page.request.delete.bind(page.request)
+        const originalPatch = page.request.patch.bind(page.request)
+
+        page.request.post = (urlOrRequest, options?) => {
+          const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
+          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          return originalPost(fullUrl, options)
+        }
+
+        page.request.get = (urlOrRequest, options?) => {
+          const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
+          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          return originalGet(fullUrl, options)
+        }
+
+        page.request.put = (urlOrRequest, options?) => {
+          const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
+          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          return originalPut(fullUrl, options)
+        }
+
+        // eslint-disable-next-line drizzle/enforce-delete-with-where
+        page.request.delete = (urlOrRequest, options?) => {
+          const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
+          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          return originalDelete(fullUrl, options)
+        }
+
+        page.request.patch = (urlOrRequest, options?) => {
+          const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
+          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          return originalPatch(fullUrl, options)
+        }
       }
-
-      // SMTP is automatically configured via environment variables from mailpit
-      // (configured in startCliServer - no need to pass email config in schema)
-      const server = await startCliServer(appSchema, databaseUrl)
-      serverProcess = server.process
-      serverUrl = server.url
-
-      // Set baseURL for page assertions (toHaveURL with relative paths)
-      // This needs to be done by navigating with baseURL or by creating a new page with baseURL
-      // Since we can't modify the context after creation, we'll override the page object
-      // @ts-expect-error - We need to set baseURL for relative URL assertions
-      page._browserContext._options.baseURL = serverUrl
-
-      // Override page.goto to prepend baseURL for relative paths
-      const originalGoto = page.goto.bind(page)
-      page.goto = (url: string, options?: Parameters<typeof page.goto>[1]) => {
-        const fullUrl = url.startsWith('/') ? `${serverUrl}${url}` : url
-        return originalGoto(fullUrl, options)
-      }
-
-      // Override page.request methods to prepend serverUrl for relative paths
-      const originalPost = page.request.post.bind(page.request)
-      const originalGet = page.request.get.bind(page.request)
-      const originalPut = page.request.put.bind(page.request)
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
-      const originalDelete = page.request.delete.bind(page.request)
-      const originalPatch = page.request.patch.bind(page.request)
-
-      page.request.post = (urlOrRequest, options?) => {
-        const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-        const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
-        return originalPost(fullUrl, options)
-      }
-
-      page.request.get = (urlOrRequest, options?) => {
-        const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-        const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
-        return originalGet(fullUrl, options)
-      }
-
-      page.request.put = (urlOrRequest, options?) => {
-        const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-        const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
-        return originalPut(fullUrl, options)
-      }
-
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
-      page.request.delete = (urlOrRequest, options?) => {
-        const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-        const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
-        return originalDelete(fullUrl, options)
-      }
-
-      page.request.patch = (urlOrRequest, options?) => {
-        const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-        const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
-        return originalPatch(fullUrl, options)
-      }
-    })
+    )
 
     // Cleanup: Stop server after test
     if (serverProcess) {
