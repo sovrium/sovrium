@@ -68,6 +68,46 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
   )
 
 /**
+ * Creates a reusable options array schema for status-type fields with complex option objects.
+ *
+ * This schema factory is used by status field type to ensure consistent validation
+ * of options arrays containing objects with value and optional color properties.
+ * Status fields require at least one option, and option values must be unique.
+ *
+ * @returns Effect Schema for validating status field options arrays
+ *
+ * @example
+ * ```typescript
+ * // Used in status field
+ * const optionsSchema = createStatusOptionsSchema()
+ * // Validates: [{ value: 'Draft', color: '#6B7280' }, { value: 'Published' }]
+ * ```
+ */
+export const createStatusOptionsSchema = () =>
+  Schema.Array(
+    Schema.Struct({
+      value: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'value is required' })),
+      color: Schema.optional(
+        Schema.String.pipe(
+          Schema.pattern(/^#[0-9a-fA-F]{6}$/, {
+            message: () => 'Hex color code for the status',
+          }),
+          Schema.annotations({
+            description: 'Hex color code for the status',
+          })
+        )
+      ),
+    })
+  ).pipe(
+    Schema.minItems(1, { message: () => 'at least one option required' }),
+    Schema.filter((options) => {
+      const values = options.map((opt) => opt.value)
+      const uniqueValues = new Set(values)
+      return values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+    })
+  )
+
+/**
  * Validates that button fields have required properties based on their action type.
  *
  * This validation is used by button field types to ensure that action-specific
