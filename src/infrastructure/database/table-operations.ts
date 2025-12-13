@@ -272,25 +272,25 @@ export const createTableViewsEffect = (
     // Process each view sequentially (views may depend on each other)
     /* eslint-disable functional/no-loop-statements */
     for (const view of table.views) {
-      // Use view.name for the view identifier (view.id can be a number)
-      const viewName = view.name
+      // Convert view.id to string (ViewId can be number or string)
+      const viewIdStr = String(view.id)
 
       // Drop existing view or materialized view (if any)
       // Try both types since we don't know what exists in the database
       if (view.materialized) {
-        yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`)
+        yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${viewIdStr} CASCADE`)
       } else {
-        yield* executeSQL(tx, `DROP VIEW IF EXISTS ${viewName} CASCADE`)
+        yield* executeSQL(tx, `DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
       }
 
       // Create view (regular or materialized)
-      const createSQL = viewSQL.find((sql) => sql.includes(viewName))
+      const createSQL = viewSQL.find((sql) => sql.includes(viewIdStr))
       if (createSQL) {
         yield* executeSQL(tx, createSQL)
 
         // Refresh materialized view if requested
         if (view.materialized && view.refreshOnMigration) {
-          yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${viewName}`)
+          yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${viewIdStr}`)
         }
       }
     }
