@@ -29,7 +29,7 @@ test.describe('Add Field Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-001: should add TEXT NOT NULL column to existing table when runtime migration generates ALTER TABLE ADD COLUMN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -49,7 +49,7 @@ test.describe('Add Field Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'name', type: 'single-line-text', required: true },
             ],
           },
         ],
