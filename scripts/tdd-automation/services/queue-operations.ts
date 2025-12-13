@@ -607,7 +607,7 @@ export const getNextSpec = Effect.gen(function* () {
         const graphContent = graphBuffer.toString('utf-8')
         return JSON.parse(graphContent) as Record<
           string,
-          { dependsOn: readonly string[]; blocksCount: number }
+          { canImplement: boolean; missingDependencies: string[] }
         >
       },
       catch: () => null,
