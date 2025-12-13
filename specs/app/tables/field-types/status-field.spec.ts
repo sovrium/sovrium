@@ -346,7 +346,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-008: should reject status field with invalid hex color format',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

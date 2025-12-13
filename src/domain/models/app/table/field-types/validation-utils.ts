@@ -90,7 +90,7 @@ export const createStatusOptionsSchema = () =>
       color: Schema.optional(
         Schema.String.pipe(
           Schema.pattern(/^#[0-9a-fA-F]{6}$/, {
-            message: () => 'Hex color code for the status',
+            message: () => 'Invalid color format - color must be a hex code (e.g., #3B82F6)',
           }),
           Schema.annotations({
             description: 'Hex color code for the status',
