@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Deleted At Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-001: should create PostgreSQL TIMESTAMP column with NULL default',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
