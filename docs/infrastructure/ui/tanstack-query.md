@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^5.90.11
+**Version**: ^5.90.12
 **DevTools Version**: 5.90.2
 **Purpose**: Powerful data fetching and server-state management library for React applications. Handles caching, background updates, request deduplication, and synchronization with minimal boilerplate.
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^4.1.12
+**Version**: ^4.1.13
 **Purpose**: TypeScript-first schema validation with static type inference, specifically used for OpenAPI schema generation and client-side form validation in Sovrium
 
 Zod is a TypeScript-first schema declaration and validation library. In Sovrium, it serves a specific purpose: handling OpenAPI schema generation for HTTP contracts and client-side form validation with React Hook Form.

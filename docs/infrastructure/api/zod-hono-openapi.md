@@ -12,7 +12,7 @@
 
 | Library           | Version | Usage                     | Allowed Locations                            | Why                                |
 | ----------------- | ------- | ------------------------- | -------------------------------------------- | ---------------------------------- |
-| **Effect Schema** | 3.19.8  | Server validation, domain | All `src/` files (default)                   | Project standard, Effect ecosystem |
+| **Effect Schema** | 3.19.12 | Server validation, domain | All `src/` files (default)                   | Project standard, Effect ecosystem |
 | **Zod**           | 4.1.13  | OpenAPI + client forms    | `src/presentation/api/schemas/` + forms only | OpenAPI tooling compatibility      |
 
 **Why This Separation Exists**:

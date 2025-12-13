@@ -76,7 +76,7 @@ See `@docs/infrastructure/api/zod-hono-openapi.md` for complete Zod usage guidel
 # Already in package.json
 bun add react-hook-form  # ^7.65.0
 bun add @hookform/resolvers  # Zod integration
-bun add zod  # ^4.1.12
+bun add zod  # ^4.1.13
 ```
 
 ## Basic Usage with shadcn/ui Form Component

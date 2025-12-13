@@ -20,7 +20,7 @@
 - **Enterprise**: Enterprise License (files with `.ee.` in filename/dirname) - Paid features
 - **Change Date**: 2029-01-01 (automatically becomes Apache 2.0)
 - **Current status**: No `.ee.` files exist yet (Phase 0 - all code is BSL-licensed)
-**Runtime**: Bun 1.3.3 (NOT Node.js)
+**Runtime**: Bun 1.3.4 (NOT Node.js)
 **Entry Points**:
 - Library: `src/index.ts` (module import)
 - CLI: `src/cli.ts` (binary executable via `bun run start` or `sovrium` command)
@@ -29,17 +29,17 @@
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| **Bun** | 1.3.3 | Runtime & package manager |
+| **Bun** | 1.3.4 | Runtime & package manager |
 | **TypeScript** | ^5.9.3 | Type-safe language |
-| **Effect** | ^3.19.8 | Functional programming, DI, error handling |
-| **Effect Schema** | ^3.19.8 | Server validation (domain/application/infrastructure) |
-| **Hono** | ^4.10.7 | Web framework (API routes, RPC client, OpenAPI) |
+| **Effect** | ^3.19.12 | Functional programming, DI, error handling |
+| **Effect Schema** | ^3.19.12 | Server validation (domain/application/infrastructure) |
+| **Hono** | ^4.10.8 | Web framework (API routes, RPC client, OpenAPI) |
 | **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms |
 | **Better Auth** | ^1.4.4 | Authentication |
 | **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) |
-| **React** | 19.2.0 | UI library |
-| **Tailwind CSS** | ^4.1.17 | Styling (programmatic CSS compiler) |
-| **TanStack Query** | ^5.90.11 | Server state management |
+| **React** | ^19.2.3 | UI library |
+| **Tailwind CSS** | ^4.1.18 | Styling (programmatic CSS compiler) |
+| **TanStack Query** | ^5.90.12 | Server state management |
 | **TanStack Table** | ^8.21.3 | Data tables |
 
 ## Authorization & Multi-Tenancy
