@@ -24,10 +24,11 @@ import type { Fields } from '@/domain/models/app/table/fields'
 export type BunSQLTransaction = TransactionLike
 
 /**
- * Better Auth system tables that should never be dropped
- * These tables are managed by Better Auth/Drizzle migrations, not by runtime schema
+ * System tables that should never be dropped
+ * These tables are managed by Better Auth/Drizzle migrations or migration system, not by runtime schema
  */
 const PROTECTED_SYSTEM_TABLES = new Set([
+  // Better Auth tables
   'users',
   'sessions',
   'accounts',
@@ -35,6 +36,10 @@ const PROTECTED_SYSTEM_TABLES = new Set([
   'organizations',
   'members',
   'invitations',
+  // Migration system tables
+  '_sovrium_migration_history',
+  '_sovrium_migration_log',
+  '_sovrium_schema_checksum',
 ])
 
 /**
