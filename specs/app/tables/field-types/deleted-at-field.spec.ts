@@ -116,7 +116,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-004: should allow clearing timestamp for restore',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
