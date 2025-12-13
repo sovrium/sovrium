@@ -184,6 +184,273 @@ const validateRelationshipFieldReference = (params: {
 }
 
 /**
+ * Find the related field type for a rollup aggregation.
+ *
+ * @param params - Lookup parameters
+ * @returns The related field type, or undefined if not found
+ */
+const findRelatedFieldType = (params: {
+  readonly table: {
+    readonly name: string
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+    }>
+  }
+  readonly relationshipField: string
+  readonly relatedField: string
+  readonly tablesByName: ReadonlyMap<
+    string,
+    {
+      readonly name: string
+      readonly fields: ReadonlyArray<{
+        readonly name: string
+        readonly type: string
+      }>
+    }
+  >
+}): string | undefined => {
+  const { table, relationshipField, relatedField, tablesByName } = params
+
+  // Find the relationship field to get the related table name
+  const relationshipFieldObj = table.fields.find((f) => f.name === relationshipField)
+  if (!relationshipFieldObj || relationshipFieldObj.type !== 'relationship') {
+    return undefined
+  }
+
+  const relatedTableName = (relationshipFieldObj as { relatedTable?: string }).relatedTable
+  if (!relatedTableName) {
+    return undefined
+  }
+
+  const relatedTable = tablesByName.get(relatedTableName)
+  if (!relatedTable) {
+    return undefined
+  }
+
+  // Find the related field to check its type
+  // Note: 'id' is always allowed as it's auto-generated (SERIAL primary key - integer type)
+  const relatedFieldObj =
+    relatedField === 'id'
+      ? { name: 'id', type: 'integer' }
+      : relatedTable.fields.find((f) => f.name === relatedField)
+
+  return relatedFieldObj?.type
+}
+
+/**
+ * Check if field type is numeric.
+ */
+const isNumericFieldType = (fieldType: string): boolean => {
+  const numericTypes = ['integer', 'decimal', 'currency', 'percentage', 'duration']
+  return numericTypes.includes(fieldType)
+}
+
+/**
+ * Check if field type is date.
+ */
+const isDateFieldType = (fieldType: string): boolean => {
+  return fieldType === 'date'
+}
+
+/**
+ * Validate sum/avg aggregation requires numeric field.
+ */
+const validateNumericAggregation = (
+  aggregation: string,
+  fieldType: string
+): string | undefined => {
+  if (!isNumericFieldType(fieldType)) {
+    return `aggregation function "${aggregation}" is incompatible with field type "${fieldType}" - numeric field required`
+  }
+  return undefined
+}
+
+/**
+ * Validate min/max aggregation requires numeric or date field.
+ */
+const validateMinMaxAggregation = (
+  aggregation: string,
+  fieldType: string
+): string | undefined => {
+  if (!isNumericFieldType(fieldType) && !isDateFieldType(fieldType)) {
+    return `aggregation function "${aggregation}" is incompatible with field type "${fieldType}" - numeric or date field required`
+  }
+  return undefined
+}
+
+/**
+ * Check if aggregation function is compatible with field type.
+ *
+ * @param aggregation - The aggregation function (sum, avg, min, max, count, counta, countall)
+ * @param fieldType - The field type to check compatibility against
+ * @returns Error message if incompatible, undefined if valid
+ */
+const checkAggregationCompatibility = (
+  aggregation: string,
+  fieldType: string
+): string | undefined => {
+  const aggregationLower = aggregation.toLowerCase()
+
+  switch (aggregationLower) {
+    case 'sum':
+    case 'avg':
+      return validateNumericAggregation(aggregation, fieldType)
+    case 'min':
+    case 'max':
+      return validateMinMaxAggregation(aggregation, fieldType)
+    case 'count':
+    case 'counta':
+    case 'countall':
+      // Count functions work with any field type
+      return undefined
+  }
+
+  return undefined
+}
+
+/**
+ * Validate that a rollup aggregation function is compatible with the related field type.
+ *
+ * This helper validates that:
+ * 1. The aggregation function is supported
+ * 2. The aggregation function is compatible with the related field's type
+ *
+ * Aggregation compatibility:
+ * - sum, avg: Only numeric fields (integer, decimal, currency, percentage, duration)
+ * - min, max: Numeric and date fields
+ * - count, counta, countall: Any field type
+ *
+ * @param params - Validation parameters
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateRollupAggregation = (params: {
+  readonly table: {
+    readonly name: string
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+    }>
+  }
+  readonly fieldName: string
+  readonly relationshipField: string
+  readonly relatedField: string
+  readonly aggregation: string
+  readonly tablesByName: ReadonlyMap<
+    string,
+    {
+      readonly name: string
+      readonly fields: ReadonlyArray<{
+        readonly name: string
+        readonly type: string
+      }>
+    }
+  >
+}):
+  | {
+      readonly table: string
+      readonly field: string
+      readonly error: string
+    }
+  | undefined => {
+  const { table, fieldName, relationshipField, relatedField, aggregation, tablesByName } = params
+
+  const relatedFieldType = findRelatedFieldType({
+    table,
+    relationshipField,
+    relatedField,
+    tablesByName,
+  })
+
+  if (!relatedFieldType) {
+    // This should already be caught by validateRelationshipFieldReference
+    return undefined
+  }
+
+  const error = checkAggregationCompatibility(aggregation, relatedFieldType)
+  if (error) {
+    return {
+      table: table.name,
+      field: fieldName,
+      error,
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate all rollup fields across all tables.
+ *
+ * @param tables - Array of tables to validate
+ * @param tablesByName - Map of table names to table objects
+ * @returns Error object if validation fails, undefined if valid
+ */
+const validateAllRollupFields = (
+  tables: ReadonlyArray<{
+    readonly name: string
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+    }>
+  }>,
+  tablesByName: ReadonlyMap<
+    string,
+    {
+      readonly name: string
+      readonly fields: ReadonlyArray<{
+        readonly name: string
+        readonly type: string
+      }>
+    }
+  >
+):
+  | {
+      readonly table: string
+      readonly field: string
+      readonly error: string
+    }
+  | undefined => {
+  return tables
+    .flatMap((table) =>
+      table.fields
+        .filter((field) => field.type === 'rollup')
+        .map((rollupField) => {
+          const { relationshipField, relatedField, aggregation } = rollupField as unknown as {
+            relationshipField: string
+            relatedField: string
+            aggregation: string
+          }
+
+          // First validate the relationship reference
+          const relationshipError = validateRelationshipFieldReference({
+            table,
+            fieldName: rollupField.name,
+            relationshipField,
+            relatedField,
+            tablesByName,
+          })
+
+          if (relationshipError) {
+            return relationshipError
+          }
+
+          // Then validate aggregation function compatibility with field type
+          return validateRollupAggregation({
+            table,
+            fieldName: rollupField.name,
+            relationshipField,
+            relatedField,
+            aggregation,
+            tablesByName,
+          })
+        })
+        .filter((error) => error !== undefined)
+    )
+    .at(0)
+}
+
+/**
  * Data Tables
  *
  * Collection of database tables that define the data structure of your application.
@@ -244,9 +511,36 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     return true
   }),
   Schema.filter((tables) => {
-    // Validate lookup fields reference existing relationship fields (either in same table or reverse relationship)
+    // Create tablesByName map once for all field validations
     const tablesByName = new Map(tables.map((table) => [table.name, table]))
 
+    // Validate relationship fields reference existing tables
+    const invalidRelationship = tables
+      .flatMap((table) =>
+        table.fields
+          .filter((field) => field.type === 'relationship')
+          .map((relationshipField) => {
+            const { relatedTable } = relationshipField as { relatedTable?: string }
+
+            if (relatedTable && !tablesByName.has(relatedTable)) {
+              return {
+                table: table.name,
+                field: relationshipField.name,
+                relatedTable,
+              }
+            }
+
+            return undefined
+          })
+          .filter((error) => error !== undefined)
+      )
+      .at(0)
+
+    if (invalidRelationship) {
+      return `Relationship field "${invalidRelationship.table}.${invalidRelationship.field}": relatedTable "${invalidRelationship.relatedTable}" does not exist`
+    }
+
+    // Validate lookup fields reference existing relationship fields (either in same table or reverse relationship)
     const invalidLookup = tables
       .flatMap((table) =>
         table.fields
@@ -316,33 +610,8 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       return `Lookup field "${invalidLookup.table}.${invalidLookup.field}" ${invalidLookup.error}`
     }
 
-    return true
-  }),
-  Schema.filter((tables) => {
     // Validate rollup fields reference existing relationship fields and related fields
-    const tablesByName = new Map(tables.map((table) => [table.name, table]))
-
-    const invalidRollup = tables
-      .flatMap((table) =>
-        table.fields
-          .filter((field) => field.type === 'rollup')
-          .map((rollupField) => {
-            const { relationshipField, relatedField } = rollupField as {
-              relationshipField: string
-              relatedField: string
-            }
-
-            return validateRelationshipFieldReference({
-              table,
-              fieldName: rollupField.name,
-              relationshipField,
-              relatedField,
-              tablesByName,
-            })
-          })
-          .filter((error) => error !== undefined)
-      )
-      .at(0)
+    const invalidRollup = validateAllRollupFields(tables, tablesByName)
 
     if (invalidRollup) {
       return `Rollup field "${invalidRollup.table}.${invalidRollup.field}" ${invalidRollup.error}`

@@ -160,7 +160,7 @@ test.describe('Single Attachment Field', () => {
   // Future: specs/api/upload/post.spec.ts (when upload endpoint is implemented)
   // These tests now validate API responses rather than UI interactions.
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: should store image dimensions in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -198,7 +198,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: should store video duration in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

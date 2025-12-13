@@ -284,7 +284,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-006: should reject status field with empty options array',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

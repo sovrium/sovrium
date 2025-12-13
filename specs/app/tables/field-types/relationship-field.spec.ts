@@ -665,7 +665,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: should reject relationship when relatedTable does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

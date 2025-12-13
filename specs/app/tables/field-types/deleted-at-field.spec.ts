@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Deleted At Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-001: should create PostgreSQL TIMESTAMP column with NULL default',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -52,7 +52,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-002: should allow NULL values (nullable by design)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -82,7 +82,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-003: should allow setting timestamp for soft delete',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -116,7 +116,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-004: should allow clearing timestamp for restore',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -152,7 +152,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -182,7 +182,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-006: user can complete full deleted-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
