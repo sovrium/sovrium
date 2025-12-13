@@ -511,6 +511,37 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     return true
   }),
   Schema.filter((tables) => {
+    // Validate relationship fields reference existing tables
+    const tablesByName = new Map(tables.map((table) => [table.name, table]))
+
+    const invalidRelationship = tables
+      .flatMap((table) =>
+        table.fields
+          .filter((field) => field.type === 'relationship')
+          .map((relationshipField) => {
+            const { relatedTable } = relationshipField as { relatedTable?: string }
+
+            if (relatedTable && !tablesByName.has(relatedTable)) {
+              return {
+                table: table.name,
+                field: relationshipField.name,
+                relatedTable,
+              }
+            }
+
+            return undefined
+          })
+          .filter((error) => error !== undefined)
+      )
+      .at(0)
+
+    if (invalidRelationship) {
+      return `Relationship field "${invalidRelationship.table}.${invalidRelationship.field}": relatedTable "${invalidRelationship.relatedTable}" does not exist`
+    }
+
+    return true
+  }),
+  Schema.filter((tables) => {
     // Validate lookup fields reference existing relationship fields (either in same table or reverse relationship)
     const tablesByName = new Map(tables.map((table) => [table.name, table]))
 
