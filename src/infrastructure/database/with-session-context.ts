@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Runtime } from 'effect'
 import { db } from './drizzle/db'
 import type { SessionContextError } from './session-context'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -43,6 +43,9 @@ export const withSessionContext = <A, E>(
   operation: (tx: Readonly<TransactionLike>) => Effect.Effect<A, E>
 ): Effect.Effect<A, E | SessionContextError> =>
   Effect.gen(function* () {
+    // Extract runtime to use in async callback (avoids Effect.runPromise inside Effect)
+    const runtime = yield* Effect.runtime<never>()
+
     // Execute operation within a transaction with session context
     const result = yield* Effect.tryPromise({
       try: () =>
@@ -55,11 +58,8 @@ export const withSessionContext = <A, E>(
              SET LOCAL app.user_role = 'authenticated';`
           )
 
-          // Execute the user's operation with the transaction
-          // Note: Effect.runPromise is intentional - Drizzle's transaction callback
-          // runs outside Effect runtime, requiring a new runtime for the operation
-          // @effect-suppress runEffectInsideEffect
-          const operationResult = await Effect.runPromise(operation(tx))
+          // Execute the user's operation with the transaction using the extracted runtime
+          const operationResult = await Runtime.runPromise(runtime)(operation(tx))
           return operationResult
         }),
       catch: (error) => error as E | SessionContextError,
