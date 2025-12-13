@@ -26,6 +26,7 @@ import {
   generateAlterTableStatements,
   syncUniqueConstraints,
   syncForeignKeyConstraints,
+  syncCheckConstraints,
   type BunSQLTransaction,
 } from './schema-migration-helpers'
 import {
@@ -204,6 +205,9 @@ export const migrateExistingTableEffect = (
 
     // Always sync foreign key constraints to ensure referential actions are up-to-date
     yield* syncForeignKeyConstraints(tx, table, tableUsesView)
+
+    // Always sync CHECK constraints for fields with validation requirements
+    yield* syncCheckConstraints(tx, table)
 
     // Apply all table features (indexes, triggers, RLS)
     yield* applyTableFeatures(tx, table)

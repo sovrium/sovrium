@@ -122,35 +122,36 @@ test.describe('Add Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-003: should add TEXT column with CHECK constraint for enum values when ALTER TABLE adds column with CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'tasks' exists, new field 'priority' (single-select with options) is added
-      await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-      ])
-
       // WHEN: ALTER TABLE adds column with CHECK constraint
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 3,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              {
-                id: 3,
-                name: 'priority',
-                type: 'single-select',
-                options: ['low', 'medium', 'high'],
-              },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                {
+                  id: 3,
+                  name: 'priority',
+                  type: 'single-select',
+                  options: ['low', 'medium', 'high'],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'tasks' exists, new field 'priority' (single-select with options) is added
+          setupQueries: [`CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`],
+        }
+      )
 
       // THEN: PostgreSQL adds TEXT column with CHECK constraint for enum values
 

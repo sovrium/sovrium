@@ -285,3 +285,55 @@ export const syncForeignKeyConstraints = (
     // Execute all FK constraint statements sequentially
     yield* executeSQLStatements(tx, statements)
   })
+
+/**
+ * Sync CHECK constraints for existing table
+ * Adds CHECK constraints for fields with validation requirements (enum values, ranges, formats, etc.)
+ * This is needed when fields are added via ALTER TABLE and need their CHECK constraints
+ */
+export const syncCheckConstraints = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { generateTableConstraints } = yield* Effect.promise(() => import('./sql-generators'))
+    const allConstraints = generateTableConstraints(table, undefined)
+
+    // Filter only CHECK constraints (not UNIQUE, FK, or PRIMARY KEY)
+    const checkConstraints = allConstraints.filter(
+      (constraint) =>
+        constraint.startsWith('CONSTRAINT') &&
+        constraint.includes('CHECK') &&
+        !constraint.includes('UNIQUE') &&
+        !constraint.includes('FOREIGN KEY') &&
+        !constraint.includes('PRIMARY KEY')
+    )
+
+    // Build statements to add CHECK constraints if they don't exist
+    const statements = checkConstraints.map((constraint) => {
+      // Extract constraint name from the constraint SQL
+      // Format: "CONSTRAINT {constraintName} CHECK ..."
+      const match = constraint.match(/CONSTRAINT\s+(\w+)\s+CHECK/)
+      if (!match) return ''
+
+      const constraintName = match[1]
+
+      return `
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE table_name = '${table.name}'
+              AND constraint_type = 'CHECK'
+              AND constraint_name = '${constraintName}'
+          ) THEN
+            ALTER TABLE ${table.name} ADD ${constraint};
+          END IF;
+        END$$;
+      `
+    })
+
+    // Filter out empty statements and execute
+    const validStatements = statements.filter((stmt) => stmt !== '')
+    yield* executeSQLStatements(tx, validStatements)
+  })
