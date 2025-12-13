@@ -612,76 +612,72 @@ test.describe('Primary Key', () => {
     'APP-TABLES-PRIMARYKEY-011: user can complete full Primary Key workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Database with representative primary key configurations
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 9,
-            name: 'users',
-            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
-            // Default SERIAL primary key
-          },
-          {
-            id: 10,
-            name: 'sessions',
-            primaryKey: { type: 'uuid' },
-            fields: [{ id: 1, name: 'user_id', type: 'integer' }],
-          },
-          {
-            id: 11,
-            name: 'tenant_users',
-            primaryKey: { type: 'composite', fields: ['tenant_id', 'user_id'] },
-            fields: [
-              { id: 1, name: 'tenant_id', type: 'integer', required: true },
-              { id: 2, name: 'user_id', type: 'integer', required: true },
-            ],
-          },
-        ],
+      await test.step('Setup: Create tables with various primary key types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 9,
+              name: 'users',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+              // Default SERIAL primary key
+            },
+            {
+              id: 10,
+              name: 'sessions',
+              primaryKey: { type: 'uuid' },
+              fields: [{ id: 1, name: 'user_id', type: 'integer' }],
+            },
+            {
+              id: 11,
+              name: 'tenant_users',
+              primaryKey: { type: 'composite', fields: ['tenant_id', 'user_id'] },
+              fields: [
+                { id: 1, name: 'tenant_id', type: 'integer', required: true },
+                { id: 2, name: 'user_id', type: 'integer', required: true },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Execute representative workflow
+      await test.step('Verify SERIAL auto-increment works', async () => {
+        await executeQuery(`INSERT INTO users (name) VALUES ('Alice'), ('Bob')`)
+        const users = await executeQuery(`SELECT id FROM users ORDER BY id`)
+        expect(users.rows).toEqual([{ id: 1 }, { id: 2 }])
+      })
 
-      // 1. SERIAL auto-increment works
-      await executeQuery(`INSERT INTO users (name) VALUES ('Alice'), ('Bob')`)
-      const users = await executeQuery(`SELECT id FROM users ORDER BY id`)
-      // THEN: assertion
-      expect(users.rows).toEqual([{ id: 1 }, { id: 2 }])
+      await test.step('Verify UUID generation works', async () => {
+        await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2)`)
+        const sessions = await executeQuery(`SELECT COUNT(DISTINCT id) as count FROM sessions`)
+        expect(sessions.rows[0]).toMatchObject({ count: 2 })
+      })
 
-      // 2. UUID generation works
-      await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2)`)
-      const sessions = await executeQuery(`SELECT COUNT(DISTINCT id) as count FROM sessions`)
-      // THEN: assertion
-      expect(sessions.rows[0]).toMatchObject({ count: 2 })
+      await test.step('Verify composite primary key works', async () => {
+        await executeQuery(
+          `INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1), (1, 2), (2, 1)`
+        )
+        const tenantUsers = await executeQuery(
+          `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
+        )
+        expect(tenantUsers.rows[0]).toMatchObject({ count: 2 }) // Same user in different tenants
+      })
 
-      // 3. Composite primary key works
-      await executeQuery(
-        `INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1), (1, 2), (2, 1)`
-      )
-      const tenantUsers = await executeQuery(
-        `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
-      )
-      // THEN: assertion
-      expect(tenantUsers.rows[0]).toMatchObject({ count: 2 }) // Same user in different tenants
+      await test.step('Verify primary key constraints enforce uniqueness', async () => {
+        await expect(
+          executeQuery(`INSERT INTO users (id, name) VALUES (1, 'Duplicate')`)
+        ).rejects.toThrow(/unique constraint/)
+        await expect(
+          executeQuery(`INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1)`)
+        ).rejects.toThrow(/unique constraint/)
+      })
 
-      // 4. Primary key constraints enforce uniqueness
-      // THEN: assertion
-      await expect(
-        executeQuery(`INSERT INTO users (id, name) VALUES (1, 'Duplicate')`)
-      ).rejects.toThrow(/unique constraint/)
-      // THEN: assertion
-      await expect(
-        executeQuery(`INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1)`)
-      ).rejects.toThrow(/unique constraint/)
-
-      // 5. Primary key indexes are created automatically
-      const indexes = await executeQuery(
-        `SELECT indexname FROM pg_indexes WHERE indexname IN ('users_pkey', 'sessions_pkey', 'tenant_users_pkey') ORDER BY indexname`
-      )
-      // THEN: assertion
-      expect(indexes.rows).toHaveLength(3)
-
-      // Workflow completes successfully
+      await test.step('Verify primary key indexes are created automatically', async () => {
+        const indexes = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname IN ('users_pkey', 'sessions_pkey', 'tenant_users_pkey') ORDER BY indexname`
+        )
+        expect(indexes.rows).toHaveLength(3)
+      })
     }
   )
 })

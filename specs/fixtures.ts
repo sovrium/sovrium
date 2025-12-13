@@ -1049,10 +1049,11 @@ export const test = base.extend<ServerFixtures>({
   },
 
   // Apply migration fixture: Apply schema migrations (stub for .fixme tests)
+  // NOTE: This fixture will be implemented when the migration system is built.
+  // Currently serves as a placeholder for migration-related .fixme tests.
   applyMigration: async ({}, use) => {
     await use(async (_migration: Parameters<ServerFixtures['applyMigration']>[0]) => {
-      // Stub implementation for .fixme tests
-      // TODO: Implement actual migration application when migration system is built
+      // Stub implementation for .fixme tests - migration system not yet built
       throw new Error('applyMigration is not yet implemented - this is a stub for .fixme tests')
     })
   },

@@ -7,6 +7,22 @@
 
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for Button Field
+ *
+ * Source: src/domain/models/app/table/field-types/button-field.ts
+ * Domain: app
+ * Spec Count: 8
+ *
+ * Button Field Behavior:
+ * - UI-only field (does not create database column)
+ * - Triggers custom actions when clicked
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (7 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Button Field', () => {
   test(
     'APP-TABLES-FIELD-TYPES-BUTTON-001: should not create database column (UI-only field)',

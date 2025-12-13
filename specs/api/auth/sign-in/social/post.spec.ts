@@ -158,55 +158,56 @@ test.describe('Sign in with OAuth (Social Login)', () => {
     'API-AUTH-SIGN-IN-SOCIAL-005: user can complete full OAuth sign-in workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with multiple OAuth providers enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          oauth: {
-            providers: ['google', 'github', 'microsoft'],
+      await test.step('Setup: Start server with multiple OAuth providers', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            oauth: {
+              providers: ['google', 'github', 'microsoft'],
+            },
           },
-        },
+        })
       })
 
-      // WHEN: User initiates Google OAuth sign-in
-      const googleResponse = await page.request.post('/api/auth/sign-in/social', {
-        data: {
-          provider: 'google',
-          callbackUrl: '/dashboard',
-        },
+      await test.step('Initiate Google OAuth sign-in and verify redirect', async () => {
+        const googleResponse = await page.request.post('/api/auth/sign-in/social', {
+          data: {
+            provider: 'google',
+            callbackUrl: '/dashboard',
+          },
+        })
+
+        expect(googleResponse.status()).toBe(200)
+        const googleData = await googleResponse.json()
+        expect(googleData).toHaveProperty('url')
+        expect(googleData.url).toContain('accounts.google.com')
       })
 
-      // THEN: Google OAuth redirect succeeds
-      expect(googleResponse.status()).toBe(200)
-      const googleData = await googleResponse.json()
-      expect(googleData).toHaveProperty('url')
-      expect(googleData.url).toContain('accounts.google.com')
+      await test.step('Initiate GitHub OAuth sign-in and verify redirect', async () => {
+        const githubResponse = await page.request.post('/api/auth/sign-in/social', {
+          data: {
+            provider: 'github',
+            callbackUrl: '/dashboard',
+          },
+        })
 
-      // WHEN: User initiates GitHub OAuth sign-in
-      const githubResponse = await page.request.post('/api/auth/sign-in/social', {
-        data: {
-          provider: 'github',
-          callbackUrl: '/dashboard',
-        },
+        expect(githubResponse.status()).toBe(200)
+        const githubData = await githubResponse.json()
+        expect(githubData).toHaveProperty('url')
+        expect(githubData.url).toContain('github.com')
       })
 
-      // THEN: GitHub OAuth redirect succeeds
-      expect(githubResponse.status()).toBe(200)
-      const githubData = await githubResponse.json()
-      expect(githubData).toHaveProperty('url')
-      expect(githubData.url).toContain('github.com')
+      await test.step('Verify non-enabled provider returns 400', async () => {
+        const failedResponse = await page.request.post('/api/auth/sign-in/social', {
+          data: {
+            provider: 'slack', // Not enabled in config
+            callbackUrl: '/dashboard',
+          },
+        })
 
-      // WHEN: User attempts sign-in with non-enabled provider
-      const failedResponse = await page.request.post('/api/auth/sign-in/social', {
-        data: {
-          provider: 'slack', // Not enabled in config
-          callbackUrl: '/dashboard',
-        },
+        expect(failedResponse.status()).toBe(400)
       })
-
-      // THEN: Request fails
-      expect(failedResponse.status()).toBe(400)
     }
   )
 })

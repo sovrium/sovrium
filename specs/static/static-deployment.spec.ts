@@ -10,6 +10,23 @@ import { readFile, readdir, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for Static Site Generation - Deployment Features
+ *
+ * Source: src/infrastructure/static-generation/deployment.ts
+ * Domain: static
+ * Spec Count: 7
+ *
+ * Deployment Behavior:
+ * - Generates .nojekyll for GitHub Pages
+ * - Creates sitemap.xml and robots.txt
+ * - Handles deployment-specific configurations
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Static Site Generation - Deployment Features', () => {
   test(
     'STATIC-DEPLOY-001: should generate .nojekyll for GitHub Pages',

@@ -151,30 +151,27 @@ test.describe('Get view details', () => {
     'API-TABLES-VIEWS-GET-006: user can complete full view details workflow',
     { tag: '@regression' },
     async ({ request }) => {
-      // GIVEN: Application with representative views
-      // Application configured for permission/view testing
-      // Database and auth configured by test fixtures
+      await test.step('Verify successful view details retrieval', async () => {
+        const successResponse = await request.get('/api/tables/1/views/active_projects', {})
+        expect(successResponse.status()).toBe(200)
+        const view = await successResponse.json()
+        expect(view).toHaveProperty('id')
+        expect(view).toHaveProperty('name')
+        expect(view).toHaveProperty('type')
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      // Test successful retrieval
-      const successResponse = await request.get('/api/tables/1/views/active_projects', {})
-      // THEN: assertion
-      expect(successResponse.status()).toBe(200)
-      const view = await successResponse.json()
-      // THEN: assertion
-      expect(view).toHaveProperty('id')
-      expect(view).toHaveProperty('name')
-      expect(view).toHaveProperty('type')
+      await test.step('Verify non-existent view returns 404', async () => {
+        const viewNotFoundResponse = await request.get('/api/tables/1/views/non_existent', {})
+        expect(viewNotFoundResponse.status()).toBe(404)
+      })
 
-      // Test view not found
-      const viewNotFoundResponse = await request.get('/api/tables/1/views/non_existent', {})
-      // THEN: assertion
-      expect(viewNotFoundResponse.status()).toBe(404)
-
-      // Test table not found
-      const tableNotFoundResponse = await request.get('/api/tables/9999/views/active_projects', {})
-      // THEN: assertion
-      expect(tableNotFoundResponse.status()).toBe(404)
+      await test.step('Verify non-existent table returns 404', async () => {
+        const tableNotFoundResponse = await request.get(
+          '/api/tables/9999/views/active_projects',
+          {}
+        )
+        expect(tableNotFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

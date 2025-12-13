@@ -10,6 +10,23 @@ import { readFile, readdir, access } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for Static Site Generation
+ *
+ * Source: src/infrastructure/static-generation/generator.ts
+ * Domain: static
+ * Spec Count: 7
+ *
+ * Static Generation Behavior:
+ * - Generates HTML files for all pages
+ * - Handles CSS and JavaScript bundling
+ * - Creates optimized output for deployment
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Static Site Generation', () => {
   test(
     'STATIC-GENERATION-001: should generate HTML files for all pages',

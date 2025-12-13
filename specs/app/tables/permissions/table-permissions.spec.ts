@@ -101,7 +101,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  // FIXME: Test infrastructure issue - SET SESSION AUTHORIZATION + SET LOCAL + RLS evaluation
+  // NOTE: Test infrastructure limitation - SET SESSION AUTHORIZATION + SET LOCAL + RLS evaluation
   // The RLS policy generation is correct, and the session variable check works in isolation,
   // but when using SET SESSION AUTHORIZATION to switch to app_user (non-superuser), the
   // SET LOCAL session variables are not visible to RLS policy evaluation.
@@ -247,7 +247,7 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  // FIXME: Test infrastructure issue - SET SESSION AUTHORIZATION + SET LOCAL + RLS evaluation
+  // NOTE: Test infrastructure limitation - SET SESSION AUTHORIZATION + SET LOCAL + RLS evaluation
   // Same issue as test 002 - session variables not visible to RLS policy after SESSION AUTHORIZATION switch
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-004: should grant UPDATE access to authenticated users when table has authenticated-only update permission',

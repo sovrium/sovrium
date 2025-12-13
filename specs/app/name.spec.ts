@@ -11,15 +11,16 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for App Name Property
  *
  * Source: src/domain/models/app/name.ts
- * Property: name (application identifier following npm package naming conventions)
+ * Domain: app
+ * Spec Count: 12
+ *
+ * App Name Behavior:
+ * - Application identifier following npm package naming conventions
+ * - Displays in h1 heading and page title
  *
  * Test Organization:
- * 1. @spec tests - Granular specification tests (12 tests from specs array)
- * 2. @regression test - ONE consolidated workflow test
- *
- * These tests specify the desired behavior for the name property.
- * All tests use test() for RED phase (TDD) - they will fail initially.
- * Implementation should focus on making each test pass.
+ * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
 // ============================================================================

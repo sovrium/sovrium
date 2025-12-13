@@ -11,11 +11,16 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for App Version
  *
  * Source: src/domain/models/app/version.ts
- * Specs: APP-VERSION-001 through APP-VERSION-007
+ * Domain: app
+ * Spec Count: 7
+ *
+ * App Version Behavior:
+ * - Displays version badge with SemVer format
+ * - Supports prerelease versions (alpha, beta, rc)
  *
  * Test Organization:
- * 1. @spec tests - Granular specification tests (7 tests, one per spec)
- * 2. @regression test - ONE consolidated workflow test
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
 // ============================================================================

@@ -2890,7 +2890,7 @@ test.describe('Formula Field', () => {
 
   // ============================================================================
   // Phase 5: Array Functions (077-082) - DEFERRED
-  // TODO: Requires lookup/rollup fields implementation
+  // NOTE: Requires lookup/rollup fields implementation (not yet available)
   // ============================================================================
 
   test(

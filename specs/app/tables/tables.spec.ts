@@ -1710,99 +1710,95 @@ test.describe('Data Tables', () => {
     'APP-TABLES-045: user can complete full Data Tables workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Database with representative table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 26,
-            name: 'products',
-            fields: [
-              {
-                id: 1,
-                name: 'sku',
-                type: 'single-line-text',
-                required: true,
-                unique: true,
-              },
-              {
-                id: 2,
-                name: 'title',
-                type: 'single-line-text',
-                required: true,
-              },
-              {
-                id: 3,
-                name: 'price',
-                type: 'decimal',
-                precision: 10,
-                min: 0.01,
-              },
-              {
-                id: 4,
-                name: 'quantity',
-                type: 'integer',
-                min: 0,
-              },
-              {
-                id: 5,
-                name: 'is_active',
-                type: 'checkbox',
-                default: true,
-              },
-              {
-                id: 6,
-                name: 'created_at',
-                type: 'created-at',
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Create table with representative configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 26,
+              name: 'products',
+              fields: [
+                {
+                  id: 1,
+                  name: 'sku',
+                  type: 'single-line-text',
+                  required: true,
+                  unique: true,
+                },
+                {
+                  id: 2,
+                  name: 'title',
+                  type: 'single-line-text',
+                  required: true,
+                },
+                {
+                  id: 3,
+                  name: 'price',
+                  type: 'decimal',
+                  precision: 10,
+                  min: 0.01,
+                },
+                {
+                  id: 4,
+                  name: 'quantity',
+                  type: 'integer',
+                  min: 0,
+                },
+                {
+                  id: 5,
+                  name: 'is_active',
+                  type: 'checkbox',
+                  default: true,
+                },
+                {
+                  id: 6,
+                  name: 'created_at',
+                  type: 'created-at',
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Execute representative workflow
-
-      // 1. Schema introspection works
-      const tableExists = await executeQuery(
-        `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'products')`
-      )
-      // THEN: assertion
-      expect(tableExists.rows[0]).toMatchObject({ exists: true })
-
-      // 2. CRUD operations work
-      const insertion = await executeQuery(
-        `INSERT INTO products (sku, title, price, quantity) VALUES ('WIDGET-001', 'Widget', 19.99, 100) RETURNING id, title`
-      )
-      // THEN: assertion
-      expect(insertion.rows[0]).toMatchObject({ title: 'Widget' })
-
-      const update = await executeQuery(
-        `UPDATE products SET price = 24.99 WHERE sku = 'WIDGET-001' RETURNING price`
-      )
-      // THEN: assertion
-      expect(update.rows[0]).toMatchObject({ price: 24.99 })
-
-      const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-      // THEN: assertion
-      expect(select.rows[0]).toMatchObject({ count: 1 })
-
-      // 3. Constraints enforce data integrity
-      // THEN: assertion
-      await expect(
-        executeQuery(
-          `INSERT INTO products (sku, title, price) VALUES ('WIDGET-001', 'Duplicate', 10)`
+      await test.step('Verify schema introspection works', async () => {
+        const tableExists = await executeQuery(
+          `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'products')`
         )
-      ).rejects.toThrow(/unique constraint/)
+        expect(tableExists.rows[0]).toMatchObject({ exists: true })
+      })
 
-      // THEN: assertion
-      await expect(
-        executeQuery(`INSERT INTO products (sku, title, price) VALUES ('NEW-001', 'Invalid', -5)`)
-      ).rejects.toThrow(/check constraint/)
+      await test.step('Verify CRUD operations work', async () => {
+        const insertion = await executeQuery(
+          `INSERT INTO products (sku, title, price, quantity) VALUES ('WIDGET-001', 'Widget', 19.99, 100) RETURNING id, title`
+        )
+        expect(insertion.rows[0]).toMatchObject({ title: 'Widget' })
 
-      // Workflow completes successfully
-      const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-      // THEN: assertion
-      expect(finalCount.rows[0]).toMatchObject({ count: 1 })
+        const update = await executeQuery(
+          `UPDATE products SET price = 24.99 WHERE sku = 'WIDGET-001' RETURNING price`
+        )
+        expect(update.rows[0]).toMatchObject({ price: 24.99 })
+
+        const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
+        expect(select.rows[0]).toMatchObject({ count: 1 })
+      })
+
+      await test.step('Verify constraints enforce data integrity', async () => {
+        await expect(
+          executeQuery(
+            `INSERT INTO products (sku, title, price) VALUES ('WIDGET-001', 'Duplicate', 10)`
+          )
+        ).rejects.toThrow(/unique constraint/)
+
+        await expect(
+          executeQuery(`INSERT INTO products (sku, title, price) VALUES ('NEW-001', 'Invalid', -5)`)
+        ).rejects.toThrow(/check constraint/)
+      })
+
+      await test.step('Verify final data state', async () => {
+        const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
+        expect(finalCount.rows[0]).toMatchObject({ count: 1 })
+      })
     }
   )
 })

@@ -17,6 +17,8 @@ const landingPageSchema = landingPageJson as unknown as App
  * E2E Test for Landing Page Template
  *
  * Source: templates/landing-page.ts
+ * Domain: templates
+ * Spec Count: 1
  *
  * This single comprehensive regression test validates the complete landing page
  * template functionality.

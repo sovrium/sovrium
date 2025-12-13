@@ -292,47 +292,46 @@ test.describe('Page Name', () => {
     'APP-PAGES-NAME-009: user can complete full page name workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with various page name formats (snake_case)
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home', description: 'Home' },
-            sections: [],
-          },
-          {
-            name: 'about_us',
-            path: '/about',
-            meta: { lang: 'en-US', title: 'About', description: 'About' },
-            sections: [],
-          },
-          {
-            name: 'pricing',
-            path: '/pricing',
-            meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
-            sections: [],
-          },
-        ],
+      await test.step('Setup: Start server with various page name formats', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              sections: [],
+            },
+            {
+              name: 'about_us',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About', description: 'About' },
+              sections: [],
+            },
+            {
+              name: 'pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
-      // THEN: assertion
-      await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      await test.step('Verify home page name renders correctly', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/about')
-      // THEN: assertion
-      await expect(page.locator('[data-testid="page-about-us"]')).toBeVisible()
+      await test.step('Verify about_us page name renders with kebab-case data-testid', async () => {
+        await page.goto('/about')
+        await expect(page.locator('[data-testid="page-about-us"]')).toBeVisible()
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/pricing')
-      // THEN: assertion
-      await expect(page.locator('[data-testid="page-pricing"]')).toBeVisible()
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify pricing page name renders correctly', async () => {
+        await page.goto('/pricing')
+        await expect(page.locator('[data-testid="page-pricing"]')).toBeVisible()
+      })
     }
   )
 })

@@ -10,6 +10,22 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for Static Site Generation - Asset Management
+ *
+ * Source: src/infrastructure/static-generation/assets.ts
+ * Domain: static
+ * Spec Count: 5
+ *
+ * Asset Management Behavior:
+ * - Copies files from public/ directory to output
+ * - Handles images, fonts, and other static assets
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Static Site Generation - Asset Management', () => {
   test(
     'STATIC-ASSETS-001: should copy files from public/ directory',

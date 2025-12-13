@@ -454,79 +454,76 @@ test.describe('Unique Constraints', () => {
     'APP-TABLES-UNIQUECONSTRAINTS-010: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Database with representative unique constraint configurations
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 8,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'email' },
-              { id: 2, name: 'tenant_id', type: 'integer' },
-            ],
-            uniqueConstraints: [
-              {
-                name: 'uq_user_email_tenant',
-                fields: ['email', 'tenant_id'],
-              },
-            ],
-          },
-          {
-            id: 9,
-            name: 'products',
-            fields: [
-              { id: 1, name: 'sku', type: 'single-line-text' },
-              { id: 2, name: 'variant_id', type: 'integer' },
-            ],
-            uniqueConstraints: [
-              {
-                name: 'uq_product_sku_variant',
-                fields: ['sku', 'variant_id'],
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Create tables with unique constraint configurations', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 8,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email' },
+                { id: 2, name: 'tenant_id', type: 'integer' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_user_email_tenant',
+                  fields: ['email', 'tenant_id'],
+                },
+              ],
+            },
+            {
+              id: 9,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'sku', type: 'single-line-text' },
+                { id: 2, name: 'variant_id', type: 'integer' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_product_sku_variant',
+                  fields: ['sku', 'variant_id'],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Execute representative workflow
+      await test.step('Verify composite unique constraints enforce uniqueness', async () => {
+        await executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
+        await expect(
+          executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
+        ).rejects.toThrow(/unique constraint/)
+      })
 
-      // 1. Composite unique constraints enforce uniqueness on combinations
-      await executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
-      // THEN: assertion
-      await expect(
-        executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
-      ).rejects.toThrow(/unique constraint/)
+      await test.step('Verify same value allowed in different combination', async () => {
+        const user2 = await executeQuery(
+          `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
+        )
+        // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
+        expect(user2.rows[0]).toMatchObject({ id: 3 })
+      })
 
-      // 2. Same value allowed in different combination
-      const user2 = await executeQuery(
-        `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
-      )
-      // THEN: assertion
-      // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
-      expect(user2.rows[0]).toMatchObject({ id: 3 })
+      await test.step('Verify unique constraints on multiple tables', async () => {
+        await executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
+        await expect(
+          executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
+        ).rejects.toThrow(/unique constraint/)
+      })
 
-      // 3. Multiple unique constraints on different tables
-      await executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
-      // THEN: assertion
-      await expect(
-        executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
-      ).rejects.toThrow(/unique constraint/)
-
-      // 4. Constraint names are retrievable
-      const constraints = await executeQuery(
-        `SELECT conname FROM pg_constraint WHERE conname LIKE 'uq_%' ORDER BY conname`
-      )
-      // THEN: assertion
-      expect(constraints.rows).toHaveLength(2)
-      expect(constraints.rows).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ conname: 'uq_user_email_tenant' }),
-          expect.objectContaining({ conname: 'uq_product_sku_variant' }),
-        ])
-      )
-
-      // Workflow completes successfully
+      await test.step('Verify constraint names are retrievable', async () => {
+        const constraints = await executeQuery(
+          `SELECT conname FROM pg_constraint WHERE conname LIKE 'uq_%' ORDER BY conname`
+        )
+        expect(constraints.rows).toHaveLength(2)
+        expect(constraints.rows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ conname: 'uq_user_email_tenant' }),
+            expect.objectContaining({ conname: 'uq_product_sku_variant' }),
+          ])
+        )
+      })
     }
   )
 })

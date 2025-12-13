@@ -7,6 +7,18 @@
 
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for Barcode Field
+ *
+ * Source: src/domain/models/app/table/field-types/barcode-field.ts
+ * Domain: app
+ * Spec Count: 6
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Barcode Field', () => {
   test(
     'APP-TABLES-FIELD-TYPES-BARCODE-001: should create VARCHAR column for barcode storage',

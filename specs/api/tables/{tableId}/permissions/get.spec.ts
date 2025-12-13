@@ -338,59 +338,58 @@ test.describe('Check table permissions', () => {
     'API-TABLES-PERMISSIONS-CHECK-007: user can complete full permissions check workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin, signOut }) => {
-      // GIVEN: Application with representative permissions configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'email', type: 'email' },
-              { id: 4, name: 'salary', type: 'decimal' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              // Comprehensive permissions for regression testing
-              read: { type: 'roles', roles: ['admin', 'member', 'viewer'] },
-              create: { type: 'roles', roles: ['admin', 'member'] },
-              update: { type: 'roles', roles: ['admin', 'member'] },
-              delete: { type: 'roles', roles: ['admin'] },
+      await test.step('Setup: Create table with comprehensive permissions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'employees',
               fields: [
-                {
-                  field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'email' },
+                { id: 4, name: 'salary', type: 'decimal' },
               ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: { type: 'roles', roles: ['admin', 'member', 'viewer'] },
+                create: { type: 'roles', roles: ['admin', 'member'] },
+                update: { type: 'roles', roles: ['admin', 'member'] },
+                delete: { type: 'roles', roles: ['admin'] },
+                fields: [
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['admin'] },
+                    write: { type: 'roles', roles: ['admin'] },
+                  },
+                ],
+              },
             },
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN/THEN: Test admin permissions
-      await createAuthenticatedAdmin()
-      const adminResponse = await request.get('/api/tables/1/permissions')
-      // THEN: assertion
-      expect(adminResponse.status()).toBe(200)
-      const adminData = await adminResponse.json()
-      // THEN: assertion
-      expect(adminData.table.read).toBe(true)
-      expect(adminData.table.create).toBe(true)
+      await test.step('Verify admin permissions are correctly returned', async () => {
+        await createAuthenticatedAdmin()
+        const adminResponse = await request.get('/api/tables/1/permissions')
+        expect(adminResponse.status()).toBe(200)
+        const adminData = await adminResponse.json()
+        expect(adminData.table.read).toBe(true)
+        expect(adminData.table.create).toBe(true)
+      })
 
-      // WHEN/THEN: Test unauthenticated rejection
-      await signOut()
-      const unauthResponse = await request.get('/api/tables/1/permissions')
-      // THEN: assertion
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify unauthenticated access returns 401', async () => {
+        await signOut()
+        const unauthResponse = await request.get('/api/tables/1/permissions')
+        expect(unauthResponse.status()).toBe(401)
+      })
 
-      // WHEN/THEN: Test non-existent table
-      await createAuthenticatedAdmin()
-      const notFoundResponse = await request.get('/api/tables/9999/permissions')
-      // THEN: assertion
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify non-existent table returns 404', async () => {
+        await createAuthenticatedAdmin()
+        const notFoundResponse = await request.get('/api/tables/9999/permissions')
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

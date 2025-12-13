@@ -55,9 +55,9 @@ test.describe('Updated By Field', () => {
       // THEN: should be NOT NULL
       expect(columnInfo.is_nullable).toBe('NO')
 
-      // TODO: Re-enable FK checks once transaction visibility issue is resolved
+      // NOTE: FK checks disabled due to transaction visibility issue
       // See: https://github.com/sovrium/sovrium/issues/3980
-      // Foreign key constraints temporarily disabled
+      // Foreign key constraints will be re-enabled when the issue is resolved
       // const fkCount = await executeQuery(
       //   "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%updated_by%'"
       // )

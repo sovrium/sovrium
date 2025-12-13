@@ -124,23 +124,17 @@ test.describe('List table views', () => {
     'API-TABLES-VIEWS-LIST-005: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request }) => {
-      // GIVEN: Application with representative views configuration
-      // Application configured for permission/view testing
-      // Database and auth configured by test fixturesntative views
+      await test.step('Verify successful views list retrieval', async () => {
+        const successResponse = await request.get('/api/tables/1/views', {})
+        expect(successResponse.status()).toBe(200)
+        const views = await successResponse.json()
+        expect(Array.isArray(views)).toBe(true)
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      // Test successful retrieval
-      const successResponse = await request.get('/api/tables/1/views', {})
-      // THEN: assertion
-      expect(successResponse.status()).toBe(200)
-      const views = await successResponse.json()
-      // THEN: assertion
-      expect(Array.isArray(views)).toBe(true)
-
-      // Test not found error
-      const notFoundResponse = await request.get('/api/tables/9999/views', {})
-      // THEN: assertion
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify non-existent table returns 404', async () => {
+        const notFoundResponse = await request.get('/api/tables/9999/views', {})
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

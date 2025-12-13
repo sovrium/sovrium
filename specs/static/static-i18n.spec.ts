@@ -9,6 +9,23 @@ import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for Static Site Generation - Multi-Language Support
+ *
+ * Source: src/infrastructure/static-generation/i18n.ts
+ * Domain: static
+ * Spec Count: 5
+ *
+ * Multi-Language Behavior:
+ * - Generates language directories for each locale
+ * - Handles translations in static output
+ * - Creates locale-specific sitemaps
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Static Site Generation - Multi-Language Support', () => {
   test(
     'STATIC-I18N-001: should generate language directories',

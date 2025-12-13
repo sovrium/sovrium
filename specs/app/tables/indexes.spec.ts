@@ -675,80 +675,77 @@ test.describe('Database Indexes', () => {
     'APP-TABLES-INDEXES-011: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Database with representative index configurations
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 8,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'username', type: 'single-line-text' },
-              { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'created_at', type: 'created-at' },
-            ],
-            indexes: [
-              {
-                name: 'idx_users_username',
-                fields: ['username'],
-                unique: true,
-              },
-              {
-                name: 'idx_users_email',
-                fields: ['email'],
-              },
-              {
-                name: 'idx_users_created_at',
-                fields: ['created_at'],
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Create table with index configurations and seed data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 8,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'username', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'created_at', type: 'created-at' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_users_username',
+                  fields: ['username'],
+                  unique: true,
+                },
+                {
+                  name: 'idx_users_email',
+                  fields: ['email'],
+                },
+                {
+                  name: 'idx_users_created_at',
+                  fields: ['created_at'],
+                },
+              ],
+            },
+          ],
+        })
+
+        await executeQuery(
+          `INSERT INTO users (username, email, created_at) VALUES ('alice', 'alice@example.com', '2024-01-01 10:00:00'), ('bob', 'bob@example.com', '2024-01-02 10:00:00')`
+        )
       })
 
-      await executeQuery(
-        `INSERT INTO users (username, email, created_at) VALUES ('alice', 'alice@example.com', '2024-01-01 10:00:00'), ('bob', 'bob@example.com', '2024-01-02 10:00:00')`
-      )
+      await test.step('Verify unique index prevents duplicates', async () => {
+        await expect(
+          executeQuery(
+            `INSERT INTO users (username, email, created_at) VALUES ('alice', 'duplicate@example.com', NOW())`
+          )
+        ).rejects.toThrow(/unique constraint/)
+      })
 
-      // WHEN/THEN: Execute representative workflow
-
-      // 1. Unique index prevents duplicates
-      // THEN: assertion
-      await expect(
-        executeQuery(
-          `INSERT INTO users (username, email, created_at) VALUES ('alice', 'duplicate@example.com', NOW())`
+      await test.step('Verify regular indexes allow efficient lookups', async () => {
+        const emailLookup = await executeQuery(
+          `SELECT username FROM users WHERE email = 'bob@example.com'`
         )
-      ).rejects.toThrow(/unique constraint/)
+        expect(emailLookup.rows[0]).toMatchObject({ username: 'bob' })
+      })
 
-      // 2. Regular indexes allow efficient lookups
-      const emailLookup = await executeQuery(
-        `SELECT username FROM users WHERE email = 'bob@example.com'`
-      )
-      // THEN: assertion
-      expect(emailLookup.rows[0]).toMatchObject({ username: 'bob' })
+      await test.step('Verify timestamp index supports range queries', async () => {
+        const rangeQuery = await executeQuery(
+          `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
+        )
+        expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
+      })
 
-      // 3. Timestamp index supports range queries
-      const rangeQuery = await executeQuery(
-        `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
-      )
-      // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
-
-      // 4. All indexes are retrievable
-      const indexes = await executeQuery(
-        `SELECT indexname FROM pg_indexes WHERE tablename = 'users' AND indexname LIKE 'idx_users_%' ORDER BY indexname`
-      )
-      // THEN: assertion
-      expect(indexes.rows).toHaveLength(3)
-      expect(indexes.rows).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ indexname: 'idx_users_username' }),
-          expect.objectContaining({ indexname: 'idx_users_email' }),
-          expect.objectContaining({ indexname: 'idx_users_created_at' }),
-        ])
-      )
-
-      // Workflow completes successfully
+      await test.step('Verify all indexes are retrievable', async () => {
+        const indexes = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE tablename = 'users' AND indexname LIKE 'idx_users_%' ORDER BY indexname`
+        )
+        expect(indexes.rows).toHaveLength(3)
+        expect(indexes.rows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ indexname: 'idx_users_username' }),
+            expect.objectContaining({ indexname: 'idx_users_email' }),
+            expect.objectContaining({ indexname: 'idx_users_created_at' }),
+          ])
+        )
+      })
     }
   )
 })

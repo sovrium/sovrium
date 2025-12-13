@@ -7,6 +7,23 @@
 
 import { test, expect } from '@/specs/fixtures'
 
+/**
+ * E2E Tests for View Records API
+ *
+ * Source: src/infrastructure/server/route-setup/table-routes.ts
+ * Domain: api
+ * Spec Count: 5
+ *
+ * View Records Behavior:
+ * - Returns records filtered by view configuration
+ * - Applies view-level sorting and field visibility
+ * - Respects view-level permissions
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.fixme(
   'API-TABLES-VIEW-RECORDS-001: should return records filtered by view configuration',
   { tag: '@spec' },
@@ -208,39 +225,41 @@ test.fixme(
   'API-TABLES-VIEW-RECORDS-005: API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
   { tag: '@regression' },
   async ({ startServerWithSchema, executeQuery, request }) => {
-    // Basic view filtering smoke test
-    // GIVEN: app configuration
-    await startServerWithSchema({
-      name: 'test-app',
-      tables: [
-        {
-          id: 5,
-          name: 'items',
-          fields: [
-            { id: 1, name: 'name', type: 'single-line-text' },
-            { id: 2, name: 'active', type: 'checkbox' },
-          ],
-          views: [
-            {
-              id: 'view_active',
-              name: 'active_items',
-              filters: {
-                and: [{ field: 'fld_active', operator: 'is', value: true }],
+    await test.step('Setup: Create table with view and seed data', async () => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'active', type: 'checkbox' },
+            ],
+            views: [
+              {
+                id: 'view_active',
+                name: 'active_items',
+                filters: {
+                  and: [{ field: 'fld_active', operator: 'is', value: true }],
+                },
               },
-            },
-          ],
-        },
-      ],
+            ],
+          },
+        ],
+      })
+
+      await executeQuery(
+        `INSERT INTO items (name, active) VALUES ('Item 1', true), ('Item 2', false)`
+      )
     })
 
-    await executeQuery(
-      `INSERT INTO items (name, active) VALUES ('Item 1', true), ('Item 2', false)`
-    )
+    await test.step('Verify view filtering returns only active items', async () => {
+      const response = await request.get('/api/tables/tbl_items/views/view_active/records', {})
 
-    const response = await request.get('/api/tables/tbl_items/views/view_active/records', {})
-
-    const body = await response.json()
-    expect(body.records).toHaveLength(1)
-    expect(body.records[0].fields.name).toBe('Item 1')
+      const body = await response.json()
+      expect(body.records).toHaveLength(1)
+      expect(body.records[0].fields.name).toBe('Item 1')
+    })
   }
 )

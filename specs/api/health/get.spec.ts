@@ -10,22 +10,18 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for GET /api/health
  *
- * The health endpoint is critical for:
- * - Load balancer health checks
- * - Monitoring and alerting systems
- * - Deployment verification
- * - Service discovery
+ * Source: src/infrastructure/server/server.ts
+ * Domain: api
+ * Spec Count: 1
  *
- * Specification:
- * - Health endpoint must return JSON with status, timestamp, app name
+ * Health Endpoint Behavior:
+ * - Returns JSON with status, timestamp, app name
  * - Must return 200 OK status
- * - Must have current timestamp (not stale)
- * - Must support scoped package names
+ * - Critical for load balancer health checks
+ * - Used by monitoring and deployment verification
  *
- * Reference Implementation:
- * - Server: src/infrastructure/server/server.ts
- * - Route: createHonoApp function (lines 42-49)
- * - OpenAPI Spec: specs/api/paths/health/get.json
+ * Test Organization:
+ * 1. @regression test - ONE comprehensive test (health endpoint is simple)
  */
 
 /**
@@ -40,21 +36,20 @@ test(
   'API-HEALTH-001: should return 200 OK status and proper JSON structure',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    // GIVEN: A running server
-    await startServerWithSchema({
-      name: 'health-test-app',
+    await test.step('Setup: Start server with app name', async () => {
+      await startServerWithSchema({
+        name: 'health-test-app',
+      })
     })
 
-    // WHEN: User requests health endpoint
-    const response = await page.goto('/api/health')
+    await test.step('Request health endpoint and verify response', async () => {
+      const response = await page.goto('/api/health')
 
-    // THEN: Response should be 200 OK
-    expect(response?.status()).toBe(200)
+      expect(response?.status()).toBe(200)
 
-    // AND: Content-Type should be application/json
-    const contentType = response?.headers()['content-type']
-    // THEN: assertion
-    expect(contentType).toContain('application/json')
+      const contentType = response?.headers()['content-type']
+      expect(contentType).toContain('application/json')
+    })
   }
 )
 

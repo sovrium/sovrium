@@ -11,11 +11,12 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for App Description
  *
  * Source: src/domain/models/app/description.ts
- * Specs: APP-DESCRIPTION-001 through APP-DESCRIPTION-015
+ * Domain: app
+ * Spec Count: 15
  *
  * Test Organization:
- * 1. @spec tests - 15 granular specification tests (one per spec in schema)
- * 2. @regression test - ONE consolidated workflow test
+ * 1. @spec tests - One per spec in schema (14 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
 // ============================================================================
