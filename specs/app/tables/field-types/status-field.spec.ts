@@ -313,7 +313,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-007: should reject status field with duplicate option values',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
