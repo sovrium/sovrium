@@ -29,7 +29,7 @@ test.describe('Migration Audit Trail', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-001: should record migration history with timestamp and checksum',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -54,9 +54,9 @@ test.describe('Migration Audit Trail', () => {
       const history = await executeQuery(
         `SELECT * FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
       )
-      expect(history).toHaveLength(1)
-      expect(history[0].checksum).toBeDefined()
-      expect(history[0].applied_at).toBeDefined()
+      expect(history.rows).toHaveLength(1)
+      expect(history.rows[0].checksum).toBeDefined()
+      expect(history.rows[0].applied_at).toBeDefined()
     }
   )
 
