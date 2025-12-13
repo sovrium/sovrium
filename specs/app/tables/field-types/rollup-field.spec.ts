@@ -829,7 +829,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-013: should reject rollup when aggregation function is invalid for field type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
