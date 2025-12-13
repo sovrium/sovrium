@@ -213,7 +213,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-006: should reject single-select with empty options array',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -240,7 +240,7 @@ test.describe('Single Select Field', () => {
             },
           ],
         })
-      ).rejects.toThrow(/options.*empty|at least one option required/i)
+      ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
     }
   )
 
