@@ -60,7 +60,7 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-002: should store complete schema snapshot in migration history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -86,9 +86,9 @@ test.describe('Migration Audit Trail', () => {
       const history = await executeQuery(
         `SELECT schema FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
       )
-      expect(history).toHaveLength(1)
+      expect(history.rows).toHaveLength(1)
 
-      const schema = history[0].schema
+      const schema = history.rows[0].schema
       expect(schema.tables).toBeDefined()
       expect(schema.tables).toHaveLength(1)
       expect(schema.tables[0].name).toBe('products')
