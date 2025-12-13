@@ -71,6 +71,7 @@ Handle user interactions, render UI, route HTTP requests, present data to users.
 - **React 19** - UI components
 - **Hono** - HTTP routing
 - **Tailwind CSS** - Styling
+- **Zod** - OpenAPI schema validation and client forms (`src/presentation/api/schemas/`)
 
 ### Example: Hono Route Handler
 
@@ -102,6 +103,23 @@ app.get('/users/:id', async (c) => {
   return c.json(result.right)
 })
 ```
+
+### API Schemas (Zod)
+
+API route validation uses Zod for OpenAPI integration:
+
+```
+src/presentation/api/schemas/
+├── health-schemas.ts       # Health check endpoint schemas
+└── *.ts                    # Other API contract schemas
+```
+
+**Why Zod in Presentation?**
+
+- Industry standard for OpenAPI schema generation
+- Excellent integration with Hono (`@hono/zod-validator`)
+- Works with React Hook Form for client-side validation
+- Effect Schema is used in Domain layer for business validation
 
 ### Do's and Don'ts
 
@@ -206,8 +224,7 @@ Contain pure business logic, domain models, validation rules, core algorithms.
 
 - **TypeScript** - Pure functions, interfaces
 - **Functional Programming** - Immutability, pure functions
-- **Effect Schema** - Declarative validation for domain models (app/ directory)
-- **Zod** - OpenAPI schema validation (api/ directory)
+- **Effect Schema** - Declarative validation for domain models
 
 ### Domain Models Organization
 
@@ -215,17 +232,15 @@ The Domain layer has a specific structure with strict feature isolation:
 
 ```
 src/domain/models/
-├── app/                    # Effect Schema models (server-side domain validation)
-│   ├── *.ts               # Root aggregation files (tables.ts, pages.ts, etc.)
-│   ├── table/             # Table feature models (isolated)
-│   ├── page/              # Page feature models (isolated)
-│   ├── automation/        # Automation feature models (isolated)
-│   ├── block/             # Block models
-│   ├── common/            # Shared models across features
-│   ├── language/          # Language/i18n models
-│   └── theme/             # Theme models
-└── api/                    # Zod models (OpenAPI/HTTP contracts)
-    └── health-schemas.ts   # API health check schemas
+└── app/                    # Effect Schema models (server-side domain validation)
+    ├── *.ts               # Root aggregation files (tables.ts, pages.ts, etc.)
+    ├── table/             # Table feature models (isolated)
+    ├── page/              # Page feature models (isolated)
+    ├── automation/        # Automation feature models (isolated)
+    ├── block/             # Block models
+    ├── common/            # Shared models across features
+    ├── language/          # Language/i18n models
+    └── theme/             # Theme models
 ```
 
 **Feature Isolation Rules** (enforced by ESLint boundaries):
@@ -235,10 +250,10 @@ src/domain/models/
 - `automation/` cannot import from `table/` or `page/`
 - Root files (tables.ts, pages.ts) aggregate and re-export from features
 
-**Validation Library Split**:
+**Validation Libraries**:
 
-- **app/ models**: Use Effect Schema for type-safe domain validation
-- **api/ models**: Use Zod for OpenAPI schema generation and HTTP contracts
+- **Domain layer**: Effect Schema ONLY for type-safe domain validation
+- **Presentation layer**: Zod for OpenAPI schema generation, HTTP contracts, and client forms (see `src/presentation/api/schemas/`)
 
 ### Example: Domain Validator
 
@@ -506,14 +521,34 @@ For complete enforcement details:
 
 ### Enforcement Status
 
-Layer-based architecture is fully implemented:
+Layer-based architecture is fully implemented with active ESLint enforcement:
+
+**Layer Boundaries** (eslint-plugin-boundaries):
 
 - [x] Layer directories created (`domain/`, `application/`, `infrastructure/`, `presentation/`)
-- [x] Code organized into appropriate layers
-- [x] ESLint boundaries configuration matches directory structure
-- [x] Enforcement validated via `bun run lint`
-- [x] Documentation updated to reflect active enforcement
-- [ ] Enforcement validation in CI/CD pipeline (recommended next step)
+- [x] Dependency direction enforced (Outer → Inner)
+- [x] Feature isolation within Domain layer (table/page/automation cannot cross-import)
+- [x] Presentation cannot bypass Application to access Infrastructure
+
+**Domain Layer Purity** (no-restricted-imports in `eslint/infrastructure.config.ts`):
+
+- [x] Effect runtime forbidden (Effect, Context, Layer, pipe, flow)
+- [x] Only Effect.Schema allowed for validation
+- [x] Zod forbidden (must use Effect Schema)
+
+**Functional Programming** (eslint-plugin-functional):
+
+- [x] Immutability enforced (`prefer-immutable-types`)
+- [x] No variable reassignment (`no-let`)
+- [x] No mutations (`immutable-data`)
+- [x] No throw statements (`no-throw-statements`)
+
+**Test File Separation**:
+
+- [x] E2E tests (.spec.ts) must use Playwright
+- [x] Unit tests (.test.ts) must use Bun Test
+
+**Validation**: Run `bun run lint` to verify all boundaries and restrictions.
 
 ## Integration with Functional Programming
 

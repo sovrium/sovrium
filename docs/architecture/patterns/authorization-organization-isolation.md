@@ -415,6 +415,51 @@ if (deleted.length === 0) {
 }
 ```
 
+## Database-Level Security: RLS Strategy
+
+### Current Status (Phase 1)
+
+Organization isolation is enforced at the **application layer** via Drizzle ORM queries with `organization_id` filters. This provides adequate security for Phase 1 development.
+
+**Why Application-Level Only?**
+
+- Simpler implementation and debugging
+- Drizzle ORM provides type-safe query building
+- Better Auth validates organization membership per request
+- Sufficient for current feature set
+
+### Future Enhancement (Phase 2): PostgreSQL RLS
+
+For defense-in-depth, consider adding Row-Level Security policies:
+
+```sql
+-- Enable RLS on multi-tenant tables
+ALTER TABLE records ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can only access their organization's records
+CREATE POLICY org_isolation_policy ON records
+  USING (organization_id = current_setting('app.current_org_id')::text);
+```
+
+**Implementation Requirements**:
+
+1. Set session variable per request: `SET app.current_org_id = 'org_123'`
+2. Apply RLS to all tenant-scoped tables
+3. Ensure admin bypass for migrations
+
+**When to Add RLS**:
+
+- Before production launch with sensitive data
+- When implementing payments or PII handling
+- If regulatory compliance requires it (SOC 2, GDPR)
+
+**Trade-offs**:
+
+- (+) Defense-in-depth - catches bugs in application queries
+- (+) Portable security - works regardless of ORM
+- (-) Complexity - requires session variable management
+- (-) Migration complexity - RLS policies need careful testing
+
 ## Related Documentation
 
 - API Routes Authorization: `authorization-api-routes.md`
