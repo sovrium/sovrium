@@ -190,11 +190,40 @@ export const migrateExistingTableEffect = (
     const alterStatements = generateAlterTableStatements(table, existingColumns)
 
     // If alterStatements is empty, table has incompatible schema changes
-    // (e.g., primary key type change) - drop and recreate
+    // (e.g., primary key type change) - need to recreate with data preservation
     if (alterStatements.length === 0) {
-      yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
-      const createTableSQL = generateCreateTableSQL(table, tableUsesView)
+      // Create temporary table with new schema
+      const tempTableName = `${table.name}_migration_temp`
+      const createTableSQL = generateCreateTableSQL(table, tableUsesView).replace(
+        `CREATE TABLE IF NOT EXISTS ${table.name}`,
+        `CREATE TABLE ${tempTableName}`
+      )
       yield* executeSQL(tx, createTableSQL)
+
+      // Get columns that exist in both old and new tables for data migration
+      const newTableColumns = yield* executeSQL(
+        tx,
+        `SELECT column_name FROM information_schema.columns WHERE table_name = '${tempTableName}'`
+      )
+      const newColumnNames = new Set(
+        (newTableColumns as readonly { column_name: string }[]).map((row) => row.column_name)
+      )
+      const commonColumns = Array.from(existingColumns.keys()).filter((col) =>
+        newColumnNames.has(col)
+      )
+
+      // Copy data from old table to new table (only compatible columns)
+      if (commonColumns.length > 0) {
+        const columnList = commonColumns.join(', ')
+        yield* executeSQL(
+          tx,
+          `INSERT INTO ${tempTableName} (${columnList}) SELECT ${columnList} FROM ${table.name}`
+        )
+      }
+
+      // Drop old table and rename temp table
+      yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
+      yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${table.name}`)
     } else {
       // Apply incremental migrations
       yield* executeSQLStatements(tx, alterStatements)
