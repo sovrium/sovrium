@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/static-generation/deployment.ts
  * Domain: static
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Deployment Behavior:
  * - Generates .nojekyll for GitHub Pages

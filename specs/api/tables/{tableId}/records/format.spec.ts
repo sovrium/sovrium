@@ -14,7 +14,7 @@ import { test, expect } from '@/specs/fixtures'
  * Uses `?format=display` query parameter to request formatted responses.
  *
  * Domain: api
- * Spec Count: 21
+ * Spec Count: 20
  *
  * Test Organization:
  * 1. @spec tests - Field-specific formatting tests

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/server/route-setup/table-routes.ts
  * Domain: api
- * Spec Count: 5
+ * Spec Count: 4
  *
  * View Records Behavior:
  * - Returns records filtered by view configuration

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/button-field.ts
  * Domain: app
- * Spec Count: 8
+ * Spec Count: 7
  *
  * Button Field Behavior:
  * - UI-only field (does not create database column)
