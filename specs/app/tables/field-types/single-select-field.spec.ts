@@ -244,7 +244,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-007: should reject single-select with duplicate option values',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
