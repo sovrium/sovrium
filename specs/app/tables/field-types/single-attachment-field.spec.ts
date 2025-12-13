@@ -198,7 +198,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: should store video duration in metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
