@@ -198,29 +198,14 @@ export const migrateExistingTableEffect = (
     }
 
     // Always add/update unique constraints for existing tables
-    yield* Effect.promise(() => syncUniqueConstraints(tx, table))
+    yield* syncUniqueConstraints(tx, table)
 
     // Always sync foreign key constraints to ensure referential actions are up-to-date
-    yield* Effect.promise(() => syncForeignKeyConstraints(tx, table, tableUsesView))
+    yield* syncForeignKeyConstraints(tx, table, tableUsesView)
 
     // Apply all table features (indexes, triggers, RLS)
     yield* applyTableFeatures(tx, table)
   })
-
-/**
- * Migrate existing table (async version for backward compatibility)
- * @deprecated Prefer using migrateExistingTableEffect directly
- */
-/* eslint-disable functional/no-expression-statements */
-export const migrateExistingTable = async (
-  tx: TransactionLike,
-  table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
-  tableUsesView?: ReadonlyMap<string, boolean>
-): Promise<void> => {
-  await Effect.runPromise(migrateExistingTableEffect(tx, table, existingColumns, tableUsesView))
-}
-/* eslint-enable functional/no-expression-statements */
 
 /**
  * Create new table (CREATE statement + indexes + triggers)
@@ -238,20 +223,6 @@ export const createNewTableEffect = (
     // Apply all table features (indexes, triggers, RLS)
     yield* applyTableFeatures(tx, table)
   })
-
-/**
- * Create new table (async version for backward compatibility)
- * @deprecated Prefer using createNewTableEffect directly
- */
-/* eslint-disable functional/no-expression-statements */
-export const createNewTable = async (
-  tx: TransactionLike,
-  table: Table,
-  tableUsesView?: ReadonlyMap<string, boolean>
-): Promise<void> => {
-  await Effect.runPromise(createNewTableEffect(tx, table, tableUsesView))
-}
-/* eslint-enable functional/no-expression-statements */
 
 /**
  * Create lookup VIEWs for tables with lookup fields
@@ -277,16 +248,6 @@ export const createLookupViewsEffect = (
       }
     }
   })
-
-/**
- * Create lookup VIEWs (async version for backward compatibility)
- * @deprecated Prefer using createLookupViewsEffect directly
- */
-/* eslint-disable functional/no-expression-statements */
-export const createLookupViews = async (tx: TransactionLike, table: Table): Promise<void> => {
-  await Effect.runPromise(createLookupViewsEffect(tx, table))
-}
-/* eslint-enable functional/no-expression-statements */
 
 /**
  * Create table views (user-defined VIEWs from table.views configuration)
@@ -337,16 +298,6 @@ export const createTableViewsEffect = (
   })
 
 /**
- * Create table views (async version for backward compatibility)
- * @deprecated Prefer using createTableViewsEffect directly
- */
-/* eslint-disable functional/no-expression-statements */
-export const createTableViews = async (tx: TransactionLike, table: Table): Promise<void> => {
-  await Effect.runPromise(createTableViewsEffect(tx, table))
-}
-/* eslint-enable functional/no-expression-statements */
-
-/**
  * Create or migrate table based on existence
  */
 export const createOrMigrateTableEffect = (
@@ -363,18 +314,3 @@ export const createOrMigrateTableEffect = (
       yield* createNewTableEffect(tx, table, tableUsesView)
     }
   })
-
-/**
- * Create or migrate table (async version for backward compatibility)
- * @deprecated Prefer using createOrMigrateTableEffect directly
- */
-/* eslint-disable functional/no-expression-statements */
-export const createOrMigrateTable = async (
-  tx: BunSQLTransaction,
-  table: Table,
-  exists: boolean,
-  tableUsesView?: ReadonlyMap<string, boolean>
-): Promise<void> => {
-  await Effect.runPromise(createOrMigrateTableEffect(tx, table, exists, tableUsesView))
-}
-/* eslint-enable functional/no-expression-statements */

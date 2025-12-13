@@ -18,13 +18,18 @@ import {
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
 import { isManyToManyRelationship } from './field-utils'
-import { tableExists, dropObsoleteTables } from './schema-migration-helpers'
+import { dropObsoleteTables } from './schema-migration-helpers'
+import { tableExists, executeSQL } from './sql-execution'
 import {
   isRelationshipField,
   generateJunctionTableDDL,
   generateJunctionTableName,
 } from './sql-generators'
-import { createOrMigrateTable } from './table-operations'
+import {
+  createOrMigrateTableEffect,
+  createLookupViewsEffect,
+  createTableViewsEffect,
+} from './table-operations'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 
@@ -129,9 +134,6 @@ const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] =>
  * - For new tables: CREATE TABLE
  * - For existing tables: ALTER TABLE ADD COLUMN for new fields
  *
- * Note: This function intentionally uses imperative patterns for database I/O.
- * Side effects are unavoidable when executing DDL statements against PostgreSQL.
- *
  * SECURITY NOTE: tx.unsafe() is intentionally used here for DDL execution.
  *
  * This is SAFE because:
@@ -151,95 +153,131 @@ const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] =>
  * This pattern is standard for schema migration tools (Drizzle, Prisma, etc.)
  * which all generate and execute DDL strings directly.
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements, max-lines-per-function */
-const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]): Promise<void> => {
-  const db = new SQL(databaseUrl)
+/* eslint-disable max-lines-per-function */
+const executeSchemaInit = (
+  databaseUrl: string,
+  tables: readonly Table[]
+): Effect.Effect<void, SchemaInitializationError> =>
+  Effect.gen(function* () {
+    const db = new SQL(databaseUrl)
 
-  try {
-    await db.begin(async (tx) => {
-      // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
-      logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
-      const needs = needsUsersTable(tables)
-      logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
-      if (needs) {
-        logInfo('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
-        await ensureBetterAuthUsersTable(tx)
-      } else {
-        logInfo('[executeSchemaInit] Better Auth users table not needed')
-      }
+    try {
+      yield* Effect.tryPromise({
+        try: () =>
+          db.begin(async (tx) => {
+            // Run the migration logic within Effect.gen and convert to Promise
+            /* eslint-disable-next-line functional/no-expression-statements */
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
+                logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
+                const needs = needsUsersTable(tables)
+                logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
+                if (needs) {
+                  logInfo(
+                    '[executeSchemaInit] Better Auth users table is needed, verifying it exists...'
+                  )
+                  yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
+                } else {
+                  logInfo('[executeSchemaInit] Better Auth users table not needed')
+                }
 
-      // Step 0.1: Ensure updated-by trigger function exists if any table needs it
-      if (needsUpdatedByTrigger(tables)) {
-        await ensureUpdatedByTriggerFunction(tx)
-      }
+                // Step 0.1: Ensure updated-by trigger function exists if any table needs it
+                if (needsUpdatedByTrigger(tables)) {
+                  yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
+                }
 
-      // Step 1: Drop tables that exist in database but not in schema
-      await dropObsoleteTables(tx, tables)
+                // Step 1: Drop tables that exist in database but not in schema
+                yield* dropObsoleteTables(tx, tables)
 
-      // Step 2: Build map of which tables use VIEWs (have lookup fields)
-      // This is needed for foreign key generation to reference base tables correctly
-      const lookupViewModule = await import('./lookup-view-generators')
-      const tableOpsModule = await import('./table-operations')
+                // Step 2: Build map of which tables use VIEWs (have lookup fields)
+                // This is needed for foreign key generation to reference base tables correctly
+                const lookupViewModule = yield* Effect.promise(
+                  () => import('./lookup-view-generators')
+                )
 
-      const tableUsesView = new Map<string, boolean>(
-        tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
-      )
+                const tableUsesView = new Map<string, boolean>(
+                  tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
+                )
 
-      // Sort tables by dependencies to ensure referenced tables are created first
-      const sortedTables = sortTablesByDependencies(tables)
+                // Sort tables by dependencies to ensure referenced tables are created first
+                const sortedTables = sortTablesByDependencies(tables)
 
-      // Debug: log table creation order
-      await logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
+                // Debug: log table creation order
+                logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
 
-      // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
-      for (const table of sortedTables) {
-        // Check if the physical table exists (base table for tables with lookup fields)
-        const physicalTableName = lookupViewModule.shouldUseView(table)
-          ? lookupViewModule.getBaseTableName(table.name)
-          : table.name
-        const exists = await tableExists(tx, physicalTableName)
-        await logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
-        await createOrMigrateTable(tx, table, exists, tableUsesView)
-        await logInfo(`[Created/migrated table] ${table.name}`)
-      }
+                // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
+                /* eslint-disable functional/no-loop-statements */
+                for (const table of sortedTables) {
+                  // Check if the physical table exists (base table for tables with lookup fields)
+                  const physicalTableName = lookupViewModule.shouldUseView(table)
+                    ? lookupViewModule.getBaseTableName(table.name)
+                    : table.name
+                  const exists = yield* tableExists(tx, physicalTableName)
+                  logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
+                  yield* createOrMigrateTableEffect(tx, table, exists, tableUsesView)
+                  logInfo(`[Created/migrated table] ${table.name}`)
+                }
+                /* eslint-enable functional/no-loop-statements */
 
-      // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
-      // Junction tables must be created after both source and related tables exist
-      const junctionTablesCreated = new Set<string>()
-      for (const table of sortedTables) {
-        const manyToManyFields = table.fields.filter(isManyToManyRelationship)
-        for (const field of manyToManyFields) {
-          const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
-          // Avoid creating duplicate junction tables (if both sides define the relationship)
-          if (!junctionTablesCreated.has(junctionTableName)) {
-            await logInfo(`[Creating junction table] ${junctionTableName}`)
-            const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
-            await tx.unsafe(ddl)
-            // eslint-disable-next-line functional/immutable-data
-            junctionTablesCreated.add(junctionTableName)
-            await logInfo(`[Created junction table] ${junctionTableName}`)
-          }
-        }
-      }
+                // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
+                // Junction tables must be created after both source and related tables exist
+                const junctionTablesCreated = new Set<string>()
+                /* eslint-disable functional/no-loop-statements */
+                for (const table of sortedTables) {
+                  const manyToManyFields = table.fields.filter(isManyToManyRelationship)
+                  for (const field of manyToManyFields) {
+                    const junctionTableName = generateJunctionTableName(
+                      table.name,
+                      field.relatedTable
+                    )
+                    // Avoid creating duplicate junction tables (if both sides define the relationship)
+                    if (!junctionTablesCreated.has(junctionTableName)) {
+                      logInfo(`[Creating junction table] ${junctionTableName}`)
+                      const ddl = generateJunctionTableDDL(
+                        table.name,
+                        field.relatedTable,
+                        tableUsesView
+                      )
+                      yield* executeSQL(tx, ddl)
+                      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+                      junctionTablesCreated.add(junctionTableName)
+                      logInfo(`[Created junction table] ${junctionTableName}`)
+                    }
+                  }
+                }
+                /* eslint-enable functional/no-loop-statements */
 
-      // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
-      // This ensures lookup VIEWs can reference other tables without dependency issues
-      for (const table of sortedTables) {
-        await tableOpsModule.createLookupViews(tx, table)
-      }
+                // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
+                // This ensures lookup VIEWs can reference other tables without dependency issues
+                /* eslint-disable functional/no-loop-statements */
+                for (const table of sortedTables) {
+                  yield* createLookupViewsEffect(tx, table)
+                }
+                /* eslint-enable functional/no-loop-statements */
 
-      // Step 6: Create user-defined VIEWs from table.views configuration
-      // This is done after lookup views to ensure all base tables and lookup views exist
-      for (const table of sortedTables) {
-        await tableOpsModule.createTableViews(tx, table)
-      }
-    })
-  } finally {
-    // Close connection
-    await db.close()
-  }
-}
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+                // Step 6: Create user-defined VIEWs from table.views configuration
+                // This is done after lookup views to ensure all base tables and lookup views exist
+                /* eslint-disable functional/no-loop-statements */
+                for (const table of sortedTables) {
+                  yield* createTableViewsEffect(tx, table)
+                }
+                /* eslint-enable functional/no-loop-statements */
+              })
+            )
+          }),
+        catch: (error) =>
+          new SchemaInitializationError({
+            message: `Schema initialization failed: ${String(error)}`,
+            cause: error,
+          }),
+      })
+    } finally {
+      // Close connection
+      yield* Effect.promise(() => db.close())
+    }
+  })
+/* eslint-enable max-lines-per-function */
 
 /**
  * Error type union for schema initialization
@@ -305,14 +343,7 @@ const initializeSchemaInternal = (
     yield* Console.log('Initializing database schema...')
 
     // Execute schema initialization with bun:sql
-    yield* Effect.tryPromise({
-      try: () => executeSchemaInit(databaseUrlConfig, app.tables!),
-      catch: (error) =>
-        new SchemaInitializationError({
-          message: `Schema initialization failed: ${String(error)}`,
-          cause: error,
-        }),
-    })
+    yield* executeSchemaInit(databaseUrlConfig, app.tables!)
 
     yield* Console.log('✓ Database schema initialized successfully')
   })

@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import { shouldCreateDatabaseColumn } from './field-utils'
 import {
-  tableExistsAsync,
-  getExistingColumnsAsync,
-  getExistingTableNamesAsync,
+  getExistingTableNames,
+  executeSQLStatements,
   type TransactionLike,
+  type SQLExecutionError,
 } from './sql-execution'
 import { mapFieldTypeToPostgres, generateColumnDefinition } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
@@ -21,11 +22,6 @@ import type { Fields } from '@/domain/models/app/table/fields'
  * Re-exported from sql-execution.ts for backward compatibility
  */
 export type BunSQLTransaction = TransactionLike
-
-// Re-export async functions from sql-execution.ts for backward compatibility
-export const getExistingColumns = getExistingColumnsAsync
-export const tableExists = tableExistsAsync
-export const getExistingTableNames = getExistingTableNamesAsync
 
 /**
  * Better Auth system tables that should never be dropped
@@ -51,22 +47,21 @@ const PROTECTED_SYSTEM_TABLES = new Set([
  * 3. Only tables not in schema are dropped (explicit comparison)
  * 4. Better Auth system tables are protected and never dropped
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
-export const dropObsoleteTables = async (
+export const dropObsoleteTables = (
   tx: BunSQLTransaction,
   tables: readonly Table[]
-): Promise<void> => {
-  const existingTableNames = await getExistingTableNames(tx)
-  const schemaTableNames = new Set(tables.map((table) => table.name))
-  const tablesToDrop = existingTableNames.filter(
-    (tableName) => !schemaTableNames.has(tableName) && !PROTECTED_SYSTEM_TABLES.has(tableName)
-  )
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const existingTableNames = yield* getExistingTableNames(tx)
+    const schemaTableNames = new Set(tables.map((table) => table.name))
+    const tablesToDrop = existingTableNames.filter(
+      (tableName) => !schemaTableNames.has(tableName) && !PROTECTED_SYSTEM_TABLES.has(tableName)
+    )
 
-  for (const tableName of tablesToDrop) {
-    await tx.unsafe(`DROP TABLE ${tableName} CASCADE`)
-  }
-}
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+    // Drop all obsolete tables sequentially
+    const dropStatements = tablesToDrop.map((tableName) => `DROP TABLE ${tableName} CASCADE`)
+    yield* executeSQLStatements(tx, dropStatements)
+  })
 
 /**
  * Normalize PostgreSQL data type for comparison
@@ -192,96 +187,101 @@ export const generateAlterTableStatements = (
  * 2. Composite unique constraints (table.uniqueConstraints)
  * Uses PostgreSQL default naming convention: {table}_{column}_key for single fields
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
-export const syncUniqueConstraints = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
+export const syncUniqueConstraints = (
+  tx: TransactionLike,
   table: Table
-): Promise<void> => {
-  // Single-field unique constraints
-  const uniqueFields = new Set(
-    table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
-  )
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    // Single-field unique constraints
+    const uniqueFields = table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
 
-  for (const fieldName of uniqueFields) {
-    const constraintName = `${table.name}_${fieldName}_key`
-    // Add constraint if it doesn't exist (using IF NOT EXISTS equivalent)
-    await tx.unsafe(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE table_name = '${table.name}'
-            AND constraint_type = 'UNIQUE'
-            AND constraint_name = '${constraintName}'
-        ) THEN
-          ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
-        END IF;
-      END$$;
-    `)
-  }
-
-  // Composite unique constraints from table.uniqueConstraints
-  if (table.uniqueConstraints && table.uniqueConstraints.length > 0) {
-    for (const constraint of table.uniqueConstraints) {
-      const fields = constraint.fields.join(', ')
-      await tx.unsafe(`
+    // Build statements for single-field constraints
+    const singleFieldStatements = uniqueFields.map((fieldName) => {
+      const constraintName = `${table.name}_${fieldName}_key`
+      return `
         DO $$
         BEGIN
           IF NOT EXISTS (
             SELECT 1 FROM information_schema.table_constraints
             WHERE table_name = '${table.name}'
               AND constraint_type = 'UNIQUE'
-              AND constraint_name = '${constraint.name}'
+              AND constraint_name = '${constraintName}'
           ) THEN
-            ALTER TABLE ${table.name} ADD CONSTRAINT ${constraint.name} UNIQUE (${fields});
+            ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
           END IF;
         END$$;
-      `)
-    }
-  }
-}
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+      `
+    })
+
+    // Build statements for composite constraints
+    const compositeStatements =
+      table.uniqueConstraints?.map((constraint) => {
+        const fields = constraint.fields.join(', ')
+        return `
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.table_constraints
+              WHERE table_name = '${table.name}'
+                AND constraint_type = 'UNIQUE'
+                AND constraint_name = '${constraint.name}'
+            ) THEN
+              ALTER TABLE ${table.name} ADD CONSTRAINT ${constraint.name} UNIQUE (${fields});
+            END IF;
+          END$$;
+        `
+      }) ?? []
+
+    // Execute all constraint statements
+    yield* executeSQLStatements(tx, [...singleFieldStatements, ...compositeStatements])
+  })
 
 /**
  * Sync foreign key constraints for existing table
  * Drops and recreates FK constraints to ensure referential actions (ON DELETE, ON UPDATE) are up-to-date
  * This is needed when table schema is updated with new referential actions
  */
-/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
-export const syncForeignKeyConstraints = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> },
+export const syncForeignKeyConstraints = (
+  tx: TransactionLike,
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>
-): Promise<void> => {
-  const { generateForeignKeyConstraints } = await import('./sql-generators')
-  const fkConstraints = generateForeignKeyConstraints(table.name, table.fields, tableUsesView)
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { generateForeignKeyConstraints } = yield* Effect.promise(
+      () => import('./sql-generators')
+    )
+    const fkConstraints = generateForeignKeyConstraints(table.name, table.fields, tableUsesView)
 
-  // For each FK constraint, drop existing and recreate
-  for (const constraint of fkConstraints) {
-    // Extract constraint name from the constraint SQL
-    // Format: "CONSTRAINT {constraintName} FOREIGN KEY ..."
-    const match = constraint.match(/CONSTRAINT\s+(\w+)\s+FOREIGN KEY/)
-    if (!match) continue
+    // Build drop and add statements for each FK constraint
+    const statements = fkConstraints.flatMap((constraint) => {
+      // Extract constraint name from the constraint SQL
+      // Format: "CONSTRAINT {constraintName} FOREIGN KEY ..."
+      const match = constraint.match(/CONSTRAINT\s+(\w+)\s+FOREIGN KEY/)
+      if (!match) return []
 
-    const constraintName = match[1]
+      const constraintName = match[1]
 
-    // Drop existing constraint if it exists
-    await tx.unsafe(`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE table_name = '${table.name}'
-            AND constraint_type = 'FOREIGN KEY'
-            AND constraint_name = '${constraintName}'
-        ) THEN
-          ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
-        END IF;
-      END$$;
-    `)
+      // Drop existing constraint if it exists
+      const dropStatement = `
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE table_name = '${table.name}'
+              AND constraint_type = 'FOREIGN KEY'
+              AND constraint_name = '${constraintName}'
+          ) THEN
+            ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
+          END IF;
+        END$$;
+      `
 
-    // Add constraint with updated referential actions
-    await tx.unsafe(`ALTER TABLE ${table.name} ADD ${constraint}`)
-  }
-}
-/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+      // Add constraint with updated referential actions
+      const addStatement = `ALTER TABLE ${table.name} ADD ${constraint}`
+
+      return [dropStatement, addStatement]
+    })
+
+    // Execute all FK constraint statements sequentially
+    yield* executeSQLStatements(tx, statements)
+  })
