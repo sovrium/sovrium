@@ -413,7 +413,10 @@ export const specHasIssue = (specId: string): Effect.Effect<boolean, never, Comm
 
     const parseResult = yield* Effect.try({
       try: () =>
-        ({ success: true, data: JSON.parse(output) as Array<{ number: number; state: string }> }) as const,
+        ({
+          success: true,
+          data: JSON.parse(output) as Array<{ number: number; state: string }>,
+        }) as const,
       catch: () => ({ success: false }) as const,
     }).pipe(Effect.merge)
 
