@@ -152,7 +152,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -182,7 +182,7 @@ test.describe('Deleted At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-AT-006: user can complete full deleted-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
