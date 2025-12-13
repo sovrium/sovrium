@@ -73,10 +73,16 @@ This spec will be automatically picked up by the TDD queue processor and impleme
     // Write body to temp file to avoid shell escaping issues
     // Heredocs don't work reliably across all shell environments (especially in CI)
     const tempFile = join(tmpdir(), `gh-issue-body-${spec.specId}-${Date.now()}.md`)
-    try {
-      writeFileSync(tempFile, bodyText, 'utf-8')
-    } catch (error) {
-      yield* logError(`Failed to write temp file for ${spec.specId}: ${error}`)
+    const writeResult = yield* Effect.try({
+      try: () => {
+        writeFileSync(tempFile, bodyText, 'utf-8')
+        return { success: true as const }
+      },
+      catch: (error) => ({ success: false as const, error }),
+    }).pipe(Effect.merge)
+
+    if (!writeResult.success) {
+      yield* logError(`Failed to write temp file for ${spec.specId}: ${writeResult.error}`)
       return -1
     }
 
@@ -94,12 +100,8 @@ This spec will be automatically picked up by the TDD queue processor and impleme
         })
       )
 
-    // Clean up temp file
-    try {
-      unlinkSync(tempFile)
-    } catch {
-      // Ignore cleanup errors
-    }
+    // Clean up temp file (ignore errors)
+    yield* Effect.try(() => unlinkSync(tempFile)).pipe(Effect.ignore)
 
     // Extract issue number from URL (gh outputs the URL)
     const issueMatch = output.match(/\/issues\/(\d+)/)

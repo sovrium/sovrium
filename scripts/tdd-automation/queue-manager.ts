@@ -112,7 +112,8 @@ const commandPopulate = Effect.gen(function* () {
   // Create lock
   yield* createIdempotencyLock
 
-  try {
+  // Use Effect.ensuring to guarantee lock removal even on error
+  yield* Effect.gen(function* () {
     const fs = yield* FileSystemService
 
     // Read scan results
@@ -122,7 +123,6 @@ const commandPopulate = Effect.gen(function* () {
     if (!scanExists) {
       yield* logError('❌ No scan results found')
       yield* logError(`   Run: bun run queue-manager scan`)
-      yield* removeIdempotencyLock
       return
     }
 
@@ -131,7 +131,6 @@ const commandPopulate = Effect.gen(function* () {
 
     if (scanResult.totalSpecs === 0) {
       yield* skip('No specs with .fixme() found')
-      yield* removeIdempotencyLock
       return
     }
 
@@ -181,7 +180,6 @@ const commandPopulate = Effect.gen(function* () {
     }
     if (specsToUpdate.length === 0 && newSpecs.length === 0) {
       yield* skip('All specs already have issues (no updates needed)')
-      yield* removeIdempotencyLock
       return
     }
     yield* logInfo('')
@@ -215,14 +213,7 @@ const commandPopulate = Effect.gen(function* () {
 
     yield* logInfo('')
     yield* success(`✅ Created ${created} issues, updated ${updated} titles, skipped ${skipped}`)
-
-    // Remove lock
-    yield* removeIdempotencyLock
-  } catch (error) {
-    // Ensure lock is removed even on error
-    yield* removeIdempotencyLock
-    return yield* Effect.fail(error)
-  }
+  }).pipe(Effect.ensuring(removeIdempotencyLock))
 })
 
 /**

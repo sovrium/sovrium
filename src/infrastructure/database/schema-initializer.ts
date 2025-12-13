@@ -6,7 +6,7 @@
  */
 
 import { SQL } from 'bun'
-import { Config, Effect, Console, Data, type ConfigError } from 'effect'
+import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logInfo } from '@/infrastructure/logging/effect-logger'
@@ -160,6 +160,8 @@ const executeSchemaInit = (
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
     const db = new SQL(databaseUrl)
+    // Extract runtime to use in async callback (avoids Effect.runPromise inside Effect)
+    const runtime = yield* Effect.runtime<never>()
 
     try {
       yield* Effect.tryPromise({
@@ -167,7 +169,7 @@ const executeSchemaInit = (
           db.begin(async (tx) => {
             // Run the migration logic within Effect.gen and convert to Promise
             /* eslint-disable-next-line functional/no-expression-statements */
-            await Effect.runPromise(
+            await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
                 // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
                 logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')

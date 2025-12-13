@@ -87,42 +87,46 @@ export const getQueuedSpecs = Effect.gen(function* () {
       })
     )
 
-  try {
-    const issues = JSON.parse(output) as Array<{
-      number: number
-      title: string
-      url: string
-      createdAt: string
-      updatedAt: string
-      labels: Array<{ name: string }>
-    }>
+  const parseResult = yield* Effect.try({
+    try: () =>
+      JSON.parse(output) as Array<{
+        number: number
+        title: string
+        url: string
+        createdAt: string
+        updatedAt: string
+        labels: Array<{ name: string }>
+      }>,
+    catch: () => null,
+  })
 
-    const specIssues: SpecIssue[] = issues
-      .map((issue): SpecIssue | null => {
-        // Extract spec ID from title: "🤖 APP-VERSION-001: description"
-        const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
-        const specId = specIdMatch?.[1]
-
-        if (!specId) return null
-
-        return {
-          number: issue.number,
-          specId,
-          state: 'queued',
-          url: issue.url,
-          createdAt: issue.createdAt,
-          updatedAt: issue.updatedAt,
-          labels: issue.labels.map((label) => label.name),
-        }
-      })
-      .filter((issue): issue is SpecIssue => issue !== null)
-
-    yield* logInfo(`  Found ${specIssues.length} queued specs`)
-    return specIssues
-  } catch {
+  if (parseResult === null) {
     yield* logError('Failed to parse GitHub issue response')
     return []
   }
+
+  const specIssues: SpecIssue[] = parseResult
+    .map((issue): SpecIssue | null => {
+      // Extract spec ID from title: "🤖 APP-VERSION-001: description"
+      const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
+      const specId = specIdMatch?.[1]
+
+      if (!specId) return null
+
+      return {
+        number: issue.number,
+        specId,
+        state: 'queued',
+        url: issue.url,
+        createdAt: issue.createdAt,
+        updatedAt: issue.updatedAt,
+        labels: issue.labels.map((label) => label.name),
+      }
+    })
+    .filter((issue): issue is SpecIssue => issue !== null)
+
+  yield* logInfo(`  Found ${specIssues.length} queued specs`)
+  return specIssues
 })
 
 /**
@@ -152,40 +156,44 @@ export const getInProgressSpecs = Effect.gen(function* () {
       })
     )
 
-  try {
-    const issues = JSON.parse(output) as Array<{
-      number: number
-      title: string
-      url: string
-      createdAt: string
-      updatedAt: string
-      labels: Array<{ name: string }>
-    }>
+  const parseResult = yield* Effect.try({
+    try: () =>
+      JSON.parse(output) as Array<{
+        number: number
+        title: string
+        url: string
+        createdAt: string
+        updatedAt: string
+        labels: Array<{ name: string }>
+      }>,
+    catch: () => null,
+  })
 
-    const specIssues: SpecIssue[] = issues
-      .map((issue): SpecIssue | null => {
-        const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
-        const specId = specIdMatch?.[1]
-
-        if (!specId) return null
-
-        return {
-          number: issue.number,
-          specId,
-          state: 'in-progress',
-          url: issue.url,
-          createdAt: issue.createdAt,
-          updatedAt: issue.updatedAt,
-          labels: issue.labels.map((label) => label.name),
-        }
-      })
-      .filter((issue): issue is SpecIssue => issue !== null)
-
-    return specIssues
-  } catch {
+  if (parseResult === null) {
     yield* logError('Failed to parse GitHub issue response')
     return []
   }
+
+  const specIssues: SpecIssue[] = parseResult
+    .map((issue): SpecIssue | null => {
+      const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
+      const specId = specIdMatch?.[1]
+
+      if (!specId) return null
+
+      return {
+        number: issue.number,
+        specId,
+        state: 'in-progress',
+        url: issue.url,
+        createdAt: issue.createdAt,
+        updatedAt: issue.updatedAt,
+        labels: issue.labels.map((label) => label.name),
+      }
+    })
+    .filter((issue): issue is SpecIssue => issue !== null)
+
+  return specIssues
 })
 
 /**
@@ -266,40 +274,47 @@ export const getAllExistingSpecs = Effect.gen(function* () {
         })
       )
 
-    try {
-      const pageIssues = JSON.parse(output) as Array<{
-        number: number
-        title: string
-        state: string
-        created_at: string
-      }>
+    const parseResult = yield* Effect.try({
+      try: () =>
+        JSON.parse(output) as Array<{
+          number: number
+          title: string
+          state: string
+          created_at: string
+        }>,
+      catch: (error) => error,
+    })
 
-      if (pageIssues.length === 0) {
-        hasMorePages = false
-        break
-      }
-
-      // Filter by bot emoji (GitHub API doesn't support search in list)
-      const specIssues = pageIssues.filter((issue) => issue.title.includes('🤖'))
-
-      allIssues = allIssues.concat(specIssues)
-
-      if (page === 1 || page % 5 === 0) {
-        yield* logInfo(
-          `  Fetched page ${page}: ${specIssues.length} spec issues (${pageIssues.length} total)`,
-          '📄'
-        )
-      }
-
-      // If we got fewer results than requested, we've reached the last page
-      if (pageIssues.length < perPage) {
-        hasMorePages = false
-      } else {
-        page++
-      }
-    } catch (error) {
-      yield* logError(`Failed to parse page ${page}: ${error}`)
+    if (!Array.isArray(parseResult)) {
+      yield* logError(`Failed to parse page ${page}: ${parseResult}`)
       hasMorePages = false
+      break
+    }
+
+    const pageIssues = parseResult
+
+    if (pageIssues.length === 0) {
+      hasMorePages = false
+      break
+    }
+
+    // Filter by bot emoji (GitHub API doesn't support search in list)
+    const specIssues = pageIssues.filter((issue) => issue.title.includes('🤖'))
+
+    allIssues = allIssues.concat(specIssues)
+
+    if (page === 1 || page % 5 === 0) {
+      yield* logInfo(
+        `  Fetched page ${page}: ${specIssues.length} spec issues (${pageIssues.length} total)`,
+        '📄'
+      )
+    }
+
+    // If we got fewer results than requested, we've reached the last page
+    if (pageIssues.length < perPage) {
+      hasMorePages = false
+    } else {
+      page++
     }
   }
 
@@ -396,12 +411,20 @@ export const specHasIssue = (specId: string): Effect.Effect<boolean, never, Comm
       )
       .pipe(Effect.catchAll(() => Effect.succeed('[]')))
 
-    try {
-      const issues = JSON.parse(output) as Array<{ number: number; state: string }>
-      return issues.length > 0 // Returns true if ANY issue exists (open or closed)
-    } catch {
+    const parseResult = yield* Effect.try({
+      try: () =>
+        ({
+          success: true,
+          data: JSON.parse(output) as Array<{ number: number; state: string }>,
+        }) as const,
+      catch: () => ({ success: false }) as const,
+    }).pipe(Effect.merge)
+
+    if (!parseResult.success) {
       return false
     }
+
+    return parseResult.data.length > 0 // Returns true if ANY issue exists (open or closed)
   })
 
 /**
@@ -582,11 +605,21 @@ export const getNextSpec = Effect.gen(function* () {
       .readFile(dependencyGraphPath)
       .pipe(Effect.catchAll(() => Effect.succeed(Buffer.from('{}'))))
 
-    try {
-      const graphContent = graphBuffer.toString('utf-8')
-      dependencyGraph = JSON.parse(graphContent)
+    const parseResult = yield* Effect.try({
+      try: () => {
+        const graphContent = graphBuffer.toString('utf-8')
+        return JSON.parse(graphContent) as Record<
+          string,
+          { canImplement: boolean; missingDependencies: string[] }
+        >
+      },
+      catch: () => null,
+    })
+
+    if (parseResult !== null) {
+      dependencyGraph = parseResult
       yield* logInfo('Using dependency graph for blocking detection', '🔗')
-    } catch {
+    } else {
       yield* logWarn('Failed to parse dependency graph')
     }
   }

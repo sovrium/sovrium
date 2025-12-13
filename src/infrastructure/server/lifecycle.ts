@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
+import { Effect, Console, Runtime } from 'effect'
 import type { ServerInstance } from '@/application/models/server'
 
 /**
@@ -34,14 +34,14 @@ import type { ServerInstance } from '@/application/models/server'
  */
 export const withGracefulShutdown = (server: ServerInstance): Effect.Effect<never> =>
   Effect.gen(function* () {
+    // Extract runtime to use in signal handler (avoids Effect.runPromise inside Effect)
+    const runtime = yield* Effect.runtime<never>()
+
     // Setup SIGINT handler for graceful shutdown
     // Wrap process.on() side effect in Effect.sync for testability
-    // Note: Effect.runPromise/runSync inside signal handler is intentional -
-    // signal handlers run outside the Effect runtime, so we need a new runtime
-    // @effect-suppress runEffectInsideEffect
     yield* Effect.sync(() =>
       process.on('SIGINT', () => {
-        Effect.runPromise(
+        Runtime.runPromise(runtime)(
           Effect.gen(function* () {
             yield* Console.log('\nReceived SIGINT, stopping server...')
             yield* server.stop
@@ -50,7 +50,7 @@ export const withGracefulShutdown = (server: ServerInstance): Effect.Effect<neve
             process.exit(0)
           })
         ).catch((error) => {
-          Effect.runSync(Console.error('Failed to stop server:', error))
+          Runtime.runSync(runtime)(Console.error('Failed to stop server:', error))
           // Terminate process - imperative statement required for error handling
           // eslint-disable-next-line functional/no-expression-statements
           process.exit(1)

@@ -41,31 +41,36 @@ export const checkIdempotencyLock = Effect.gen(function* () {
     return true // Empty lock, safe to proceed
   }
 
-  try {
-    const lockData = JSON.parse(lockContent) as { timestamp: string; pid?: string }
-    const lockTime = new Date(lockData.timestamp)
-    const now = new Date()
-    const ageMinutes = (now.getTime() - lockTime.getTime()) / 1000 / 60
+  // Parse lock file using Effect.try to handle JSON parse errors
+  const parseResult = yield* Effect.try({
+    try: () => JSON.parse(lockContent) as { timestamp: string; pid?: string },
+    catch: () => null,
+  })
 
-    // If lock is older than 30 minutes, consider it stale
-    if (ageMinutes > STALE_LOCK_MINUTES) {
-      yield* logWarn(`⚠️  Stale lock file detected (${Math.round(ageMinutes)} minutes old)`)
-      yield* logInfo('Removing stale lock and proceeding')
-      yield* cmd.exec(`rm -f ${LOCK_FILE_PATH}`).pipe(Effect.catchAll(() => Effect.void))
-      return true
-    }
-
-    // Lock is recent, another populate is likely in progress
-    yield* logError('❌ Another populate operation is in progress')
-    yield* logError(`   Started: ${lockData.timestamp} (${Math.round(ageMinutes)} minutes ago)`)
-    yield* logError('   Please wait for it to complete or remove .github/tdd-queue-populate.lock')
-    return false
-  } catch {
+  if (parseResult === null) {
     // Corrupted lock file, remove it
     yield* logWarn('⚠️  Corrupted lock file detected, removing')
     yield* cmd.exec(`rm -f ${LOCK_FILE_PATH}`).pipe(Effect.catchAll(() => Effect.void))
     return true
   }
+
+  const lockTime = new Date(parseResult.timestamp)
+  const now = new Date()
+  const ageMinutes = (now.getTime() - lockTime.getTime()) / 1000 / 60
+
+  // If lock is older than 30 minutes, consider it stale
+  if (ageMinutes > STALE_LOCK_MINUTES) {
+    yield* logWarn(`⚠️  Stale lock file detected (${Math.round(ageMinutes)} minutes old)`)
+    yield* logInfo('Removing stale lock and proceeding')
+    yield* cmd.exec(`rm -f ${LOCK_FILE_PATH}`).pipe(Effect.catchAll(() => Effect.void))
+    return true
+  }
+
+  // Lock is recent, another populate is likely in progress
+  yield* logError('❌ Another populate operation is in progress')
+  yield* logError(`   Started: ${parseResult.timestamp} (${Math.round(ageMinutes)} minutes ago)`)
+  yield* logError('   Please wait for it to complete or remove .github/tdd-queue-populate.lock')
+  return false
 })
 
 /**
