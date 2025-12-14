@@ -178,6 +178,69 @@ const applyTableFeatures = (
   })
 
 /**
+ * Recreate table with data preservation when schema changes are incompatible with ALTER TABLE
+ * Used when primary key type changes or other incompatible schema modifications occur
+ */
+const recreateTableWithDataEffect = (
+  tx: TransactionLike,
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  tableUsesView?: ReadonlyMap<string, boolean>
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    // Create temporary table with new schema
+    const tempTableName = `${table.name}_migration_temp`
+    const createTableSQL = generateCreateTableSQL(table, tableUsesView).replace(
+      `CREATE TABLE IF NOT EXISTS ${table.name}`,
+      `CREATE TABLE ${tempTableName}`
+    )
+    yield* executeSQL(tx, createTableSQL)
+
+    // Get columns that exist in both old and new tables for data migration
+    const newTableColumns = yield* executeSQL(
+      tx,
+      `SELECT column_name, column_default FROM information_schema.columns WHERE table_name = '${tempTableName}'`
+    )
+    const newColumnInfo = new Map(
+      (newTableColumns as readonly { column_name: string; column_default: string | null }[]).map(
+        (row) => [row.column_name, row.column_default]
+      )
+    )
+
+    // Find common columns that exist in both old and new tables
+    const commonColumns = Array.from(existingColumns.keys()).filter((col) =>
+      newColumnInfo.has(col)
+    )
+
+    // Identify SERIAL columns that need sequence reset after data copy
+    const serialColumns = commonColumns.filter((col) => {
+      const columnDefault = newColumnInfo.get(col)
+      return columnDefault?.includes('nextval')
+    })
+
+    // Copy data from old table to new table (all common columns)
+    if (commonColumns.length > 0) {
+      const columnList = commonColumns.join(', ')
+      yield* executeSQL(
+        tx,
+        `INSERT INTO ${tempTableName} (${columnList}) SELECT ${columnList} FROM ${table.name}`
+      )
+
+      // Reset SERIAL sequences to max value + 1 to avoid conflicts
+      yield* Effect.forEach(serialColumns, (col) =>
+        executeSQL(
+          tx,
+          `SELECT setval(pg_get_serial_sequence('${tempTableName}', '${col}'), COALESCE((SELECT MAX(${col}) FROM ${tempTableName}), 1), true)`
+        )
+      )
+    }
+
+    // Drop old table and rename temp table
+    yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
+    yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${table.name}`)
+  })
+
+/**
  * Migrate existing table (ALTER statements + constraints + indexes)
  */
 export const migrateExistingTableEffect = (
@@ -192,38 +255,7 @@ export const migrateExistingTableEffect = (
     // If alterStatements is empty, table has incompatible schema changes
     // (e.g., primary key type change) - need to recreate with data preservation
     if (alterStatements.length === 0) {
-      // Create temporary table with new schema
-      const tempTableName = `${table.name}_migration_temp`
-      const createTableSQL = generateCreateTableSQL(table, tableUsesView).replace(
-        `CREATE TABLE IF NOT EXISTS ${table.name}`,
-        `CREATE TABLE ${tempTableName}`
-      )
-      yield* executeSQL(tx, createTableSQL)
-
-      // Get columns that exist in both old and new tables for data migration
-      const newTableColumns = yield* executeSQL(
-        tx,
-        `SELECT column_name FROM information_schema.columns WHERE table_name = '${tempTableName}'`
-      )
-      const newColumnNames = new Set(
-        (newTableColumns as readonly { column_name: string }[]).map((row) => row.column_name)
-      )
-      const commonColumns = Array.from(existingColumns.keys()).filter((col) =>
-        newColumnNames.has(col)
-      )
-
-      // Copy data from old table to new table (only compatible columns)
-      if (commonColumns.length > 0) {
-        const columnList = commonColumns.join(', ')
-        yield* executeSQL(
-          tx,
-          `INSERT INTO ${tempTableName} (${columnList}) SELECT ${columnList} FROM ${table.name}`
-        )
-      }
-
-      // Drop old table and rename temp table
-      yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
-      yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${table.name}`)
+      yield* recreateTableWithDataEffect(tx, table, existingColumns, tableUsesView)
     } else {
       // Apply incremental migrations
       yield* executeSQLStatements(tx, alterStatements)
