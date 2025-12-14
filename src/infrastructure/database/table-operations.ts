@@ -188,10 +188,13 @@ const recreateTableWithDataEffect = (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    // Determine physical table name (base table if using VIEW)
+    const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+
     // Create temporary table with new schema
-    const tempTableName = `${table.name}_migration_temp`
+    const tempTableName = `${physicalTableName}_migration_temp`
     const createTableSQL = generateCreateTableSQL(table, tableUsesView).replace(
-      `CREATE TABLE IF NOT EXISTS ${table.name}`,
+      `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
       `CREATE TABLE ${tempTableName}`
     )
     yield* executeSQL(tx, createTableSQL)
@@ -219,11 +222,12 @@ const recreateTableWithDataEffect = (
     })
 
     // Copy data from old table to new table (all common columns)
+    // Use physical table name to avoid selecting from VIEW (which may have different column types)
     if (commonColumns.length > 0) {
       const columnList = commonColumns.join(', ')
       yield* executeSQL(
         tx,
-        `INSERT INTO ${tempTableName} (${columnList}) SELECT ${columnList} FROM ${table.name}`
+        `INSERT INTO ${tempTableName} (${columnList}) SELECT ${columnList} FROM ${physicalTableName}`
       )
 
       // Reset SERIAL sequences to max value + 1 to avoid conflicts
@@ -236,8 +240,8 @@ const recreateTableWithDataEffect = (
     }
 
     // Drop old table and rename temp table
-    yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
-    yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${table.name}`)
+    yield* executeSQL(tx, `DROP TABLE ${physicalTableName} CASCADE`)
+    yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${physicalTableName}`)
   })
 
 /**
