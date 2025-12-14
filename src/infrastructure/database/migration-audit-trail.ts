@@ -64,7 +64,8 @@ export const recordMigration = (
     `
     const versionResult = yield* executeSQL(tx, versionQuery)
     // executeSQL returns an array directly, not {rows, rowCount}
-    const nextVersion = (versionResult[0] as { next_version: number } | undefined)?.next_version ?? 1
+    const nextVersion =
+      (versionResult[0] as { next_version: number } | undefined)?.next_version ?? 1
     logInfo(`[recordMigration] Next version: ${nextVersion}`)
 
     // Insert migration record
