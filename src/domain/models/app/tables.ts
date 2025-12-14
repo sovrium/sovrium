@@ -256,10 +256,7 @@ const isDateFieldType = (fieldType: string): boolean => {
 /**
  * Validate sum/avg aggregation requires numeric field.
  */
-const validateNumericAggregation = (
-  aggregation: string,
-  fieldType: string
-): string | undefined => {
+const validateNumericAggregation = (aggregation: string, fieldType: string): string | undefined => {
   if (!isNumericFieldType(fieldType)) {
     return `aggregation function "${aggregation}" is incompatible with field type "${fieldType}" - numeric field required`
   }
@@ -269,10 +266,7 @@ const validateNumericAggregation = (
 /**
  * Validate min/max aggregation requires numeric or date field.
  */
-const validateMinMaxAggregation = (
-  aggregation: string,
-  fieldType: string
-): string | undefined => {
+const validateMinMaxAggregation = (aggregation: string, fieldType: string): string | undefined => {
   if (!isNumericFieldType(fieldType) && !isDateFieldType(fieldType)) {
     return `aggregation function "${aggregation}" is incompatible with field type "${fieldType}" - numeric or date field required`
   }

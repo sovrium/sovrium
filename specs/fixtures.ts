@@ -931,32 +931,37 @@ export const test = base.extend<ServerFixtures>({
 
         page.request.post = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          const fullUrl =
+            typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
           return originalPost(fullUrl, options)
         }
 
         page.request.get = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          const fullUrl =
+            typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
           return originalGet(fullUrl, options)
         }
 
         page.request.put = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          const fullUrl =
+            typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
           return originalPut(fullUrl, options)
         }
 
         // eslint-disable-next-line drizzle/enforce-delete-with-where
         page.request.delete = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          const fullUrl =
+            typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
           return originalDelete(fullUrl, options)
         }
 
         page.request.patch = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
-          const fullUrl = typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
+          const fullUrl =
+            typeof url === 'string' && url.startsWith('/') ? `${serverUrl}${url}` : url
           return originalPatch(fullUrl, options)
         }
       }

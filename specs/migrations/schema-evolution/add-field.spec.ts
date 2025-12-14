@@ -172,31 +172,33 @@ test.describe('Add Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-004: should add column with default value applied to existing rows when ALTER TABLE adds column with DEFAULT',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'orders' exists, new field 'total' (decimal) with default value is added
-      await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL)`,
-        `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
-      ])
-
       // WHEN: ALTER TABLE adds column with DEFAULT
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'orders',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text' },
-              { id: 3, name: 'total', type: 'decimal', default: 0 },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'order_number', type: 'single-line-text' },
+                { id: 2, name: 'total', type: 'decimal', default: 0 },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'orders' exists with data, new field 'total' (decimal) with default: 0 is added
+          setupQueries: [
+            `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(255))`,
+            `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL adds column with default value applied to existing rows
 
@@ -206,14 +208,14 @@ test.describe('Add Field Migration', () => {
       )
       // THEN: assertion
       expect(existingRow.order_number).toBe('ORD-001')
-      expect(existingRow.total).toBe('0.0000')
+      expect(existingRow.total).toBe(0) // NUMERIC type is parsed as number
 
       // New rows can override default
       const newRow = await executeQuery(
         `INSERT INTO orders (order_number, total) VALUES ('ORD-003', 150.50) RETURNING total`
       )
       // THEN: assertion
-      expect(newRow.total).toBe('150.5000')
+      expect(newRow.total).toBe(150.5) // NUMERIC type is parsed as number
     }
   )
 

@@ -103,7 +103,9 @@ export const createStatusOptionsSchema = () =>
     Schema.filter((options) => {
       const values = options.map((opt) => opt.value)
       const uniqueValues = new Set(values)
-      return values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+      return (
+        values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+      )
     })
   )
 

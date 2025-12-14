@@ -71,14 +71,21 @@ export const dropObsoleteTables = (
 /**
  * Normalize PostgreSQL data type for comparison
  * Maps similar types to a canonical form (e.g., 'varchar' and 'character varying' both map to 'varchar')
+ * Strips length specifiers and precision for type matching
  */
 const normalizeDataType = (dataType: string): string => {
   const normalized = dataType.toLowerCase().trim()
+
   // Map 'character varying' to 'varchar' for easier comparison
   if (normalized.startsWith('character varying')) return 'varchar'
   if (normalized.startsWith('timestamp')) return 'timestamp'
   if (normalized.startsWith('numeric') || normalized.startsWith('decimal')) return 'numeric'
-  return normalized
+
+  // Strip length specifiers for varchar, char, etc.
+  // varchar(255) → varchar, char(10) → char, numeric(10,2) → numeric
+  const withoutLength = normalized.replace(/\([^)]*\)/, '')
+
+  return withoutLength
 }
 
 /**

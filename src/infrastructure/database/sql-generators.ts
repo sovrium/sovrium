@@ -107,9 +107,17 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
 
 /**
  * Format default value for SQL
+ * Numbers and booleans are unquoted, strings are quoted
  */
-const formatDefaultValue = (defaultValue: unknown): string =>
-  typeof defaultValue === 'boolean' ? String(defaultValue) : `'${defaultValue}'`
+const formatDefaultValue = (defaultValue: unknown): string => {
+  if (typeof defaultValue === 'boolean') {
+    return String(defaultValue)
+  }
+  if (typeof defaultValue === 'number') {
+    return String(defaultValue)
+  }
+  return `'${defaultValue}'`
+}
 
 /**
  * Generate SERIAL column definition for auto-increment fields

@@ -18,10 +18,7 @@ import {
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
 import { isManyToManyRelationship } from './field-utils'
-import {
-  ensureMigrationHistoryTable,
-  recordMigration,
-} from './migration-audit-trail'
+import { ensureMigrationHistoryTable, recordMigration } from './migration-audit-trail'
 import { dropObsoleteTables } from './schema-migration-helpers'
 import { tableExists, executeSQL } from './sql-execution'
 import {
