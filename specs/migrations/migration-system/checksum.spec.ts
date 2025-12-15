@@ -234,7 +234,7 @@ test.describe('Checksum Optimization', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-CHECKSUM-005: user can complete full checksum-optimization workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
