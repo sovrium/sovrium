@@ -29,9 +29,27 @@ test.describe('Modify Field Options Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with status field (enum: 'pending', 'in_progress', 'completed')
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              {
+                id: 3,
+                name: 'status',
+                type: 'single-select',
+                options: ['pending', 'in_progress', 'completed'],
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, status TEXT CHECK (status IN ('pending', 'in_progress', 'completed')))`,
-        `INSERT INTO tasks (title, status) VALUES ('Task 1', 'pending'), ('Task 2', 'completed')`,
+        `INSERT INTO tasks (id, title, status) VALUES (1, 'Task 1', 'pending'), (2, 'Task 2', 'completed')`,
       ])
 
       // WHEN: new option 'archived' added to enum
@@ -81,9 +99,27 @@ test.describe('Modify Field Options Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with category field (enum: 'electronics', 'clothing', 'books', 'furniture'), no rows use 'furniture'
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              {
+                id: 3,
+                name: 'category',
+                type: 'single-select',
+                options: ['electronics', 'clothing', 'books', 'furniture'],
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category TEXT CHECK (category IN ('electronics', 'clothing', 'books', 'furniture')))`,
-        `INSERT INTO products (name, category) VALUES ('Laptop', 'electronics'), ('Shirt', 'clothing')`,
+        `INSERT INTO products (id, name, category) VALUES (1, 'Laptop', 'electronics'), (2, 'Shirt', 'clothing')`,
       ])
 
       // WHEN: option 'furniture' removed from enum
@@ -133,9 +169,32 @@ test.describe('Modify Field Options Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with priority field (enum: 'low', 'medium', 'high'), existing rows use 'medium'
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+              {
+                id: 3,
+                name: 'priority',
+                type: 'single-select',
+                options: ['low', 'medium', 'high'],
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, priority TEXT CHECK (priority IN ('low', 'medium', 'high')))`,
-        `INSERT INTO orders (order_number, priority) VALUES ('ORD-001', 'low'), ('ORD-002', 'medium')`,
+        `INSERT INTO orders (id, order_number, priority) VALUES (1, 'ORD-001', 'low'), (2, 'ORD-002', 'medium')`,
       ])
 
       // WHEN: attempting to remove option 'medium' from enum
@@ -180,9 +239,27 @@ test.describe('Modify Field Options Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'preferences' with tags field (JSONB array)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'preferences',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'user_id', type: 'integer', required: true },
+              {
+                id: 3,
+                name: 'tags',
+                type: 'multi-select',
+                options: ['work', 'personal'],
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE preferences (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, tags JSONB DEFAULT '[]')`,
-        `INSERT INTO preferences (user_id, tags) VALUES (1, '["work", "personal"]')`,
+        `INSERT INTO preferences (id, user_id, tags) VALUES (1, 1, '["work", "personal"]')`,
       ])
 
       // WHEN: validation rule added requiring each tag to match pattern ^[a-z]+$
@@ -232,10 +309,26 @@ test.describe('Modify Field Options Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table with enum options', async () => {
-        await executeQuery([
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, type TEXT CHECK (type IN ('type_a', 'type_b')))`,
-          `INSERT INTO items (name, type) VALUES ('Item 1', 'type_a')`,
-        ])
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                {
+                  id: 3,
+                  name: 'type',
+                  type: 'single-select',
+                  options: ['type_a', 'type_b'],
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO items (id, name, type) VALUES (1, 'Item 1', 'type_a')`])
       })
 
       await test.step('Add new option type_c to enum', async () => {

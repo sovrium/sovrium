@@ -465,7 +465,6 @@ type ServerFixtures = {
     options?: {
       useDatabase?: boolean
       database?: { url: string }
-      setupQueries?: readonly string[]
     }
   ) => Promise<void>
   /**
@@ -862,43 +861,34 @@ export const test = base.extend<ServerFixtures>({
         appSchema: App,
         options?: {
           useDatabase?: boolean
-          setupQueries?: readonly string[]
         }
       ) => {
         let databaseUrl: string | undefined = undefined
 
         // Enable database by default (can be disabled with useDatabase: false)
         if (options?.useDatabase !== false) {
-          const templateManager = await getTemplateManager()
-          testDbName = generateTestDatabaseName(testInfo)
-          databaseUrl = await templateManager.duplicateTemplate(testDbName)
-          // Store database name for executeQuery fixture to use
-          ;(testInfo as any)._testDatabaseName = testDbName
-
-          // Execute setup queries if provided (for migration testing)
-          if (options?.setupQueries && options.setupQueries.length > 0) {
-            const { Client } = await import('pg')
+          // Check if database was already initialized by executeQuery
+          const existingDbName = (testInfo as any)._testDatabaseName
+          if (existingDbName) {
+            // Database already created by executeQuery - reuse it
+            testDbName = existingDbName as string
             const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
             if (!connectionUrl) {
               throw new Error('Database container not initialized')
             }
-
-            // Parse connection URL and replace database name
+            // Construct the database URL from the existing database name
             const url = new URL(connectionUrl)
             const pathParts = url.pathname.split('/')
-            pathParts[1] = testDbName
+            pathParts[1] = existingDbName as string
             url.pathname = pathParts.join('/')
-
-            // Execute setup queries
-            const client = new Client({ connectionString: url.toString() })
-            await client.connect()
-            try {
-              for (const query of options.setupQueries) {
-                await client.query(query)
-              }
-            } finally {
-              await client.end()
-            }
+            databaseUrl = url.toString()
+          } else {
+            // Database not yet created - create it now
+            const templateManager = await getTemplateManager()
+            testDbName = generateTestDatabaseName(testInfo)
+            databaseUrl = await templateManager.duplicateTemplate(testDbName)
+            // Store database name for executeQuery fixture to use
+            ;(testInfo as any)._testDatabaseName = testDbName
           }
         }
 
@@ -1029,12 +1019,15 @@ export const test = base.extend<ServerFixtures>({
         types.setTypeParser(types.builtins.JSONB, (val: string) => JSON.parse(val))
       }
 
-      // Get test database name from startServerWithSchema fixture
-      const testDbName = (testInfo as any)._testDatabaseName
+      // Get or create test database name
+      let testDbName = (testInfo as any)._testDatabaseName
       if (!testDbName) {
-        throw new Error(
-          'Test database not initialized. Call startServerWithSchema before executeQuery.'
-        )
+        // Database not yet initialized - create it now
+        const templateManager = await getTemplateManager()
+        testDbName = generateTestDatabaseName(testInfo)
+        await templateManager.duplicateTemplate(testDbName)
+        // Store database name for future executeQuery calls and startServerWithSchema
+        ;(testInfo as any)._testDatabaseName = testDbName
       }
 
       // Parse the connection URL and replace the database name

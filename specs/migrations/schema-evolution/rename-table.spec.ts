@@ -29,10 +29,23 @@ test.describe('Rename Table Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'users' with data and indexes
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'email', type: 'email', unique: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE)`,
-        `CREATE INDEX idx_users_name ON users(name)`,
-        `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com')`,
+        `INSERT INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com')`,
+        `INSERT INTO users (id, name, email) VALUES (2, 'Bob', 'bob@example.com')`,
       ])
 
       // WHEN: table name property changes to 'customers'
@@ -40,7 +53,7 @@ test.describe('Rename Table Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 1,
+            id: 1, // SAME table ID - triggers RENAME
             name: 'customers', // Renamed from 'users'
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
@@ -81,11 +94,31 @@ test.describe('Rename Table Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'posts' referenced by foreign key from 'comments'
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'posts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+            ],
+          },
+          {
+            id: 2,
+            name: 'comments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'post_id', type: 'integer' },
+              { id: 3, name: 'content', type: 'long-text', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-        `CREATE TABLE comments (id SERIAL PRIMARY KEY, post_id INTEGER REFERENCES posts(id), content TEXT NOT NULL)`,
-        `INSERT INTO posts (title) VALUES ('First Post')`,
-        `INSERT INTO comments (post_id, content) VALUES (1, 'Great post!')`,
+        `INSERT INTO posts (id, title) VALUES (1, 'First Post')`,
+        `INSERT INTO comments (id, post_id, content) VALUES (1, 1, 'Great post!')`,
       ])
 
       // WHEN: table name changes to 'articles'
@@ -93,7 +126,7 @@ test.describe('Rename Table Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 1,
+            id: 1, // SAME table ID - triggers RENAME
             name: 'articles', // Renamed from 'posts'
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
@@ -133,11 +166,24 @@ test.describe('Rename Table Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with multiple indexes and constraints
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'sku', type: 'single-line-text', unique: true },
+              { id: 4, name: 'price', type: 'decimal' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50) UNIQUE, price NUMERIC(10,2) CHECK (price > 0))`,
-        `CREATE INDEX idx_products_name ON products(name)`,
-        `CREATE INDEX idx_products_price ON products(price)`,
-        `INSERT INTO products (name, sku, price) VALUES ('Widget', 'SKU-001', 19.99), ('Gadget', 'SKU-002', 29.99)`,
+        `INSERT INTO products (id, name, sku, price) VALUES (1, 'Widget', 'SKU-001', 19.99)`,
+        `INSERT INTO products (id, name, sku, price) VALUES (2, 'Gadget', 'SKU-002', 29.99)`,
       ])
 
       // WHEN: table renamed to 'items'
@@ -145,7 +191,7 @@ test.describe('Rename Table Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 1,
+            id: 1, // SAME table ID - triggers RENAME
             name: 'items', // Renamed from 'products'
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
@@ -184,11 +230,30 @@ test.describe('Rename Table Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table rename where new name conflicts with existing table
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+            ],
+          },
+          {
+            id: 2,
+            name: 'customers',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'company', type: 'single-line-text', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)`,
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, company VARCHAR(255) NOT NULL)`,
-        `INSERT INTO users (name) VALUES ('Alice')`,
-        `INSERT INTO customers (company) VALUES ('Acme Inc')`,
+        `INSERT INTO users (id, name) VALUES (1, 'Alice')`,
+        `INSERT INTO customers (id, company) VALUES (1, 'Acme Inc')`,
       ])
 
       // WHEN: attempting to rename 'users' to 'customers' but 'customers' exists
@@ -198,7 +263,7 @@ test.describe('Rename Table Migration', () => {
           name: 'test-app',
           tables: [
             {
-              id: 1,
+              id: 1, // SAME table ID - attempts RENAME
               name: 'customers', // Conflict: 'customers' already exists
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -243,10 +308,23 @@ test.describe('Rename Table Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create employees table with data and index', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'department', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, department VARCHAR(100))`,
-          `CREATE INDEX idx_employees_department ON employees(department)`,
-          `INSERT INTO employees (name, department) VALUES ('Alice', 'Engineering'), ('Bob', 'Marketing')`,
+          `INSERT INTO employees (id, name, department) VALUES (1, 'Alice', 'Engineering')`,
+          `INSERT INTO employees (id, name, department) VALUES (2, 'Bob', 'Marketing')`,
         ])
       })
 
@@ -255,7 +333,7 @@ test.describe('Rename Table Migration', () => {
           name: 'test-app',
           tables: [
             {
-              id: 1,
+              id: 1, // SAME table ID - triggers RENAME
               name: 'staff', // Renamed from 'employees'
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },

@@ -89,6 +89,7 @@ const mapFormulaResultTypeToPostgres = (resultType: string | undefined): string 
 
 /**
  * Map field type to PostgreSQL column type
+ * Throws error if field type is not recognized
  */
 export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
   if (field.type === 'array') {
@@ -102,7 +103,13 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
     return `NUMERIC(${field.precision},2)`
   }
 
-  return fieldTypeToPostgresMap[field.type] ?? 'TEXT'
+  const postgresType = fieldTypeToPostgresMap[field.type]
+  if (!postgresType) {
+    // eslint-disable-next-line functional/no-throw-statements -- Error is caught by Effect.try in table-operations.ts
+    throw new Error(`Unknown field type: ${field.type}`)
+  }
+
+  return postgresType
 }
 
 /**
@@ -587,9 +594,9 @@ export const generateForeignKeyConstraints = (
       return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
     })
 
-  // TODO: Re-enable foreign keys for created-by/updated-by fields
-  // Currently disabled due to PostgreSQL transaction visibility issue
-  // See: https://github.com/sovrium/sovrium/issues/3980
+  // Foreign keys disabled for created-by/updated-by fields
+  // Blocked by: https://github.com/sovrium/sovrium/issues/3980
+  // Infrastructure ready - uncomment lines below when issue is resolved
   const userReferenceConstraints: readonly string[] = []
   // const userReferenceConstraints = fields
   //   .filter(isUserReferenceField)
@@ -666,12 +673,36 @@ export const generateJunctionTableName = (sourceTable: string, relatedTable: str
   `${sourceTable}_${relatedTable}`
 
 /**
- * Convert table name to singular form for junction table column naming
- * Simple heuristic: removes trailing 's' if present
- * TODO: Add support for irregular plurals (e.g., 'people' -> 'person')
+ * Common irregular plural to singular mappings for table naming
+ * Used by toSingular() to handle irregular English plurals
  */
-const toSingular = (tableName: string): string =>
-  tableName.endsWith('s') ? tableName.slice(0, -1) : tableName
+const IRREGULAR_PLURALS: Readonly<Record<string, string>> = {
+  people: 'person',
+  children: 'child',
+  men: 'man',
+  women: 'woman',
+  teeth: 'tooth',
+  feet: 'foot',
+  geese: 'goose',
+  mice: 'mouse',
+  dice: 'die',
+  oxen: 'ox',
+  indices: 'index',
+  matrices: 'matrix',
+  vertices: 'vertex',
+  analyses: 'analysis',
+  criteria: 'criterion',
+  phenomena: 'phenomenon',
+  data: 'datum',
+  media: 'medium',
+}
+
+/**
+ * Convert table name to singular form for junction table column naming
+ * Uses irregular plural mapping with fallback to 's' removal heuristic
+ */
+export const toSingular = (tableName: string): string =>
+  IRREGULAR_PLURALS[tableName] ?? (tableName.endsWith('s') ? tableName.slice(0, -1) : tableName)
 
 /**
  * Generate CREATE TABLE statement for junction table (many-to-many relationship)

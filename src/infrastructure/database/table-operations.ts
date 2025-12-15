@@ -34,8 +34,8 @@ import {
   executeSQLStatements,
   executeSQLStatementsParallel,
   getExistingColumns,
+  SQLExecutionError,
   type TransactionLike,
-  type SQLExecutionError,
 } from './sql-execution'
 import { generateColumnDefinition, generateTableConstraints } from './sql-generators'
 import {
@@ -283,6 +283,7 @@ const copyDataAndResetSequences = (
  * Recreate table with data preservation when schema changes are incompatible with ALTER TABLE
  * Used when primary key type changes or other incompatible schema modifications occur
  */
+/* eslint-disable-next-line max-lines-per-function */
 const recreateTableWithDataEffect = (
   tx: TransactionLike,
   table: Table,
@@ -294,10 +295,19 @@ const recreateTableWithDataEffect = (
     const tempTableName = `${physicalTableName}_migration_temp`
 
     // Create temporary table with new schema
-    const createTableSQL = generateCreateTableSQL(table, tableUsesView).replace(
-      `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
-      `CREATE TABLE ${tempTableName}`
-    )
+    // Wrap DDL generation in Effect.try to catch synchronous errors (e.g., unknown field types)
+    const createTableSQL = yield* Effect.try({
+      try: () =>
+        generateCreateTableSQL(table, tableUsesView).replace(
+          `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
+          `CREATE TABLE ${tempTableName}`
+        ),
+      catch: (error) =>
+        new SQLExecutionError({
+          message: `Failed to generate CREATE TABLE DDL for migration: ${String(error)}`,
+          cause: error,
+        }),
+    })
     yield* executeSQL(tx, createTableSQL)
 
     // Get new table column info
@@ -393,7 +403,15 @@ export const createNewTableEffect = (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const createTableSQL = generateCreateTableSQL(table, tableUsesView)
+    // Wrap DDL generation in Effect.try to catch synchronous errors (e.g., unknown field types)
+    const createTableSQL = yield* Effect.try({
+      try: () => generateCreateTableSQL(table, tableUsesView),
+      catch: (error) =>
+        new SQLExecutionError({
+          message: `Failed to generate CREATE TABLE DDL: ${String(error)}`,
+          cause: error,
+        }),
+    })
     yield* executeSQL(tx, createTableSQL)
 
     // Apply all table features (indexes, triggers, RLS)

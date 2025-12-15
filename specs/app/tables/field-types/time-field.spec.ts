@@ -87,7 +87,7 @@ test.describe('Time Field', () => {
         'SELECT appointment_time FROM appointments ORDER BY appointment_time'
       )
       // THEN: assertion
-      expect(results.length).toBe(2)
+      expect(results.rows.length).toBe(2)
     }
   )
 

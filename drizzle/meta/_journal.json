@@ -43,6 +43,13 @@
       "when": 1733961600000,
       "tag": "0005_grant_test_user_role_membership",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1765819586456,
+      "tag": "0006_perpetual_ben_urich",
+      "breakpoints": true
     }
   ]
 }

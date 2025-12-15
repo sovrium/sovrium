@@ -19,9 +19,6 @@ import {
 } from './auth-validation'
 import { isManyToManyRelationship } from './field-utils'
 import {
-  ensureMigrationHistoryTable,
-  ensureMigrationLogTable,
-  ensureSchemaChecksumTable,
   getPreviousSchema,
   logRollbackOperation,
   recordMigration,
@@ -175,162 +172,194 @@ const executeSchemaInit = (
 
     try {
       yield* Effect.tryPromise({
-        try: () =>
-          db.begin(async (tx) => {
+        try: async () => {
+          /* eslint-disable-next-line functional/no-expression-statements */
+          await db.begin(async (tx) => {
             // Run the migration logic within Effect.gen and convert to Promise
             /* eslint-disable-next-line functional/no-expression-statements */
             await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
-                // Step -1: Ensure migration log table exists FIRST (for rollback logging)
-                yield* ensureMigrationLogTable(tx)
-
-                // Wrap the entire migration process to catch errors and log rollback
-                yield* Effect.gen(function* () {
-                  // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
-                  logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
-                  const needs = needsUsersTable(tables)
-                  logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
-                  if (needs) {
-                    logInfo(
-                      '[executeSchemaInit] Better Auth users table is needed, verifying it exists...'
-                    )
-                    yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
-                  } else {
-                    logInfo('[executeSchemaInit] Better Auth users table not needed')
-                  }
-
-                  // Step 0.1: Ensure updated-by trigger function exists if any table needs it
-                  if (needsUpdatedByTrigger(tables)) {
-                    yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
-                  }
-
-                  // Step 0.2: Load previous schema for field rename detection
-                  const previousSchema = yield* getPreviousSchema(tx)
-
-                  // Step 1: Drop tables that exist in database but not in schema
-                  yield* dropObsoleteTables(tx, tables)
-
-                  // Step 2: Build map of which tables use VIEWs (have lookup fields)
-                  // This is needed for foreign key generation to reference base tables correctly
-                  const lookupViewModule = yield* Effect.promise(
-                    () => import('./lookup-view-generators')
+                // Migration process - tables are created by Drizzle migrations
+                // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
+                logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
+                const needs = needsUsersTable(tables)
+                logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
+                if (needs) {
+                  logInfo(
+                    '[executeSchemaInit] Better Auth users table is needed, verifying it exists...'
                   )
+                  yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
+                } else {
+                  logInfo('[executeSchemaInit] Better Auth users table not needed')
+                }
 
-                  const tableUsesView = new Map<string, boolean>(
-                    tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
-                  )
+                // Step 0.1: Ensure updated-by trigger function exists if any table needs it
+                if (needsUpdatedByTrigger(tables)) {
+                  yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
+                }
 
-                  // Sort tables by dependencies to ensure referenced tables are created first
-                  const sortedTables = sortTablesByDependencies(tables)
+                // Step 0.2: Load previous schema for field rename detection
+                const previousSchema = yield* getPreviousSchema(tx)
 
-                  // Debug: log table creation order
-                  logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
+                // Step 1: Drop tables that exist in database but not in schema
+                yield* dropObsoleteTables(tx, tables)
 
-                  // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
-                  /* eslint-disable functional/no-loop-statements */
-                  for (const table of sortedTables) {
-                    // Check if the physical table exists (base table for tables with lookup fields)
-                    const physicalTableName = lookupViewModule.shouldUseView(table)
-                      ? lookupViewModule.getBaseTableName(table.name)
-                      : table.name
-                    const exists = yield* tableExists(tx, physicalTableName)
-                    logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
-                    yield* createOrMigrateTableEffect({
-                      tx,
-                      table,
-                      exists,
-                      tableUsesView,
-                      previousSchema,
-                    })
-                    logInfo(`[Created/migrated table] ${table.name}`)
-                  }
-                  /* eslint-enable functional/no-loop-statements */
-
-                  // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
-                  // Junction tables must be created after both source and related tables exist
-                  // Collect unique junction table DDLs first, then execute in parallel
-                  const junctionTableSpecs = new Map<string, { name: string; ddl: string }>()
-                  sortedTables.forEach((table) => {
-                    const manyToManyFields = table.fields.filter(isManyToManyRelationship)
-                    manyToManyFields.forEach((field) => {
-                      const junctionTableName = generateJunctionTableName(
-                        table.name,
-                        field.relatedTable
-                      )
-                      // Avoid creating duplicate junction tables (if both sides define the relationship)
-                      if (!junctionTableSpecs.has(junctionTableName)) {
-                        const ddl = generateJunctionTableDDL(
-                          table.name,
-                          field.relatedTable,
-                          tableUsesView
-                        )
-                        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-                        junctionTableSpecs.set(junctionTableName, { name: junctionTableName, ddl })
-                      }
-                    })
-                  })
-
-                  // Execute junction table creation in parallel
-                  if (junctionTableSpecs.size > 0) {
-                    logInfo(
-                      `[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`
-                    )
-                    yield* Effect.all(
-                      Array.from(junctionTableSpecs.values()).map((spec) =>
-                        executeSQL(tx, spec.ddl).pipe(
-                          Effect.tap(() => logInfo(`[Created junction table] ${spec.name}`))
-                        )
-                      ),
-                      { concurrency: 'unbounded' }
-                    )
-                  }
-
-                  // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
-                  // This ensures lookup VIEWs can reference other tables without dependency issues
-                  // Execute in parallel - each table's lookup VIEW is independent
-                  yield* Effect.all(
-                    sortedTables.map((table) => createLookupViewsEffect(tx, table)),
-                    { concurrency: 'unbounded' }
-                  )
-
-                  // Step 6: Create user-defined VIEWs from table.views configuration
-                  // This is done after lookup views to ensure all base tables and lookup views exist
-                  // Execute in parallel - each table's user-defined VIEWs are independent
-                  yield* Effect.all(
-                    sortedTables.map((table) => createTableViewsEffect(tx, table)),
-                    { concurrency: 'unbounded' }
-                  )
-
-                  // Step 7: Record migration in history table
-                  // Ensure migration history table exists before recording
-                  yield* ensureMigrationHistoryTable(tx)
-                  yield* recordMigration(tx, app)
-
-                  // Step 8: Store schema checksum
-                  // Ensure schema checksum table exists before storing
-                  yield* ensureSchemaChecksumTable(tx)
-                  yield* storeSchemaChecksum(tx, app)
-                }).pipe(
-                  Effect.catchAll((error) =>
-                    Effect.gen(function* () {
-                      // Log rollback operation before transaction rolls back
-                      const errorMessage = String(error)
-                      logInfo(`[executeSchemaInit] Migration failed: ${errorMessage}`)
-                      yield* logRollbackOperation(tx, errorMessage)
-                      // Re-throw error to trigger transaction rollback
-                      return yield* Effect.fail(error)
-                    })
-                  )
+                // Step 2: Build map of which tables use VIEWs (have lookup fields)
+                // This is needed for foreign key generation to reference base tables correctly
+                const lookupViewModule = yield* Effect.promise(
+                  () => import('./lookup-view-generators')
                 )
+
+                const tableUsesView = new Map<string, boolean>(
+                  tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
+                )
+
+                // Sort tables by dependencies to ensure referenced tables are created first
+                const sortedTables = sortTablesByDependencies(tables)
+
+                // Debug: log table creation order
+                logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
+
+                // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
+                /* eslint-disable functional/no-loop-statements */
+                for (const table of sortedTables) {
+                  // Check if the physical table exists (base table for tables with lookup fields)
+                  const physicalTableName = lookupViewModule.shouldUseView(table)
+                    ? lookupViewModule.getBaseTableName(table.name)
+                    : table.name
+                  const exists = yield* tableExists(tx, physicalTableName)
+                  logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
+                  yield* createOrMigrateTableEffect({
+                    tx,
+                    table,
+                    exists,
+                    tableUsesView,
+                    previousSchema,
+                  })
+                  logInfo(`[Created/migrated table] ${table.name}`)
+                }
+                /* eslint-enable functional/no-loop-statements */
+
+                // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
+                // Junction tables must be created after both source and related tables exist
+                // Collect unique junction table DDLs first, then execute in parallel
+                const junctionTableSpecs = new Map<string, { name: string; ddl: string }>()
+                sortedTables.forEach((table) => {
+                  const manyToManyFields = table.fields.filter(isManyToManyRelationship)
+                  manyToManyFields.forEach((field) => {
+                    const junctionTableName = generateJunctionTableName(
+                      table.name,
+                      field.relatedTable
+                    )
+                    // Avoid creating duplicate junction tables (if both sides define the relationship)
+                    if (!junctionTableSpecs.has(junctionTableName)) {
+                      const ddl = generateJunctionTableDDL(
+                        table.name,
+                        field.relatedTable,
+                        tableUsesView
+                      )
+                      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+                      junctionTableSpecs.set(junctionTableName, { name: junctionTableName, ddl })
+                    }
+                  })
+                })
+
+                // Execute junction table creation in parallel
+                if (junctionTableSpecs.size > 0) {
+                  logInfo(
+                    `[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`
+                  )
+                  yield* Effect.all(
+                    Array.from(junctionTableSpecs.values()).map((spec) =>
+                      executeSQL(tx, spec.ddl).pipe(
+                        Effect.tap(() => logInfo(`[Created junction table] ${spec.name}`))
+                      )
+                    ),
+                    { concurrency: 'unbounded' }
+                  )
+                }
+
+                // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
+                // This ensures lookup VIEWs can reference other tables without dependency issues
+                // Execute in parallel - each table's lookup VIEW is independent
+                yield* Effect.all(
+                  sortedTables.map((table) => createLookupViewsEffect(tx, table)),
+                  { concurrency: 'unbounded' }
+                )
+
+                // Step 6: Create user-defined VIEWs from table.views configuration
+                // This is done after lookup views to ensure all base tables and lookup views exist
+                // Execute in parallel - each table's user-defined VIEWs are independent
+                yield* Effect.all(
+                  sortedTables.map((table) => createTableViewsEffect(tx, table)),
+                  { concurrency: 'unbounded' }
+                )
+
+                // Step 7: Record migration in history table
+                // Tables are created by Drizzle migrations (drizzle/0006_*.sql)
+                yield* recordMigration(tx, app)
+
+                // Step 8: Store schema checksum
+                yield* storeSchemaChecksum(tx, app)
               })
             )
-          }),
+          })
+        },
         catch: (error) =>
           new SchemaInitializationError({
             message: `Schema initialization failed: ${String(error)}`,
             cause: error,
           }),
-      })
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // Log rollback in separate transaction after error is caught
+            logInfo(`[executeSchemaInit] CATCH HANDLER - Error caught: ${error.message}`)
+            const logDb = new SQL(databaseUrl)
+
+            const logRollback = Effect.gen(function* () {
+              logInfo(
+                '[executeSchemaInit] CATCH HANDLER - Logging rollback in separate transaction...'
+              )
+              yield* Effect.tryPromise({
+                try: async () => {
+                  // Use a transaction to ensure rollback logging is atomic and committed
+                  /* eslint-disable-next-line functional/no-expression-statements */
+                  await logDb.begin(async (logTx) => {
+                    // Table is created by Drizzle migrations (drizzle/0006_*.sql)
+                    /* eslint-disable-next-line functional/no-expression-statements */
+                    await Runtime.runPromise(runtime)(
+                      logRollbackOperation(logTx, error.message).pipe(
+                        Effect.catchAll((logError) => {
+                          logInfo(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
+                          return Effect.void
+                        })
+                      )
+                    )
+                  })
+                  logInfo('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
+                },
+                catch: (logError) =>
+                  new SchemaInitializationError({
+                    message: `Failed to log rollback: ${String(logError)}`,
+                    cause: logError,
+                  }),
+              }).pipe(Effect.ignore) // Non-fatal - continue with error propagation
+            }).pipe(
+              Effect.ensuring(
+                Effect.gen(function* () {
+                  yield* Effect.promise(() => logDb.close())
+                  logInfo('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
+                })
+              )
+            )
+
+            yield* logRollback
+            // Re-throw the original error after logging rollback
+            return yield* Effect.fail(error)
+          })
+        )
+      )
     } finally {
       // Close connection
       yield* Effect.promise(() => db.close())
@@ -368,14 +397,11 @@ const initializeSchemaInternal = (
     logInfo('[initializeSchemaInternal] Starting schema initialization...')
     logInfo(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
 
-    // Skip if no tables defined
-    if (!app.tables || app.tables.length === 0) {
-      yield* Console.log('No tables defined, skipping schema initialization')
-      return
-    }
+    // Normalize tables to empty array if undefined
+    const tables = app.tables ?? []
 
     // Check if tables require user fields but auth is not configured
-    const tablesNeedUsersTable = needsUsersTable(app.tables)
+    const tablesNeedUsersTable = needsUsersTable(tables)
     const hasAuthConfig = !!app.auth
     logInfo(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
     logInfo(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
@@ -401,8 +427,8 @@ const initializeSchemaInternal = (
 
     yield* Console.log('Initializing database schema...')
 
-    // Execute schema initialization with bun:sql
-    yield* executeSchemaInit(databaseUrlConfig, app.tables!, app)
+    // Execute schema initialization with bun:sql (even if tables is empty - to drop obsolete tables)
+    yield* executeSchemaInit(databaseUrlConfig, tables, app)
 
     yield* Console.log('✓ Database schema initialized successfully')
   })

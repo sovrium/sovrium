@@ -29,12 +29,26 @@ test.describe('Modify Unique Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field (not unique)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'email', type: 'email' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255))`,
-        `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com')`,
+        `INSERT INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com')`,
+        `INSERT INTO users (id, name, email) VALUES (2, 'Bob', 'bob@example.com')`,
       ])
 
-      // WHEN: unique constraint added to 'uniqueConstraints' property
+      // WHEN: unique constraint added to email field
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -78,12 +92,25 @@ test.describe('Modify Unique Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'accounts' with existing unique constraint on username
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'accounts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'username', type: 'single-line-text', required: true, unique: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE)`,
-        `INSERT INTO accounts (username) VALUES ('alice'), ('bob')`,
+        `INSERT INTO accounts (id, username) VALUES (1, 'alice')`,
+        `INSERT INTO accounts (id, username) VALUES (2, 'bob')`,
       ])
 
-      // WHEN: unique constraint removed from 'uniqueConstraints' property
+      // WHEN: unique constraint removed from username field
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -120,9 +147,23 @@ test.describe('Modify Unique Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tenant_users' with no unique constraints
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'tenant_users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'tenant_id', type: 'integer', required: true },
+              { id: 3, name: 'email', type: 'email', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE tenant_users (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, email VARCHAR(255) NOT NULL)`,
-        `INSERT INTO tenant_users (tenant_id, email) VALUES (1, 'alice@example.com'), (2, 'alice@example.com')`,
+        `INSERT INTO tenant_users (id, tenant_id, email) VALUES (1, 1, 'alice@example.com')`,
+        `INSERT INTO tenant_users (id, tenant_id, email) VALUES (2, 2, 'alice@example.com')`,
       ])
 
       // WHEN: composite unique constraint on (tenant_id, email) added
@@ -166,9 +207,23 @@ test.describe('Modify Unique Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with duplicate data in 'sku' field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'sku', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50))`,
-        `INSERT INTO products (name, sku) VALUES ('Widget A', 'SKU-001'), ('Widget B', 'SKU-001')`, // Duplicates
+        `INSERT INTO products (id, name, sku) VALUES (1, 'Widget A', 'SKU-001')`,
+        `INSERT INTO products (id, name, sku) VALUES (2, 'Widget B', 'SKU-001')`, // Duplicates
       ])
 
       // WHEN: attempting to add unique constraint on field with duplicates
@@ -208,10 +263,30 @@ test.describe('Modify Unique Constraints Migration', () => {
     'MIGRATION-MODIFY-UNIQUE-005: should drop old constraint and add new composite constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'orders' with existing unique constraint uq_orders_number
+      // GIVEN: table 'orders' with existing unique constraint on order_number
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+                unique: true,
+              },
+              { id: 3, name: 'tenant_id', type: 'integer', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL UNIQUE, tenant_id INTEGER NOT NULL)`,
-        `INSERT INTO orders (order_number, tenant_id) VALUES ('ORD-001', 1), ('ORD-002', 1)`,
+        `INSERT INTO orders (id, order_number, tenant_id) VALUES (1, 'ORD-001', 1)`,
+        `INSERT INTO orders (id, order_number, tenant_id) VALUES (2, 'ORD-002', 1)`,
       ])
 
       // WHEN: constraint fields modified from (order_number) to (order_number, tenant_id)
@@ -269,9 +344,24 @@ test.describe('Modify Unique Constraints Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without unique constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'code', type: 'single-line-text' },
+                { id: 4, name: 'org_id', type: 'integer', required: true },
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50), org_id INTEGER NOT NULL)`,
-          `INSERT INTO items (name, code, org_id) VALUES ('Item A', 'CODE-001', 1), ('Item B', 'CODE-002', 1)`,
+          `INSERT INTO items (id, name, code, org_id) VALUES (1, 'Item A', 'CODE-001', 1)`,
+          `INSERT INTO items (id, name, code, org_id) VALUES (2, 'Item B', 'CODE-002', 1)`,
         ])
       })
 
