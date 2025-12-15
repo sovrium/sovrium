@@ -320,6 +320,9 @@ export const syncUniqueConstraints = (
  * Sync foreign key constraints for existing table
  * Drops and recreates FK constraints to ensure referential actions (ON DELETE, ON UPDATE) are up-to-date
  * This is needed when table schema is updated with new referential actions
+ *
+ * NOTE: After RENAME COLUMN, PostgreSQL preserves FK constraints but doesn't rename them.
+ * We need to drop old constraints by column name, not just by expected constraint name.
  */
 export const syncForeignKeyConstraints = (
   tx: TransactionLike,
@@ -334,25 +337,32 @@ export const syncForeignKeyConstraints = (
 
     // Build drop and add statements for each FK constraint
     const statements = fkConstraints.flatMap((constraint) => {
-      // Extract constraint name from the constraint SQL
-      // Format: "CONSTRAINT {constraintName} FOREIGN KEY ..."
-      const match = constraint.match(/CONSTRAINT\s+(\w+)\s+FOREIGN KEY/)
+      // Extract column name from the constraint SQL
+      // Format: "CONSTRAINT {constraintName} FOREIGN KEY ({columnName}) REFERENCES ..."
+      const match = constraint.match(/CONSTRAINT\s+\w+\s+FOREIGN KEY\s+\((\w+)\)/)
       if (!match) return []
 
-      const constraintName = match[1]
+      const columnName = match[1]
 
-      // Drop existing constraint if it exists
+      // Drop ALL existing FK constraints on this column (handles renamed columns)
+      // PostgreSQL doesn't rename constraints when column is renamed, so we need to drop by column
       const dropStatement = `
         DO $$
+        DECLARE
+          constraint_rec RECORD;
         BEGIN
-          IF EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
-            WHERE table_name = '${table.name}'
-              AND constraint_type = 'FOREIGN KEY'
-              AND constraint_name = '${constraintName}'
-          ) THEN
-            ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
-          END IF;
+          FOR constraint_rec IN
+            SELECT tc.constraint_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            WHERE tc.table_name = '${table.name}'
+              AND tc.constraint_type = 'FOREIGN KEY'
+              AND kcu.column_name = '${columnName}'
+          LOOP
+            EXECUTE 'ALTER TABLE ${table.name} DROP CONSTRAINT ' || constraint_rec.constraint_name;
+          END LOOP;
         END$$;
       `
 
