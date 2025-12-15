@@ -390,11 +390,33 @@ test.describe('Database Views Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'user_orders' exists, view 'active_orders' depends on it
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+            ],
+          },
+          {
+            id: 2,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'user_id', type: 'integer' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      // Insert data and create views after tables created
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)`,
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), status VARCHAR(50))`,
-        `INSERT INTO users (name) VALUES ('Alice')`,
-        `INSERT INTO orders (user_id, status) VALUES (1, 'active'), (1, 'completed')`,
+        `INSERT INTO users (id, name) VALUES (1, 'Alice')`,
+        `INSERT INTO orders (id, user_id, status) VALUES (1, 1, 'active'), (2, 1, 'completed')`,
         `CREATE VIEW user_orders AS SELECT u.name, o.status FROM users u JOIN orders o ON u.id = o.user_id`,
         `CREATE VIEW active_orders AS SELECT * FROM user_orders WHERE status = 'active'`,
       ])

@@ -309,16 +309,16 @@ test.describe('Migration Rollback', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Audit logging enabled for migrations
-      await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
-          id SERIAL PRIMARY KEY,
-          operation TEXT NOT NULL,
-          status TEXT NOT NULL,
-          details JSONB,
-          created_at TIMESTAMP DEFAULT NOW()
-        )`,
-        `CREATE TABLE test_table (id SERIAL PRIMARY KEY)`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'test_table',
+            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+          },
+        ],
+      })
 
       // WHEN: Migration fails and rolls back
       // THEN: Rollback operation logged with details
@@ -352,20 +352,23 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-007: should support schema downgrade from version N to N-1',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Schema at version N with additional fields
-      await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_version (
-          id TEXT PRIMARY KEY,
-          version INTEGER NOT NULL,
-          schema JSONB NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
-        )`,
-        `INSERT INTO _sovrium_schema_version (id, version, schema) VALUES
-          ('current', 2, '{"tables":[{"name":"users","fields":[{"name":"id"},{"name":"email"},{"name":"name"}]}]}')`,
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), name VARCHAR(100))`,
-        `INSERT INTO users (email, name) VALUES ('test@example.com', 'Test User')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO users (id, email, name) VALUES (1, 'test@example.com', 'Test User')`])
 
       // WHEN: Downgrade to version N-1 requested (remove name column)
       // THEN: Column removed, data preserved where possible
@@ -384,17 +387,26 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with data in column to be removed by rollback
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'customers',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'phone', type: 'phone-number' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE customers (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          phone VARCHAR(50)
-        )`,
-        `INSERT INTO customers (email, phone) VALUES
-          ('user1@example.com', '555-0101'),
-          ('user2@example.com', '555-0102')`,
+        `INSERT INTO customers (id, email, phone) VALUES
+          (1, 'user1@example.com', '555-0101'),
+          (2, 'user2@example.com', '555-0102')`,
       ])
 
       // WHEN: Rollback would remove 'phone' column containing data
