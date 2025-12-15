@@ -249,10 +249,17 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Initial valid schema to establish database connection
+      // First call to startServerWithSchema creates test database
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: Recorded schema state and actual database state differ
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
@@ -261,9 +268,9 @@ test.describe('Migration Audit Trail', () => {
           schema JSONB NOT NULL
         )`,
         `INSERT INTO _sovrium_schema_checksum (id, checksum, schema)
-         VALUES ('singleton', 'recorded_checksum', '{"tables":[{"name":"users","fields":[{"name":"id"},{"name":"email"}]}]}')`,
+         VALUES ('singleton', 'recorded_checksum', '{"tables":[{"name":"customers","fields":[{"name":"id"},{"name":"email"}]}]}')`,
         // Actual database has different schema (manual modification)
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), extra_column TEXT)`,
+        `CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255), extra_column TEXT)`,
       ])
 
       // WHEN: Migration system checks for drift
@@ -271,18 +278,20 @@ test.describe('Migration Audit Trail', () => {
 
       // System should detect extra_column not in recorded schema
       const actualColumns = await executeQuery(
-        `SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position`
+        `SELECT column_name FROM information_schema.columns WHERE table_name='customers' ORDER BY ordinal_position`
       )
-      expect(actualColumns).toHaveLength(3)
+      expect(actualColumns.rows).toHaveLength(3)
 
       // Recorded schema only has 2 columns
       const recordedSchema = await executeQuery(
         `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
-      expect(recordedSchema[0].schema.tables[0].fields).toHaveLength(2)
+      expect(recordedSchema.rows[0].schema.tables[0].fields).toHaveLength(2)
 
       // Drift exists (3 actual vs 2 recorded)
-      expect(actualColumns.length).not.toBe(recordedSchema[0].schema.tables[0].fields.length)
+      expect(actualColumns.rows.length).not.toBe(
+        recordedSchema.rows[0].schema.tables[0].fields.length
+      )
     }
   )
 
