@@ -28,30 +28,36 @@ test.describe('Rename Field Migration', () => {
     'MIGRATION-ALTER-RENAME-001: should generate RENAME COLUMN instead of DROP+ADD when runtime migration detects rename via field ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'users' with field id=2 name='email', field name changed to 'email_address' (same id)
-      await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
-        `INSERT INTO users (email) VALUES ('user@example.com')`,
-      ])
-
       // WHEN: runtime migration detects rename via field ID
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'email_address',
-                type: 'email',
-              },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'email_address',
+                  type: 'email',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'users' with field id=2 name='email', field name changed to 'email_address' (same id)
+          setupQueries: [
+            `DROP TABLE IF EXISTS users CASCADE`,
+            `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
+            `INSERT INTO users (email) VALUES ('user@example.com')`,
+            `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
+            `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":1,"name":"users","fields":[{"id":1,"name":"id","type":"integer","required":true},{"id":2,"name":"email","type":"email"}]}]}')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL generates RENAME COLUMN instead of DROP+ADD
 
@@ -83,35 +89,41 @@ test.describe('Rename Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-RENAME-002: should rename column and automatically update index reference when RENAME COLUMN is executed on indexed field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'products' with indexed field 'sku' renamed to 'product_code'
-      await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100) NOT NULL UNIQUE)`,
-        `CREATE INDEX idx_products_sku ON products(sku)`,
-        `INSERT INTO products (sku) VALUES ('PROD-001')`,
-      ])
-
       // WHEN: RENAME COLUMN is executed on indexed field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 2,
-            name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 1,
-                name: 'product_code',
-                type: 'single-line-text',
-              },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'product_code',
+                  type: 'single-line-text',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'products' with indexed field 'sku' (id=2) renamed to 'product_code' (same id)
+          setupQueries: [
+            `DROP TABLE IF EXISTS products CASCADE`,
+            `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100) NOT NULL UNIQUE)`,
+            `CREATE INDEX idx_products_sku ON products(sku)`,
+            `INSERT INTO products (sku) VALUES ('PROD-001')`,
+            `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
+            `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":2,"name":"products","fields":[{"id":1,"name":"id","type":"integer","required":true},{"id":2,"name":"sku","type":"single-line-text"}]}]}')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL renames column and automatically updates index reference
 
