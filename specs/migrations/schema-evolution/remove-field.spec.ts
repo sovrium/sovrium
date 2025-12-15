@@ -70,31 +70,34 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-002: should drop column and preserve column order for remaining fields when ALTER TABLE removes column from middle of schema',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with multiple fields, middle field is removed
-      await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, price NUMERIC(10,2))`,
-        `INSERT INTO products (title, description, price) VALUES ('Product A', 'Description A', 99.99)`,
-      ])
-
       // WHEN: ALTER TABLE removes column from middle of schema
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 2,
-            name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'price', type: 'decimal' },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'price', type: 'decimal' },
+              ],
+            },
+          ],
+        },
+        {
+          setupQueries: [
+            `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, price NUMERIC(10,2))`,
+            `INSERT INTO products (title, description, price) VALUES ('Product A', 'Description A', 99.99)`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL drops column and preserves column order for remaining fields
 
@@ -109,7 +112,7 @@ test.describe('Remove Field Migration', () => {
       const dataCheck = await executeQuery(`SELECT title, price FROM products WHERE id = 1`)
       // THEN: assertion
       expect(dataCheck.title).toBe('Product A')
-      expect(dataCheck.price).toBe('99.99')
+      expect(dataCheck.price).toBe(99.99)
     }
   )
 
