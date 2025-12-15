@@ -39,22 +39,6 @@ export const generateSchemaChecksum = (app: App): string => {
 }
 
 /**
- * Ensure the _sovrium_migration_history table exists
- *
- * NOTE: This table is now created by Drizzle migrations (drizzle/0006_*.sql).
- * This function is kept for backward compatibility but is effectively a no-op.
- * The Drizzle migration runs before schema initialization.
- */
-export const ensureMigrationHistoryTable = (
-  _tx: TransactionLike
-): Effect.Effect<void, SQLExecutionError> =>
-  Effect.gen(function* () {
-    // Table is created by Drizzle migration - this is now a no-op
-    logInfo('[ensureMigrationHistoryTable] Migration history table ready (created by Drizzle)')
-    yield* Effect.void
-  })
-
-/**
  * Record a migration in the history table
  * Stores the checksum, schema snapshot, and timestamp
  */
@@ -93,22 +77,6 @@ export const recordMigration = (
   })
 
 /**
- * Ensure the _sovrium_migration_log table exists
- *
- * NOTE: This table is now created by Drizzle migrations (drizzle/0006_*.sql).
- * This function is kept for backward compatibility but is effectively a no-op.
- * The Drizzle migration runs before schema initialization.
- */
-export const ensureMigrationLogTable = (
-  _tx: TransactionLike
-): Effect.Effect<void, SQLExecutionError> =>
-  Effect.gen(function* () {
-    // Table is created by Drizzle migration - this is now a no-op
-    logInfo('[ensureMigrationLogTable] Migration log table ready (created by Drizzle)')
-    yield* Effect.void
-  })
-
-/**
  * Log a rollback operation in the migration log table
  * Records the error reason and marks status as COMPLETED
  */
@@ -126,22 +94,6 @@ export const logRollbackOperation = (
     `
     yield* executeSQL(tx, insertSQL)
     logInfo('[logRollbackOperation] Rollback operation logged')
-  })
-
-/**
- * Ensure the _sovrium_schema_checksum table exists
- *
- * NOTE: This table is now created by Drizzle migrations (drizzle/0006_*.sql).
- * This function is kept for backward compatibility but is effectively a no-op.
- * The Drizzle migration runs before schema initialization.
- */
-export const ensureSchemaChecksumTable = (
-  _tx: TransactionLike
-): Effect.Effect<void, SQLExecutionError> =>
-  Effect.gen(function* () {
-    // Table is created by Drizzle migration - this is now a no-op
-    logInfo('[ensureSchemaChecksumTable] Schema checksum table ready (created by Drizzle)')
-    yield* Effect.void
   })
 
 /**

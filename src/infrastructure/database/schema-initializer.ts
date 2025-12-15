@@ -19,9 +19,6 @@ import {
 } from './auth-validation'
 import { isManyToManyRelationship } from './field-utils'
 import {
-  ensureMigrationHistoryTable,
-  ensureMigrationLogTable,
-  ensureSchemaChecksumTable,
   getPreviousSchema,
   logRollbackOperation,
   recordMigration,
@@ -182,10 +179,7 @@ const executeSchemaInit = (
             /* eslint-disable-next-line functional/no-expression-statements */
             await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
-                // Step -1: Ensure migration log table exists FIRST (for rollback logging)
-                yield* ensureMigrationLogTable(tx)
-
-                // Migration process - errors will trigger rollback and be caught below
+                // Migration process - tables are created by Drizzle migrations
                 yield* Effect.gen(function* () {
                   // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
                   logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
@@ -303,13 +297,10 @@ const executeSchemaInit = (
                   )
 
                   // Step 7: Record migration in history table
-                  // Ensure migration history table exists before recording
-                  yield* ensureMigrationHistoryTable(tx)
+                  // Tables are created by Drizzle migrations (drizzle/0006_*.sql)
                   yield* recordMigration(tx, app)
 
                   // Step 8: Store schema checksum
-                  // Ensure schema checksum table exists before storing
-                  yield* ensureSchemaChecksumTable(tx)
                   yield* storeSchemaChecksum(tx, app)
                 })
               })
@@ -340,14 +331,7 @@ const executeSchemaInit = (
                     /* eslint-disable-next-line functional/no-expression-statements */
                     await Runtime.runPromise(runtime)(
                       Effect.gen(function* () {
-                        yield* ensureMigrationLogTable(logTx).pipe(
-                          Effect.catchAll((logError) => {
-                            logInfo(
-                              `[executeSchemaInit] Failed to create migration log table: ${logError.message}`
-                            )
-                            return Effect.void
-                          })
-                        )
+                        // Table is created by Drizzle migrations (drizzle/0006_*.sql)
                         yield* logRollbackOperation(logTx, error.message).pipe(
                           Effect.catchAll((logError) => {
                             logInfo(
