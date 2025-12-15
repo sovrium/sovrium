@@ -24,43 +24,46 @@ test.describe('Remove Field Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-001: should remove phone column and preserve other columns when runtime migration generates ALTER TABLE DROP COLUMN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'users' with email and phone fields, phone field is removed from schema
-      await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(20))`,
-        `INSERT INTO users (email, phone) VALUES ('user@example.com', '+1-555-0100')`,
-      ])
-
+      // GIVEN: table 'contacts' with email and phone fields, phone field is removed from schema
       // WHEN: runtime migration generates ALTER TABLE DROP COLUMN
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+            },
+          ],
+        },
+        {
+          setupQueries: [
+            `CREATE TABLE contacts (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(20))`,
+            `INSERT INTO contacts (email, phone) VALUES ('user@example.com', '+1-555-0100')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL removes phone column and preserves other columns
 
       // Column removed from table
       const columnCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='phone'`
+        `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='contacts' AND column_name='phone'`
       )
       // THEN: assertion
       expect(columnCheck.count).toBe(0)
 
       // Other columns preserved
       const dataCheck = await executeQuery(
-        `SELECT email FROM users WHERE email = 'user@example.com'`
+        `SELECT email FROM contacts WHERE email = 'user@example.com'`
       )
       // THEN: assertion
       expect(dataCheck.email).toBe('user@example.com')
