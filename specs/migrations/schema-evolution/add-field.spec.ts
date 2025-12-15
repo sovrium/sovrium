@@ -153,9 +153,7 @@ test.describe('Add Field Migration', () => {
           {
             id: 3,
             name: 'tasks',
-            fields: [
-              { id: 1, name: 'title', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
           },
         ],
       })
@@ -210,15 +208,11 @@ test.describe('Add Field Migration', () => {
           {
             id: 4,
             name: 'orders',
-            fields: [
-              { id: 1, name: 'order_number', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'order_number', type: 'single-line-text' }],
           },
         ],
       })
-      await executeQuery([
-        `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
-      ])
+      await executeQuery([`INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`])
 
       // WHEN: ALTER TABLE adds column with DEFAULT
       await startServerWithSchema({

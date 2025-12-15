@@ -36,7 +36,6 @@ test.describe('Rename Table Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email', unique: true },
             ],
@@ -44,8 +43,8 @@ test.describe('Rename Table Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com')`,
-        `INSERT INTO users (id, name, email) VALUES (2, 'Bob', 'bob@example.com')`,
+        `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')`,
+        `INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')`,
       ])
 
       // WHEN: table name property changes to 'customers'
@@ -56,7 +55,6 @@ test.describe('Rename Table Migration', () => {
             id: 1, // SAME table ID - triggers RENAME
             name: 'customers', // Renamed from 'users'
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email', unique: true },
             ],
@@ -71,7 +69,9 @@ test.describe('Rename Table Migration', () => {
       expect(customers.count).toBe(2)
 
       // Data accessible by new name
-      const alice = await executeQuery(`SELECT name, email FROM customers WHERE name = 'Alice'`)
+      const alice = await executeQuery(
+        `SELECT name, email FROM customers WHERE name = 'Alice' LIMIT 1`
+      )
       expect(alice.email).toBe('alice@example.com')
 
       // Old table name no longer exists
@@ -100,16 +100,12 @@ test.describe('Rename Table Migration', () => {
           {
             id: 1,
             name: 'posts',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'title', type: 'single-line-text', required: true }],
           },
           {
             id: 2,
             name: 'comments',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'post_id', type: 'integer' },
               { id: 3, name: 'content', type: 'long-text', required: true },
             ],
@@ -117,8 +113,8 @@ test.describe('Rename Table Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO posts (id, title) VALUES (1, 'First Post')`,
-        `INSERT INTO comments (id, post_id, content) VALUES (1, 1, 'Great post!')`,
+        `INSERT INTO posts (title) VALUES ('First Post')`,
+        `INSERT INTO comments (post_id, content) VALUES ((SELECT id FROM posts LIMIT 1), 'Great post!')`,
       ])
 
       // WHEN: table name changes to 'articles'
@@ -128,16 +124,12 @@ test.describe('Rename Table Migration', () => {
           {
             id: 1, // SAME table ID - triggers RENAME
             name: 'articles', // Renamed from 'posts'
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'title', type: 'single-line-text', required: true }],
           },
           {
             id: 2,
             name: 'comments',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'post_id', type: 'integer' }, // FK reference updates automatically
               { id: 3, name: 'content', type: 'long-text', required: true },
             ],
@@ -154,7 +146,7 @@ test.describe('Rename Table Migration', () => {
 
       // Data accessible via join
       const comment = await executeQuery(
-        `SELECT a.title, c.content FROM articles a JOIN comments c ON a.id = c.post_id`
+        `SELECT a.title, c.content FROM articles a JOIN comments c ON a.id = c.post_id LIMIT 1`
       )
       expect(comment.title).toBe('First Post')
       expect(comment.content).toBe('Great post!')
@@ -173,7 +165,6 @@ test.describe('Rename Table Migration', () => {
             id: 1,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'single-line-text', unique: true },
               { id: 4, name: 'price', type: 'decimal' },
@@ -182,8 +173,8 @@ test.describe('Rename Table Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, sku, price) VALUES (1, 'Widget', 'SKU-001', 19.99)`,
-        `INSERT INTO products (id, name, sku, price) VALUES (2, 'Gadget', 'SKU-002', 29.99)`,
+        `INSERT INTO products (name, sku, price) VALUES ('Widget', 'SKU-001', 19.99)`,
+        `INSERT INTO products (name, sku, price) VALUES ('Gadget', 'SKU-002', 29.99)`,
       ])
 
       // WHEN: table renamed to 'items'
@@ -194,7 +185,6 @@ test.describe('Rename Table Migration', () => {
             id: 1, // SAME table ID - triggers RENAME
             name: 'items', // Renamed from 'products'
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'single-line-text', unique: true },
               { id: 4, name: 'price', type: 'decimal' },
@@ -236,24 +226,18 @@ test.describe('Rename Table Migration', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
           },
           {
             id: 2,
             name: 'customers',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'company', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'company', type: 'single-line-text', required: true }],
           },
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, name) VALUES (1, 'Alice')`,
-        `INSERT INTO customers (id, company) VALUES (1, 'Acme Inc')`,
+        `INSERT INTO users (name) VALUES ('Alice')`,
+        `INSERT INTO customers (company) VALUES ('Acme Inc')`,
       ])
 
       // WHEN: attempting to rename 'users' to 'customers' but 'customers' exists
@@ -265,18 +249,12 @@ test.describe('Rename Table Migration', () => {
             {
               id: 1, // SAME table ID - attempts RENAME
               name: 'customers', // Conflict: 'customers' already exists
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-              ],
+              fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
             },
             {
               id: 2,
               name: 'customers', // Same name - conflict
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'company', type: 'single-line-text', required: true },
-              ],
+              fields: [{ id: 2, name: 'company', type: 'single-line-text', required: true }],
             },
           ],
         })
@@ -294,7 +272,7 @@ test.describe('Rename Table Migration', () => {
       expect(customersExist.count).toBe(1)
 
       // Original data preserved
-      const alice = await executeQuery(`SELECT name FROM users WHERE name = 'Alice'`)
+      const alice = await executeQuery(`SELECT name FROM users WHERE name = 'Alice' LIMIT 1`)
       expect(alice.name).toBe('Alice')
     }
   )
@@ -315,7 +293,6 @@ test.describe('Rename Table Migration', () => {
               id: 1,
               name: 'employees',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'department', type: 'single-line-text' },
               ],
@@ -323,8 +300,8 @@ test.describe('Rename Table Migration', () => {
           ],
         })
         await executeQuery([
-          `INSERT INTO employees (id, name, department) VALUES (1, 'Alice', 'Engineering')`,
-          `INSERT INTO employees (id, name, department) VALUES (2, 'Bob', 'Marketing')`,
+          `INSERT INTO employees (name, department) VALUES ('Alice', 'Engineering')`,
+          `INSERT INTO employees (name, department) VALUES ('Bob', 'Marketing')`,
         ])
       })
 
@@ -336,7 +313,6 @@ test.describe('Rename Table Migration', () => {
               id: 1, // SAME table ID - triggers RENAME
               name: 'staff', // Renamed from 'employees'
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'department', type: 'single-line-text' },
               ],
@@ -352,7 +328,7 @@ test.describe('Rename Table Migration', () => {
 
         // Query by department works
         const engineers = await executeQuery(
-          `SELECT name FROM staff WHERE department = 'Engineering'`
+          `SELECT name FROM staff WHERE department = 'Engineering' LIMIT 1`
         )
         expect(engineers.name).toBe('Alice')
 

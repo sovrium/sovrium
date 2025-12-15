@@ -36,7 +36,6 @@ test.describe('Modify Field Unique Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'username', type: 'single-line-text' },
             ],
@@ -44,7 +43,7 @@ test.describe('Modify Field Unique Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, name, username) VALUES (1, 'Alice', 'alice123'), (2, 'Bob', 'bob456')`,
+        `INSERT INTO users (name, username) VALUES ('Alice', 'alice123'), ('Bob', 'bob456')`,
       ])
 
       // WHEN: unique constraint added to schema
@@ -55,7 +54,6 @@ test.describe('Modify Field Unique Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'username', type: 'single-line-text', unique: true },
             ],
@@ -96,7 +94,6 @@ test.describe('Modify Field Unique Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 4, name: 'id', type: 'integer', required: true },
               { id: 5, name: 'name', type: 'single-line-text', required: true },
               { id: 6, name: 'sku', type: 'single-line-text' },
             ],
@@ -104,7 +101,7 @@ test.describe('Modify Field Unique Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, sku) VALUES (1, 'Widget A', 'SKU-001'), (2, 'Widget B', 'SKU-001')`, // Duplicate SKUs
+        `INSERT INTO products (name, sku) VALUES ('Widget A', 'SKU-001'), ('Widget B', 'SKU-001')`, // Duplicate SKUs
       ])
 
       // WHEN: unique constraint added to 'sku'
@@ -117,7 +114,6 @@ test.describe('Modify Field Unique Migration', () => {
               id: 2,
               name: 'products',
               fields: [
-                { id: 4, name: 'id', type: 'integer', required: true },
                 { id: 5, name: 'name', type: 'single-line-text', required: true },
                 { id: 6, name: 'sku', type: 'single-line-text', unique: true },
               ],
@@ -152,7 +148,6 @@ test.describe('Modify Field Unique Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 7, name: 'id', type: 'integer', required: true },
               {
                 id: 8,
                 name: 'order_number',
@@ -164,9 +159,7 @@ test.describe('Modify Field Unique Migration', () => {
           },
         ],
       })
-      await executeQuery([
-        `INSERT INTO orders (id, order_number) VALUES (1, 'ORD-001'), (2, 'ORD-002')`,
-      ])
+      await executeQuery([`INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`])
 
       // WHEN: unique constraint removed from schema
       await startServerWithSchema({
@@ -176,7 +169,6 @@ test.describe('Modify Field Unique Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 7, name: 'id', type: 'integer', required: true },
               {
                 id: 8,
                 name: 'order_number',
@@ -221,7 +213,6 @@ test.describe('Modify Field Unique Migration', () => {
               id: 4,
               name: 'items',
               fields: [
-                { id: 9, name: 'id', type: 'integer', required: true },
                 { id: 10, name: 'name', type: 'single-line-text', required: true },
                 { id: 11, name: 'code', type: 'single-line-text' },
               ],
@@ -229,7 +220,7 @@ test.describe('Modify Field Unique Migration', () => {
           ],
         })
         await executeQuery([
-          `INSERT INTO items (id, name, code) VALUES (1, 'Item A', 'CODE-001'), (2, 'Item B', 'CODE-002')`,
+          `INSERT INTO items (name, code) VALUES ('Item A', 'CODE-001'), ('Item B', 'CODE-002')`,
         ])
       })
 
@@ -241,7 +232,6 @@ test.describe('Modify Field Unique Migration', () => {
               id: 4,
               name: 'items',
               fields: [
-                { id: 9, name: 'id', type: 'integer', required: true },
                 { id: 10, name: 'name', type: 'single-line-text', required: true },
                 { id: 11, name: 'code', type: 'single-line-text', unique: true },
               ],

@@ -35,9 +35,7 @@ test.describe('Rename Field Migration', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'email', unique: true },
-            ],
+            fields: [{ id: 1, name: 'email', type: 'email', unique: true }],
           },
         ],
       })
@@ -169,9 +167,7 @@ test.describe('Rename Field Migration', () => {
           {
             id: 3,
             name: 'customers',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
           {
             id: 4,
@@ -200,9 +196,7 @@ test.describe('Rename Field Migration', () => {
           {
             id: 3,
             name: 'customers',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
           {
             id: 4,
@@ -331,9 +325,7 @@ test.describe('Rename Field Migration', () => {
             {
               id: 6,
               name: 'data',
-              fields: [
-                { id: 1, name: 'old_name', type: 'single-line-text', required: true },
-              ],
+              fields: [{ id: 1, name: 'old_name', type: 'single-line-text', required: true }],
             },
           ],
         })

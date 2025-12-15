@@ -36,10 +36,7 @@ test.describe('Checksum Optimization', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
@@ -82,10 +79,7 @@ test.describe('Checksum Optimization', () => {
           {
             id: 2,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
@@ -98,10 +92,7 @@ test.describe('Checksum Optimization', () => {
           {
             id: 2,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
@@ -135,14 +126,11 @@ test.describe('Checksum Optimization', () => {
           {
             id: 3,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
-      await executeQuery([`INSERT INTO users (id, email) VALUES (1, 'test@example.com')`])
+      await executeQuery([`INSERT INTO users (email) VALUES ('test@example.com')`])
 
       // Get initial checksum
       const initialChecksum = await executeQuery(
@@ -157,7 +145,6 @@ test.describe('Checksum Optimization', () => {
             id: 3,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'name', type: 'single-line-text' },
             ],
@@ -202,14 +189,11 @@ test.describe('Checksum Optimization', () => {
           {
             id: 4,
             name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'sku', type: 'single-line-text' },
-            ],
+            fields: [{ id: 2, name: 'sku', type: 'single-line-text' }],
           },
         ],
       })
-      await executeQuery([`INSERT INTO products (id, sku) VALUES (1, 'SKU-001')`])
+      await executeQuery([`INSERT INTO products (sku) VALUES ('SKU-001')`])
 
       // Get initial checksum
       const initialChecksum = await executeQuery(
@@ -223,10 +207,7 @@ test.describe('Checksum Optimization', () => {
           {
             id: 4,
             name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'sku', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'sku', type: 'single-line-text', required: true }],
           },
         ],
       })
@@ -264,10 +245,7 @@ test.describe('Checksum Optimization', () => {
             {
               id: 5,
               name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'value', type: 'single-line-text' },
-              ],
+              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
             },
           ],
         })
@@ -287,10 +265,7 @@ test.describe('Checksum Optimization', () => {
             {
               id: 5,
               name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'value', type: 'single-line-text' },
-              ],
+              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
             },
           ],
         })

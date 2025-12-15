@@ -36,7 +36,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email' },
             ],
@@ -44,8 +43,8 @@ test.describe('Modify Unique Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, name, email) VALUES (1, 'Alice', 'alice@example.com')`,
-        `INSERT INTO users (id, name, email) VALUES (2, 'Bob', 'bob@example.com')`,
+        `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')`,
+        `INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')`,
       ])
 
       // WHEN: unique constraint added to email field
@@ -56,7 +55,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email', unique: true },
             ],
@@ -99,15 +97,14 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 2,
             name: 'accounts',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'username', type: 'single-line-text', required: true, unique: true },
             ],
           },
         ],
       })
       await executeQuery([
-        `INSERT INTO accounts (id, username) VALUES (1, 'alice')`,
-        `INSERT INTO accounts (id, username) VALUES (2, 'bob')`,
+        `INSERT INTO accounts (username) VALUES ('alice')`,
+        `INSERT INTO accounts (username) VALUES ('bob')`,
       ])
 
       // WHEN: unique constraint removed from username field
@@ -118,7 +115,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 2,
             name: 'accounts',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'username', type: 'single-line-text', required: true }, // No unique
             ],
           },
@@ -154,7 +150,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 3,
             name: 'tenant_users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'tenant_id', type: 'integer', required: true },
               { id: 3, name: 'email', type: 'email', required: true },
             ],
@@ -162,8 +157,8 @@ test.describe('Modify Unique Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO tenant_users (id, tenant_id, email) VALUES (1, 1, 'alice@example.com')`,
-        `INSERT INTO tenant_users (id, tenant_id, email) VALUES (2, 2, 'alice@example.com')`,
+        `INSERT INTO tenant_users (tenant_id, email) VALUES (1, 'alice@example.com')`,
+        `INSERT INTO tenant_users (tenant_id, email) VALUES (2, 'alice@example.com')`,
       ])
 
       // WHEN: composite unique constraint on (tenant_id, email) added
@@ -174,7 +169,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 3,
             name: 'tenant_users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'tenant_id', type: 'integer', required: true },
               { id: 3, name: 'email', type: 'email', required: true },
             ],
@@ -214,7 +208,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 4,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'single-line-text' },
             ],
@@ -222,8 +215,8 @@ test.describe('Modify Unique Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, sku) VALUES (1, 'Widget A', 'SKU-001')`,
-        `INSERT INTO products (id, name, sku) VALUES (2, 'Widget B', 'SKU-001')`, // Duplicates
+        `INSERT INTO products (name, sku) VALUES ('Widget A', 'SKU-001')`,
+        `INSERT INTO products (name, sku) VALUES ('Widget B', 'SKU-001')`, // Duplicates
       ])
 
       // WHEN: attempting to add unique constraint on field with duplicates
@@ -236,7 +229,6 @@ test.describe('Modify Unique Constraints Migration', () => {
               id: 4,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'sku', type: 'single-line-text', unique: true },
               ],
@@ -271,7 +263,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 5,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -285,8 +276,8 @@ test.describe('Modify Unique Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO orders (id, order_number, tenant_id) VALUES (1, 'ORD-001', 1)`,
-        `INSERT INTO orders (id, order_number, tenant_id) VALUES (2, 'ORD-002', 1)`,
+        `INSERT INTO orders (order_number, tenant_id) VALUES ('ORD-001', 1)`,
+        `INSERT INTO orders (order_number, tenant_id) VALUES ('ORD-002', 1)`,
       ])
 
       // WHEN: constraint fields modified from (order_number) to (order_number, tenant_id)
@@ -297,7 +288,6 @@ test.describe('Modify Unique Constraints Migration', () => {
             id: 5,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -351,7 +341,6 @@ test.describe('Modify Unique Constraints Migration', () => {
               id: 6,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'code', type: 'single-line-text' },
                 { id: 4, name: 'org_id', type: 'integer', required: true },
@@ -360,8 +349,8 @@ test.describe('Modify Unique Constraints Migration', () => {
           ],
         })
         await executeQuery([
-          `INSERT INTO items (id, name, code, org_id) VALUES (1, 'Item A', 'CODE-001', 1)`,
-          `INSERT INTO items (id, name, code, org_id) VALUES (2, 'Item B', 'CODE-002', 1)`,
+          `INSERT INTO items (name, code, org_id) VALUES ('Item A', 'CODE-001', 1)`,
+          `INSERT INTO items (name, code, org_id) VALUES ('Item B', 'CODE-002', 1)`,
         ])
       })
 
@@ -373,7 +362,6 @@ test.describe('Modify Unique Constraints Migration', () => {
               id: 6,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'code', type: 'single-line-text' },
                 { id: 4, name: 'org_id', type: 'integer', required: true },

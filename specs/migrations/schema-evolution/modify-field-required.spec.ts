@@ -36,7 +36,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'phone', type: 'phone-number' }, // nullable initially
             ],
@@ -52,7 +51,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'phone', type: 'phone-number', required: true }, // now required
             ],
@@ -70,12 +68,12 @@ test.describe('Modify Field Required Migration', () => {
 
       // Cannot insert NULL value
       await expect(async () => {
-        await executeQuery(`INSERT INTO users (id, name, phone) VALUES (1, 'Alice', NULL)`)
+        await executeQuery(`INSERT INTO users (name, phone) VALUES ('Alice', NULL)`)
       }).rejects.toThrow(/null value|violates not-null/i)
 
       // Can insert with value
       const validInsert = await executeQuery(
-        `INSERT INTO users (id, name, phone) VALUES (2, 'Bob', '+1234567890') RETURNING phone`
+        `INSERT INTO users (name, phone) VALUES ('Bob', '+1234567890') RETURNING phone`
       )
       expect(validInsert.phone).toBe('+1234567890')
     }
@@ -93,7 +91,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'category', type: 'single-line-text' }, // nullable initially
             ],
@@ -101,7 +98,7 @@ test.describe('Modify Field Required Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, category) VALUES (1, 'Widget', 'Electronics'), (2, 'Gadget', NULL)`,
+        `INSERT INTO products (name, category) VALUES ('Widget', 'Electronics'), ('Gadget', NULL)`,
       ])
 
       // WHEN: field marked as required without default value
@@ -114,7 +111,6 @@ test.describe('Modify Field Required Migration', () => {
               id: 2,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'category', type: 'single-line-text', required: true }, // now required, no default
               ],
@@ -141,7 +137,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -154,7 +149,7 @@ test.describe('Modify Field Required Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO orders (id, order_number, status) VALUES (1, 'ORD-001', 'shipped'), (2, 'ORD-002', NULL)`,
+        `INSERT INTO orders (order_number, status) VALUES ('ORD-001', 'shipped'), ('ORD-002', NULL)`,
       ])
 
       // WHEN: field marked as required with default value 'pending'
@@ -165,7 +160,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -218,7 +212,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 4,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text', required: true },
               { id: 3, name: 'priority', type: 'single-line-text', required: true }, // required initially
             ],
@@ -226,7 +219,7 @@ test.describe('Modify Field Required Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO tasks (id, title, priority) VALUES (1, 'Task 1', 'high'), (2, 'Task 2', 'medium')`,
+        `INSERT INTO tasks (title, priority) VALUES ('Task 1', 'high'), ('Task 2', 'medium')`,
       ])
 
       // WHEN: field marked as optional in schema
@@ -237,7 +230,6 @@ test.describe('Modify Field Required Migration', () => {
             id: 4,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text', required: true },
               { id: 3, name: 'priority', type: 'single-line-text' }, // now optional
             ],
@@ -254,7 +246,7 @@ test.describe('Modify Field Required Migration', () => {
       expect(columnCheck.is_nullable).toBe('YES')
 
       // Can now insert NULL value
-      await executeQuery(`INSERT INTO tasks (id, title, priority) VALUES (3, 'Task 3', NULL)`)
+      await executeQuery(`INSERT INTO tasks (title, priority) VALUES ('Task 3', NULL)`)
       const newTask = await executeQuery(`SELECT priority FROM tasks WHERE title = 'Task 3'`)
       expect(newTask.priority).toBeNull()
 
@@ -280,7 +272,6 @@ test.describe('Modify Field Required Migration', () => {
               id: 5,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'description', type: 'long-text' }, // nullable initially
               ],
@@ -288,7 +279,7 @@ test.describe('Modify Field Required Migration', () => {
           ],
         })
         await executeQuery([
-          `INSERT INTO items (id, name, description) VALUES (1, 'Item 1', 'Has description'), (2, 'Item 2', NULL)`,
+          `INSERT INTO items (name, description) VALUES ('Item 1', 'Has description'), ('Item 2', NULL)`,
         ])
       })
 
@@ -300,7 +291,6 @@ test.describe('Modify Field Required Migration', () => {
               id: 5,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 {
                   id: 3,

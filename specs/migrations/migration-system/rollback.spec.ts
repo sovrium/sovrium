@@ -40,10 +40,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
@@ -64,7 +61,6 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'users',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'email', type: 'email' },
                 { id: 3, name: 'name', type: 'single-line-text' },
               ],
@@ -94,7 +90,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'products',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+            fields: [],
           },
         ],
       })
@@ -111,7 +107,6 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 // @ts-expect-error - Invalid field type
                 { id: 2, name: 'bad', type: 'INVALID' },
               ],
@@ -139,7 +134,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'users',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+            fields: [],
           },
         ],
       })
@@ -151,10 +146,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
@@ -184,16 +176,11 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'orders',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'total', type: 'decimal', required: true },
-            ],
+            fields: [{ id: 2, name: 'total', type: 'decimal', required: true }],
           },
         ],
       })
-      await executeQuery([
-        `INSERT INTO orders (id, total) VALUES (1, 99.99), (2, 149.50), (3, 299.00)`,
-      ])
+      await executeQuery([`INSERT INTO orders (total) VALUES (99.99), (149.50), (299.00)`])
 
       // WHEN: Migration adding NOT NULL column fails and rolls back
       // THEN: All original data preserved
@@ -206,7 +193,6 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'orders',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'total', type: 'decimal', required: true },
                 { id: 3, name: 'status', type: 'single-line-text', required: true },
               ],
@@ -238,24 +224,18 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'categories',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
+            fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
           },
           {
             id: 2,
             name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'category_id', type: 'integer' },
-            ],
+            fields: [{ id: 2, name: 'category_id', type: 'integer' }],
           },
         ],
       })
       await executeQuery([
-        `INSERT INTO categories (id, name) VALUES (1, 'Electronics')`,
-        `INSERT INTO products (id, category_id) VALUES (1, 1)`,
+        `INSERT INTO categories (name) VALUES ('Electronics')`,
+        `INSERT INTO products (category_id) VALUES ((SELECT id FROM categories LIMIT 1))`,
       ])
 
       // WHEN: Migration modifying parent table fails
@@ -269,7 +249,6 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'categories',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
                 // @ts-expect-error - Invalid type
                 { id: 3, name: 'invalid', type: 'INVALID_TYPE' },
@@ -278,10 +257,7 @@ test.describe('Migration Rollback', () => {
             {
               id: 2,
               name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'category_id', type: 'integer' },
-              ],
+              fields: [{ id: 2, name: 'category_id', type: 'integer' }],
             },
           ],
         })
@@ -315,7 +291,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'test_table',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+            fields: [],
           },
         ],
       })
@@ -331,7 +307,6 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'test_table',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 // @ts-expect-error - Invalid type
                 { id: 2, name: 'bad', type: 'INVALID' },
               ],
@@ -361,7 +336,6 @@ test.describe('Migration Rollback', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'name', type: 'single-line-text' },
             ],
@@ -369,7 +343,7 @@ test.describe('Migration Rollback', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, email, name) VALUES (1, 'test@example.com', 'Test User')`,
+        `INSERT INTO users (email, name) VALUES ('test@example.com', 'Test User')`,
       ])
 
       // WHEN: Downgrade to version N-1 requested (remove name column)
@@ -398,7 +372,6 @@ test.describe('Migration Rollback', () => {
             id: 1,
             name: 'customers',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'phone', type: 'phone-number' },
             ],
@@ -406,9 +379,9 @@ test.describe('Migration Rollback', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO customers (id, email, phone) VALUES
-          (1, 'user1@example.com', '555-0101'),
-          (2, 'user2@example.com', '555-0102')`,
+        `INSERT INTO customers (email, phone) VALUES
+          ('user1@example.com', '555-0101'),
+          ('user2@example.com', '555-0102')`,
       ])
 
       // WHEN: Rollback would remove 'phone' column containing data
@@ -440,14 +413,11 @@ test.describe('Migration Rollback', () => {
             {
               id: 1,
               name: 'items',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
+              fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
             },
           ],
         })
-        await executeQuery([`INSERT INTO items (id, name) VALUES (1, 'Item 1'), (2, 'Item 2')`])
+        await executeQuery([`INSERT INTO items (name) VALUES ('Item 1'), ('Item 2')`])
       })
 
       await test.step('Attempt invalid migration', async () => {
@@ -459,7 +429,6 @@ test.describe('Migration Rollback', () => {
                 id: 1,
                 name: 'items',
                 fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
                   { id: 2, name: 'name', type: 'single-line-text' },
                   // @ts-expect-error - Invalid type
                   { id: 3, name: 'bad', type: 'INVALID' },

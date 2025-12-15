@@ -36,7 +36,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 1,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'price', type: 'decimal', required: true },
             ],
@@ -44,7 +43,7 @@ test.describe('Modify Field Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, price) VALUES (1, 'Widget', 50.00), (2, 'Gadget', 150.00)`,
+        `INSERT INTO products (name, price) VALUES ('Widget', 50.00), ('Gadget', 150.00)`,
       ])
 
       // WHEN: min/max constraint added (price >= 0 AND price <= 10000)
@@ -55,7 +54,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 1,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -102,7 +100,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 2,
             name: 'inventory',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'item', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -117,7 +114,7 @@ test.describe('Modify Field Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO inventory (id, item, quantity) VALUES (1, 'Screws', 50), (2, 'Bolts', 75)`,
+        `INSERT INTO inventory (item, quantity) VALUES ('Screws', 50), ('Bolts', 75)`,
       ])
 
       // WHEN: max constraint increased from 100 to 1000
@@ -128,7 +125,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 2,
             name: 'inventory',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'item', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -176,7 +172,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 3,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'age', type: 'integer' },
             ],
@@ -184,7 +179,7 @@ test.describe('Modify Field Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, name, age) VALUES (1, 'Valid User', 25), (2, 'Invalid User', -5)`,
+        `INSERT INTO users (name, age) VALUES ('Valid User', 25), ('Invalid User', -5)`,
       ])
 
       // WHEN: min constraint added (age >= 0)
@@ -197,7 +192,6 @@ test.describe('Modify Field Constraints Migration', () => {
               id: 3,
               name: 'users',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'age', type: 'integer', min: 0 },
               ],
@@ -224,7 +218,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 4,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -244,7 +237,7 @@ test.describe('Modify Field Constraints Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO orders (id, order_number, discount) VALUES (1, 'ORD-001', 10), (2, 'ORD-002', 50)`,
+        `INSERT INTO orders (order_number, discount) VALUES ('ORD-001', 10), ('ORD-002', 50)`,
       ])
 
       // WHEN: constraint removed from schema
@@ -255,7 +248,6 @@ test.describe('Modify Field Constraints Migration', () => {
             id: 4,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -300,7 +292,6 @@ test.describe('Modify Field Constraints Migration', () => {
               id: 5,
               name: 'pricing',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'amount', type: 'decimal', required: true },
               ],
@@ -308,7 +299,7 @@ test.describe('Modify Field Constraints Migration', () => {
           ],
         })
         await executeQuery([
-          `INSERT INTO pricing (id, name, amount) VALUES (1, 'Basic Plan', 9.99), (2, 'Pro Plan', 29.99)`,
+          `INSERT INTO pricing (name, amount) VALUES ('Basic Plan', 9.99), ('Pro Plan', 29.99)`,
         ])
       })
 
@@ -320,7 +311,6 @@ test.describe('Modify Field Constraints Migration', () => {
               id: 5,
               name: 'pricing',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 {
                   id: 3,
