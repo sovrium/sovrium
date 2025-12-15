@@ -175,8 +175,9 @@ const executeSchemaInit = (
 
     try {
       yield* Effect.tryPromise({
-        try: () =>
-          db.begin(async (tx) => {
+        try: async () => {
+          /* eslint-disable-next-line functional/no-expression-statements */
+          await db.begin(async (tx) => {
             // Run the migration logic within Effect.gen and convert to Promise
             /* eslint-disable-next-line functional/no-expression-statements */
             await Runtime.runPromise(runtime)(
@@ -184,7 +185,7 @@ const executeSchemaInit = (
                 // Step -1: Ensure migration log table exists FIRST (for rollback logging)
                 yield* ensureMigrationLogTable(tx)
 
-                // Wrap the entire migration process to catch errors and log rollback
+                // Migration process - errors will trigger rollback and be caught below
                 yield* Effect.gen(function* () {
                   // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
                   logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
@@ -310,27 +311,77 @@ const executeSchemaInit = (
                   // Ensure schema checksum table exists before storing
                   yield* ensureSchemaChecksumTable(tx)
                   yield* storeSchemaChecksum(tx, app)
-                }).pipe(
-                  Effect.catchAll((error) =>
-                    Effect.gen(function* () {
-                      // Log rollback operation before transaction rolls back
-                      const errorMessage = String(error)
-                      logInfo(`[executeSchemaInit] Migration failed: ${errorMessage}`)
-                      yield* logRollbackOperation(tx, errorMessage)
-                      // Re-throw error to trigger transaction rollback
-                      return yield* Effect.fail(error)
-                    })
-                  )
-                )
+                })
               })
             )
-          }),
+          })
+        },
         catch: (error) =>
           new SchemaInitializationError({
             message: `Schema initialization failed: ${String(error)}`,
             cause: error,
           }),
-      })
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // Log rollback in separate transaction after error is caught
+            logInfo(`[executeSchemaInit] CATCH HANDLER - Error caught: ${error.message}`)
+            const logDb = new SQL(databaseUrl)
+
+            const logRollback = Effect.gen(function* () {
+              logInfo(
+                '[executeSchemaInit] CATCH HANDLER - Logging rollback in separate transaction...'
+              )
+              yield* Effect.tryPromise({
+                try: async () => {
+                  // Use a transaction to ensure rollback logging is atomic and committed
+                  /* eslint-disable-next-line functional/no-expression-statements */
+                  await logDb.begin(async (logTx) => {
+                    /* eslint-disable-next-line functional/no-expression-statements */
+                    await Runtime.runPromise(runtime)(
+                      Effect.gen(function* () {
+                        yield* ensureMigrationLogTable(logTx).pipe(
+                          Effect.catchAll((logError) => {
+                            logInfo(
+                              `[executeSchemaInit] Failed to create migration log table: ${logError.message}`
+                            )
+                            return Effect.void
+                          })
+                        )
+                        yield* logRollbackOperation(logTx, error.message).pipe(
+                          Effect.catchAll((logError) => {
+                            logInfo(
+                              `[executeSchemaInit] Failed to log rollback: ${logError.message}`
+                            )
+                            return Effect.void
+                          })
+                        )
+                      })
+                    )
+                  })
+                  logInfo('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
+                },
+                catch: (logError) =>
+                  new SchemaInitializationError({
+                    message: `Failed to log rollback: ${String(logError)}`,
+                    cause: logError,
+                  }),
+              }).pipe(Effect.ignore) // Non-fatal - continue with error propagation
+            }).pipe(
+              Effect.ensuring(
+                Effect.gen(function* () {
+                  yield* Effect.promise(() => logDb.close())
+                  logInfo('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
+                })
+              )
+            )
+
+            yield* logRollback
+            // Re-throw the original error after logging rollback
+            return yield* Effect.fail(error)
+          })
+        )
+      )
     } finally {
       // Close connection
       yield* Effect.promise(() => db.close())

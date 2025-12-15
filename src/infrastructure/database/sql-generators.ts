@@ -89,6 +89,7 @@ const mapFormulaResultTypeToPostgres = (resultType: string | undefined): string 
 
 /**
  * Map field type to PostgreSQL column type
+ * Throws error if field type is not recognized
  */
 export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
   if (field.type === 'array') {
@@ -102,7 +103,13 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
     return `NUMERIC(${field.precision},2)`
   }
 
-  return fieldTypeToPostgresMap[field.type] ?? 'TEXT'
+  const postgresType = fieldTypeToPostgresMap[field.type]
+  if (!postgresType) {
+    // eslint-disable-next-line functional/no-throw-statements -- Error is caught by Effect.try in table-operations.ts
+    throw new Error(`Unknown field type: ${field.type}`)
+  }
+
+  return postgresType
 }
 
 /**
