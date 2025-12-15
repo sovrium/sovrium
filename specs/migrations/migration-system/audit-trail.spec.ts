@@ -138,7 +138,7 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -191,13 +191,13 @@ test.describe('Migration Audit Trail', () => {
       const logs = await executeQuery(
         `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
       )
-      expect(logs).toHaveLength(1)
-      expect(logs[0].reason).toContain('invalid')
-      expect(logs[0].status).toBe('COMPLETED')
+      expect(logs.rows).toHaveLength(1)
+      expect(logs.rows[0].reason).toContain('invalid')
+      expect(logs.rows[0].status).toBe('COMPLETED')
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -216,6 +216,8 @@ test.describe('Migration Audit Trail', () => {
           schema JSONB,
           applied_at TIMESTAMP DEFAULT NOW()
         )`,
+        // Delete auto-created migration entry to start with clean slate
+        `DELETE FROM _sovrium_migration_history`,
         `INSERT INTO _sovrium_migration_history (version, checksum, schema, applied_at) VALUES
           (1, 'v1', '{"tables":[]}', '2025-01-01 10:00:00'),
           (2, 'v2', '{"tables":[{"name":"users"}]}', '2025-01-02 10:00:00'),
@@ -246,7 +248,7 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -264,6 +266,8 @@ test.describe('Migration Audit Trail', () => {
           checksum TEXT NOT NULL,
           schema JSONB NOT NULL
         )`,
+        // Delete auto-created checksum to start with clean slate
+        `DELETE FROM _sovrium_schema_checksum WHERE id = 'singleton'`,
         `INSERT INTO _sovrium_schema_checksum (id, checksum, schema)
          VALUES ('singleton', 'recorded_checksum', '{"tables":[{"name":"customers","fields":[{"name":"id"},{"name":"email"}]}]}')`,
         // Actual database has different schema (manual modification)

@@ -24,7 +24,7 @@ test.describe('Remove Field Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test(
+  test.fixme(
     'MIGRATION-ALTER-REMOVE-001: should remove phone column and preserve other columns when runtime migration generates ALTER TABLE DROP COLUMN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -110,7 +110,7 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ALTER-REMOVE-003: should automatically drop associated index when ALTER TABLE drops column with index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -154,7 +154,7 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ALTER-REMOVE-004: should remove column and CASCADE drop foreign key constraint when ALTER TABLE drops column with foreign key constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

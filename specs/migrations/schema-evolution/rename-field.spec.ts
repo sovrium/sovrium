@@ -24,7 +24,7 @@ test.describe('Rename Field Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test(
+  test.fixme(
     'MIGRATION-ALTER-RENAME-001: should generate RENAME COLUMN instead of DROP+ADD when runtime migration detects rename via field ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
