@@ -169,14 +169,24 @@ const isAutoTimestampField = (field: Fields[number]): boolean =>
   field.type === 'created-at' || field.type === 'updated-at'
 
 /**
+ * Check if field should be NOT NULL
+ * Auto-managed fields (created-at, updated-at, created-by, updated-by) and required fields are NOT NULL
+ * Exported for use in schema-migration-helpers for nullability change detection
+ */
+export const isFieldNotNull = (field: Fields[number], isPrimaryKey: boolean): boolean => {
+  // Auto-managed fields are always NOT NULL
+  if (isAutoTimestampField(field) || isUserReferenceField(field)) return true
+  // Primary key fields are always NOT NULL
+  if (isPrimaryKey) return true
+  // Check required property
+  return 'required' in field && field.required === true
+}
+
+/**
  * Generate NOT NULL constraint
  */
 const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string => {
-  // Auto-managed fields are always NOT NULL (created-at, updated-at, created-by, updated-by)
-  if (isAutoTimestampField(field) || isUserReferenceField(field)) {
-    return ' NOT NULL'
-  }
-  return isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
+  return isFieldNotNull(field, isPrimaryKey) ? ' NOT NULL' : ''
 }
 
 /**
