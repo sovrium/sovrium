@@ -253,7 +253,7 @@ export class MailpitHelper {
   constructor(options?: MailpitOptions) {
     const webPort = options?.webPort ?? globalWebPort
     this.smtpPort = options?.smtpPort ?? globalSmtpPort
-    this.baseUrl = `http://localhost:${webPort}`
+    this.baseUrl = `http://127.0.0.1:${webPort}` // Use explicit IPv4 to avoid IPv6 resolution issues
     this.testId = options?.testId ?? generateTestId()
   }
 

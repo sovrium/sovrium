@@ -13,6 +13,7 @@ import {
   generateUniqueConstraints,
   isUserReferenceField,
   isUserField,
+  toSingular,
 } from './sql-generators'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -1307,6 +1308,43 @@ describe('sql-generators', () => {
 
       // Then
       expect(result).toEqual([])
+    })
+  })
+
+  describe('toSingular', () => {
+    test('converts regular plurals by removing trailing s', () => {
+      expect(toSingular('students')).toBe('student')
+      expect(toSingular('courses')).toBe('course')
+      expect(toSingular('employees')).toBe('employee')
+      expect(toSingular('products')).toBe('product')
+    })
+
+    test('handles irregular plurals with mapping', () => {
+      expect(toSingular('people')).toBe('person')
+      expect(toSingular('children')).toBe('child')
+      expect(toSingular('men')).toBe('man')
+      expect(toSingular('women')).toBe('woman')
+      expect(toSingular('teeth')).toBe('tooth')
+      expect(toSingular('feet')).toBe('foot')
+      expect(toSingular('geese')).toBe('goose')
+      expect(toSingular('mice')).toBe('mouse')
+    })
+
+    test('handles technical irregular plurals', () => {
+      expect(toSingular('indices')).toBe('index')
+      expect(toSingular('matrices')).toBe('matrix')
+      expect(toSingular('vertices')).toBe('vertex')
+      expect(toSingular('analyses')).toBe('analysis')
+      expect(toSingular('criteria')).toBe('criterion')
+      expect(toSingular('phenomena')).toBe('phenomenon')
+      expect(toSingular('data')).toBe('datum')
+      expect(toSingular('media')).toBe('medium')
+    })
+
+    test('returns unchanged for words not ending in s', () => {
+      expect(toSingular('staff')).toBe('staff')
+      expect(toSingular('sheep')).toBe('sheep')
+      expect(toSingular('fish')).toBe('fish')
     })
   })
 })
