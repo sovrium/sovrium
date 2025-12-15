@@ -26,6 +26,7 @@ import {
   generateAlterTableStatements,
   syncUniqueConstraints,
   syncForeignKeyConstraints,
+  syncCheckConstraints,
   type BunSQLTransaction,
 } from './schema-migration-helpers'
 import {
@@ -41,9 +42,62 @@ import {
   generateCreatedAtTriggers,
   generateAutonumberTriggers,
   generateUpdatedByTriggers,
+  generateUpdatedAtTriggers,
 } from './trigger-generators'
 import { generateTableViewStatements, generateDropObsoleteViewsSQL } from './view-generators'
 import type { Table } from '@/domain/models/app/table'
+
+/**
+ * Normalize PostgreSQL type names by removing size specifications
+ */
+const normalizeType = (type: string): string =>
+  type
+    .replace(/\(\d+\)/, '') // Remove (N) like varchar(255) -> varchar
+    .replace(/\(\d+,\s*\d+\)/, '') // Remove (N,M) like numeric(10,2) -> numeric
+    .trim()
+
+/**
+ * Type compatibility groups - types within a group can be safely copied between each other
+ */
+const TYPE_COMPATIBILITY_GROUPS: readonly (readonly string[])[] = [
+  // Integer types (can be widened but not narrowed, but for recreation we allow same family)
+  ['smallint', 'integer', 'bigint', 'int2', 'int4', 'int8'],
+  // Text types
+  ['text', 'varchar', 'character varying', 'char', 'character', 'bpchar'],
+  // Boolean
+  ['boolean', 'bool'],
+  // Floating point
+  ['real', 'double precision', 'float4', 'float8'],
+  // Numeric/Decimal
+  ['numeric', 'decimal'],
+  // Date/Time
+  ['timestamp', 'timestamp without time zone', 'timestamp with time zone', 'timestamptz'],
+  ['date'],
+  ['time', 'time without time zone', 'time with time zone', 'timetz'],
+  // UUID
+  ['uuid'],
+  // JSON
+  ['json', 'jsonb'],
+]
+
+/**
+ * Check if two PostgreSQL data types are compatible for data copying
+ * Returns true if data can be safely copied from oldType to newType
+ */
+const areTypesCompatible = (oldType: string, newType: string): boolean => {
+  // Exact match is always compatible
+  if (oldType === newType) return true
+
+  const normalizedOld = normalizeType(oldType)
+  const normalizedNew = normalizeType(newType)
+
+  if (normalizedOld === normalizedNew) return true
+
+  // Check if both types are in the same compatibility group
+  return TYPE_COMPATIBILITY_GROUPS.some(
+    (group) => group.includes(normalizedOld) && group.includes(normalizedNew)
+  )
+}
 
 /**
  * Generate automatic id column definition based on primary key type
@@ -152,6 +206,7 @@ const applyTableFeatures = (
         executeSQLStatements(tx, generateCreatedAtTriggers(physicalTable)),
         executeSQLStatements(tx, generateAutonumberTriggers(physicalTable)),
         executeSQLStatements(tx, generateUpdatedByTriggers(physicalTable)),
+        executeSQLStatements(tx, generateUpdatedAtTriggers(physicalTable)),
         Effect.promise(() => createVolatileFormulaTriggers(tx, physicalTableName, table.fields)),
       ],
       { concurrency: 'unbounded' }
@@ -175,23 +230,141 @@ const applyTableFeatures = (
   })
 
 /**
- * Migrate existing table (ALTER statements + constraints + indexes)
+ * Get compatible columns between existing and new table for data migration
  */
-export const migrateExistingTableEffect = (
+const getCompatibleColumns = (
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>
+): readonly string[] =>
+  Array.from(existingColumns.keys()).filter((col) => {
+    const newColInfo = newColumnInfo.get(col)
+    if (!newColInfo) return false
+    const oldType = existingColumns.get(col)?.dataType.toLowerCase() ?? ''
+    return areTypesCompatible(oldType, newColInfo.dataType.toLowerCase())
+  })
+
+interface CopyDataParams {
+  readonly tx: TransactionLike
+  readonly tempTableName: string
+  readonly physicalTableName: string
+  readonly commonColumns: readonly string[]
+  readonly newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>
+}
+
+/**
+ * Copy data and reset SERIAL sequences for migration
+ */
+const copyDataAndResetSequences = (
+  params: CopyDataParams
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { tx, tempTableName, physicalTableName, commonColumns, newColumnInfo } = params
+    if (commonColumns.length === 0) return
+
+    const columnList = commonColumns.join(', ')
+    yield* executeSQL(
+      tx,
+      `INSERT INTO ${tempTableName} (${columnList}) SELECT ${columnList} FROM ${physicalTableName}`
+    )
+
+    // Reset SERIAL sequences to max value + 1 to avoid conflicts
+    const serialColumns = commonColumns.filter((col) =>
+      newColumnInfo.get(col)?.columnDefault?.includes('nextval')
+    )
+    yield* Effect.forEach(serialColumns, (col) =>
+      executeSQL(
+        tx,
+        `SELECT setval(pg_get_serial_sequence('${tempTableName}', '${col}'), COALESCE((SELECT MAX(${col}) FROM ${tempTableName}), 1), true)`
+      )
+    )
+  })
+
+/**
+ * Recreate table with data preservation when schema changes are incompatible with ALTER TABLE
+ * Used when primary key type changes or other incompatible schema modifications occur
+ */
+const recreateTableWithDataEffect = (
   tx: TransactionLike,
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const alterStatements = generateAlterTableStatements(table, existingColumns)
+    const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+    const tempTableName = `${physicalTableName}_migration_temp`
+
+    // Create temporary table with new schema
+    const createTableSQL = generateCreateTableSQL(table, tableUsesView).replace(
+      `CREATE TABLE IF NOT EXISTS ${physicalTableName}`,
+      `CREATE TABLE ${tempTableName}`
+    )
+    yield* executeSQL(tx, createTableSQL)
+
+    // Get new table column info
+    const newTableColumns = yield* executeSQL(
+      tx,
+      `SELECT column_name, column_default, data_type FROM information_schema.columns WHERE table_name = '${tempTableName}'`
+    )
+    const newColumnInfo = new Map(
+      (
+        newTableColumns as readonly {
+          column_name: string
+          column_default: string | null
+          data_type: string
+        }[]
+      ).map((row) => [
+        row.column_name,
+        { columnDefault: row.column_default, dataType: row.data_type },
+      ])
+    )
+
+    // Copy data from compatible columns
+    const commonColumns = getCompatibleColumns(existingColumns, newColumnInfo)
+    yield* copyDataAndResetSequences({
+      tx,
+      tempTableName,
+      physicalTableName,
+      commonColumns,
+      newColumnInfo,
+    })
+
+    // Drop old table and rename temp table
+    yield* executeSQL(tx, `DROP TABLE ${physicalTableName} CASCADE`)
+    yield* executeSQL(tx, `ALTER TABLE ${tempTableName} RENAME TO ${physicalTableName}`)
+
+    // Rename primary key constraint to match original table name (ignore if not exists)
+    yield* executeSQL(
+      tx,
+      `DO $$ BEGIN ALTER TABLE ${physicalTableName} RENAME CONSTRAINT ${tempTableName}_pkey TO ${physicalTableName}_pkey; EXCEPTION WHEN undefined_object THEN NULL; END $$`
+    )
+  })
+
+/**
+ * Configuration for table migration operations
+ */
+export type MigrationConfig = {
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}
+
+/**
+ * Migrate existing table (ALTER statements + constraints + indexes)
+ */
+export const migrateExistingTableEffect = (params: {
+  readonly tx: TransactionLike
+  readonly table: Table
+  readonly existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { tx, table, existingColumns, tableUsesView, previousSchema } = params
+    const alterStatements = generateAlterTableStatements(table, existingColumns, previousSchema)
 
     // If alterStatements is empty, table has incompatible schema changes
-    // (e.g., primary key type change) - drop and recreate
+    // (e.g., primary key type change) - need to recreate with data preservation
     if (alterStatements.length === 0) {
-      yield* executeSQL(tx, `DROP TABLE ${table.name} CASCADE`)
-      const createTableSQL = generateCreateTableSQL(table, tableUsesView)
-      yield* executeSQL(tx, createTableSQL)
+      yield* recreateTableWithDataEffect(tx, table, existingColumns, tableUsesView)
     } else {
       // Apply incremental migrations
       yield* executeSQLStatements(tx, alterStatements)
@@ -202,6 +375,9 @@ export const migrateExistingTableEffect = (
 
     // Always sync foreign key constraints to ensure referential actions are up-to-date
     yield* syncForeignKeyConstraints(tx, table, tableUsesView)
+
+    // Always sync CHECK constraints for fields with validation requirements
+    yield* syncCheckConstraints(tx, table)
 
     // Apply all table features (indexes, triggers, RLS)
     yield* applyTableFeatures(tx, table)
@@ -300,16 +476,24 @@ export const createTableViewsEffect = (
 /**
  * Create or migrate table based on existence
  */
-export const createOrMigrateTableEffect = (
-  tx: BunSQLTransaction,
-  table: Table,
-  exists: boolean,
-  tableUsesView?: ReadonlyMap<string, boolean>
-): Effect.Effect<void, SQLExecutionError> =>
+export const createOrMigrateTableEffect = (params: {
+  readonly tx: BunSQLTransaction
+  readonly table: Table
+  readonly exists: boolean
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    const { tx, table, exists, tableUsesView, previousSchema } = params
     if (exists) {
       const existingColumns = yield* getExistingColumns(tx, table.name)
-      yield* migrateExistingTableEffect(tx, table, existingColumns, tableUsesView)
+      yield* migrateExistingTableEffect({
+        tx,
+        table,
+        existingColumns,
+        tableUsesView,
+        previousSchema,
+      })
     } else {
       yield* createNewTableEffect(tx, table, tableUsesView)
     }

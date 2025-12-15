@@ -29,7 +29,7 @@ test.describe('Migration Audit Trail', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-001: should record migration history with timestamp and checksum',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -54,13 +54,13 @@ test.describe('Migration Audit Trail', () => {
       const history = await executeQuery(
         `SELECT * FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
       )
-      expect(history).toHaveLength(1)
-      expect(history[0].checksum).toBeDefined()
-      expect(history[0].applied_at).toBeDefined()
+      expect(history.rows).toHaveLength(1)
+      expect(history.rows[0].checksum).toBeDefined()
+      expect(history.rows[0].applied_at).toBeDefined()
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-002: should store complete schema snapshot in migration history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -86,9 +86,9 @@ test.describe('Migration Audit Trail', () => {
       const history = await executeQuery(
         `SELECT schema FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
       )
-      expect(history).toHaveLength(1)
+      expect(history.rows).toHaveLength(1)
 
-      const schema = history[0].schema
+      const schema = history.rows[0].schema
       expect(schema.tables).toBeDefined()
       expect(schema.tables).toHaveLength(1)
       expect(schema.tables[0].name).toBe('products')
@@ -96,53 +96,69 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-003: should track incremental version numbers for each migration',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with existing migration history
-      await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
-          id SERIAL PRIMARY KEY,
-          version INTEGER NOT NULL,
-          checksum TEXT NOT NULL,
-          schema JSONB,
-          applied_at TIMESTAMP DEFAULT NOW()
-        )`,
-        `INSERT INTO _sovrium_migration_history (version, checksum, schema)
-         VALUES (1, 'checksum_v1', '{"tables":[]}')`,
-      ])
+      // Use setupQueries to pre-populate migration history before schema initialization
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'total', type: 'decimal' },
+              ],
+            },
+          ],
+        },
+        {
+          setupQueries: [
+            `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
+              id SERIAL PRIMARY KEY,
+              version INTEGER NOT NULL,
+              checksum TEXT NOT NULL,
+              schema JSONB,
+              applied_at TIMESTAMP DEFAULT NOW()
+            )`,
+            `INSERT INTO _sovrium_migration_history (version, checksum, schema)
+             VALUES (1, 'checksum_v1', '{"tables":[]}')`,
+          ],
+        }
+      )
 
-      // WHEN: New migration is applied
+      // THEN: Version number incremented (migration system automatically recorded version 2)
+      const versions = await executeQuery(
+        `SELECT version FROM _sovrium_migration_history ORDER BY version`
+      )
+      expect(versions.rows).toHaveLength(2)
+      expect(versions.rows[0].version).toBe(1)
+      expect(versions.rows[1].version).toBe(2)
+    }
+  )
+
+  test(
+    'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Initial valid schema to establish database connection
+      // First call to startServerWithSchema creates test database
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           {
             id: 1,
-            name: 'orders',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'total', type: 'decimal' },
-            ],
+            name: 'initial',
+            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
           },
         ],
       })
 
-      // THEN: Version number incremented
-      const versions = await executeQuery(
-        `SELECT version FROM _sovrium_migration_history ORDER BY version`
-      )
-      expect(versions).toHaveLength(2)
-      expect(versions[0].version).toBe(1)
-      expect(versions[1].version).toBe(2)
-    }
-  )
-
-  test.fixme(
-    'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Previous migration exists
+      // Create test table and ensure migration log table exists
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
           id SERIAL PRIMARY KEY,
@@ -184,10 +200,16 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Initialize test database
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: Multiple migrations in history
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
@@ -210,27 +232,34 @@ test.describe('Migration Audit Trail', () => {
       const allMigrations = await executeQuery(
         `SELECT * FROM _sovrium_migration_history ORDER BY version`
       )
-      expect(allMigrations).toHaveLength(3)
+      expect(allMigrations.rows).toHaveLength(3)
 
       // Query by date range
       const recentMigrations = await executeQuery(
         `SELECT * FROM _sovrium_migration_history WHERE applied_at >= '2025-01-02'`
       )
-      expect(recentMigrations).toHaveLength(2)
+      expect(recentMigrations.rows).toHaveLength(2)
 
       // Query specific version
       const v2Migration = await executeQuery(
         `SELECT * FROM _sovrium_migration_history WHERE version = 2`
       )
-      expect(v2Migration).toHaveLength(1)
-      expect(v2Migration[0].checksum).toBe('v2')
+      expect(v2Migration.rows).toHaveLength(1)
+      expect(v2Migration.rows[0].checksum).toBe('v2')
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Initial valid schema to establish database connection
+      // First call to startServerWithSchema creates test database
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: Recorded schema state and actual database state differ
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
@@ -239,9 +268,9 @@ test.describe('Migration Audit Trail', () => {
           schema JSONB NOT NULL
         )`,
         `INSERT INTO _sovrium_schema_checksum (id, checksum, schema)
-         VALUES ('singleton', 'recorded_checksum', '{"tables":[{"name":"users","fields":[{"name":"id"},{"name":"email"}]}]}')`,
+         VALUES ('singleton', 'recorded_checksum', '{"tables":[{"name":"customers","fields":[{"name":"id"},{"name":"email"}]}]}')`,
         // Actual database has different schema (manual modification)
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), extra_column TEXT)`,
+        `CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255), extra_column TEXT)`,
       ])
 
       // WHEN: Migration system checks for drift
@@ -249,18 +278,20 @@ test.describe('Migration Audit Trail', () => {
 
       // System should detect extra_column not in recorded schema
       const actualColumns = await executeQuery(
-        `SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position`
+        `SELECT column_name FROM information_schema.columns WHERE table_name='customers' ORDER BY ordinal_position`
       )
-      expect(actualColumns).toHaveLength(3)
+      expect(actualColumns.rows).toHaveLength(3)
 
       // Recorded schema only has 2 columns
       const recordedSchema = await executeQuery(
         `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
-      expect(recordedSchema[0].schema.tables[0].fields).toHaveLength(2)
+      expect(recordedSchema.rows[0].schema.tables[0].fields).toHaveLength(2)
 
       // Drift exists (3 actual vs 2 recorded)
-      expect(actualColumns.length).not.toBe(recordedSchema[0].schema.tables[0].fields.length)
+      expect(actualColumns.rows.length).not.toBe(
+        recordedSchema.rows[0].schema.tables[0].fields.length
+      )
     }
   )
 
@@ -268,7 +299,7 @@ test.describe('Migration Audit Trail', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-007: user can complete full migration audit workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -292,19 +323,19 @@ test.describe('Migration Audit Trail', () => {
         const initialHistory = await executeQuery(
           `SELECT * FROM _sovrium_migration_history ORDER BY version DESC LIMIT 1`
         )
-        expect(initialHistory).toHaveLength(1)
+        expect(initialHistory.rows).toHaveLength(1)
 
         // Schema snapshot stored
-        expect(initialHistory[0].schema).toBeDefined()
-        expect(initialHistory[0].schema.tables).toHaveLength(1)
+        expect(initialHistory.rows[0].schema).toBeDefined()
+        expect(initialHistory.rows[0].schema.tables).toHaveLength(1)
       })
 
       await test.step('Verify checksum stored', async () => {
         const checksum = await executeQuery(
           `SELECT * FROM _sovrium_schema_checksum WHERE id = 'singleton'`
         )
-        expect(checksum).toHaveLength(1)
-        expect(checksum[0].checksum).toBeDefined()
+        expect(checksum.rows).toHaveLength(1)
+        expect(checksum.rows[0].checksum).toBeDefined()
       })
     }
   )

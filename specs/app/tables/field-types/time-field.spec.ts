@@ -57,7 +57,7 @@ test.describe('Time Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-TIME-002: should store time values without date component',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -24,10 +24,11 @@ import type { Fields } from '@/domain/models/app/table/fields'
 export type BunSQLTransaction = TransactionLike
 
 /**
- * Better Auth system tables that should never be dropped
- * These tables are managed by Better Auth/Drizzle migrations, not by runtime schema
+ * System tables that should never be dropped
+ * These tables are managed by Better Auth/Drizzle migrations or migration system, not by runtime schema
  */
 const PROTECTED_SYSTEM_TABLES = new Set([
+  // Better Auth tables
   'users',
   'sessions',
   'accounts',
@@ -35,6 +36,10 @@ const PROTECTED_SYSTEM_TABLES = new Set([
   'organizations',
   'members',
   'invitations',
+  // Migration system tables
+  '_sovrium_migration_history',
+  '_sovrium_migration_log',
+  '_sovrium_schema_checksum',
 ])
 
 /**
@@ -66,14 +71,21 @@ export const dropObsoleteTables = (
 /**
  * Normalize PostgreSQL data type for comparison
  * Maps similar types to a canonical form (e.g., 'varchar' and 'character varying' both map to 'varchar')
+ * Strips length specifiers and precision for type matching
  */
 const normalizeDataType = (dataType: string): string => {
   const normalized = dataType.toLowerCase().trim()
+
   // Map 'character varying' to 'varchar' for easier comparison
   if (normalized.startsWith('character varying')) return 'varchar'
   if (normalized.startsWith('timestamp')) return 'timestamp'
   if (normalized.startsWith('numeric') || normalized.startsWith('decimal')) return 'numeric'
-  return normalized
+
+  // Strip length specifiers for varchar, char, etc.
+  // varchar(255) → varchar, char(10) → char, numeric(10,2) → numeric
+  const withoutLength = normalized.replace(/\([^)]*\)/, '')
+
+  return withoutLength
 }
 
 /**
@@ -98,58 +110,92 @@ const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): b
 }
 
 /**
- * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
+ * Detect field renames by comparing field IDs between previous and current schema
+ * Returns a map of old field name to new field name for renamed fields
  */
-export const generateAlterTableStatements = (
+export const detectFieldRenames = (
+  tableName: string,
+  currentFields: readonly Fields[number][],
+  previousSchema?: { readonly tables: readonly object[] }
+): ReadonlyMap<string, string> => {
+  if (!previousSchema) return new Map()
+
+  // Find previous table definition
+  const previousTable = previousSchema.tables.find(
+    (t: object) => 'name' in t && t.name === tableName
+  ) as { name: string; fields?: readonly { id?: number; name?: string }[] } | undefined
+
+  if (!previousTable || !previousTable.fields) return new Map()
+
+  // Build map of field ID to field name for both schemas
+  const previousFieldsById = new Map(
+    previousTable.fields
+      .filter((f) => f.id !== undefined && f.name !== undefined)
+      .map((f) => [f.id!, f.name!])
+  )
+
+  const currentFieldsById = new Map(
+    currentFields.filter((f) => f.id !== undefined).map((f) => [f.id, f.name])
+  )
+
+  // Detect renames: same ID, different name
+  const renames = new Map<string, string>()
+  currentFieldsById.forEach((newName, fieldId) => {
+    const oldName = previousFieldsById.get(fieldId)
+    if (oldName && oldName !== newName) {
+      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+      renames.set(oldName, newName)
+    }
+  })
+
+  return renames
+}
+
+/**
+ * Check if id column needs to be recreated due to type mismatch
+ */
+const needsIdColumnRecreation = (
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  shouldProtectIdColumn: boolean
+): boolean => {
+  if (!shouldProtectIdColumn) return false
+  if (!existingColumns.has('id')) return false
+
+  const idType = normalizeDataType(existingColumns.get('id')!.dataType)
+  return idType !== 'integer' && idType !== 'serial'
+}
+
+/**
+ * Find columns that should be added to the table
+ */
+const findColumnsToAdd = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
-): readonly string[] => {
-  const primaryKeyFields =
-    table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
-
-  // Check if an 'id' field already exists in the fields array
-  const hasIdField = table.fields.some((field) => field.name === 'id')
-
-  // Check if a custom primary key is defined
-  const hasCustomPrimaryKey = table.primaryKey && primaryKeyFields.length > 0
-
-  // Protect 'id' column if it's auto-generated (no custom PK and no explicit id field)
-  const shouldProtectIdColumn = !hasIdField && !hasCustomPrimaryKey
-
-  // Build sets for efficient lookups
-  const schemaFieldsByName = new Map(table.fields.map((field) => [field.name, field]))
-
-  // Check if auto-generated id column should exist and if it has wrong type
-  const needsAutoId = shouldProtectIdColumn
-  const hasIdColumn = existingColumns.has('id')
-  const idColumnHasWrongType =
-    hasIdColumn &&
-    needsAutoId &&
-    !(
-      normalizeDataType(existingColumns.get('id')!.dataType) === 'integer' ||
-      normalizeDataType(existingColumns.get('id')!.dataType) === 'serial'
-    )
-
-  // If id column has wrong type (e.g., TEXT from Better Auth), we need to recreate the table
-  // because you can't change a column from TEXT PRIMARY KEY to SERIAL PRIMARY KEY with ALTER
-  if (idColumnHasWrongType) {
-    // Return empty array - table will be dropped and recreated
-    return []
-  }
-
-  // Columns to add: not in database OR exist but have wrong type
-  // Filter out UI-only fields (like button) that don't need database columns
-  const columnsToAdd = table.fields.filter((field) => {
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  renamedNewNames: ReadonlySet<string>
+): readonly Fields[number][] =>
+  table.fields.filter((field) => {
     if (!shouldCreateDatabaseColumn(field)) return false // Skip UI-only fields
+    if (renamedNewNames.has(field.name)) return false // Skip renamed fields
     if (!existingColumns.has(field.name)) return true // New column
     const existing = existingColumns.get(field.name)!
     return !doesColumnTypeMatch(field, existing.dataType) // Type mismatch
   })
 
-  // Columns to drop: exist in database but not in schema OR have wrong type
-  const columnsToDrop = Array.from(existingColumns.keys()).filter((columnName) => {
+/**
+ * Find columns that should be dropped from the table
+ */
+const findColumnsToDrop = (
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  schemaFieldsByName: ReadonlyMap<string, Fields[number]>,
+  shouldProtectIdColumn: boolean,
+  renamedOldNames: ReadonlySet<string>
+): readonly string[] =>
+  Array.from(existingColumns.keys()).filter((columnName) => {
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
+
+    // Don't drop if it's being renamed
+    if (renamedOldNames.has(columnName)) return false
 
     // Drop if not in schema (but only if it's not a UI-only field)
     if (!schemaFieldsByName.has(columnName)) return true
@@ -164,20 +210,54 @@ export const generateAlterTableStatements = (
     return !doesColumnTypeMatch(field, existing.dataType)
   })
 
-  // Generate statements
+/**
+ * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
+ */
+export const generateAlterTableStatements = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  previousSchema?: { readonly tables: readonly object[] }
+): readonly string[] => {
+  const primaryKeyFields =
+    table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
+  const hasIdField = table.fields.some((field) => field.name === 'id')
+  const hasCustomPrimaryKey = table.primaryKey && primaryKeyFields.length > 0
+  const shouldProtectIdColumn = !hasIdField && !hasCustomPrimaryKey
+
+  // If id column has wrong type, return empty array - table will be dropped and recreated
+  if (needsIdColumnRecreation(existingColumns, shouldProtectIdColumn)) return []
+
+  // Detect field renames via ID tracking
+  const fieldRenames = detectFieldRenames(table.name, table.fields, previousSchema)
+  const renameStatements = Array.from(fieldRenames.entries()).map(
+    ([oldName, newName]) => `ALTER TABLE ${table.name} RENAME COLUMN ${oldName} TO ${newName}`
+  )
+
+  // Build sets for efficient lookups
+  const renamedOldNames = new Set(fieldRenames.keys())
+  const renamedNewNames = new Set(fieldRenames.values())
+  const schemaFieldsByName = new Map(table.fields.map((field) => [field.name, field]))
+
+  // Find columns to add/drop
+  const columnsToAdd = findColumnsToAdd(table, existingColumns, renamedNewNames)
+  const columnsToDrop = findColumnsToDrop(
+    existingColumns,
+    schemaFieldsByName,
+    shouldProtectIdColumn,
+    renamedOldNames
+  )
+
+  // Generate ALTER TABLE statements
   const dropStatements = columnsToDrop.map(
     (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName} CASCADE`
   )
-
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
     const columnDef = generateColumnDefinition(field, isPrimaryKey, table.fields)
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  // Return DROP statements first, then ADD statements
-  // This ensures columns are dropped before adding new ones with correct types
-  return [...dropStatements, ...addStatements]
+  return [...renameStatements, ...dropStatements, ...addStatements]
 }
 
 /**
@@ -240,6 +320,9 @@ export const syncUniqueConstraints = (
  * Sync foreign key constraints for existing table
  * Drops and recreates FK constraints to ensure referential actions (ON DELETE, ON UPDATE) are up-to-date
  * This is needed when table schema is updated with new referential actions
+ *
+ * NOTE: After RENAME COLUMN, PostgreSQL preserves FK constraints but doesn't rename them.
+ * We need to drop old constraints by column name, not just by expected constraint name.
  */
 export const syncForeignKeyConstraints = (
   tx: TransactionLike,
@@ -254,25 +337,32 @@ export const syncForeignKeyConstraints = (
 
     // Build drop and add statements for each FK constraint
     const statements = fkConstraints.flatMap((constraint) => {
-      // Extract constraint name from the constraint SQL
-      // Format: "CONSTRAINT {constraintName} FOREIGN KEY ..."
-      const match = constraint.match(/CONSTRAINT\s+(\w+)\s+FOREIGN KEY/)
+      // Extract column name from the constraint SQL
+      // Format: "CONSTRAINT {constraintName} FOREIGN KEY ({columnName}) REFERENCES ..."
+      const match = constraint.match(/CONSTRAINT\s+\w+\s+FOREIGN KEY\s+\((\w+)\)/)
       if (!match) return []
 
-      const constraintName = match[1]
+      const columnName = match[1]
 
-      // Drop existing constraint if it exists
+      // Drop ALL existing FK constraints on this column (handles renamed columns)
+      // PostgreSQL doesn't rename constraints when column is renamed, so we need to drop by column
       const dropStatement = `
         DO $$
+        DECLARE
+          constraint_rec RECORD;
         BEGIN
-          IF EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
-            WHERE table_name = '${table.name}'
-              AND constraint_type = 'FOREIGN KEY'
-              AND constraint_name = '${constraintName}'
-          ) THEN
-            ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
-          END IF;
+          FOR constraint_rec IN
+            SELECT tc.constraint_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            WHERE tc.table_name = '${table.name}'
+              AND tc.constraint_type = 'FOREIGN KEY'
+              AND kcu.column_name = '${columnName}'
+          LOOP
+            EXECUTE 'ALTER TABLE ${table.name} DROP CONSTRAINT ' || constraint_rec.constraint_name;
+          END LOOP;
         END$$;
       `
 
@@ -284,4 +374,56 @@ export const syncForeignKeyConstraints = (
 
     // Execute all FK constraint statements sequentially
     yield* executeSQLStatements(tx, statements)
+  })
+
+/**
+ * Sync CHECK constraints for existing table
+ * Adds CHECK constraints for fields with validation requirements (enum values, ranges, formats, etc.)
+ * This is needed when fields are added via ALTER TABLE and need their CHECK constraints
+ */
+export const syncCheckConstraints = (
+  tx: TransactionLike,
+  table: Table
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { generateTableConstraints } = yield* Effect.promise(() => import('./sql-generators'))
+    const allConstraints = generateTableConstraints(table, undefined)
+
+    // Filter only CHECK constraints (not UNIQUE, FK, or PRIMARY KEY)
+    const checkConstraints = allConstraints.filter(
+      (constraint) =>
+        constraint.startsWith('CONSTRAINT') &&
+        constraint.includes('CHECK') &&
+        !constraint.includes('UNIQUE') &&
+        !constraint.includes('FOREIGN KEY') &&
+        !constraint.includes('PRIMARY KEY')
+    )
+
+    // Build statements to add CHECK constraints if they don't exist
+    const statements = checkConstraints.map((constraint) => {
+      // Extract constraint name from the constraint SQL
+      // Format: "CONSTRAINT {constraintName} CHECK ..."
+      const match = constraint.match(/CONSTRAINT\s+(\w+)\s+CHECK/)
+      if (!match) return ''
+
+      const constraintName = match[1]
+
+      return `
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE table_name = '${table.name}'
+              AND constraint_type = 'CHECK'
+              AND constraint_name = '${constraintName}'
+          ) THEN
+            ALTER TABLE ${table.name} ADD ${constraint};
+          END IF;
+        END$$;
+      `
+    })
+
+    // Filter out empty statements and execute
+    const validStatements = statements.filter((stmt) => stmt !== '')
+    yield* executeSQLStatements(tx, validStatements)
   })

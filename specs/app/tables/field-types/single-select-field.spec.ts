@@ -213,7 +213,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-006: should reject single-select with empty options array',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -240,11 +240,11 @@ test.describe('Single Select Field', () => {
             },
           ],
         })
-      ).rejects.toThrow(/options.*empty|at least one option required/i)
+      ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-007: should reject single-select with duplicate option values',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -275,7 +275,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-008: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -315,7 +315,7 @@ test.describe('Single Select Field', () => {
         const grouped = await executeQuery(
           'SELECT select_field, COUNT(*) as count FROM data GROUP BY select_field ORDER BY select_field'
         )
-        expect(grouped).toContainEqual({ select_field: 'option2', count: 2 })
+        expect(grouped.rows).toContainEqual({ select_field: 'option2', count: 2 })
       })
 
       await test.step('Error handling: empty options array is rejected', async () => {

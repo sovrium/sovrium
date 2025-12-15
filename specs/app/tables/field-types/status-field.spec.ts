@@ -313,7 +313,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-007: should reject status field with duplicate option values',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -346,7 +346,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-008: should reject status field with invalid hex color format',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -377,7 +377,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-009: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -423,8 +423,8 @@ test.describe('Status Field', () => {
         const statusCounts = await executeQuery(
           'SELECT status, COUNT(*) as count FROM data GROUP BY status ORDER BY status'
         )
-        expect(statusCounts).toContainEqual({ status: 'Draft', count: 1 })
-        expect(statusCounts).toContainEqual({ status: 'Published', count: 1 })
+        expect(statusCounts.rows).toContainEqual({ status: 'Draft', count: 1 })
+        expect(statusCounts.rows).toContainEqual({ status: 'Published', count: 1 })
       })
 
       await test.step('Error handling: empty options array is rejected', async () => {
