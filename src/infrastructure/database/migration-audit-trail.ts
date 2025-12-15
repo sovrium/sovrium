@@ -13,11 +13,20 @@ import { escapeSqlString } from './sql-utils'
 import type { App } from '@/domain/models/app'
 
 /**
+ * Create schema snapshot object from app configuration
+ * Extracts tables array for consistent serialization
+ */
+const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } => ({
+  tables: app.tables ?? [],
+})
+
+/**
  * Generate checksum for the current schema state
  * Uses SHA-256 hash of the JSON-serialized schema
  */
 export const generateSchemaChecksum = (app: App): string => {
-  const schemaJson = JSON.stringify(app.tables ?? [], undefined, 2)
+  const schemaSnapshot = createSchemaSnapshot(app)
+  const schemaJson = JSON.stringify(schemaSnapshot.tables, undefined, 2)
   return createHash('sha256').update(schemaJson).digest('hex')
 }
 
@@ -54,9 +63,7 @@ export const recordMigration = (
   Effect.gen(function* () {
     logInfo('[recordMigration] Recording migration in history table...')
     const checksum = generateSchemaChecksum(app)
-    const schemaSnapshot = {
-      tables: app.tables ?? [],
-    }
+    const schemaSnapshot = createSchemaSnapshot(app)
 
     // Get the next version number
     const versionQuery = `
@@ -158,9 +165,7 @@ export const storeSchemaChecksum = (
   Effect.gen(function* () {
     logInfo('[storeSchemaChecksum] Storing schema checksum...')
     const checksum = generateSchemaChecksum(app)
-    const schemaSnapshot = {
-      tables: app.tables ?? [],
-    }
+    const schemaSnapshot = createSchemaSnapshot(app)
 
     // Use INSERT ... ON CONFLICT to update existing singleton row or create new one
     const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
