@@ -282,11 +282,11 @@ export const getAllExistingSpecs = Effect.gen(function* () {
           state: string
           created_at: string
         }>,
-      catch: (error) => error,
+      catch: () => null,
     })
 
-    if (!Array.isArray(parseResult)) {
-      yield* logError(`Failed to parse page ${page}: ${parseResult}`)
+    if (parseResult === null || !Array.isArray(parseResult)) {
+      yield* logError(`Failed to parse page ${page}`)
       hasMorePages = false
       break
     }
