@@ -223,7 +223,7 @@ test.describe('Add Field Migration', () => {
   // Soft Delete Migration Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-005: should add deleted_at TIMESTAMP NULL column with index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
