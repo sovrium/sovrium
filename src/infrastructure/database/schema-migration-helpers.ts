@@ -13,7 +13,11 @@ import {
   type TransactionLike,
   type SQLExecutionError,
 } from './sql-execution'
-import { mapFieldTypeToPostgres, generateColumnDefinition } from './sql-generators'
+import {
+  mapFieldTypeToPostgres,
+  generateColumnDefinition,
+  isFieldNotNull,
+} from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -209,20 +213,6 @@ const findColumnsToDrop = (
     const existing = existingColumns.get(columnName)!
     return !doesColumnTypeMatch(field, existing.dataType)
   })
-
-/**
- * Check if field should be NOT NULL
- * Auto-managed fields (created-at, updated-at, created-by, updated-by) and required fields are NOT NULL
- */
-const isFieldNotNull = (field: Fields[number], isPrimaryKey: boolean): boolean => {
-  // Auto-managed fields are always NOT NULL
-  if (field.type === 'created-at' || field.type === 'updated-at') return true
-  if (field.type === 'created-by' || field.type === 'updated-by') return true
-  // Primary key fields are always NOT NULL
-  if (isPrimaryKey) return true
-  // Check required property
-  return 'required' in field && field.required === true
-}
 
 /**
  * Find columns that need nullability changes
