@@ -257,11 +257,6 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  // Return RENAME statements first (preserve existing data), then DROP, then ADD
-  // This ensures:
-  // 1. Renamed columns preserve data and constraints
-  // 2. Old columns are dropped before adding new ones
-  // 3. New columns are added with correct types
   return [...renameStatements, ...dropStatements, ...addStatements]
 }
 
