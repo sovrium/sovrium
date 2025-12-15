@@ -115,7 +115,7 @@ test.describe('Checksum Optimization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-CHECKSUM-003: should execute full migration and save new checksum when table schema modified',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
