@@ -12,6 +12,14 @@ import { executeSQL, type TransactionLike, type SQLExecutionError } from './sql-
 import { escapeSqlString } from './sql-utils'
 import type { App } from '@/domain/models/app'
 
+// Type imports from Drizzle schema for documentation
+// These tables are created by Drizzle migrations (drizzle/0006_*.sql)
+export type {
+  SovriumMigrationHistory,
+  SovriumMigrationLog,
+  SovriumSchemaChecksum,
+} from './drizzle/schema'
+
 /**
  * Create schema snapshot object from app configuration
  * Extracts tables array for consistent serialization
@@ -31,25 +39,19 @@ export const generateSchemaChecksum = (app: App): string => {
 }
 
 /**
- * Create the _sovrium_migration_history table if it doesn't exist
- * This table tracks all schema migrations with timestamps and checksums
+ * Ensure the _sovrium_migration_history table exists
+ *
+ * NOTE: This table is now created by Drizzle migrations (drizzle/0006_*.sql).
+ * This function is kept for backward compatibility but is effectively a no-op.
+ * The Drizzle migration runs before schema initialization.
  */
 export const ensureMigrationHistoryTable = (
-  tx: TransactionLike
+  _tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logInfo('[ensureMigrationHistoryTable] Creating migration history table...')
-    const createTableSQL = `
-      CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
-        id SERIAL PRIMARY KEY,
-        version INTEGER NOT NULL,
-        checksum TEXT NOT NULL,
-        schema JSONB,
-        applied_at TIMESTAMP DEFAULT NOW()
-      )
-    `
-    yield* executeSQL(tx, createTableSQL)
-    logInfo('[ensureMigrationHistoryTable] Migration history table created')
+    // Table is created by Drizzle migration - this is now a no-op
+    logInfo('[ensureMigrationHistoryTable] Migration history table ready (created by Drizzle)')
+    yield* Effect.void
   })
 
 /**
@@ -91,27 +93,19 @@ export const recordMigration = (
   })
 
 /**
- * Create the _sovrium_migration_log table if it doesn't exist
- * This table tracks migration operations (including rollbacks) with status and reason
+ * Ensure the _sovrium_migration_log table exists
+ *
+ * NOTE: This table is now created by Drizzle migrations (drizzle/0006_*.sql).
+ * This function is kept for backward compatibility but is effectively a no-op.
+ * The Drizzle migration runs before schema initialization.
  */
 export const ensureMigrationLogTable = (
-  tx: TransactionLike
+  _tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logInfo('[ensureMigrationLogTable] Creating migration log table...')
-    const createTableSQL = `
-      CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
-        id SERIAL PRIMARY KEY,
-        operation TEXT NOT NULL,
-        from_version INTEGER,
-        to_version INTEGER,
-        reason TEXT,
-        status TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `
-    yield* executeSQL(tx, createTableSQL)
-    logInfo('[ensureMigrationLogTable] Migration log table created')
+    // Table is created by Drizzle migration - this is now a no-op
+    logInfo('[ensureMigrationLogTable] Migration log table ready (created by Drizzle)')
+    yield* Effect.void
   })
 
 /**
@@ -135,23 +129,19 @@ export const logRollbackOperation = (
   })
 
 /**
- * Create the _sovrium_schema_checksum table if it doesn't exist
- * This table stores the current schema checksum as a singleton row
+ * Ensure the _sovrium_schema_checksum table exists
+ *
+ * NOTE: This table is now created by Drizzle migrations (drizzle/0006_*.sql).
+ * This function is kept for backward compatibility but is effectively a no-op.
+ * The Drizzle migration runs before schema initialization.
  */
 export const ensureSchemaChecksumTable = (
-  tx: TransactionLike
+  _tx: TransactionLike
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    logInfo('[ensureSchemaChecksumTable] Creating schema checksum table...')
-    const createTableSQL = `
-      CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
-        id TEXT PRIMARY KEY,
-        checksum TEXT NOT NULL,
-        schema JSONB NOT NULL
-      )
-    `
-    yield* executeSQL(tx, createTableSQL)
-    logInfo('[ensureSchemaChecksumTable] Schema checksum table created')
+    // Table is created by Drizzle migration - this is now a no-op
+    logInfo('[ensureSchemaChecksumTable] Schema checksum table ready (created by Drizzle)')
+    yield* Effect.void
   })
 
 /**
@@ -189,22 +179,8 @@ export const getPreviousSchema = (
   Effect.gen(function* () {
     logInfo('[getPreviousSchema] Retrieving previous schema...')
 
-    // Check if schema checksum table exists
-    const tableExistsQuery = `
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_name = '_sovrium_schema_checksum'
-      ) as exists
-    `
-    const tableExistsResult = yield* executeSQL(tx, tableExistsQuery)
-    const exists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists ?? false
-
-    if (!exists) {
-      logInfo('[getPreviousSchema] Schema checksum table does not exist')
-      return undefined
-    }
-
     // Retrieve previous schema from singleton row
+    // Table is guaranteed to exist after Drizzle migrations
     const selectSQL = `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 

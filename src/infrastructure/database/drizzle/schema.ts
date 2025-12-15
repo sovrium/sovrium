@@ -6,3 +6,4 @@
  */
 
 export * from '../../auth/better-auth/schema'
+export * from './schema/migration-audit'
