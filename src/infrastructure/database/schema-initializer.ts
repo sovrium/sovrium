@@ -21,8 +21,10 @@ import { isManyToManyRelationship } from './field-utils'
 import {
   ensureMigrationHistoryTable,
   ensureMigrationLogTable,
+  ensureSchemaChecksumTable,
   logRollbackOperation,
   recordMigration,
+  storeSchemaChecksum,
 } from './migration-audit-trail'
 import { dropObsoleteTables } from './schema-migration-helpers'
 import { tableExists, executeSQL } from './sql-execution'
@@ -293,6 +295,11 @@ const executeSchemaInit = (
                   // Ensure migration history table exists before recording
                   yield* ensureMigrationHistoryTable(tx)
                   yield* recordMigration(tx, app)
+
+                  // Step 8: Store schema checksum
+                  // Ensure schema checksum table exists before storing
+                  yield* ensureSchemaChecksumTable(tx)
+                  yield* storeSchemaChecksum(tx, app)
                 }).pipe(
                   Effect.catchAll((error) =>
                     Effect.gen(function* () {

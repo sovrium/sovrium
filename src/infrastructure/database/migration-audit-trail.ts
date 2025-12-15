@@ -13,11 +13,20 @@ import { escapeSqlString } from './sql-utils'
 import type { App } from '@/domain/models/app'
 
 /**
+ * Create schema snapshot object from app configuration
+ * Extracts tables array for consistent serialization
+ */
+const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } => ({
+  tables: app.tables ?? [],
+})
+
+/**
  * Generate checksum for the current schema state
  * Uses SHA-256 hash of the JSON-serialized schema
  */
 export const generateSchemaChecksum = (app: App): string => {
-  const schemaJson = JSON.stringify(app.tables ?? [], undefined, 2)
+  const schemaSnapshot = createSchemaSnapshot(app)
+  const schemaJson = JSON.stringify(schemaSnapshot.tables, undefined, 2)
   return createHash('sha256').update(schemaJson).digest('hex')
 }
 
@@ -54,9 +63,7 @@ export const recordMigration = (
   Effect.gen(function* () {
     logInfo('[recordMigration] Recording migration in history table...')
     const checksum = generateSchemaChecksum(app)
-    const schemaSnapshot = {
-      tables: app.tables ?? [],
-    }
+    const schemaSnapshot = createSchemaSnapshot(app)
 
     // Get the next version number
     const versionQuery = `
@@ -125,4 +132,49 @@ export const logRollbackOperation = (
     `
     yield* executeSQL(tx, insertSQL)
     logInfo('[logRollbackOperation] Rollback operation logged')
+  })
+
+/**
+ * Create the _sovrium_schema_checksum table if it doesn't exist
+ * This table stores the current schema checksum as a singleton row
+ */
+export const ensureSchemaChecksumTable = (
+  tx: TransactionLike
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    logInfo('[ensureSchemaChecksumTable] Creating schema checksum table...')
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
+        id TEXT PRIMARY KEY,
+        checksum TEXT NOT NULL,
+        schema JSONB NOT NULL
+      )
+    `
+    yield* executeSQL(tx, createTableSQL)
+    logInfo('[ensureSchemaChecksumTable] Schema checksum table created')
+  })
+
+/**
+ * Store the schema checksum in the _sovrium_schema_checksum table
+ * Uses a singleton row with id='singleton' to store the current checksum
+ */
+export const storeSchemaChecksum = (
+  tx: TransactionLike,
+  app: App
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    logInfo('[storeSchemaChecksum] Storing schema checksum...')
+    const checksum = generateSchemaChecksum(app)
+    const schemaSnapshot = createSchemaSnapshot(app)
+
+    // Use INSERT ... ON CONFLICT to update existing singleton row or create new one
+    const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
+    const upsertSQL = `
+      INSERT INTO _sovrium_schema_checksum (id, checksum, schema)
+      VALUES ('singleton', '${checksum}', '${escapedSchema}')
+      ON CONFLICT (id)
+      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema
+    `
+    yield* executeSQL(tx, upsertSQL)
+    logInfo('[storeSchemaChecksum] Schema checksum stored successfully')
   })
