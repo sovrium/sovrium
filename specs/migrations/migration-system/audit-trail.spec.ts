@@ -195,7 +195,7 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
