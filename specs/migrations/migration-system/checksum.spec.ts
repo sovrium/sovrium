@@ -24,7 +24,7 @@ test.describe('Checksum Optimization', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-CHECKSUM-001: should save SHA-256 checksum to _sovrium_schema_checksum table when runtime migration executes for first time',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
