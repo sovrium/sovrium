@@ -67,7 +67,7 @@ test.describe('Checksum Optimization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-CHECKSUM-002: should skip migration and complete startup in <100ms when table schema unchanged from previous run',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -23,6 +23,7 @@ import {
   logRollbackOperation,
   recordMigration,
   storeSchemaChecksum,
+  generateSchemaChecksum,
 } from './migration-audit-trail'
 import { dropObsoleteTables } from './schema-migration-helpers'
 import { tableExists, executeSQL } from './sql-execution'
@@ -368,6 +369,45 @@ const executeSchemaInit = (
 /* eslint-enable max-lines-per-function */
 
 /**
+ * Check if schema checksum matches saved checksum (fast path optimization)
+ * Returns true if migration should be skipped, false otherwise
+ */
+const checkShouldSkipMigration = (
+  databaseUrl: string,
+  currentChecksum: string
+): Effect.Effect<boolean, SchemaInitializationError> =>
+  Effect.tryPromise({
+    try: async () => {
+      const quickDb = new SQL(databaseUrl)
+      try {
+        // Quick read-only query to check checksum (no transaction needed)
+        const result = (await quickDb.unsafe(
+          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )) as readonly { checksum: string }[]
+
+        if (result.length > 0 && result[0]?.checksum === currentChecksum) {
+          logInfo('[checkShouldSkipMigration] Schema checksum matches - skipping migration (fast path)')
+          return true
+        }
+        logInfo('[checkShouldSkipMigration] Schema checksum differs or missing - running full migration')
+        return false
+      } catch {
+        // Table might not exist yet (first run) - proceed with full migration
+        logInfo('[checkShouldSkipMigration] Checksum table not found - running full migration')
+        return false
+      } finally {
+        /* eslint-disable-next-line functional/no-expression-statements */
+        await quickDb.close()
+      }
+    },
+    catch: () =>
+      new SchemaInitializationError({
+        message: 'Failed to check schema checksum',
+        cause: undefined,
+      }),
+  }).pipe(Effect.catchAll(() => Effect.succeed(false))) // Non-fatal - if check fails, proceed with full migration
+
+/**
  * Error type union for schema initialization
  */
 export type SchemaError =
@@ -426,6 +466,16 @@ const initializeSchemaInternal = (
     }
 
     yield* Console.log('Initializing database schema...')
+
+    // Fast path: Check if schema checksum matches (before opening transaction)
+    const currentChecksum = generateSchemaChecksum(app)
+    const shouldSkipMigration = yield* checkShouldSkipMigration(databaseUrlConfig, currentChecksum)
+
+    // Skip migration if checksum matches
+    if (shouldSkipMigration) {
+      yield* Console.log('✓ Schema unchanged, skipping migration')
+      return
+    }
 
     // Execute schema initialization with bun:sql (even if tables is empty - to drop obsolete tables)
     yield* executeSchemaInit(databaseUrlConfig, tables, app)

@@ -145,3 +145,42 @@ export const getPreviousSchema = (
     logInfo('[getPreviousSchema] Previous schema retrieved successfully')
     return schemaData
   })
+
+/**
+ * Retrieve the stored checksum from the _sovrium_schema_checksum table
+ * Returns undefined if no previous checksum exists (first migration)
+ */
+export const getStoredChecksum = (
+  tx: TransactionLike
+): Effect.Effect<string | undefined, SQLExecutionError> =>
+  Effect.gen(function* () {
+    logInfo('[getStoredChecksum] Retrieving stored checksum...')
+
+    // Check if the checksum table exists first
+    const tableExistsSQL = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = '_sovrium_schema_checksum'
+      ) as exists
+    `
+    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
+    const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
+
+    if (!tableExists) {
+      logInfo('[getStoredChecksum] Checksum table does not exist')
+      return undefined
+    }
+
+    // Retrieve checksum from singleton row
+    const selectSQL = `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+    const result = yield* executeSQL(tx, selectSQL)
+
+    if (!result || result.length === 0) {
+      logInfo('[getStoredChecksum] No stored checksum found')
+      return undefined
+    }
+
+    const storedChecksum = (result[0] as { checksum: string } | undefined)?.checksum
+    logInfo(`[getStoredChecksum] Retrieved checksum: ${storedChecksum}`)
+    return storedChecksum
+  })
