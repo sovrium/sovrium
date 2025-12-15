@@ -22,6 +22,7 @@ import {
   ensureMigrationHistoryTable,
   ensureMigrationLogTable,
   ensureSchemaChecksumTable,
+  getPreviousSchema,
   logRollbackOperation,
   recordMigration,
   storeSchemaChecksum,
@@ -203,6 +204,9 @@ const executeSchemaInit = (
                     yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
                   }
 
+                  // Step 0.2: Load previous schema for field rename detection
+                  const previousSchema = yield* getPreviousSchema(tx)
+
                   // Step 1: Drop tables that exist in database but not in schema
                   yield* dropObsoleteTables(tx, tables)
 
@@ -231,7 +235,7 @@ const executeSchemaInit = (
                       : table.name
                     const exists = yield* tableExists(tx, physicalTableName)
                     logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
-                    yield* createOrMigrateTableEffect(tx, table, exists, tableUsesView)
+                    yield* createOrMigrateTableEffect(tx, table, exists, tableUsesView, previousSchema)
                     logInfo(`[Created/migrated table] ${table.name}`)
                   }
                   /* eslint-enable functional/no-loop-statements */

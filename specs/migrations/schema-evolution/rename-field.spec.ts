@@ -24,11 +24,11 @@ test.describe('Rename Field Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-RENAME-001: should generate RENAME COLUMN instead of DROP+ADD when runtime migration detects rename via field ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'users' with field id=1 name='email', field name changed to 'email_address' (same id)
+      // GIVEN: table 'users' with field id=2 name='email', field name changed to 'email_address' (same id)
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
         `INSERT INTO users (email) VALUES ('user@example.com')`,
@@ -44,7 +44,7 @@ test.describe('Rename Field Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               {
-                id: 1,
+                id: 2,
                 name: 'email_address',
                 type: 'email',
               },

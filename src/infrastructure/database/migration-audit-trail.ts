@@ -178,3 +178,42 @@ export const storeSchemaChecksum = (
     yield* executeSQL(tx, upsertSQL)
     logInfo('[storeSchemaChecksum] Schema checksum stored successfully')
   })
+
+/**
+ * Retrieve the previous schema from the _sovrium_schema_checksum table
+ * Returns undefined if no previous schema exists (first migration)
+ */
+export const getPreviousSchema = (
+  tx: TransactionLike
+): Effect.Effect<{ readonly tables: readonly object[] } | undefined, SQLExecutionError> =>
+  Effect.gen(function* () {
+    logInfo('[getPreviousSchema] Retrieving previous schema...')
+
+    // Check if schema checksum table exists
+    const tableExistsQuery = `
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = '_sovrium_schema_checksum'
+      ) as exists
+    `
+    const tableExistsResult = yield* executeSQL(tx, tableExistsQuery)
+    const exists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists ?? false
+
+    if (!exists) {
+      logInfo('[getPreviousSchema] Schema checksum table does not exist')
+      return undefined
+    }
+
+    // Retrieve previous schema from singleton row
+    const selectSQL = `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+    const result = yield* executeSQL(tx, selectSQL)
+
+    if (!result || result.length === 0) {
+      logInfo('[getPreviousSchema] No previous schema found')
+      return undefined
+    }
+
+    const schemaData = (result[0] as { schema: { tables: readonly object[] } } | undefined)?.schema
+    logInfo('[getPreviousSchema] Previous schema retrieved successfully')
+    return schemaData
+  })
