@@ -235,7 +235,13 @@ const executeSchemaInit = (
                       : table.name
                     const exists = yield* tableExists(tx, physicalTableName)
                     logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
-                    yield* createOrMigrateTableEffect(tx, table, exists, tableUsesView, previousSchema)
+                    yield* createOrMigrateTableEffect({
+                      tx,
+                      table,
+                      exists,
+                      tableUsesView,
+                      previousSchema,
+                    })
                     logInfo(`[Created/migrated table] ${table.name}`)
                   }
                   /* eslint-enable functional/no-loop-statements */
