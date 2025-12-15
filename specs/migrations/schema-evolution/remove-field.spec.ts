@@ -116,31 +116,34 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-003: should automatically drop associated index when ALTER TABLE drops column with index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with indexed field, indexed field is removed
-      await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50))`,
-        `CREATE INDEX idx_tasks_status ON tasks(status)`,
-        `INSERT INTO tasks (title, status) VALUES ('Task 1', 'open')`,
-      ])
-
       // WHEN: ALTER TABLE drops column with index
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 3,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+            },
+          ],
+        },
+        {
+          setupQueries: [
+            `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50))`,
+            `CREATE INDEX idx_tasks_status ON tasks(status)`,
+            `INSERT INTO tasks (title, status) VALUES ('Task 1', 'open')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL automatically drops associated index
 

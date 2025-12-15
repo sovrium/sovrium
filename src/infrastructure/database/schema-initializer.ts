@@ -235,7 +235,10 @@ const executeSchemaInit = (
                       : table.name
                     const exists = yield* tableExists(tx, physicalTableName)
                     logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
-                    yield* createOrMigrateTableEffect(tx, table, exists, {
+                    yield* createOrMigrateTableEffect({
+                      tx,
+                      table,
+                      exists,
                       tableUsesView,
                       previousSchema,
                     })

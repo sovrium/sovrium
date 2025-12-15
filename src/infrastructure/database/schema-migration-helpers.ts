@@ -152,63 +152,66 @@ export const detectFieldRenames = (
 }
 
 /**
- * Check if auto-generated id column has wrong type (requires table recreation)
+ * Check if id column needs to be recreated due to type mismatch
  */
-const checkIdColumnType = (
+const needsIdColumnRecreation = (
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
   shouldProtectIdColumn: boolean
 ): boolean => {
-  const needsAutoId = shouldProtectIdColumn
-  const hasIdColumn = existingColumns.has('id')
-  return (
-    hasIdColumn &&
-    needsAutoId &&
-    !(
-      normalizeDataType(existingColumns.get('id')!.dataType) === 'integer' ||
-      normalizeDataType(existingColumns.get('id')!.dataType) === 'serial'
-    )
-  )
+  if (!shouldProtectIdColumn) return false
+  if (!existingColumns.has('id')) return false
+
+  const idType = normalizeDataType(existingColumns.get('id')!.dataType)
+  return idType !== 'integer' && idType !== 'serial'
 }
 
 /**
- * Determine which columns to add (new columns or type mismatches)
+ * Find columns that should be added to the table
  */
-const getColumnsToAdd = (
+const findColumnsToAdd = (
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
   renamedNewNames: ReadonlySet<string>
 ): readonly Fields[number][] =>
   table.fields.filter((field) => {
-    if (!shouldCreateDatabaseColumn(field)) return false
-    if (renamedNewNames.has(field.name)) return false
-    if (!existingColumns.has(field.name)) return true
+    if (!shouldCreateDatabaseColumn(field)) return false // Skip UI-only fields
+    if (renamedNewNames.has(field.name)) return false // Skip renamed fields
+    if (!existingColumns.has(field.name)) return true // New column
     const existing = existingColumns.get(field.name)!
-    return !doesColumnTypeMatch(field, existing.dataType)
+    return !doesColumnTypeMatch(field, existing.dataType) // Type mismatch
   })
 
 /**
- * Determine which columns to drop (removed from schema or type mismatches)
+ * Find columns that should be dropped from the table
  */
-const getColumnsToDrop = (
+const findColumnsToDrop = (
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
   schemaFieldsByName: ReadonlyMap<string, Fields[number]>,
   shouldProtectIdColumn: boolean,
   renamedOldNames: ReadonlySet<string>
 ): readonly string[] =>
   Array.from(existingColumns.keys()).filter((columnName) => {
+    // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
+
+    // Don't drop if it's being renamed
     if (renamedOldNames.has(columnName)) return false
+
+    // Drop if not in schema (but only if it's not a UI-only field)
     if (!schemaFieldsByName.has(columnName)) return true
 
     const field = schemaFieldsByName.get(columnName)!
+
+    // If this is a UI-only field that shouldn't have a column, drop it
     if (!shouldCreateDatabaseColumn(field)) return true
 
+    // Drop if type doesn't match (will be recreated with correct type)
     const existing = existingColumns.get(columnName)!
     return !doesColumnTypeMatch(field, existing.dataType)
   })
 
 /**
- * Generate ALTER TABLE statements for schema changes (ADD/DROP/RENAME columns)
+ * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
  */
 export const generateAlterTableStatements = (
   table: Table,
@@ -220,32 +223,31 @@ export const generateAlterTableStatements = (
   const hasIdField = table.fields.some((field) => field.name === 'id')
   const hasCustomPrimaryKey = table.primaryKey && primaryKeyFields.length > 0
   const shouldProtectIdColumn = !hasIdField && !hasCustomPrimaryKey
-  const schemaFieldsByName = new Map(table.fields.map((field) => [field.name, field]))
 
-  // Check for id column type mismatch (requires table recreation)
-  if (checkIdColumnType(existingColumns, shouldProtectIdColumn)) {
-    return []
-  }
+  // If id column has wrong type, return empty array - table will be dropped and recreated
+  if (needsIdColumnRecreation(existingColumns, shouldProtectIdColumn)) return []
 
-  // Detect field renames and generate RENAME statements
+  // Detect field renames via ID tracking
   const fieldRenames = detectFieldRenames(table.name, table.fields, previousSchema)
   const renameStatements = Array.from(fieldRenames.entries()).map(
     ([oldName, newName]) => `ALTER TABLE ${table.name} RENAME COLUMN ${oldName} TO ${newName}`
   )
 
+  // Build sets for efficient lookups
   const renamedOldNames = new Set(fieldRenames.keys())
   const renamedNewNames = new Set(fieldRenames.values())
+  const schemaFieldsByName = new Map(table.fields.map((field) => [field.name, field]))
 
-  // Determine columns to add and drop
-  const columnsToAdd = getColumnsToAdd(table, existingColumns, renamedNewNames)
-  const columnsToDrop = getColumnsToDrop(
+  // Find columns to add/drop
+  const columnsToAdd = findColumnsToAdd(table, existingColumns, renamedNewNames)
+  const columnsToDrop = findColumnsToDrop(
     existingColumns,
     schemaFieldsByName,
     shouldProtectIdColumn,
     renamedOldNames
   )
 
-  // Generate DROP and ADD statements
+  // Generate ALTER TABLE statements
   const dropStatements = columnsToDrop.map(
     (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName} CASCADE`
   )

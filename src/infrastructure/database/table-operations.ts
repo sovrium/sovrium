@@ -340,9 +340,9 @@ const recreateTableWithDataEffect = (
   })
 
 /**
- * Parameters for table migration operations
+ * Configuration for table migration operations
  */
-type MigrationContext = {
+export type MigrationConfig = {
   readonly tableUsesView?: ReadonlyMap<string, boolean>
   readonly previousSchema?: { readonly tables: readonly object[] }
 }
@@ -350,14 +350,15 @@ type MigrationContext = {
 /**
  * Migrate existing table (ALTER statements + constraints + indexes)
  */
-export const migrateExistingTableEffect = (
-  tx: TransactionLike,
-  table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
-  context: MigrationContext = {}
-): Effect.Effect<void, SQLExecutionError> =>
+export const migrateExistingTableEffect = (params: {
+  readonly tx: TransactionLike
+  readonly table: Table
+  readonly existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { tableUsesView, previousSchema } = context
+    const { tx, table, existingColumns, tableUsesView, previousSchema } = params
     const alterStatements = generateAlterTableStatements(table, existingColumns, previousSchema)
 
     // If alterStatements is empty, table has incompatible schema changes
@@ -475,17 +476,24 @@ export const createTableViewsEffect = (
 /**
  * Create or migrate table based on existence
  */
-export const createOrMigrateTableEffect = (
-  tx: BunSQLTransaction,
-  table: Table,
-  exists: boolean,
-  context: MigrationContext = {}
-): Effect.Effect<void, SQLExecutionError> =>
+export const createOrMigrateTableEffect = (params: {
+  readonly tx: BunSQLTransaction
+  readonly table: Table
+  readonly exists: boolean
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { tableUsesView } = context
+    const { tx, table, exists, tableUsesView, previousSchema } = params
     if (exists) {
       const existingColumns = yield* getExistingColumns(tx, table.name)
-      yield* migrateExistingTableEffect(tx, table, existingColumns, context)
+      yield* migrateExistingTableEffect({
+        tx,
+        table,
+        existingColumns,
+        tableUsesView,
+        previousSchema,
+      })
     } else {
       yield* createNewTableEffect(tx, table, tableUsesView)
     }
