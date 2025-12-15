@@ -33,27 +33,31 @@ test.describe('Add Field Migration', () => {
     'MIGRATION-ALTER-ADD-001: should add TEXT NOT NULL column to existing table when runtime migration generates ALTER TABLE ADD COLUMN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'users' with email field exists, new field 'name' (single-line-text, required) is added to schema
-      await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, created_at TIMESTAMPTZ DEFAULT NOW())`,
-        `INSERT INTO users (email) VALUES ('user@example.com')`,
-      ])
-
       // WHEN: runtime migration generates ALTER TABLE ADD COLUMN
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'name', type: 'single-line-text', required: true },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'name', type: 'single-line-text', required: true, default: '' },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'users' with email field exists, new field 'name' (single-line-text, required) is added to schema
+          setupQueries: [
+            `DROP TABLE IF EXISTS users CASCADE`,
+            `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
+            `INSERT INTO users (email) VALUES ('user@example.com')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL adds TEXT NOT NULL column to existing table
 
@@ -227,27 +231,30 @@ test.describe('Add Field Migration', () => {
     'MIGRATION-ALTER-ADD-005: should add deleted_at TIMESTAMP NULL column with index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'tasks' exists without deleted_at field
-      await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-        `INSERT INTO tasks (title) VALUES ('Task 1'), ('Task 2'), ('Task 3')`,
-      ])
-
       // WHEN: deleted_at field with index is added via schema migration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'tasks' exists without deleted_at field
+          setupQueries: [
+            `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
+            `INSERT INTO tasks (title) VALUES ('Task 1'), ('Task 2'), ('Task 3')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL adds TIMESTAMP NULL column (nullable by design)
       const columnCheck = await executeQuery(
@@ -272,31 +279,34 @@ test.describe('Add Field Migration', () => {
     'MIGRATION-ALTER-ADD-006: should preserve existing records as non-deleted (NULL)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'items' exists with data, no deleted_at field
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50))`,
-        `INSERT INTO items (name, status) VALUES
-          ('Item 1', 'active'),
-          ('Item 2', 'pending'),
-          ('Item 3', 'completed')`,
-      ])
-
       // WHEN: deleted_at field is added via schema migration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'status', type: 'single-line-text' },
-              { id: 4, name: 'deleted_at', type: 'deleted-at' },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'deleted_at', type: 'deleted-at' },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'items' exists with data, no deleted_at field
+          setupQueries: [
+            `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50))`,
+            `INSERT INTO items (name, status) VALUES
+              ('Item 1', 'active'),
+              ('Item 2', 'pending'),
+              ('Item 3', 'completed')`,
+          ],
+        }
+      )
 
       // THEN: All existing records remain active (deleted_at = NULL)
       const recordsCheck = await executeQuery(`SELECT id, name, deleted_at FROM items ORDER BY id`)
@@ -323,32 +333,33 @@ test.describe('Add Field Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-007: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create table with existing data', async () => {
-        await executeQuery([
-          `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-          `INSERT INTO data (title) VALUES ('Initial record')`,
-        ])
-      })
-
       await test.step('Add optional field to table', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 7,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'description', type: 'single-line-text' },
-              ],
-            },
-          ],
-        })
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            tables: [
+              {
+                id: 7,
+                name: 'data',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'description', type: 'single-line-text' },
+                ],
+              },
+            ],
+          },
+          {
+            setupQueries: [
+              `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
+              `INSERT INTO data (title) VALUES ('Initial record')`,
+            ],
+          }
+        )
       })
 
       await test.step('Verify nullable column added and data preserved', async () => {
