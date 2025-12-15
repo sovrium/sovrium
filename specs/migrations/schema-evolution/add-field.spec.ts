@@ -154,8 +154,7 @@ test.describe('Add Field Migration', () => {
             id: 3,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
             ],
           },
         ],
@@ -169,10 +168,9 @@ test.describe('Add Field Migration', () => {
             id: 3,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
               {
-                id: 3,
+                id: 2,
                 name: 'priority',
                 type: 'single-select',
                 options: ['low', 'medium', 'high'],
@@ -213,14 +211,13 @@ test.describe('Add Field Migration', () => {
             id: 4,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text' },
+              { id: 1, name: 'order_number', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery([
-        `INSERT INTO orders (id, order_number) VALUES (1, 'ORD-001'), (2, 'ORD-002')`,
+        `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
       ])
 
       // WHEN: ALTER TABLE adds column with DEFAULT
@@ -231,9 +228,8 @@ test.describe('Add Field Migration', () => {
             id: 4,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text' },
-              { id: 3, name: 'total', type: 'decimal', default: 0 },
+              { id: 1, name: 'order_number', type: 'single-line-text' },
+              { id: 2, name: 'total', type: 'decimal', default: 0 },
             ],
           },
         ],
@@ -331,18 +327,17 @@ test.describe('Add Field Migration', () => {
             id: 6,
             name: 'items',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery([
-        `INSERT INTO items (id, name, status) VALUES
-          (1, 'Item 1', 'active'),
-          (2, 'Item 2', 'pending'),
-          (3, 'Item 3', 'completed')`,
+        `INSERT INTO items (name, status) VALUES
+          ('Item 1', 'active'),
+          ('Item 2', 'pending'),
+          ('Item 3', 'completed')`,
       ])
 
       // WHEN: deleted_at field is added via schema migration
@@ -353,10 +348,9 @@ test.describe('Add Field Migration', () => {
             id: 6,
             name: 'items',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'status', type: 'single-line-text' },
-              { id: 4, name: 'deleted_at', type: 'deleted-at' },
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at' },
             ],
           },
         ],
