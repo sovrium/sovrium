@@ -25,7 +25,7 @@ test.describe('Modify Field Default Migration', () => {
   // ============================================================================
 
   test.fixme(
-    "MIG-MODIFY-DEFAULT-001: should alter table alter column set default 'medium'",
+    "MIGRATION-MODIFY-DEFAULT-001: should alter table alter column set default 'medium'",
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with priority field (TEXT), no default value
@@ -70,7 +70,7 @@ test.describe('Modify Field Default Migration', () => {
   )
 
   test.fixme(
-    "MIG-MODIFY-DEFAULT-002: should alter table alter column set default 'pending' (replaces old default)",
+    "MIGRATION-MODIFY-DEFAULT-002: should alter table alter column set default 'pending' (replaces old default)",
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with status field, existing default 'draft'

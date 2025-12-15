@@ -11780,12 +11780,12 @@ MIGRATION-MODIFY-CONSTRAINTS-005: user can complete full modify-field-constraint
 <details>
 <summary>Tests</summary>
 
-⏸️ **MIG-MODIFY-DEFAULT-001** `@spec`
-MIG-MODIFY-DEFAULT-001: should alter table alter column set default
+⏸️ **MIGRATION-MODIFY-DEFAULT-001** `@spec`
+MIGRATION-MODIFY-DEFAULT-001: should alter table alter column set default
 `G/W/T` Line 27
 
-⏸️ **MIG-MODIFY-DEFAULT-002** `@spec`
-MIG-MODIFY-DEFAULT-002: should alter table alter column set default
+⏸️ **MIGRATION-MODIFY-DEFAULT-002** `@spec`
+MIGRATION-MODIFY-DEFAULT-002: should alter table alter column set default
 `G/W/T` Line 72
 
 ⏸️ **MIGRATION-MODIFY-DEFAULT-003** `@spec`
