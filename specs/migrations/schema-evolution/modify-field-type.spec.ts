@@ -29,9 +29,22 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field 'bio' (VARCHAR(255))
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'bio', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, bio VARCHAR(255))`,
-        `INSERT INTO users (name, bio) VALUES ('Alice', 'Short bio'), ('Bob', 'Another bio')`,
+        `INSERT INTO users (id, name, bio) VALUES (1, 'Alice', 'Short bio'), (2, 'Bob', 'Another bio')`,
       ])
 
       // WHEN: field type changed to long-text (TEXT)
@@ -75,9 +88,22 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' (TEXT)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'sku', type: 'long-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku TEXT)`,
-        `INSERT INTO products (name, sku) VALUES ('Widget', 'SKU-123'), ('Gadget', '${'X'.repeat(100)}')`,
+        `INSERT INTO products (id, name, sku) VALUES (1, 'Widget', 'SKU-123'), (2, 'Gadget', '${'X'.repeat(100)}')`,
       ])
 
       // WHEN: field type changed to single-line-text with maxLength=50
@@ -119,9 +145,27 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with field 'total' (INTEGER)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+              { id: 3, name: 'total', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, total INTEGER)`,
-        `INSERT INTO orders (order_number, total) VALUES ('ORD-001', 100), ('ORD-002', 250)`,
+        `INSERT INTO orders (id, order_number, total) VALUES (1, 'ORD-001', 100), (2, 'ORD-002', 250)`,
       ])
 
       // WHEN: field type changed to decimal
@@ -173,9 +217,22 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'metrics' with field 'count' stored as TEXT
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'metrics',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'count', type: 'long-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE metrics (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, count TEXT)`,
-        `INSERT INTO metrics (name, count) VALUES ('page_views', '1500'), ('clicks', '250')`,
+        `INSERT INTO metrics (id, name, count) VALUES (1, 'page_views', '1500'), (2, 'clicks', '250')`,
       ])
 
       // WHEN: field type changed to integer
@@ -218,9 +275,22 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'events' with field 'occurred_at' (TEXT) containing ISO-8601 strings
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'occurred_at', type: 'long-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, occurred_at TEXT)`,
-        `INSERT INTO events (name, occurred_at) VALUES ('signup', '2024-01-15T10:30:00Z'), ('purchase', '2024-02-20T14:45:00Z')`,
+        `INSERT INTO events (id, name, occurred_at) VALUES (1, 'signup', '2024-01-15T10:30:00Z'), (2, 'purchase', '2024-02-20T14:45:00Z')`,
       ])
 
       // WHEN: field type changed to timestamp
@@ -266,9 +336,22 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'data' with field 'value' (TEXT) containing non-numeric values
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'label', type: 'single-line-text', required: true },
+              { id: 3, name: 'value', type: 'long-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE data (id SERIAL PRIMARY KEY, label VARCHAR(255) NOT NULL, value TEXT)`,
-        `INSERT INTO data (label, value) VALUES ('numeric', '42'), ('invalid', 'not-a-number')`,
+        `INSERT INTO data (id, label, value) VALUES (1, 'numeric', '42'), (2, 'invalid', 'not-a-number')`,
       ])
 
       // WHEN: field type changed to INTEGER
@@ -311,9 +394,23 @@ test.describe('Modify Field Type Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table with TEXT and INTEGER fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 7,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'quantity', type: 'long-text' },
+                { id: 4, name: 'price', type: 'integer' },
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, quantity TEXT, price INTEGER)`,
-          `INSERT INTO items (name, quantity, price) VALUES ('Widget', '100', 50), ('Gadget', '200', 75)`,
+          `INSERT INTO items (id, name, quantity, price) VALUES (1, 'Widget', '100', 50), (2, 'Gadget', '200', 75)`,
         ])
       })
 

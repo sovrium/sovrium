@@ -29,9 +29,22 @@ test.describe('Modify Field Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with price field (NUMERIC), no constraints
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'price', type: 'decimal', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price NUMERIC(10,2) NOT NULL)`,
-        `INSERT INTO products (name, price) VALUES ('Widget', 50.00), ('Gadget', 150.00)`,
+        `INSERT INTO products (id, name, price) VALUES (1, 'Widget', 50.00), (2, 'Gadget', 150.00)`,
       ])
 
       // WHEN: min/max constraint added (price >= 0 AND price <= 10000)
@@ -82,9 +95,29 @@ test.describe('Modify Field Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'inventory' with quantity field, existing constraint (quantity >= 0 AND quantity <= 100)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'inventory',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'item', type: 'single-line-text', required: true },
+              {
+                id: 3,
+                name: 'quantity',
+                type: 'integer',
+                required: true,
+                min: 0,
+                max: 100,
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE inventory (id SERIAL PRIMARY KEY, item VARCHAR(255) NOT NULL, quantity INTEGER NOT NULL CHECK (quantity >= 0 AND quantity <= 100))`,
-        `INSERT INTO inventory (item, quantity) VALUES ('Screws', 50), ('Bolts', 75)`,
+        `INSERT INTO inventory (id, item, quantity) VALUES (1, 'Screws', 50), (2, 'Bolts', 75)`,
       ])
 
       // WHEN: max constraint increased from 100 to 1000
@@ -136,9 +169,22 @@ test.describe('Modify Field Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with age field (INTEGER), no constraint, existing rows with age = -5
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'age', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, age INTEGER)`,
-        `INSERT INTO users (name, age) VALUES ('Valid User', 25), ('Invalid User', -5)`,
+        `INSERT INTO users (id, name, age) VALUES (1, 'Valid User', 25), (2, 'Invalid User', -5)`,
       ])
 
       // WHEN: min constraint added (age >= 0)
@@ -171,9 +217,34 @@ test.describe('Modify Field Constraints Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with discount field, existing constraint (discount >= 0 AND discount <= 100)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+              {
+                id: 3,
+                name: 'discount',
+                type: 'integer',
+                required: true,
+                min: 0,
+                max: 100,
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, discount INTEGER NOT NULL CHECK (discount >= 0 AND discount <= 100))`,
-        `INSERT INTO orders (order_number, discount) VALUES ('ORD-001', 10), ('ORD-002', 50)`,
+        `INSERT INTO orders (id, order_number, discount) VALUES (1, 'ORD-001', 10), (2, 'ORD-002', 50)`,
       ])
 
       // WHEN: constraint removed from schema
@@ -222,9 +293,22 @@ test.describe('Modify Field Constraints Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create pricing table without constraints', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'pricing',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'amount', type: 'decimal', required: true },
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE pricing (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, amount NUMERIC(10,2) NOT NULL)`,
-          `INSERT INTO pricing (name, amount) VALUES ('Basic Plan', 9.99), ('Pro Plan', 29.99)`,
+          `INSERT INTO pricing (id, name, amount) VALUES (1, 'Basic Plan', 9.99), (2, 'Pro Plan', 29.99)`,
         ])
       })
 

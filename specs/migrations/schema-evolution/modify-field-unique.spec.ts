@@ -29,9 +29,22 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field 'username' (TEXT) containing unique values
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'username', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, username VARCHAR(100))`,
-        `INSERT INTO users (name, username) VALUES ('Alice', 'alice123'), ('Bob', 'bob456')`,
+        `INSERT INTO users (id, name, username) VALUES (1, 'Alice', 'alice123'), (2, 'Bob', 'bob456')`,
       ])
 
       // WHEN: unique constraint added to schema
@@ -76,9 +89,22 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' containing duplicate values
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 4, name: 'id', type: 'integer', required: true },
+              { id: 5, name: 'name', type: 'single-line-text', required: true },
+              { id: 6, name: 'sku', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50))`,
-        `INSERT INTO products (name, sku) VALUES ('Widget A', 'SKU-001'), ('Widget B', 'SKU-001')`, // Duplicate SKUs
+        `INSERT INTO products (id, name, sku) VALUES (1, 'Widget A', 'SKU-001'), (2, 'Widget B', 'SKU-001')`, // Duplicate SKUs
       ])
 
       // WHEN: unique constraint added to 'sku'
@@ -91,9 +117,9 @@ test.describe('Modify Field Unique Migration', () => {
               id: 2,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'sku', type: 'single-line-text', unique: true },
+                { id: 4, name: 'id', type: 'integer', required: true },
+                { id: 5, name: 'name', type: 'single-line-text', required: true },
+                { id: 6, name: 'sku', type: 'single-line-text', unique: true },
               ],
             },
           ],
@@ -119,9 +145,27 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with field 'order_number' having UNIQUE constraint
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 7, name: 'id', type: 'integer', required: true },
+              {
+                id: 8,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+                unique: true,
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL UNIQUE)`,
-        `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
+        `INSERT INTO orders (id, order_number) VALUES (1, 'ORD-001'), (2, 'ORD-002')`,
       ])
 
       // WHEN: unique constraint removed from schema
@@ -132,9 +176,9 @@ test.describe('Modify Field Unique Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 7, name: 'id', type: 'integer', required: true },
               {
-                id: 2,
+                id: 8,
                 name: 'order_number',
                 type: 'single-line-text',
                 required: true,
@@ -170,9 +214,22 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without unique constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 9, name: 'id', type: 'integer', required: true },
+                { id: 10, name: 'name', type: 'single-line-text', required: true },
+                { id: 11, name: 'code', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50))`,
-          `INSERT INTO items (name, code) VALUES ('Item A', 'CODE-001'), ('Item B', 'CODE-002')`,
+          `INSERT INTO items (id, name, code) VALUES (1, 'Item A', 'CODE-001'), (2, 'Item B', 'CODE-002')`,
         ])
       })
 
@@ -184,9 +241,9 @@ test.describe('Modify Field Unique Migration', () => {
               id: 4,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'code', type: 'single-line-text', unique: true },
+                { id: 9, name: 'id', type: 'integer', required: true },
+                { id: 10, name: 'name', type: 'single-line-text', required: true },
+                { id: 11, name: 'code', type: 'single-line-text', unique: true },
               ],
             },
           ],

@@ -29,9 +29,20 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with optional field 'phone' (TEXT NULL), no rows exist
-      await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, phone TEXT)`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'phone', type: 'phone-number' }, // nullable initially
+            ],
+          },
+        ],
+      })
 
       // WHEN: field marked as required in schema
       await startServerWithSchema({
@@ -43,7 +54,7 @@ test.describe('Modify Field Required Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'phone', type: 'phone-number', required: true },
+              { id: 3, name: 'phone', type: 'phone-number', required: true }, // now required
             ],
           },
         ],
@@ -59,12 +70,12 @@ test.describe('Modify Field Required Migration', () => {
 
       // Cannot insert NULL value
       await expect(async () => {
-        await executeQuery(`INSERT INTO users (name, phone) VALUES ('Alice', NULL)`)
+        await executeQuery(`INSERT INTO users (id, name, phone) VALUES (1, 'Alice', NULL)`)
       }).rejects.toThrow(/null value|violates not-null/i)
 
       // Can insert with value
       const validInsert = await executeQuery(
-        `INSERT INTO users (name, phone) VALUES ('Bob', '+1234567890') RETURNING phone`
+        `INSERT INTO users (id, name, phone) VALUES (2, 'Bob', '+1234567890') RETURNING phone`
       )
       expect(validInsert.phone).toBe('+1234567890')
     }
@@ -75,9 +86,22 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with optional field 'category' (TEXT NULL), existing rows present
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'category', type: 'single-line-text' }, // nullable initially
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category TEXT)`,
-        `INSERT INTO products (name, category) VALUES ('Widget', 'Electronics'), ('Gadget', NULL)`,
+        `INSERT INTO products (id, name, category) VALUES (1, 'Widget', 'Electronics'), (2, 'Gadget', NULL)`,
       ])
 
       // WHEN: field marked as required without default value
@@ -92,7 +116,7 @@ test.describe('Modify Field Required Migration', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'category', type: 'single-line-text', required: true }, // No default
+                { id: 3, name: 'category', type: 'single-line-text', required: true }, // now required, no default
               ],
             },
           ],
@@ -110,9 +134,27 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with optional field 'status', existing rows present
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+              { id: 3, name: 'status', type: 'single-line-text' }, // nullable initially
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, status TEXT)`,
-        `INSERT INTO orders (order_number, status) VALUES ('ORD-001', 'shipped'), ('ORD-002', NULL)`,
+        `INSERT INTO orders (id, order_number, status) VALUES (1, 'ORD-001', 'shipped'), (2, 'ORD-002', NULL)`,
       ])
 
       // WHEN: field marked as required with default value 'pending'
@@ -134,7 +176,7 @@ test.describe('Modify Field Required Migration', () => {
                 id: 3,
                 name: 'status',
                 type: 'single-line-text',
-                required: true,
+                required: true, // now required
                 default: 'pending',
               },
             ],
@@ -169,9 +211,22 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with required field 'priority' (TEXT NOT NULL)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'priority', type: 'single-line-text', required: true }, // required initially
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, priority TEXT NOT NULL)`,
-        `INSERT INTO tasks (title, priority) VALUES ('Task 1', 'high'), ('Task 2', 'medium')`,
+        `INSERT INTO tasks (id, title, priority) VALUES (1, 'Task 1', 'high'), (2, 'Task 2', 'medium')`,
       ])
 
       // WHEN: field marked as optional in schema
@@ -184,7 +239,7 @@ test.describe('Modify Field Required Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text', required: true },
-              { id: 3, name: 'priority', type: 'single-line-text' }, // Now optional
+              { id: 3, name: 'priority', type: 'single-line-text' }, // now optional
             ],
           },
         ],
@@ -199,7 +254,7 @@ test.describe('Modify Field Required Migration', () => {
       expect(columnCheck.is_nullable).toBe('YES')
 
       // Can now insert NULL value
-      await executeQuery(`INSERT INTO tasks (title, priority) VALUES ('Task 3', NULL)`)
+      await executeQuery(`INSERT INTO tasks (id, title, priority) VALUES (3, 'Task 3', NULL)`)
       const newTask = await executeQuery(`SELECT priority FROM tasks WHERE title = 'Task 3'`)
       expect(newTask.priority).toBeNull()
 
@@ -218,9 +273,22 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table with optional description field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'description', type: 'long-text' }, // nullable initially
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)`,
-          `INSERT INTO items (name, description) VALUES ('Item 1', 'Has description'), ('Item 2', NULL)`,
+          `INSERT INTO items (id, name, description) VALUES (1, 'Item 1', 'Has description'), (2, 'Item 2', NULL)`,
         ])
       })
 
@@ -238,7 +306,7 @@ test.describe('Modify Field Required Migration', () => {
                   id: 3,
                   name: 'description',
                   type: 'long-text',
-                  required: true,
+                  required: true, // now required
                   default: 'No description',
                 },
               ],

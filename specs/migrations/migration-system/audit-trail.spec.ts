@@ -100,15 +100,20 @@ test.describe('Migration Audit Trail', () => {
     'MIGRATION-AUDIT-003: should track incremental version numbers for each migration',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Database with existing migration history
+      // GIVEN: First migration creates initial schema and migration history
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'initial',
+            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+          },
+        ],
+      })
+
+      // Insert test data for existing migration history
       await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
-          id SERIAL PRIMARY KEY,
-          version INTEGER NOT NULL,
-          checksum TEXT NOT NULL,
-          schema JSONB,
-          applied_at TIMESTAMP DEFAULT NOW()
-        )`,
         `INSERT INTO _sovrium_migration_history (version, checksum, schema)
          VALUES (1, 'checksum_v1', '{"tables":[]}')`,
       ])
@@ -142,42 +147,27 @@ test.describe('Migration Audit Trail', () => {
     'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Initial valid schema to establish database connection
-      // First call to startServerWithSchema creates test database
+      // GIVEN: Initial schema with products table - internal tables created automatically
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           {
             id: 1,
-            name: 'initial',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
           },
         ],
       })
 
-      // Create test table and ensure migration log table exists
+      // Insert test data with duplicate names
       await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
-          id SERIAL PRIMARY KEY,
-          operation TEXT NOT NULL,
-          from_version INTEGER,
-          to_version INTEGER,
-          reason TEXT,
-          status TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
-        )`,
-        `CREATE TABLE test (id SERIAL PRIMARY KEY)`,
-      ])
-
-      // WHEN: Migration fails and triggers rollback
-      // Create table with existing data that conflicts with new unique constraint
-      await executeQuery([
-        `INSERT INTO test (id) VALUES (1), (2)`,
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
         `INSERT INTO products (id, name) VALUES (1, 'duplicate'), (2, 'duplicate')`,
       ])
 
-      // Try to add unique constraint on column with duplicate values - this will fail
+      // WHEN: Migration fails (trying to add unique constraint on column with duplicates)
       await expect(async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -208,7 +198,7 @@ test.describe('Migration Audit Trail', () => {
     'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Initialize test database
+      // GIVEN: Initialize test database - internal tables created automatically
       await startServerWithSchema({
         name: 'test-app',
         tables: [],
@@ -216,13 +206,6 @@ test.describe('Migration Audit Trail', () => {
 
       // GIVEN: Multiple migrations in history
       await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
-          id SERIAL PRIMARY KEY,
-          version INTEGER NOT NULL,
-          checksum TEXT NOT NULL,
-          schema JSONB,
-          applied_at TIMESTAMP DEFAULT NOW()
-        )`,
         // Delete auto-created migration entry to start with clean slate
         `DELETE FROM _sovrium_migration_history`,
         `INSERT INTO _sovrium_migration_history (version, checksum, schema, applied_at) VALUES
@@ -259,26 +242,29 @@ test.describe('Migration Audit Trail', () => {
     'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Initial valid schema to establish database connection
-      // First call to startServerWithSchema creates test database
+      // GIVEN: Initial schema - internal tables created automatically
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
+        tables: [
+          {
+            id: 1,
+            name: 'customers',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
+            ],
+          },
+        ],
       })
 
-      // GIVEN: Recorded schema state and actual database state differ
+      // GIVEN: Recorded schema state differs from actual (simulate manual modification)
       await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
-          id TEXT PRIMARY KEY,
-          checksum TEXT NOT NULL,
-          schema JSONB NOT NULL
-        )`,
-        // Delete auto-created checksum to start with clean slate
-        `DELETE FROM _sovrium_schema_checksum WHERE id = 'singleton'`,
-        `INSERT INTO _sovrium_schema_checksum (id, checksum, schema)
-         VALUES ('singleton', 'recorded_checksum', '{"tables":[{"name":"customers","fields":[{"name":"id"},{"name":"email"}]}]}')`,
-        // Actual database has different schema (manual modification)
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255), extra_column TEXT)`,
+        // Update recorded schema checksum to have only 2 columns
+        `UPDATE _sovrium_schema_checksum
+         SET schema = '{"tables":[{"name":"customers","fields":[{"name":"id"},{"name":"email"}]}]}'
+         WHERE id = 'singleton'`,
+        // Manually add extra column to actual database (simulates drift)
+        `ALTER TABLE customers ADD COLUMN extra_column TEXT`,
       ])
 
       // WHEN: Migration system checks for drift

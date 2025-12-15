@@ -137,11 +137,21 @@ test.describe('Error Handling and Rollback', () => {
     'MIGRATION-ERROR-003: should rollback transaction when ALTER TABLE operation fails due to constraint violation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: ALTER TABLE operation fails (e.g., adding NOT NULL column without default to non-empty table)
-      await executeQuery([
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))`,
-        `INSERT INTO users (email) VALUES ('existing@example.com')`,
-      ])
+      // GIVEN: Start server with schema and insert existing data
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO users (id, email) VALUES (1, 'existing@example.com')`])
 
       // WHEN: constraint violation during migration
       // THEN: Transaction rolled back, table schema unchanged
@@ -368,11 +378,21 @@ test.describe('Error Handling and Rollback', () => {
     'MIGRATION-ERROR-009: should reject destructive operations without confirmation flag',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Existing table with data
-      await executeQuery([
-        `CREATE TABLE legacy_data (id SERIAL PRIMARY KEY, value TEXT)`,
-        `INSERT INTO legacy_data (value) VALUES ('important data')`,
-      ])
+      // GIVEN: Start server with schema and insert existing data
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'legacy_data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'value', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO legacy_data (id, value) VALUES (1, 'important data')`])
 
       // WHEN: Attempting to drop column/table without explicit confirmation
       // THEN: Should throw validation error requiring confirmation
@@ -449,10 +469,20 @@ test.describe('Error Handling and Rollback', () => {
       })
 
       await test.step('Setup: Create table with existing data', async () => {
-        await executeQuery([
-          `CREATE TABLE data (id SERIAL PRIMARY KEY, value VARCHAR(255))`,
-          `INSERT INTO data (value) VALUES ('existing')`,
-        ])
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 9,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO data (id, value) VALUES (1, 'existing')`])
       })
 
       await test.step('Test constraint violation preserves existing data', async () => {

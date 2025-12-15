@@ -29,9 +29,23 @@ test.describe('Modify Field Default Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with priority field (TEXT), no default value
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'priority', type: 'long-text' }, // TEXT → long-text
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, priority TEXT)`,
-        `INSERT INTO tasks (title, priority) VALUES ('Task 1', 'high'), ('Task 2', 'low')`,
+        `INSERT INTO tasks (id, title, priority) VALUES (1, 'Task 1', 'high')`,
+        `INSERT INTO tasks (id, title, priority) VALUES (2, 'Task 2', 'low')`,
       ])
 
       // WHEN: default value 'medium' added to schema
@@ -44,7 +58,7 @@ test.describe('Modify Field Default Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text', required: true },
-              { id: 3, name: 'priority', type: 'single-line-text', default: 'medium' },
+              { id: 3, name: 'priority', type: 'long-text', default: 'medium' },
             ],
           },
         ],
@@ -74,10 +88,21 @@ test.describe('Modify Field Default Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with status field, existing default 'draft'
-      await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status TEXT DEFAULT 'draft')`,
-        `INSERT INTO products (name) VALUES ('Product A')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'long-text', default: 'draft' }, // TEXT → long-text
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO products (id, name) VALUES (1, 'Product A')`])
 
       // WHEN: default value changed from 'draft' to 'pending'
       await startServerWithSchema({
@@ -89,7 +114,7 @@ test.describe('Modify Field Default Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'status', type: 'single-line-text', default: 'pending' },
+              { id: 3, name: 'status', type: 'long-text', default: 'pending' },
             ],
           },
         ],
@@ -121,10 +146,26 @@ test.describe('Modify Field Default Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with created_at field, existing default NOW()
-      await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`,
-        `INSERT INTO orders (order_number) VALUES ('ORD-001')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+              { id: 3, name: 'created_at', type: 'datetime', default: 'NOW()' }, // TIMESTAMPTZ → datetime
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO orders (id, order_number) VALUES (1, 'ORD-001')`])
 
       // WHEN: default value removed from schema
       await startServerWithSchema({
@@ -177,10 +218,21 @@ test.describe('Modify Field Default Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without default value', async () => {
-        await executeQuery([
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status TEXT)`,
-          `INSERT INTO items (name, status) VALUES ('Item 1', 'active')`,
-        ])
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'status', type: 'long-text' }, // TEXT → long-text
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO items (id, name, status) VALUES (1, 'Item 1', 'active')`])
       })
 
       await test.step('Add default value to status field', async () => {
@@ -193,7 +245,7 @@ test.describe('Modify Field Default Migration', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'status', type: 'single-line-text', default: 'draft' },
+                { id: 3, name: 'status', type: 'long-text', default: 'draft' },
               ],
             },
           ],

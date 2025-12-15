@@ -34,11 +34,20 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field exists, new field 'name' (single-line-text, required) is added to schema
-      await executeQuery([
-        `DROP TABLE IF EXISTS users CASCADE`,
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
-        `INSERT INTO users (email) VALUES ('user@example.com')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', unique: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO users (id, email) VALUES (1, 'user@example.com')`])
 
       // WHEN: runtime migration generates ALTER TABLE ADD COLUMN
       await startServerWithSchema({
@@ -49,7 +58,7 @@ test.describe('Add Field Migration', () => {
             name: 'users',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
+              { id: 2, name: 'email', type: 'email', unique: true },
               { id: 3, name: 'name', type: 'single-line-text', required: true, default: '' },
             ],
           },
@@ -81,9 +90,21 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with title field, new optional field 'description' (long-text) is added
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255))`,
-        `INSERT INTO products (title) VALUES ('MacBook Pro'), ('iPhone 15')`,
+        `INSERT INTO products (id, title) VALUES (1, 'MacBook Pro'), (2, 'iPhone 15')`,
       ])
 
       // WHEN: ALTER TABLE adds nullable column
@@ -94,8 +115,9 @@ test.describe('Add Field Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'title', type: 'single-line-text' },
-              { id: 2, name: 'description', type: 'single-line-text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'description', type: 'single-line-text' },
             ],
           },
         ],
@@ -125,7 +147,19 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' exists, new field 'priority' (single-select with options) is added
-      await executeQuery(`CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+            ],
+          },
+        ],
+      })
 
       // WHEN: ALTER TABLE adds column with CHECK constraint
       await startServerWithSchema({
@@ -136,7 +170,7 @@ test.describe('Add Field Migration', () => {
             name: 'tasks',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
               {
                 id: 3,
                 name: 'priority',
@@ -172,9 +206,21 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' exists with data, new field 'total' (decimal) with default: 0 is added
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(255))`,
-        `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
+        `INSERT INTO orders (id, order_number) VALUES (1, 'ORD-001'), (2, 'ORD-002')`,
       ])
 
       // WHEN: ALTER TABLE adds column with DEFAULT
@@ -185,8 +231,9 @@ test.describe('Add Field Migration', () => {
             id: 4,
             name: 'orders',
             fields: [
-              { id: 1, name: 'order_number', type: 'single-line-text' },
-              { id: 2, name: 'total', type: 'decimal', default: 0 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'single-line-text' },
+              { id: 3, name: 'total', type: 'decimal', default: 0 },
             ],
           },
         ],
@@ -220,9 +267,21 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' exists without deleted_at field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-        `INSERT INTO tasks (title) VALUES ('Task 1'), ('Task 2'), ('Task 3')`,
+        `INSERT INTO tasks (id, title) VALUES (1, 'Task 1'), (2, 'Task 2'), (3, 'Task 3')`,
       ])
 
       // WHEN: deleted_at field with index is added via schema migration
@@ -234,7 +293,7 @@ test.describe('Add Field Migration', () => {
             name: 'tasks',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
               { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
@@ -265,12 +324,25 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'items' exists with data, no deleted_at field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50))`,
-        `INSERT INTO items (name, status) VALUES
-          ('Item 1', 'active'),
-          ('Item 2', 'pending'),
-          ('Item 3', 'completed')`,
+        `INSERT INTO items (id, name, status) VALUES
+          (1, 'Item 1', 'active'),
+          (2, 'Item 2', 'pending'),
+          (3, 'Item 3', 'completed')`,
       ])
 
       // WHEN: deleted_at field is added via schema migration
@@ -282,7 +354,7 @@ test.describe('Add Field Migration', () => {
             name: 'items',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'status', type: 'single-line-text' },
               { id: 4, name: 'deleted_at', type: 'deleted-at' },
             ],
@@ -321,10 +393,20 @@ test.describe('Add Field Migration', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Add optional field to table', async () => {
         // GIVEN: table 'data' exists with initial data
-        await executeQuery([
-          `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-          `INSERT INTO data (title) VALUES ('Initial record')`,
-        ])
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 7,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text', required: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO data (id, title) VALUES (1, 'Initial record')`])
 
         // WHEN: optional field 'description' is added via schema migration
         await startServerWithSchema({
@@ -335,7 +417,7 @@ test.describe('Add Field Migration', () => {
               name: 'data',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 2, name: 'title', type: 'single-line-text', required: true },
                 { id: 3, name: 'description', type: 'single-line-text' },
               ],
             },

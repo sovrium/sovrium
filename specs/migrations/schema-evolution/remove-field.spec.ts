@@ -29,9 +29,22 @@ test.describe('Remove Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'contacts' with email and phone fields, phone field is removed from schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'phone', type: 'phone-number' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE contacts (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(20))`,
-        `INSERT INTO contacts (email, phone) VALUES ('user@example.com', '+1-555-0100')`,
+        `INSERT INTO contacts (id, email, phone) VALUES (1, 'user@example.com', '+1-555-0100')`,
       ])
 
       // WHEN: runtime migration generates ALTER TABLE DROP COLUMN
@@ -72,9 +85,23 @@ test.describe('Remove Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with multiple fields, middle field is removed
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'description', type: 'long-text' },
+              { id: 4, name: 'price', type: 'decimal' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, price NUMERIC(10,2))`,
-        `INSERT INTO products (title, description, price) VALUES ('Product A', 'Description A', 99.99)`,
+        `INSERT INTO products (id, title, description, price) VALUES (1, 'Product A', 'Description A', 99.99)`,
       ])
 
       // WHEN: ALTER TABLE removes column from middle of schema
@@ -87,7 +114,7 @@ test.describe('Remove Field Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'price', type: 'decimal' },
+              { id: 4, name: 'price', type: 'decimal' },
             ],
           },
         ],
@@ -115,11 +142,21 @@ test.describe('Remove Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with indexed field, indexed field is removed
-      await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50))`,
-        `CREATE INDEX idx_tasks_status ON tasks(status)`,
-        `INSERT INTO tasks (title, status) VALUES ('Task 1', 'open')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text', indexed: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO tasks (id, title, status) VALUES (1, 'Task 1', 'open')`])
 
       // WHEN: ALTER TABLE drops column with index
       await startServerWithSchema({
@@ -159,11 +196,31 @@ test.describe('Remove Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with foreign key field, relationship field is removed
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'customers',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+          },
+          {
+            id: 5,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'customer_id', type: 'integer' },
+              { id: 3, name: 'total', type: 'decimal' },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
-        `INSERT INTO customers (name) VALUES ('Customer A')`,
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), total NUMERIC(10,2))`,
-        `INSERT INTO orders (customer_id, total) VALUES (1, 150.00)`,
+        `INSERT INTO customers (id, name) VALUES (1, 'Customer A')`,
+        `INSERT INTO orders (id, customer_id, total) VALUES (1, 1, 150.00)`,
       ])
 
       // WHEN: ALTER TABLE drops column with foreign key constraint
@@ -216,15 +273,28 @@ test.describe('Remove Field Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-005: user can complete full remove-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create table with indexed field and data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'description', type: 'single-line-text' },
+                { id: 4, name: 'status', type: 'single-line-text', indexed: true },
+              ],
+            },
+          ],
+        })
         await executeQuery([
-          `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, status VARCHAR(50))`,
-          `CREATE INDEX idx_data_status ON data(status)`,
-          `INSERT INTO data (title, description, status) VALUES ('Record 1', 'Desc 1', 'active')`,
+          `INSERT INTO data (id, title, description, status) VALUES (1, 'Record 1', 'Desc 1', 'active')`,
         ])
       })
 

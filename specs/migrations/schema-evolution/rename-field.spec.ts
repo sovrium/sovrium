@@ -29,13 +29,20 @@ test.describe('Rename Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field id=2 name='email', field name changed to 'email_address' (same id)
-      await executeQuery([
-        `DROP TABLE IF EXISTS users CASCADE`,
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
-        `INSERT INTO users (email) VALUES ('user@example.com')`,
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
-        `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":1,"name":"users","fields":[{"id":1,"name":"id","type":"integer","required":true},{"id":2,"name":"email","type":"email"}]}]}')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', unique: true },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO users (id, email) VALUES (1, 'user@example.com')`])
 
       // WHEN: runtime migration detects rename via field ID
       await startServerWithSchema({
@@ -50,6 +57,7 @@ test.describe('Rename Field Migration', () => {
                 id: 2,
                 name: 'email_address',
                 type: 'email',
+                unique: true,
               },
             ],
           },
@@ -91,13 +99,22 @@ test.describe('Rename Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with indexed field 'sku' (id=2) renamed to 'product_code' (same id)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'sku', type: 'single-line-text', unique: true },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `DROP TABLE IF EXISTS products CASCADE`,
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100) NOT NULL UNIQUE)`,
         `CREATE INDEX idx_products_sku ON products(sku)`,
-        `INSERT INTO products (sku) VALUES ('PROD-001')`,
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
-        `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":2,"name":"products","fields":[{"id":1,"name":"id","type":"integer","required":true},{"id":2,"name":"sku","type":"single-line-text"}]}]}')`,
+        `INSERT INTO products (id, sku) VALUES (1, 'PROD-001')`,
       ])
 
       // WHEN: RENAME COLUMN is executed on indexed field
@@ -113,6 +130,7 @@ test.describe('Rename Field Migration', () => {
                 id: 2,
                 name: 'product_code',
                 type: 'single-line-text',
+                unique: true,
               },
             ],
           },
@@ -147,15 +165,36 @@ test.describe('Rename Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with foreign key field 'customer_id' (id=2) renamed to 'client_id' (same id)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'customers',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+          },
+          {
+            id: 4,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'customer_id',
+                type: 'relationship',
+                relatedTable: 'customers',
+                relationType: 'many-to-one',
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery([
-        `DROP TABLE IF EXISTS orders CASCADE`,
-        `DROP TABLE IF EXISTS customers CASCADE`,
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
-        `INSERT INTO customers (name) VALUES ('Customer A')`,
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id))`,
-        `INSERT INTO orders (customer_id) VALUES (1)`,
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
-        `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":3,"name":"customers","fields":[{"id":2,"name":"name","type":"single-line-text"}]},{"id":4,"name":"orders","fields":[{"id":2,"name":"customer_id","type":"relationship","relatedTable":"customers","relationType":"many-to-one"}]}]}')`,
+        `INSERT INTO customers (id, name) VALUES (1, 'Customer A')`,
+        `INSERT INTO orders (id, customer_id) VALUES (1, 1)`,
       ])
 
       // WHEN: RENAME COLUMN on foreign key field
@@ -165,12 +204,16 @@ test.describe('Rename Field Migration', () => {
           {
             id: 3,
             name: 'customers',
-            fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
           },
           {
             id: 4,
             name: 'orders',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'client_id',
@@ -217,13 +260,25 @@ test.describe('Rename Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with field 'status' (id=2, CHECK constraint) renamed to 'state' (same id)
-      await executeQuery([
-        `DROP TABLE IF EXISTS tasks CASCADE`,
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, status VARCHAR(50) CHECK (status IN ('open', 'in_progress', 'done')))`,
-        `INSERT INTO tasks (status) VALUES ('open')`,
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
-        `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":5,"name":"tasks","fields":[{"id":1,"name":"id","type":"integer","required":true},{"id":2,"name":"status","type":"single-select","options":["open","in_progress","done"]}]}]}')`,
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'status',
+                type: 'single-select',
+                options: ['open', 'in_progress', 'done'],
+              },
+            ],
+          },
+        ],
+      })
+      await executeQuery([`INSERT INTO tasks (id, status) VALUES (1, 'open')`])
 
       // WHEN: RENAME COLUMN on field with CHECK constraint
       await startServerWithSchema({
@@ -278,10 +333,20 @@ test.describe('Rename Field Migration', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create table with old field name', async () => {
-        await executeQuery([
-          `CREATE TABLE data (id SERIAL PRIMARY KEY, old_name VARCHAR(255) NOT NULL)`,
-          `INSERT INTO data (old_name) VALUES ('test value')`,
-        ])
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'old_name', type: 'single-line-text', required: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO data (id, old_name) VALUES (1, 'test value')`])
       })
 
       await test.step('Rename field from old_name to new_name', async () => {
@@ -294,9 +359,10 @@ test.describe('Rename Field Migration', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 {
-                  id: 1,
+                  id: 2,
                   name: 'new_name',
                   type: 'single-line-text',
+                  required: true,
                 },
               ],
             },
