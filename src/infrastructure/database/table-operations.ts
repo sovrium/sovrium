@@ -340,6 +340,14 @@ const recreateTableWithDataEffect = (
   })
 
 /**
+ * Configuration for table migration operations
+ */
+export type MigrationConfig = {
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}
+
+/**
  * Migrate existing table (ALTER statements + constraints + indexes)
  */
 export const migrateExistingTableEffect = (
