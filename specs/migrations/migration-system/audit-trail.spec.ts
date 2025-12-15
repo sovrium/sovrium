@@ -101,35 +101,32 @@ test.describe('Migration Audit Trail', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with existing migration history
-      // Use setupQueries to pre-populate migration history before schema initialization
-      await startServerWithSchema(
-        {
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'orders',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'total', type: 'decimal' },
-              ],
-            },
-          ],
-        },
-        {
-          setupQueries: [
-            `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
-              id SERIAL PRIMARY KEY,
-              version INTEGER NOT NULL,
-              checksum TEXT NOT NULL,
-              schema JSONB,
-              applied_at TIMESTAMP DEFAULT NOW()
-            )`,
-            `INSERT INTO _sovrium_migration_history (version, checksum, schema)
-             VALUES (1, 'checksum_v1', '{"tables":[]}')`,
-          ],
-        }
-      )
+      await executeQuery([
+        `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
+          id SERIAL PRIMARY KEY,
+          version INTEGER NOT NULL,
+          checksum TEXT NOT NULL,
+          schema JSONB,
+          applied_at TIMESTAMP DEFAULT NOW()
+        )`,
+        `INSERT INTO _sovrium_migration_history (version, checksum, schema)
+         VALUES (1, 'checksum_v1', '{"tables":[]}')`,
+      ])
+
+      // WHEN: New migration is applied
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'total', type: 'decimal' },
+            ],
+          },
+        ],
+      })
 
       // THEN: Version number incremented (migration system automatically recorded version 2)
       const versions = await executeQuery(
