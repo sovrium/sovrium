@@ -180,8 +180,7 @@ const executeSchemaInit = (
             await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
                 // Migration process - tables are created by Drizzle migrations
-                yield* Effect.gen(function* () {
-                  // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
+                // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
                   logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
                   const needs = needsUsersTable(tables)
                   logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
@@ -300,9 +299,8 @@ const executeSchemaInit = (
                   // Tables are created by Drizzle migrations (drizzle/0006_*.sql)
                   yield* recordMigration(tx, app)
 
-                  // Step 8: Store schema checksum
-                  yield* storeSchemaChecksum(tx, app)
-                })
+                // Step 8: Store schema checksum
+                yield* storeSchemaChecksum(tx, app)
               })
             )
           })
@@ -328,19 +326,17 @@ const executeSchemaInit = (
                   // Use a transaction to ensure rollback logging is atomic and committed
                   /* eslint-disable-next-line functional/no-expression-statements */
                   await logDb.begin(async (logTx) => {
+                    // Table is created by Drizzle migrations (drizzle/0006_*.sql)
                     /* eslint-disable-next-line functional/no-expression-statements */
                     await Runtime.runPromise(runtime)(
-                      Effect.gen(function* () {
-                        // Table is created by Drizzle migrations (drizzle/0006_*.sql)
-                        yield* logRollbackOperation(logTx, error.message).pipe(
-                          Effect.catchAll((logError) => {
-                            logInfo(
-                              `[executeSchemaInit] Failed to log rollback: ${logError.message}`
-                            )
-                            return Effect.void
-                          })
-                        )
-                      })
+                      logRollbackOperation(logTx, error.message).pipe(
+                        Effect.catchAll((logError) => {
+                          logInfo(
+                            `[executeSchemaInit] Failed to log rollback: ${logError.message}`
+                          )
+                          return Effect.void
+                        })
+                      )
                     )
                   })
                   logInfo('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
