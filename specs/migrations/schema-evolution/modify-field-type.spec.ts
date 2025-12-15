@@ -353,7 +353,7 @@ test.describe('Modify Field Type Migration', () => {
               id: 6,
               name: 'data',
               fields: [
-                  { id: 2, name: 'label', type: 'single-line-text', required: true },
+                { id: 2, name: 'label', type: 'single-line-text', required: true },
                 { id: 3, name: 'value', type: 'integer' },
               ],
             },
@@ -389,7 +389,7 @@ test.describe('Modify Field Type Migration', () => {
               id: 7,
               name: 'items',
               fields: [
-                  { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'quantity', type: 'long-text' },
                 { id: 4, name: 'price', type: 'integer' },
               ],
@@ -409,7 +409,7 @@ test.describe('Modify Field Type Migration', () => {
               id: 7,
               name: 'items',
               fields: [
-                  { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'quantity', type: 'integer' },
                 { id: 4, name: 'price', type: 'decimal' },
               ],

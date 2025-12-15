@@ -450,9 +450,7 @@ test.describe('Error Handling and Rollback', () => {
             {
               id: 9,
               name: 'data',
-              fields: [
-                { id: 2, name: 'value', type: 'single-line-text' },
-              ],
+              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
             },
           ],
         })
