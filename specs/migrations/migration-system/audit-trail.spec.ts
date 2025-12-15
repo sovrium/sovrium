@@ -239,7 +239,7 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

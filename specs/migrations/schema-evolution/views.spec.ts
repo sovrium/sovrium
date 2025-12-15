@@ -36,7 +36,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'active', type: 'checkbox', default: true },
@@ -47,7 +46,7 @@ test.describe('Database Views Migration', () => {
 
       // Insert data after table creation
       await executeQuery([
-        `INSERT INTO users (id, name, email, active) VALUES (1, 'Alice', 'alice@example.com', true), (2, 'Bob', 'bob@example.com', true), (3, 'Charlie', 'charlie@example.com', false)`,
+        `INSERT INTO users (name, email, active) VALUES ('Alice', 'alice@example.com', true), ('Bob', 'bob@example.com', true), ('Charlie', 'charlie@example.com', false)`,
       ])
 
       // WHEN: view 'active_users' added to schema (SELECT * FROM users WHERE active = true)
@@ -58,7 +57,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'active', type: 'checkbox', default: true },
@@ -105,7 +103,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'active', type: 'checkbox', default: true },
             ],
@@ -122,7 +119,7 @@ test.describe('Database Views Migration', () => {
 
       // Insert data and create view after server started
       await executeQuery([
-        `INSERT INTO users (id, name, active) VALUES (1, 'Alice', true), (2, 'Bob', false)`,
+        `INSERT INTO users (name, active) VALUES ('Alice', true), ('Bob', false)`,
       ])
 
       // WHEN: view removed from schema
@@ -133,7 +130,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'active', type: 'checkbox', default: true },
             ],
@@ -173,7 +169,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'role', type: 'single-line-text' },
@@ -191,7 +186,7 @@ test.describe('Database Views Migration', () => {
 
       // Insert data after table creation
       await executeQuery([
-        `INSERT INTO users (id, name, email, role) VALUES (1, 'Alice', 'alice@example.com', 'admin'), (2, 'Bob', 'bob@example.com', 'user')`,
+        `INSERT INTO users (name, email, role) VALUES ('Alice', 'alice@example.com', 'admin'), ('Bob', 'bob@example.com', 'user')`,
       ])
 
       // WHEN: view query modified to query B
@@ -202,7 +197,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'role', type: 'single-line-text' },
@@ -250,7 +244,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'amount', type: 'decimal' },
               { id: 4, name: 'created_at', type: 'datetime' },
@@ -261,7 +254,7 @@ test.describe('Database Views Migration', () => {
 
       // Insert data after table creation
       await executeQuery([
-        `INSERT INTO orders (id, customer_id, amount) VALUES (1, 1, 100.00), (2, 1, 150.00), (3, 2, 200.00), (4, 2, 50.00)`,
+        `INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00), (2, 200.00), (2, 50.00)`,
       ])
 
       // WHEN: materialized view 'order_stats' added (aggregation query)
@@ -272,7 +265,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'amount', type: 'decimal' },
               { id: 4, name: 'created_at', type: 'datetime' },
@@ -317,7 +309,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'amount', type: 'decimal' },
             ],
@@ -336,11 +327,11 @@ test.describe('Database Views Migration', () => {
 
       // Insert data after table creation
       await executeQuery([
-        `INSERT INTO orders (id, customer_id, amount) VALUES (1, 1, 100.00), (2, 1, 150.00)`,
+        `INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00)`,
       ])
 
       // Add new order (stale data in materialized view)
-      await executeQuery(`INSERT INTO orders (id, customer_id, amount) VALUES (3, 1, 200.00)`)
+      await executeQuery(`INSERT INTO orders (customer_id, amount) VALUES (1, 200.00)`)
 
       // Verify stale data
       const staleStats = await executeQuery(
@@ -356,7 +347,6 @@ test.describe('Database Views Migration', () => {
             id: 1,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'amount', type: 'decimal' },
             ],
@@ -396,16 +386,12 @@ test.describe('Database Views Migration', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
           },
           {
             id: 2,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'user_id', type: 'integer' },
               { id: 3, name: 'status', type: 'single-line-text' },
             ],
@@ -415,8 +401,8 @@ test.describe('Database Views Migration', () => {
 
       // Insert data and create views after tables created
       await executeQuery([
-        `INSERT INTO users (id, name) VALUES (1, 'Alice')`,
-        `INSERT INTO orders (id, user_id, status) VALUES (1, 1, 'active'), (2, 1, 'completed')`,
+        `INSERT INTO users (name) VALUES ('Alice')`,
+        `INSERT INTO orders (user_id, status) VALUES (1, 'active'), (1, 'completed')`,
         `CREATE VIEW user_orders AS SELECT u.name, o.status FROM users u JOIN orders o ON u.id = o.user_id`,
         `CREATE VIEW active_orders AS SELECT * FROM user_orders WHERE status = 'active'`,
       ])
@@ -428,16 +414,12 @@ test.describe('Database Views Migration', () => {
           {
             id: 1,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-            ],
+            fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
           },
           {
             id: 2,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'user_id', type: 'integer' },
               { id: 3, name: 'status', type: 'single-line-text' },
             ],
@@ -481,7 +463,6 @@ test.describe('Database Views Migration', () => {
               id: 1,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'price', type: 'decimal' },
                 { id: 4, name: 'in_stock', type: 'checkbox', default: true },
@@ -499,7 +480,7 @@ test.describe('Database Views Migration', () => {
 
         // Seed test data after table creation
         await executeQuery([
-          `INSERT INTO products (id, name, price, in_stock) VALUES (1, 'Widget', 19.99, true), (2, 'Gadget', 29.99, true), (3, 'Obsolete', 9.99, false)`,
+          `INSERT INTO products (name, price, in_stock) VALUES ('Widget', 19.99, true), ('Gadget', 29.99, true), ('Obsolete', 9.99, false)`,
         ])
       })
 

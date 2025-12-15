@@ -41,16 +41,12 @@ test.describe('Error Handling and Rollback', () => {
             {
               id: 1,
               name: 'users',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'email', type: 'email' },
-              ],
+              fields: [{ id: 2, name: 'email', type: 'email' }],
             },
             {
               id: 2,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 // @ts-expect-error - Testing invalid field type
                 { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
               ],
@@ -99,16 +95,12 @@ test.describe('Error Handling and Rollback', () => {
             {
               id: 3,
               name: 'categories',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
+              fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
             },
             {
               id: 4,
               name: 'products',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
                 { id: 3, name: 'price', type: 'decimal' },
               ],
@@ -144,14 +136,11 @@ test.describe('Error Handling and Rollback', () => {
           {
             id: 5,
             name: 'users',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email' },
-            ],
+            fields: [{ id: 2, name: 'email', type: 'email' }],
           },
         ],
       })
-      await executeQuery([`INSERT INTO users (id, email) VALUES (1, 'existing@example.com')`])
+      await executeQuery([`INSERT INTO users (email) VALUES ('existing@example.com')`])
 
       // WHEN: constraint violation during migration
       // THEN: Transaction rolled back, table schema unchanged
@@ -165,7 +154,6 @@ test.describe('Error Handling and Rollback', () => {
               id: 5,
               name: 'users',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'email', type: 'email' },
                 { id: 3, name: 'name', type: 'single-line-text' },
               ],
@@ -215,7 +203,6 @@ test.describe('Error Handling and Rollback', () => {
               id: 6,
               name: 'posts',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
                 {
                   id: 3,
@@ -257,10 +244,7 @@ test.describe('Error Handling and Rollback', () => {
               {
                 id: 7,
                 name: 'users',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'email', type: 'email' },
-                ],
+                fields: [{ id: 2, name: 'email', type: 'email' }],
               },
             ],
           },
@@ -295,10 +279,7 @@ test.describe('Error Handling and Rollback', () => {
             {
               id: 1,
               name: 'users',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'email', type: 'email' },
-              ],
+              fields: [{ id: 2, name: 'email', type: 'email' }],
               indexes: [
                 {
                   name: 'idx_users_status',
@@ -326,12 +307,12 @@ test.describe('Error Handling and Rollback', () => {
             {
               id: 1, // Duplicate ID!
               name: 'users',
-              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              fields: [{ id: 2, name: 'email', type: 'email' }],
             },
             {
               id: 1, // Duplicate ID!
               name: 'products',
-              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              fields: [{ id: 2, name: 'title', type: 'single-line-text' }],
             },
           ],
         })
@@ -354,7 +335,6 @@ test.describe('Error Handling and Rollback', () => {
               id: 1,
               name: 'posts',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
                 {
                   id: 3,
@@ -385,14 +365,11 @@ test.describe('Error Handling and Rollback', () => {
           {
             id: 1,
             name: 'legacy_data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'value', type: 'single-line-text' },
-            ],
+            fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
           },
         ],
       })
-      await executeQuery([`INSERT INTO legacy_data (id, value) VALUES (1, 'important data')`])
+      await executeQuery([`INSERT INTO legacy_data (value) VALUES ('important data')`])
 
       // WHEN: Attempting to drop column/table without explicit confirmation
       // THEN: Should throw validation error requiring confirmation
@@ -404,7 +381,6 @@ test.describe('Error Handling and Rollback', () => {
               id: 1,
               name: 'legacy_data',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 // 'value' column removed - destructive operation!
               ],
               // No 'allowDestructive: true' flag
@@ -452,7 +428,6 @@ test.describe('Error Handling and Rollback', () => {
                 id: 8,
                 name: 'test',
                 fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
                   // @ts-expect-error - Testing invalid field type
                   { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
                 ],
@@ -475,14 +450,11 @@ test.describe('Error Handling and Rollback', () => {
             {
               id: 9,
               name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'value', type: 'single-line-text' },
-              ],
+              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
             },
           ],
         })
-        await executeQuery([`INSERT INTO data (id, value) VALUES (1, 'existing')`])
+        await executeQuery([`INSERT INTO data (value) VALUES ('existing')`])
       })
 
       await test.step('Test constraint violation preserves existing data', async () => {
@@ -494,7 +466,6 @@ test.describe('Error Handling and Rollback', () => {
                 id: 9,
                 name: 'data',
                 fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
                   { id: 2, name: 'value', type: 'single-line-text' },
                   { id: 3, name: 'required_field', type: 'single-line-text' },
                 ],

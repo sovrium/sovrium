@@ -323,6 +323,7 @@ const injectHydrationScript = (
   basePath: string,
   // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
   fsModule: typeof fs,
+  // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
   pathModule: typeof path
 ): Effect.Effect<void, StaticGenerationError, never> =>
   Effect.gen(function* () {

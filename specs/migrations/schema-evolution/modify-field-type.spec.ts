@@ -36,7 +36,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'bio', type: 'single-line-text' },
             ],
@@ -44,7 +43,7 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO users (id, name, bio) VALUES (1, 'Alice', 'Short bio'), (2, 'Bob', 'Another bio')`,
+        `INSERT INTO users (name, bio) VALUES ('Alice', 'Short bio'), ('Bob', 'Another bio')`,
       ])
 
       // WHEN: field type changed to long-text (TEXT)
@@ -55,7 +54,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 1,
             name: 'users',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'bio', type: 'long-text' },
             ],
@@ -95,7 +93,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'long-text' },
             ],
@@ -103,7 +100,7 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, sku) VALUES (1, 'Widget', 'SKU-123'), (2, 'Gadget', '${'X'.repeat(100)}')`,
+        `INSERT INTO products (name, sku) VALUES ('Widget', 'SKU-123'), ('Gadget', '${'X'.repeat(100)}')`,
       ])
 
       // WHEN: field type changed to single-line-text with maxLength=50
@@ -114,7 +111,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'single-line-text' }, // maxLength is not supported yet
             ],
@@ -152,7 +148,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -165,7 +160,7 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO orders (id, order_number, total) VALUES (1, 'ORD-001', 100), (2, 'ORD-002', 250)`,
+        `INSERT INTO orders (order_number, total) VALUES ('ORD-001', 100), ('ORD-002', 250)`,
       ])
 
       // WHEN: field type changed to decimal
@@ -176,7 +171,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -224,7 +218,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 4,
             name: 'metrics',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'count', type: 'long-text' },
             ],
@@ -232,7 +225,7 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO metrics (id, name, count) VALUES (1, 'page_views', '1500'), (2, 'clicks', '250')`,
+        `INSERT INTO metrics (name, count) VALUES ('page_views', '1500'), ('clicks', '250')`,
       ])
 
       // WHEN: field type changed to integer
@@ -243,7 +236,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 4,
             name: 'metrics',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'count', type: 'integer' },
             ],
@@ -282,7 +274,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 5,
             name: 'events',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'occurred_at', type: 'long-text' },
             ],
@@ -290,7 +281,7 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO events (id, name, occurred_at) VALUES (1, 'signup', '2024-01-15T10:30:00Z'), (2, 'purchase', '2024-02-20T14:45:00Z')`,
+        `INSERT INTO events (name, occurred_at) VALUES ('signup', '2024-01-15T10:30:00Z'), ('purchase', '2024-02-20T14:45:00Z')`,
       ])
 
       // WHEN: field type changed to timestamp
@@ -301,7 +292,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 5,
             name: 'events',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'occurred_at', type: 'datetime' },
             ],
@@ -343,7 +333,6 @@ test.describe('Modify Field Type Migration', () => {
             id: 6,
             name: 'data',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'label', type: 'single-line-text', required: true },
               { id: 3, name: 'value', type: 'long-text' },
             ],
@@ -351,7 +340,7 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO data (id, label, value) VALUES (1, 'numeric', '42'), (2, 'invalid', 'not-a-number')`,
+        `INSERT INTO data (label, value) VALUES ('numeric', '42'), ('invalid', 'not-a-number')`,
       ])
 
       // WHEN: field type changed to INTEGER
@@ -364,7 +353,6 @@ test.describe('Modify Field Type Migration', () => {
               id: 6,
               name: 'data',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'label', type: 'single-line-text', required: true },
                 { id: 3, name: 'value', type: 'integer' },
               ],
@@ -401,7 +389,6 @@ test.describe('Modify Field Type Migration', () => {
               id: 7,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'quantity', type: 'long-text' },
                 { id: 4, name: 'price', type: 'integer' },
@@ -410,7 +397,7 @@ test.describe('Modify Field Type Migration', () => {
           ],
         })
         await executeQuery([
-          `INSERT INTO items (id, name, quantity, price) VALUES (1, 'Widget', '100', 50), (2, 'Gadget', '200', 75)`,
+          `INSERT INTO items (name, quantity, price) VALUES ('Widget', '100', 50), ('Gadget', '200', 75)`,
         ])
       })
 
@@ -422,7 +409,6 @@ test.describe('Modify Field Type Migration', () => {
               id: 7,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 { id: 3, name: 'quantity', type: 'integer' },
                 { id: 4, name: 'price', type: 'decimal' },

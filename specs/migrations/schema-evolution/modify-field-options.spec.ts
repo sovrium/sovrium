@@ -36,7 +36,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 1,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -49,7 +48,7 @@ test.describe('Modify Field Options Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO tasks (id, title, status) VALUES (1, 'Task 1', 'pending'), (2, 'Task 2', 'completed')`,
+        `INSERT INTO tasks (title, status) VALUES ('Task 1', 'pending'), ('Task 2', 'completed')`,
       ])
 
       // WHEN: new option 'archived' added to enum
@@ -60,7 +59,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 1,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -106,7 +104,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -119,7 +116,7 @@ test.describe('Modify Field Options Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO products (id, name, category) VALUES (1, 'Laptop', 'electronics'), (2, 'Shirt', 'clothing')`,
+        `INSERT INTO products (name, category) VALUES ('Laptop', 'electronics'), ('Shirt', 'clothing')`,
       ])
 
       // WHEN: option 'furniture' removed from enum
@@ -130,7 +127,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 2,
             name: 'products',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               {
                 id: 3,
@@ -176,7 +172,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 3,
             name: 'orders',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               {
                 id: 2,
                 name: 'order_number',
@@ -194,7 +189,7 @@ test.describe('Modify Field Options Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO orders (id, order_number, priority) VALUES (1, 'ORD-001', 'low'), (2, 'ORD-002', 'medium')`,
+        `INSERT INTO orders (order_number, priority) VALUES ('ORD-001', 'low'), ('ORD-002', 'medium')`,
       ])
 
       // WHEN: attempting to remove option 'medium' from enum
@@ -207,7 +202,6 @@ test.describe('Modify Field Options Migration', () => {
               id: 3,
               name: 'orders',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 {
                   id: 2,
                   name: 'order_number',
@@ -246,7 +240,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 4,
             name: 'preferences',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'user_id', type: 'integer', required: true },
               {
                 id: 3,
@@ -259,7 +252,7 @@ test.describe('Modify Field Options Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO preferences (id, user_id, tags) VALUES (1, 1, '["work", "personal"]')`,
+        `INSERT INTO preferences (user_id, tags) VALUES (1, '["work", "personal"]')`,
       ])
 
       // WHEN: validation rule added requiring each tag to match pattern ^[a-z]+$
@@ -270,7 +263,6 @@ test.describe('Modify Field Options Migration', () => {
             id: 4,
             name: 'preferences',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'user_id', type: 'integer', required: true },
               {
                 id: 3,
@@ -316,7 +308,6 @@ test.describe('Modify Field Options Migration', () => {
               id: 5,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 {
                   id: 3,
@@ -328,7 +319,7 @@ test.describe('Modify Field Options Migration', () => {
             },
           ],
         })
-        await executeQuery([`INSERT INTO items (id, name, type) VALUES (1, 'Item 1', 'type_a')`])
+        await executeQuery([`INSERT INTO items (name, type) VALUES ('Item 1', 'type_a')`])
       })
 
       await test.step('Add new option type_c to enum', async () => {
@@ -339,7 +330,6 @@ test.describe('Modify Field Options Migration', () => {
               id: 5,
               name: 'items',
               fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
                 {
                   id: 3,
