@@ -24,7 +24,7 @@ test.describe('Remove Field Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-001: should remove phone column and preserve other columns when runtime migration generates ALTER TABLE DROP COLUMN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -137,7 +137,7 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-003: should automatically drop associated index when ALTER TABLE drops column with index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -191,7 +191,7 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-004: should remove column and CASCADE drop foreign key constraint when ALTER TABLE drops column with foreign key constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -206,15 +206,23 @@ test.describe('Remove Field Migration', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
             ],
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 5,
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'customer_id', type: 'integer' },
+              {
+                id: 2,
+                name: 'customer_id',
+                type: 'relationship',
+                relatedTable: 'customers',
+                relationType: 'many-to-one',
+              },
               { id: 3, name: 'total', type: 'decimal' },
             ],
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -234,14 +242,16 @@ test.describe('Remove Field Migration', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
             ],
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
           {
             id: 5,
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'total', type: 'decimal' },
+              { id: 3, name: 'total', type: 'decimal' },
             ],
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
