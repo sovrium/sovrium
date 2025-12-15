@@ -171,9 +171,21 @@ export async function stopGlobalMailpit(): Promise<void> {
 
 /**
  * Wait for Mailpit to be ready
+ *
+ * Uses longer timeouts on CI where Docker startup can be slower.
+ * - Local: 30 attempts × 100ms = 3 seconds
+ * - CI: 60 attempts × 200ms = 12 seconds
  */
-async function waitForMailpitReady(maxAttempts = 30): Promise<void> {
+async function waitForMailpitReady(): Promise<void> {
+  const isCI = !!process.env.CI
+  const maxAttempts = isCI ? 60 : 30
+  const delayMs = isCI ? 200 : 100
   const baseUrl = `http://localhost:${globalWebPort}`
+
+  console.log(
+    `⏳ Waiting for Mailpit to be ready (max ${maxAttempts} attempts, ${delayMs}ms interval)...`
+  )
+
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const response = await fetch(`${baseUrl}/api/v1/messages`)
@@ -181,11 +193,18 @@ async function waitForMailpitReady(maxAttempts = 30): Promise<void> {
         return
       }
     } catch {
-      // Not ready yet
+      // Not ready yet - this is expected during startup
     }
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
   }
-  throw new Error('Mailpit did not become ready in time')
+
+  // Provide helpful error message with diagnostic info
+  const totalWaitTime = (maxAttempts * delayMs) / 1000
+  throw new Error(
+    `Mailpit did not become ready within ${totalWaitTime}s. ` +
+      `Check if Docker is running and port ${globalWebPort} is available. ` +
+      `Run 'docker ps' to see container status.`
+  )
 }
 
 /**
