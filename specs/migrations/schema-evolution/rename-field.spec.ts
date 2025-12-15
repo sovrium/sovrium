@@ -221,35 +221,41 @@ test.describe('Rename Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-RENAME-004: should rename column but CHECK constraint references old name when RENAME COLUMN on field with CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'tasks' with field 'status' (CHECK constraint) renamed to 'state'
-      await executeQuery([
-        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, status VARCHAR(50) CHECK (status IN ('open', 'in_progress', 'done')))`,
-        `INSERT INTO tasks (status) VALUES ('open')`,
-      ])
-
       // WHEN: RENAME COLUMN on field with CHECK constraint
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 1,
-                name: 'state',
-                type: 'single-select',
-                options: ['open', 'in_progress', 'done'],
-              },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'state',
+                  type: 'single-select',
+                  options: ['open', 'in_progress', 'done'],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'tasks' with field 'status' (id=2, CHECK constraint) renamed to 'state' (same id)
+          setupQueries: [
+            `DROP TABLE IF EXISTS tasks CASCADE`,
+            `CREATE TABLE tasks (id SERIAL PRIMARY KEY, status VARCHAR(50) CHECK (status IN ('open', 'in_progress', 'done')))`,
+            `INSERT INTO tasks (status) VALUES ('open')`,
+            `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
+            `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":5,"name":"tasks","fields":[{"id":1,"name":"id","type":"integer","required":true},{"id":2,"name":"status","type":"single-select","options":["open","in_progress","done"]}]}]}')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL renames column but CHECK constraint references old name (constraint needs update)
 
