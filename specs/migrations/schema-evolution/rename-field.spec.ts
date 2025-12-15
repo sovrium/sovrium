@@ -148,46 +148,49 @@ test.describe('Rename Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-RENAME-003: should rename column and preserve foreign key constraint when RENAME COLUMN on foreign key field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table 'orders' with foreign key field 'customer_id' renamed to 'client_id'
-      await executeQuery([
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
-        `INSERT INTO customers (name) VALUES ('Customer A')`,
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id))`,
-        `INSERT INTO orders (customer_id) VALUES (1)`,
-      ])
-
       // WHEN: RENAME COLUMN on foreign key field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 3,
-            name: 'customers',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-          },
-          {
-            id: 4,
-            name: 'orders',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'client_id',
-                type: 'relationship',
-                relatedTable: 'customers',
-                relationType: 'many-to-one',
-              },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'customers',
+              fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                {
+                  id: 2,
+                  name: 'client_id',
+                  type: 'relationship',
+                  relatedTable: 'customers',
+                  relationType: 'many-to-one',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // GIVEN: table 'orders' with foreign key field 'customer_id' (id=2) renamed to 'client_id' (same id)
+          setupQueries: [
+            `DROP TABLE IF EXISTS orders CASCADE`,
+            `DROP TABLE IF EXISTS customers CASCADE`,
+            `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
+            `INSERT INTO customers (name) VALUES ('Customer A')`,
+            `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id))`,
+            `INSERT INTO orders (customer_id) VALUES (1)`,
+            `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, schema JSONB NOT NULL)`,
+            `INSERT INTO _sovrium_schema_checksum (id, checksum, schema) VALUES ('singleton', 'old-checksum', '{"name":"test-app","tables":[{"id":3,"name":"customers","fields":[{"id":2,"name":"name","type":"single-line-text"}]},{"id":4,"name":"orders","fields":[{"id":2,"name":"customer_id","type":"relationship","relatedTable":"customers","relationType":"many-to-one"}]}]}')`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL renames column and preserves foreign key constraint
 
