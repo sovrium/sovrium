@@ -340,16 +340,24 @@ const recreateTableWithDataEffect = (
   })
 
 /**
+ * Configuration for table migration operations
+ */
+export type MigrationConfig = {
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly previousSchema?: { readonly tables: readonly object[] }
+}
+
+/**
  * Migrate existing table (ALTER statements + constraints + indexes)
  */
 export const migrateExistingTableEffect = (
   tx: TransactionLike,
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
-  tableUsesView?: ReadonlyMap<string, boolean>,
-  previousSchema?: { readonly tables: readonly object[] }
+  config: MigrationConfig = {}
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    const { tableUsesView, previousSchema } = config
     const alterStatements = generateAlterTableStatements(table, existingColumns, previousSchema)
 
     // If alterStatements is empty, table has incompatible schema changes
@@ -471,14 +479,13 @@ export const createOrMigrateTableEffect = (
   tx: BunSQLTransaction,
   table: Table,
   exists: boolean,
-  tableUsesView?: ReadonlyMap<string, boolean>,
-  previousSchema?: { readonly tables: readonly object[] }
+  config: MigrationConfig = {}
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     if (exists) {
       const existingColumns = yield* getExistingColumns(tx, table.name)
-      yield* migrateExistingTableEffect(tx, table, existingColumns, tableUsesView, previousSchema)
+      yield* migrateExistingTableEffect(tx, table, existingColumns, config)
     } else {
-      yield* createNewTableEffect(tx, table, tableUsesView)
+      yield* createNewTableEffect(tx, table, config.tableUsesView)
     }
   })
