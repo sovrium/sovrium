@@ -178,7 +178,7 @@ test.describe('Checksum Optimization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-CHECKSUM-004: should change checksum and trigger re-migration when minor schema change occurs',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

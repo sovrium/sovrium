@@ -386,10 +386,14 @@ const checkShouldSkipMigration = (
         )) as readonly { checksum: string }[]
 
         if (result.length > 0 && result[0]?.checksum === currentChecksum) {
-          logInfo('[checkShouldSkipMigration] Schema checksum matches - skipping migration (fast path)')
+          logInfo(
+            '[checkShouldSkipMigration] Schema checksum matches - skipping migration (fast path)'
+          )
           return true
         }
-        logInfo('[checkShouldSkipMigration] Schema checksum differs or missing - running full migration')
+        logInfo(
+          '[checkShouldSkipMigration] Schema checksum differs or missing - running full migration'
+        )
         return false
       } catch {
         // Table might not exist yet (first run) - proceed with full migration

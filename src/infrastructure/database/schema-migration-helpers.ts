@@ -211,7 +211,56 @@ const findColumnsToDrop = (
   })
 
 /**
- * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
+ * Check if field should be NOT NULL
+ * Auto-managed fields (created-at, updated-at, created-by, updated-by) and required fields are NOT NULL
+ */
+const isFieldNotNull = (field: Fields[number], isPrimaryKey: boolean): boolean => {
+  // Auto-managed fields are always NOT NULL
+  if (field.type === 'created-at' || field.type === 'updated-at') return true
+  if (field.type === 'created-by' || field.type === 'updated-by') return true
+  // Primary key fields are always NOT NULL
+  if (isPrimaryKey) return true
+  // Check required property
+  return 'required' in field && field.required === true
+}
+
+/**
+ * Find columns that need nullability changes
+ * Returns ALTER COLUMN statements for SET NOT NULL / DROP NOT NULL
+ */
+const findNullabilityChanges = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  renamedNewNames: ReadonlySet<string>,
+  primaryKeyFields: readonly string[]
+): readonly string[] =>
+  table.fields
+    .filter((field) => {
+      // Skip UI-only fields, renamed fields, and fields not in database
+      if (!shouldCreateDatabaseColumn(field)) return false
+      if (renamedNewNames.has(field.name)) return false
+      if (!existingColumns.has(field.name)) return false
+      return true
+    })
+    .flatMap((field) => {
+      const existing = existingColumns.get(field.name)!
+      const isPrimaryKey = primaryKeyFields.includes(field.name)
+      const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
+      const currentlyNotNull = existing.isNullable === 'NO'
+
+      // If nullability differs, generate ALTER COLUMN statement
+      if (shouldBeNotNull && !currentlyNotNull) {
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+      }
+      if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
+        // Only DROP NOT NULL if it's not a primary key or auto-managed field
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+      }
+      return []
+    })
+
+/**
+ * Generate ALTER TABLE statements for schema changes (ADD/DROP columns, nullability changes)
  */
 export const generateAlterTableStatements = (
   table: Table,
@@ -247,6 +296,14 @@ export const generateAlterTableStatements = (
     renamedOldNames
   )
 
+  // Find nullability changes (SET NOT NULL / DROP NOT NULL)
+  const nullabilityChanges = findNullabilityChanges(
+    table,
+    existingColumns,
+    renamedNewNames,
+    primaryKeyFields
+  )
+
   // Generate ALTER TABLE statements
   const dropStatements = columnsToDrop.map(
     (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName} CASCADE`
@@ -257,7 +314,7 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  return [...renameStatements, ...dropStatements, ...addStatements]
+  return [...renameStatements, ...dropStatements, ...addStatements, ...nullabilityChanges]
 }
 
 /**
