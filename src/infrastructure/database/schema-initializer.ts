@@ -368,14 +368,11 @@ const initializeSchemaInternal = (
     logInfo('[initializeSchemaInternal] Starting schema initialization...')
     logInfo(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
 
-    // Skip if no tables defined
-    if (!app.tables || app.tables.length === 0) {
-      yield* Console.log('No tables defined, skipping schema initialization')
-      return
-    }
+    // Normalize tables to empty array if undefined
+    const tables = app.tables ?? []
 
     // Check if tables require user fields but auth is not configured
-    const tablesNeedUsersTable = needsUsersTable(app.tables)
+    const tablesNeedUsersTable = needsUsersTable(tables)
     const hasAuthConfig = !!app.auth
     logInfo(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
     logInfo(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
@@ -401,8 +398,8 @@ const initializeSchemaInternal = (
 
     yield* Console.log('Initializing database schema...')
 
-    // Execute schema initialization with bun:sql
-    yield* executeSchemaInit(databaseUrlConfig, app.tables!, app)
+    // Execute schema initialization with bun:sql (even if tables is empty - to drop obsolete tables)
+    yield* executeSchemaInit(databaseUrlConfig, tables, app)
 
     yield* Console.log('✓ Database schema initialized successfully')
   })
