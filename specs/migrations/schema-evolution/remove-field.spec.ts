@@ -163,40 +163,43 @@ test.describe('Remove Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-REMOVE-004: should remove column and CASCADE drop foreign key constraint when ALTER TABLE drops column with foreign key constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with foreign key field, relationship field is removed
-      await executeQuery([
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
-        `INSERT INTO customers (name) VALUES ('Customer A')`,
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), total NUMERIC(10,2))`,
-        `INSERT INTO orders (customer_id, total) VALUES (1, 150.00)`,
-      ])
-
       // WHEN: ALTER TABLE drops column with foreign key constraint
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'customers',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-          },
-          {
-            id: 5,
-            name: 'orders',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'total', type: 'decimal' },
-            ],
-          },
-        ],
-      })
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+            },
+            {
+              id: 5,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'total', type: 'decimal' },
+              ],
+            },
+          ],
+        },
+        {
+          setupQueries: [
+            `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
+            `INSERT INTO customers (name) VALUES ('Customer A')`,
+            `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), total NUMERIC(10,2))`,
+            `INSERT INTO orders (customer_id, total) VALUES (1, 150.00)`,
+          ],
+        }
+      )
 
       // THEN: PostgreSQL removes column and CASCADE drops foreign key constraint
 
@@ -217,7 +220,7 @@ test.describe('Remove Field Migration', () => {
       // Data in remaining columns preserved
       const dataCheck = await executeQuery(`SELECT total FROM orders WHERE id = 1`)
       // THEN: assertion
-      expect(dataCheck.total).toBe('150.00')
+      expect(dataCheck.total).toBe(150)
     }
   )
 
