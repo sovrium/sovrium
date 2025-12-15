@@ -141,11 +141,24 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Previous migration exists
+      // GIVEN: Initial valid schema to establish database connection
+      // First call to startServerWithSchema creates test database
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'initial',
+            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+          },
+        ],
+      })
+
+      // Create test table and ensure migration log table exists
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
           id SERIAL PRIMARY KEY,
