@@ -268,7 +268,7 @@ test.describe('Add Field Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ALTER-ADD-006: should preserve existing records as non-deleted (NULL)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
