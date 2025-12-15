@@ -200,10 +200,16 @@ test.describe('Migration Audit Trail', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Initialize test database
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: Multiple migrations in history
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
@@ -226,20 +232,20 @@ test.describe('Migration Audit Trail', () => {
       const allMigrations = await executeQuery(
         `SELECT * FROM _sovrium_migration_history ORDER BY version`
       )
-      expect(allMigrations).toHaveLength(3)
+      expect(allMigrations.rows).toHaveLength(3)
 
       // Query by date range
       const recentMigrations = await executeQuery(
         `SELECT * FROM _sovrium_migration_history WHERE applied_at >= '2025-01-02'`
       )
-      expect(recentMigrations).toHaveLength(2)
+      expect(recentMigrations.rows).toHaveLength(2)
 
       // Query specific version
       const v2Migration = await executeQuery(
         `SELECT * FROM _sovrium_migration_history WHERE version = 2`
       )
-      expect(v2Migration).toHaveLength(1)
-      expect(v2Migration[0].checksum).toBe('v2')
+      expect(v2Migration.rows).toHaveLength(1)
+      expect(v2Migration.rows[0].checksum).toBe('v2')
     }
   )
 
