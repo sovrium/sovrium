@@ -110,11 +110,54 @@ const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): b
 }
 
 /**
+ * Detect field renames by comparing field IDs between previous and current schema
+ * Returns a map of old field name to new field name for renamed fields
+ */
+export const detectFieldRenames = (
+  tableName: string,
+  currentFields: readonly Fields[number][],
+  previousSchema?: { readonly tables: readonly object[] }
+): ReadonlyMap<string, string> => {
+  if (!previousSchema) return new Map()
+
+  // Find previous table definition
+  const previousTable = previousSchema.tables.find(
+    (t: object) => 'name' in t && t.name === tableName
+  ) as { name: string; fields?: readonly { id?: number; name?: string }[] } | undefined
+
+  if (!previousTable || !previousTable.fields) return new Map()
+
+  // Build map of field ID to field name for both schemas
+  const previousFieldsById = new Map(
+    previousTable.fields
+      .filter((f) => f.id !== undefined && f.name !== undefined)
+      .map((f) => [f.id!, f.name!])
+  )
+
+  const currentFieldsById = new Map(
+    currentFields.filter((f) => f.id !== undefined).map((f) => [f.id, f.name])
+  )
+
+  // Detect renames: same ID, different name
+  const renames = new Map<string, string>()
+  currentFieldsById.forEach((newName, fieldId) => {
+    const oldName = previousFieldsById.get(fieldId)
+    if (oldName && oldName !== newName) {
+      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+      renames.set(oldName, newName)
+    }
+  })
+
+  return renames
+}
+
+/**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
  */
 export const generateAlterTableStatements = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  previousSchema?: { readonly tables: readonly object[] }
 ): readonly string[] => {
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
@@ -149,19 +192,38 @@ export const generateAlterTableStatements = (
     return []
   }
 
+  // Detect field renames via ID tracking
+  const fieldRenames = detectFieldRenames(table.name, table.fields, previousSchema)
+
+  // Generate RENAME COLUMN statements for renamed fields
+  const renameStatements = Array.from(fieldRenames.entries()).map(
+    ([oldName, newName]) => `ALTER TABLE ${table.name} RENAME COLUMN ${oldName} TO ${newName}`
+  )
+
+  // Build set of old names that are being renamed (to exclude from DROP logic)
+  const renamedOldNames = new Set(fieldRenames.keys())
+  // Build set of new names that come from renames (to exclude from ADD logic)
+  const renamedNewNames = new Set(fieldRenames.values())
+
   // Columns to add: not in database OR exist but have wrong type
   // Filter out UI-only fields (like button) that don't need database columns
+  // Exclude renamed fields (they already exist with their new name after RENAME)
   const columnsToAdd = table.fields.filter((field) => {
     if (!shouldCreateDatabaseColumn(field)) return false // Skip UI-only fields
+    if (renamedNewNames.has(field.name)) return false // Skip renamed fields
     if (!existingColumns.has(field.name)) return true // New column
     const existing = existingColumns.get(field.name)!
     return !doesColumnTypeMatch(field, existing.dataType) // Type mismatch
   })
 
   // Columns to drop: exist in database but not in schema OR have wrong type
+  // Exclude renamed fields (they're being renamed, not dropped)
   const columnsToDrop = Array.from(existingColumns.keys()).filter((columnName) => {
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
+
+    // Don't drop if it's being renamed
+    if (renamedOldNames.has(columnName)) return false
 
     // Drop if not in schema (but only if it's not a UI-only field)
     if (!schemaFieldsByName.has(columnName)) return true
@@ -187,9 +249,12 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  // Return DROP statements first, then ADD statements
-  // This ensures columns are dropped before adding new ones with correct types
-  return [...dropStatements, ...addStatements]
+  // Return RENAME statements first (preserve existing data), then DROP, then ADD
+  // This ensures:
+  // 1. Renamed columns preserve data and constraints
+  // 2. Old columns are dropped before adding new ones
+  // 3. New columns are added with correct types
+  return [...renameStatements, ...dropStatements, ...addStatements]
 }
 
 /**
