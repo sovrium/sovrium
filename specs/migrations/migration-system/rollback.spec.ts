@@ -368,7 +368,9 @@ test.describe('Migration Rollback', () => {
           },
         ],
       })
-      await executeQuery([`INSERT INTO users (id, email, name) VALUES (1, 'test@example.com', 'Test User')`])
+      await executeQuery([
+        `INSERT INTO users (id, email, name) VALUES (1, 'test@example.com', 'Test User')`,
+      ])
 
       // WHEN: Downgrade to version N-1 requested (remove name column)
       // THEN: Column removed, data preserved where possible
@@ -432,16 +434,20 @@ test.describe('Migration Rollback', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create migration history and test data', async () => {
-        await executeQuery([
-          `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
-          id SERIAL PRIMARY KEY,
-          version INTEGER NOT NULL,
-          checksum TEXT NOT NULL,
-          applied_at TIMESTAMP DEFAULT NOW()
-        )`,
-          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(100))`,
-          `INSERT INTO items (name) VALUES ('Item 1'), ('Item 2')`,
-        ])
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO items (id, name) VALUES (1, 'Item 1'), (2, 'Item 2')`])
       })
 
       await test.step('Attempt invalid migration', async () => {

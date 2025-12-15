@@ -112,8 +112,9 @@ test.describe('Migration Audit Trail', () => {
         ],
       })
 
-      // Insert test data for existing migration history
+      // Setup test data: Replace auto-created entry with version 1
       await executeQuery([
+        `DELETE FROM _sovrium_migration_history`,
         `INSERT INTO _sovrium_migration_history (version, checksum, schema)
          VALUES (1, 'checksum_v1', '{"tables":[]}')`,
       ])
