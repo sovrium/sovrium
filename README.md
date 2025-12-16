@@ -10,7 +10,7 @@
 <h3 align="center">Build business apps with config. Own your data forever.</h3>
 
 <p align="center">
-  The open-source alternative to Airtable, Retool, and Notion.<br />
+  The open-source alternative to Zapier, Airtable, Retool, and Notion.<br />
   Self-hosted. Configuration-driven. No vendor lock-in.
 </p>
 
@@ -38,7 +38,7 @@ No code generation. No external services. Just config and `bun run`.
 ```typescript
 import { start } from 'sovrium'
 
-start({
+await start({
   name: 'my-crm',
   tables: [
     {

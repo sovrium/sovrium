@@ -413,20 +413,20 @@ When validation passes and PR merges:
 
 ## Labels & States
 
-| Label                                     | State       | Description                                        |
-| ----------------------------------------- | ----------- | -------------------------------------------------- |
-| `tdd-spec:queued`                         | Queued      | Spec waiting to be processed                       |
-| `tdd-spec:in-progress`                    | In Progress | Spec being implemented (branch created)            |
-| `tdd-spec:completed`                      | Completed   | Spec passed validation (issue closed)              |
-| `tdd-spec:failed`                         | Failed      | Spec failed after 3 retries (needs human review)   |
-| `skip-automated`                          | Skipped     | Human marked as too complex (queue skips it)       |
-| `retry:spec:1`, `retry:spec:2`, `retry:spec:3` | Retry Count | Tracks code/logic retry attempts (max 3)      |
-| `retry:infra:1`, `retry:infra:2`, `retry:infra:3` | Retry Count | Tracks infrastructure retry attempts (max 3) |
-| `failure:spec`                            | Failure Type | Target spec itself failing                        |
-| `failure:regression`                      | Failure Type | Changes broke OTHER tests                         |
-| `failure:infra`                           | Failure Type | Infrastructure/flaky issue                        |
-| `high-failure-rate`                       | Alerting    | Many specs failing (incident)                      |
-| `tdd-automation`                          | (always)    | All TDD automation issues                          |
+| Label                                             | State        | Description                                      |
+| ------------------------------------------------- | ------------ | ------------------------------------------------ |
+| `tdd-spec:queued`                                 | Queued       | Spec waiting to be processed                     |
+| `tdd-spec:in-progress`                            | In Progress  | Spec being implemented (branch created)          |
+| `tdd-spec:completed`                              | Completed    | Spec passed validation (issue closed)            |
+| `tdd-spec:failed`                                 | Failed       | Spec failed after 3 retries (needs human review) |
+| `skip-automated`                                  | Skipped      | Human marked as too complex (queue skips it)     |
+| `retry:spec:1`, `retry:spec:2`, `retry:spec:3`    | Retry Count  | Tracks code/logic retry attempts (max 3)         |
+| `retry:infra:1`, `retry:infra:2`, `retry:infra:3` | Retry Count  | Tracks infrastructure retry attempts (max 3)     |
+| `failure:spec`                                    | Failure Type | Target spec itself failing                       |
+| `failure:regression`                              | Failure Type | Changes broke OTHER tests                        |
+| `failure:infra`                                   | Failure Type | Infrastructure/flaky issue                       |
+| `high-failure-rate`                               | Alerting     | Many specs failing (incident)                    |
+| `tdd-automation`                                  | (always)     | All TDD automation issues                        |
 
 ## CLI Commands
 
