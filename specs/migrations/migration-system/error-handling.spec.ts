@@ -47,7 +47,7 @@ test.describe('Error Handling and Rollback', () => {
               id: 2,
               name: 'products',
               fields: [
-                // @ts-expect-error - Testing invalid field type
+                // Testing invalid field type (runtime validation)
                 { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
               ],
             },
@@ -428,7 +428,7 @@ test.describe('Error Handling and Rollback', () => {
                 id: 8,
                 name: 'test',
                 fields: [
-                  // @ts-expect-error - Testing invalid field type
+                  // Testing invalid field type (runtime validation)
                   { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
                 ],
               },

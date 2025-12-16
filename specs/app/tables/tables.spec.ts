@@ -1500,7 +1500,7 @@ test.describe('Data Tables', () => {
               id: 1,
               name: 'users',
               fields: [
-                // @ts-expect-error - Testing invalid field type
+                // Testing invalid field type (runtime validation)
                 { id: 1, name: 'data', type: 'invalid-type' },
               ],
             },
