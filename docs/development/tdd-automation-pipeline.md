@@ -89,9 +89,10 @@ bun run scripts/tdd-automation/queue-manager.ts status
 
 #### **tdd-queue-processor.yml** (Pick & Process)
 
-**Triggers**:
+**Triggers** (Phase 3 Event-Driven Architecture):
 
-- Schedule (every 15 minutes)
+- `workflow_run`: Triggered immediately when populate, claude-tdd, or monitor workflows complete
+- Schedule: Hourly backup (safety net if event triggers miss)
 - Manual dispatch
 
 **Purpose**: Picks the next spec from the queue and prepares it for implementation
@@ -134,7 +135,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
 7. **Monitor test.yml validation** with retry loop (max 3 attempts):
    - Check test.yml CI status
    - On failure: Analyze errors, fix code, push again
-   - Track retry count with labels (retry:1, retry:2, retry:3)
+   - Track retry count with labels (`retry:spec:1/2/3` for code errors, `retry:infra:1/2/3` for infrastructure errors)
    - After 3 failures: Mark issue `tdd-spec:failed`, comment, exit
    - On success: Enable PR auto-merge with --squash
 8. **Issue closes automatically** when PR merges to main (handled by test.yml via `Closes #` syntax)
@@ -238,16 +239,26 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Marks for manual review after one failed attempt
    - **Result**: Automatically resolves conflicts to prevent stale PRs
 
-5. **📈 Update Spec State** (on push to main only)
+5. **🔧 Failed PR Recovery**
+   - Scans for TDD PRs with failed CI checks (Test\* checks with FAILURE conclusion)
+   - Skips PRs already marked `needs-manual-resolution`
+   - Checks cooldown period (30 min) to avoid duplicate fix attempts
+   - Coordinates with test.yml's handle-regressions job (checks for both comment patterns)
+   - Posts `@claude` comment with regression fix instructions
+   - Max 3 attempts per PR (counted by "Failed PR Recovery" comments)
+   - After 3 failures: adds `needs-manual-resolution` label, marks linked issue as `tdd-spec:failed`
+   - **Result**: Automatically recovers PRs stuck with failed CI instead of timing out
+
+6. **📈 Update Spec State** (on push to main only)
    - Runs `analyze:specs` to update SPEC-STATE.md
    - Commits changes automatically
 
-6. **📊 Summary**
+7. **📊 Summary**
    - Generates summary of all monitoring actions
 
 **Why Unified Monitoring**:
 
-- Consolidates 4 separate workflows into one
+- Consolidates 7 monitoring functions into one workflow
 - Event-driven triggers for immediate response
 - Reduces workflow execution overhead
 - Consistent health monitoring across all functions
@@ -258,12 +269,21 @@ All configuration is hardcoded in workflow files (no central config file):
 
 **Key Settings**:
 
-- **Processing interval**: 15 minutes (`.github/workflows/tdd-queue-processor.yml` cron)
+- **Processing interval**: Event-driven with hourly backup (`.github/workflows/tdd-queue-processor.yml`)
 - **Max concurrent**: 1 spec at a time - strict serial (hardcoded in processor logic)
 - **Issue labels**: `tdd-spec:queued`, `tdd-spec:in-progress`, `tdd-spec:completed`, `tdd-spec:failed`
 - **Auto-validation**: Enabled (`.github/workflows/test.yml`)
 - **Auto-merge**: Enabled with squash merge (hardcoded in `claude-tdd.yml` prompt)
 - **Max retries**: 3 attempts (hardcoded in `claude-tdd.yml` prompt)
+
+**Timeout Configuration** (in `tdd-monitor-unified.yml`):
+
+| Environment Variable          | Value  | Purpose                                            |
+| ----------------------------- | ------ | -------------------------------------------------- |
+| `STUCK_TIMEOUT_MINUTES`       | 90     | Specs stuck in-progress >90 min are recovered      |
+| `PR_STUCK_TIMEOUT_MINUTES`    | 120    | PRs stuck >120 min with failures are force-closed  |
+| `RETRY_STUCK_TIMEOUT_MINUTES` | 30     | Retries stuck >30 min are recovered                |
+| `FAILED_PR_COOLDOWN_MINUTES`  | 30     | Minimum wait between regression fix attempts       |
 
 ## How It Works
 
@@ -364,7 +384,7 @@ Every 15 minutes (or manual):
    - Identifies root cause
    - Fixes code
    - Commits and pushes
-   - Adds retry label (retry:1, retry:2, or retry:3)
+   - Adds retry label (`retry:spec:1/2/3` for code errors, `retry:infra:1/2/3` for infrastructure errors)
    - Waits for next test.yml run
 5. **On 3rd failure**:
    - Updates issue labels: remove `tdd-spec:in-progress`, add `tdd-spec:failed`

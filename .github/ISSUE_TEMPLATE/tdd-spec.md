@@ -32,7 +32,7 @@ The TDD queue system will automatically post implementation instructions as a co
 **Failure Handling & Retries**:
 
 - Specs automatically retry up to **3 times** if validation fails
-- Labels show retry count: `retry:1`, `retry:2`, `retry:3`
+- Labels show retry count: `retry:spec:1`, `retry:spec:2`, `retry:spec:3` (or `retry:infra:N` for infrastructure errors)
 - After max retries, spec marked as `tdd-spec:failed` (requires human intervention)
 - **Queue never blocks**: Failed specs don't stop other specs from being processed
 

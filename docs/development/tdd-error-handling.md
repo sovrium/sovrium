@@ -147,7 +147,7 @@ NEXT_RETRY=$((CURRENT_RETRY + 1))
 
 if [ "$NEXT_RETRY" -le "$MAX_RETRIES" ]; then
   # Add retry label
-  gh issue edit "$ISSUE_NUMBER" --add-label "infrastructure-retry:$CURRENT_RETRY"
+  gh issue edit "$ISSUE_NUMBER" --add-label "retry:infra:$CURRENT_RETRY"
 
   # Wait 30 seconds
   sleep 30
@@ -158,7 +158,7 @@ if [ "$NEXT_RETRY" -le "$MAX_RETRIES" ]; then
     --field retry_attempt="$NEXT_RETRY"
 else
   # Mark as failed
-  gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:failed" --add-label "infrastructure-error"
+  gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:failed" --add-label "failure:infra"
 fi
 ```
 
@@ -203,13 +203,14 @@ gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec..."
 
 ### Labels Used
 
-| Label                    | Meaning                                        |
-| ------------------------ | ---------------------------------------------- |
-| `tdd-spec:in-progress`   | Spec is currently being processed              |
-| `tdd-spec:failed`        | Spec failed after max retries                  |
-| `infrastructure-retry:N` | Infrastructure retry attempt N (1-3)           |
-| `infrastructure-error`   | Failed due to infrastructure issue (not code)  |
-| `retry:N`                | Code retry attempt N (for validation failures) |
+| Label                  | Meaning                                        |
+| ---------------------- | ---------------------------------------------- |
+| `tdd-spec:in-progress` | Spec is currently being processed              |
+| `tdd-spec:failed`      | Spec failed after max retries                  |
+| `retry:infra:N`        | Infrastructure retry attempt N (1-3)           |
+| `retry:spec:N`         | Code retry attempt N (for validation failures) |
+| `failure:infra`        | Failed due to infrastructure issue (not code)  |
+| `failure:spec`         | Failed due to code/test issues                 |
 
 ## Retry Strategy
 
@@ -222,7 +223,7 @@ The TDD automation now has **two separate retry mechanisms**:
 - **Max**: 3 attempts
 - **Trigger**: Claude Code runtime errors (EPERM, timeouts, etc.)
 - **Handler**: `claude-tdd.yml` workflow (recursive trigger)
-- **Label**: `infrastructure-retry:N`
+- **Label**: `retry:infra:N`
 - **Wait**: 30 seconds between retries
 - **Scope**: Entire workflow re-executes
 
@@ -231,7 +232,7 @@ The TDD automation now has **two separate retry mechanisms**:
 - **Max**: 3 attempts
 - **Trigger**: Test validation failures (test.yml CI)
 - **Handler**: Claude Code agent (in-conversation retry)
-- **Label**: `retry:N`
+- **Label**: `retry:spec:N`
 - **Wait**: Immediate (Claude analyzes errors and fixes)
 - **Scope**: Claude fixes code and pushes update
 
@@ -266,10 +267,10 @@ Attempt 2 (Infra Retry 2):
 
 ```bash
 # List issues with infrastructure retries
-gh issue list --label "infrastructure-retry:1"
+gh issue list --label "retry:infra:1"
 
 # View specific issue retry history
-gh issue view 1339 --json labels --jq '.labels[].name | select(startswith("infrastructure-retry"))'
+gh issue view 1339 --json labels --jq '.labels[].name | select(startswith("retry:infra"))'
 
 # Check workflow run logs
 gh run list --workflow="claude-tdd.yml" --limit 10
