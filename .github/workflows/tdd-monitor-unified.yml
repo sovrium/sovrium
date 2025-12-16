@@ -232,7 +232,10 @@ jobs:
           TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
           STUCK_COUNT=0
 
-          echo "$ISSUES" | jq -r '.[] | @json' | while read -r issue; do
+          # Use process substitution to avoid subshell variable scope issue
+          while read -r issue; do
+            [ -z "$issue" ] && continue
+
             ISSUE_NUMBER=$(echo "$issue" | jq -r '.number')
             TITLE=$(echo "$issue" | jq -r '.title')
             UPDATED_AT=$(echo "$issue" | jq -r '.updatedAt')
@@ -296,11 +299,13 @@ jobs:
                 *🤖 TDD Monitor (Unified)*"
               else
                 NEXT_RETRY=$((RETRY_NUM + 1))
-                echo "   🔄 Triggering retry #$NEXT_RETRY"
+                # Preserve retry type (spec vs infra) when incrementing
+                RETRY_TYPE=$(echo "$RETRY_LABEL" | sed -E 's/retry:(spec|infra):.*/\1/')
+                echo "   🔄 Triggering retry #$NEXT_RETRY (type: $RETRY_TYPE)"
 
                 gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
                   --remove-label "$RETRY_LABEL" \
-                  --add-label "retry:infra:$NEXT_RETRY"
+                  --add-label "retry:${RETRY_TYPE}:$NEXT_RETRY"
 
                 # Get spec details from issue for context
                 SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
@@ -355,7 +360,7 @@ jobs:
               ---
               *🤖 TDD Monitor (Unified)*"
             fi
-          done
+          done < <(echo "$ISSUES" | jq -r '.[] | @json')
 
           if [ "$STUCK_COUNT" -gt 0 ]; then
             echo ""
@@ -388,7 +393,10 @@ jobs:
           NOW=$(date +%s)
           FIXED_COUNT=0
 
-          echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
+          # Use process substitution to avoid subshell variable scope issue
+          while read -r pr; do
+            [ -z "$pr" ] && continue
+
             PR_NUMBER=$(echo "$pr" | jq -r '.number')
             TITLE=$(echo "$pr" | jq -r '.title')
             AUTO_MERGE=$(echo "$pr" | jq -r '.autoMergeRequest')
@@ -432,7 +440,7 @@ jobs:
                 fi
               fi
             fi
-          done
+          done < <(echo "$PRS" | jq -r '.[] | @json')
 
           if [ "$FIXED_COUNT" -gt 0 ]; then
             echo ""
@@ -460,7 +468,10 @@ jobs:
           # Only post update comment if no similar comment in last 2 hours
           COOLDOWN_SECONDS=7200
 
-          echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
+          # Use process substitution to avoid subshell variable scope issue
+          while read -r pr; do
+            [ -z "$pr" ] && continue
+
             PR_NUMBER=$(echo "$pr" | jq -r '.number')
             HEAD_REF=$(echo "$pr" | jq -r '.headRefName')
             MERGEABLE=$(echo "$pr" | jq -r '.mergeable')
@@ -538,7 +549,7 @@ jobs:
 
               UPDATED_COUNT=$((UPDATED_COUNT + 1))
             fi
-          done
+          done < <(echo "$PRS" | jq -r '.[] | @json')
 
           if [ "$UPDATED_COUNT" -gt 0 ]; then
             echo ""
@@ -568,7 +579,10 @@ jobs:
           NOW=$(date +%s)
           STUCK_COUNT=0
 
-          echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
+          # Use process substitution to avoid subshell variable scope issue
+          while read -r pr; do
+            [ -z "$pr" ] && continue
+
             PR_NUMBER=$(echo "$pr" | jq -r '.number')
             CREATED_AT=$(echo "$pr" | jq -r '.createdAt')
 
@@ -612,7 +626,7 @@ jobs:
                 echo "   ⚠️  PR stuck but checks still running - monitoring"
               fi
             fi
-          done
+          done < <(echo "$PRS" | jq -r '.[] | @json')
 
           if [ "$STUCK_COUNT" -gt 0 ]; then
             echo ""
