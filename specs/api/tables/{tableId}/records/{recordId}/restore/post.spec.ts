@@ -277,8 +277,8 @@ test.describe('Restore record', () => {
         VALUES (1, 'User A Item', '${userA.organizationId}', NOW())
       `)
 
-      // Create User B with Organization B
-      const userB = await createAuthenticatedUser({ createOrganization: true })
+      // Create User B with Organization B - sets up isolation context for the test
+      await createAuthenticatedUser({ createOrganization: true })
 
       // WHEN: User B attempts to restore User A's soft-deleted record
       const response = await request.post('/api/tables/1/records/1/restore', {})
@@ -360,7 +360,7 @@ test.describe('Restore record', () => {
   test.fixme(
     'API-TABLES-RECORDS-RESTORE-009: should capture user_id who restored the record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Two users with different roles
       await startServerWithSchema({
         name: 'test-app',
@@ -378,9 +378,8 @@ test.describe('Restore record', () => {
         ],
       })
 
-      const { user: adminUser } = await createAuthenticatedUser({
+      const { user: adminUser } = await createAuthenticatedAdmin({
         email: 'admin@example.com',
-        role: 'admin',
       })
 
       await executeQuery(`

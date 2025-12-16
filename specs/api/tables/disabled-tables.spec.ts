@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable drizzle/enforce-delete-with-where */
+ 
 
 /**
  * E2E Tests for Disabled Tables Endpoints

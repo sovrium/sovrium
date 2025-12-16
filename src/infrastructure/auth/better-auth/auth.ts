@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, twoFactor, apiKey } from 'better-auth/plugins'
+import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
 import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -143,6 +143,8 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
  * Better Auth organization plugin provides inviter and organization context
  */
 const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
+  // Data shape is defined by Better Auth's organization plugin callback signature
+  // eslint-disable-next-line functional/prefer-immutable-types
   return async (data: {
     id: string
     role: string

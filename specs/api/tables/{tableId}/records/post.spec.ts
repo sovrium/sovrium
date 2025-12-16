@@ -868,9 +868,9 @@ test.describe('Create new record', () => {
         ],
       })
 
-      const { user } = await createAuthenticatedUser({
+      const { organizationId } = await createAuthenticatedUser({
         email: 'user@example.com',
-        organizationId: 'org_test_123',
+        createOrganization: true,
       })
 
       // WHEN: User creates a record
@@ -893,7 +893,7 @@ test.describe('Create new record', () => {
         LIMIT 1
       `)
 
-      expect(logs.rows[0].organization_id).toBe(user.organizationId)
+      expect(logs.rows[0].organization_id).toBe(organizationId)
     }
   )
 

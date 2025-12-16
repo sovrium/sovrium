@@ -7,7 +7,7 @@
 
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable drizzle/enforce-delete-with-where */
+ 
 /**
  * E2E Tests for Delete record (Soft Delete)
  *
@@ -744,7 +744,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-017: should create activity log entry when record is permanently deleted',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Admin user with permanent delete permission
       await startServerWithSchema({
         name: 'test-app',
@@ -762,9 +762,8 @@ test.describe('Delete record', () => {
         ],
       })
 
-      const { user } = await createAuthenticatedUser({
+      const { user } = await createAuthenticatedAdmin({
         email: 'admin@example.com',
-        role: 'admin',
       })
 
       await executeQuery(`
@@ -798,7 +797,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-018: should capture user_id who deleted the record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Two users with different permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -816,9 +815,8 @@ test.describe('Delete record', () => {
         ],
       })
 
-      const { user: adminUser } = await createAuthenticatedUser({
+      const { user: adminUser } = await createAuthenticatedAdmin({
         email: 'admin@example.com',
-        role: 'admin',
       })
 
       await executeQuery(`

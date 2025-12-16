@@ -186,7 +186,7 @@ test.fixme(
 test.fixme(
   'API-TABLES-VIEW-RECORDS-004: should return 403 when user lacks view access',
   { tag: '@spec' },
-  async ({ startServerWithSchema, request, createAuthenticatedUser }) => {
+  async ({ startServerWithSchema, request, createAuthenticatedViewer }) => {
     // GIVEN: table with view restricted to admin role
     await startServerWithSchema({
       name: 'test-app',
@@ -210,7 +210,7 @@ test.fixme(
     })
 
     // Create a viewer user (non-admin)
-    await createAuthenticatedUser({ email: 'viewer@example.com', role: 'viewer' })
+    await createAuthenticatedViewer({ email: 'viewer@example.com' })
 
     // WHEN: viewer user attempts to access admin view
     const response = await request.get('/api/tables/tbl_sensitive/views/view_admin/records')

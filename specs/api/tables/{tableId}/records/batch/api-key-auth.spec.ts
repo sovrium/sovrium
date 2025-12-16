@@ -347,8 +347,8 @@ test.describe('API Key Authentication - Batch Operations', () => {
           ...apiKey,
           data: {
             updates: [
-              { id: created[0].id, data: { completed: true } },
-              { id: created[1].id, data: { completed: true } },
+              { id: created[0]!.id, data: { completed: true } },
+              { id: created[1]!.id, data: { completed: true } },
             ],
           },
         })
@@ -358,7 +358,7 @@ test.describe('API Key Authentication - Batch Operations', () => {
       await test.step('Action: Batch delete records with Bearer token', async () => {
         const deleteResponse = await request.delete('/api/tables/1/records/batch', {
           ...apiKey,
-          data: { ids: [created[0].id, created[1].id] },
+          data: { ids: [created[0]!.id, created[1]!.id] },
         })
         expect(deleteResponse.status()).toBe(204)
       })
@@ -367,7 +367,7 @@ test.describe('API Key Authentication - Batch Operations', () => {
         const listResponse = await request.get('/api/tables/1/records', apiKey)
         const records = await listResponse.json()
         expect(records.length).toBe(1)
-        expect(records[0].id).toBe(created[2].id)
+        expect(records[0].id).toBe(created[2]!.id)
       })
     }
   )

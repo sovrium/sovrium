@@ -48,7 +48,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       // Create a user to attempt sign-in against
-      await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User exceeds default sign-in rate limit with wrong password
       // Note: Test assumes default limit is 5 attempts per 60 seconds
@@ -87,7 +87,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         tables: [],
       })
 
-      await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User hits default rate limit (assumes 5 attempts)
       for (let i = 0; i < 5; i++) {
@@ -127,7 +127,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         tables: [],
       })
 
-      await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User exceeds default password reset rate limit
       // Note: Test assumes default limit is 3 attempts per 60 seconds
@@ -242,7 +242,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         tables: [],
       })
 
-      await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User exceeds default rate limit
       // Note: Test assumes default limit is 5 attempts per 60 seconds
@@ -261,7 +261,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
 
       const retryAfter = response.headers()['retry-after']
       expect(retryAfter).toBeDefined()
-      expect(parseInt(retryAfter)).toBeGreaterThan(0)
+      expect(parseInt(retryAfter!)).toBeGreaterThan(0)
     }
   )
 
@@ -278,8 +278,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         tables: [],
       })
 
-      await signUp({ email: 'user1@example.com', password: 'TestPassword123!' })
-      await signUp({ email: 'user2@example.com', password: 'TestPassword123!' })
+      await signUp({ email: 'user1@example.com', password: 'TestPassword123!', name: 'Test User 1' })
+      await signUp({ email: 'user2@example.com', password: 'TestPassword123!', name: 'Test User 2' })
 
       // WHEN: Same IP attempts sign-in for different users
       // Note: Test assumes default limit is 5 attempts per 60 seconds per IP
@@ -324,7 +324,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       await test.step('Setup: Create test user', async () => {
-        await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
+        await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
       })
 
       await test.step('Verify: Sign-in rate limiting enforced', async () => {

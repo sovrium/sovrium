@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable drizzle/enforce-delete-with-where -- False positive: page.request.delete() is HTTP DELETE, not Drizzle */
+ 
 
 import { test, expect } from '@/specs/fixtures'
 

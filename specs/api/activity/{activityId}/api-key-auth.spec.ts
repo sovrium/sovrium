@@ -278,8 +278,8 @@ test.describe('API Key Authentication - Single Activity', () => {
         ],
       })
 
-      // User1 setup - we need the org context but only use the API key
-      const _user1 = await createAuthenticatedUser({
+      // User1 setup - creates org context, we only use the API key
+      await createAuthenticatedUser({
         email: 'user1@example.com',
         createOrganization: true,
       })
@@ -339,7 +339,7 @@ test.describe('API Key Authentication - Single Activity', () => {
       })
 
       let apiKey: { headers: { Authorization: string } }
-      let activityId: { id: string }
+      let activityId: string
 
       await test.step('Setup: Create admin user, activity log, and API key', async () => {
         const admin = await createAuthenticatedUser({
@@ -347,16 +347,17 @@ test.describe('API Key Authentication - Single Activity', () => {
           createOrganization: true,
         })
 
-        activityId = await executeQuery(
+        const result = await executeQuery(
           `INSERT INTO activity_logs (action, table_name, organization_id, changes) VALUES
           ('create', 'tasks', '${admin.organizationId}', '{"title": "New Task"}') RETURNING id`
         )
+        activityId = result.rows[0].id as string
 
         apiKey = await createApiKeyAuth({ name: 'activity-detail-key' })
       })
 
       await test.step('Verify: Admin can access single activity log', async () => {
-        const adminResponse = await request.get(`/api/activity/${activityId.id}`, apiKey)
+        const adminResponse = await request.get(`/api/activity/${activityId}`, apiKey)
         expect(adminResponse.status()).toBe(200)
 
         const log = await adminResponse.json()
@@ -365,12 +366,12 @@ test.describe('API Key Authentication - Single Activity', () => {
       })
 
       await test.step('Verify: Unauthorized access rejected', async () => {
-        const unauthorizedResponse = await request.get(`/api/activity/${activityId.id}`)
+        const unauthorizedResponse = await request.get(`/api/activity/${activityId}`)
         expect(unauthorizedResponse.status()).toBe(401)
       })
 
       await test.step('Verify: Invalid token rejected', async () => {
-        const invalidResponse = await request.get(`/api/activity/${activityId.id}`, {
+        const invalidResponse = await request.get(`/api/activity/${activityId}`, {
           headers: { Authorization: 'Bearer invalid-token' },
         })
         expect(invalidResponse.status()).toBe(401)

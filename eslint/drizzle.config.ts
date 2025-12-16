@@ -29,4 +29,13 @@ export default [
       'drizzle/enforce-update-with-where': 'error',
     },
   },
+  // Disable drizzle rules for E2E specs - they use Playwright's request.delete() for HTTP requests,
+  // not Drizzle's db.delete(), which causes false positives
+  {
+    files: ['specs/**/*.{ts,tsx}'],
+    rules: {
+      'drizzle/enforce-delete-with-where': 'off',
+      'drizzle/enforce-update-with-where': 'off',
+    },
+  },
 ] satisfies Linter.Config[]

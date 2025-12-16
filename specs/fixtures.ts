@@ -205,7 +205,7 @@ async function startCliServer(
 
   // Ensure cleanup on process crash/exit
   serverProcess.once('exit', () => {
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
+     
     activeServerProcesses.delete(serverProcess)
   })
 
@@ -239,7 +239,7 @@ async function startCliServer(
     throw lastError || new Error('Health check failed after retries')
   } catch (error) {
     // Cleanup on startup failure
-    // eslint-disable-next-line drizzle/enforce-delete-with-where
+     
     activeServerProcesses.delete(serverProcess)
     await stopServer(serverProcess)
     throw error
@@ -288,7 +288,7 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
       if (!resolved) {
         resolved = true
         if (timeoutId) clearTimeout(timeoutId)
-        // eslint-disable-next-line drizzle/enforce-delete-with-where
+         
         activeServerProcesses.delete(serverProcess)
         resolve()
       }
@@ -960,7 +960,7 @@ export const test = base.extend<ServerFixtures>({
         const originalPost = page.request.post.bind(page.request)
         const originalGet = page.request.get.bind(page.request)
         const originalPut = page.request.put.bind(page.request)
-        // eslint-disable-next-line drizzle/enforce-delete-with-where
+         
         const originalDelete = page.request.delete.bind(page.request)
         const originalPatch = page.request.patch.bind(page.request)
 
@@ -985,7 +985,7 @@ export const test = base.extend<ServerFixtures>({
           return originalPut(fullUrl, options)
         }
 
-        // eslint-disable-next-line drizzle/enforce-delete-with-where
+         
         page.request.delete = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
           const fullUrl =
@@ -1715,7 +1715,7 @@ export const test = base.extend<ServerFixtures>({
   // API Key fixture: Delete an API key
   deleteApiKey: async ({ page }, use) => {
     await use(async (keyId: string): Promise<void> => {
-      // eslint-disable-next-line drizzle/enforce-delete-with-where
+       
       const response = await page.request.delete(`/api/auth/api-key/${keyId}`)
 
       if (!response.ok()) {

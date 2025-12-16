@@ -512,7 +512,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Record not found' }, 404)
         }
 
-        return c.body(undefined, 204) // 204 No Content
+        // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for empty responses
+        return c.body(null, 204) // 204 No Content
       } catch (error) {
         return c.json(
           {

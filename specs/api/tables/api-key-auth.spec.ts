@@ -288,8 +288,8 @@ test.describe('API Key Authentication - Table Listing', () => {
         ],
       })
 
-      // Create user1 in org1 - we need the org context but only use the API key
-      const _user1 = await createAuthenticatedUser({
+      // Create user1 in org1 - creates org context, we only use the API key
+      await createAuthenticatedUser({
         email: 'user1@example.com',
         createOrganization: true,
       })
@@ -298,7 +298,7 @@ test.describe('API Key Authentication - Table Listing', () => {
       await signOut()
 
       // Create user2 in org2 - sets up isolation context for the test
-      const _user2 = await createAuthenticatedUser({
+      await createAuthenticatedUser({
         email: 'user2@example.com',
         createOrganization: true,
       })

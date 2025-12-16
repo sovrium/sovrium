@@ -341,13 +341,13 @@ test.describe('API Key Authentication - Record CRUD', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              {
-                id: 3,
-                name: 'salary',
-                type: 'number',
-                permissions: { read: ['owner', 'admin'] },
-              },
+              { id: 3, name: 'salary', type: 'integer' },
             ],
+            permissions: {
+              fields: [
+                { field: 'salary', read: { type: 'roles', roles: ['owner', 'admin'] } },
+              ],
+            },
           },
         ],
       })
@@ -401,13 +401,13 @@ test.describe('API Key Authentication - Record CRUD', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              {
-                id: 3,
-                name: 'salary',
-                type: 'number',
-                permissions: { write: ['owner', 'admin'] },
-              },
+              { id: 3, name: 'salary', type: 'integer' },
             ],
+            permissions: {
+              fields: [
+                { field: 'salary', write: { type: 'roles', roles: ['owner', 'admin'] } },
+              ],
+            },
           },
         ],
       })
@@ -589,7 +589,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'email', type: 'email', unique: true, required: true },
                 { id: 3, name: 'name', type: 'single-line-text', required: true },
-                { id: 4, name: 'phone', type: 'phone' },
+                { id: 4, name: 'phone', type: 'phone-number' },
               ],
             },
           ],

@@ -263,16 +263,17 @@ test.describe('API Key Authentication - Single Table', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              {
-                id: 3,
-                name: 'salary',
-                type: 'number',
-                permissions: {
-                  read: ['owner', 'admin'],
-                  write: ['owner', 'admin'],
-                },
-              },
+              { id: 3, name: 'salary', type: 'integer' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                  write: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              ],
+            },
           },
         ],
       })
@@ -329,7 +330,7 @@ test.describe('API Key Authentication - Single Table', () => {
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'email', type: 'email', unique: true },
                 { id: 3, name: 'name', type: 'single-line-text', required: true },
-                { id: 4, name: 'phone', type: 'phone' },
+                { id: 4, name: 'phone', type: 'phone-number' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
