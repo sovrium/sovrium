@@ -671,7 +671,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-019: should allow non-admin user to filter by their own userId',
+    'API-ACTIVITY-LIST-018: should allow non-admin user to filter by their own userId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Regular user with their own activities
@@ -713,7 +713,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-020: should return 403 when non-admin filters by another users userId',
+    'API-ACTIVITY-LIST-019: should return 403 when non-admin filters by another users userId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Two regular users with separate activities
@@ -758,7 +758,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-021: should allow admin to filter by any userId',
+    'API-ACTIVITY-LIST-020: should allow admin to filter by any userId',
     { tag: '@spec' },
     async ({
       page,
@@ -812,7 +812,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ACTIVITY-LIST-018: user can retrieve and filter activity logs',
+    'API-ACTIVITY-LIST-021: user can retrieve and filter activity logs',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       await test.step('Setup: Start server with activity logging', async () => {

@@ -100,7 +100,7 @@ test.describe('Get table by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-GET-005: should return 403 when user lacks read permission for table',
+    'API-TABLES-GET-004: should return 403 when user lacks read permission for table',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user without permission to access confidential table
@@ -133,7 +133,7 @@ test.describe('Get table by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-GET-006: should return 404 for cross-org table access',
+    'API-TABLES-GET-005: should return 404 for cross-org table access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A table belonging to organization org_456
@@ -171,7 +171,7 @@ test.describe('Get table by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-GET-004: user can complete full table retrieval workflow',
+    'API-TABLES-GET-006: user can complete full table retrieval workflow',
     { tag: '@regression' },
     async ({ request }) => {
       await test.step('Get table by ID successfully', async () => {

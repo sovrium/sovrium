@@ -718,7 +718,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-017: should return 404 for cross-org batch create',
+    'API-TABLES-RECORDS-BATCH-POST-016: should return 404 for cross-org batch create',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User from organization org_123
@@ -761,7 +761,7 @@ test.describe('Batch create records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-016: user can complete full batch create workflow',
+    'API-TABLES-RECORDS-BATCH-POST-017: user can complete full batch create workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with employees table', async () => {

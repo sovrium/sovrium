@@ -99,7 +99,7 @@ test.describe('List all tables', () => {
   )
 
   test.fixme(
-    'API-TABLES-LIST-005: should return 403 when user lacks list-tables permission',
+    'API-TABLES-LIST-004: should return 403 when user lacks list-tables permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A user with restricted permissions (cannot list tables)
@@ -129,7 +129,7 @@ test.describe('List all tables', () => {
   )
 
   test.fixme(
-    'API-TABLES-LIST-006: should only return tables user has permission to view',
+    'API-TABLES-LIST-005: should only return tables user has permission to view',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Multiple tables with different permission levels
@@ -177,7 +177,7 @@ test.describe('List all tables', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-LIST-004: user can complete full tables list workflow',
+    'API-TABLES-LIST-006: user can complete full tables list workflow',
     { tag: '@regression' },
     async ({ request }) => {
       await test.step('Verify authenticated access returns tables list', async () => {
