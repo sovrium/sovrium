@@ -91,11 +91,10 @@ You maintain coherence across all TDD-related files:
 **GitHub Actions Workflows:**
 - `.github/workflows/tdd-scan.yml` (scan and create spec issues)
 - `.github/workflows/tdd-dispatch.yml` (pick next spec, trigger Claude)
-- `.github/workflows/tdd-monitor.yml` (detect stuck specs, health & recovery)
+- `.github/workflows/tdd-monitor.yml` (health & recovery, includes weekly branch cleanup)
 - `.github/workflows/tdd-refactor.yml` (periodic quality improvements)
 - `.github/workflows/tdd-execute.yml` (Claude Code implementation workflow)
 - `.github/workflows/test.yml` (PR validation and issue closure)
-- `.github/workflows/cleanup-stale-branches.yml` (branch cleanup)
 
 **Scripts:**
 - `scripts/tdd-automation/queue-manager.ts` (queue operations)

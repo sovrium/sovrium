@@ -185,24 +185,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Complements GitHub's auto-delete setting (which only handles merged PRs)
    - **Note**: Merged PR branches are auto-deleted by GitHub repository setting
 
-#### **cleanup-stale-branches.yml** (Periodic Cleanup)
-
-**Triggers**:
-
-- Schedule (weekly on Sundays at 2 AM UTC)
-- Manual dispatch
-
-**Purpose**: Safety net to clean up any stale branches missed by automatic deletion
-
-**Key Steps**:
-
-1. Scan for all `tdd/*` and `claude/*` branches
-2. Check if each branch has an open, closed, or merged PR
-3. Delete branches with closed/merged PRs
-4. Delete orphaned branches (>7 days old, no PR)
-5. Keep branches with open PRs or recent activity
-
-#### **tdd-monitor.yml** (Unified Monitoring & Recovery)
+#### **tdd-monitor.yml** (Monitoring & Recovery)
 
 **Triggers**:
 
@@ -253,12 +236,19 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Runs `analyze:specs` to update SPEC-STATE.md
    - Commits changes automatically
 
-7. **📊 Summary**
+7. **🗑️ Branch Cleanup** (weekly on Sundays only)
+   - Scans for all `tdd/*` and `claude/*` branches
+   - Deletes branches with closed/merged PRs
+   - Deletes orphaned branches (>7 days old, no PR)
+   - Keeps branches with open PRs or recent activity
+   - **Result**: Safety net cleanup for stale branches
+
+8. **📊 Summary**
    - Generates summary of all monitoring actions
 
-**Why Unified Monitoring**:
+**Why Consolidated Monitoring**:
 
-- Consolidates 7 monitoring functions into one workflow
+- Consolidates 8 monitoring functions into one workflow
 - Event-driven triggers for immediate response
 - Reduces workflow execution overhead
 - Consistent health monitoring across all functions
