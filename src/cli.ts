@@ -52,12 +52,7 @@
 
 import { Effect, Console } from 'effect'
 import { start, generateStatic, type StartOptions, type GenerateStaticOptions } from '@/index'
-
-interface AppSchema {
-  readonly name?: string
-  readonly description?: string
-  readonly [key: string]: unknown
-}
+import type { AppEncoded } from '@/domain/models/app'
 
 /**
  * Show CLI help text
@@ -92,7 +87,7 @@ const showHelp = (): void => {
 /**
  * Load app schema from a JSON file
  */
-const loadSchemaFromFile = async (filePath: string, command: string): Promise<AppSchema> => {
+const loadSchemaFromFile = async (filePath: string, command: string): Promise<AppEncoded> => {
   const file = Bun.file(filePath)
   const exists = await file.exists()
 
@@ -112,7 +107,7 @@ const loadSchemaFromFile = async (filePath: string, command: string): Promise<Ap
 
   try {
     const content = await file.text()
-    return JSON.parse(content) as AppSchema
+    return JSON.parse(content) as AppEncoded
   } catch (error) {
     Effect.runSync(
       Effect.gen(function* () {
@@ -130,7 +125,7 @@ const loadSchemaFromFile = async (filePath: string, command: string): Promise<Ap
 /**
  * Parse and validate app schema from file path or environment variable
  */
-const parseAppSchema = async (command: string, filePath?: string): Promise<AppSchema> => {
+const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> => {
   // If a file path is provided, load from file
   if (filePath) {
     return loadSchemaFromFile(filePath, command)
@@ -157,7 +152,7 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppSc
   }
 
   try {
-    return JSON.parse(appSchemaString) as AppSchema
+    return JSON.parse(appSchemaString) as AppEncoded
   } catch {
     Effect.runSync(
       Effect.gen(function* () {

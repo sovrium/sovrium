@@ -27,6 +27,7 @@ import type {
   GenerateStaticResult,
 } from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
+import type { AppEncoded } from '@/domain/models/app'
 
 /**
  * Simple server interface with Promise-based methods
@@ -101,7 +102,7 @@ const toSimpleServer = (server: Readonly<ServerInstance>): SimpleServer => ({
  * })
  * ```
  */
-export const start = async (app: unknown, options: StartOptions = {}): Promise<SimpleServer> => {
+export const start = async (app: AppEncoded, options: StartOptions = {}): Promise<SimpleServer> => {
   const program = Effect.gen(function* () {
     yield* Console.log('Starting Sovrium server...')
 
@@ -165,7 +166,7 @@ export const start = async (app: unknown, options: StartOptions = {}): Promise<S
  * ```
  */
 export const generateStatic = async (
-  app: unknown,
+  app: AppEncoded,
   options: GenerateStaticOptions = {}
 ): Promise<GenerateStaticResult> => {
   const program = Effect.gen(function* () {
