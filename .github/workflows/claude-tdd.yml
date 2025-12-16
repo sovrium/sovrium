@@ -503,11 +503,11 @@ jobs:
             echo "should_retry=true" >> $GITHUB_OUTPUT
             echo "next_retry=$NEXT_RETRY" >> $GITHUB_OUTPUT
 
-            # Add retry label based on error type
+            # Add retry label based on error type (using consistent retry:* prefix)
             if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
-              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "code-retry:$CURRENT_RETRY" 2>/dev/null || true
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "retry:spec:$CURRENT_RETRY" 2>/dev/null || true
             else
-              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "infrastructure-retry:$CURRENT_RETRY" 2>/dev/null || true
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "retry:infra:$CURRENT_RETRY" 2>/dev/null || true
             fi
 
             # Build retry comment with error-specific instructions

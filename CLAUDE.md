@@ -445,17 +445,35 @@ When triggered by @claude mention (posted by queue processor every 15 min):
 
 7. **Monitor validation** (test.yml CI checks):
    - If fails: Analyze errors, fix, push (retry up to 3 times)
-   - Track retries with labels (retry:1, retry:2, retry:3)
+   - Track retries with labels (`retry:spec:1/2/3` or `retry:infra:1/2/3`)
    - After 3 failures: Mark issue `tdd-spec:failed`, exit (allow pipeline to continue)
    - If passes: Enable PR auto-merge with --squash
 
 8. **Issue closes automatically** when PR merges to main (via `Closes #` syntax in PR body)
 
+### TDD Labels Reference
+
+All TDD labels follow consistent naming conventions:
+
+| Category | Labels | Description |
+|----------|--------|-------------|
+| **State** | `tdd-spec:queued` | Waiting in queue for processing |
+| | `tdd-spec:in-progress` | Currently being worked on |
+| | `tdd-spec:completed` | Successfully merged to main |
+| | `tdd-spec:failed` | Failed after max retries |
+| **Failure Type** | `failure:spec` | Target spec itself failing |
+| | `failure:regression` | Changes broke OTHER tests |
+| | `failure:infra` | Infrastructure/flaky issue |
+| **Retry Tracking** | `retry:spec:1/2/3` | Retry attempts for code errors |
+| | `retry:infra:1/2/3` | Retry attempts for infra errors |
+| **Alerting** | `high-failure-rate` | Many specs failing (incident) |
+| **General** | `tdd-automation` | Marks TDD pipeline issues/PRs |
+
 ### Retry Logic
 
 The system implements automatic error recovery:
 - **Max 3 retry attempts** per spec
-- **Tracks retries** with labels (retry:1, retry:2, retry:3)
+- **Tracks retries** with labels (`retry:spec:N` for code errors, `retry:infra:N` for infra errors)
 - **On 3rd failure**: Marks issue as `tdd-spec:failed`, adds explanatory comment
 - **Pipeline continues**: Failed specs don't block queue processing
 
@@ -463,12 +481,12 @@ The system implements automatic error recovery:
 
 **CRITICAL**: The TDD workflow automatically detects regressions (tests failing in OTHER files due to your changes).
 
-**Failure Classification Labels**:
-| Label | Meaning | Action |
-|-------|---------|--------|
-| `failure:spec` | Target spec itself failing | Normal retry with fix instructions |
-| `failure:regression` | Changes broke OTHER tests | Auto-fix with regression instructions |
-| `failure:infra` | Infrastructure/flaky issue | Retry with longer delays |
+**How Failure Classification Works**:
+| Failure Type | Target Spec | Other Specs | Label Applied |
+|--------------|-------------|-------------|---------------|
+| `target_only` | ❌ Fails | ✅ Pass | `failure:spec` |
+| `regression_only` | ✅ Pass | ❌ Fail | `failure:regression` |
+| `mixed` | ❌ Fails | ❌ Fail | `failure:regression` |
 
 **What Happens When Regressions Are Detected**:
 1. CI classifies test failures as `target_only`, `regression_only`, or `mixed`
