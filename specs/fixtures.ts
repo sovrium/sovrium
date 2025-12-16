@@ -672,6 +672,19 @@ type ServerFixtures = {
    */
   deleteApiKey: (keyId: string) => Promise<void>
 
+  /**
+   * Create an API key and return Bearer token headers for API authentication
+   * Convenience fixture that combines createApiKey + header formatting
+   * Returns headers in the format: { headers: { Authorization: 'Bearer <key>' } }
+   *
+   * @example
+   * ```typescript
+   * const authHeaders = await createApiKeyAuth({ name: 'my-key' })
+   * const response = await request.get('/api/tables', authHeaders)
+   * ```
+   */
+  createApiKeyAuth: (data?: ApiKeyCreateData) => Promise<{ headers: { Authorization: string } }>
+
   // =========================================================================
   // Two-Factor Authentication Fixtures
   // =========================================================================
@@ -1710,6 +1723,34 @@ export const test = base.extend<ServerFixtures>({
         throw new Error(
           `Delete API key failed with status ${response.status()}: ${JSON.stringify(errorData)}`
         )
+      }
+    })
+  },
+
+  // API Key fixture: Create API key and return Bearer token headers
+  // Convenience fixture for API key authentication tests
+  createApiKeyAuth: async ({ page }, use) => {
+    await use(async (data?: ApiKeyCreateData): Promise<{ headers: { Authorization: string } }> => {
+      const response = await page.request.post('/api/auth/api-key/create', {
+        data: {
+          ...(data?.name && { name: data.name }),
+          ...(data?.expiresIn && { expiresIn: data.expiresIn }),
+          ...(data?.metadata && { metadata: data.metadata }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Create API key for auth failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await response.json()
+      return {
+        headers: {
+          Authorization: `Bearer ${result.key}`,
+        },
       }
     })
   },
