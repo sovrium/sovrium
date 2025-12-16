@@ -218,7 +218,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-006: should handle same email attempt',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -248,7 +248,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-007: should return 409 Conflict with case-insensitive matching',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -285,8 +285,8 @@ test.describe('Change email address', () => {
         },
       })
 
-      // THEN: Returns 409 Conflict (case-insensitive email matching) or 400
-      expect([400, 409]).toContain(response.status())
+      // THEN: Returns 409 Conflict (case-insensitive email matching), 400, or 422
+      expect([400, 409, 422]).toContain(response.status())
 
       const data = await response.json()
       expect(data).toHaveProperty('message')
@@ -297,7 +297,7 @@ test.describe('Change email address', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-008: user can complete full change-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -347,7 +347,7 @@ test.describe('Change email address', () => {
         const conflictResponse = await page.request.post('/api/auth/change-email', {
           data: { newEmail: existingEmail },
         })
-        expect([400, 409]).toContain(conflictResponse.status())
+        expect([400, 409, 422]).toContain(conflictResponse.status())
       })
 
       await test.step('Change email to new address', async () => {

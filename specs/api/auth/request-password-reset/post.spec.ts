@@ -30,7 +30,7 @@ test.describe('Request password reset', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-001: should return 200 OK and send reset email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -58,7 +58,7 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User requests password reset with registered email
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: userEmail,
         },
@@ -83,7 +83,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-002: should return 200 OK for non-existent email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -96,7 +96,7 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User requests password reset with non-existent email
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: 'nonexistent@example.com',
         },
@@ -112,7 +112,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-003: should return 400 Bad Request without email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -125,7 +125,7 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User submits request without email field
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {},
       })
 
@@ -137,7 +137,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-004: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -150,7 +150,7 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User submits request with invalid email format
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: 'not-an-email',
         },
@@ -164,7 +164,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-005: should return 200 OK with case-insensitive email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -186,7 +186,7 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User requests password reset with uppercase email variation
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: upperEmail,
         },
@@ -209,7 +209,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-006: should invalidate old token on new request',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -230,7 +230,7 @@ test.describe('Request password reset', () => {
       })
 
       // First request - sends first reset email
-      await page.request.post('/api/auth/forget-password', {
+      await page.request.post('/api/auth/request-password-reset', {
         data: { email: userEmail },
       })
 
@@ -244,7 +244,7 @@ test.describe('Request password reset', () => {
       expect(firstEmail).toBeDefined()
 
       // WHEN: User requests password reset again
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: userEmail,
         },
@@ -255,6 +255,9 @@ test.describe('Request password reset', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
+
+      // Wait a moment for the second email to be sent
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
       // Verify new email was sent (wait for 2nd email)
       const emails = await mailpit.getEmails()
@@ -268,7 +271,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-007: should include redirectTo in reset email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -289,7 +292,7 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User requests password reset with custom redirectTo URL
-      const response = await page.request.post('/api/auth/forget-password', {
+      const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: userEmail,
           redirectTo: 'https://app.example.com/reset-password',
@@ -317,7 +320,7 @@ test.describe('Request password reset', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-REQUEST-PASSWORD-RESET-008: user can complete full request-password-reset workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -343,14 +346,14 @@ test.describe('Request password reset', () => {
       })
 
       await test.step('Verify request fails with invalid email format', async () => {
-        const invalidResponse = await page.request.post('/api/auth/forget-password', {
+        const invalidResponse = await page.request.post('/api/auth/request-password-reset', {
           data: { email: 'not-an-email' },
         })
         expect(invalidResponse.status()).toBe(400)
       })
 
       await test.step('Request password reset for registered email', async () => {
-        const successResponse = await page.request.post('/api/auth/forget-password', {
+        const successResponse = await page.request.post('/api/auth/request-password-reset', {
           data: { email: userEmail },
         })
         expect(successResponse.status()).toBe(200)
@@ -365,7 +368,7 @@ test.describe('Request password reset', () => {
       })
 
       await test.step('Verify non-existent email succeeds (prevent enumeration)', async () => {
-        const nonExistentResponse = await page.request.post('/api/auth/forget-password', {
+        const nonExistentResponse = await page.request.post('/api/auth/request-password-reset', {
           data: { email: nonExistentEmail },
         })
         expect(nonExistentResponse.status()).toBe(200)
