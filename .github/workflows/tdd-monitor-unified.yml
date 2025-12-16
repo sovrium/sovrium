@@ -6,6 +6,7 @@ name: TDD Monitor (Unified)
 # - PR monitoring (auto-merge, stuck PRs)
 # - Conflict resolution (merge conflicts)
 # - Retry monitoring (stuck retries)
+# - Failed PR recovery (regression fix retry)
 
 on:
   # Event-driven triggers (immediate response)
@@ -44,6 +45,7 @@ env:
   STUCK_TIMEOUT_MINUTES: 90 # Specs stuck >90 min are recovered
   PR_STUCK_TIMEOUT_MINUTES: 120 # PRs stuck >120 min are force-closed
   RETRY_STUCK_TIMEOUT_MINUTES: 30 # Retries stuck >30 min are recovered
+  FAILED_PR_COOLDOWN_MINUTES: 30 # Wait 30 min between regression fix attempts
 
 jobs:
   # Job 1: Health Check & Circuit Breaker
@@ -247,6 +249,27 @@ jobs:
 
             echo ""
             echo "⏱️  STUCK: Issue #$ISSUE_NUMBER (${AGE_MIN} min old)"
+
+            # Check if there's an open PR with failed tests linked to this issue
+            # If so, skip re-queuing - let the failed-pr-recovery job handle it
+            LINKED_PR=$(gh pr list \
+              --repo ${{ github.repository }} \
+              --label "tdd-automation" \
+              --state open \
+              --json number,body,statusCheckRollup \
+              --jq ".[] | select(.body | test(\"Closes #$ISSUE_NUMBER(\\\\s|$)\"))" 2>/dev/null | head -1)
+
+            if [ -n "$LINKED_PR" ]; then
+              PR_NUM=$(echo "$LINKED_PR" | jq -r '.number')
+              # Check if Test check failed
+              TEST_FAILED=$(echo "$LINKED_PR" | jq -r '.statusCheckRollup[]? | select(.name == "Test" and .conclusion == "FAILURE") | .name' 2>/dev/null | head -1)
+
+              if [ -n "$TEST_FAILED" ]; then
+                echo "   ⏭️  Skipping - PR #$PR_NUM exists with failed tests (handled by failed-pr-recovery)"
+                continue
+              fi
+            fi
+
             STUCK_COUNT=$((STUCK_COUNT + 1))
 
             # Check for retry label (both infrastructure and code retries)
@@ -723,7 +746,180 @@ jobs:
             fi
           done
 
-  # Job 5: Update Spec State
+  # Job 5: Failed PR Recovery
+  # Detects TDD PRs with failed CI and triggers Claude to fix regressions
+  failed-pr-recovery:
+    name: 🔧 Failed PR Recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Find and recover PRs with failed CI
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          COOLDOWN_MINUTES: ${{ env.FAILED_PR_COOLDOWN_MINUTES }}
+        run: |
+          echo "🔍 Looking for TDD PRs with failed CI..."
+
+          PRS=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --label "tdd-automation" \
+            --state open \
+            --json number,title,headRefName,statusCheckRollup,labels,body \
+            --limit 50)
+
+          RECOVERED_COUNT=0
+          ESCALATED_COUNT=0
+
+          echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
+            PR_NUMBER=$(echo "$pr" | jq -r '.number')
+            HEAD_REF=$(echo "$pr" | jq -r '.headRefName')
+            LABELS=$(echo "$pr" | jq -r '.labels[].name' | tr '\n' ' ')
+            BODY=$(echo "$pr" | jq -r '.body')
+
+            # Extract linked issue number from PR body
+            ISSUE_NUMBER=$(echo "$BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+
+            # Check if Test check failed
+            TEST_FAILED=$(echo "$pr" | jq -r '.statusCheckRollup[]? | select(.name == "Test" and .conclusion == "FAILURE") | .name' 2>/dev/null | head -1)
+
+            if [ -z "$TEST_FAILED" ]; then
+              continue
+            fi
+
+            echo ""
+            echo "⚠️  PR #$PR_NUMBER has failed CI"
+
+            # Skip if already marked for manual resolution
+            if echo "$LABELS" | grep -q "needs-manual-resolution"; then
+              echo "   ⏭️  Skipping - already marked for manual resolution"
+              continue
+            fi
+
+            # Check for recent "@claude" fix comment (cooldown period)
+            RECENT_FIX_COMMENT=$(gh api \
+              "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Detected\")) | select(.created_at > \"$(date -u -d "${COOLDOWN_MINUTES} minutes ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${COOLDOWN_MINUTES}M +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+
+            if [ "$RECENT_FIX_COMMENT" -gt 0 ]; then
+              echo "   ⏭️  Skipping - fix already triggered within last ${COOLDOWN_MINUTES} minutes"
+              continue
+            fi
+
+            # Count total fix attempts (by counting "Failed PR Recovery" comments)
+            FIX_ATTEMPTS=$(gh api \
+              "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\"))] | length" 2>/dev/null || echo "0")
+
+            if [ "$FIX_ATTEMPTS" -ge 3 ]; then
+              echo "   ❌ Max fix attempts (3) reached - marking for manual resolution"
+              ESCALATED_COUNT=$((ESCALATED_COUNT + 1))
+
+              gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} \
+                --body "❌ **Max Regression Fix Attempts Exhausted**
+
+              This PR has failed to fix regressions after 3 automated attempts.
+
+              **Manual intervention required**:
+              1. Review the [test failures](https://github.com/${{ github.repository }}/actions)
+              2. Analyze the root cause of the regression
+              3. Fix the issue manually or close the PR
+
+              **Common causes**:
+              - Greedy catch-all schemas that match valid field types
+              - Validation logic changes that are too permissive
+              - Type changes that break dependent code
+
+              ---
+              *🤖 TDD Monitor (Unified)*"
+
+              gh pr edit "$PR_NUMBER" --repo ${{ github.repository }} \
+                --add-label "needs-manual-resolution"
+
+              # Also update the linked issue
+              if [ -n "$ISSUE_NUMBER" ]; then
+                gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
+                  --remove-label "tdd-spec:in-progress" \
+                  --add-label "tdd-spec:failed" 2>/dev/null || true
+              fi
+            else
+              NEXT_ATTEMPT=$((FIX_ATTEMPTS + 1))
+              echo "   🔄 Triggering regression fix attempt $NEXT_ATTEMPT of 3"
+              RECOVERED_COUNT=$((RECOVERED_COUNT + 1))
+
+              gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} \
+                --body "## 🔧 Failed PR Recovery (Attempt $NEXT_ATTEMPT of 3)
+
+              @claude The CI tests are failing. Please fix the regressions.
+
+              ### 🤖 Automation Mode
+              - ✅ Make autonomous decisions - proceed with best judgment
+              - ❌ DO NOT ask questions
+
+              ### ✅ Instructions
+
+              1. **Pull latest and check test failures**:
+                 \`\`\`bash
+                 git fetch origin $HEAD_REF
+                 git checkout $HEAD_REF
+                 bun test:e2e:regression
+                 \`\`\`
+
+              2. **Identify the regression cause**:
+                 - Look at which tests are failing (may be different from target spec)
+                 - Check what your changes may have affected
+                 - Common issue: catch-all schemas that are too greedy
+
+              3. **Fix without modifying the failing tests**:
+                 - Preserve existing validation behavior
+                 - For catch-all schemas: explicitly EXCLUDE known types
+                 - Example fix for UnknownFieldSchema:
+                   \`\`\`typescript
+                   // BAD: catches all types including valid ones
+                   type: Schema.String
+
+                   // GOOD: only catches truly unknown types
+                   type: Schema.String.pipe(
+                     Schema.filter((t) => !KNOWN_FIELD_TYPES.includes(t))
+                   )
+                   \`\`\`
+
+              4. **Verify all tests pass**:
+                 \`\`\`bash
+                 bun run quality
+                 bun test:e2e:regression
+                 \`\`\`
+
+              5. **Push the fix**:
+                 \`\`\`bash
+                 bun run license
+                 git add -A
+                 git commit -m \"fix: resolve regression\"
+                 git push
+                 \`\`\`
+
+              6. **Re-enable auto-merge** (if disabled):
+                 \`\`\`bash
+                 gh pr merge $PR_NUMBER --auto --squash
+                 \`\`\`
+
+              ---
+              *🤖 TDD Monitor (Unified)*"
+            fi
+          done
+
+          if [ "$RECOVERED_COUNT" -gt 0 ]; then
+            echo ""
+            echo "✅ Triggered fix for $RECOVERED_COUNT PR(s)"
+          fi
+          if [ "$ESCALATED_COUNT" -gt 0 ]; then
+            echo "⚠️  Escalated $ESCALATED_COUNT PR(s) for manual resolution"
+          fi
+          if [ "$RECOVERED_COUNT" -eq 0 ] && [ "$ESCALATED_COUNT" -eq 0 ]; then
+            echo "✅ No PRs with failed CI need recovery"
+          fi
+
+  # Job 6: Update Spec State
   # Runs analyze:specs and commits SPEC-STATE.md after successful test implementation
   update-spec-state:
     name: 📈 Update Spec State
@@ -794,12 +990,12 @@ jobs:
 
           echo "✅ SPEC-STATE.md and README.md committed and pushed"
 
-  # Job 6: Summary Report
+  # Job 7: Summary Report
   # Generates summary of monitoring actions
   summary:
     name: 📊 Summary
     runs-on: ubuntu-latest
-    needs: [health-check, stuck-spec-recovery, pr-monitoring, conflict-resolution, update-spec-state]
+    needs: [health-check, stuck-spec-recovery, pr-monitoring, conflict-resolution, failed-pr-recovery, update-spec-state]
     if: always()
     timeout-minutes: 2
 
@@ -812,6 +1008,9 @@ jobs:
           echo "🏥 Health Check:"
           echo "   Failure rate: ${{ needs.health-check.outputs.failure_rate }}%"
           echo "   Circuit: ${{ needs.health-check.outputs.is_circuit_open == 'true' && 'OPEN (queue disabled)' || 'CLOSED (queue active)' }}"
+          echo ""
+          echo "🔧 Failed PR Recovery:"
+          echo "   Status: ${{ needs.failed-pr-recovery.result }}"
           echo ""
           echo "📈 Spec State Update:"
           echo "   Status: ${{ needs.update-spec-state.result }}"
