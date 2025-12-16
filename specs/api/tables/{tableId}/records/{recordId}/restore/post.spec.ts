@@ -247,13 +247,14 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-007: should return 404 for cross-org access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A soft-deleted record from different organization
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -266,6 +267,7 @@ test.describe('Restore record', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO items (id, name, organization_id, deleted_at)
         VALUES (1, 'Other Org Item', 'org_456', NOW())

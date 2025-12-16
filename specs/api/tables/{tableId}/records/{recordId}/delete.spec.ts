@@ -31,16 +31,14 @@ test.describe('Delete record', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and soft delete record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with record ID=1 and deleted_at field for soft delete
       await startServerWithSchema({
         name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -52,6 +50,7 @@ test.describe('Delete record', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO users (id, email) VALUES (1, 'test@example.com')
       `)
@@ -68,16 +67,14 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -89,6 +86,7 @@ test.describe('Delete record', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: User attempts to delete non-existent record
       const response = await request.delete('/api/tables/1/records/9999', {})
