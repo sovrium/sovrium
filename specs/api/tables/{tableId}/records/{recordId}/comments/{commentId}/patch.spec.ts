@@ -30,10 +30,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-001: should return 200 with updated comment data',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own comment on a record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -42,6 +43,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -86,10 +88,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-002: should update @mentions in content',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Comment with original @mention
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -98,6 +101,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Collaborative Task')
       `)
@@ -133,10 +137,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-003: should return 400 Bad Request for empty content',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -145,6 +150,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -175,10 +181,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-004: should return 400 Bad Request for content too long',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -187,6 +194,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -223,6 +231,7 @@ test.describe('Update comment', () => {
       // GIVEN: Comment on a record in authenticated app
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -257,10 +266,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-006: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Comment authored by different user
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -269,6 +279,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -304,10 +315,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-007: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with record but comment does not exist
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -316,6 +328,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -341,10 +354,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-008: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User from different organization
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -356,6 +370,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
@@ -385,10 +400,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-009: should return 404 Not Found for soft-deleted comment',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own soft-deleted comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -397,6 +413,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -426,10 +443,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-010: should include user metadata in response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User updating their own comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 10,
@@ -438,6 +456,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -480,10 +499,11 @@ test.describe('Update comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-011: user can complete full update comment workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with tasks table', async () => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      await test.step('Setup: Start server with tasks table and authenticate', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 11,
@@ -492,6 +512,7 @@ test.describe('Update comment', () => {
             },
           ],
         })
+        await createAuthenticatedUser()
       })
 
       await test.step('Setup: Insert test record, user, and comment', async () => {

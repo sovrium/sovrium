@@ -26,10 +26,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-001: should return 200 with complete comment data',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with record that has a comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -38,6 +39,7 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -75,10 +77,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with record but comment does not exist
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -87,6 +90,7 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -109,6 +113,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Record with comment in authenticated app
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -136,10 +141,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-004: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User from different organization
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -151,6 +157,7 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
@@ -175,10 +182,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-005: should return 404 Not Found for soft-deleted comment',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with soft-deleted comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -187,6 +195,7 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -209,10 +218,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-006: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User without read permission for the record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -221,6 +231,7 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
@@ -243,10 +254,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-007: should show updated timestamp for edited comments',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with an edited comment (updatedAt > createdAt)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -255,6 +267,7 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -287,10 +300,11 @@ test.describe('Get single comment by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-GET-008: user can complete full get comment workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with tasks table', async () => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      await test.step('Setup: Start server with tasks table and authenticate', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 8,
@@ -299,6 +313,7 @@ test.describe('Get single comment by ID', () => {
             },
           ],
         })
+        await createAuthenticatedUser()
       })
 
       await test.step('Setup: Insert test record, user, and comment', async () => {

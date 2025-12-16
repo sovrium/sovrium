@@ -33,10 +33,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-001: should return 204 No Content',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own comment on a record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -45,6 +46,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -73,10 +75,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-002: should return 204 No Content',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Comment authored by different user, admin user deleting it
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -85,6 +88,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -121,6 +125,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Comment on a record in authenticated app
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -148,10 +153,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-004: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Comment authored by different user, non-admin attempting to delete
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -160,6 +166,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -188,10 +195,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with record but comment does not exist
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -200,6 +208,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -218,10 +227,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-006: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User from different organization
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -233,6 +243,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
@@ -257,10 +268,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-007: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Already soft-deleted comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -269,6 +281,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -291,10 +304,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-008: should soft-delete by default',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -303,6 +317,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -329,10 +344,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-009: should hide deleted comment from GET requests',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -341,6 +357,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
@@ -373,10 +390,11 @@ test.describe('Delete comment', () => {
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-010: user can complete full delete comment workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with tasks table', async () => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      await test.step('Setup: Start server with tasks table and authenticate', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 10,
@@ -385,6 +403,7 @@ test.describe('Delete comment', () => {
             },
           ],
         })
+        await createAuthenticatedUser()
       })
 
       await test.step('Setup: Insert test record, user, and comment', async () => {
