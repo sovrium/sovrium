@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/post.json
  * Domain: api
- * Spec Count: 17
+ * Spec Count: 20
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (20 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -726,6 +726,174 @@ test.describe('Create new record', () => {
       `)
       // THEN: assertion
       expect(result.rows[0].salary).toBe('50000')
+    }
+  )
+
+  // ============================================================================
+  // Activity Log Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-019: should create activity log entry when record is created',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Application with auth and activity logging configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 17,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
+
+      // WHEN: User creates a new record
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          title: 'New Task',
+          status: 'pending',
+        },
+      })
+
+      expect(response.status()).toBe(201)
+      const record = await response.json()
+
+      // THEN: Activity log entry is created with correct data
+      const logs = await executeQuery(`
+        SELECT * FROM _sovrium_activity_logs
+        WHERE table_name = 'tasks' AND action = 'create'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows).toHaveLength(1)
+      const log = logs.rows[0]
+      expect(log.action).toBe('create')
+      expect(log.user_id).toBe(user.id)
+      expect(log.table_id).toBe('1')
+      expect(log.record_id).toBe(String(record.id))
+
+      // Parse and verify changes field
+      const changes = JSON.parse(log.changes)
+      expect(changes.after).toBeDefined()
+      expect(changes.after.title).toBe('New Task')
+      expect(changes.after.status).toBe('pending')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-020: should include all fields in activity log changes.after',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Application with multiple fields configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 18,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'email', type: 'email', required: true },
+              { id: 4, name: 'phone', type: 'phone-number' },
+            ],
+          },
+        ],
+      })
+
+      await createAuthenticatedUser()
+
+      // WHEN: User creates record with all fields
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          phone: '555-1234',
+        },
+      })
+
+      expect(response.status()).toBe(201)
+
+      // THEN: All created fields are captured in activity log
+      const logs = await executeQuery(`
+        SELECT changes FROM _sovrium_activity_logs
+        WHERE table_name = 'contacts' AND action = 'create'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      const changes = JSON.parse(logs.rows[0].changes)
+      expect(changes.after.name).toBe('John Doe')
+      expect(changes.after.email).toBe('john@example.com')
+      expect(changes.after.phone).toBe('555-1234')
+      expect(changes.after.id).toBeDefined()
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-021: should set organization_id from session in activity log',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Multi-tenant application with organization isolation
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 19,
+            name: 'projects',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      const { user } = await createAuthenticatedUser({
+        email: 'user@example.com',
+        organizationId: 'org_test_123',
+      })
+
+      // WHEN: User creates a record
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Test Project',
+        },
+      })
+
+      expect(response.status()).toBe(201)
+
+      // THEN: Activity log has correct organization_id from session
+      const logs = await executeQuery(`
+        SELECT organization_id FROM _sovrium_activity_logs
+        WHERE table_name = 'projects' AND action = 'create'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows[0].organization_id).toBe(user.organizationId)
     }
   )
 

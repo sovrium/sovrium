@@ -35,14 +35,14 @@ test.describe('Delete record', () => {
     'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and soft delete record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Table 'users' with record ID=1 and deleted_at field for soft delete
+      // GIVEN: Table 'contacts' with record ID=1 and deleted_at field for soft delete
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
-            name: 'users',
+            name: 'contacts',
             fields: [
               { id: 1, name: 'email', type: 'email', required: true },
               { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
@@ -52,7 +52,7 @@ test.describe('Delete record', () => {
       })
       await createAuthenticatedUser()
       await executeQuery(`
-        INSERT INTO users (id, email) VALUES (1, 'test@example.com')
+        INSERT INTO contacts (id, email) VALUES (1, 'test@example.com')
       `)
 
       // WHEN: User deletes record by ID
@@ -62,7 +62,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(204)
 
       // THEN: Record still exists but deleted_at is set (soft delete)
-      const result = await executeQuery(`SELECT deleted_at FROM users WHERE id=1`)
+      const result = await executeQuery(`SELECT deleted_at FROM contacts WHERE id=1`)
       expect(result.deleted_at).toBeTruthy()
     }
   )
@@ -71,14 +71,14 @@ test.describe('Delete record', () => {
     'API-TABLES-RECORDS-DELETE-002: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Table 'users' exists but record ID=9999 does not
+      // GIVEN: Table 'contacts' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
-            name: 'users',
+            name: 'contacts',
             fields: [
               { id: 1, name: 'email', type: 'email', required: true },
               { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
@@ -89,7 +89,7 @@ test.describe('Delete record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User attempts to delete non-existent record
-      const response = await request.delete('/api/tables/1/records/9999', {})
+      const response = await request.delete('/api/tables/2/records/9999', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -688,7 +688,7 @@ test.describe('Delete record', () => {
     'API-TABLES-RECORDS-DELETE-016: user can complete full soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with users table', async () => {
+      await test.step('Setup: Start server with contacts table', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -697,7 +697,7 @@ test.describe('Delete record', () => {
           tables: [
             {
               id: 16,
-              name: 'users',
+              name: 'contacts',
               fields: [
                 { id: 1, name: 'email', type: 'email', required: true },
                 { id: 2, name: 'organization_id', type: 'single-line-text' },
@@ -710,7 +710,7 @@ test.describe('Delete record', () => {
 
       await test.step('Setup: Insert test records', async () => {
         await executeQuery(`
-          INSERT INTO users (id, email, organization_id) VALUES
+          INSERT INTO contacts (id, email, organization_id) VALUES
             (1, 'admin@example.com', 'org_123'),
             (2, 'member@example.com', 'org_123'),
             (3, 'viewer@example.com', 'org_123')
@@ -723,13 +723,13 @@ test.describe('Delete record', () => {
       })
 
       await test.step('Verify soft deletion in database', async () => {
-        const result = await executeQuery(`SELECT deleted_at FROM users WHERE id=1`)
+        const result = await executeQuery(`SELECT deleted_at FROM contacts WHERE id=1`)
         expect(result.deleted_at).toBeTruthy()
       })
 
       await test.step('Verify soft-deleted record is not visible in queries', async () => {
         const activeUsers = await executeQuery(`
-          SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL
+          SELECT COUNT(*) as count FROM contacts WHERE deleted_at IS NULL
         `)
         expect(activeUsers.rows[0].count).toBe(2)
       })
@@ -743,7 +743,7 @@ test.describe('Delete record', () => {
         const permanentResponse = await request.delete('/api/tables/1/records/2?permanent=true', {})
         expect(permanentResponse.status()).toBe(204)
 
-        const verifyPermanent = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=2`)
+        const verifyPermanent = await executeQuery(`SELECT COUNT(*) as count FROM contacts WHERE id=2`)
         expect(verifyPermanent.rows[0].count).toBe(0)
       })
 

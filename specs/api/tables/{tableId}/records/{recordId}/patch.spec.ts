@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/patch.json
  * Domain: api
- * Spec Count: 14
+ * Spec Count: 17
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (14 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
