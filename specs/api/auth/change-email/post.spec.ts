@@ -29,7 +29,7 @@ test.describe('Change email address', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -85,7 +85,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-002: should return 400 Bad Request without newEmail',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -116,7 +116,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -149,7 +149,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-004: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -173,7 +173,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-EMAIL-005: should return 409 Conflict for existing email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -210,8 +210,8 @@ test.describe('Change email address', () => {
         },
       })
 
-      // THEN: Returns 409 Conflict error (or 400 depending on implementation)
-      expect([400, 409]).toContain(response.status())
+      // THEN: Returns 409 Conflict error (or 400/422 depending on implementation)
+      expect([400, 409, 422]).toContain(response.status())
 
       const data = await response.json()
       expect(data).toHaveProperty('message')

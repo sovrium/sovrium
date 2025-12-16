@@ -583,7 +583,8 @@ test.describe('Delete record', () => {
                 id: 3,
                 name: 'contact_id',
                 type: 'relationship',
-                relatedTable: 16,
+                relatedTable: 'contacts',
+                relationType: 'many-to-one',
                 required: true,
                 onDelete: 'cascade', // Cascade soft delete
               },

@@ -130,6 +130,16 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
   )
 
 /**
+ * Create email handlers from auth configuration
+ */
+const createEmailHandlers = (authConfig?: Auth) => {
+  return {
+    passwordReset: createPasswordResetEmailHandler(authConfig?.emailTemplates?.resetPassword),
+    verification: createVerificationEmailHandler(authConfig?.emailTemplates?.verification),
+  }
+}
+
+/**
  * Create Better Auth instance with dynamic configuration
  *
  * @param authConfig - Optional auth configuration from app schema (flat structure)
@@ -145,12 +155,7 @@ export function createAuthInstance(authConfig?: Auth) {
   const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
 
   // Create email handlers with custom templates if provided
-  const passwordResetHandler = createPasswordResetEmailHandler(
-    authConfig?.emailTemplates?.resetPassword
-  )
-  const verificationEmailHandler = createVerificationEmailHandler(
-    authConfig?.emailTemplates?.verification
-  )
+  const handlers = createEmailHandlers(authConfig)
 
   return betterAuth({
     // Infrastructure config from environment variables
@@ -171,13 +176,20 @@ export function createAuthInstance(authConfig?: Auth) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification, // Dynamic based on app config
-      sendResetPassword: passwordResetHandler,
+      sendResetPassword: handlers.passwordReset,
     },
     // Email verification configuration - REQUIRED for send-verification-email endpoint
     emailVerification: {
       sendOnSignUp: requireEmailVerification, // Only send on sign-up if required
       autoSignInAfterVerification: true, // Auto sign-in user after they verify their email
-      sendVerificationEmail: verificationEmailHandler,
+      sendVerificationEmail: handlers.verification,
+    },
+    // User configuration with change email feature
+    user: {
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailVerification: handlers.verification,
+      },
     },
     plugins: [
       openAPI({
