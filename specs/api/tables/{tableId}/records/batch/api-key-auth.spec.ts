@@ -293,74 +293,82 @@ test.describe('API Key Authentication - Batch Operations', () => {
     'API-TABLES-BATCH-AUTH-007: user can perform batch operations via API key',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
-      // GIVEN: Application with table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'completed', type: 'checkbox' },
+      await test.step('Setup: Start server with table configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true, apiKeys: true },
+          },
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'completed', type: 'checkbox' },
+              ],
+            },
+          ],
+        })
+      })
+
+      let apiKey: { headers: { Authorization: string } }
+      let created: Array<{ id: number }>
+
+      await test.step('Setup: Create user and generate API key', async () => {
+        await createAuthenticatedUser({
+          email: 'api-user@example.com',
+          createOrganization: true,
+        })
+        apiKey = await createApiKeyAuth({ name: 'batch-ops-key' })
+      })
+
+      await test.step('Action: Batch create records with Bearer token', async () => {
+        const createResponse = await request.post('/api/tables/1/records/batch', {
+          ...apiKey,
+          data: {
+            records: [
+              { title: 'Task 1', completed: false },
+              { title: 'Task 2', completed: false },
+              { title: 'Task 3', completed: false },
             ],
           },
-        ],
+        })
+        expect(createResponse.status()).toBe(201)
+
+        created = await createResponse.json()
+        expect(created.length).toBe(3)
       })
 
-      // WHEN/THEN: Complete workflow
-      await createAuthenticatedUser({
-        email: 'api-user@example.com',
-        createOrganization: true,
+      await test.step('Action: Batch update records with Bearer token', async () => {
+        const updateResponse = await request.patch('/api/tables/1/records/batch', {
+          ...apiKey,
+          data: {
+            updates: [
+              { id: created[0].id, data: { completed: true } },
+              { id: created[1].id, data: { completed: true } },
+            ],
+          },
+        })
+        expect(updateResponse.status()).toBe(200)
       })
 
-      const apiKey = await createApiKeyAuth({ name: 'batch-ops-key' })
-
-      // Batch create
-      const createResponse = await request.post('/api/tables/1/records/batch', {
-        ...apiKey,
-        data: {
-          records: [
-            { title: 'Task 1', completed: false },
-            { title: 'Task 2', completed: false },
-            { title: 'Task 3', completed: false },
-          ],
-        },
+      await test.step('Action: Batch delete records with Bearer token', async () => {
+        const deleteResponse = await request.delete('/api/tables/1/records/batch', {
+          ...apiKey,
+          data: { ids: [created[0].id, created[1].id] },
+        })
+        expect(deleteResponse.status()).toBe(204)
       })
-      expect(createResponse.status()).toBe(201)
 
-      const created = await createResponse.json()
-      expect(created.length).toBe(3)
-
-      // Batch update
-      const updateResponse = await request.patch('/api/tables/1/records/batch', {
-        ...apiKey,
-        data: {
-          updates: [
-            { id: created[0].id, data: { completed: true } },
-            { id: created[1].id, data: { completed: true } },
-          ],
-        },
+      await test.step('Verify: Only one record remains after batch operations', async () => {
+        const listResponse = await request.get('/api/tables/1/records', apiKey)
+        const records = await listResponse.json()
+        expect(records.length).toBe(1)
+        expect(records[0].id).toBe(created[2].id)
       })
-      expect(updateResponse.status()).toBe(200)
-
-      // Batch delete
-      const deleteResponse = await request.delete('/api/tables/1/records/batch', {
-        ...apiKey,
-        data: { ids: [created[0].id, created[1].id] },
-      })
-      expect(deleteResponse.status()).toBe(204)
-
-      // Verify final state
-      const listResponse = await request.get('/api/tables/1/records', apiKey)
-      const records = await listResponse.json()
-      expect(records.length).toBe(1)
-      expect(records[0].id).toBe(created[2].id)
     }
   )
 })

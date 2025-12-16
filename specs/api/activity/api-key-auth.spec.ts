@@ -358,51 +358,56 @@ test.describe('API Key Authentication - Activity Listing', () => {
       createApiKeyAuth,
       executeQuery,
     }) => {
-      // GIVEN: Application with activity tracking
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-            ],
+      await test.step('Setup: Start server with activity tracking', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true, apiKeys: true },
           },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Complete workflow
-      const admin = await createAuthenticatedUser({
-        email: 'admin@example.com',
-        createOrganization: true,
+      let apiKey: { headers: { Authorization: string } }
+
+      await test.step('Setup: Create admin user, activity logs, and API key', async () => {
+        const admin = await createAuthenticatedUser({
+          email: 'admin@example.com',
+          createOrganization: true,
+        })
+
+        await executeQuery(
+          `INSERT INTO activity_logs (action, table_name, organization_id) VALUES
+          ('create', 'tasks', '${admin.organizationId}'),
+          ('update', 'tasks', '${admin.organizationId}'),
+          ('delete', 'tasks', '${admin.organizationId}')`
+        )
+
+        apiKey = await createApiKeyAuth({ name: 'activity-test-key' })
       })
 
-      // Create activity logs
-      await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES
-        ('create', 'tasks', '${admin.organizationId}'),
-        ('update', 'tasks', '${admin.organizationId}'),
-        ('delete', 'tasks', '${admin.organizationId}')`
-      )
+      await test.step('Verify: Admin can access activity logs', async () => {
+        const adminResponse = await request.get('/api/activity', apiKey)
+        expect(adminResponse.status()).toBe(200)
 
-      const apiKey = await createApiKeyAuth({ name: 'activity-test-key' })
+        const logs = await adminResponse.json()
+        expect(logs.length).toBe(3)
+      })
 
-      // Admin can access logs
-      const adminResponse = await request.get('/api/activity', apiKey)
-      expect(adminResponse.status()).toBe(200)
-
-      const logs = await adminResponse.json()
-      expect(logs.length).toBe(3)
-
-      // Unauthorized access rejected
-      const unauthorizedResponse = await request.get('/api/activity')
-      expect(unauthorizedResponse.status()).toBe(401)
+      await test.step('Verify: Unauthorized access rejected', async () => {
+        const unauthorizedResponse = await request.get('/api/activity')
+        expect(unauthorizedResponse.status()).toBe(401)
+      })
     }
   )
 })

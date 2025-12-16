@@ -173,13 +173,7 @@ test.describe('API Key Authentication - Table Listing', () => {
   test.fixme(
     'API-TABLES-AUTH-005: should return 401 with expired API key',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createApiKey,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKey }) => {
       // GIVEN: Application with expired API key
       await startServerWithSchema({
         name: 'test-app',
@@ -294,8 +288,8 @@ test.describe('API Key Authentication - Table Listing', () => {
         ],
       })
 
-      // Create user1 in org1
-      const user1 = await createAuthenticatedUser({
+      // Create user1 in org1 - we need the org context but only use the API key
+      const _user1 = await createAuthenticatedUser({
         email: 'user1@example.com',
         createOrganization: true,
       })
@@ -303,8 +297,8 @@ test.describe('API Key Authentication - Table Listing', () => {
 
       await signOut()
 
-      // Create user2 in org2
-      const user2 = await createAuthenticatedUser({
+      // Create user2 in org2 - sets up isolation context for the test
+      const _user2 = await createAuthenticatedUser({
         email: 'user2@example.com',
         createOrganization: true,
       })
@@ -369,60 +363,66 @@ test.describe('API Key Authentication - Table Listing', () => {
     'API-TABLES-AUTH-009: user can authenticate and list tables via API key workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
-      // GIVEN: Multi-tenant application with tables
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'contacts',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'email', type: 'email' },
-            ],
+      await test.step('Setup: Start server with multi-tenant tables', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true, apiKeys: true },
           },
-          {
-            id: 2,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'completed', type: 'checkbox' },
-            ],
-          },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'email' },
+              ],
+            },
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'completed', type: 'checkbox' },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: User creates account and generates API key
-      await createAuthenticatedUser({
-        email: 'api-user@example.com',
-        createOrganization: true,
+      let apiKeyAuth: { headers: { Authorization: string } }
+
+      await test.step('Setup: Create user and generate API key', async () => {
+        await createAuthenticatedUser({
+          email: 'api-user@example.com',
+          createOrganization: true,
+        })
+        apiKeyAuth = await createApiKeyAuth({ name: 'integration-test-key' })
       })
 
-      const apiKeyAuth = await createApiKeyAuth({ name: 'integration-test-key' })
+      await test.step('Verify: Valid Bearer token returns tables', async () => {
+        const response = await request.get('/api/tables', apiKeyAuth)
+        expect(response.status()).toBe(200)
 
-      // WHEN/THEN: User authenticates with Bearer token
-      const response = await request.get('/api/tables', apiKeyAuth)
-      expect(response.status()).toBe(200)
-
-      const tables = await response.json()
-      expect(Array.isArray(tables)).toBe(true)
-      expect(tables.length).toBe(2)
-
-      // WHEN/THEN: Invalid token is rejected
-      const invalidResponse = await request.get('/api/tables', {
-        headers: { Authorization: 'Bearer invalid-token' },
+        const tables = await response.json()
+        expect(Array.isArray(tables)).toBe(true)
+        expect(tables.length).toBe(2)
       })
-      expect(invalidResponse.status()).toBe(401)
 
-      // WHEN/THEN: Missing token is rejected
-      const missingResponse = await request.get('/api/tables')
-      expect(missingResponse.status()).toBe(401)
+      await test.step('Verify: Invalid token returns 401', async () => {
+        const invalidResponse = await request.get('/api/tables', {
+          headers: { Authorization: 'Bearer invalid-token' },
+        })
+        expect(invalidResponse.status()).toBe(401)
+      })
+
+      await test.step('Verify: Missing token returns 401', async () => {
+        const missingResponse = await request.get('/api/tables')
+        expect(missingResponse.status()).toBe(401)
+      })
     }
   )
 })

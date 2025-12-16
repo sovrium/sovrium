@@ -314,52 +314,59 @@ test.describe('API Key Authentication - Single Table', () => {
     'API-TABLES-GET-AUTH-007: user can access table metadata via API key workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
-      // GIVEN: Application with comprehensive table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'contacts',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email', unique: true },
-              { id: 3, name: 'name', type: 'single-line-text', required: true },
-              { id: 4, name: 'phone', type: 'phone' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
+      await test.step('Setup: Start server with table configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true, apiKeys: true },
           },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true },
+                { id: 3, name: 'name', type: 'single-line-text', required: true },
+                { id: 4, name: 'phone', type: 'phone' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: User authenticates and retrieves table
-      await createAuthenticatedUser({
-        email: 'api-user@example.com',
-        createOrganization: true,
+      let apiKeyAuth: { headers: { Authorization: string } }
+
+      await test.step('Setup: Create user and generate API key', async () => {
+        await createAuthenticatedUser({
+          email: 'api-user@example.com',
+          createOrganization: true,
+        })
+        apiKeyAuth = await createApiKeyAuth({ name: 'metadata-test-key' })
       })
 
-      const apiKeyAuth = await createApiKeyAuth({ name: 'metadata-test-key' })
+      await test.step('Verify: Valid Bearer token returns table metadata', async () => {
+        const response = await request.get('/api/tables/1', apiKeyAuth)
+        expect(response.status()).toBe(200)
 
-      const response = await request.get('/api/tables/1', apiKeyAuth)
-      expect(response.status()).toBe(200)
-
-      const table = await response.json()
-      expect(table.name).toBe('contacts')
-      expect(table.fields.length).toBe(4)
-
-      // WHEN/THEN: Invalid token is rejected
-      const invalidResponse = await request.get('/api/tables/1', {
-        headers: { Authorization: 'Bearer invalid-token' },
+        const table = await response.json()
+        expect(table.name).toBe('contacts')
+        expect(table.fields.length).toBe(4)
       })
-      expect(invalidResponse.status()).toBe(401)
 
-      // WHEN/THEN: Non-existent table returns 404
-      const notFoundResponse = await request.get('/api/tables/9999', apiKeyAuth)
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify: Invalid token returns 401', async () => {
+        const invalidResponse = await request.get('/api/tables/1', {
+          headers: { Authorization: 'Bearer invalid-token' },
+        })
+        expect(invalidResponse.status()).toBe(401)
+      })
+
+      await test.step('Verify: Non-existent table returns 404', async () => {
+        const notFoundResponse = await request.get('/api/tables/9999', apiKeyAuth)
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

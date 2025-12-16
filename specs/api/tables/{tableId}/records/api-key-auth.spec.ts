@@ -428,7 +428,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
         ...memberApiKey,
         data: {
           name: 'Jane',
-          salary: 60000,
+          salary: 60_000,
         },
       })
 
@@ -574,59 +574,65 @@ test.describe('API Key Authentication - Record CRUD', () => {
     'API-TABLES-RECORDS-AUTH-013: user can perform complete record CRUD via API key',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
-      // GIVEN: Comprehensive table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'contacts',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email', unique: true, required: true },
-              { id: 3, name: 'name', type: 'single-line-text', required: true },
-              { id: 4, name: 'phone', type: 'phone' },
-            ],
+      await test.step('Setup: Start server with table configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true, apiKeys: true },
           },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true, required: true },
+                { id: 3, name: 'name', type: 'single-line-text', required: true },
+                { id: 4, name: 'phone', type: 'phone' },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Complete workflow
-      await createAuthenticatedUser({
-        email: 'api-user@example.com',
-        createOrganization: true,
+      let apiKey: { headers: { Authorization: string } }
+
+      await test.step('Setup: Create user and generate API key', async () => {
+        await createAuthenticatedUser({
+          email: 'api-user@example.com',
+          createOrganization: true,
+        })
+        apiKey = await createApiKeyAuth({ name: 'crud-test-key' })
       })
 
-      const apiKey = await createApiKeyAuth({ name: 'crud-test-key' })
+      await test.step('Action: Create record with Bearer token', async () => {
+        const createResponse = await request.post('/api/tables/1/records', {
+          ...apiKey,
+          data: {
+            email: 'contact@example.com',
+            name: 'John Doe',
+            phone: '+1234567890',
+          },
+        })
+        expect(createResponse.status()).toBe(201)
 
-      // Create record
-      const createResponse = await request.post('/api/tables/1/records', {
-        ...apiKey,
-        data: {
-          email: 'contact@example.com',
-          name: 'John Doe',
-          phone: '+1234567890',
-        },
+        const created = await createResponse.json()
+        expect(created.email).toBe('contact@example.com')
       })
-      expect(createResponse.status()).toBe(201)
 
-      const created = await createResponse.json()
-      expect(created.email).toBe('contact@example.com')
+      await test.step('Verify: List records returns created record', async () => {
+        const listResponse = await request.get('/api/tables/1/records', apiKey)
+        expect(listResponse.status()).toBe(200)
 
-      // List records
-      const listResponse = await request.get('/api/tables/1/records', apiKey)
-      expect(listResponse.status()).toBe(200)
+        const records = await listResponse.json()
+        expect(records.length).toBe(1)
+      })
 
-      const records = await listResponse.json()
-      expect(records.length).toBe(1)
-
-      // Unauthorized access rejected
-      const unauthorizedResponse = await request.get('/api/tables/1/records')
-      expect(unauthorizedResponse.status()).toBe(401)
+      await test.step('Verify: Unauthorized access rejected', async () => {
+        const unauthorizedResponse = await request.get('/api/tables/1/records')
+        expect(unauthorizedResponse.status()).toBe(401)
+      })
     }
   )
 })

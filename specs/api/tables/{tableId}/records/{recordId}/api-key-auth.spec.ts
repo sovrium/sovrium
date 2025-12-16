@@ -317,7 +317,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
       // WHEN: Member tries to update protected field
       const response = await request.patch('/api/tables/1/records/1', {
         ...memberApiKey,
-        data: { salary: 60000 },
+        data: { salary: 60_000 },
       })
 
       // THEN: Returns 403 Forbidden
@@ -403,60 +403,68 @@ test.describe('API Key Authentication - Single Record Operations', () => {
       createApiKeyAuth,
       executeQuery,
     }) => {
-      // GIVEN: Application with table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'completed', type: 'checkbox' },
-            ],
+      await test.step('Setup: Start server with table configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true, apiKeys: true },
           },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'completed', type: 'checkbox' },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Complete workflow
-      await createAuthenticatedUser({
-        email: 'api-user@example.com',
-        createOrganization: true,
+      let apiKey: { headers: { Authorization: string } }
+
+      await test.step('Setup: Create user, insert test record, generate API key', async () => {
+        await createAuthenticatedUser({
+          email: 'api-user@example.com',
+          createOrganization: true,
+        })
+        await executeQuery(
+          `INSERT INTO tasks (id, title, completed) VALUES (1, 'Test Task', false)`
+        )
+        apiKey = await createApiKeyAuth({ name: 'record-ops-key' })
       })
 
-      await executeQuery(`INSERT INTO tasks (id, title, completed) VALUES (1, 'Test Task', false)`)
+      await test.step('Verify: Get record returns expected data', async () => {
+        const getResponse = await request.get('/api/tables/1/records/1', apiKey)
+        expect(getResponse.status()).toBe(200)
 
-      const apiKey = await createApiKeyAuth({ name: 'record-ops-key' })
-
-      // Get record
-      const getResponse = await request.get('/api/tables/1/records/1', apiKey)
-      expect(getResponse.status()).toBe(200)
-
-      const record = await getResponse.json()
-      expect(record.title).toBe('Test Task')
-
-      // Update record
-      const updateResponse = await request.patch('/api/tables/1/records/1', {
-        ...apiKey,
-        data: { completed: true },
+        const record = await getResponse.json()
+        expect(record.title).toBe('Test Task')
       })
-      expect(updateResponse.status()).toBe(200)
 
-      const updated = await updateResponse.json()
-      expect(updated.completed).toBe(true)
+      await test.step('Action: Update record with Bearer token', async () => {
+        const updateResponse = await request.patch('/api/tables/1/records/1', {
+          ...apiKey,
+          data: { completed: true },
+        })
+        expect(updateResponse.status()).toBe(200)
 
-      // Delete record
-      const deleteResponse = await request.delete('/api/tables/1/records/1', apiKey)
-      expect(deleteResponse.status()).toBe(204)
+        const updated = await updateResponse.json()
+        expect(updated.completed).toBe(true)
+      })
 
-      // Verify deletion
-      const notFoundResponse = await request.get('/api/tables/1/records/1', apiKey)
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Action: Delete record with Bearer token', async () => {
+        const deleteResponse = await request.delete('/api/tables/1/records/1', apiKey)
+        expect(deleteResponse.status()).toBe(204)
+      })
+
+      await test.step('Verify: Deleted record returns 404', async () => {
+        const notFoundResponse = await request.get('/api/tables/1/records/1', apiKey)
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })
