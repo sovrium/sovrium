@@ -201,84 +201,56 @@ bun run scripts/tdd-automation/queue-manager.ts status
 4. Delete orphaned branches (>7 days old, no PR)
 5. Keep branches with open PRs or recent activity
 
-#### **tdd-queue-recovery.yml** (Timeout Recovery)
+#### **tdd-monitor-unified.yml** (Unified Monitoring & Recovery)
 
 **Triggers**:
 
-- Schedule (every 30 minutes)
+- `workflow_run` on Claude Code TDD completion (event-driven)
+- Push to main branch
+- Schedule (every 30 minutes as backup)
 - Manual dispatch
 
-**Purpose**: Detects and recovers specs stuck in-progress with no activity
+**Purpose**: Consolidated monitoring workflow that handles health monitoring, stuck spec recovery, PR monitoring, and conflict resolution
 
-**Key Steps**:
+**Jobs**:
 
-1. Scan for specs `in-progress` > 90 minutes with no updates
-2. Re-queue stuck specs (change to `queued` state)
-3. Preserve retry count labels
-4. Comment on issue about timeout recovery
-5. **Result**: Prevents permanent pipeline blocks from stuck specs
+1. **🏥 Health Check & Circuit Breaker**
+   - Monitors failure rate of recent claude-tdd.yml runs
+   - Counts specs in retry state (retry:infra:N, retry:spec:N labels)
+   - Opens circuit (disables queue) if >50% failure rate or >5 retries
+   - Auto-closes circuit when health recovers
 
-#### **tdd-queue-stuck-pr-monitor.yml** (Auto-Merge Safeguard) ⚠️ NEW
+2. **🔄 Stuck Spec Recovery**
+   - Scans for specs `in-progress` > 90 minutes with no updates
+   - Re-queues stuck specs or marks as failed if max retries exceeded
+   - Preserves retry count labels
+   - **Result**: Prevents permanent pipeline blocks from stuck specs
 
-**Triggers**:
+3. **📋 PR Monitoring**
+   - Detects PRs missing auto-merge enablement
+   - Updates outdated PR branches (triggers @claude to merge main)
+   - Detects stuck PRs (>120 min with failures)
+   - **Result**: Prevents pipeline blocking when auto-merge not enabled
 
-- Schedule (every 10 minutes)
-- Manual dispatch
+4. **🔀 Conflict Resolution**
+   - Detects PRs with merge conflicts (CONFLICTING/DIRTY state)
+   - Triggers @claude to rebase and resolve conflicts
+   - Marks for manual review after one failed attempt
+   - **Result**: Automatically resolves conflicts to prevent stale PRs
 
-**Purpose**: Detects PRs that are stuck in an open state despite being ready to merge, and automatically enables auto-merge
+5. **📈 Update Spec State** (on push to main only)
+   - Runs `analyze:specs` to update SPEC-STATE.md
+   - Commits changes automatically
 
-**Key Steps**:
+6. **📊 Summary**
+   - Generates summary of all monitoring actions
 
-1. Scan all open `tdd-automation` PRs
-2. Identify PRs that:
-   - Have all CI checks passing (SUCCESS)
-   - Are mergeable (MERGEABLE state)
-   - Don't have auto-merge enabled
-   - Are older than 5 minutes (gives Claude Code time to enable it manually)
-3. Enable auto-merge automatically: `gh pr merge --auto --squash`
-4. Post comment explaining the automatic intervention
-5. **Result**: Prevents pipeline from blocking when Claude Code fails to enable auto-merge
+**Why Unified Monitoring**:
 
-**Why This Is Needed**:
-
-- Issue #1319: Claude created PR but didn't enable auto-merge → Pipeline blocked
-- PR #1546: All checks passing, mergeable, but stuck open for 2 hours → Pipeline blocked
-- PR #1541: Same issue → Manual intervention required
-
-**Impact**: This workflow is a **critical safeguard** that prevents the most common cause of pipeline blocking.
-
-#### **tdd-queue-conflict-resolver.yml** (Automatic Conflict Resolution) ⚠️ NEW
-
-**Triggers**:
-
-- Push to main branch (when main updates, existing PRs might become conflicted)
-- Schedule (every 15 minutes as safety net)
-- Manual dispatch
-
-**Purpose**: Automatically resolves merge conflicts in tdd-automation PRs by triggering Claude Code to rebase the branch
-
-**Key Steps**:
-
-1. Scan all open `tdd-automation` PRs
-2. Identify PRs with merge conflicts (CONFLICTING or DIRTY state)
-3. Check if conflict resolution was already attempted (via `conflict-resolution:attempted` label)
-4. If first attempt: Post @claude mention with rebase instructions:
-   - Fetch latest main
-   - Rebase PR branch onto main
-   - Resolve conflicts (prioritize incoming changes from main)
-   - Run tests to verify resolution
-   - Force push rebased branch
-   - Verify auto-merge is still enabled
-5. If second attempt (already has label): Mark for manual review, remove from queue
-6. **Result**: Automatically resolves conflicts to prevent PRs from becoming stale
-
-**Why This Is Needed**:
-
-- PR #1545: Became conflicted after another PR merged → Stuck in CONFLICTING state
-- Long-running PRs: Can become stale when main advances
-- Queue blocking: Conflicted PRs prevent pipeline from progressing
-
-**Retry Limit**: One automatic attempt per PR (prevents infinite loops)
+- Consolidates 4 separate workflows into one
+- Event-driven triggers for immediate response
+- Reduces workflow execution overhead
+- Consistent health monitoring across all functions
 
 ### 3. Configuration
 
@@ -441,15 +413,20 @@ When validation passes and PR merges:
 
 ## Labels & States
 
-| Label                           | State       | Description                                      |
-| ------------------------------- | ----------- | ------------------------------------------------ |
-| `tdd-spec:queued`               | Queued      | Spec waiting to be processed                     |
-| `tdd-spec:in-progress`          | In Progress | Spec being implemented (branch created)          |
-| `tdd-spec:completed`            | Completed   | Spec passed validation (issue closed)            |
-| `tdd-spec:failed`               | Failed      | Spec failed after 3 retries (needs human review) |
-| `skip-automated`                | Skipped     | Human marked as too complex (queue skips it)     |
-| `retry:1`, `retry:2`, `retry:3` | Retry Count | Tracks automatic retry attempts (max 3)          |
-| `tdd-automation`                | (always)    | All TDD automation issues                        |
+| Label                                     | State       | Description                                        |
+| ----------------------------------------- | ----------- | -------------------------------------------------- |
+| `tdd-spec:queued`                         | Queued      | Spec waiting to be processed                       |
+| `tdd-spec:in-progress`                    | In Progress | Spec being implemented (branch created)            |
+| `tdd-spec:completed`                      | Completed   | Spec passed validation (issue closed)              |
+| `tdd-spec:failed`                         | Failed      | Spec failed after 3 retries (needs human review)   |
+| `skip-automated`                          | Skipped     | Human marked as too complex (queue skips it)       |
+| `retry:spec:1`, `retry:spec:2`, `retry:spec:3` | Retry Count | Tracks code/logic retry attempts (max 3)      |
+| `retry:infra:1`, `retry:infra:2`, `retry:infra:3` | Retry Count | Tracks infrastructure retry attempts (max 3) |
+| `failure:spec`                            | Failure Type | Target spec itself failing                        |
+| `failure:regression`                      | Failure Type | Changes broke OTHER tests                         |
+| `failure:infra`                           | Failure Type | Infrastructure/flaky issue                        |
+| `high-failure-rate`                       | Alerting    | Many specs failing (incident)                      |
+| `tdd-automation`                          | (always)    | All TDD automation issues                          |
 
 ## CLI Commands
 

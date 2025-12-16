@@ -76,12 +76,13 @@ jobs:
           FAILURES=$(echo "$RECENT_RUNS" | jq '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled")] | length')
 
           # Count specs in retry state (both infrastructure and code retries)
-          INFRA_RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:1" --json number --jq 'length')
-          INFRA_RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:2" --json number --jq 'length')
-          INFRA_RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:3" --json number --jq 'length')
-          CODE_RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "code-retry:1" --json number --jq 'length')
-          CODE_RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "code-retry:2" --json number --jq 'length')
-          CODE_RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "code-retry:3" --json number --jq 'length')
+          # Uses standardized label format: retry:infra:N and retry:spec:N
+          INFRA_RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "retry:infra:1" --json number --jq 'length')
+          INFRA_RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "retry:infra:2" --json number --jq 'length')
+          INFRA_RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "retry:infra:3" --json number --jq 'length')
+          CODE_RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "retry:spec:1" --json number --jq 'length')
+          CODE_RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "retry:spec:2" --json number --jq 'length')
+          CODE_RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "retry:spec:3" --json number --jq 'length')
           INFRA_RETRY_ISSUES=$((INFRA_RETRY_1 + INFRA_RETRY_2 + INFRA_RETRY_3))
           CODE_RETRY_ISSUES=$((CODE_RETRY_1 + CODE_RETRY_2 + CODE_RETRY_3))
           RETRY_ISSUES=$((INFRA_RETRY_ISSUES + CODE_RETRY_ISSUES))
@@ -160,7 +161,7 @@ jobs:
 
           ### Investigation
           1. Check recent runs: [claude-tdd.yml](https://github.com/${{ github.repository }}/actions/workflows/claude-tdd.yml)
-          2. Check retry issues: \`gh issue list --label infrastructure-retry:1\`
+          2. Check retry issues: \`gh issue list --label retry:infra:1\`
           3. Look for error patterns
 
           ### Recovery
@@ -249,10 +250,11 @@ jobs:
             STUCK_COUNT=$((STUCK_COUNT + 1))
 
             # Check for retry label (both infrastructure and code retries)
-            RETRY_LABEL=$(echo "$LABELS" | grep -oE '(infrastructure|code)-retry:[0-9]' || echo "")
+            # Uses standardized label format: retry:infra:N and retry:spec:N
+            RETRY_LABEL=$(echo "$LABELS" | grep -oE 'retry:(spec|infra):[0-9]' || echo "")
 
             if [ -n "$RETRY_LABEL" ]; then
-              RETRY_NUM=$(echo "$RETRY_LABEL" | sed -E 's/(infrastructure|code)-retry://')
+              RETRY_NUM=$(echo "$RETRY_LABEL" | sed -E 's/retry:(spec|infra)://')
               echo "   Stuck retry attempt #$RETRY_NUM (label: $RETRY_LABEL)"
 
               if [ "$RETRY_NUM" -ge 3 ]; then
@@ -275,7 +277,7 @@ jobs:
 
                 gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
                   --remove-label "$RETRY_LABEL" \
-                  --add-label "infrastructure-retry:$NEXT_RETRY"
+                  --add-label "retry:infra:$NEXT_RETRY"
 
                 # Get spec details from issue for context
                 SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")

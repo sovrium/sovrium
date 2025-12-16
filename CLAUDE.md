@@ -468,6 +468,7 @@ All TDD labels follow consistent naming conventions:
 | | `retry:infra:1/2/3` | Retry attempts for infra errors |
 | **Alerting** | `high-failure-rate` | Many specs failing (incident) |
 | **General** | `tdd-automation` | Marks TDD pipeline issues/PRs |
+| | `skip-automated` | Human marked as too complex for automation |
 
 ### Retry Logic
 
