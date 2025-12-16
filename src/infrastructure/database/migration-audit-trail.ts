@@ -5,20 +5,60 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Migration Audit Trail
+ *
+ * Provides functions to track schema migrations, record checksums, and log rollback operations.
+ *
+ * ## Why Raw SQL Instead of Drizzle Query Builder?
+ *
+ * These functions use raw SQL via `executeSQL()` instead of Drizzle's query builder because:
+ *
+ * 1. **Transaction Type Incompatibility**: The schema-initializer uses `SQL.begin()` from bun:sql,
+ *    which provides a transaction object with only an `unsafe()` method for raw SQL execution.
+ *
+ * 2. **Drizzle Requirement**: Drizzle's query builder (`insert()`, `select()`, `where()`) requires
+ *    a full `drizzle()` database instance wrapping an `SQL` client, not the raw transaction object.
+ *
+ * 3. **Architectural Constraint**: Refactoring to use `db.transaction()` instead of `SQL.begin()`
+ *    would require significant changes to schema-initializer.ts and related files.
+ *
+ * The Drizzle schema definitions in `./drizzle/schema/migration-audit.ts` are used for:
+ * - Drizzle migrations (creating the tables)
+ * - Type exports for consumers
+ * - Table name constants (below)
+ *
+ * @see src/infrastructure/database/drizzle/schema/migration-audit.ts - Drizzle schema definitions
+ * @see src/infrastructure/database/schema-initializer.ts - Uses SQL.begin() transactions
+ */
+
 import { createHash } from 'node:crypto'
+import { getTableName } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { logInfo } from '@/infrastructure/logging/effect-logger'
+import {
+  sovriumMigrationHistory,
+  sovriumMigrationLog,
+  sovriumSchemaChecksum,
+} from './drizzle/schema'
 import { executeSQL, type TransactionLike, type SQLExecutionError } from './sql-execution'
 import { escapeSqlString } from './sql-utils'
 import type { App } from '@/domain/models/app'
 
-// Type imports from Drizzle schema for documentation
-// These tables are created by Drizzle migrations (drizzle/0006_*.sql)
+// Re-export types from Drizzle schema for consumers
 export type {
   SovriumMigrationHistory,
   SovriumMigrationLog,
   SovriumSchemaChecksum,
 } from './drizzle/schema'
+
+/**
+ * Table name constants derived from Drizzle schema
+ * Using getTableName() ensures consistency with schema definitions
+ */
+const MIGRATION_HISTORY_TABLE = getTableName(sovriumMigrationHistory)
+const MIGRATION_LOG_TABLE = getTableName(sovriumMigrationLog)
+const SCHEMA_CHECKSUM_TABLE = getTableName(sovriumSchemaChecksum)
 
 /**
  * Create schema snapshot object from app configuration
@@ -54,7 +94,7 @@ export const recordMigration = (
     // Get the next version number
     const versionQuery = `
       SELECT COALESCE(MAX(version), 0) + 1 as next_version
-      FROM _sovrium_migration_history
+      FROM ${MIGRATION_HISTORY_TABLE}
     `
     const versionResult = yield* executeSQL(tx, versionQuery)
     // executeSQL returns an array directly, not {rows, rowCount}
@@ -69,7 +109,7 @@ export const recordMigration = (
     // - schemaSnapshot is JSON-escaped to prevent SQL injection
     const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
     const insertSQL = `
-      INSERT INTO _sovrium_migration_history (version, checksum, schema)
+      INSERT INTO ${MIGRATION_HISTORY_TABLE} (version, checksum, schema)
       VALUES (${nextVersion}, '${checksum}', '${escapedSchema}')
     `
     yield* executeSQL(tx, insertSQL)
@@ -89,7 +129,7 @@ export const logRollbackOperation = (
     // Escape single quotes in reason string to prevent SQL injection
     const escapedReason = escapeSqlString(reason)
     const insertSQL = `
-      INSERT INTO _sovrium_migration_log (operation, reason, status)
+      INSERT INTO ${MIGRATION_LOG_TABLE} (operation, reason, status)
       VALUES ('ROLLBACK', '${escapedReason}', 'COMPLETED')
     `
     yield* executeSQL(tx, insertSQL)
@@ -112,7 +152,7 @@ export const storeSchemaChecksum = (
     // Use INSERT ... ON CONFLICT to update existing singleton row or create new one
     const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
     const upsertSQL = `
-      INSERT INTO _sovrium_schema_checksum (id, checksum, schema, updated_at)
+      INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at)
       VALUES ('singleton', '${checksum}', '${escapedSchema}', NOW())
       ON CONFLICT (id)
       DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = NOW()
@@ -133,7 +173,7 @@ export const getPreviousSchema = (
 
     // Retrieve previous schema from singleton row
     // Table is guaranteed to exist after Drizzle migrations
-    const selectSQL = `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+    const selectSQL = `SELECT schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {
@@ -160,7 +200,7 @@ export const getStoredChecksum = (
     const tableExistsSQL = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables
-        WHERE table_name = '_sovrium_schema_checksum'
+        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
       ) as exists
     `
     const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
@@ -172,7 +212,7 @@ export const getStoredChecksum = (
     }
 
     // Retrieve checksum from singleton row
-    const selectSQL = `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+    const selectSQL = `SELECT checksum FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
 
     if (!result || result.length === 0) {
