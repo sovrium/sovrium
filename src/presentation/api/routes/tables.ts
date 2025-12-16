@@ -55,7 +55,7 @@ import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 
 // ============================================================================
 // Table ID Resolution
@@ -75,6 +75,38 @@ import type { Hono } from 'hono'
 const getTableNameFromId = (app: App, tableId: string): string | undefined => {
   const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
   return table?.name
+}
+
+/**
+ * Handle batch restore errors with appropriate HTTP responses
+ */
+const handleBatchRestoreError = (c: Context, error: unknown) => {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+  if (errorMessage.includes('not found')) {
+    const recordIdMatch = errorMessage.match(/Record (\S+) not found/)
+    return c.json(
+      {
+        error: 'Record not found',
+        recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
+      },
+      404
+    )
+  }
+
+  if (errorMessage.includes('is not deleted')) {
+    const recordIdMatch = errorMessage.match(/Record (\S+) is not deleted/)
+    return c.json(
+      {
+        error: 'Bad Request',
+        message: 'Record is not deleted',
+        recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
+      },
+      400
+    )
+  }
+
+  return c.json({ error: 'Internal server error', message: errorMessage }, 500)
 }
 
 // ============================================================================
@@ -533,7 +565,6 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     })
 }
 
-// eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
 function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .post('/api/tables/:tableId/records/batch', async (c) => {
@@ -572,39 +603,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
         return c.json(response, 200)
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-        // Handle specific error messages from batch restore
-        if (errorMessage.includes('not found')) {
-          const recordIdMatch = errorMessage.match(/Record (\S+) not found/)
-          return c.json(
-            {
-              error: 'Record not found',
-              recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
-            },
-            404
-          )
-        }
-
-        if (errorMessage.includes('is not deleted')) {
-          const recordIdMatch = errorMessage.match(/Record (\S+) is not deleted/)
-          return c.json(
-            {
-              error: 'Bad Request',
-              message: 'Record is not deleted',
-              recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
-            },
-            400
-          )
-        }
-
-        return c.json(
-          {
-            error: 'Internal server error',
-            message: errorMessage,
-          },
-          500
-        )
+        return handleBatchRestoreError(c, error)
       }
     })
     .post('/api/tables/:tableId/records/upsert', async (c) => {

@@ -236,97 +236,78 @@ const buildSocialProviders = (authConfig?: Auth) => {
 }
 
 /**
+ * Custom table names with _sovrium_auth_ prefix for namespace isolation
+ * This prevents conflicts when users create their own tables (e.g., "users" for CRM contacts)
+ */
+const AUTH_TABLE_NAMES = {
+  user: '_sovrium_auth_users',
+  session: '_sovrium_auth_sessions',
+  account: '_sovrium_auth_accounts',
+  verification: '_sovrium_auth_verifications',
+  organization: '_sovrium_auth_organizations',
+  member: '_sovrium_auth_members',
+  invitation: '_sovrium_auth_invitations',
+  apiKey: '_sovrium_auth_api_keys',
+  twoFactor: '_sovrium_auth_two_factors',
+} as const
+
+/**
+ * Build Better Auth plugins array with custom table names
+ */
+const buildAuthPlugins = (handlers: Readonly<ReturnType<typeof createEmailHandlers>>) => [
+  openAPI({ disableDefaultReference: true }),
+  admin(),
+  organization({
+    sendInvitationEmail: handlers.organizationInvitation,
+    schema: {
+      organization: { modelName: AUTH_TABLE_NAMES.organization },
+      member: { modelName: AUTH_TABLE_NAMES.member },
+      invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+    },
+  }),
+  apiKey({ schema: { apikey: { modelName: AUTH_TABLE_NAMES.apiKey } } }),
+  twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
+]
+
+/**
  * Create Better Auth instance with dynamic configuration
- *
- * @param authConfig - Optional auth configuration from app schema (flat structure)
- * @returns Better Auth instance configured based on app settings
  */
 export function createAuthInstance(authConfig?: Auth) {
-  // Determine if email verification is required based on auth config
-  // With flat structure, emailAndPassword is directly on authConfig
   const emailAndPasswordConfig =
     authConfig?.emailAndPassword && typeof authConfig.emailAndPassword === 'object'
       ? authConfig.emailAndPassword
       : {}
   const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
-
-  // Create email handlers with custom templates if provided
   const handlers = createEmailHandlers(authConfig)
 
-  // Build social providers configuration
-  const socialProviders = buildSocialProviders(authConfig)
-
   return betterAuth({
-    // Infrastructure config from environment variables
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_BASE_URL,
-
-    database: drizzleAdapter(db, {
-      provider: 'pg',
-      usePlural: true,
-    }),
-    // Custom table names with _sovrium_auth_ prefix for namespace isolation
-    // This prevents conflicts when users create their own tables
-    session: {
-      modelName: '_sovrium_auth_sessions',
-    },
-    account: {
-      modelName: '_sovrium_auth_accounts',
-    },
-    verification: {
-      modelName: '_sovrium_auth_verifications',
-    },
-    // Allow any redirect URL for testing (should be restricted in production)
+    database: drizzleAdapter(db, { provider: 'pg', usePlural: true }),
+    session: { modelName: AUTH_TABLE_NAMES.session },
+    account: { modelName: AUTH_TABLE_NAMES.account },
+    verification: { modelName: AUTH_TABLE_NAMES.verification },
     trustedOrigins: ['*'],
-    // Disable CSRF protection for testing (should be enabled in production)
     advanced: {
       useSecureCookies: process.env.NODE_ENV === 'production',
       disableCSRFCheck: process.env.NODE_ENV !== 'production',
     },
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification, // Dynamic based on app config
+      requireEmailVerification,
       sendResetPassword: handlers.passwordReset,
     },
-    // Email verification configuration - REQUIRED for send-verification-email endpoint
     emailVerification: {
-      sendOnSignUp: requireEmailVerification, // Only send on sign-up if required
-      autoSignInAfterVerification: true, // Auto sign-in user after they verify their email
+      sendOnSignUp: requireEmailVerification,
+      autoSignInAfterVerification: true,
       sendVerificationEmail: handlers.verification,
     },
-    // User configuration with custom table name and change email feature
     user: {
-      modelName: '_sovrium_auth_users',
-      changeEmail: {
-        enabled: true,
-        sendChangeEmailVerification: handlers.verification,
-      },
+      modelName: AUTH_TABLE_NAMES.user,
+      changeEmail: { enabled: true, sendChangeEmailVerification: handlers.verification },
     },
-    // OAuth social providers - dynamically configured based on auth config
-    socialProviders,
-    plugins: [
-      openAPI({
-        disableDefaultReference: true, // Use unified Scalar UI instead
-      }),
-      admin(),
-      organization({
-        sendInvitationEmail: handlers.organizationInvitation,
-        // Custom table names with _sovrium_auth_ prefix
-        schema: {
-          organization: { modelName: '_sovrium_auth_organizations' },
-          member: { modelName: '_sovrium_auth_members' },
-          invitation: { modelName: '_sovrium_auth_invitations' },
-        },
-      }),
-      apiKey({
-        // Custom table name with _sovrium_auth_ prefix
-        schema: { apikey: { modelName: '_sovrium_auth_api_keys' } },
-      }),
-      twoFactor({
-        // Custom table name with _sovrium_auth_ prefix
-        schema: { twoFactor: { modelName: '_sovrium_auth_two_factors' } },
-      }),
-    ],
+    socialProviders: buildSocialProviders(authConfig),
+    plugins: buildAuthPlugins(handlers),
   })
 }
 
