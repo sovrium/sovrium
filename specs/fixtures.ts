@@ -342,12 +342,14 @@ type AuthSession = {
   userId: string
   token: string
   expiresAt: string
+  activeOrganizationId?: string | null
 }
 
 type SignUpData = {
   email: string
   password: string
   name: string
+  createOrganization?: boolean // Optional: auto-create organization for user
 }
 
 type SignInData = {
@@ -360,6 +362,7 @@ type AuthResult = {
   user: AuthUser
   session?: AuthSession
   token?: string // Convenience alias for session.token
+  organizationId?: string // Convenience alias for session.activeOrganizationId
 }
 
 type Organization = {
@@ -558,7 +561,18 @@ type ServerFixtures = {
   /**
    * Create and authenticate a test user in one call
    * Convenience fixture that combines signUp + signIn
-   * @returns The authenticated user and session data
+   * Optionally creates an organization for the user (set createOrganization: true)
+   * @returns The authenticated user, session data, and organizationId if created
+   * @example
+   * // Without organization
+   * const user = await createAuthenticatedUser({ email: 'test@example.com' })
+   *
+   * // With organization (for multi-tenant tests)
+   * const user = await createAuthenticatedUser({
+   *   email: 'test@example.com',
+   *   createOrganization: true
+   * })
+   * expect(user.organizationId).toBeDefined() // Organization ID for RLS tests
    */
   createAuthenticatedUser: (data?: Partial<SignUpData>) => Promise<AuthResult>
 
@@ -1268,6 +1282,7 @@ export const test = base.extend<ServerFixtures>({
 
   // Auth fixture: Create and authenticate a test user in one call
   // Convenience fixture that combines signUp + signIn with sensible defaults
+  // Optionally creates an organization for the user
   createAuthenticatedUser: async ({ page }, use) => {
     let userCounter = 0
 
@@ -1278,11 +1293,16 @@ export const test = base.extend<ServerFixtures>({
         email: data?.email ?? `test-user-${timestamp}-${userCounter}@example.com`,
         password: data?.password ?? 'TestPassword123!',
         name: data?.name ?? `Test User ${userCounter}`,
+        createOrganization: data?.createOrganization,
       }
 
       // Sign up
       const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
-        data: defaultData,
+        data: {
+          email: defaultData.email,
+          password: defaultData.password,
+          name: defaultData.name,
+        },
       })
 
       if (!signUpResponse.ok()) {
@@ -1308,10 +1328,55 @@ export const test = base.extend<ServerFixtures>({
       }
 
       const result = await signInResponse.json()
+
+      // Optionally create organization for user
+      let organizationId: string | undefined
+      if (defaultData.createOrganization) {
+        const orgName = `${defaultData.name}'s Organization`
+        const orgSlug = `org-${timestamp}-${userCounter}`
+
+        const orgResponse = await page.request.post('/api/auth/organization/create', {
+          data: {
+            name: orgName,
+            slug: orgSlug,
+          },
+        })
+
+        if (!orgResponse.ok()) {
+          const errorData = await orgResponse.json().catch(() => ({}))
+          throw new Error(
+            `Create organization failed with status ${orgResponse.status()}: ${JSON.stringify(errorData)}`
+          )
+        }
+
+        const org = await orgResponse.json()
+        organizationId = org.id
+
+        // Better Auth automatically sets activeOrganizationId when creating an organization
+        // Refresh session by signing in again to get updated session with activeOrganizationId
+        const refreshResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: defaultData.email,
+            password: defaultData.password,
+          },
+        })
+
+        if (refreshResponse.ok()) {
+          const refreshedResult = await refreshResponse.json()
+          return {
+            user: refreshedResult.user,
+            session: refreshedResult.session,
+            token: refreshedResult.session?.token,
+            organizationId: refreshedResult.session?.activeOrganizationId || organizationId,
+          }
+        }
+      }
+
       return {
         user: result.user,
         session: result.session,
-        token: result.session?.token, // Convenience alias
+        token: result.session?.token,
+        organizationId: result.session?.activeOrganizationId || organizationId,
       }
     })
   },

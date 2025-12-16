@@ -51,7 +51,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery('INSERT INTO products (price) VALUES (99.99)')
+      await executeQuery('INSERT INTO products (id, price) VALUES (1, 99.99)')
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -83,7 +83,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery('INSERT INTO invoices (total) VALUES (99.99)')
+      await executeQuery('INSERT INTO invoices (id, total) VALUES (1, 99.99)')
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -114,7 +114,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery('INSERT INTO sales (amount) VALUES (1000)')
+      await executeQuery('INSERT INTO sales (id, amount) VALUES (1, 1000)')
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -151,7 +151,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery('INSERT INTO transactions (balance) VALUES (-100.00)')
+      await executeQuery('INSERT INTO transactions (id, balance) VALUES (1, -100.00)')
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -188,7 +188,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery('INSERT INTO assets (value) VALUES (1000000.00)')
+      await executeQuery('INSERT INTO assets (id, value) VALUES (1, 1000000.00)')
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -225,7 +225,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery('INSERT INTO properties (value) VALUES (1000000.00)')
+      await executeQuery('INSERT INTO properties (id, value) VALUES (1, 1000000.00)')
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -260,7 +260,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO events (event_date) VALUES ('2024-06-15')")
+      await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -291,7 +291,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO events (event_date) VALUES ('2024-06-15')")
+      await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -322,7 +322,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO events (event_date) VALUES ('2024-06-15')")
+      await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -353,7 +353,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO appointments (scheduled_date) VALUES ('2024-06-15')")
+      await executeQuery("INSERT INTO appointments (id, scheduled_date) VALUES (1, '2024-06-15')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -390,7 +390,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO events (event_date) VALUES ('2024-06-15')")
+      await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -426,7 +426,7 @@ test.describe('Record Display Formatting', () => {
         ],
       })
       await executeQuery(
-        "INSERT INTO appointments (scheduled_time) VALUES ('2024-06-15 14:30:00+00')"
+        "INSERT INTO appointments (id, scheduled_time) VALUES (1, '2024-06-15 14:30:00+00')"
       )
 
       // WHEN: requesting record with display formatting
@@ -459,7 +459,7 @@ test.describe('Record Display Formatting', () => {
         ],
       })
       await executeQuery(
-        "INSERT INTO appointments (scheduled_time) VALUES ('2024-06-15 14:30:00+00')"
+        "INSERT INTO appointments (id, scheduled_time) VALUES (1, '2024-06-15 14:30:00+00')"
       )
 
       // WHEN: requesting record with display formatting
@@ -491,7 +491,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO events (event_time) VALUES ('2024-06-15 14:30:00+00')")
+      await executeQuery("INSERT INTO events (id, event_time) VALUES (1, '2024-06-15 14:30:00+00')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -522,7 +522,9 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO meetings (meeting_time) VALUES ('2024-06-15 14:30:00+00')")
+      await executeQuery(
+        "INSERT INTO meetings (id, meeting_time) VALUES (1, '2024-06-15 14:30:00+00')"
+      )
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -558,7 +560,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO tasks (time_spent) VALUES ('1 hour 30 minutes')")
+      await executeQuery("INSERT INTO tasks (id, time_spent) VALUES (1, '1 hour 30 minutes')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -589,7 +591,7 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO videos (length) VALUES ('1:30:45')")
+      await executeQuery("INSERT INTO videos (id, length) VALUES (1, '1:30:45')")
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -620,7 +622,9 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO timesheets (hours_worked) VALUES ('1 hour 30 minutes')")
+      await executeQuery(
+        "INSERT INTO timesheets (id, hours_worked) VALUES (1, '1 hour 30 minutes')"
+      )
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -660,7 +664,9 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO profiles (avatar) VALUES ('https://example.com/photo.jpg')")
+      await executeQuery(
+        "INSERT INTO profiles (id, avatar) VALUES (1, 'https://example.com/photo.jpg')"
+      )
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -700,7 +706,9 @@ test.describe('Record Display Formatting', () => {
           },
         ],
       })
-      await executeQuery("INSERT INTO documents (file) VALUES ('https://example.com/doc.pdf')")
+      await executeQuery(
+        "INSERT INTO documents (id, file) VALUES (1, 'https://example.com/doc.pdf')"
+      )
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -743,8 +751,8 @@ test.describe('Record Display Formatting', () => {
 
       await test.step('Insert test data', async () => {
         await executeQuery(`
-          INSERT INTO data (price, event_date, scheduled_time, duration)
-          VALUES (1234.56, '2024-06-15', '2024-06-15 14:30:00+00', '2 hours 30 minutes')
+          INSERT INTO data (id, price, event_date, scheduled_time, duration)
+          VALUES (1, 1234.56, '2024-06-15', '2024-06-15 14:30:00+00', '2 hours 30 minutes')
         `)
       })
 
