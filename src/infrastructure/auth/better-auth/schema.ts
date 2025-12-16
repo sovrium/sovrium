@@ -7,8 +7,9 @@
 
 import { pgTable, text, boolean, timestamp, integer } from 'drizzle-orm/pg-core'
 
-// Better Auth Tables (with usePlural: true)
-export const users = pgTable('users', {
+// Better Auth Tables (with _sovrium_auth_ prefix for namespace isolation)
+// This prevents conflicts when users create their own tables (e.g., "users" for CRM contacts)
+export const users = pgTable('_sovrium_auth_users', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
@@ -25,7 +26,7 @@ export const users = pgTable('users', {
   twoFactorEnabled: boolean('two_factor_enabled'),
 })
 
-export const sessions = pgTable('sessions', {
+export const sessions = pgTable('_sovrium_auth_sessions', {
   id: text('id').primaryKey(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   token: text('token').notNull().unique(),
@@ -42,7 +43,7 @@ export const sessions = pgTable('sessions', {
   activeOrganizationId: text('active_organization_id'),
 })
 
-export const accounts = pgTable('accounts', {
+export const accounts = pgTable('_sovrium_auth_accounts', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
@@ -60,7 +61,7 @@ export const accounts = pgTable('accounts', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const verifications = pgTable('verifications', {
+export const verifications = pgTable('_sovrium_auth_verifications', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
@@ -70,7 +71,7 @@ export const verifications = pgTable('verifications', {
 })
 
 // Organization plugin tables
-export const organizations = pgTable('organizations', {
+export const organizations = pgTable('_sovrium_auth_organizations', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
@@ -79,7 +80,7 @@ export const organizations = pgTable('organizations', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const members = pgTable('members', {
+export const members = pgTable('_sovrium_auth_members', {
   id: text('id').primaryKey(),
   organizationId: text('organization_id')
     .notNull()
@@ -91,7 +92,7 @@ export const members = pgTable('members', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const invitations = pgTable('invitations', {
+export const invitations = pgTable('_sovrium_auth_invitations', {
   id: text('id').primaryKey(),
   organizationId: text('organization_id')
     .notNull()
@@ -107,7 +108,7 @@ export const invitations = pgTable('invitations', {
 })
 
 // API Key plugin table
-export const apiKeys = pgTable('api_keys', {
+export const apiKeys = pgTable('_sovrium_auth_api_keys', {
   id: text('id').primaryKey(),
   name: text('name'),
   start: text('start'),
@@ -134,7 +135,7 @@ export const apiKeys = pgTable('api_keys', {
 })
 
 // Two-factor plugin table
-export const twoFactors = pgTable('two_factors', {
+export const twoFactors = pgTable('_sovrium_auth_two_factors', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()

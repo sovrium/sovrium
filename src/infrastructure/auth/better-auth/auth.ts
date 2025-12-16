@@ -265,6 +265,17 @@ export function createAuthInstance(authConfig?: Auth) {
       provider: 'pg',
       usePlural: true,
     }),
+    // Custom table names with _sovrium_auth_ prefix for namespace isolation
+    // This prevents conflicts when users create their own tables
+    session: {
+      modelName: '_sovrium_auth_sessions',
+    },
+    account: {
+      modelName: '_sovrium_auth_accounts',
+    },
+    verification: {
+      modelName: '_sovrium_auth_verifications',
+    },
     // Allow any redirect URL for testing (should be restricted in production)
     trustedOrigins: ['*'],
     // Disable CSRF protection for testing (should be enabled in production)
@@ -283,8 +294,9 @@ export function createAuthInstance(authConfig?: Auth) {
       autoSignInAfterVerification: true, // Auto sign-in user after they verify their email
       sendVerificationEmail: handlers.verification,
     },
-    // User configuration with change email feature
+    // User configuration with custom table name and change email feature
     user: {
+      modelName: '_sovrium_auth_users',
       changeEmail: {
         enabled: true,
         sendChangeEmailVerification: handlers.verification,
@@ -299,9 +311,21 @@ export function createAuthInstance(authConfig?: Auth) {
       admin(),
       organization({
         sendInvitationEmail: handlers.organizationInvitation,
+        // Custom table names with _sovrium_auth_ prefix
+        schema: {
+          organization: { modelName: '_sovrium_auth_organizations' },
+          member: { modelName: '_sovrium_auth_members' },
+          invitation: { modelName: '_sovrium_auth_invitations' },
+        },
       }),
-      apiKey(),
-      twoFactor(),
+      apiKey({
+        // Custom table name with _sovrium_auth_ prefix
+        schema: { apikey: { modelName: '_sovrium_auth_api_keys' } },
+      }),
+      twoFactor({
+        // Custom table name with _sovrium_auth_ prefix
+        schema: { twoFactor: { modelName: '_sovrium_auth_two_factors' } },
+      }),
     ],
   })
 }
