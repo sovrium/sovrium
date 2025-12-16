@@ -13,7 +13,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/delete.json
  * Domain: api
- * Spec Count: 14
+ * Spec Count: 16
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp (soft delete by default)
@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Soft-deleted records can be restored via POST /restore endpoint
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (14 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (15 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -555,12 +555,93 @@ test.describe('Delete record', () => {
     }
   )
 
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-015: should cascade soft delete to related records when configured',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Two tables with relationship (contacts → tasks) and cascade delete configured
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 16,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 17,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              {
+                id: 3,
+                name: 'contact_id',
+                type: 'relationship',
+                relatedTable: 16,
+                required: true,
+                onDelete: 'cascade', // Cascade soft delete
+              },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await executeQuery("INSERT INTO contacts (id, name) VALUES (1, 'Alice')")
+      await executeQuery(`
+        INSERT INTO tasks (id, title, contact_id) VALUES
+        (1, 'Task 1', 1),
+        (2, 'Task 2', 1)
+      `)
+
+      // WHEN: Contact is soft-deleted via DELETE endpoint
+      const response = await request.delete('/api/tables/16/records/1', {})
+
+      // THEN: Delete request succeeds
+      expect(response.status()).toBe(204)
+
+      // THEN: Contact is soft-deleted (deleted_at set)
+      const contactResult = await executeQuery(`
+        SELECT deleted_at FROM contacts WHERE id = 1
+      `)
+      expect(contactResult.deleted_at).toBeTruthy()
+
+      // THEN: Related tasks are also soft-deleted (cascade)
+      const tasksInTrash = await executeQuery(`
+        SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL
+      `)
+      expect(tasksInTrash.count).toBe(2)
+
+      // THEN: Normal task queries return zero results
+      const apiResponse = await request.get('/api/tables/17/records', {})
+      const data = await apiResponse.json()
+
+      expect(data.records).toHaveLength(0)
+
+      // THEN: Trash endpoint shows all cascaded soft-deleted tasks
+      const trashResponse = await request.get('/api/tables/17/trash', {})
+      const trashData = await trashResponse.json()
+
+      expect(trashData.records).toHaveLength(2)
+      expect(
+        trashData.records.every((r: { fields: { deleted_at: string } }) => r.fields.deleted_at)
+      ).toBe(true)
+    }
+  )
+
   // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-015: user can complete full soft delete workflow',
+    'API-TABLES-RECORDS-DELETE-016: user can complete full soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {

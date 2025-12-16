@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
- * Spec Count: 5
+ * Spec Count: 6
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -243,12 +243,63 @@ test.describe('View Filters', () => {
     }
   )
 
+  test.fixme(
+    'APP-TABLES-VIEW-FILTERS-006: should filter deleted records when view explicitly filters by deleted_at',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Table with view that explicitly includes deleted records (Trash view)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text', required: true },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            views: [
+              {
+                id: 'trash_view',
+                name: 'Trash',
+                filters: {
+                  and: [{ field: 'deleted_at', operator: 'isNotNull', value: null }],
+                },
+              },
+            ],
+          },
+        ],
+      })
+
+      await executeQuery(`
+        INSERT INTO contacts (id, name, status) VALUES
+        (1, 'Alice', 'active'),
+        (2, 'Bob', 'active')
+      `)
+      await executeQuery('UPDATE contacts SET deleted_at = NOW() WHERE id = 2')
+
+      // WHEN: Database view is queried (Trash view)
+      const viewRecords = await executeQuery('SELECT id, name FROM trash_view')
+
+      // THEN: View returns only deleted records
+      expect(viewRecords.id).toBe(2)
+      expect(viewRecords.name).toBe('Bob')
+
+      // THEN: Active records are excluded from trash view
+      const allViewRecords = await executeQuery('SELECT COUNT(*) as count FROM trash_view')
+      expect(allViewRecords.count).toBe(1)
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test(
-    'APP-TABLES-VIEW-FILTERS-006: user can complete full view-filters workflow',
+    'APP-TABLES-VIEW-FILTERS-007: user can complete full view-filters workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with filtered view', async () => {
