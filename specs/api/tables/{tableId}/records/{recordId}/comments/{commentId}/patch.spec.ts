@@ -57,7 +57,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Updated comment text',
@@ -117,7 +116,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Actually, @[user_3] should review this instead',
@@ -159,7 +157,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: '',
@@ -203,7 +200,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: longContent,
@@ -290,7 +286,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Alice trying to edit Bobs comment',
@@ -373,7 +368,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer org1_token',
         },
         data: {
           content: 'Cross-org update attempt',
@@ -415,7 +409,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Trying to update deleted comment',
@@ -461,7 +454,6 @@ test.describe('Update comment', () => {
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Updated comment',
@@ -519,7 +511,6 @@ test.describe('Update comment', () => {
         const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer user_1_token',
           },
           data: {
             content: 'Updated comment with @[user_1] mention',

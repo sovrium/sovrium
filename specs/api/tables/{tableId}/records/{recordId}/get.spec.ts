@@ -186,9 +186,7 @@ test.describe('Get record by ID', () => {
 
       // WHEN: User from org_123 attempts to fetch record from org_456
       const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 404 Not Found (don't leak existence)
@@ -349,9 +347,7 @@ test.describe('Get record by ID', () => {
 
       // WHEN: Member from org_123 requests their org's record
       const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer member_org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns org_123 record without salary field

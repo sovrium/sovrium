@@ -190,3 +190,54 @@ export function deleteRecord(
     })
   )
 }
+
+/**
+ * Restore a soft-deleted record with session context
+ *
+ * Clears the deleted_at timestamp to restore a soft-deleted record.
+ * Returns error if record doesn't exist or is not soft-deleted.
+ * RLS policies automatically applied via session context.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to restored record or error
+ */
+export function restoreRecord(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        // Check if record exists (including soft-deleted records)
+        const checkResult = (await tx.execute(
+          `SELECT id, deleted_at FROM ${tableName} WHERE id = '${recordId}' LIMIT 1`
+        )) as readonly Record<string, unknown>[]
+
+        if (checkResult.length === 0) {
+          // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
+          return null // Record not found
+        }
+
+        const record = checkResult[0]
+
+        // Check if record is soft-deleted
+        if (!record?.deleted_at) {
+          // Record exists but is not deleted - return error via special marker
+          return { _error: 'not_deleted' } as Record<string, unknown>
+        }
+
+        // Restore record by clearing deleted_at
+        const result = (await tx.execute(
+          `UPDATE ${tableName} SET deleted_at = NULL WHERE id = '${recordId}' RETURNING *`
+        )) as readonly Record<string, unknown>[]
+
+        return result[0] ?? {}
+      },
+      catch: (error) =>
+        new SessionContextError(`Failed to restore record ${recordId} from ${tableName}`, error),
+    })
+  )
+}

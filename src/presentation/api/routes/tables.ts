@@ -23,7 +23,6 @@ import {
   getRecordResponseSchema,
   createRecordResponseSchema,
   updateRecordResponseSchema,
-  deleteRecordResponseSchema,
   batchCreateRecordsResponseSchema,
   batchUpdateRecordsResponseSchema,
   batchDeleteRecordsResponseSchema,
@@ -36,6 +35,7 @@ import {
   type GetTableResponse,
   type ListRecordsResponse,
   type GetRecordResponse,
+  type RestoreRecordResponse,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import {
@@ -44,6 +44,7 @@ import {
   createRecord,
   updateRecord,
   deleteRecord,
+  restoreRecord,
 } from '@/presentation/api/utils/table-queries'
 import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
@@ -222,16 +223,36 @@ function updateRecordProgram(
   })
 }
 
-function deleteRecordProgram(session: Readonly<Session>, tableName: string, recordId: string) {
+function restoreRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<RestoreRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
-    // Delete record with session context (RLS policies enforce access control)
-    const deleted = yield* deleteRecord(session, tableName, recordId)
+    // Restore soft-deleted record with session context
+    const record = yield* restoreRecord(session, tableName, recordId)
 
-    if (!deleted) {
+    // Handle special error marker for non-deleted records
+    if (record && '_error' in record && record._error === 'not_deleted') {
+      return yield* Effect.fail(new SessionContextError('Record is not deleted'))
+    }
+
+    if (!record) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
-    return { success: true as const }
+    return {
+      success: true as const,
+      record: {
+        id: String(record.id),
+        fields: record as Record<
+          string,
+          string | number | boolean | unknown[] | Record<string, unknown> | null
+        >,
+        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
+        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
+      },
+    }
   })
 }
 
@@ -440,12 +461,52 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Record not found' }, 404)
         }
 
-        return c.body(null, 204) // 204 No Content
+        return c.body(undefined, 204) // 204 No Content
       } catch (error) {
         return c.json(
           {
             error: 'Internal server error',
             message: error instanceof Error ? error.message : 'Unknown error',
+          },
+          500
+        )
+      }
+    })
+    .post('/api/tables/:tableId/records/:recordId/restore', async (c) => {
+      const { session } = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      // Get table name from route parameter
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
+
+      try {
+        const result = await Effect.runPromise(
+          restoreRecordProgram(session, tableName, c.req.param('recordId'))
+        )
+
+        return c.json(result, 200)
+      } catch (error) {
+        // Handle specific error messages
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+        if (errorMessage === 'Record not found') {
+          return c.json({ error: 'Record not found' }, 404)
+        }
+
+        if (errorMessage === 'Record is not deleted') {
+          return c.json({ error: 'Bad Request', message: 'Record is not deleted' }, 400)
+        }
+
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: errorMessage,
           },
           500
         )

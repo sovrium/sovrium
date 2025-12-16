@@ -161,9 +161,7 @@ test.describe('Get single comment by ID', () => {
 
       // WHEN: User from org_123 attempts to fetch comment from org_456
       const response = await request.get('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 404 Not Found (don't leak existence across orgs)

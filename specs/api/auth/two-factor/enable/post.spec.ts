@@ -53,11 +53,7 @@ test.describe('Enable Two-Factor Authentication', () => {
       })
 
       // WHEN: User initiates 2FA setup
-      const response = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const response = await page.request.post('/api/auth/two-factor/enable')
 
       // THEN: Returns 200 OK with TOTP secret and QR code data
       expect(response.status()).toBe(200)
@@ -99,11 +95,7 @@ test.describe('Enable Two-Factor Authentication', () => {
       })
 
       // WHEN: User initiates 2FA setup
-      const response = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const response = await page.request.post('/api/auth/two-factor/enable')
 
       // THEN: Returns backup codes along with TOTP secret
       expect(response.status()).toBe(200)
@@ -169,11 +161,7 @@ test.describe('Enable Two-Factor Authentication', () => {
       })
 
       // Enable 2FA first time
-      const firstResponse = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const firstResponse = await page.request.post('/api/auth/two-factor/enable')
 
       const { secret: _secret } = await firstResponse.json()
 
@@ -182,11 +170,7 @@ test.describe('Enable Two-Factor Authentication', () => {
       // For now, we'll assume 2FA is enabled after verification
 
       // WHEN: User attempts to enable 2FA again
-      const response = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const response = await page.request.post('/api/auth/two-factor/enable')
 
       // THEN: Returns 400 Bad Request indicating 2FA already enabled
       expect(response.status()).toBe(400)
@@ -222,11 +206,7 @@ test.describe('Enable Two-Factor Authentication', () => {
       })
 
       // WHEN: User attempts to enable 2FA
-      const response = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const response = await page.request.post('/api/auth/two-factor/enable')
 
       // THEN: Returns 400 Bad Request or 404 Not Found
       expect([400, 404]).toContain(response.status())
@@ -276,11 +256,7 @@ test.describe('Enable Two-Factor Authentication', () => {
       })
 
       await test.step('Enable 2FA and verify response data', async () => {
-        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
-        })
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable')
 
         expect(enableResponse.status()).toBe(200)
         const enableData = await enableResponse.json()

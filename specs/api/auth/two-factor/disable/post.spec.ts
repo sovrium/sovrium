@@ -51,17 +51,10 @@ test.describe('Disable Two-Factor Authentication', () => {
       })
 
       // Enable 2FA first
-      await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      await page.request.post('/api/auth/two-factor/enable')
 
       // WHEN: User disables 2FA with correct password
       const response = await page.request.post('/api/auth/two-factor/disable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {
           password: 'ValidPassword123!',
         },
@@ -103,17 +96,10 @@ test.describe('Disable Two-Factor Authentication', () => {
       })
 
       // Enable 2FA first
-      await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      await page.request.post('/api/auth/two-factor/enable')
 
       // WHEN: User attempts to disable 2FA with wrong password
       const response = await page.request.post('/api/auth/two-factor/disable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {
           password: 'WrongPassword!',
         },
@@ -185,9 +171,6 @@ test.describe('Disable Two-Factor Authentication', () => {
 
       // WHEN: User attempts to disable 2FA (without enabling it first)
       const response = await page.request.post('/api/auth/two-factor/disable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {
           password: 'ValidPassword123!',
         },
@@ -242,20 +225,13 @@ test.describe('Disable Two-Factor Authentication', () => {
       })
 
       await test.step('Enable 2FA', async () => {
-        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
-        })
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable')
 
         expect(enableResponse.status()).toBe(200)
       })
 
       await test.step('Verify disable with wrong password fails', async () => {
         const wrongPasswordResponse = await page.request.post('/api/auth/two-factor/disable', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
           data: {
             password: 'WrongPassword!',
           },
@@ -266,9 +242,6 @@ test.describe('Disable Two-Factor Authentication', () => {
 
       await test.step('Disable 2FA with correct password', async () => {
         const disableResponse = await page.request.post('/api/auth/two-factor/disable', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
           data: {
             password: 'ValidPassword123!',
           },

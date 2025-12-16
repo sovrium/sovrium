@@ -53,11 +53,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // Enable 2FA and get secret
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const enableResponse = await page.request.post('/api/auth/two-factor/enable')
 
       const { secret: _secret } = await enableResponse.json()
 
@@ -67,9 +63,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
 
       // WHEN: User submits valid TOTP code
       const response = await page.request.post('/api/auth/two-factor/verify', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {
           code: totpCode,
         },
@@ -111,17 +104,10 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // Enable 2FA
-      await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      await page.request.post('/api/auth/two-factor/enable')
 
       // WHEN: User submits invalid TOTP code
       const response = await page.request.post('/api/auth/two-factor/verify', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {
           code: '000000', // Invalid code
         },
@@ -165,20 +151,13 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // Enable 2FA and get backup codes
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const enableResponse = await page.request.post('/api/auth/two-factor/enable')
 
       const { backupCodes } = await enableResponse.json()
       const firstBackupCode = backupCodes[0]
 
       // WHEN: User submits backup code instead of TOTP
       const response = await page.request.post('/api/auth/two-factor/verify', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {
           code: firstBackupCode,
         },
@@ -251,9 +230,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
 
       // WHEN: User submits verification request without code
       const response = await page.request.post('/api/auth/two-factor/verify', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
         data: {},
       })
 
@@ -307,11 +283,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       await test.step('Enable 2FA and get backup codes', async () => {
-        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
-        })
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable')
 
         expect(enableResponse.status()).toBe(200)
         const { secret: _secret, backupCodes: codes } = await enableResponse.json()
@@ -320,9 +292,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
 
       await test.step('Verify invalid code fails', async () => {
         const invalidResponse = await page.request.post('/api/auth/two-factor/verify', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
           data: {
             code: '000000',
           },
@@ -333,9 +302,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
 
       await test.step('Verify backup code succeeds', async () => {
         const backupResponse = await page.request.post('/api/auth/two-factor/verify', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
           data: {
             code: backupCodes[0],
           },

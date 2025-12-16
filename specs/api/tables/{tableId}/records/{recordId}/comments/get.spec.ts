@@ -187,9 +187,7 @@ test.describe('List comments on a record', () => {
 
       // WHEN: User from org_123 attempts to list comments from org_456's record
       const response = await request.get('/api/tables/1/records/1/comments', {
-        headers: {
-          Authorization: 'Bearer org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 404 Not Found (don't leak existence across orgs)

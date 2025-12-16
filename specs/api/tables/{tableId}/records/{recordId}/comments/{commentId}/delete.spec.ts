@@ -55,11 +55,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User deletes their own comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
 
       // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
@@ -102,9 +98,7 @@ test.describe('Delete comment', () => {
 
       // WHEN: Admin deletes another user's comment
       const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer admin_1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 204 No Content (admin can delete any comment)
@@ -178,11 +172,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: Different non-admin user attempts to delete comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
 
       // THEN: Returns 403 Forbidden (only author or admin can delete)
       expect(response.status()).toBe(403)
@@ -213,11 +203,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User attempts to delete non-existent comment
-      const response = await request.delete('/api/tables/1/records/1/comments/nonexistent', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1/comments/nonexistent', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -255,9 +241,7 @@ test.describe('Delete comment', () => {
 
       // WHEN: User from org_123 attempts to delete comment from org_456
       const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 404 Not Found (don't leak existence across orgs)
@@ -292,11 +276,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User attempts to delete already-deleted comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
 
       // THEN: Returns 404 Not Found (already deleted)
       expect(response.status()).toBe(404)
@@ -330,11 +310,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User deletes comment (default behavior)
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
 
       // THEN: Comment is soft-deleted (deleted_at set, record still exists)
       expect(response.status()).toBe(204)
@@ -375,26 +351,14 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User deletes comment
-      await request.delete('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      await request.delete('/api/tables/1/records/1/comments/comment_1', {})
 
       // THEN: Subsequent GET request returns 404
-      const getResponse = await request.get('/api/tables/1/records/1/comments/comment_1', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const getResponse = await request.get('/api/tables/1/records/1/comments/comment_1', {})
       expect(getResponse.status()).toBe(404)
 
       // THEN: List comments excludes deleted comment
-      const listResponse = await request.get('/api/tables/1/records/1/comments', {
-        headers: {
-          Authorization: 'Bearer user_1_token',
-        },
-      })
+      const listResponse = await request.get('/api/tables/1/records/1/comments', {})
       const listData = await listResponse.json()
       expect(listData.comments).toEqual([])
     }
@@ -436,9 +400,7 @@ test.describe('Delete comment', () => {
 
       await test.step('Delete the comment', async () => {
         const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
-          headers: {
-            Authorization: 'Bearer user_1_token',
-          },
+          headers: {},
         })
 
         expect(response.status()).toBe(204)
@@ -453,9 +415,7 @@ test.describe('Delete comment', () => {
 
       await test.step('Verify comment is hidden from GET requests', async () => {
         const getResponse = await request.get('/api/tables/1/records/1/comments/comment_1', {
-          headers: {
-            Authorization: 'Bearer user_1_token',
-          },
+          headers: {},
         })
         expect(getResponse.status()).toBe(404)
       })

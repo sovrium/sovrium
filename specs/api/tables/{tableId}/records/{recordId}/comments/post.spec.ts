@@ -59,7 +59,6 @@ test.describe('Create comment on a record', () => {
       const response = await request.post('/api/tables/1/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'This is my first comment on this task.',
@@ -116,7 +115,6 @@ test.describe('Create comment on a record', () => {
       const response = await request.post('/api/tables/1/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Hey @[user_2], can you review this task?',
@@ -309,7 +307,6 @@ test.describe('Create comment on a record', () => {
       const response = await request.post('/api/tables/1/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer org1_token',
         },
         data: {
           content: 'Cross-org comment attempt',
@@ -387,7 +384,6 @@ test.describe('Create comment on a record', () => {
       const response = await request.post('/api/tables/1/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Comment from authenticated user',
@@ -437,7 +433,6 @@ test.describe('Create comment on a record', () => {
       const response = await request.post('/api/tables/1/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'Comment in organization',
@@ -485,7 +480,6 @@ test.describe('Create comment on a record', () => {
       const response = await request.post('/api/tables/1/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer user_1_token',
         },
         data: {
           content: 'My comment with user metadata',
@@ -542,7 +536,6 @@ test.describe('Create comment on a record', () => {
         const response = await request.post('/api/tables/1/records/1/comments', {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer user_1_token',
           },
           data: {
             content: 'This is a test comment with @[user_1] mention.',

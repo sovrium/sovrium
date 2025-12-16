@@ -59,11 +59,7 @@ test.describe('API Session Context Integration', () => {
       await createOrganization({ name: 'Test Org' })
 
       // WHEN: Making authenticated API request
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: `Bearer ${user.session?.token}`,
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Session context should be set correctly (verified by successful data access)
       expect(response.status()).toBe(200)
@@ -112,11 +108,7 @@ test.describe('API Session Context Integration', () => {
       `)
 
       // WHEN: User1 requests tasks via API
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: `Bearer ${user1.session?.token}`,
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: API should return only user1's tasks (RLS filtering via session context)
       expect(response.status()).toBe(200)
@@ -181,7 +173,6 @@ test.describe('API Session Context Integration', () => {
       // Switch to org1 context
       const response = await request.get('/api/tables/1/records', {
         headers: {
-          Authorization: `Bearer ${org1User.session?.token}`,
           'X-Organization-Id': org1.organization.id,
         },
       })
@@ -251,7 +242,6 @@ test.describe('API Session Context Integration', () => {
       // WHEN: Member tries to read confidential data via API
       const memberResponse = await request.get('/api/tables/1/records', {
         headers: {
-          Authorization: `Bearer ${member.session?.token}`,
           'X-Organization-Id': org.organization.id,
         },
       })
@@ -264,7 +254,6 @@ test.describe('API Session Context Integration', () => {
       // WHEN: Owner (admin) reads confidential data via API
       const ownerResponse = await request.get('/api/tables/1/records', {
         headers: {
-          Authorization: `Bearer ${owner.session?.token}`,
           'X-Organization-Id': org.organization.id,
         },
       })
@@ -339,7 +328,6 @@ test.describe('API Session Context Integration', () => {
       // WHEN: Member requests employee data via API
       const memberResponse = await request.get('/api/tables/1/records', {
         headers: {
-          Authorization: `Bearer ${member.session?.token}`,
           'X-Organization-Id': org.organization.id,
         },
       })
@@ -355,7 +343,6 @@ test.describe('API Session Context Integration', () => {
       // WHEN: Admin requests employee data via API
       const adminResponse = await request.get('/api/tables/1/records', {
         headers: {
-          Authorization: `Bearer ${admin.session?.token}`,
           'X-Organization-Id': org.organization.id,
         },
       })
@@ -443,7 +430,6 @@ test.describe('API Session Context Integration', () => {
       // WHEN: User creates a new record via API
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: `Bearer ${user.session?.token}`,
           'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
@@ -544,7 +530,6 @@ test.describe('API Session Context Integration', () => {
       await test.step('Org1 owner sees own projects with budget via API', async () => {
         const response = await request.get('/api/tables/1/records', {
           headers: {
-            Authorization: `Bearer ${org1Owner.session?.token}`,
             'X-Organization-Id': org1.organization.id,
           },
         })
@@ -566,7 +551,6 @@ test.describe('API Session Context Integration', () => {
       await test.step('Org1 member sees own projects WITHOUT budget via API', async () => {
         const response = await request.get('/api/tables/1/records', {
           headers: {
-            Authorization: `Bearer ${org1Member.session?.token}`,
             'X-Organization-Id': org1.organization.id,
           },
         })
@@ -584,7 +568,6 @@ test.describe('API Session Context Integration', () => {
       await test.step('Org2 owner sees only Org2 projects via API', async () => {
         const response = await request.get('/api/tables/1/records', {
           headers: {
-            Authorization: `Bearer ${org2Owner.session?.token}`,
             'X-Organization-Id': org2.organization.id,
           },
         })
@@ -611,7 +594,6 @@ test.describe('API Session Context Integration', () => {
       await test.step('Create new project via API sets organization and owner automatically', async () => {
         const response = await request.post('/api/tables/1/records', {
           headers: {
-            Authorization: `Bearer ${org1Owner.session?.token}`,
             'X-Organization-Id': org1.organization.id,
             'Content-Type': 'application/json',
           },

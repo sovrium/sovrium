@@ -740,7 +740,6 @@ test.describe('Batch create records', () => {
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer org_123_token',
         },
         data: {
           records: [{ name: 'Alice Cooper' }, { name: 'Bob Smith' }],

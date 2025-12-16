@@ -153,9 +153,7 @@ test.describe('Get table by ID', () => {
 
       // WHEN: User from org_123 attempts to access table from org_456
       const response = await request.get('/api/tables/1', {
-        headers: {
-          Authorization: 'Bearer org_123_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 404 Not Found (prevent org enumeration)

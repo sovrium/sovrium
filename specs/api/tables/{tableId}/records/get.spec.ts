@@ -595,9 +595,7 @@ test.describe('List records in table', () => {
 
       // WHEN: User attempts to list records from different org's table
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer other_org_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns 404 Not Found (don't leak existence)
@@ -746,9 +744,7 @@ test.describe('List records in table', () => {
 
       // WHEN: User from org_123 requests records
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns only org_123 records
@@ -789,9 +785,7 @@ test.describe('List records in table', () => {
 
       // WHEN: Member from org_123 requests records
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_org1_token',
-        },
+        headers: {},
       })
 
       // THEN: Returns org_123 records without salary field
