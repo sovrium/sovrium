@@ -169,7 +169,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -206,16 +206,17 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-005: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
-            id: 5,
+            id: 1,
             name: 'projects',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text', required: true },
@@ -224,6 +225,7 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
+      await createAuthenticatedViewer()
       await executeQuery(`
         INSERT INTO projects (id, name, deleted_at) VALUES
           (1, 'Project 1', NOW()),

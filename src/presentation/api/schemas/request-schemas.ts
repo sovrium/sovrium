@@ -74,6 +74,16 @@ export const batchDeleteRecordsRequestSchema = z.object({
 })
 
 /**
+ * Batch restore records request schema
+ */
+export const batchRestoreRecordsRequestSchema = z.object({
+  ids: z
+    .array(z.string().min(1, 'Record ID cannot be empty'))
+    .min(1, 'At least one ID is required')
+    .max(100, 'Maximum 100 IDs per batch'),
+})
+
+/**
  * Upsert records request schema
  */
 export const upsertRecordsRequestSchema = z.object({
@@ -97,4 +107,5 @@ export type UpdateRecordRequest = z.infer<typeof updateRecordRequestSchema>
 export type BatchCreateRecordsRequest = z.infer<typeof batchCreateRecordsRequestSchema>
 export type BatchUpdateRecordsRequest = z.infer<typeof batchUpdateRecordsRequestSchema>
 export type BatchDeleteRecordsRequest = z.infer<typeof batchDeleteRecordsRequestSchema>
+export type BatchRestoreRecordsRequest = z.infer<typeof batchRestoreRecordsRequestSchema>
 export type UpsertRecordsRequest = z.infer<typeof upsertRecordsRequestSchema>

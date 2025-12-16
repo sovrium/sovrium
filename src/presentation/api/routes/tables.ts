@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- Routes file with many endpoints */
+
 import { Effect } from 'effect'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure for session context
 import { SessionContextError } from '@/infrastructure/database/session-context'
@@ -14,6 +16,7 @@ import {
   batchCreateRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
   batchDeleteRecordsRequestSchema,
+  batchRestoreRecordsRequestSchema,
   upsertRecordsRequestSchema,
 } from '@/presentation/api/schemas/request-schemas'
 import {
@@ -36,6 +39,7 @@ import {
   type ListRecordsResponse,
   type GetRecordResponse,
   type RestoreRecordResponse,
+  type BatchRestoreRecordsResponse,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import {
@@ -45,6 +49,7 @@ import {
   updateRecord,
   deleteRecord,
   restoreRecord,
+  batchRestoreRecords,
 } from '@/presentation/api/utils/table-queries'
 import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
@@ -290,6 +295,20 @@ function batchDeleteProgram(ids: readonly string[]) {
   })
 }
 
+function batchRestoreProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  ids: readonly string[]
+): Effect.Effect<BatchRestoreRecordsResponse, SessionContextError> {
+  return Effect.gen(function* () {
+    const restored = yield* batchRestoreRecords(session, tableName, ids)
+    return {
+      success: true as const,
+      restored,
+    }
+  })
+}
+
 function upsertProgram(recordsData: readonly { id?: string; fields?: Record<string, unknown> }[]) {
   const records = recordsData.map((r) => ({
     id: r.id ?? crypto.randomUUID(),
@@ -514,7 +533,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     })
 }
 
-function chainBatchRoutesMethods<T extends Hono>(honoApp: T) {
+// eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
+function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .post('/api/tables/:tableId/records/batch', async (c) => {
       const result = await validateRequest(c, batchCreateRecordsRequestSchema)
@@ -530,6 +550,62 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T) {
       const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
       if (!result.success) return result.response
       return runEffect(c, batchDeleteProgram(result.data.ids), batchDeleteRecordsResponseSchema)
+    })
+    .post('/api/tables/:tableId/records/batch/restore', async (c) => {
+      const { session } = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
+      if (!result.success) return result.response
+
+      const tableId = c.req.param('tableId')
+      const tableName = getTableNameFromId(app, tableId)
+      if (!tableName) {
+        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
+
+      try {
+        const response = await Effect.runPromise(
+          batchRestoreProgram(session, tableName, result.data.ids)
+        )
+        return c.json(response, 200)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+        // Handle specific error messages from batch restore
+        if (errorMessage.includes('not found')) {
+          const recordIdMatch = errorMessage.match(/Record (\S+) not found/)
+          return c.json(
+            {
+              error: 'Record not found',
+              recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
+            },
+            404
+          )
+        }
+
+        if (errorMessage.includes('is not deleted')) {
+          const recordIdMatch = errorMessage.match(/Record (\S+) is not deleted/)
+          return c.json(
+            {
+              error: 'Bad Request',
+              message: 'Record is not deleted',
+              recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
+            },
+            400
+          )
+        }
+
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: errorMessage,
+          },
+          500
+        )
+      }
     })
     .post('/api/tables/:tableId/records/upsert', async (c) => {
       const result = await validateRequest(c, upsertRecordsRequestSchema)
@@ -568,6 +644,6 @@ function chainViewRoutesMethods<T extends Hono>(honoApp: T) {
  */
 export function chainTableRoutes<T extends Hono>(honoApp: T, app: App) {
   return chainViewRoutesMethods(
-    chainBatchRoutesMethods(chainRecordRoutesMethods(chainTableRoutesMethods(honoApp), app))
+    chainBatchRoutesMethods(chainRecordRoutesMethods(chainTableRoutesMethods(honoApp), app), app)
   )
 }

@@ -209,6 +209,14 @@ export const batchDeleteRecordsResponseSchema = z.object({
 })
 
 /**
+ * Batch restore records response schema
+ */
+export const batchRestoreRecordsResponseSchema = z.object({
+  success: z.literal(true).describe('Batch restore succeeded'),
+  restored: z.number().describe('Number of records restored'),
+})
+
+/**
  * Upsert records response schema
  */
 export const upsertRecordsResponseSchema = z.object({
@@ -296,3 +304,4 @@ export type GetTableResponse = z.infer<typeof getTableResponseSchema>
 export type ListRecordsResponse = z.infer<typeof listRecordsResponseSchema>
 export type GetRecordResponse = z.infer<typeof getRecordResponseSchema>
 export type RestoreRecordResponse = z.infer<typeof restoreRecordResponseSchema>
+export type BatchRestoreRecordsResponse = z.infer<typeof batchRestoreRecordsResponseSchema>

@@ -211,14 +211,27 @@ export function restoreRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Check if record exists (including soft-deleted records)
+        // Check if table has organization_id column for multi-tenancy
+        const columnCheck = (await tx.execute(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = '${tableName}' AND column_name = 'organization_id'
+        `)) as readonly Record<string, unknown>[]
+
+        const hasOrgId = columnCheck.length > 0
+        const orgIdFilter =
+          hasOrgId && session.activeOrganizationId
+            ? `AND organization_id = '${session.activeOrganizationId}'`
+            : ''
+
+        // Check if record exists (including soft-deleted records) with organization filtering
         const checkResult = (await tx.execute(
-          `SELECT id, deleted_at FROM ${tableName} WHERE id = '${recordId}' LIMIT 1`
+          `SELECT id, deleted_at FROM ${tableName} WHERE id = '${recordId}' ${orgIdFilter} LIMIT 1`
         )) as readonly Record<string, unknown>[]
 
         if (checkResult.length === 0) {
           // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
-          return null // Record not found
+          return null // Record not found (or wrong organization)
         }
 
         const record = checkResult[0]
@@ -229,15 +242,100 @@ export function restoreRecord(
           return { _error: 'not_deleted' } as Record<string, unknown>
         }
 
-        // Restore record by clearing deleted_at
+        // Restore record by clearing deleted_at (with organization filter for safety)
         const result = (await tx.execute(
-          `UPDATE ${tableName} SET deleted_at = NULL WHERE id = '${recordId}' RETURNING *`
+          `UPDATE ${tableName} SET deleted_at = NULL WHERE id = '${recordId}' ${orgIdFilter} RETURNING *`
         )) as readonly Record<string, unknown>[]
 
         return result[0] ?? {}
       },
       catch: (error) =>
         new SessionContextError(`Failed to restore record ${recordId} from ${tableName}`, error),
+    })
+  )
+}
+
+/**
+ * Batch restore soft-deleted records with session context
+ *
+ * Restores multiple soft-deleted records in a transaction.
+ * Validates all records exist and are soft-deleted before restoring any.
+ * Rolls back if any record fails validation.
+ * RLS policies automatically applied via session context.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordIds - Array of record IDs to restore
+ * @returns Effect resolving to number of restored records or error
+ */
+// eslint-disable-next-line max-lines-per-function -- Batch validation requires multiple steps
+export function batchRestoreRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  recordIds: readonly string[]
+): Effect.Effect<number, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        // Check if table has organization_id column for multi-tenancy
+        const columnCheck = (await tx.execute(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = '${tableName}' AND column_name = 'organization_id'
+        `)) as readonly Record<string, unknown>[]
+
+        const hasOrgId = columnCheck.length > 0
+        const orgIdFilter =
+          hasOrgId && session.activeOrganizationId
+            ? `AND organization_id = '${session.activeOrganizationId}'`
+            : ''
+
+        // Validate all records exist and are soft-deleted BEFORE restoring any
+        const validationResults = await Promise.all(
+          recordIds.map(async (recordId) => {
+            const checkResult = (await tx.execute(
+              `SELECT id, deleted_at FROM ${tableName} WHERE id = '${recordId}' ${orgIdFilter} LIMIT 1`
+            )) as readonly Record<string, unknown>[]
+
+            if (checkResult.length === 0) {
+              return { recordId, error: 'not found' }
+            }
+
+            const record = checkResult[0]
+            if (!record?.deleted_at) {
+              return { recordId, error: 'not deleted' }
+            }
+
+            return { recordId, error: undefined }
+          })
+        )
+
+        // Check for validation errors
+        const firstError = validationResults.find((result) => result.error !== undefined)
+        if (firstError) {
+          // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
+          throw new Error(
+            firstError.error === 'not found'
+              ? `Record ${firstError.recordId} not found`
+              : `Record ${firstError.recordId} is not deleted`
+          )
+        }
+
+        // All records validated - restore them all
+        const idList = recordIds.map((id) => `'${id}'`).join(', ')
+        const result = (await tx.execute(
+          `UPDATE ${tableName} SET deleted_at = NULL WHERE id IN (${idList}) ${orgIdFilter} RETURNING id`
+        )) as readonly Record<string, unknown>[]
+
+        return result.length
+      },
+      catch: (error) => {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return new SessionContextError(
+          `Failed to batch restore records from ${tableName}: ${errorMessage}`,
+          error
+        )
+      },
     })
   )
 }
