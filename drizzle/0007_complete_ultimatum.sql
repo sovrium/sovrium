@@ -1,1 +1,0 @@
-ALTER TABLE "_sovrium_schema_checksum" ADD COLUMN "updated_at" timestamp DEFAULT now();
