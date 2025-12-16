@@ -57,6 +57,13 @@
       "when": 1765877567334,
       "tag": "0007_complete_ultimatum",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1765901972095,
+      "tag": "0008_first_mariko_yashida",
+      "breakpoints": true
     }
   ]
 }
