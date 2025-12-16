@@ -38,6 +38,9 @@ test.describe('Delete record', () => {
       // GIVEN: Table 'users' with record ID=1 and deleted_at field for soft delete
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 1,
@@ -72,6 +75,9 @@ test.describe('Delete record', () => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 2,
@@ -104,6 +110,9 @@ test.describe('Delete record', () => {
       // GIVEN: An unauthenticated user
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 3,
@@ -145,6 +154,9 @@ test.describe('Delete record', () => {
       // GIVEN: A member user without delete permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 4,
@@ -188,6 +200,9 @@ test.describe('Delete record', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 5,
@@ -227,6 +242,9 @@ test.describe('Delete record', () => {
       // GIVEN: An admin user from organization org_123
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 6,
@@ -268,6 +286,9 @@ test.describe('Delete record', () => {
       // GIVEN: An admin user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 7,
@@ -304,6 +325,9 @@ test.describe('Delete record', () => {
       // GIVEN: An owner user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 8,
@@ -341,6 +365,9 @@ test.describe('Delete record', () => {
       // GIVEN: A record with organization_id='org_456' and admin from org_123
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 9,
@@ -383,6 +410,9 @@ test.describe('Delete record', () => {
       // GIVEN: A member without delete permission tries to delete record from different org
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 10,
@@ -424,6 +454,9 @@ test.describe('Delete record', () => {
       // GIVEN: A soft-deleted record exists
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 12,
@@ -457,6 +490,9 @@ test.describe('Delete record', () => {
       // GIVEN: An active record exists
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 13,
@@ -494,6 +530,9 @@ test.describe('Delete record', () => {
       // GIVEN: An admin user and an active record
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 14,
@@ -526,6 +565,9 @@ test.describe('Delete record', () => {
       // GIVEN: A member user (without permanent delete permission)
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 15,
@@ -562,6 +604,9 @@ test.describe('Delete record', () => {
       // GIVEN: Two tables with relationship (contacts → tasks) and cascade delete configured
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 16,
@@ -648,6 +693,9 @@ test.describe('Delete record', () => {
       await test.step('Setup: Start server with users table', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
           tables: [
             {
               id: 16,
