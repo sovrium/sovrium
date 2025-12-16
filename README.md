@@ -1,12 +1,3 @@
-<p align="center">
-  <a href="https://sovrium.com">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-      <img alt="Sovrium" src="docs/assets/logo.svg" width="280">
-    </picture>
-  </a>
-</p>
-
 <h3 align="center">Build business apps with config. Own your data forever.</h3>
 
 <p align="center">
