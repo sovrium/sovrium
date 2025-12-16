@@ -39,7 +39,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Lookup Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-001: should retrieve related field via JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -107,7 +107,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -178,7 +178,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -241,7 +241,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -298,7 +298,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

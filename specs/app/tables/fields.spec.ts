@@ -139,7 +139,7 @@ test.describe('Table Fields', () => {
   // Phase: Error Configuration Validation Tests (003-014)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-003: should reject duplicate field IDs within same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -528,7 +528,7 @@ test.describe('Table Fields', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-017: user can complete full Table Fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

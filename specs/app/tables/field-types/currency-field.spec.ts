@@ -244,7 +244,7 @@ test.describe('Currency Field', () => {
   // specs/api/tables/{tableId}/records/format.spec.ts
   // These tests now validate API response formatting rather than UI display.
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

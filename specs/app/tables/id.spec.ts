@@ -230,7 +230,7 @@ test.describe('Table ID', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-007: user can complete full table ID workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema }) => {

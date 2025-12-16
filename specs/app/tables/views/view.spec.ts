@@ -160,7 +160,7 @@ test.describe('Table View', () => {
   // Phase: Error Configuration Validation Tests (004)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-004: should reject duplicate view IDs within the same table',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

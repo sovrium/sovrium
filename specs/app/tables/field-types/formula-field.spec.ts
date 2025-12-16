@@ -343,7 +343,7 @@ test.describe('Formula Field', () => {
   // Phase 1: Numeric Functions (007-027)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-006: should compute absolute value with ABS function',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

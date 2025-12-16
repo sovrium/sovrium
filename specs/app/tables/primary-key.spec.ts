@@ -546,7 +546,7 @@ test.describe('Primary Key', () => {
   // Phase: Error Configuration Validation Tests (009-010)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-009: should reject composite primary key referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

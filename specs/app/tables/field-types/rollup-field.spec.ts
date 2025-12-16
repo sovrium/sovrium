@@ -39,7 +39,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Rollup Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-001: should calculate SUM aggregation from related records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -109,7 +109,7 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-002: should return COUNT aggregation of related records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
