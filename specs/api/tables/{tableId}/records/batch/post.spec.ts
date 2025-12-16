@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/batch/post.json
  * Domain: api
- * Spec Count: 15
+ * Spec Count: 17
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (16 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -714,6 +714,46 @@ test.describe('Batch create records', () => {
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('PayloadTooLarge')
       expect(data.message).toBe('Batch size exceeds maximum of 1000 records')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-POST-017: should return 404 for cross-org batch create',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: User from organization org_123
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 17,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: User attempts batch create in table belonging to org_456
+      const response = await request.post('/api/tables/1/records/batch', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer org_123_token',
+        },
+        data: {
+          records: [{ name: 'Alice Cooper' }, { name: 'Bob Smith' }],
+        },
+      })
+
+      // THEN: Returns 404 Not Found (prevent org enumeration)
+      expect(response.status()).toBe(404)
+
+      const data = await response.json()
+      // THEN: assertion
+      expect(data).toHaveProperty('error')
+      expect(data.error).toBe('Table not found')
     }
   )
 

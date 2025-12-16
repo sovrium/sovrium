@@ -268,10 +268,10 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   )
 
   test.fixme(
-    'API-ACTIVITY-DETAILS-008: should return anonymous activity when auth is not configured',
+    'API-ACTIVITY-DETAILS-008: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with NO authentication configured
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: Application WITHOUT auth configured
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -285,27 +285,14 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
             primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
+        // NOTE: No auth field - activity endpoints still require authentication
       })
 
-      // Create anonymous activity log (no userId or organizationId)
-      const activityResult = await executeQuery(`
-        INSERT INTO activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
-        VALUES (NULL, NULL, 'create', 'tasks', 1, '{"title": "Anonymous Task"}', NOW())
-        RETURNING id
-      `)
-      const activityId = activityResult.id
+      // WHEN: Unauthenticated user requests activity details
+      const response = await page.request.get('/api/activity/123')
 
-      // WHEN: User requests activity details without authentication
-      const response = await page.request.get(`/api/activity/${activityId}`)
-
-      // THEN: Returns activity without requiring authentication
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data.id).toBe(activityId)
-      expect(data.userId).toBeNull()
-      expect(data.organizationId).toBeNull()
-      expect(data.user).toBeNull()
+      // THEN: Returns 401 Unauthorized (activity APIs always require auth)
+      expect(response.status()).toBe(401)
     }
   )
 

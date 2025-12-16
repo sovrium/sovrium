@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/get.json
  * Domain: api
- * Spec Count: 3
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -96,6 +96,75 @@ test.describe('Get table by ID', () => {
       // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-GET-005: should return 403 when user lacks read permission for table',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: A viewer user without permission to access confidential table
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'confidential',
+            fields: [
+              { id: 1, name: 'secret_data', type: 'long-text' },
+              { id: 2, name: 'classification', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: User requests table they don't have permission to access
+      const response = await request.get('/api/tables/1', {})
+
+      // THEN: Returns 403 Forbidden
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      // THEN: assertion
+      expect(data).toHaveProperty('error')
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('You do not have permission to access this table')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-GET-006: should return 404 for cross-org table access',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: A table belonging to organization org_456
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: User from org_123 attempts to access table from org_456
+      const response = await request.get('/api/tables/1', {
+        headers: {
+          Authorization: 'Bearer org_123_token',
+        },
+      })
+
+      // THEN: Returns 404 Not Found (prevent org enumeration)
+      expect(response.status()).toBe(404)
+
+      const data = await response.json()
+      // THEN: assertion
+      expect(data).toHaveProperty('error')
+      expect(data.error).toBe('Table not found')
     }
   )
 

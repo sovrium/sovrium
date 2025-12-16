@@ -432,10 +432,10 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   )
 
   test.fixme(
-    'API-ACTIVITY-RECORD-HISTORY-011: should return anonymous history when auth is not configured',
+    'API-ACTIVITY-RECORD-HISTORY-011: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with NO authentication configured
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: Application WITHOUT auth configured
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -449,30 +449,14 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
             primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
+        // NOTE: No auth field - activity endpoints still require authentication
       })
 
-      await executeQuery(`INSERT INTO tasks (id, title) VALUES (1, 'Task 1')`)
-
-      // Create anonymous activity logs (no userId or organizationId)
-      await executeQuery(`
-        INSERT INTO activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
-        VALUES
-          (NULL, NULL, 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
-          (NULL, NULL, 'update', 'tasks', 1, '{"title": {"old": "Task 1", "new": "Updated"}}', NOW())
-      `)
-
-      // WHEN: User requests record history without authentication
+      // WHEN: Unauthenticated user requests record history
       const response = await page.request.get('/api/tables/1/records/1/history')
 
-      // THEN: Returns history without requiring authentication
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data.history).toHaveLength(2)
-      expect(data.history[0].userId).toBeNull()
-      expect(data.history[0].user).toBeNull()
-      expect(data.history[1].userId).toBeNull()
-      expect(data.history[1].user).toBeNull()
+      // THEN: Returns 401 Unauthorized (activity APIs always require auth)
+      expect(response.status()).toBe(401)
     }
   )
 

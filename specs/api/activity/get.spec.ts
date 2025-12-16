@@ -597,10 +597,10 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-016: should log anonymous activities when auth is not configured',
+    'API-ACTIVITY-LIST-016: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with NO authentication configured
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: Application WITHOUT auth configured
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -614,36 +614,25 @@ test.describe('GET /api/activity - List Activity Logs', () => {
             primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
+        // NOTE: No auth field - activity endpoints still require authentication
       })
 
-      // Create anonymous activity logs (no userId or organizationId)
-      await executeQuery(`
-        INSERT INTO activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
-        VALUES
-          (NULL, NULL, 'create', 'tasks', 1, '{"title": "Anonymous Task 1"}', NOW() - INTERVAL '5 minutes'),
-          (NULL, NULL, 'update', 'tasks', 1, '{"title": {"old": "Anonymous Task 1", "new": "Updated"}}', NOW())
-      `)
-
-      // WHEN: User requests activity logs without authentication
+      // WHEN: Unauthenticated user requests activity logs
       const response = await page.request.get('/api/activity')
 
-      // THEN: Returns activities without requiring authentication
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data.activities).toHaveLength(2)
-      expect(data.activities[0].userId).toBeNull()
-      expect(data.activities[0].organizationId).toBeNull()
+      // THEN: Returns 401 Unauthorized (activity APIs always require auth)
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-017: should include user metadata when available in anonymous mode',
+    'API-ACTIVITY-LIST-017: should include null user metadata for system-logged activities',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application without auth but with mixed activity logs
+    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+      // GIVEN: Application with auth enabled and system-logged activities
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -657,24 +646,27 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         ],
       })
 
-      // Mix of anonymous and attributed activities
+      const { user } = await createAuthenticatedUser()
+
+      // System-logged activities (e.g., automated background processes) have null user_id
       await executeQuery(`
         INSERT INTO activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
         VALUES
-          (NULL, NULL, 'create', 'tasks', 1, '{"title": "Anonymous"}', NOW() - INTERVAL '5 minutes'),
-          (NULL, NULL, 'update', 'tasks', 1, '{"title": {"old": "Anonymous", "new": "Still Anonymous"}}', NOW())
+          (NULL, NULL, 'create', 'tasks', 1, '{"title": "System-created Task"}', NOW() - INTERVAL '5 minutes'),
+          ('${user.id}', NULL, 'update', 'tasks', 1, '{"title": {"old": "System-created Task", "new": "User-updated Task"}}', NOW())
       `)
 
-      // WHEN: User requests activity logs
+      // WHEN: Authenticated user requests activity logs
       const response = await page.request.get('/api/activity')
 
-      // THEN: Returns all activities with null user metadata where appropriate
+      // THEN: Returns all activities with null user metadata for system-logged entries
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data.activities).toHaveLength(2)
       expect(data.activities[0].user).toBeNull()
-      expect(data.activities[1].user).toBeNull()
+      expect(data.activities[1].user).not.toBeNull()
+      expect(data.activities[1].user.id).toBe(user.id)
     }
   )
 

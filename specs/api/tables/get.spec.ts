@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/get.json
  * Domain: api
- * Spec Count: 3
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -95,6 +95,80 @@ test.describe('List all tables', () => {
       expect(data).toHaveProperty('message')
       expect(typeof data.error).toBe('string')
       expect(typeof data.message).toBe('string')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-LIST-005: should return 403 when user lacks list-tables permission',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: A user with restricted permissions (cannot list tables)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
+
+      // WHEN: User without list-tables permission requests tables
+      const response = await request.get('/api/tables', {})
+
+      // THEN: Returns 403 Forbidden
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      // THEN: assertion
+      expect(data).toHaveProperty('error')
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('You do not have permission to list tables')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-LIST-006: should only return tables user has permission to view',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: Multiple tables with different permission levels
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'public_projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
+          {
+            id: 2,
+            name: 'confidential_data',
+            fields: [{ id: 1, name: 'secret', type: 'long-text' }],
+          },
+          {
+            id: 3,
+            name: 'team_tasks',
+            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+          },
+        ],
+      })
+
+      // WHEN: Member with limited permissions requests tables
+      const response = await request.get('/api/tables', {})
+
+      // THEN: Returns 200 with only permitted tables
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      // THEN: assertion
+      expect(Array.isArray(data)).toBe(true)
+      expect(data.length).toBeGreaterThan(0)
+      expect(data.length).toBeLessThan(3) // Not all tables returned
+
+      // Verify confidential table is not in response
+      const tableNames = data.map((t: { name: string }) => t.name)
+      expect(tableNames).not.toContain('confidential_data')
     }
   )
 
