@@ -55,7 +55,7 @@ test.describe('API Session Context Integration', () => {
         ],
       })
 
-      const user = await createAuthenticatedUser({ email: 'user@example.com' })
+      await createAuthenticatedUser({ email: 'user@example.com' })
       await createOrganization({ name: 'Test Org' })
 
       // WHEN: Making authenticated API request
@@ -169,7 +169,7 @@ test.describe('API Session Context Integration', () => {
       `)
 
       // WHEN: User from org1 requests projects via API
-      const org1User = await createAuthenticatedUser({ email: 'org1-user@example.com' })
+      await createAuthenticatedUser({ email: 'org1-user@example.com' })
       // Switch to org1 context
       const response = await request.get('/api/tables/1/records', {
         headers: {
@@ -223,7 +223,7 @@ test.describe('API Session Context Integration', () => {
       })
 
       // Create organization and users
-      const owner = await createAuthenticatedUser({ email: 'owner@example.com' })
+      await createAuthenticatedUser({ email: 'owner@example.com' })
       const org = await createOrganization({ name: 'Test Org' })
 
       const member = await createAuthenticatedUser({ email: 'member@example.com' })
@@ -309,7 +309,7 @@ test.describe('API Session Context Integration', () => {
       })
 
       // Create organization and users
-      const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
+      await createAuthenticatedUser({ email: 'admin@example.com' })
       const org = await createOrganization({ name: 'Test Org' })
 
       const member = await createAuthenticatedUser({ email: 'member@example.com' })

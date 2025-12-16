@@ -47,7 +47,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -98,7 +98,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -145,7 +145,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -223,7 +223,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -272,11 +272,10 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         })
       })
 
-      let session: { token?: string }
       let backupCodes: string[]
 
       await test.step('Sign in user', async () => {
-        session = await signIn({
+        await signIn({
           email: 'test@example.com',
           password: 'ValidPassword123!',
         })

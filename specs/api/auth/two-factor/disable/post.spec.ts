@@ -45,7 +45,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -90,7 +90,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -164,7 +164,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -215,10 +215,8 @@ test.describe('Disable Two-Factor Authentication', () => {
         })
       })
 
-      let session: { token?: string }
-
       await test.step('Sign in user', async () => {
-        session = await signIn({
+        await signIn({
           email: 'test@example.com',
           password: 'ValidPassword123!',
         })
