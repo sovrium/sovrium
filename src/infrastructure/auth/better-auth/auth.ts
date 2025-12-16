@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
+import { openAPI, admin, organization, twoFactor, apiKey } from 'better-auth/plugins'
 import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -143,23 +143,23 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
  * Better Auth organization plugin provides inviter and organization context
  */
 const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
-  return async ({
-    email,
-    url,
-    inviter,
-    organization,
-  }: Readonly<{
+  return async (data: {
+    id: string
+    role: string
     email: string
-    url: string
-    inviter: Readonly<{ name?: string }>
-    organization: Readonly<{ name: string }>
-  }>) => {
+    organization: { name: string }
+    invitation: { id: string }
+    inviter: { user: { name?: string } }
+  }) => {
+    const { email, organization, inviter } = data
+    const url = `${process.env.BETTER_AUTH_BASE_URL}/invitation/${data.id}`
+
     const context = {
       name: undefined,
       url,
       email,
       organizationName: organization.name,
-      inviterName: inviter.name,
+      inviterName: inviter.user.name,
     }
 
     try {
@@ -174,7 +174,7 @@ const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemp
         })
       } else {
         // Use default template
-        const inviterText = inviter.name ?? 'Someone'
+        const inviterText = inviter.user.name ?? 'Someone'
         const defaultTemplate = {
           subject: `You have been invited to join ${organization.name}`,
           html: `<p>Hi,</p><p>${inviterText} has invited you to join ${organization.name}.</p><p><a href="${url}">Click here to accept the invitation</a></p>`,
@@ -247,16 +247,19 @@ const AUTH_TABLE_NAMES = {
   organization: '_sovrium_auth_organizations',
   member: '_sovrium_auth_members',
   invitation: '_sovrium_auth_invitations',
-  // apiKey: '_sovrium_auth_api_keys', // Disabled: Better Auth v1.4.4 has schema merging bug
+  apiKey: '_sovrium_auth_api_keys',
   twoFactor: '_sovrium_auth_two_factors',
 } as const
 
 /**
  * Build Better Auth plugins array with custom table names
  *
- * Note: apiKey plugin is disabled due to schema merging bug in Better Auth v1.4.4.
- * The error occurs when trying to set custom table names:
- * "TypeError: undefined is not an object (evaluating 'schema[table].modelName = newModelName')"
+ * ⚠️ CRITICAL: apiKey plugin is DISABLED due to Better Auth bug
+ *
+ * Issue: Better Auth organization plugin breaks when apiKey plugin is also present.
+ * Error: "undefined is not an object (evaluating 'schema[table].modelName = newModelName')"
+ * Root cause: Better Auth's schema merging logic fails when multiple plugins define custom table names.
+ *
  * This prevents the apiKey plugin from merging its schema with the provided custom table name.
  * TODO: Re-enable apiKey plugin when Better Auth fixes the schema merging issue
  */
