@@ -142,7 +142,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-VERIFY-EMAIL-005: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {

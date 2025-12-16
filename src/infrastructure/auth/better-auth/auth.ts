@@ -140,6 +140,32 @@ const createEmailHandlers = (authConfig?: Auth) => {
 }
 
 /**
+ * Build socialProviders configuration from auth config
+ *
+ * Maps enabled OAuth providers to Better Auth socialProviders configuration.
+ * Credentials are loaded from environment variables using the pattern:
+ * - {PROVIDER}_CLIENT_ID (e.g., GOOGLE_CLIENT_ID)
+ * - {PROVIDER}_CLIENT_SECRET (e.g., GOOGLE_CLIENT_SECRET)
+ */
+const buildSocialProviders = (authConfig?: Auth) => {
+  if (!authConfig?.oauth?.providers) return {}
+
+  return authConfig.oauth.providers.reduce(
+    (providers, provider) => {
+      const envVarPrefix = provider.toUpperCase()
+      return {
+        ...providers,
+        [provider]: {
+          clientId: process.env[`${envVarPrefix}_CLIENT_ID`] || '',
+          clientSecret: process.env[`${envVarPrefix}_CLIENT_SECRET`] || '',
+        },
+      }
+    },
+    {} as Record<string, { clientId: string; clientSecret: string }>
+  )
+}
+
+/**
  * Create Better Auth instance with dynamic configuration
  *
  * @param authConfig - Optional auth configuration from app schema (flat structure)
@@ -156,6 +182,9 @@ export function createAuthInstance(authConfig?: Auth) {
 
   // Create email handlers with custom templates if provided
   const handlers = createEmailHandlers(authConfig)
+
+  // Build social providers configuration
+  const socialProviders = buildSocialProviders(authConfig)
 
   return betterAuth({
     // Infrastructure config from environment variables
@@ -191,6 +220,8 @@ export function createAuthInstance(authConfig?: Auth) {
         sendChangeEmailVerification: handlers.verification,
       },
     },
+    // OAuth social providers - dynamically configured based on auth config
+    socialProviders,
     plugins: [
       openAPI({
         disableDefaultReference: true, // Use unified Scalar UI instead

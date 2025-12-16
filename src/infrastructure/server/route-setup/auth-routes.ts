@@ -11,6 +11,15 @@ import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { App } from '@/domain/models/app'
 
 /**
+ * Track used verification tokens to enforce single-use
+ * In-memory storage is sufficient for E2E tests
+ * In production, this should use Redis or similar distributed cache
+ *
+ * Note: Mutable Set is required here for cross-request token tracking
+ */
+const usedVerificationTokens = new Set<string>()
+
+/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
@@ -63,7 +72,28 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app?.auth)
 
-  // Mount Better Auth handler for all /api/auth/* routes
+  // Wrap verify-email to enforce single-use tokens
+  const wrappedApp = honoApp.get('/api/auth/verify-email', async (c) => {
+    const token = c.req.query('token')
+
+    if (!token) {
+      return c.json({ message: 'Token is required' }, 400)
+    }
+
+    // Check if token has already been used
+    if (usedVerificationTokens.has(token)) {
+      return c.json({ message: 'Token has already been used' }, 401)
+    }
+
+    // Mark token as used before delegating to Better Auth
+    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Token consumption tracking requires mutation
+    usedVerificationTokens.add(token)
+
+    // Delegate to Better Auth for actual verification
+    return authInstance.handler(c.req.raw)
+  })
+
+  // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
-  return honoApp.on(['POST', 'GET'], '/api/auth/*', (c) => authInstance.handler(c.req.raw))
+  return wrappedApp.on(['POST', 'GET'], '/api/auth/*', (c) => authInstance.handler(c.req.raw))
 }
