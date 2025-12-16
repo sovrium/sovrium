@@ -137,7 +137,12 @@ export function updateRecord(
 }
 
 /**
- * Delete a record with session context
+ * Delete a record with session context (soft delete if deleted_at field exists)
+ *
+ * Implements soft delete pattern:
+ * - If table has deleted_at field: Sets deleted_at to NOW() (soft delete)
+ * - If no deleted_at field: Performs hard delete
+ * - RLS policies automatically applied via session context
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -152,9 +157,32 @@ export function deleteRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Delete with RLS policies applied
-        // eslint-disable-next-line functional/no-expression-statements -- Database deletion requires side effect
-        await tx.execute(`DELETE FROM ${tableName} WHERE id = '${recordId}'`)
+        // Check if record exists before attempting delete
+        const checkResult = (await tx.execute(
+          `SELECT id FROM ${tableName} WHERE id = '${recordId}' LIMIT 1`
+        )) as readonly Record<string, unknown>[]
+
+        if (checkResult.length === 0) {
+          return false // Record not found
+        }
+
+        // Check if table has deleted_at column for soft delete
+        const columnCheck = (await tx.execute(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = '${tableName}' AND column_name = 'deleted_at'
+        `)) as readonly Record<string, unknown>[]
+
+        if (columnCheck.length > 0) {
+          // Soft delete: set deleted_at timestamp
+          // eslint-disable-next-line functional/no-expression-statements -- Database update requires side effect
+          await tx.execute(`UPDATE ${tableName} SET deleted_at = NOW() WHERE id = '${recordId}'`)
+        } else {
+          // Hard delete: remove record
+          // eslint-disable-next-line functional/no-expression-statements -- Database deletion requires side effect
+          await tx.execute(`DELETE FROM ${tableName} WHERE id = '${recordId}'`)
+        }
+
         return true
       },
       catch: (error) =>

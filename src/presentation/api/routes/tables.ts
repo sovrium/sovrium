@@ -225,7 +225,11 @@ function updateRecordProgram(
 function deleteRecordProgram(session: Readonly<Session>, tableName: string, recordId: string) {
   return Effect.gen(function* () {
     // Delete record with session context (RLS policies enforce access control)
-    yield* deleteRecord(session, tableName, recordId)
+    const deleted = yield* deleteRecord(session, tableName, recordId)
+
+    if (!deleted) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
 
     return { success: true as const }
   })
@@ -427,11 +431,25 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
       }
 
-      return runEffect(
-        c,
-        deleteRecordProgram(session, tableName, c.req.param('recordId')),
-        deleteRecordResponseSchema
-      )
+      try {
+        const deleted = await Effect.runPromise(
+          deleteRecord(session, tableName, c.req.param('recordId'))
+        )
+
+        if (!deleted) {
+          return c.json({ error: 'Record not found' }, 404)
+        }
+
+        return c.body(null, 204) // 204 No Content
+      } catch (error) {
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+          500
+        )
+      }
     })
 }
 

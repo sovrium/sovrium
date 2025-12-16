@@ -15,6 +15,7 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
 import { MailpitHelper, generateTestId } from './email-utils'
 import type { App } from '@/domain/models/app'
+import type { APIRequestContext } from '@playwright/test'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { ChildProcess } from 'node:child_process'
 
@@ -460,6 +461,12 @@ type AdminUserResult = {
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
 type ServerFixtures = {
+  /**
+   * Standalone request context with baseURL configured
+   * Use this instead of page.request for API-only tests
+   * Automatically configured with serverUrl after startServerWithSchema
+   */
+  request: APIRequestContext
   startServerWithSchema: (
     appSchema: App,
     options?: {
@@ -849,6 +856,14 @@ export const test = base.extend<ServerFixtures>({
     await use(page)
   },
 
+  // Request fixture: Alias to page.request for convenience
+  // This provides the same APIRequestContext as page.request but as a standalone fixture
+  // Automatically configured with serverUrl and authentication after startServerWithSchema
+  // The actual URL resolution is handled by page.request overrides in startServerWithSchema
+  request: async ({ page }, use) => {
+    await use(page.request)
+  },
+
   // Server fixture: Start server with custom schema and optional database
   startServerWithSchema: async ({ page }, use, testInfo) => {
     let serverProcess: ChildProcess | null = null
@@ -897,6 +912,9 @@ export const test = base.extend<ServerFixtures>({
         const server = await startCliServer(appSchema, databaseUrl)
         serverProcess = server.process
         serverUrl = server.url
+
+        // Store serverUrl in testInfo for request fixture to access
+        ;(testInfo as any)._serverUrl = serverUrl
 
         // Set baseURL for page assertions (toHaveURL with relative paths)
         // This needs to be done by navigating with baseURL or by creating a new page with baseURL

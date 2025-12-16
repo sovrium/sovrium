@@ -18,16 +18,24 @@ import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
  * Substitute variables in a template string
  *
  * Replaces $variable patterns with actual values from the context.
- * Supported variables: $name, $url, $email
+ * Supported variables: $name, $url, $email, $organizationName, $inviterName
  */
 const substituteVariables = (
   template: string,
-  context: Readonly<{ name?: string; url: string; email: string }>
+  context: Readonly<{
+    name?: string
+    url: string
+    email: string
+    organizationName?: string
+    inviterName?: string
+  }>
 ): string => {
   return template
     .replace(/\$name/g, context.name ?? 'there')
     .replace(/\$url/g, context.url)
     .replace(/\$email/g, context.email)
+    .replace(/\$organizationName/g, context.organizationName ?? 'the organization')
+    .replace(/\$inviterName/g, context.inviterName ?? 'Someone')
 }
 
 /**
@@ -130,12 +138,74 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
   )
 
 /**
+ * Create organization invitation email handler with optional custom templates
+ *
+ * Better Auth organization plugin provides inviter and organization context
+ */
+const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
+  return async ({
+    email,
+    url,
+    inviter,
+    organization,
+  }: Readonly<{
+    email: string
+    url: string
+    inviter: Readonly<{ name?: string }>
+    organization: Readonly<{ name: string }>
+  }>) => {
+    const context = {
+      name: undefined,
+      url,
+      email,
+      organizationName: organization.name,
+      inviterName: inviter.name,
+    }
+
+    try {
+      // Custom template takes precedence
+      if (customTemplate?.subject) {
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
+        await sendEmail({
+          to: email,
+          subject: substituteVariables(customTemplate.subject, context),
+          html: customTemplate.html ? substituteVariables(customTemplate.html, context) : undefined,
+          text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
+        })
+      } else {
+        // Use default template
+        const inviterText = inviter.name ?? 'Someone'
+        const defaultTemplate = {
+          subject: `You have been invited to join ${organization.name}`,
+          html: `<p>Hi,</p><p>${inviterText} has invited you to join ${organization.name}.</p><p><a href="${url}">Click here to accept the invitation</a></p>`,
+          text: `Hi,\n\n${inviterText} has invited you to join ${organization.name}.\n\nClick here to accept: ${url}`,
+        }
+
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
+        await sendEmail({
+          to: email,
+          subject: defaultTemplate.subject,
+          html: defaultTemplate.html,
+          text: defaultTemplate.text,
+        })
+      }
+    } catch (error) {
+      // Don't throw - silent failure prevents user enumeration attacks
+      logError(`[EMAIL] Failed to send organization invitation email to ${email}`, error)
+    }
+  }
+}
+
+/**
  * Create email handlers from auth configuration
  */
 const createEmailHandlers = (authConfig?: Auth) => {
   return {
     passwordReset: createPasswordResetEmailHandler(authConfig?.emailTemplates?.resetPassword),
     verification: createVerificationEmailHandler(authConfig?.emailTemplates?.verification),
+    organizationInvitation: createOrganizationInvitationEmailHandler(
+      authConfig?.emailTemplates?.organizationInvitation
+    ),
   }
 }
 
@@ -227,7 +297,9 @@ export function createAuthInstance(authConfig?: Auth) {
         disableDefaultReference: true, // Use unified Scalar UI instead
       }),
       admin(),
-      organization(),
+      organization({
+        sendInvitationEmail: handlers.organizationInvitation,
+      }),
       apiKey(),
       twoFactor(),
     ],

@@ -29,7 +29,7 @@ test.describe('Invite member to organization', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -62,7 +62,7 @@ test.describe('Invite member to organization', () => {
       })
 
       // Create organization
-      const createResponse = await page.request.post('/api/auth/organization/create-organization', {
+      const createResponse = await page.request.post('/api/auth/organization/create', {
         data: { name: 'Test Org', slug: 'test-org' },
       })
       const org = await createResponse.json()
@@ -70,7 +70,7 @@ test.describe('Invite member to organization', () => {
       // WHEN: Owner invites new user by email
       const response = await page.request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: org.organization.id,
+          organizationId: org.id,
           email: inviteeEmail,
           role: 'member',
         },
@@ -80,7 +80,10 @@ test.describe('Invite member to organization', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('invitation')
+      expect(data).toHaveProperty('id')
+      expect(data).toHaveProperty('email', inviteeEmail)
+      expect(data).toHaveProperty('organizationId', org.id)
+      expect(data).toHaveProperty('status', 'pending')
 
       // Verify invitation email was sent with custom subject
       const email = await mailpit.waitForEmail(

@@ -31,7 +31,7 @@ test.describe('Delete record', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and soft delete record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -65,7 +65,7 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-002: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -97,7 +97,7 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
