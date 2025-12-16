@@ -21,7 +21,7 @@ Update Claude TDD workflow to rebase before enabling auto-merge.
 
 **Implementation**:
 
-Update `.github/workflows/claude-tdd.yml` prompt:
+Update `.github/workflows/tdd-execute.yml` prompt:
 
 ```yaml
 prompt: >-
@@ -67,7 +67,7 @@ Check if main has advanced before validation, update branch proactively.
 Add a pre-validation step in Claude workflow:
 
 ```yaml
-# In claude-tdd.yml, before "Monitor validation" step
+# In tdd-execute.yml, before "Monitor validation" step
 6) Check if main has new commits: BEHIND=$(git rev-list --count HEAD..origin/main) - if BEHIND > 0, rebase immediately before CI runs
 ```
 
@@ -177,7 +177,7 @@ gh pr merge --auto --squash
 
 ### Phase 2: Update Workflows (Strategy 1)
 
-1. Update `.github/workflows/claude-tdd.yml` with rebase step
+1. Update `.github/workflows/tdd-execute.yml` with rebase step
 2. Document rebase process in CLAUDE.md
 
 ### Phase 3: Add Protections (Strategy 3)

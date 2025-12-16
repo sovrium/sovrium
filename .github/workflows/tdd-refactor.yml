@@ -1,4 +1,4 @@
-name: TDD Queue - Daily Refactor
+name: TDD - Refactor (Scheduled)
 
 # Purpose: Automated daily codebase refactoring
 # - Waits for TDD queue to become clean (no in-progress specs, no open PRs)

@@ -14,7 +14,7 @@
 import * as Effect from 'effect/Effect'
 import { CommandService, FileSystemService, logInfo, logWarn, logError } from '../../lib/effect'
 
-const LOCK_FILE_PATH = '.github/tdd-queue-populate.lock'
+const LOCK_FILE_PATH = '.github/tdd-scan.lock'
 const STALE_LOCK_MINUTES = 30
 
 /**
@@ -69,7 +69,7 @@ export const checkIdempotencyLock = Effect.gen(function* () {
   // Lock is recent, another populate is likely in progress
   yield* logError('❌ Another populate operation is in progress')
   yield* logError(`   Started: ${parseResult.timestamp} (${Math.round(ageMinutes)} minutes ago)`)
-  yield* logError('   Please wait for it to complete or remove .github/tdd-queue-populate.lock')
+  yield* logError('   Please wait for it to complete or remove .github/tdd-scan.lock')
   return false
 })
 

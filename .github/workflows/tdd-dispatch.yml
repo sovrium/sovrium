@@ -1,12 +1,12 @@
-name: TDD Queue - Processor
+name: TDD - Dispatch (Trigger Claude)
 
 on:
   # Event-driven triggers (immediate response when work is available)
   workflow_run:
     workflows:
-      - 'TDD Queue - Populate' # New specs added to queue
-      - 'Claude Code TDD' # Spec completed, pick next one
-      - 'TDD Monitor (Unified)' # Stuck specs re-queued
+      - 'TDD - Scan (Find .fixme tests)' # New specs added to queue
+      - 'TDD - Execute (Claude Code)' # Spec completed, pick next one
+      - 'TDD - Monitor (Health & Recovery)' # Stuck specs re-queued
     types: [completed]
     branches: [main]
 
@@ -28,7 +28,7 @@ permissions:
   actions: write
 
 # Prevent concurrent processing (strict serial: one spec at a time)
-# IMPORTANT: Shares concurrency group with tdd-daily-refactor.yml
+# IMPORTANT: Shares concurrency group with tdd-refactor.yml
 # This ensures queue processor waits when daily refactor is running
 concurrency:
   group: tdd-queue
@@ -180,10 +180,10 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress"
 
           # NOTE: We only post @claude comment (not workflow_dispatch) to avoid double trigger
-          # The @claude comment triggers claude-tdd.yml via issue_comment event
+          # The @claude comment triggers tdd-execute.yml via issue_comment event
           echo "🤖 Posting @claude comment to trigger Claude Code workflow..."
 
-          # Add comment with workflow instructions (triggers claude-tdd.yml)
+          # Add comment with workflow instructions (triggers tdd-execute.yml)
           gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec using the TDD automation workflow.
 
           ## 📋 Spec Details

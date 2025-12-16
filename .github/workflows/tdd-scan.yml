@@ -1,4 +1,4 @@
-name: TDD Queue - Populate (Scan for RED tests with .fixme)
+name: TDD - Scan (Find .fixme tests)
 
 on:
   # Scheduled runs - Daily at 1:00 AM UTC (runs BEFORE daily-refactor)
@@ -25,7 +25,7 @@ permissions:
 
 # Allow concurrent population (idempotent - skips duplicates)
 concurrency:
-  group: tdd-queue-populate
+  group: tdd-scan
   cancel-in-progress: true
 
 jobs:

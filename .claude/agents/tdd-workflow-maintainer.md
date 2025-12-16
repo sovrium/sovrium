@@ -89,11 +89,11 @@ You are an expert TDD Automation Pipeline Architect specializing in GitHub Actio
 You maintain coherence across all TDD-related files:
 
 **GitHub Actions Workflows:**
-- `.github/workflows/tdd-queue-populate.yml` (scan and create spec issues)
-- `.github/workflows/tdd-queue-processor.yml` (pick next spec, trigger Claude)
-- `.github/workflows/tdd-monitor-unified.yml` (detect stuck specs)
-- `.github/workflows/tdd-daily-refactor.yml` (periodic quality improvements)
-- `.github/workflows/claude-tdd.yml` (Claude Code implementation workflow)
+- `.github/workflows/tdd-scan.yml` (scan and create spec issues)
+- `.github/workflows/tdd-dispatch.yml` (pick next spec, trigger Claude)
+- `.github/workflows/tdd-monitor.yml` (detect stuck specs, health & recovery)
+- `.github/workflows/tdd-refactor.yml` (periodic quality improvements)
+- `.github/workflows/tdd-execute.yml` (Claude Code implementation workflow)
 - `.github/workflows/test.yml` (PR validation and issue closure)
 - `.github/workflows/cleanup-stale-branches.yml` (branch cleanup)
 
@@ -175,7 +175,7 @@ You ensure documentation matches implementation:
 The TDD workflow orchestrates multiple agents. You should understand their roles:
 
 **e2e-test-fixer**
-- Invoked by claude-tdd.yml to remove `.fixme()` and implement tests
+- Invoked by tdd-execute.yml to remove `.fixme()` and implement tests
 - Follows GREEN methodology (minimal code to pass test)
 - **When to coordinate updates**: Test implementation patterns change, workflow instructions evolve
 
@@ -262,7 +262,7 @@ When suggesting improvements, provide:
 
 **Problem**: Issue #1234 had 3 different PRs created, causing confusion and wasted CI resources.
 
-**Root Cause**: tdd-queue-processor.yml doesn't check for existing open PRs before marking issue as in-progress.
+**Root Cause**: tdd-dispatch.yml doesn't check for existing open PRs before marking issue as in-progress.
 
 **Impact**:
 - Multiple Claude Code instances work on same spec simultaneously
@@ -270,7 +270,7 @@ When suggesting improvements, provide:
 - Confusion about which PR to merge
 - Queue gets blocked when first PR merges but others remain open
 
-**Solution**: Add duplicate PR check to tdd-queue-processor.yml before marking in-progress:
+**Solution**: Add duplicate PR check to tdd-dispatch.yml before marking in-progress:
 
 ```yaml
 - name: Check for existing PRs
@@ -288,7 +288,7 @@ When suggesting improvements, provide:
 **Verification**:
 1. Create test issue with tdd-spec:queued label
 2. Manually create PR with "Closes #<issue>" in body
-3. Trigger queue processor: `gh workflow run tdd-queue-processor.yml`
+3. Trigger queue processor: `gh workflow run tdd-dispatch.yml`
 4. Verify processor skips the issue (check workflow logs)
 5. Verify no duplicate PR created
 
@@ -311,7 +311,7 @@ gh run list --workflow="TDD Queue - Processor" --limit=10
 gh run list --workflow="Claude Code TDD" --limit=10
 gh run view <run-id> --log                              # View execution logs
 gh run view <run-id> --log-failed                       # Only failed jobs
-gh workflow view tdd-queue-processor.yml
+gh workflow view tdd-dispatch.yml
 gh workflow list
 gh api repos/:owner/:repo/actions/workflows
 
@@ -475,7 +475,7 @@ Verify:
 
 **Concurrency groups**:
 - Is `tdd-queue` concurrency group preventing simultaneous runs?
-- Is `tdd-daily-refactor` coordinating with queue processor?
+- Is `tdd-refactor` coordinating with queue processor?
 
 ### Phase 5: Verify Documentation Accuracy
 

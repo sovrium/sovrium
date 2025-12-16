@@ -64,7 +64,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
 
 ### 2. Workflows
 
-#### **tdd-queue-populate.yml** (Scan & Queue RED Tests)
+#### **tdd-scan.yml** (Scan & Queue RED Tests)
 
 **Triggers**:
 
@@ -87,11 +87,11 @@ bun run scripts/tdd-automation/queue-manager.ts status
 3. Create issues (skip duplicates)
 4. Display queue status
 
-#### **tdd-queue-processor.yml** (Pick & Process)
+#### **tdd-dispatch.yml** (Pick & Process)
 
 **Triggers** (Phase 3 Event-Driven Architecture):
 
-- `workflow_run`: Triggered immediately when populate, claude-tdd, or monitor workflows complete
+- `workflow_run`: Triggered immediately when scan, execute, or monitor workflows complete
 - Schedule: Hourly backup (safety net if event triggers miss)
 - Manual dispatch
 
@@ -109,7 +109,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
 
 **Concurrency**: Strict serial - only one spec can be in-progress at a time
 
-#### **claude-tdd.yml** (Claude Code Implementation)
+#### **tdd-execute.yml** (Claude Code Implementation)
 
 **Triggers**:
 
@@ -202,7 +202,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
 4. Delete orphaned branches (>7 days old, no PR)
 5. Keep branches with open PRs or recent activity
 
-#### **tdd-monitor-unified.yml** (Unified Monitoring & Recovery)
+#### **tdd-monitor.yml** (Unified Monitoring & Recovery)
 
 **Triggers**:
 
@@ -216,7 +216,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
 **Jobs**:
 
 1. **🏥 Health Check & Circuit Breaker**
-   - Monitors failure rate of recent claude-tdd.yml runs
+   - Monitors failure rate of recent tdd-execute.yml runs
    - Counts specs in retry state (retry:infra:N, retry:spec:N labels)
    - Opens circuit (disables queue) if >50% failure rate or >5 retries
    - Auto-closes circuit when health recovers
@@ -269,21 +269,21 @@ All configuration is hardcoded in workflow files (no central config file):
 
 **Key Settings**:
 
-- **Processing interval**: Event-driven with hourly backup (`.github/workflows/tdd-queue-processor.yml`)
+- **Processing interval**: Event-driven with hourly backup (`.github/workflows/tdd-dispatch.yml`)
 - **Max concurrent**: 1 spec at a time - strict serial (hardcoded in processor logic)
 - **Issue labels**: `tdd-spec:queued`, `tdd-spec:in-progress`, `tdd-spec:completed`, `tdd-spec:failed`
 - **Auto-validation**: Enabled (`.github/workflows/test.yml`)
-- **Auto-merge**: Enabled with squash merge (hardcoded in `claude-tdd.yml` prompt)
-- **Max retries**: 3 attempts (hardcoded in `claude-tdd.yml` prompt)
+- **Auto-merge**: Enabled with squash merge (hardcoded in `tdd-execute.yml` prompt)
+- **Max retries**: 3 attempts (hardcoded in `tdd-execute.yml` prompt)
 
-**Timeout Configuration** (in `tdd-monitor-unified.yml`):
+**Timeout Configuration** (in `tdd-monitor.yml`):
 
-| Environment Variable          | Value  | Purpose                                            |
-| ----------------------------- | ------ | -------------------------------------------------- |
-| `STUCK_TIMEOUT_MINUTES`       | 90     | Specs stuck in-progress >90 min are recovered      |
-| `PR_STUCK_TIMEOUT_MINUTES`    | 120    | PRs stuck >120 min with failures are force-closed  |
-| `RETRY_STUCK_TIMEOUT_MINUTES` | 30     | Retries stuck >30 min are recovered                |
-| `FAILED_PR_COOLDOWN_MINUTES`  | 30     | Minimum wait between regression fix attempts       |
+| Environment Variable          | Value | Purpose                                           |
+| ----------------------------- | ----- | ------------------------------------------------- |
+| `STUCK_TIMEOUT_MINUTES`       | 90    | Specs stuck in-progress >90 min are recovered     |
+| `PR_STUCK_TIMEOUT_MINUTES`    | 120   | PRs stuck >120 min with failures are force-closed |
+| `RETRY_STUCK_TIMEOUT_MINUTES` | 30    | Retries stuck >30 min are recovered               |
+| `FAILED_PR_COOLDOWN_MINUTES`  | 30    | Minimum wait between regression fix attempts      |
 
 ## How It Works
 
@@ -291,7 +291,7 @@ All configuration is hardcoded in workflow files (no central config file):
 
 When you push new tests with `.fixme()`:
 
-1. **Workflow triggers**: `tdd-queue-populate.yml`
+1. **Workflow triggers**: `tdd-scan.yml`
 2. **Scan**: `queue-manager.ts scan` finds all specs with `.fixme()`
 3. **Create issues**: One minimal issue per spec ID (e.g., `APP-VERSION-001`)
 4. **Skip duplicates**: Checks if issue already exists
@@ -322,7 +322,7 @@ Validation runs automatically on push.
 
 Every 15 minutes (or manual):
 
-1. **Workflow triggers**: `tdd-queue-processor.yml`
+1. **Workflow triggers**: `tdd-dispatch.yml`
 2. **Check in-progress**: Query issues with `tdd-spec:in-progress` label
 3. **If any exist**: Exit (strict serial - one at a time)
 4. **If none**: Pick **highest priority** issue with `tdd-spec:queued` label (priority: APP → MIG → STATIC → API → ADMIN, then alphabetically)
@@ -339,7 +339,7 @@ Every 15 minutes (or manual):
 
 **Fully automated** - triggered by `@claude` mention in auto-comment:
 
-1. **Claude Code workflow triggers**: `claude-tdd.yml` detects `@claude` mention via issue_comment event
+1. **Claude Code workflow triggers**: `tdd-execute.yml` detects `@claude` mention via issue_comment event
 2. **Branch created automatically**: Claude Code creates branch with pattern `claude/issue-{ISSUE_NUMBER}-{timestamp}` (e.g., `claude/issue-1319-20251102-2026`)
 3. **Run @agent-e2e-test-fixer**:
    - Read test file with spec ID
@@ -458,8 +458,8 @@ bun run scripts/tdd-automation/queue-manager.ts next       # Get next spec
 bun run scripts/tdd-automation/queue-manager.ts status     # Show queue status
 
 # Manual Workflow Triggers
-gh workflow run tdd-queue-populate.yml                     # Populate queue
-gh workflow run tdd-queue-processor.yml                    # Process next spec
+gh workflow run tdd-scan.yml                     # Populate queue
+gh workflow run tdd-dispatch.yml                    # Process next spec
 
 # View Queue (GitHub CLI)
 gh issue list --label "tdd-spec:queued"                    # Show queued specs
@@ -487,11 +487,11 @@ This shows:
 
 ```bash
 # Populate queue with all specs
-gh workflow run tdd-queue-populate.yml
+gh workflow run tdd-scan.yml
 
 # Wait 1 minute, then process first spec
 sleep 60
-gh workflow run tdd-queue-processor.yml
+gh workflow run tdd-dispatch.yml
 
 # Check queue status
 bun run scripts/tdd-automation/queue-manager.ts status
@@ -540,7 +540,7 @@ If the automated system fails or needs human review:
 bun run scripts/tdd-automation/queue-manager.ts status
 
 # View recent workflow runs
-gh run list --workflow=tdd-queue-processor.yml --limit 5
+gh run list --workflow=tdd-dispatch.yml --limit 5
 
 # View specific spec issue
 gh issue view {issue-number}
@@ -568,7 +568,7 @@ gh pr list --label "tdd-automation"
    ```
 3. Are workflows running?
    ```bash
-   gh run list --workflow=tdd-queue-processor.yml
+   gh run list --workflow=tdd-dispatch.yml
    ```
 
 ### PR not created (spec marked as failed)
@@ -882,7 +882,7 @@ Three new safeguards prevent the most common causes of pipeline blocking:
 
 ### Adjust Processing Interval
 
-Edit `.github/workflows/tdd-queue-processor.yml`:
+Edit `.github/workflows/tdd-dispatch.yml`:
 
 ```yaml
 schedule:
@@ -893,7 +893,7 @@ schedule:
 
 ### Change Concurrency
 
-Edit `.github/workflows/tdd-queue-processor.yml`:
+Edit `.github/workflows/tdd-dispatch.yml`:
 
 ```bash
 # Current (line ~70): Check if ANY spec is in-progress

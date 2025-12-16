@@ -1,6 +1,6 @@
-name: TDD Monitor (Unified)
+name: TDD - Monitor (Health & Recovery)
 
-# Unified monitoring workflow that consolidates:
+# Monitoring workflow that consolidates:
 # - Circuit breaker (health monitoring)
 # - Stuck spec recovery (timeout detection)
 # - PR monitoring (auto-merge, stuck PRs)
@@ -11,7 +11,7 @@ name: TDD Monitor (Unified)
 on:
   # Event-driven triggers (immediate response)
   workflow_run:
-    workflows: ['Claude Code TDD']
+    workflows: ['TDD - Execute (Claude Code)']
     types: [completed]
   push:
     branches:
@@ -38,7 +38,7 @@ permissions:
 
 # Only one monitor run at a time - cancel queued runs to prevent pile-up
 concurrency:
-  group: tdd-monitor-unified
+  group: tdd-monitor
   cancel-in-progress: true
 
 env:
@@ -67,10 +67,10 @@ jobs:
         run: |
           echo "📊 Analyzing TDD pipeline health..."
 
-          # Get last 10 workflow runs from claude-tdd.yml
+          # Get last 10 workflow runs from tdd-execute.yml
           RECENT_RUNS=$(gh run list \
             --repo ${{ github.repository }} \
-            --workflow="claude-tdd.yml" \
+            --workflow="tdd-execute.yml" \
             --limit 10 \
             --json conclusion,createdAt,displayTitle)
 
@@ -148,7 +148,7 @@ jobs:
         run: |
           echo "🚨 Opening circuit breaker - disabling queue..."
 
-          gh workflow disable "tdd-queue-processor.yml" --repo ${{ github.repository }}
+          gh workflow disable "tdd-dispatch.yml" --repo ${{ github.repository }}
 
           # Create incident issue (ignore label errors if labels don't exist)
           gh issue create \
@@ -162,17 +162,17 @@ jobs:
           **Action**: Queue processor disabled
 
           ### Investigation
-          1. Check recent runs: [claude-tdd.yml](https://github.com/${{ github.repository }}/actions/workflows/claude-tdd.yml)
+          1. Check recent runs: [tdd-execute.yml](https://github.com/${{ github.repository }}/actions/workflows/tdd-execute.yml)
           2. Check retry issues: \`gh issue list --label retry:infra:1\`
           3. Look for error patterns
 
           ### Recovery
           Once resolved:
-          1. Re-enable queue: \`gh workflow enable tdd-queue-processor.yml\`
+          1. Re-enable queue: \`gh workflow enable tdd-dispatch.yml\`
           2. Close this issue
 
           ---
-          *🤖 TDD Monitor (Unified)*" \
+          *🤖 TDD Monitor*" \
             --label "tdd-automation" || true
 
       - name: Close circuit breaker
@@ -182,7 +182,7 @@ jobs:
         run: |
           echo "✅ Health recovered - closing circuit breaker..."
 
-          gh workflow enable "tdd-queue-processor.yml" --repo ${{ github.repository }}
+          gh workflow enable "tdd-dispatch.yml" --repo ${{ github.repository }}
 
           # Close incident issues
           gh issue list \
@@ -201,7 +201,7 @@ jobs:
           Pipeline operating normally.
 
           ---
-          *🤖 TDD Monitor (Unified)*"
+          *🤖 TDD Monitor*"
 
               gh issue close "$ISSUE" --repo ${{ github.repository }}
             done
@@ -296,7 +296,7 @@ jobs:
                 Stuck in retry #$RETRY_NUM for $AGE_MIN minutes. Manual intervention required.
 
                 ---
-                *🤖 TDD Monitor (Unified)*"
+                *🤖 TDD Monitor*"
               else
                 NEXT_RETRY=$((RETRY_NUM + 1))
                 # Preserve retry type (spec vs infra) when incrementing
@@ -344,7 +344,7 @@ jobs:
                 **Reference**: \`@docs/development/tdd-automation-pipeline.md\`
 
                 ---
-                *🤖 TDD Monitor (Unified)*"
+                *🤖 TDD Monitor*"
               fi
             else
               echo "   📋 Re-queueing stuck spec"
@@ -358,7 +358,7 @@ jobs:
               Stuck for $AGE_MIN min. Re-queued for retry.
 
               ---
-              *🤖 TDD Monitor (Unified)*"
+              *🤖 TDD Monitor*"
             fi
           done < <(echo "$ISSUES" | jq -r '.[] | @json')
 
@@ -431,7 +431,7 @@ jobs:
                     PR will merge automatically when CI passes.
 
                     ---
-                    *🤖 TDD Monitor (Unified)*"
+                    *🤖 TDD Monitor*"
                   else
                     echo "   ⚠️  Auto-merge command succeeded but not enabled (may not be mergeable)"
                   fi
@@ -545,7 +545,7 @@ jobs:
               Auto-merge will proceed once branch is updated and CI passes.
 
               ---
-              *🤖 TDD Monitor (Unified)*"
+              *🤖 TDD Monitor*"
 
               UPDATED_COUNT=$((UPDATED_COUNT + 1))
             fi
@@ -613,7 +613,7 @@ jobs:
                 Marking spec as failed. Manual intervention required.
 
                 ---
-                *🤖 TDD Monitor (Unified)*"
+                *🤖 TDD Monitor*"
 
                 gh pr close "$PR_NUMBER" --repo ${{ github.repository }}
 
@@ -684,7 +684,7 @@ jobs:
               4. \`git push --force-with-lease\`
 
               ---
-              *🤖 TDD Monitor (Unified)*"
+              *🤖 TDD Monitor*"
             else
               echo "   Triggering automatic resolution"
 
@@ -756,7 +756,7 @@ jobs:
                 3. Do NOT push broken code
 
               ---
-              *🤖 TDD Monitor (Unified)*"
+              *🤖 TDD Monitor*"
             fi
           done
 
@@ -852,7 +852,7 @@ jobs:
               - Type changes that break dependent code
 
               ---
-              *🤖 TDD Monitor (Unified)*"
+              *🤖 TDD Monitor*"
 
               gh pr edit "$PR_NUMBER" --repo ${{ github.repository }} \
                 --add-label "needs-manual-resolution"
@@ -927,7 +927,7 @@ jobs:
                  \`\`\`
 
               ---
-              *🤖 TDD Monitor (Unified)*"
+              *🤖 TDD Monitor*"
             fi
           done < <(echo "$PRS" | jq -r '.[] | @json')
 

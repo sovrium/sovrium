@@ -60,13 +60,13 @@ These errors are **caused by code issues** and should be handled by Claude Code'
 
 ## Architecture
 
-### Unified Workflow: `claude-tdd.yml`
+### Unified Workflow: `tdd-execute.yml`
 
 This workflow handles ALL Claude Code execution (both automated queue processing and manual @claude mentions) with infrastructure-level retry logic:
 
 ```mermaid
 graph TD
-    A[Queue Processor OR @claude mention] --> B[Trigger claude-tdd.yml]
+    A[Queue Processor OR @claude mention] --> B[Trigger tdd-execute.yml]
     B --> C{Previous Retry?}
     C -->|Yes| D[Classify Previous Error]
     C -->|No| E[Execute Claude Code]
@@ -153,7 +153,7 @@ if [ "$NEXT_RETRY" -le "$MAX_RETRIES" ]; then
   sleep 30
 
   # Trigger next retry
-  gh workflow run claude-tdd.yml \
+  gh workflow run tdd-execute.yml \
     --field issue_number="$ISSUE_NUMBER" \
     --field retry_attempt="$NEXT_RETRY"
 else
@@ -178,7 +178,7 @@ fi
 
 ### Queue Processor Changes
 
-Updated `tdd-queue-processor.yml` to trigger new workflow:
+Updated `tdd-dispatch.yml` to trigger new workflow:
 
 **Before**:
 
@@ -191,7 +191,7 @@ gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec..."
 
 ```yaml
 # Trigger Claude Code workflow with retry support
-gh workflow run claude-tdd.yml \
+gh workflow run tdd-execute.yml \
   --field issue_number="$ISSUE_NUMBER" \
   --field retry_attempt=1
 
@@ -222,7 +222,7 @@ The TDD automation now has **two separate retry mechanisms**:
 
 - **Max**: 3 attempts
 - **Trigger**: Claude Code runtime errors (EPERM, timeouts, etc.)
-- **Handler**: `claude-tdd.yml` workflow (recursive trigger)
+- **Handler**: `tdd-execute.yml` workflow (recursive trigger)
 - **Label**: `retry:infra:N`
 - **Wait**: 30 seconds between retries
 - **Scope**: Entire workflow re-executes
@@ -273,7 +273,7 @@ gh issue list --label "retry:infra:1"
 gh issue view 1339 --json labels --jq '.labels[].name | select(startswith("retry:infra"))'
 
 # Check workflow run logs
-gh run list --workflow="claude-tdd.yml" --limit 10
+gh run list --workflow="tdd-execute.yml" --limit 10
 ```
 
 ### Identify Infrastructure Errors
@@ -292,12 +292,12 @@ If a spec fails with infrastructure error but you want to retry:
 
 ```bash
 # Trigger manual retry (attempt 1)
-gh workflow run claude-tdd.yml \
+gh workflow run tdd-execute.yml \
   --field issue_number=1339 \
   --field retry_attempt=1
 
 # Or continue from specific attempt
-gh workflow run claude-tdd.yml \
+gh workflow run tdd-execute.yml \
   --field issue_number=1339 \
   --field retry_attempt=2
 ```
@@ -361,7 +361,7 @@ gh pr list --head "claude/issue-1339-*"
 gh pr create --title "fix: implement APP-THEME-006" --body "Closes #1339" --label "tdd-automation"
 
 # Otherwise, retry workflow
-gh workflow run claude-tdd.yml --field issue_number=1339 --field retry_attempt=1
+gh workflow run tdd-execute.yml --field issue_number=1339 --field retry_attempt=1
 ```
 
 ### Scenario 2: Timeout (Infrastructure)
@@ -438,9 +438,9 @@ If the new retry system causes issues:
 # Revert queue processor to use old workflow
 git revert <commit-hash>
 
-# Or manually edit tdd-queue-processor.yml
+# Or manually edit tdd-dispatch.yml
 # Change:
-#   gh workflow run claude-tdd.yml
+#   gh workflow run tdd-execute.yml
 # Back to:
 #   gh issue comment "$ISSUE_NUMBER" --body "@claude..."
 ```
@@ -460,4 +460,4 @@ git revert <commit-hash>
 - **TDD Automation Pipeline**: `@docs/development/tdd-automation-pipeline.md`
 - **Queue System**: See "Components" section above
 - **Recovery Workflow**: `tdd-queue-recovery.yml` (handles stuck specs)
-- **GitHub Actions**: `.github/workflows/claude-tdd.yml`
+- **GitHub Actions**: `.github/workflows/tdd-execute.yml`
