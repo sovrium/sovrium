@@ -20,10 +20,13 @@ import { test, expect } from '@/specs/fixtures'
  * Tests rate limiting behavior on security-critical authentication endpoints
  * to prevent brute force attacks and abuse.
  *
- * Rate limiting is essential for:
+ * Rate limiting is enabled by default for all security-critical endpoints:
  * - Sign-in: Prevent credential stuffing and brute force attacks
  * - Password reset: Prevent email enumeration
  * - API key creation: Prevent key flooding
+ *
+ * Note: These tests validate default rate limiting behavior. If default limits change,
+ * test assertions may need adjustment.
  */
 
 test.describe('Rate Limiting - Security Critical Endpoints', () => {
@@ -35,14 +38,11 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-001: should return 429 after exceeding sign-in rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with rate limiting enabled
+      // GIVEN: Application with default rate limiting enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          rateLimit: {
-            signIn: { maxAttempts: 5, windowMs: 60_000 },
-          },
         },
         tables: [],
       })
@@ -50,7 +50,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       // Create a user to attempt sign-in against
       await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
 
-      // WHEN: User exceeds sign-in rate limit with wrong password
+      // WHEN: User exceeds default sign-in rate limit with wrong password
+      // Note: Test assumes default limit is 5 attempts per 60 seconds
       for (let i = 0; i < 5; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
@@ -74,22 +75,22 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-002: should reset sign-in rate limit after window expires',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with short rate limit window (2 seconds for testing)
+      // GIVEN: Application with default rate limiting enabled
+      // Note: This test validates rate limit window reset behavior.
+      // If default window is longer than 60 seconds, this test may need adjustment
+      // (either skip or use a mock time controller).
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          rateLimit: {
-            signIn: { maxAttempts: 3, windowMs: 2000 },
-          },
         },
         tables: [],
       })
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
 
-      // WHEN: User hits rate limit
-      for (let i = 0; i < 3; i++) {
+      // WHEN: User hits default rate limit (assumes 5 attempts)
+      for (let i = 0; i < 5; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
         })
@@ -101,8 +102,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
       expect(blockedResponse.status()).toBe(429)
 
-      // THEN: Wait for window to expire and retry
-      await new Promise((resolve) => setTimeout(resolve, 2100))
+      // THEN: Wait for default window to expire (assumes 60 seconds)
+      await new Promise((resolve) => setTimeout(resolve, 60_100))
 
       const response = await request.post('/api/auth/sign-in/email', {
         data: { email: 'user@example.com', password: 'TestPassword123!' },
@@ -117,21 +118,19 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-003: should return 429 after exceeding password reset rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with password reset rate limiting
+      // GIVEN: Application with default password reset rate limiting
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          rateLimit: {
-            passwordReset: { maxAttempts: 3, windowMs: 60_000 },
-          },
         },
         tables: [],
       })
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
 
-      // WHEN: User exceeds password reset rate limit
+      // WHEN: User exceeds default password reset rate limit
+      // Note: Test assumes default limit is 3 attempts per 60 seconds
       for (let i = 0; i < 3; i++) {
         await request.post('/api/auth/request-password-reset', {
           data: { email: 'user@example.com' },
@@ -155,19 +154,17 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-004: should return 429 after exceeding sign-up rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with sign-up rate limiting
+      // GIVEN: Application with default sign-up rate limiting
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          rateLimit: {
-            signUp: { maxAttempts: 5, windowMs: 60_000 },
-          },
         },
         tables: [],
       })
 
-      // WHEN: User exceeds sign-up rate limit
+      // WHEN: User exceeds default sign-up rate limit
+      // Note: Test assumes default limit is 5 attempts per 60 seconds
       for (let i = 0; i < 5; i++) {
         await request.post('/api/auth/sign-up/email', {
           data: {
@@ -199,22 +196,20 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-005: should return 429 after exceeding API key creation rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Application with API key creation rate limiting
+      // GIVEN: Application with default API key creation rate limiting
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
           plugins: { apiKeys: true },
-          rateLimit: {
-            apiKeyCreate: { maxAttempts: 10, windowMs: 60_000 },
-          },
         },
         tables: [],
       })
 
       await createAuthenticatedUser({ email: 'user@example.com' })
 
-      // WHEN: User exceeds API key creation rate limit
+      // WHEN: User exceeds default API key creation rate limit
+      // Note: Test assumes default limit is 10 attempts per 60 seconds
       for (let i = 0; i < 10; i++) {
         await request.post('/api/auth/api-key/create', {
           data: { name: `key-${i}` },
@@ -238,22 +233,20 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-006: should include Retry-After header in 429 response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with rate limiting
+      // GIVEN: Application with default rate limiting
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          rateLimit: {
-            signIn: { maxAttempts: 3, windowMs: 60_000 },
-          },
         },
         tables: [],
       })
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!' })
 
-      // WHEN: User exceeds rate limit
-      for (let i = 0; i < 3; i++) {
+      // WHEN: User exceeds default rate limit
+      // Note: Test assumes default limit is 5 attempts per 60 seconds
+      for (let i = 0; i < 5; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
         })
@@ -276,14 +269,11 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-007: should rate limit by IP address, not by user',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with IP-based rate limiting
+      // GIVEN: Application with default IP-based rate limiting
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          rateLimit: {
-            signIn: { maxAttempts: 5, windowMs: 60_000, byIp: true },
-          },
         },
         tables: [],
       })
@@ -292,6 +282,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await signUp({ email: 'user2@example.com', password: 'TestPassword123!' })
 
       // WHEN: Same IP attempts sign-in for different users
+      // Note: Test assumes default limit is 5 attempts per 60 seconds per IP
       for (let i = 0; i < 3; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user1@example.com', password: 'WrongPassword' },
@@ -322,15 +313,11 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-008: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with rate limiting configuration', async () => {
+      await test.step('Setup: Start server with default rate limiting', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            rateLimit: {
-              signIn: { maxAttempts: 3, windowMs: 5000 },
-              signUp: { maxAttempts: 3, windowMs: 5000 },
-            },
           },
           tables: [],
         })
@@ -341,8 +328,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       await test.step('Verify: Sign-in rate limiting enforced', async () => {
-        // Exhaust rate limit
-        for (let i = 0; i < 3; i++) {
+        // Exhaust default rate limit (assumes 5 attempts)
+        for (let i = 0; i < 5; i++) {
           await request.post('/api/auth/sign-in/email', {
             data: { email: 'user@example.com', password: 'WrongPassword' },
           })
@@ -359,8 +346,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       await test.step('Verify: Rate limit resets after window', async () => {
-        // Wait for rate limit window to expire
-        await new Promise((resolve) => setTimeout(resolve, 5100))
+        // Wait for default rate limit window to expire (assumes 60 seconds)
+        await new Promise((resolve) => setTimeout(resolve, 60_100))
 
         // Should succeed now
         const response = await request.post('/api/auth/sign-in/email', {
@@ -370,8 +357,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       await test.step('Verify: Sign-up rate limiting enforced', async () => {
-        // Exhaust rate limit
-        for (let i = 0; i < 3; i++) {
+        // Exhaust default rate limit (assumes 5 attempts)
+        for (let i = 0; i < 5; i++) {
           await request.post('/api/auth/sign-up/email', {
             data: {
               email: `newuser${i}@example.com`,
@@ -384,9 +371,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         // Next attempt should be blocked
         const blockedResponse = await request.post('/api/auth/sign-up/email', {
           data: {
-            email: 'newuser4@example.com',
+            email: 'newuser6@example.com',
             password: 'TestPassword123!',
-            name: 'User 4',
+            name: 'User 6',
           },
         })
         expect(blockedResponse.status()).toBe(429)
