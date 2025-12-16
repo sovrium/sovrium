@@ -343,7 +343,7 @@ sovrium/
 - Authentication: `@docs/infrastructure/framework/better-auth.md`
 - Forms: `@docs/infrastructure/ui/react-hook-form.md`
 - API Routes: `@docs/infrastructure/api/hono-rpc-openapi.md`
-- Database: `@docs/infrastructure/database/drizzle.md`
+- Database: `@docs/infrastructure/database/drizzle.md`, `@docs/architecture/patterns/database-access-strategy.md`, `@docs/architecture/patterns/internal-table-naming-convention.md`, `@docs/architecture/patterns/soft-delete-by-default.md`
 - Schemas: `@docs/infrastructure/framework/effect.md`
 - **Email**: `@docs/infrastructure/email/nodemailer.md` (Nodemailer SMTP client)
 - **Email Testing**: `@docs/infrastructure/email/mailpit.md` (Local SMTP with Web UI)
@@ -351,6 +351,7 @@ sovrium/
 - **Theming Architecture**: `@docs/architecture/patterns/theming-architecture.md`
 - **Internationalization (i18n)**: `@docs/architecture/patterns/i18n-centralized-translations.md`
 - **Testing React Components**: `@docs/infrastructure/testing/react-testing-library.md` (RTL + Happy DOM + Bun)
+- **TDD Automation**: `@docs/development/tdd-automation-pipeline.md`, `@docs/development/tdd-error-handling.md`, `@docs/development/tdd-conflict-resolution.md`
 
 **Slash Command**: Use `/docs` to list all available documentation files
 

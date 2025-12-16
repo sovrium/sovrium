@@ -64,6 +64,7 @@
 - `@docs/infrastructure/testing/react-testing-library.md` - React component testing (RTL + Happy DOM + Bun)
 - `@docs/infrastructure/testing/playwright.md` - E2E testing
 - `@docs/infrastructure/testing/testcontainers.md` - Docker-based test database isolation
+- `@docs/architecture/testing-strategy/15-authentication-testing-strategy.md` - Separate auth method test files (Bearer token, API key)
 
 ### CI/CD & Release
 - `@docs/infrastructure/cicd/workflows.md` - GitHub Actions
@@ -89,10 +90,15 @@
 - `@docs/architecture/decisions/003-runtime-sql-migrations.md` - ADR 003: Runtime SQL migration generation from JSON config
 - `@docs/architecture/decisions/004-presentation-layer-feature-based-structure.md` - ADR 004: Presentation layer feature-based structure
 - `@docs/architecture/decisions/005-authorization-strategy.md` - ADR 005: Authorization strategy for table APIs (RBAC + field-level permissions)
+- `@docs/architecture/decisions/006-table-permission-configuration.md` - ADR 006: Table permission configuration storage and management (Proposed)
+- `@docs/architecture/decisions/007-soft-delete-by-default.md` - ADR 007: Soft delete by default for all tables
 
 ### Cross-Cutting Architecture Patterns
 
 - `@docs/architecture/patterns/config-driven-schema-generation.md` - Config-driven database schema generation pattern
+- `@docs/architecture/patterns/database-access-strategy.md` - Hybrid database access (Drizzle ORM for internal tables, manual SQL for user tables)
+- `@docs/architecture/patterns/internal-table-naming-convention.md` - Internal table naming with `_sovrium_` prefix for namespace isolation
+- `@docs/architecture/patterns/soft-delete-by-default.md` - Soft delete by default (Airtable-style trash/restore UX)
 - `@docs/architecture/patterns/theming-architecture.md` - Domain-driven CSS compilation with Tailwind @theme directive
 - `@docs/architecture/patterns/i18n-centralized-translations.md` - Centralized translations with config-driven i18n
 
@@ -126,6 +132,8 @@ Import: @docs/infrastructure/api/hono-rpc-openapi.md
 ### Working with Database
 ```
 Import: @docs/infrastructure/database/drizzle.md
+Import: @docs/architecture/patterns/database-access-strategy.md
+Import: @docs/architecture/patterns/internal-table-naming-convention.md
 Import: @docs/architecture/layer-based-architecture.md
 Import: @docs/architecture/decisions/003-runtime-sql-migrations.md
 Import: @docs/architecture/patterns/config-driven-schema-generation.md

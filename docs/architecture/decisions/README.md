@@ -24,10 +24,15 @@ Each ADR follows this structure:
 
 ## Current ADRs
 
-| ADR                                      | Title                                           | Status   | Date       | Review Date |
-| ---------------------------------------- | ----------------------------------------------- | -------- | ---------- | ----------- |
-| [001](./001-validation-library-split.md) | Validation Library Split (Effect Schema vs Zod) | Accepted | 2025-01-29 | 2025-07-01  |
-| [002](./002-domain-feature-isolation.md) | Domain Feature Isolation Pattern                | Accepted | 2025-01-29 | 2025-04-01  |
+| ADR                                                        | Title                                                 | Status   | Date       | Review Date |
+| ---------------------------------------------------------- | ----------------------------------------------------- | -------- | ---------- | ----------- |
+| [001](./001-validation-library-split.md)                   | Validation Library Split (Effect Schema vs Zod)       | Accepted | 2025-01-29 | 2025-07-01  |
+| [002](./002-domain-feature-isolation.md)                   | Domain Feature Isolation Pattern                      | Accepted | 2025-01-29 | 2025-04-01  |
+| [003](./003-runtime-sql-migrations.md)                     | Runtime SQL Migration Generation                      | Accepted | 2025-01-25 | 2025-07-01  |
+| [004](./004-presentation-layer-feature-based-structure.md) | Presentation Layer Feature-Based Structure            | Accepted | 2025-11-10 | 2025-04-01  |
+| [005](./005-authorization-strategy.md)                     | Authorization Strategy (RBAC + Field Permissions)     | Accepted | 2025-01-25 | 2025-07-01  |
+| [006](./006-table-permission-configuration.md)             | Table Permission Configuration Storage and Management | Proposed | 2025-01-25 | TBD         |
+| [007](./007-soft-delete-by-default.md)                     | Soft Delete by Default for All Tables                 | Accepted | 2025-12-16 | 2025-07-01  |
 
 ## Planned ADRs
 

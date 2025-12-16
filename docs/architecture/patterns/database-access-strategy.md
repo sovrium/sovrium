@@ -265,3 +265,14 @@ This hybrid approach provides the best of both worlds:
 
 - **Type safety and tooling** for internal infrastructure
 - **Flexibility and control** for user-defined configurations
+
+---
+
+**Last Updated**: 2025-12-16
+
+**Related Documentation**:
+
+- [ADR 003: Runtime SQL Migrations](../decisions/003-runtime-sql-migrations.md) - Decision rationale for runtime SQL generation
+- [Config-Driven Schema Generation](./config-driven-schema-generation.md) - Pattern for generating schemas from JSON config
+- [Internal Table Naming Convention](./internal-table-naming-convention.md) - All Drizzle-managed tables use `_sovrium_` prefix
+- [Soft Delete by Default](./soft-delete-by-default.md) - Affects schema design for both Drizzle and manual SQL tables

@@ -559,8 +559,11 @@ For GDPR "right to be forgotten" requests, permanent delete can be triggered by:
 
 **Last Updated**: 2025-12-16
 
-**Related Documents**:
+**Related Documentation**:
 
+- [Database Access Strategy](./database-access-strategy.md) - Soft delete applies to both Drizzle ORM (internal) and manual SQL (user tables)
+- [Internal Table Naming Convention](./internal-table-naming-convention.md) - Internal audit tables use `_sovrium_` prefix
+- [ADR 003: Runtime SQL Migrations](../decisions/003-runtime-sql-migrations.md) - Migration system for user tables
 - `specs/app/table/soft-delete.spec.ts` - E2E test specifications
 - `src/domain/models/app/table/field-types/deleted-at-field.ts` - Field schema
 - `@docs/specifications/vision.md` - Product vision alignment

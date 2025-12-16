@@ -499,5 +499,5 @@ Sovrium uses different validation libraries depending on the context:
 
 ---
 
-**Last Updated**: 2025-11-10
+**Last Updated**: 2025-12-16
 **Maintained By**: architecture-docs-maintainer agent
