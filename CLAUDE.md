@@ -459,6 +459,53 @@ The system implements automatic error recovery:
 - **On 3rd failure**: Marks issue as `tdd-spec:failed`, adds explanatory comment
 - **Pipeline continues**: Failed specs don't block queue processing
 
+### Regression Detection and Handling
+
+**CRITICAL**: The TDD workflow automatically detects regressions (tests failing in OTHER files due to your changes).
+
+**Failure Classification Labels**:
+| Label | Meaning | Action |
+|-------|---------|--------|
+| `failure:spec` | Target spec itself failing | Normal retry with fix instructions |
+| `failure:regression` | Changes broke OTHER tests | Auto-fix with regression instructions |
+| `failure:infra` | Infrastructure/flaky issue | Retry with longer delays |
+
+**What Happens When Regressions Are Detected**:
+1. CI classifies test failures as `target_only`, `regression_only`, or `mixed`
+2. `failure:regression` label added to PR and issue
+3. Regression Handler posts `@claude` comment with specific fix instructions
+4. Claude Code receives detailed analysis of failing specs and common patterns
+5. Claude fixes the regression WITHOUT modifying the failing tests
+6. Up to 3 retry attempts before marking as `tdd-spec:failed`
+
+**Common Regression Causes**:
+- **Greedy catch-all schemas**: `UnknownFieldSchema` with `type: Schema.String` catches valid types
+- **Validation bypass**: Removing/weakening validation that other tests rely on
+- **Type signature changes**: Breaking dependent code with new return types
+
+**Regression Fix Protocol**:
+```bash
+# 1. Run failing regression specs
+bun test:e2e -- <regression_specs>
+
+# 2. Analyze what you changed
+git diff HEAD~1 --name-only
+
+# 3. Fix without modifying tests
+# - Preserve existing validation
+# - Exclude known types from catch-alls
+# - Maintain backward compatibility
+
+# 4. Verify both specs pass
+bun test:e2e -- <target_spec>
+bun test:e2e -- <regression_specs>
+bun test:e2e:regression
+
+# 5. Push the fix
+git commit -m "fix: resolve regression in {SPEC-ID}"
+git push
+```
+
 ### Important Rules
 
 - **ALWAYS** run both agents (e2e-test-fixer then refactor-auditor)

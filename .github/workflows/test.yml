@@ -2,6 +2,8 @@ name: Test
 permissions:
   contents: read
   actions: write
+  issues: write
+  pull-requests: write
 
 on:
   push:
@@ -23,6 +25,10 @@ jobs:
     timeout-minutes: 20
     outputs:
       e2e_failed: ${{ steps.e2e.outcome == 'failure' && steps.e2e-retry.outcome == 'failure' }}
+      has_regressions: ${{ steps.classify-failures.outputs.has_regressions }}
+      regression_specs: ${{ steps.classify-failures.outputs.regression_specs }}
+      target_spec: ${{ steps.classify-failures.outputs.target_spec }}
+      failure_type: ${{ steps.classify-failures.outputs.failure_type }}
 
     steps:
       - name: Checkout code
@@ -138,6 +144,107 @@ jobs:
             echo "❌ E2E tests failed"
             exit 1
           fi
+
+      # Regression Detection: Classify failures as in-scope vs out-of-scope (regressions)
+      - name: Classify test failures
+        id: classify-failures
+        if: |
+          failure() &&
+          contains(github.event.pull_request.labels.*.name, 'tdd-automation')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "🔍 Classifying test failures for TDD automation PR..."
+
+          # Extract target spec from PR body (format: "Closes #ISSUE" -> get spec from issue)
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
+          TARGET_SPEC=""
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "📋 Found linked issue: #$ISSUE_NUMBER"
+            # Get spec file path from issue body
+            ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body' 2>/dev/null || echo "")
+            TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP '\*\*File\*\*:\s*`\K[^`]+' | head -1 || echo "")
+
+            if [ -z "$TARGET_SPEC" ]; then
+              # Fallback: extract from test file path pattern
+              TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP 'specs/[^\s:]+\.spec\.ts' | head -1 || echo "")
+            fi
+            echo "🎯 Target spec: $TARGET_SPEC"
+          fi
+
+          # Parse failed tests from test output (GitHub Actions annotations)
+          # Look for failed test files in the workflow logs
+          FAILED_SPECS=""
+
+          # Check test-results directory for failed test traces
+          if [ -d "test-results" ]; then
+            # Extract unique spec file paths from test-results directory names
+            FAILED_SPECS=$(find test-results -type d -name "*.spec.ts*" 2>/dev/null | \
+              sed 's|test-results/||' | \
+              sed 's|-chromium.*||' | \
+              sed 's|--.*||' | \
+              tr '-' '/' | \
+              sed 's|^|specs/|' | \
+              sed 's|$|.spec.ts|' | \
+              sort -u | tr '\n' ',' | sed 's/,$//')
+          fi
+
+          # Fallback: grep from workflow output if test-results parsing fails
+          if [ -z "$FAILED_SPECS" ]; then
+            echo "⚠️ Could not parse failed specs from test-results, checking annotations..."
+            FAILED_SPECS="unknown"
+          fi
+
+          echo "❌ Failed specs: $FAILED_SPECS"
+
+          # Classify failures
+          HAS_REGRESSIONS="false"
+          REGRESSION_SPECS=""
+          FAILURE_TYPE="unknown"
+
+          if [ -n "$TARGET_SPEC" ] && [ "$FAILED_SPECS" != "unknown" ]; then
+            # Check if any failed spec is NOT the target spec (regression)
+            IFS=',' read -ra SPECS_ARRAY <<< "$FAILED_SPECS"
+            for spec in "${SPECS_ARRAY[@]}"; do
+              spec=$(echo "$spec" | xargs)  # trim whitespace
+              if [ -n "$spec" ] && [ "$spec" != "$TARGET_SPEC" ]; then
+                HAS_REGRESSIONS="true"
+                if [ -z "$REGRESSION_SPECS" ]; then
+                  REGRESSION_SPECS="$spec"
+                else
+                  REGRESSION_SPECS="$REGRESSION_SPECS,$spec"
+                fi
+              fi
+            done
+
+            # Determine failure type
+            if [ "$HAS_REGRESSIONS" = "true" ]; then
+              # Check if target spec also failed
+              if echo "$FAILED_SPECS" | grep -q "$TARGET_SPEC"; then
+                FAILURE_TYPE="mixed"  # Both target and regressions
+              else
+                FAILURE_TYPE="regression_only"  # Only regressions, target passes
+              fi
+            else
+              FAILURE_TYPE="target_only"  # Only target spec failed
+            fi
+          fi
+
+          echo ""
+          echo "📊 Classification Results:"
+          echo "  Target spec: $TARGET_SPEC"
+          echo "  Failed specs: $FAILED_SPECS"
+          echo "  Has regressions: $HAS_REGRESSIONS"
+          echo "  Regression specs: $REGRESSION_SPECS"
+          echo "  Failure type: $FAILURE_TYPE"
+
+          # Output results
+          echo "has_regressions=$HAS_REGRESSIONS" >> $GITHUB_OUTPUT
+          echo "regression_specs=$REGRESSION_SPECS" >> $GITHUB_OUTPUT
+          echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
+          echo "failure_type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
 
       - name: Upload Playwright report
         if: failure()
@@ -313,3 +420,154 @@ jobs:
             || echo "⚠️  Branch may already be deleted"
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # Regression Handler: Trigger Claude to fix regressions detected in TDD PRs
+  handle-regressions:
+    name: Handle TDD Regressions
+    needs: test
+    if: |
+      failure() &&
+      needs.test.outputs.has_regressions == 'true' &&
+      contains(github.event.pull_request.labels.*.name, 'tdd-automation')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Add regression label to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🏷️  Adding failure:regression label to PR #$PR_NUMBER"
+          gh pr edit "$PR_NUMBER" --add-label "failure:regression" || true
+
+      - name: Extract issue and failure details
+        id: details
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          REGRESSION_SPECS: ${{ needs.test.outputs.regression_specs }}
+          TARGET_SPEC: ${{ needs.test.outputs.target_spec }}
+          FAILURE_TYPE: ${{ needs.test.outputs.failure_type }}
+        run: |
+          # Extract issue number
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+
+          # Get spec ID from issue
+          SPEC_ID=""
+          if [ -n "$ISSUE_NUMBER" ]; then
+            ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --json title --jq '.title' 2>/dev/null || echo "")
+            SPEC_ID=$(echo "$ISSUE_TITLE" | grep -oP '[A-Z]+-[A-Z]+-[0-9]+' | head -1 || echo "unknown")
+          fi
+          echo "spec_id=$SPEC_ID" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "📋 Regression Details:"
+          echo "  Issue: #$ISSUE_NUMBER"
+          echo "  Spec ID: $SPEC_ID"
+          echo "  Target spec: $TARGET_SPEC"
+          echo "  Regression specs: $REGRESSION_SPECS"
+          echo "  Failure type: $FAILURE_TYPE"
+
+      - name: Post regression fix instructions to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ steps.details.outputs.issue_number }}
+          SPEC_ID: ${{ steps.details.outputs.spec_id }}
+          REGRESSION_SPECS: ${{ needs.test.outputs.regression_specs }}
+          TARGET_SPEC: ${{ needs.test.outputs.target_spec }}
+          FAILURE_TYPE: ${{ needs.test.outputs.failure_type }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          cat << 'EOF' > /tmp/comment.md
+          ## 🔧 Regression Detected - Auto-Fix Required
+
+          @claude This PR has **regressions** - tests failing in files OTHER than the target spec.
+
+          ### 📊 Failure Analysis
+          - **Target Spec**: `$TARGET_SPEC`
+          - **Regression Specs**: `$REGRESSION_SPECS`
+          - **Failure Type**: `$FAILURE_TYPE`
+          - **Spec ID**: `$SPEC_ID`
+          - **Issue**: #$ISSUE_NUMBER
+
+          ### 🤖 Auto-Fix Instructions
+
+          **CRITICAL**: Your changes broke tests in other files. This is a **regression** that must be fixed.
+
+          1. **Analyze the regression cause**:
+             - Run `bun test:e2e -- $REGRESSION_SPECS` to see the failing tests
+             - Check what code you changed that could affect these tests
+             - Look for **catch-all patterns** that are too greedy (like `Schema.String` catching valid types)
+
+          2. **Common regression causes**:
+             - **Greedy catch-all schemas**: `UnknownFieldSchema` with `type: Schema.String` will match ANY field type, including valid ones that fail validation on their specific schema
+             - **Changed validation logic**: Making validation more permissive can let invalid data through
+             - **Type changes**: Changing a type signature can break dependent code
+
+          3. **Fix the regression**:
+             - Ensure your changes don't bypass existing validation
+             - For catch-all schemas: explicitly EXCLUDE known types
+             - Test that BOTH your target spec AND regression specs pass
+
+          4. **Verify the fix**:
+             ```bash
+             bun run quality
+             bun test:e2e -- $TARGET_SPEC
+             bun test:e2e -- $REGRESSION_SPECS
+             bun test:e2e:regression
+             ```
+
+          5. **Push the fix**:
+             ```bash
+             bun run license
+             git add -A
+             git commit -m "fix: resolve regression in $SPEC_ID"
+             git push
+             ```
+
+          ### ⚠️ DO NOT:
+          - Modify the failing tests to make them pass
+          - Revert your entire implementation
+          - Skip regression tests
+
+          ---
+          *🤖 Regression Handler - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+          EOF
+
+          # Substitute environment variables in the comment
+          envsubst < /tmp/comment.md > /tmp/comment_final.md
+
+          gh pr comment "$PR_NUMBER" --body-file /tmp/comment_final.md
+
+          echo "✅ Posted regression fix instructions to PR #$PR_NUMBER"
+
+      - name: Update issue with regression status
+        if: steps.details.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.details.outputs.issue_number }}
+          REGRESSION_SPECS: ${{ needs.test.outputs.regression_specs }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body "⚠️ **Regression Detected**
+
+          The PR for this spec has introduced regressions in other test files:
+          - **Regression specs**: \`$REGRESSION_SPECS\`
+
+          Claude Code will attempt to auto-fix the regression. If unsuccessful after 3 attempts, this issue will be marked as \`tdd-spec:failed\`.
+
+          ---
+          *🤖 Regression Handler*"
+
+          # Add regression label to issue
+          gh issue edit "$ISSUE_NUMBER" --add-label "failure:regression" || true

@@ -197,6 +197,100 @@ The agent respects pipeline configuration (hardcoded in workflows):
 - **Validation requirements**: Must pass regression tests before committing
 - **Auto-merge**: Enabled with squash merge after validation passes
 
+### Regression Detection and Auto-Fix
+
+**CRITICAL**: The TDD workflow now automatically detects and classifies regressions. When your changes break tests in OTHER files (not your target spec), you'll receive a `@claude` comment with regression fix instructions.
+
+**Regression Detection Triggers**:
+- CI fails with `failure:regression` label added to PR
+- Comment contains "Regression Detected - Auto-Fix Required"
+- Failure type is `regression_only` or `mixed`
+
+**When You Receive a Regression Fix Request**:
+
+1. **Understand the Failure Classification**:
+   - `regression_only`: Your target spec passes, but OTHER specs fail (your changes broke them)
+   - `mixed`: Both your target spec AND other specs fail
+   - `target_only`: Only your target spec fails (normal TDD retry)
+
+2. **Analyze the Regression Cause**:
+   ```bash
+   # Run the failing regression specs
+   bun test:e2e -- <regression_specs>
+
+   # Check what you changed
+   git diff HEAD~1 --name-only
+   ```
+
+3. **Common Regression Patterns and Fixes**:
+
+   **Pattern A: Greedy Catch-All Schema**
+   ```typescript
+   // ❌ PROBLEM: Catches valid types that fail their specific schema validation
+   export const UnknownFieldSchema = Schema.Struct({
+     type: Schema.String,  // Accepts ANY string - too greedy!
+   })
+
+   // ✅ FIX: Explicitly exclude known types
+   const KNOWN_FIELD_TYPES = ['single-select', 'status', ...] as const
+   export const UnknownFieldSchema = Schema.Struct({
+     type: Schema.String.pipe(
+       Schema.filter((t) => !KNOWN_FIELD_TYPES.includes(t as any),
+         { message: () => 'Must be an unknown field type' }
+       )
+     ),
+   })
+   ```
+
+   **Pattern B: Validation Bypass**
+   ```typescript
+   // ❌ PROBLEM: Removed/weakened validation that other tests rely on
+   // Original: Schema.minItems(1) on options array
+   // Changed: No minimum, empty arrays allowed
+
+   // ✅ FIX: Preserve existing validation, add new behavior carefully
+   // Keep Schema.minItems(1) for existing field types
+   // Only allow empty for new/special cases if explicitly needed
+   ```
+
+   **Pattern C: Type Signature Change**
+   ```typescript
+   // ❌ PROBLEM: Changed return type that breaks dependent code
+   // Original: () => string
+   // Changed: () => string | undefined
+
+   // ✅ FIX: Maintain backward compatibility or update all dependents
+   ```
+
+4. **Fix Protocol**:
+   - **DO NOT** modify the failing tests
+   - **DO** fix your implementation to not break existing behavior
+   - **DO** run both target AND regression specs before pushing
+   - **DO** commit with message: `fix: resolve regression in {SPEC-ID}`
+
+5. **Verification Before Push**:
+   ```bash
+   bun run quality
+   bun test:e2e -- <target_spec>      # Your spec must still pass
+   bun test:e2e -- <regression_specs>  # Fixed regressions must pass
+   bun test:e2e:regression            # Full regression suite
+   ```
+
+**Regression Fix Workflow**:
+```
+CI fails with regressions
+       ↓
+Regression Handler posts @claude comment
+       ↓
+You analyze failure (Pattern A/B/C?)
+       ↓
+Fix implementation WITHOUT modifying tests
+       ↓
+Verify both target + regression specs pass
+       ↓
+Push fix → CI re-runs → Success or retry (max 3)
+```
+
 ### Handoff to codebase-refactor-auditor
 
 In pipeline mode, automatic handoff occurs when:

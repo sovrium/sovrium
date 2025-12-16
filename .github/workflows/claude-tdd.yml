@@ -596,17 +596,17 @@ jobs:
             echo "❌ Max retries exhausted ($MAX_RETRIES)"
             echo "should_retry=false" >> $GITHUB_OUTPUT
 
-            # Mark as failed with appropriate label
+            # Mark as failed with appropriate label (using failure:* prefix for consistency)
             if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
               gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
                 --remove-label "tdd-spec:in-progress" \
                 --add-label "tdd-spec:failed" \
-                --add-label "code-error" 2>/dev/null || true
+                --add-label "failure:spec" 2>/dev/null || true
             else
               gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
                 --remove-label "tdd-spec:in-progress" \
                 --add-label "tdd-spec:failed" \
-                --add-label "infrastructure-error" 2>/dev/null || true
+                --add-label "failure:infra" 2>/dev/null || true
             fi
 
             # Build failure message based on error type

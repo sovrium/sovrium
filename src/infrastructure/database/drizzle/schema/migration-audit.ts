@@ -47,6 +47,7 @@ export const sovriumSchemaChecksum = pgTable('_sovrium_schema_checksum', {
   id: text('id').primaryKey(),
   checksum: text('checksum').notNull(),
   schema: jsonb('schema').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 })
 
 // Type exports for consumers

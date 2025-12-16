@@ -112,10 +112,10 @@ export const storeSchemaChecksum = (
     // Use INSERT ... ON CONFLICT to update existing singleton row or create new one
     const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
     const upsertSQL = `
-      INSERT INTO _sovrium_schema_checksum (id, checksum, schema)
-      VALUES ('singleton', '${checksum}', '${escapedSchema}')
+      INSERT INTO _sovrium_schema_checksum (id, checksum, schema, updated_at)
+      VALUES ('singleton', '${checksum}', '${escapedSchema}', NOW())
       ON CONFLICT (id)
-      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema
+      DO UPDATE SET checksum = EXCLUDED.checksum, schema = EXCLUDED.schema, updated_at = NOW()
     `
     yield* executeSQL(tx, upsertSQL)
     logInfo('[storeSchemaChecksum] Schema checksum stored successfully')

@@ -13,11 +13,7 @@ import {
   type TransactionLike,
   type SQLExecutionError,
 } from './sql-execution'
-import {
-  mapFieldTypeToPostgres,
-  generateColumnDefinition,
-  isFieldNotNull,
-} from './sql-generators'
+import { mapFieldTypeToPostgres, generateColumnDefinition, isFieldNotNull } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
