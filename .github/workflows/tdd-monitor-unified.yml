@@ -771,7 +771,13 @@ jobs:
           RECOVERED_COUNT=0
           ESCALATED_COUNT=0
 
-          echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
+          # Pre-calculate cooldown cutoff time (fixes variable expansion in jq)
+          CUTOFF_TIME=$(date -u -d "${COOLDOWN_MINUTES} minutes ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${COOLDOWN_MINUTES}M +%Y-%m-%dT%H:%M:%SZ)
+
+          # Use process substitution to avoid subshell variable scope issue
+          while read -r pr; do
+            [ -z "$pr" ] && continue
+
             PR_NUMBER=$(echo "$pr" | jq -r '.number')
             HEAD_REF=$(echo "$pr" | jq -r '.headRefName')
             LABELS=$(echo "$pr" | jq -r '.labels[].name' | tr '\n' ' ')
@@ -780,15 +786,15 @@ jobs:
             # Extract linked issue number from PR body
             ISSUE_NUMBER=$(echo "$BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
 
-            # Check if Test check failed
-            TEST_FAILED=$(echo "$pr" | jq -r '.statusCheckRollup[]? | select(.name == "Test" and .conclusion == "FAILURE") | .name' 2>/dev/null | head -1)
+            # Check if any Test* check failed (matches "Test", "Test E2E", etc.)
+            TEST_FAILED=$(echo "$pr" | jq -r '.statusCheckRollup[]? | select(.name | startswith("Test")) | select(.conclusion == "FAILURE") | .name' 2>/dev/null | head -1)
 
             if [ -z "$TEST_FAILED" ]; then
               continue
             fi
 
             echo ""
-            echo "⚠️  PR #$PR_NUMBER has failed CI"
+            echo "⚠️  PR #$PR_NUMBER has failed CI (check: $TEST_FAILED)"
 
             # Skip if already marked for manual resolution
             if echo "$LABELS" | grep -q "needs-manual-resolution"; then
@@ -796,10 +802,11 @@ jobs:
               continue
             fi
 
-            # Check for recent "@claude" fix comment (cooldown period)
+            # Check for recent fix comments (cooldown period)
+            # Matches both this job's comments AND test.yml's handle-regressions comments
             RECENT_FIX_COMMENT=$(gh api \
               "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Detected\")) | select(.created_at > \"$(date -u -d "${COOLDOWN_MINUTES} minutes ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${COOLDOWN_MINUTES}M +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Detected - Auto-Fix Required\")) | select(.created_at > \"${CUTOFF_TIME}\")] | length" 2>/dev/null || echo "0")
 
             if [ "$RECENT_FIX_COMMENT" -gt 0 ]; then
               echo "   ⏭️  Skipping - fix already triggered within last ${COOLDOWN_MINUTES} minutes"
@@ -841,6 +848,8 @@ jobs:
                 gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
                   --remove-label "tdd-spec:in-progress" \
                   --add-label "tdd-spec:failed" 2>/dev/null || true
+              else
+                echo "   ⚠️  No linked issue found - cannot update issue state"
               fi
             else
               NEXT_ATTEMPT=$((FIX_ATTEMPTS + 1))
@@ -906,7 +915,7 @@ jobs:
               ---
               *🤖 TDD Monitor (Unified)*"
             fi
-          done
+          done < <(echo "$PRS" | jq -r '.[] | @json')
 
           if [ "$RECOVERED_COUNT" -gt 0 ]; then
             echo ""
