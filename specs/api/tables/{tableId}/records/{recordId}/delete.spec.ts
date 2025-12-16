@@ -13,7 +13,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/delete.json
  * Domain: api
- * Spec Count: 16
+ * Spec Count: 19
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp (soft delete by default)
@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Soft-deleted records can be restored via POST /restore endpoint
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (15 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (18 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -681,11 +681,173 @@ test.describe('Delete record', () => {
   )
 
   // ============================================================================
+  // Activity Log Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-016: should create activity log entry when record is soft-deleted',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Application with auth and activity logging configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 18,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
+
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status)
+        VALUES (1, 'Task to Delete', 'pending')
+      `)
+
+      // WHEN: User soft-deletes the record
+      const response = await request.delete('/api/tables/1/records/1', {})
+
+      expect(response.status()).toBe(204)
+
+      // THEN: Activity log entry is created with before state
+      const logs = await executeQuery(`
+        SELECT * FROM _sovrium_activity_logs
+        WHERE table_name = 'tasks' AND action = 'delete' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows).toHaveLength(1)
+      const log = logs.rows[0]
+      expect(log.action).toBe('delete')
+      expect(log.user_id).toBe(user.id)
+      expect(log.table_id).toBe('1')
+      expect(log.record_id).toBe('1')
+
+      // Parse and verify changes field
+      const changes = JSON.parse(log.changes)
+      expect(changes.before).toBeDefined()
+      expect(changes.before.title).toBe('Task to Delete')
+      expect(changes.before.status).toBe('pending')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-017: should create activity log entry when record is permanently deleted',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Admin user with permanent delete permission
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 19,
+            name: 'logs',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'message', type: 'single-line-text', required: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      const { user } = await createAuthenticatedUser({
+        email: 'admin@example.com',
+        role: 'admin',
+      })
+
+      await executeQuery(`
+        INSERT INTO logs (id, message) VALUES (1, 'Log entry')
+      `)
+
+      // WHEN: Admin permanently deletes the record
+      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+
+      expect(response.status()).toBe(204)
+
+      // THEN: Activity log entry is created for permanent delete
+      const logs = await executeQuery(`
+        SELECT * FROM _sovrium_activity_logs
+        WHERE table_name = 'logs' AND action = 'delete' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows).toHaveLength(1)
+      const log = logs.rows[0]
+      expect(log.action).toBe('delete')
+      expect(log.user_id).toBe(user.id)
+
+      // Verify changes.before contains record state before deletion
+      const changes = JSON.parse(log.changes)
+      expect(changes.before.message).toBe('Log entry')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-DELETE-018: should capture user_id who deleted the record',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Two users with different permissions
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 20,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      const { user: adminUser } = await createAuthenticatedUser({
+        email: 'admin@example.com',
+        role: 'admin',
+      })
+
+      await executeQuery(`
+        INSERT INTO items (id, name) VALUES (1, 'Item A')
+      `)
+
+      // WHEN: Admin deletes the record
+      const response = await request.delete('/api/tables/1/records/1', {})
+
+      expect(response.status()).toBe(204)
+
+      // THEN: Activity log correctly attributes deletion to admin user
+      const logs = await executeQuery(`
+        SELECT user_id FROM _sovrium_activity_logs
+        WHERE table_name = 'items' AND action = 'delete' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows[0].user_id).toBe(adminUser.id)
+    }
+  )
+
+  // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-016: user can complete full soft delete workflow',
+    'API-TABLES-RECORDS-DELETE-019: user can complete full soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with contacts table', async () => {
@@ -743,7 +905,9 @@ test.describe('Delete record', () => {
         const permanentResponse = await request.delete('/api/tables/1/records/2?permanent=true', {})
         expect(permanentResponse.status()).toBe(204)
 
-        const verifyPermanent = await executeQuery(`SELECT COUNT(*) as count FROM contacts WHERE id=2`)
+        const verifyPermanent = await executeQuery(
+          `SELECT COUNT(*) as count FROM contacts WHERE id=2`
+        )
         expect(verifyPermanent.rows[0].count).toBe(0)
       })
 

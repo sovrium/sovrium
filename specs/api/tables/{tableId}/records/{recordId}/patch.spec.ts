@@ -709,11 +709,191 @@ test.describe('Update record', () => {
   )
 
   // ============================================================================
+  // Activity Log Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-UPDATE-015: should create activity log entry when record is updated',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Application with auth and activity logging configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 15,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
+
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status)
+        VALUES (1, 'Original Title', 'pending')
+      `)
+
+      // WHEN: User updates the record
+      const response = await request.patch('/api/tables/1/records/1', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          title: 'Updated Title',
+          status: 'completed',
+        },
+      })
+
+      expect(response.status()).toBe(200)
+
+      // THEN: Activity log entry is created with before and after values
+      const logs = await executeQuery(`
+        SELECT * FROM _sovrium_activity_logs
+        WHERE table_name = 'tasks' AND action = 'update' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows).toHaveLength(1)
+      const log = logs.rows[0]
+      expect(log.action).toBe('update')
+      expect(log.user_id).toBe(user.id)
+      expect(log.table_id).toBe('1')
+      expect(log.record_id).toBe('1')
+
+      // Parse and verify changes field
+      const changes = JSON.parse(log.changes)
+      expect(changes.before.title).toBe('Original Title')
+      expect(changes.before.status).toBe('pending')
+      expect(changes.after.title).toBe('Updated Title')
+      expect(changes.after.status).toBe('completed')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-UPDATE-016: should only log changed fields in activity log',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Record with multiple fields
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 16,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'email', type: 'email', required: true },
+              { id: 4, name: 'phone', type: 'phone-number' },
+            ],
+          },
+        ],
+      })
+
+      await createAuthenticatedUser()
+
+      await executeQuery(`
+        INSERT INTO contacts (id, name, email, phone)
+        VALUES (1, 'John Doe', 'john@example.com', '555-1234')
+      `)
+
+      // WHEN: User updates only some fields
+      const response = await request.patch('/api/tables/1/records/1', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Jane Doe',
+        },
+      })
+
+      expect(response.status()).toBe(200)
+
+      // THEN: Activity log captures only changed fields
+      const logs = await executeQuery(`
+        SELECT changes FROM _sovrium_activity_logs
+        WHERE table_name = 'contacts' AND action = 'update' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      const changes = JSON.parse(logs.rows[0].changes)
+      expect(changes.before.name).toBe('John Doe')
+      expect(changes.after.name).toBe('Jane Doe')
+
+      // Unchanged fields should still be logged for context
+      expect(changes.after.email).toBe('john@example.com')
+      expect(changes.after.phone).toBe('555-1234')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-UPDATE-017: should capture user_id who made the update',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Two different users in the system
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 17,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+            ],
+          },
+        ],
+      })
+
+      const { user: user1 } = await createAuthenticatedUser({
+        email: 'user1@example.com',
+      })
+
+      await executeQuery(`
+        INSERT INTO items (id, name) VALUES (1, 'Item A')
+      `)
+
+      // WHEN: User1 updates the record
+      const response = await request.patch('/api/tables/1/records/1', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Item B',
+        },
+      })
+
+      expect(response.status()).toBe(200)
+
+      // THEN: Activity log correctly attributes update to user1
+      const logs = await executeQuery(`
+        SELECT user_id FROM _sovrium_activity_logs
+        WHERE table_name = 'items' AND action = 'update' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows[0].user_id).toBe(user1.id)
+    }
+  )
+
+  // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-015: user can complete full record update workflow',
+    'API-TABLES-RECORDS-UPDATE-018: user can complete full record update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with employees table', async () => {

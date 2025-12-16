@@ -48,7 +48,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1", "priority": 5}', NOW())
         RETURNING id
       `)
@@ -142,7 +142,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
 
       // Create activity in org2
       const activityResult = await executeQuery(`
-        INSERT INTO activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
         VALUES ('${user2.user.id}', 'create', 'tasks', 1, '{"title": "Org2 Task"}', 'org2', NOW())
         RETURNING id
       `)
@@ -183,7 +183,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser({ name: 'Bob Smith' })
 
       const activityResult = await executeQuery(`
-        INSERT INTO activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Old", "new": "New"}}', NOW())
         RETURNING id
       `)
@@ -226,7 +226,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES ('${user.id}', 'delete', 'tasks', 1, NULL, NOW())
         RETURNING id
       `)
@@ -331,7 +331,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         userId = user.id
 
         const result = await executeQuery(`
-          INSERT INTO activity_logs (user_id, action, table_name, record_id, changes, created_at)
+          INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
           VALUES (
             '${userId}',
             'update',

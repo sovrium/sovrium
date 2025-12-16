@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/post.json
  * Domain: api
- * Spec Count: 20
+ * Spec Count: 21
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (20 tests) - Exhaustive acceptance criteria
@@ -734,7 +734,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-019: should create activity log entry when record is created',
+    'API-TABLES-RECORDS-CREATE-018: should create activity log entry when record is created',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging configured
@@ -794,7 +794,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-020: should include all fields in activity log changes.after',
+    'API-TABLES-RECORDS-CREATE-019: should include all fields in activity log changes.after',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with multiple fields configured
@@ -848,7 +848,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-021: should set organization_id from session in activity log',
+    'API-TABLES-RECORDS-CREATE-020: should set organization_id from session in activity log',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Multi-tenant application with organization isolation
@@ -902,7 +902,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-018: user can complete full record creation workflow',
+    'API-TABLES-RECORDS-CREATE-021: user can complete full record creation workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {

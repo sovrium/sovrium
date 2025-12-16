@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/restore/post.json
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 10
  *
  * Restore Behavior:
  * - POST /restore clears deleted_at timestamp on soft-deleted records
@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Permissions: Same as delete (member+ can restore)
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (7 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (9 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -257,7 +257,7 @@ test.describe('Restore record', () => {
         auth: { emailAndPassword: true },
         tables: [
           {
-            id: 7,
+            id: 1,
             name: 'items',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text', required: true },
@@ -289,11 +289,121 @@ test.describe('Restore record', () => {
   )
 
   // ============================================================================
+  // Activity Log Tests
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-RESTORE-008: should create activity log entry when record is restored',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Application with auth and activity logging configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 8,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
+
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status, deleted_at)
+        VALUES (1, 'Deleted Task', 'completed', NOW())
+      `)
+
+      // WHEN: User restores the soft-deleted record
+      const response = await request.post('/api/tables/1/records/1/restore', {})
+
+      expect(response.status()).toBe(200)
+
+      // THEN: Activity log entry is created for restore action
+      const logs = await executeQuery(`
+        SELECT * FROM _sovrium_activity_logs
+        WHERE table_name = 'tasks' AND action = 'restore' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows).toHaveLength(1)
+      const log = logs.rows[0]
+      expect(log.action).toBe('restore')
+      expect(log.user_id).toBe(user.id)
+      expect(log.table_id).toBe('1')
+      expect(log.record_id).toBe('1')
+
+      // Parse and verify changes field contains restored state
+      const changes = JSON.parse(log.changes)
+      expect(changes.after).toBeDefined()
+      expect(changes.after.title).toBe('Deleted Task')
+      expect(changes.after.status).toBe('completed')
+      expect(changes.after.deleted_at).toBeNull()
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-RESTORE-009: should capture user_id who restored the record',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Two users with different roles
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 9,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'autonumber', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      const { user: adminUser } = await createAuthenticatedUser({
+        email: 'admin@example.com',
+        role: 'admin',
+      })
+
+      await executeQuery(`
+        INSERT INTO items (id, name, deleted_at)
+        VALUES (1, 'Item A', NOW())
+      `)
+
+      // WHEN: Admin restores the record
+      const response = await request.post('/api/tables/1/records/1/restore', {})
+
+      expect(response.status()).toBe(200)
+
+      // THEN: Activity log correctly attributes restore to admin user
+      const logs = await executeQuery(`
+        SELECT user_id FROM _sovrium_activity_logs
+        WHERE table_name = 'items' AND action = 'restore' AND record_id = '1'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `)
+
+      expect(logs.rows[0].user_id).toBe(adminUser.id)
+    }
+  )
+
+  // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-RESTORE-008: user can complete full record restore workflow',
+    'API-TABLES-RECORDS-RESTORE-010: user can complete full record restore workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with tasks table', async () => {
