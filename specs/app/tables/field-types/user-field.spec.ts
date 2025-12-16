@@ -320,6 +320,26 @@ test.describe('User Field', () => {
           /violates not-null constraint/
         )
       })
+
+      await test.step('Error handling: user field without auth config is rejected', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            // No auth config!
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'assignee', type: 'user' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+              },
+            ],
+          })
+        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
+      })
     }
   )
 })
