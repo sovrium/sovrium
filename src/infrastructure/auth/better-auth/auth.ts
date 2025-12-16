@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, apiKey, twoFactor } from 'better-auth/plugins'
+import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
 import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -247,12 +247,18 @@ const AUTH_TABLE_NAMES = {
   organization: '_sovrium_auth_organizations',
   member: '_sovrium_auth_members',
   invitation: '_sovrium_auth_invitations',
-  apiKey: '_sovrium_auth_api_keys',
+  // apiKey: '_sovrium_auth_api_keys', // Disabled: Better Auth v1.4.4 has schema merging bug
   twoFactor: '_sovrium_auth_two_factors',
 } as const
 
 /**
  * Build Better Auth plugins array with custom table names
+ *
+ * Note: apiKey plugin is disabled due to schema merging bug in Better Auth v1.4.4.
+ * The error occurs when trying to set custom table names:
+ * "TypeError: undefined is not an object (evaluating 'schema[table].modelName = newModelName')"
+ * This prevents the apiKey plugin from merging its schema with the provided custom table name.
+ * TODO: Re-enable apiKey plugin when Better Auth fixes the schema merging issue
  */
 const buildAuthPlugins = (handlers: Readonly<ReturnType<typeof createEmailHandlers>>) => [
   openAPI({ disableDefaultReference: true }),
@@ -265,7 +271,7 @@ const buildAuthPlugins = (handlers: Readonly<ReturnType<typeof createEmailHandle
       invitation: { modelName: AUTH_TABLE_NAMES.invitation },
     },
   }),
-  apiKey({ schema: { apikey: { modelName: AUTH_TABLE_NAMES.apiKey } } }),
+  // apiKey plugin disabled - see comment above
   twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
 ]
 
