@@ -550,7 +550,9 @@ git push
 ```
 Push new tests → Scan → Create spec issues → Queue
                                                ↓
-         Processor picks oldest spec (every 15 min, configured PAT account)
+         Processor picks HIGHEST PRIORITY spec (every 15 min)
+         Priority order: APP → MIG → STATIC → API → ADMIN
+         Within domain: Alphabetical by feature, then test number
                                                ↓
                               Mark in-progress + Post @claude mention
                                                ↓
@@ -565,6 +567,31 @@ Push new tests → Scan → Create spec issues → Queue
                         Pass → Auto-merge → Issue closes → Next spec
                         Fail (3x) → Mark failed → Next spec
 ```
+
+### Queue Priority System
+
+Specs are processed by **priority**, not creation order. Priority is calculated from the spec ID:
+
+```
+Priority = Domain Base + Feature Priority + Test Offset
+
+Domain bases (lower = higher priority):
+- APP: 0           (runs first)
+- MIG: 1,000,000   (runs after APP)
+- STATIC: 2,000,000
+- API: 3,000,000
+- ADMIN: 4,000,000 (runs last)
+
+Within each domain:
+- Features sorted alphabetically (THEME before VERSION)
+- Tests run in order: 001 → 002 → ... → REGRESSION (last)
+```
+
+**Example execution order**:
+1. `APP-THEME-001` (priority: ~570,001)
+2. `APP-THEME-REGRESSION` (priority: ~570,900)
+3. `APP-VERSION-001` (priority: ~660,001)
+4. `MIGRATION-ERROR-001` (priority: ~1,120,001)
 
 ### Queue Status & Monitoring
 

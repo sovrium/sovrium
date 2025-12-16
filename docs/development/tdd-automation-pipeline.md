@@ -17,7 +17,7 @@ graph TD
     F[Scheduled/Manual] --> G[Queue Processor]
     G --> H{Any in-progress?}
     H -->|Yes| I[Exit]
-    H -->|No| J[Pick Oldest Spec]
+    H -->|No| J[Pick Highest Priority Spec]
     J --> K[Mark In-Progress]
     K --> L[Auto-Comment @claude]
     L --> M[Claude Code Triggers]
@@ -32,6 +32,8 @@ graph TD
     U --> O
     T --> V[Next Iteration]
 ```
+
+> **Priority Order**: APP → MIG → STATIC → API → ADMIN. Within each domain, specs are sorted alphabetically by feature, then by test number (001 before 002, REGRESSION last).
 
 ## Components
 
@@ -97,7 +99,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
 **Key Steps**:
 
 1. Check if any spec is in-progress
-2. If none, pick oldest queued spec
+2. If none, pick **highest priority** queued spec (see Priority Order above)
 3. Mark issue as in-progress
 4. Post @claude comment with complete workflow instructions
 5. Exit (no waiting - **Claude Code creates branch and PR later**)
@@ -331,7 +333,7 @@ Every 15 minutes (or manual):
 1. **Workflow triggers**: `tdd-queue-processor.yml`
 2. **Check in-progress**: Query issues with `tdd-spec:in-progress` label
 3. **If any exist**: Exit (strict serial - one at a time)
-4. **If none**: Pick oldest issue with `tdd-spec:queued` label
+4. **If none**: Pick **highest priority** issue with `tdd-spec:queued` label (priority: APP → MIG → STATIC → API → ADMIN, then alphabetically)
 5. **Validate issue state** (⚠️ NEW - Duplicate Prevention):
    - Check if issue is still open (not closed)
    - Check for existing open PRs for this issue
@@ -940,8 +942,8 @@ Remove or comment out the "Enable auto-merge" step.
 ### Planned
 
 - [ ] Parallel processing (2-3 specs at once)
-- [ ] Priority queue (high-priority specs first)
-- [ ] Automatic retries (with exponential backoff)
+- [x] Priority queue (high-priority specs first) - **Implemented**: `schema-priority-calculator.ts`
+- [x] Automatic retries (up to 3 attempts) - **Implemented**: `retry:spec:1/2/3` labels
 - [ ] Slack notifications
 - [ ] Cost tracking dashboard
 

@@ -59,4 +59,4 @@ Validation runs automatically on every push.
 
 ---
 
-**Note**: This issue is part of the TDD automation queue. The system will process specs one at a time in FIFO order.
+**Note**: This issue is part of the TDD automation queue. The system processes specs one at a time by **priority** (APP → MIG → STATIC → API → ADMIN, then alphabetically within each domain).
