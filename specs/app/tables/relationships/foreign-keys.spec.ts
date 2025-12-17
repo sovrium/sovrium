@@ -283,7 +283,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-006: should support self-referential relationships for tree structures',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
