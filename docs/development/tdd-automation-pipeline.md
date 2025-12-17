@@ -1421,11 +1421,17 @@ gh issue comment {ISSUE_NUMBER} \
 ---
 
 **Last Updated**: 2025-12-17
-**Version**: 2.5.1 (Queue System + Self-Healing Safeguards + PR Body Auto-Fix)
+**Version**: 2.5.2 (Queue System + Self-Healing Safeguards + Race Condition Fixes)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-17 (v2.5.2)**: Fixed race conditions in conflict resolution to fix PR #6073 incident:
+  - **Pre-conflict superseded check**: `tdd-monitor.yml` now checks for empty-diff PRs BEFORE attempting conflict resolution
+  - **@claude cooldown (10 min)**: Skips posting @claude comments if one was posted in last 10 minutes (prevents duplicate runs)
+  - **Escalation wait (15 min)**: Waits 15 minutes before escalating to `needs-manual-resolution` (gives Claude time to finish)
+  - **Root cause**: Multiple jobs posted @claude comments in rapid succession, and escalated before Claude could finish
+  - **Learning**: Event-driven workflows need coordination primitives (cooldowns, wait times) to prevent race conditions
 - **2025-12-17 (v2.5.1)**: Added PR body validation to fix issue #5987 incident (orphaned issues):
   - **Root cause**: Claude Code wrote detailed PR descriptions instead of simple `Closes #<issue>` format
   - **PR body validation step**: `tdd-execute.yml` now validates PR body contains auto-close keyword
