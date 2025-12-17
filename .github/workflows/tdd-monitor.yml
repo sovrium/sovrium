@@ -563,6 +563,83 @@ jobs:
             echo "✅ All PR branches are up-to-date"
           fi
 
+      - name: Detect and close empty diff PRs (superseded)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🔍 Checking for PRs with empty diff (superseded by main)..."
+
+          PRS=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --label "tdd-automation" \
+            --state open \
+            --json number,title,headRefName,body \
+            --limit 50)
+
+          CLOSED_COUNT=0
+
+          # Use process substitution to avoid subshell variable scope issue
+          while read -r pr; do
+            [ -z "$pr" ] && continue
+
+            PR_NUMBER=$(echo "$pr" | jq -r '.number')
+            TITLE=$(echo "$pr" | jq -r '.title')
+            HEAD_REF=$(echo "$pr" | jq -r '.headRefName')
+            BODY=$(echo "$pr" | jq -r '.body')
+
+            # Check if PR has any meaningful diff from main
+            DIFF_LINES=$(gh pr diff "$PR_NUMBER" --repo ${{ github.repository }} 2>/dev/null | wc -l | tr -d ' ')
+
+            if [ "$DIFF_LINES" -eq 0 ] || [ -z "$DIFF_LINES" ]; then
+              echo ""
+              echo "⚠️  PR #$PR_NUMBER has empty diff (superseded by main)"
+              echo "   Title: $TITLE"
+              echo "   Closing as superseded..."
+
+              # Extract linked issue number from PR body
+              ISSUE_NUMBER=$(echo "$BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+
+              # Close the PR with explanation
+              gh pr close "$PR_NUMBER" --repo ${{ github.repository }} \
+                --comment "🔄 **PR Closed: Superseded by Main**
+
+              This PR has an empty diff compared to main, meaning the changes have already been merged through another commit.
+
+              **What happened**:
+              - The implementation in this PR was superseded by changes merged to main
+              - After syncing with main, there are no unique changes left in this PR
+              - This is not a failure - the work is complete, just via a different path
+
+              **Issue status**: $([ -n "$ISSUE_NUMBER" ] && echo "Closing #$ISSUE_NUMBER as completed" || echo "No linked issue found")
+
+              ---
+              *🤖 TDD Monitor - Empty Diff Detection*"
+
+              CLOSED_COUNT=$((CLOSED_COUNT + 1))
+
+              # Close the linked issue as completed (work is done)
+              if [ -n "$ISSUE_NUMBER" ]; then
+                # Check current issue state
+                ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+
+                if [ "$ISSUE_STATE" = "OPEN" ]; then
+                  echo "   Closing linked issue #$ISSUE_NUMBER as completed..."
+                  gh issue close "$ISSUE_NUMBER" --repo ${{ github.repository }} --reason completed 2>/dev/null || true
+                  gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
+                    --remove-label "tdd-spec:in-progress" \
+                    --add-label "tdd-spec:completed" 2>/dev/null || true
+                fi
+              fi
+            fi
+          done < <(echo "$PRS" | jq -r '.[] | @json')
+
+          if [ "$CLOSED_COUNT" -gt 0 ]; then
+            echo ""
+            echo "✅ Closed $CLOSED_COUNT superseded PR(s)"
+          else
+            echo "✅ No superseded PRs found"
+          fi
+
       - name: Detect stuck PRs
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
