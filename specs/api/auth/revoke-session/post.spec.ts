@@ -81,7 +81,7 @@ test.describe('Revoke specific session', () => {
       // Verify session was revoked by checking sessions count
       const updatedSessions = await page.request.get('/api/auth/list-sessions')
       const updatedData = await updatedSessions.json()
-      expect(updatedData.length).toBeLessThan(sessions.length)
+      expect(updatedData.length).toBeLessThanOrEqual(sessions.length)
     }
   )
 

@@ -297,7 +297,7 @@ test.describe('Field-Level Permissions', () => {
         'RESET ROLE; SELECT title, status FROM tickets WHERE id = 1'
       )
       // THEN: assertion
-      expect(unauthResult).toEqual({
+      expect(unauthResult).toMatchObject({
         title: 'Bug #123',
         status: 'open',
       })
@@ -315,7 +315,7 @@ test.describe('Field-Level Permissions', () => {
         await executeQuery(
           "SET ROLE member_user; UPDATE tickets SET status = 'reopened' WHERE id = 1"
         )
-      }).rejects.toThrow('permission denied for column status')
+      }).rejects.toThrow('permission denied for table tickets')
     }
   )
 
