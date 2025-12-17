@@ -110,13 +110,21 @@ jobs:
           echo "retry_issues=$RETRY_ISSUES" >> $GITHUB_OUTPUT
 
           # Determine if circuit should open
-          # Open if: >50% failure rate OR >5 issues in retry state
+          # Open if: >50% failure rate OR >20% of queue in retry state (min 5)
+          QUEUE_SIZE=$(gh issue list --repo ${{ github.repository }} --label "tdd-spec:queued" --json number --jq 'length' 2>/dev/null || echo "0")
+          # Dynamic threshold: 20% of queue size, minimum 5
+          RETRY_THRESHOLD=$((QUEUE_SIZE / 5))
+          if [ "$RETRY_THRESHOLD" -lt 5 ]; then RETRY_THRESHOLD=5; fi
+
+          echo "   Queue size: $QUEUE_SIZE"
+          echo "   Retry threshold: $RETRY_THRESHOLD (20% of queue, min 5)"
+
           if [ "$TOTAL" -ge 5 ] && [ "$FAILURE_RATE" -gt 50 ]; then
             echo "should_open_circuit=true" >> $GITHUB_OUTPUT
             echo "🚨 THRESHOLD EXCEEDED: ${FAILURE_RATE}% failure rate"
-          elif [ "$RETRY_ISSUES" -gt 5 ]; then
+          elif [ "$RETRY_ISSUES" -gt "$RETRY_THRESHOLD" ]; then
             echo "should_open_circuit=true" >> $GITHUB_OUTPUT
-            echo "🚨 THRESHOLD EXCEEDED: $RETRY_ISSUES issues in retry"
+            echo "🚨 THRESHOLD EXCEEDED: $RETRY_ISSUES issues in retry (threshold: $RETRY_THRESHOLD)"
           else
             echo "should_open_circuit=false" >> $GITHUB_OUTPUT
             echo "✅ Health is acceptable"
@@ -588,7 +596,16 @@ jobs:
             BODY=$(echo "$pr" | jq -r '.body')
 
             # Check if PR has any meaningful diff from main
-            DIFF_LINES=$(gh pr diff "$PR_NUMBER" --repo ${{ github.repository }} 2>/dev/null | wc -l | tr -d ' ')
+            # IMPORTANT: Validate command success to avoid false positives
+            DIFF_OUTPUT=$(gh pr diff "$PR_NUMBER" --repo ${{ github.repository }} 2>&1)
+            DIFF_STATUS=$?
+            DIFF_LINES=$(echo "$DIFF_OUTPUT" | wc -l | tr -d ' ')
+
+            # Skip if diff command failed (network issues, conflicting PR, etc.)
+            if [ "$DIFF_STATUS" -ne 0 ]; then
+              echo "   ⚠️  Could not compute diff for PR #$PR_NUMBER - skipping (may have conflicts)"
+              continue
+            fi
 
             if [ "$DIFF_LINES" -eq 0 ] || [ -z "$DIFF_LINES" ]; then
               echo ""
@@ -902,6 +919,17 @@ jobs:
 
             if [ "$RECENT_FIX_COMMENT" -gt 0 ]; then
               echo "   ⏭️  Skipping - fix already triggered within last ${COOLDOWN_MINUTES} minutes"
+              continue
+            fi
+
+            # Check if Claude Code is already processing this PR (prevents duplicate @claude mentions)
+            CLAUDE_RUNNING=$(gh run list \
+              --workflow "TDD - Execute (Claude Code)" \
+              --json status,headBranch \
+              --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.headBranch == \"$HEAD_REF\")] | length" 2>/dev/null || echo "0")
+
+            if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+              echo "   ⏭️  Skipping - Claude Code already processing this PR branch"
               continue
             fi
 

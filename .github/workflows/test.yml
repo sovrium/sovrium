@@ -370,6 +370,18 @@ jobs:
           echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
           echo "failure_type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
 
+      - name: Add target failure label
+        if: |
+          needs.e2e.result == 'failure' &&
+          contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+          steps.classify-failures.outputs.failure_type == 'target_only'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🏷️  Adding failure:spec label to PR #$PR_NUMBER (target-only failure)"
+          gh pr edit "$PR_NUMBER" --add-label "failure:spec" || true
+
       - name: Fail if E2E tests failed
         if: needs.e2e.result == 'failure'
         run: |
@@ -416,7 +428,20 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:completed"
           gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:in-progress"
 
-          echo "✅ Closed issue #$ISSUE_NUMBER"
+          # Clean up retry labels (may have been added during failed attempts)
+          gh issue edit "$ISSUE_NUMBER" --remove-label "retry:spec:1" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "retry:spec:2" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "retry:spec:3" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "retry:infra:1" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "retry:infra:2" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "retry:infra:3" 2>/dev/null || true
+
+          # Clean up failure classification labels
+          gh issue edit "$ISSUE_NUMBER" --remove-label "failure:spec" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "failure:regression" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "failure:infra" 2>/dev/null || true
+
+          echo "✅ Closed issue #$ISSUE_NUMBER (labels cleaned up)"
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
