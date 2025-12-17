@@ -157,6 +157,89 @@ $$`
 }
 
 /**
+ * Translate field permission condition to PostgreSQL expression
+ * Replaces variable placeholders with current_setting() calls:
+ * - {userId} → current_setting('app.user_id', true)::TEXT
+ * - {organizationId} → current_setting('app.organization_id', true)::TEXT
+ */
+const translateFieldPermissionCondition = (condition: string): string =>
+  condition
+    .replace(/\{userId\}/g, "current_setting('app.user_id', true)::TEXT")
+    .replace(/\{organizationId\}/g, "current_setting('app.organization_id', true)::TEXT")
+    .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)
+
+/**
+ * Generate UPDATE trigger for custom condition field permissions
+ * Creates a trigger function that validates custom conditions before allowing column updates
+ */
+const generateCustomConditionTriggers = (
+  tableName: string,
+  fieldPermissions: readonly { field: string; write?: TablePermission }[]
+): readonly string[] => {
+  // Find fields with custom condition write permissions
+  const customConditionFields = fieldPermissions.filter(
+    (fp) => fp.write?.type === 'custom' || fp.write?.type === 'owner'
+  )
+
+  if (customConditionFields.length === 0) {
+    return []
+  }
+
+  const triggerFunctionName = `${tableName}_field_permission_check`
+  const triggerName = `${tableName}_field_permission_trigger`
+
+  // Build condition checks for each field
+  const fieldChecks = customConditionFields.map((fp) => {
+    const fieldName = fp.field
+    const permission = fp.write!
+
+    let condition: string
+    if (permission.type === 'custom') {
+      condition = translateFieldPermissionCondition(permission.condition)
+    } else if (permission.type === 'owner') {
+      // Owner permission: check owner_id = current_setting('app.user_id')
+      const ownerField = permission.field
+      condition = `${ownerField} = current_setting('app.user_id', true)::TEXT`
+    } else {
+      return ''
+    }
+
+    // Replace table column references with NEW.column for trigger context
+    // Only replace column names that appear on the right side of the condition (after = or comparison operator)
+    const triggerCondition = condition.replace(
+      /=\s*([a-z_]+)\b/g,
+      '= NEW."$1"'
+    )
+
+    return `
+    -- Check if ${fieldName} is being updated
+    IF NEW."${fieldName}" IS DISTINCT FROM OLD."${fieldName}" THEN
+      -- Verify custom condition: ${permission.type === 'custom' ? permission.condition : `owner check on ${(permission as any).field}`}
+      IF NOT (${triggerCondition}) THEN
+        RAISE EXCEPTION 'permission denied for column ${fieldName}';
+      END IF;
+    END IF;`
+  })
+
+  const dropFunction = `DROP FUNCTION IF EXISTS ${triggerFunctionName}() CASCADE`
+
+  const createFunction = `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
+RETURNS TRIGGER AS $$
+BEGIN
+  ${fieldChecks.join('\n')}
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`
+
+  const createTrigger = `CREATE TRIGGER ${triggerName}
+BEFORE UPDATE ON ${tableName}
+FOR EACH ROW
+EXECUTE FUNCTION ${triggerFunctionName}()`
+
+  return [dropFunction, createFunction, createTrigger]
+}
+
+/**
  * Generate write permission grants (UPDATE and INSERT) for fields
  */
 const generateWritePermissionGrants = (
@@ -180,12 +263,17 @@ const generateWritePermissionGrants = (
     }
   })
 
-  // Build role-to-fields mapping for write
-  const roleFieldsWriteMap = buildRoleFieldsMap(allFieldWritePermissions)
+  // Filter out custom/owner permissions from GRANT statements (handled by triggers)
+  const roleBasedWritePermissions = allFieldWritePermissions.filter(
+    (fp) => fp.permission.type !== 'custom' && fp.permission.type !== 'owner'
+  )
+
+  // Build role-to-fields mapping for write (excluding custom/owner)
+  const roleFieldsWriteMap = buildRoleFieldsMap(roleBasedWritePermissions)
   const writeBaseRoles = extractRoles(effectiveWritePermission)
   const roleFieldsWriteWithBase = addBaseFieldsToRestrictedRoles(roleFieldsWriteMap, writeBaseRoles)
 
-  // Generate UPDATE grant statements for fields with write permissions
+  // Generate UPDATE grant statements for fields with role-based write permissions
   const columnUpdateGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
     ([role, fields]) => {
       const columnList = fields.map((f) => `"${f}"`).join(', ')
@@ -201,7 +289,20 @@ const generateWritePermissionGrants = (
     }
   )
 
-  return [...columnUpdateGrantStatements, ...columnInsertGrantStatements]
+  // For custom/owner fields, grant UPDATE to all authenticated roles (trigger will enforce)
+  const customConditionFields = allFieldWritePermissions.filter(
+    (fp) => fp.permission.type === 'custom' || fp.permission.type === 'owner'
+  )
+
+  const customFieldGrants =
+    customConditionFields.length > 0
+      ? (['authenticated_user', 'admin_user', 'member_user'] as const).map((role) => {
+          const columnList = customConditionFields.map((f) => `"${f.field}"`).join(', ')
+          return `GRANT UPDATE (${columnList}) ON ${tableName} TO ${role}`
+        })
+      : []
+
+  return [...columnUpdateGrantStatements, ...columnInsertGrantStatements, ...customFieldGrants]
 }
 
 /**
@@ -280,5 +381,13 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     table.permissions
   )
 
-  return [...roleSetupStatements, ...columnGrantStatements, ...writeGrantStatements]
+  // Generate triggers for custom condition field permissions
+  const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
+
+  return [
+    ...roleSetupStatements,
+    ...columnGrantStatements,
+    ...writeGrantStatements,
+    ...customConditionTriggers,
+  ]
 }
