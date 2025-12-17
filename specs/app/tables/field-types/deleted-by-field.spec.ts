@@ -192,7 +192,7 @@ test.describe('Deleted By Field', () => {
       const deletedItems = await executeQuery(`
         SELECT i.name, u.name as deleted_by_name
         FROM items i
-        JOIN users u ON i.deleted_by = u.id
+        JOIN _sovrium_auth_users u ON i.deleted_by = u.id
         WHERE i.deleted_at IS NOT NULL
         ORDER BY i.id
       `)

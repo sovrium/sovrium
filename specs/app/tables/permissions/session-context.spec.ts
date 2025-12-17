@@ -289,7 +289,7 @@ test.describe('Database Session Context Integration', () => {
       // WHEN: Setting session context for non-member user
       // Query members table to verify non-member has no role
       const memberResult = await executeQuery(`
-        SELECT role FROM members
+        SELECT role FROM _sovrium_auth_members
         WHERE organization_id = '${org.organization.id}'
         AND user_id = '${nonMember.user.id}'
       `)

@@ -11,7 +11,7 @@ import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
 import { logError } from '../../logging'
-import { authDb } from './db'
+// import { authDb } from './db'
 import {
   users,
   sessions,
@@ -23,6 +23,7 @@ import {
   twoFactors,
 } from './schema'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
+import { db } from '@/infrastructure/database'
 
 /**
  * Substitute variables in a template string
@@ -325,7 +326,7 @@ export function createAuthInstance(authConfig?: Auth) {
   return betterAuth({
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_BASE_URL,
-    database: drizzleAdapter(authDb, {
+    database: drizzleAdapter(db, {
       provider: 'pg',
       usePlural: false,
       schema: drizzleSchema,

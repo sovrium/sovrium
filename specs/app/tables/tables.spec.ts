@@ -1255,7 +1255,7 @@ test.describe('Data Tables', () => {
 
       // WHEN: querying with JOIN
       const result = await executeQuery(
-        'SELECT t.title, u.name as assigned_name FROM tasks t JOIN users u ON t.assigned_to = u.id WHERE t.id = 1'
+        'SELECT t.title, u.name as assigned_name FROM tasks t JOIN _sovrium_auth_users u ON t.assigned_to = u.id WHERE t.id = 1'
       )
       // THEN: should return user info
       expect(result.title).toBe('Test Task')

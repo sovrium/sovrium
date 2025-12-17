@@ -656,7 +656,7 @@ test.describe('Relationship Field', () => {
       // THEN: can link to users in the view
       await executeQuery("INSERT INTO projects (name, lead_developer) VALUES ('Website', 1)")
       const project = await executeQuery(
-        'SELECT p.name, u.name as lead_name FROM projects p JOIN users u ON p.lead_developer = u.id WHERE p.id = 1'
+        'SELECT p.name, u.name as lead_name FROM projects p JOIN _sovrium_auth_users u ON p.lead_developer = u.id WHERE p.id = 1'
       )
       expect(project.lead_name).toBe('Alice')
 

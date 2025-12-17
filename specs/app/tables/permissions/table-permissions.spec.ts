@@ -93,11 +93,18 @@ test.describe('Table-Level Permissions', () => {
 
       // Non-member user cannot SELECT records
       // THEN: assertion
-      await expect(async () => {
+      let errorCaught = false
+      let errorMessage = ''
+      try {
         await executeQuery(
           "SET ROLE guest_user; SET app.user_role = 'guest'; SELECT COUNT(*) as count FROM projects"
         )
-      }).rejects.toThrow('permission denied for table projects')
+      } catch (error: any) {
+        errorCaught = true
+        errorMessage = error.message || String(error)
+      }
+      expect(errorCaught).toBe(true)
+      expect(errorMessage).toMatch(/permission denied for table projects/)
     }
   )
 

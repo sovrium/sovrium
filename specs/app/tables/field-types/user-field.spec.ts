@@ -50,7 +50,7 @@ test.describe('User Field', () => {
       await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob@example.com' })
 
       // Verify users exist in Better Auth table
-      const usersCount = await executeQuery('SELECT COUNT(*) as count FROM users')
+      const usersCount = await executeQuery('SELECT COUNT(*) as count FROM _sovrium_auth_users')
       expect(Number(usersCount.count)).toBeGreaterThanOrEqual(2)
 
       // WHEN: querying the database schema
@@ -70,7 +70,7 @@ test.describe('User Field', () => {
       const referencedTable = await executeQuery(
         "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='tasks' AND tc.constraint_type='FOREIGN KEY'"
       )
-      expect(referencedTable.referenced_table).toBe('users')
+      expect(referencedTable.referenced_table).toBe('_sovrium_auth_users')
     }
   )
 
@@ -143,7 +143,7 @@ test.describe('User Field', () => {
       await executeQuery([
         'CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO projects (name) VALUES ('Website Redesign')",
-        'CREATE TABLE project_collaborators (project_id INTEGER REFERENCES projects(id), user_id TEXT REFERENCES users(id), PRIMARY KEY (project_id, user_id))',
+        'CREATE TABLE project_collaborators (project_id INTEGER REFERENCES projects(id), user_id TEXT REFERENCES _sovrium_auth_users(id), PRIMARY KEY (project_id, user_id))',
         `INSERT INTO project_collaborators (project_id, user_id) VALUES (1, '${alice.user.id}'), (1, '${bob.user.id}'), (1, '${charlie.user.id}')`,
       ])
 
@@ -163,7 +163,7 @@ test.describe('User Field', () => {
 
       // WHEN: joining to get names
       const collaborators = await executeQuery(
-        'SELECT p.name as project_name, u.name as user_name FROM projects p JOIN project_collaborators pc ON p.id = pc.project_id JOIN users u ON pc.user_id = u.id WHERE p.id = 1 ORDER BY u.name'
+        'SELECT p.name as project_name, u.name as user_name FROM projects p JOIN project_collaborators pc ON p.id = pc.project_id JOIN _sovrium_auth_users u ON pc.user_id = u.id WHERE p.id = 1 ORDER BY u.name'
       )
       // THEN: should return all collaborators
       expect(collaborators.rows).toEqual([
@@ -208,7 +208,7 @@ test.describe('User Field', () => {
 
       // WHEN: querying with JOIN
       const ownerInfo = await executeQuery(
-        'SELECT d.id, d.title, u.name as owner_name, u.email as owner_email FROM documents d JOIN users u ON d.owner = u.id WHERE d.id = 1'
+        'SELECT d.id, d.title, u.name as owner_name, u.email as owner_email FROM documents d JOIN _sovrium_auth_users u ON d.owner = u.id WHERE d.id = 1'
       )
       // THEN: should return owner profile data
       expect(ownerInfo.id).toBe(1)
@@ -218,7 +218,7 @@ test.describe('User Field', () => {
 
       // WHEN: counting documents by user email
       const documentsByUser = await executeQuery(
-        "SELECT COUNT(*) as count FROM documents d JOIN users u ON d.owner = u.id WHERE u.email = 'sarah@example.com'"
+        "SELECT COUNT(*) as count FROM documents d JOIN _sovrium_auth_users u ON d.owner = u.id WHERE u.email = 'sarah@example.com'"
       )
       // THEN: should count documents
       expect(Number(documentsByUser.count)).toBe(2)
