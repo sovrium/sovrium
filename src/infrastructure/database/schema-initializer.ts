@@ -25,7 +25,7 @@ import {
   storeSchemaChecksum,
   generateSchemaChecksum,
 } from './migration-audit-trail'
-import { dropObsoleteTables } from './schema-migration-helpers'
+import { dropObsoleteTables, syncForeignKeyConstraints } from './schema-migration-helpers'
 import { tableExists, executeSQL } from './sql-execution'
 import {
   isRelationshipField,
@@ -64,6 +64,51 @@ export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
  *
  * Handles circular dependencies by detecting them and keeping original order for those tables.
  */
+/**
+ * Detect tables involved in circular dependencies with at least one optional FK.
+ * These tables can use the INSERT-UPDATE pattern and should have FK constraints
+ * added after all tables are created.
+ *
+ * @param tables - Array of tables to check
+ * @returns Set of table names involved in resolvable circular dependencies
+ */
+const detectCircularDependenciesWithOptionalFK = (
+  tables: readonly Table[]
+): ReadonlySet<string> => {
+  const tablesByName = new Map(tables.map((t) => [t.name, t]))
+  const circularTables = new Set<string>()
+
+  tables.forEach((table) => {
+    const optionalRelationships = table.fields.filter(
+      (field) =>
+        isRelationshipField(field) &&
+        field.relatedTable !== table.name && // Exclude self-references
+        field.required !== true // Optional FK (allows NULL)
+    )
+
+    optionalRelationships.forEach((field) => {
+      const relatedTableName = field.relatedTable
+      const relatedTable = tablesByName.get(relatedTableName)
+
+      if (!relatedTable) return
+
+      // Check if related table also has a relationship back to this table
+      const hasReverseRelationship = relatedTable.fields.some(
+        (f) => isRelationshipField(f) && f.relatedTable === table.name
+      )
+
+      if (hasReverseRelationship) {
+        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+        circularTables.add(table.name)
+        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+        circularTables.add(relatedTableName)
+      }
+    })
+  })
+
+  return circularTables
+}
+
 const sortTablesByDependencies = (tables: readonly Table[]): readonly Table[] => {
   // Build dependency map: tableName -> Set of tables it depends on
   const tableMap = new Map(tables.map((t) => [t.name, t]))
@@ -222,6 +267,14 @@ const executeSchemaInit = (
                   tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
                 )
 
+                // Detect circular dependencies with optional FK (allows INSERT-UPDATE pattern)
+                const circularTables = detectCircularDependenciesWithOptionalFK(tables)
+                if (circularTables.size > 0) {
+                  logInfo(
+                    `[Circular dependencies detected] ${Array.from(circularTables).join(', ')} - FK constraints will be added later`
+                  )
+                }
+
                 // Sort tables by dependencies to ensure referenced tables are created first
                 const sortedTables = sortTablesByDependencies(tables)
 
@@ -243,10 +296,23 @@ const executeSchemaInit = (
                     exists,
                     tableUsesView,
                     previousSchema,
+                    skipForeignKeys: circularTables.has(table.name),
                   })
                   logInfo(`[Created/migrated table] ${table.name}`)
                 }
                 /* eslint-enable functional/no-loop-statements */
+
+                // Step 3.5: Add foreign key constraints for circular dependencies
+                // These were skipped during CREATE TABLE to avoid "relation does not exist" errors
+                if (circularTables.size > 0) {
+                  logInfo(`[Adding FK constraints for circular dependencies]`)
+                  /* eslint-disable functional/no-loop-statements */
+                  for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
+                    yield* syncForeignKeyConstraints(tx, table, tableUsesView)
+                    logInfo(`[Added FK constraints] ${table.name}`)
+                  }
+                  /* eslint-enable functional/no-loop-statements */
+                }
 
                 // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
                 // Junction tables must be created after both source and related tables exist

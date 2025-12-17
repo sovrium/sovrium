@@ -671,7 +671,8 @@ const generateCompositeUniqueConstraints = (table: Table): readonly string[] => 
  */
 export const generateTableConstraints = (
   table: Table,
-  tableUsesView?: ReadonlyMap<string, boolean>
+  tableUsesView?: ReadonlyMap<string, boolean>,
+  skipForeignKeys?: boolean
 ): readonly string[] => [
   ...generateArrayConstraints(table.fields),
   ...generateMultipleAttachmentsConstraints(table.fields),
@@ -685,7 +686,7 @@ export const generateTableConstraints = (
   ...generatePrimaryKeyConstraint(table),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateCompositeUniqueConstraints(table),
-  ...generateForeignKeyConstraints(table.name, table.fields, tableUsesView),
+  ...(skipForeignKeys ? [] : generateForeignKeyConstraints(table.name, table.fields, tableUsesView)),
 ]
 
 /**
