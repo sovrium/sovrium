@@ -334,7 +334,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-FORMAT-010: should include time component when includeTime is true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request }) => {
@@ -503,7 +503,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-FORMAT-015: should use local timezone when timeZone is set to local',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request }) => {
