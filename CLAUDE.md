@@ -681,6 +681,33 @@ Key workflow settings:
 - **Auto-merge**: Enabled after validation passes
 - **Issue closure**: Automatic on PR merge to main
 
+### Claude Code GitHub Actions Best Practices
+
+The TDD workflows follow [official Claude Code best practices](https://code.claude.com/docs/github-actions):
+
+| Setting | tdd-execute.yml | tdd-refactor.yml | Purpose |
+|---------|-----------------|------------------|---------|
+| **Model** | `claude-sonnet-4-5-20250929` | `claude-sonnet-4-5-20250929` | Cost predictability |
+| **Max Turns** | 30 | 40 | Prevent runaway conversations |
+| **Allowed Tools** | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Principle of least privilege |
+| **Disallowed Tools** | WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand | WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand | Block unnecessary capabilities |
+
+**Why these settings?**
+
+1. **Explicit model selection**: Prevents unexpected cost increases if default model changes
+2. **Max turns limit**:
+   - `tdd-execute.yml` (30): Covers read→implement→test→PR cycle for single spec
+   - `tdd-refactor.yml` (40): Allows more exploration for comprehensive audits
+3. **Tool restrictions**:
+   - **Allowed**: Only tools necessary for code implementation and testing
+   - **Blocked AskUserQuestion**: No human present in automation - would hang or skip steps
+   - **Blocked WebFetch/WebSearch**: External content not needed for code implementation
+   - **Blocked NotebookEdit**: No Jupyter notebooks in project
+   - **Blocked SlashCommand**: Prevents unintended command execution
+
+**Previous approach**: `--dangerously-skip-permissions` (grants ALL tools)
+**Current approach**: Explicit `--allowedTools` and `--disallowedTools` for security hardening
+
 ### Current Status
 
 View current queue status:

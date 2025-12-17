@@ -344,7 +344,16 @@ jobs:
              - **If NO src/ files changed** (test-only): Quick Exit - runs \`bun run quality\` only, skips full audit
              - Agent auto-detects and handles appropriately - ensures quality passes before proceeding
           3. **Commit changes** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
-          4. **⚠️ CREATE PR** - \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
+          4. **⚠️ CREATE PR** (EXACT FORMAT REQUIRED - DO NOT MODIFY):
+             \`\`\`bash
+             gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"
+             \`\`\`
+             **CRITICAL**: The PR body MUST be EXACTLY \`Closes #$ISSUE_NUMBER\` - nothing else!
+             - ❌ DO NOT write a summary or description in the PR body
+             - ❌ DO NOT add implementation details (put those in commit message)
+             - ❌ DO NOT add extra text after the issue number
+             - ✅ The ONLY content should be: \`Closes #$ISSUE_NUMBER\`
+             - **WHY**: GitHub's auto-close feature is format-sensitive and fails with extra text
           5. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\`
           6. **⚠️ VERIFY AUTO-MERGE** - Run \`gh pr view \$PR_NUMBER --json autoMergeRequest\` and confirm autoMergeRequest is NOT null
 
