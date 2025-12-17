@@ -788,7 +788,7 @@ test.describe('Foreign Key Relationships', () => {
       await test.step('Verify CASCADE DELETE behavior', async () => {
         await executeQuery(`DELETE FROM customers WHERE id = 1`)
         const remainingOrders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
-        expect(remainingOrders.rows[0]).toMatchObject({ count: '0' })
+        expect(remainingOrders.rows[0]).toMatchObject({ count: 0 })
       })
     }
   )
