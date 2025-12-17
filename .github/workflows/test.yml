@@ -131,9 +131,13 @@ jobs:
     needs: [detect-change-type]
     # Skip lint for test-only changes (spec files have separate lint rules)
     # Always run on push to main, skip on PR if test-only
+    # Note: always() allows this job to run even when detect-change-type is skipped (push events)
     if: |
-      (github.event_name == 'push') ||
-      (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
+      always() &&
+      (
+        (github.event_name == 'push') ||
+        (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -171,7 +175,10 @@ jobs:
     name: TypeCheck
     needs: [detect-change-type]
     # TypeCheck always runs (spec files have TypeScript that needs validation)
-    if: github.event_name == 'push' || github.event.action != 'closed'
+    # Note: always() allows this job to run even when detect-change-type is skipped (push events)
+    if: |
+      always() &&
+      (github.event_name == 'push' || github.event.action != 'closed')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -200,9 +207,13 @@ jobs:
     name: Unit Tests
     needs: [detect-change-type]
     # Skip unit tests for test-only changes (no production code changed)
+    # Note: always() allows this job to run even when detect-change-type is skipped (push events)
     if: |
-      (github.event_name == 'push') ||
-      (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
+      always() &&
+      (
+        (github.event_name == 'push') ||
+        (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -375,9 +386,14 @@ jobs:
   e2e:
     name: E2E Shard ${{ matrix.shard }}/${{ matrix.total }}
     # Run full shards only when NOT test-only (or on push to main)
+    # Note: always() allows this job to run even when detect-change-type is skipped (push events)
+    # On push events, we verify lint/typecheck/unit-tests succeeded before running E2E
     if: |
-      (github.event_name == 'push') ||
-      (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
+      always() &&
+      (
+        (github.event_name == 'push' && needs.lint.result == 'success' && needs.typecheck.result == 'success' && needs.unit-tests.result == 'success') ||
+        (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true' && needs.lint.result == 'success' && needs.typecheck.result == 'success' && needs.unit-tests.result == 'success')
+      )
     needs: [detect-change-type, lint, typecheck, unit-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 15
