@@ -333,7 +333,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-007: should allow circular dependencies with deferred constraint checking',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
