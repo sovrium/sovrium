@@ -237,7 +237,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-005: should SET NULL on child records when parent is deleted',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
