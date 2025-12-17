@@ -686,7 +686,9 @@ export const generateTableConstraints = (
   ...generatePrimaryKeyConstraint(table),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateCompositeUniqueConstraints(table),
-  ...(skipForeignKeys ? [] : generateForeignKeyConstraints(table.name, table.fields, tableUsesView)),
+  ...(skipForeignKeys
+    ? []
+    : generateForeignKeyConstraints(table.name, table.fields, tableUsesView)),
 ]
 
 /**
