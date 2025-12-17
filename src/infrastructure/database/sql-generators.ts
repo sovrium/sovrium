@@ -569,13 +569,43 @@ const mapReferentialAction = (
 }
 
 /**
- * Generate FOREIGN KEY constraints for user fields and relationship fields
+ * Generate composite foreign key constraints from table.foreignKeys array
+ */
+const generateCompositeForeignKeyConstraints = (
+  compositeForeignKeys: readonly {
+    readonly name: string
+    readonly fields: readonly string[]
+    readonly referencedTable: string
+    readonly referencedFields: readonly string[]
+    readonly onDelete?: string
+    readonly onUpdate?: string
+  }[]
+): readonly string[] =>
+  compositeForeignKeys.map((fk) => {
+    const localFields = fk.fields.join(', ')
+    const referencedFields = fk.referencedFields.join(', ')
+    const onDeleteClause = mapReferentialAction(fk.onDelete, 'delete')
+    const onUpdateClause = mapReferentialAction(fk.onUpdate, 'update')
+
+    return `CONSTRAINT ${fk.name} FOREIGN KEY (${localFields}) REFERENCES ${fk.referencedTable}(${referencedFields})${onDeleteClause}${onUpdateClause}`
+  })
+
+/**
+ * Generate FOREIGN KEY constraints for user fields, relationship fields, and composite foreign keys
  * Exported for use in migration system to sync FK constraints
  */
 export const generateForeignKeyConstraints = (
   tableName: string,
   fields: readonly Fields[number][],
-  tableUsesView?: ReadonlyMap<string, boolean>
+  tableUsesView?: ReadonlyMap<string, boolean>,
+  compositeForeignKeys?: readonly {
+    readonly name: string
+    readonly fields: readonly string[]
+    readonly referencedTable: string
+    readonly referencedFields: readonly string[]
+    readonly onDelete?: string
+    readonly onUpdate?: string
+  }[]
 ): readonly string[] => {
   // Generate foreign keys for user fields (type: 'user')
   // Uses _sovrium_auth_users for namespace isolation from user-created tables
@@ -628,7 +658,10 @@ export const generateForeignKeyConstraints = (
   //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public._sovrium_auth_users(id)`
   //   })
 
-  return [...userFieldConstraints, ...relationshipFieldConstraints, ...userReferenceConstraints]
+  // Generate composite foreign key constraints
+  const compositeFKs = generateCompositeForeignKeyConstraints(compositeForeignKeys ?? [])
+
+  return [...userFieldConstraints, ...relationshipFieldConstraints, ...userReferenceConstraints, ...compositeFKs]
 }
 
 /**
@@ -688,7 +721,7 @@ export const generateTableConstraints = (
   ...generateCompositeUniqueConstraints(table),
   ...(skipForeignKeys
     ? []
-    : generateForeignKeyConstraints(table.name, table.fields, tableUsesView)),
+    : generateForeignKeyConstraints(table.name, table.fields, tableUsesView, table.foreignKeys)),
 ]
 
 /**

@@ -439,7 +439,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-009: should support composite foreign keys on multi-column references',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -466,7 +466,6 @@ test.describe('Foreign Key Relationships', () => {
               { id: 2, name: 'user_id', type: 'integer', required: true },
               { id: 3, name: 'resource', type: 'single-line-text' },
             ],
-            // @ts-expect-error - Future feature: composite foreign keys
             foreignKeys: [
               {
                 name: 'fk_permissions_tenant_user',
