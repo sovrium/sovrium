@@ -6,6 +6,7 @@
  */
 
 import { shouldCreateDatabaseColumn } from './field-utils'
+import { translatePermissionCondition } from './permission-condition-translator'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
@@ -157,23 +158,11 @@ $$`
 }
 
 /**
- * Translate field permission condition to PostgreSQL expression
- * Replaces variable placeholders with current_setting() calls:
- * - {userId} → current_setting('app.user_id', true)::TEXT
- * - {organizationId} → current_setting('app.organization_id', true)::TEXT
- */
-const translateFieldPermissionCondition = (condition: string): string =>
-  condition
-    .replace(/\{userId\}/g, "current_setting('app.user_id', true)::TEXT")
-    .replace(/\{organizationId\}/g, "current_setting('app.organization_id', true)::TEXT")
-    .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)
-
-/**
  * Generate field condition for custom/owner permissions
  */
 const generateFieldCondition = (permission: TablePermission): string => {
   if (permission.type === 'custom') {
-    return translateFieldPermissionCondition(permission.condition)
+    return translatePermissionCondition(permission.condition)
   }
   if (permission.type === 'owner') {
     const ownerField = permission.field
