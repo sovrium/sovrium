@@ -176,33 +176,48 @@ jobs:
 
           echo "🔍 Checking if test $SPEC_ID is already passing in main..."
 
-          # Check if the test file exists and if the spec still has .fixme()
-          if [ -f "$TEST_FILE" ]; then
-            # Search for the specific spec ID with .fixme()
-            if grep -q "\.fixme(" "$TEST_FILE" && grep -q "$SPEC_ID" "$TEST_FILE"; then
-              # Check if THIS specific test has .fixme() (look for lines containing both)
-              # Use a more precise check: find test.fixme or it.fixme followed by the spec ID
-              HAS_FIXME=$(grep -E "(test|it)\.fixme\(" "$TEST_FILE" | grep -c "$SPEC_ID" || echo "0")
-
-              if [ "$HAS_FIXME" -gt 0 ]; then
-                echo "✅ Test $SPEC_ID still has .fixme() - needs implementation"
-                echo "is_superseded=false" >> $GITHUB_OUTPUT
-              else
-                echo "⚠️  Test $SPEC_ID no longer has .fixme() - already implemented!"
-                echo "is_superseded=true" >> $GITHUB_OUTPUT
-              fi
-            else
-              # Either no .fixme() in file or spec ID not found with .fixme()
-              if grep -q "$SPEC_ID" "$TEST_FILE"; then
-                echo "⚠️  Test $SPEC_ID exists but no .fixme() found - already implemented!"
-                echo "is_superseded=true" >> $GITHUB_OUTPUT
-              else
-                echo "⚠️  Test $SPEC_ID not found in file - may have been removed or renamed"
-                echo "is_superseded=true" >> $GITHUB_OUTPUT
-              fi
-            fi
-          else
+          # Check if the test file exists
+          if [ ! -f "$TEST_FILE" ]; then
             echo "⚠️  Test file $TEST_FILE not found - spec may have been moved"
+            echo "is_superseded=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if spec ID exists in the file
+          if ! grep -q "$SPEC_ID" "$TEST_FILE"; then
+            echo "⚠️  Test $SPEC_ID not found in file - may have been removed or renamed"
+            echo "is_superseded=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Use multiline grep to check if spec ID is associated with .fixme()
+          # This handles the case where test.fixme( and spec ID are on different lines
+          # Look for pattern: test.fixme( or it.fixme( followed by spec ID within 5 lines
+          HAS_FIXME="false"
+
+          # Method 1: Check if file has any .fixme() tests with this spec ID
+          # Get line numbers where spec ID appears
+          SPEC_LINE=$(grep -n "$SPEC_ID" "$TEST_FILE" | head -1 | cut -d: -f1)
+
+          if [ -n "$SPEC_LINE" ]; then
+            # Check the 3 lines before the spec ID for .fixme(
+            START_LINE=$((SPEC_LINE - 3))
+            if [ "$START_LINE" -lt 1 ]; then
+              START_LINE=1
+            fi
+
+            # Extract the context and check for .fixme(
+            CONTEXT=$(sed -n "${START_LINE},${SPEC_LINE}p" "$TEST_FILE")
+            if echo "$CONTEXT" | grep -q "\.fixme("; then
+              HAS_FIXME="true"
+            fi
+          fi
+
+          if [ "$HAS_FIXME" = "true" ]; then
+            echo "✅ Test $SPEC_ID still has .fixme() - needs implementation"
+            echo "is_superseded=false" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Test $SPEC_ID no longer has .fixme() - already implemented!"
             echo "is_superseded=true" >> $GITHUB_OUTPUT
           fi
 
@@ -215,8 +230,15 @@ jobs:
 
           echo "📋 Closing superseded issue #$ISSUE_NUMBER..."
 
-          gh issue close "$ISSUE_NUMBER" --reason completed \
-            --comment "✅ **Issue Closed: Test Already Implemented**
+          # Retry logic for transient GitHub API errors (GraphQL errors, rate limits, etc.)
+          MAX_RETRIES=3
+          RETRY_DELAY=5
+
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "   Attempt $attempt/$MAX_RETRIES: Closing issue..."
+
+            if gh issue close "$ISSUE_NUMBER" --reason completed \
+              --comment "✅ **Issue Closed: Test Already Implemented**
 
           The test \`$SPEC_ID\` no longer has \`.fixme()\` in main branch, meaning it has already been implemented (likely through another PR or manual fix).
 
@@ -228,14 +250,35 @@ jobs:
           No further action needed. The queue will continue with the next spec.
 
           ---
-          *🤖 TDD Queue - Superseded Detection*"
+          *🤖 TDD Queue - Superseded Detection*"; then
+              echo "   ✅ Issue closed successfully"
+              break
+            else
+              if [ "$attempt" -eq "$MAX_RETRIES" ]; then
+                echo "   ❌ Failed to close issue after $MAX_RETRIES attempts"
+                echo "   Will continue - issue may need manual closure"
+              else
+                echo "   ⚠️  Failed, retrying in ${RETRY_DELAY}s..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              fi
+            fi
+          done
 
-          # Update labels
-          gh issue edit "$ISSUE_NUMBER" \
-            --remove-label "tdd-spec:queued" \
-            --add-label "tdd-spec:completed"
+          # Update labels (with retry)
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            if gh issue edit "$ISSUE_NUMBER" \
+              --remove-label "tdd-spec:queued" \
+              --add-label "tdd-spec:completed" 2>/dev/null; then
+              break
+            else
+              if [ "$attempt" -lt "$MAX_RETRIES" ]; then
+                sleep 2
+              fi
+            fi
+          done
 
-          echo "✅ Issue #$ISSUE_NUMBER closed as superseded"
+          echo "✅ Issue #$ISSUE_NUMBER processed as superseded"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
 
