@@ -30,7 +30,7 @@ test.describe('Foreign Key Relationships', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-001: should create foreign key constraint when relationship field references parent table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
