@@ -18,7 +18,11 @@ on:
   workflow_dispatch:
 
 # Security: Define minimal required permissions
-# NOTE: Requires GH_PAT_WORKFLOW secret with 'repo' scope to post @claude mentions
+# NOTE: Requires GH_PAT_WORKFLOW secret with 'repo' AND 'workflows' scopes:
+# - 'repo': Required to post @claude mentions and manage issues
+# - 'workflows': Required for Claude Code to push branches (GitHub security restriction:
+#                pushing to repos with .github/workflows/ files requires 'workflows' scope
+#                even when the commit doesn't modify workflow files)
 # Comments posted with PAT appear from token owner's account (not github-actions bot)
 # This triggers Claude Code workflow via issue_comment event
 permissions:

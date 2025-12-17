@@ -378,6 +378,11 @@ jobs:
         continue-on-error: true # Capture exit code instead of failing immediately
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # CRITICAL: Use PAT token with 'workflows' permission for git push operations
+          # GitHub requires 'workflows' scope to push to repos containing .github/workflows/ files
+          # even when the commit doesn't modify workflow files (security restriction)
+          # Without this, Claude cannot push branches and PRs cannot be created
+          github_token: ${{ secrets.GH_PAT_WORKFLOW }}
           additional_permissions: |
             actions: read
           # NO prompt field - Claude Code will read the @claude comment naturally

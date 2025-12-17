@@ -291,6 +291,45 @@ All configuration is hardcoded in workflow files (no central config file):
 | `RETRY_STUCK_TIMEOUT_MINUTES` | 30    | Retries stuck >30 min are recovered               |
 | `FAILED_PR_COOLDOWN_MINUTES`  | 30    | Minimum wait between regression fix attempts      |
 
+### 4. Required Secrets
+
+The TDD workflows require the following GitHub secrets to be configured:
+
+| Secret Name               | Required Scopes    | Purpose                                         |
+| ------------------------- | ------------------ | ----------------------------------------------- |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Anthropic OAuth    | Authenticates Claude Code with Anthropic API    |
+| `GH_PAT_WORKFLOW`         | `repo`, `workflow` | GitHub Personal Access Token for git operations |
+
+**Why `workflow` scope is required**:
+
+GitHub has a security restriction that prevents **any** git push to repositories containing `.github/workflows/` files unless the token has the `workflow` scope. This applies even when the commit doesn't modify workflow files (see [GitHub documentation](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token)).
+
+**Without the `workflow` scope**, Claude Code will fail with:
+
+```
+refusing to allow a GitHub App to create or update workflow '.github/workflows/test.yml' without 'workflows' permission
+```
+
+**Creating the PAT** (Personal Access Token):
+
+1. Go to GitHub Settings > Developer Settings > Personal Access Tokens > Fine-grained tokens
+2. Create a new token with:
+   - Repository access: This repository only
+   - Permissions:
+     - Contents: Read and write
+     - Issues: Read and write
+     - Pull requests: Read and write
+     - Actions: Read
+     - **Workflows: Read and write** (CRITICAL for git push)
+3. Add the token as a repository secret named `GH_PAT_WORKFLOW`
+
+**Note**: The `GH_PAT_WORKFLOW` token is used by:
+
+- `tdd-dispatch.yml`: Posting @claude comments (triggers Claude Code)
+- `tdd-execute.yml`: Git push operations (pushing branches)
+- `tdd-refactor.yml`: Git push operations (refactor branches)
+- `tdd-monitor.yml`: Issue and PR management operations
+
 ## How It Works
 
 ### Step 1: Queue Population
