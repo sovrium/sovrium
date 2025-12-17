@@ -34,7 +34,7 @@ import {
   createIdempotencyLock,
   removeIdempotencyLock,
 } from './services/idempotency-lock'
-import { createSpecIssue, updateSpecIssueTitle } from './services/issue-creator'
+import { createSpecIssue } from './services/issue-creator'
 import {
   checkRateLimit,
   getQueuedSpecs,
@@ -46,7 +46,6 @@ import {
   markInProgress,
   markCompleted,
   markFailed,
-  normalizeDescription,
   type ExistingSpecsResult,
 } from './services/queue-operations'
 import { scanForFixmeSpecs } from './services/spec-scanner'
@@ -137,69 +136,34 @@ const commandPopulate = Effect.gen(function* () {
     // Check rate limit before bulk operations
     yield* checkRateLimit
 
-    // Get all existing specs with both spec ID and description lookups
+    // Get all existing spec IDs
     const existingSpecs: ExistingSpecsResult = yield* getAllExistingSpecs
 
-    // Categorize specs into: new, existing (by ID), or needs update (ID changed)
+    // Find specs that don't have issues yet (by exact spec ID match only)
+    // Note: Description-based matching was removed because generic descriptions
+    // like "should return 401 Unauthorized" appear 30+ times and cause collisions
     const newSpecs: SpecItem[] = []
-    const specsToUpdate: Array<{ spec: SpecItem; existingIssueNumber: number; oldSpecId: string }> =
-      []
 
     for (const spec of scanResult.specs) {
-      // Check 1: Exact spec ID match
-      if (existingSpecs.specIds.has(spec.specId)) {
-        // Already exists with same ID, skip
-        continue
-      }
-
-      // Check 2: Description match (detect spec ID changes)
-      const normalizedDesc = normalizeDescription(spec.description)
-      const existingByDesc = existingSpecs.byDescription.get(normalizedDesc)
-
-      if (existingByDesc) {
-        // Found issue with same description but different spec ID
-        // This means the spec ID was renumbered
-        specsToUpdate.push({
-          spec,
-          existingIssueNumber: existingByDesc.number,
-          oldSpecId: existingByDesc.specId,
-        })
-      } else {
-        // Truly new spec
+      if (!existingSpecs.specIds.has(spec.specId)) {
         newSpecs.push(spec)
       }
     }
 
     // Report findings
     yield* logInfo('')
-    if (specsToUpdate.length > 0) {
-      yield* logInfo(`🔄 Found ${specsToUpdate.length} spec(s) with changed IDs to update`)
-    }
     if (newSpecs.length > 0) {
       yield* logInfo(`📝 Found ${newSpecs.length} new spec(s) to create`)
-    }
-    if (specsToUpdate.length === 0 && newSpecs.length === 0) {
-      yield* skip('All specs already have issues (no updates needed)')
+    } else {
+      yield* skip('All specs already have issues')
       return
     }
     yield* logInfo('')
 
     let created = 0
-    let updated = 0
     let skipped = 0
 
-    // Update existing issues with changed spec IDs
-    for (const { spec, existingIssueNumber, oldSpecId } of specsToUpdate) {
-      const wasUpdated = yield* updateSpecIssueTitle(existingIssueNumber, oldSpecId, spec)
-      if (wasUpdated) {
-        updated++
-        yield* progress(`Updated ${updated}/${specsToUpdate.length} issue titles`)
-      } else {
-        skipped++
-      }
-    }
-
-    // Create issues for truly new specs
+    // Create issues for new specs
     for (const spec of newSpecs) {
       const issueNumber = yield* createSpecIssue(spec, true) // skipExistenceCheck=true
 
@@ -212,7 +176,7 @@ const commandPopulate = Effect.gen(function* () {
     }
 
     yield* logInfo('')
-    yield* success(`✅ Created ${created} issues, updated ${updated} titles, skipped ${skipped}`)
+    yield* success(`✅ Created ${created} issues, skipped ${skipped}`)
   }).pipe(Effect.ensuring(removeIdempotencyLock))
 })
 
