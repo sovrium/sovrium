@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/batch/post.json
  * Domain: api
- * Spec Count: 17
+ * Spec Count: 16
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria

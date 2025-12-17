@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Update comment
  *
  * Domain: api
- * Spec Count: 11
+ * Spec Count: 10
  *
  * Authorization:
  * - Only the comment author can edit their own comments

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/activity/get.spec.ts
  * Domain: api
- * Spec Count: 21
+ * Spec Count: 20
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (20 tests) - Exhaustive coverage

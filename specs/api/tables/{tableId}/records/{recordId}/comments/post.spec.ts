@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Create comment on a record
  *
  * Domain: api
- * Spec Count: 12
+ * Spec Count: 11
  *
  * Comments Feature:
  * - Authentication required (no anonymous comments)

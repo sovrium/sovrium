@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Delete comment
  *
  * Domain: api
- * Spec Count: 10
+ * Spec Count: 9
  *
  * Authorization:
  * - Comment author can delete their own comments
