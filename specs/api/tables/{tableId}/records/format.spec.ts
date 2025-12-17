@@ -14,7 +14,7 @@ import { test, expect } from '@/specs/fixtures'
  * Uses `?format=display` query parameter to request formatted responses.
  *
  * Domain: api
- * Spec Count: 20
+ * Spec Count: 25
  *
  * Test Organization:
  * 1. @spec tests - Field-specific formatting tests
@@ -25,6 +25,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Date: US, European, ISO formats, includeTime, timezone
  * - Datetime: 12-hour, 24-hour, timezone
  * - Duration: h:mm, h:mm:ss, decimal formats
+ * - Timezone Override: query param ?timezone=..., ISO 8601 serialization, validation
  */
 
 test.describe('Record Display Formatting', () => {
@@ -722,11 +723,162 @@ test.describe('Record Display Formatting', () => {
   )
 
   // ============================================================================
+  // Timezone Override Tests (Query Parameter)
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-RECORDS-FORMAT-021: should override display timezone via query parameter',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request }) => {
+      // GIVEN: table with datetime field (stored in UTC)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'event_time', type: 'datetime' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+      // Insert UTC timestamp (14:30 UTC)
+      await executeQuery("INSERT INTO events (id, event_time) VALUES (1, '2024-06-15 14:30:00+00')")
+
+      // WHEN: requesting record with timezone query parameter
+      const response = await request.get(
+        '/api/tables/1/records?format=display&timezone=America/New_York'
+      )
+
+      // THEN: datetime is displayed in requested timezone (14:30 UTC = 10:30 EDT)
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data.records[0].fields.event_time.displayValue).toMatch(/10:30/)
+      expect(data.records[0].fields.event_time.displayTimezone).toBe('America/New_York')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-FORMAT-022: should serialize raw datetime value in ISO 8601 with Z suffix',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request }) => {
+      // GIVEN: table with datetime field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'logs',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'timestamp', type: 'datetime' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+      // Insert with explicit offset (will be converted to UTC)
+      await executeQuery("INSERT INTO logs (id, timestamp) VALUES (1, '2024-06-15 10:30:00-04:00')")
+
+      // WHEN: requesting record with display formatting
+      const response = await request.get('/api/tables/1/records?format=display')
+
+      // THEN: raw value is serialized in ISO 8601 with 'Z' suffix (UTC)
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      // 10:30 EDT (-04:00) = 14:30 UTC
+      expect(data.records[0].fields.timestamp.value).toBe('2024-06-15T14:30:00.000Z')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-FORMAT-023: should reject invalid timezone in query parameter',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request }) => {
+      // GIVEN: table with datetime field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'event_time', type: 'datetime' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+      await executeQuery("INSERT INTO events (id, event_time) VALUES (1, '2024-06-15 14:30:00+00')")
+
+      // WHEN: requesting record with invalid timezone
+      const response = await request.get(
+        '/api/tables/1/records?format=display&timezone=Invalid/Timezone'
+      )
+
+      // THEN: API rejects with 400 Bad Request
+      expect(response.status()).toBe(400)
+      const data = await response.json()
+      expect(data.error).toMatch(/invalid timezone/i)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-FORMAT-024: should apply query timezone to all datetime fields in response',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request }) => {
+      // GIVEN: table with multiple datetime fields
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'appointments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'start_time', type: 'datetime' },
+              { id: 3, name: 'end_time', type: 'datetime' },
+              { id: 4, name: 'reminder_time', type: 'datetime' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+      // Insert UTC timestamps
+      await executeQuery(`
+        INSERT INTO appointments (id, start_time, end_time, reminder_time)
+        VALUES (1, '2024-06-15 14:00:00+00', '2024-06-15 15:00:00+00', '2024-06-15 13:45:00+00')
+      `)
+
+      // WHEN: requesting record with timezone query parameter
+      const response = await request.get(
+        '/api/tables/1/records?format=display&timezone=Europe/Paris'
+      )
+
+      // THEN: all datetime fields are converted to Paris timezone (UTC+2 in June)
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      const record = data.records[0]
+
+      // 14:00 UTC = 16:00 Paris (CEST)
+      expect(record.fields.start_time.displayValue).toMatch(/16:00/)
+      // 15:00 UTC = 17:00 Paris
+      expect(record.fields.end_time.displayValue).toMatch(/17:00/)
+      // 13:45 UTC = 15:45 Paris
+      expect(record.fields.reminder_time.displayValue).toMatch(/15:45/)
+    }
+  )
+
+  // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-FORMAT-021: user can retrieve records with all formatting options',
+    'API-TABLES-RECORDS-FORMAT-025: user can retrieve records with all formatting options',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, request }) => {
       await test.step('Setup: Start server with multiple formatted fields', async () => {
