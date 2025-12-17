@@ -397,7 +397,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-008: should create index on foreign key column for query performance',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
