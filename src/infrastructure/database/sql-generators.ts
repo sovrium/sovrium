@@ -644,7 +644,10 @@ export const generateForeignKeyConstraints = (
           ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
           : ''
 
-      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
+      // Use relatedField if specified, otherwise default to 'id'
+      const referencedColumn = 'relatedField' in field && field.relatedField ? field.relatedField : 'id'
+
+      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
     })
 
   // Foreign keys disabled for created-by/updated-by fields
