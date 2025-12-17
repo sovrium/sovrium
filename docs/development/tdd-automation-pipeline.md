@@ -778,7 +778,38 @@ If a spec has been in-progress for > 90 minutes with no activity:
    gh issue edit {issue-number} --add-label "tdd-spec:queued"
    ```
 
-### PR merged but issue still open (CRITICAL)
+### PR merged but issue still open (CRITICAL) - Missing Auto-Close Keyword
+
+**Issue**: PR merged successfully but issue remains `tdd-spec:in-progress` → **blocks entire queue**
+
+**Root Cause (Issue #5987 Incident)**: Claude Code wrote a detailed PR description instead of the required simple `Closes #<issue_number>` format. GitHub's auto-close feature is **format-sensitive** and fails with extra text.
+
+**Example of what went wrong**:
+
+```markdown
+## Summary ← Claude wrote this instead of just "Closes #5987"
+
+Implements support for circular foreign key dependencies...
+[30+ lines of implementation details]
+
+🤖 Generated with Claude Code
+```
+
+**Automatic Protection** (Since v2.5.1):
+
+1. **PR Body Validation Step**: `tdd-execute.yml` now validates PR body after creation
+2. **Auto-Fix**: If `Closes #<issue>` is missing, workflow automatically prepends it
+3. **Notification**: Issue receives comment explaining the fix was applied
+
+**Why Claude Does This**: Claude interprets the PR creation command as a _suggestion_ and believes a detailed description would be "more helpful." This is a pattern where AI autonomy conflicts with automation requirements.
+
+**Prevention** (v2.5.1 changes):
+
+- Strengthened prompt in `tdd-dispatch.yml` with explicit "DO NOT" instructions
+- Added validation step that auto-fixes missing keywords
+- Clear documentation of this failure pattern
+
+### PR merged but issue still open (CRITICAL) - Other Causes
 
 **Issue**: PR merged successfully but issue remains `tdd-spec:in-progress` → **blocks entire queue**
 
@@ -1390,11 +1421,24 @@ gh issue comment {ISSUE_NUMBER} \
 ---
 
 **Last Updated**: 2025-12-17
-**Version**: 2.5.0 (Queue System + Self-Healing Safeguards + Duplicate PR Prevention)
+**Version**: 2.5.2 (Queue System + Self-Healing Safeguards + Race Condition Fixes)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-17 (v2.5.2)**: Fixed race conditions in conflict resolution to fix PR #6073 incident:
+  - **Pre-conflict superseded check**: `tdd-monitor.yml` now checks for empty-diff PRs BEFORE attempting conflict resolution
+  - **@claude cooldown (10 min)**: Skips posting @claude comments if one was posted in last 10 minutes (prevents duplicate runs)
+  - **Escalation wait (15 min)**: Waits 15 minutes before escalating to `needs-manual-resolution` (gives Claude time to finish)
+  - **Root cause**: Multiple jobs posted @claude comments in rapid succession, and escalated before Claude could finish
+  - **Learning**: Event-driven workflows need coordination primitives (cooldowns, wait times) to prevent race conditions
+- **2025-12-17 (v2.5.1)**: Added PR body validation to fix issue #5987 incident (orphaned issues):
+  - **Root cause**: Claude Code wrote detailed PR descriptions instead of simple `Closes #<issue>` format
+  - **PR body validation step**: `tdd-execute.yml` now validates PR body contains auto-close keyword
+  - **Auto-fix capability**: Missing keywords are automatically prepended to PR body
+  - **Strengthened prompts**: `tdd-dispatch.yml` now explicitly prohibits custom PR body content
+  - **Documentation**: Added troubleshooting section for this failure pattern
+  - **Learning**: AI "helpfulness" can conflict with automation requirements - explicit prohibitions needed
 - **2025-12-17 (v2.5.0)**: Added post-execution duplicate PR prevention to fix PR #6067 incident:
   - **Post-execution duplicate check**: After Claude completes, verify issue still open and no PRs merged
   - **Pre-PR checks for Claude**: Mandatory checks before creating PR (issue state + existing PRs)

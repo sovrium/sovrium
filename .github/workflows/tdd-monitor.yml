@@ -737,6 +737,81 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
+      # PRE-CHECK: Close superseded PRs BEFORE attempting conflict resolution
+      # This prevents wasted Claude runs when changes are already in main
+      - name: Close superseded PRs first
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🔍 Pre-checking for superseded PRs before conflict resolution..."
+
+          PRS=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --label "tdd-automation" \
+            --state open \
+            --json number,headRefName,body,mergeable \
+            --limit 50)
+
+          CLOSED_COUNT=0
+
+          while read -r pr; do
+            [ -z "$pr" ] && continue
+
+            PR_NUMBER=$(echo "$pr" | jq -r '.number')
+            MERGEABLE=$(echo "$pr" | jq -r '.mergeable')
+
+            # Only check conflicting PRs - they might be superseded
+            if [ "$MERGEABLE" != "CONFLICTING" ]; then
+              continue
+            fi
+
+            # Check if PR has empty diff (superseded by main)
+            DIFF_OUTPUT=$(gh pr diff "$PR_NUMBER" --repo ${{ github.repository }} 2>&1)
+            DIFF_STATUS=$?
+
+            # Skip if diff command failed (actual conflicts exist that need resolution)
+            if [ "$DIFF_STATUS" -ne 0 ]; then
+              continue
+            fi
+
+            DIFF_LINES=$(echo "$DIFF_OUTPUT" | wc -l | tr -d ' ')
+
+            if [ "$DIFF_LINES" -eq 0 ] || [ -z "$DIFF_OUTPUT" ]; then
+              echo "⚠️  PR #$PR_NUMBER has empty diff - closing as superseded (not conflicted)"
+
+              BODY=$(echo "$pr" | jq -r '.body')
+              ISSUE_NUMBER=$(echo "$BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+
+              gh pr close "$PR_NUMBER" --repo ${{ github.repository }} \
+                --comment "🔄 **PR Closed: Superseded by Main**
+
+              This PR appeared to have conflicts, but actually has no diff - the changes have already been merged through another PR.
+
+              **Issue status**: $([ -n "$ISSUE_NUMBER" ] && echo "Closing #$ISSUE_NUMBER as completed" || echo "No linked issue")
+
+              ---
+              *🤖 TDD Monitor - Pre-Conflict Superseded Check*"
+
+              CLOSED_COUNT=$((CLOSED_COUNT + 1))
+
+              if [ -n "$ISSUE_NUMBER" ]; then
+                ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+                if [ "$ISSUE_STATE" = "OPEN" ]; then
+                  gh issue close "$ISSUE_NUMBER" --repo ${{ github.repository }} --reason completed 2>/dev/null || true
+                  gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
+                    --remove-label "tdd-spec:in-progress" \
+                    --add-label "tdd-spec:completed" 2>/dev/null || true
+                fi
+              fi
+            fi
+          done < <(echo "$PRS" | jq -r '.[] | @json')
+
+          if [ "$CLOSED_COUNT" -gt 0 ]; then
+            echo "✅ Closed $CLOSED_COUNT superseded PR(s) before conflict resolution"
+          else
+            echo "✅ No superseded PRs found"
+          fi
+
       - name: Find and resolve conflicts
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
@@ -759,10 +834,40 @@ jobs:
             echo ""
             echo "⚠️  PR #$PR_NUMBER has conflicts"
 
+            # COOLDOWN CHECK: Skip if any @claude comment was posted in last 10 minutes
+            # This prevents duplicate Claude runs when multiple jobs trigger simultaneously
+            RECENT_CLAUDE_COMMENT=$(gh api \
+              "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              --jq "[.[] | select(.body | contains(\"@claude\")) | select(.created_at > \"$(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-10M +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+
+            if [ "$RECENT_CLAUDE_COMMENT" -gt 0 ]; then
+              echo "   ⏭️  Skipping - @claude comment already posted within last 10 minutes"
+              continue
+            fi
+
             # Check if already attempted resolution
             HAS_RETRY=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json labels --jq '.labels[].name' | grep "conflict-resolution:attempted" || echo "")
 
             if [ -n "$HAS_RETRY" ]; then
+              # ESCALATION WAIT: Check when the label was added - only escalate if >15 min old
+              # This gives Claude time to finish resolution before marking as manual
+              LABEL_ADDED_AT=$(gh api "/repos/${{ github.repository }}/issues/${PR_NUMBER}/events" \
+                --jq '[.[] | select(.event == "labeled" and .label.name == "conflict-resolution:attempted")] | last | .created_at' 2>/dev/null || echo "")
+
+              if [ -n "$LABEL_ADDED_AT" ] && [ "$LABEL_ADDED_AT" != "null" ]; then
+                LABEL_EPOCH=$(date -d "$LABEL_ADDED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$LABEL_ADDED_AT" +%s 2>/dev/null || echo "0")
+                NOW=$(date +%s)
+                AGE_MIN=$(( (NOW - LABEL_EPOCH) / 60 ))
+
+                # Only escalate if >15 minutes since first attempt (Claude can take 10+ min)
+                if [ "$AGE_MIN" -lt 15 ]; then
+                  echo "   ⏳ First resolution attempt only ${AGE_MIN}m old - waiting for Claude to finish (need 15m)"
+                  continue
+                fi
+
+                echo "   First attempt was ${AGE_MIN}m ago (>15m threshold) - escalating to manual"
+              fi
+
               echo "   Already attempted - marking for manual review"
 
               gh pr edit "$PR_NUMBER" --repo ${{ github.repository }} \
@@ -771,7 +876,7 @@ jobs:
               gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} \
                 --body "🤖 **Manual Resolution Required**
 
-              Automatic conflict resolution failed. Please resolve manually:
+              Automatic conflict resolution failed after >15 minutes. Please resolve manually:
 
               1. \`git fetch origin main:main\`
               2. \`git checkout [branch] && git rebase origin/main\`
