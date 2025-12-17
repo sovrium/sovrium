@@ -38,7 +38,7 @@ playwright test
 bun test:all
 
 # Run specific test file
-playwright test tests/example.spec.ts
+playwright test specs/example.spec.ts
 
 # Run tests in specific browser
 playwright test --project=chromium
@@ -64,7 +64,7 @@ playwright show-report
 playwright test -g "test name pattern"
 
 # Run tests matching pattern
-playwright test tests/auth/
+playwright test specs/api/auth/
 
 # Parallel execution (default)
 playwright test --workers 4
@@ -81,49 +81,83 @@ playwright test --workers 1
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './tests', // E2E tests directory
+  testDir: './specs', // E2E tests directory
+  /* Global timeout for entire test suite (10 min on CI to prevent GitHub Actions timeouts) */
+  globalTimeout: process.env.CI ? 600_000 : undefined,
+  /* Per-test timeout (60s on CI due to slower runners, 30s locally) */
+  timeout: process.env.CI ? 60_000 : 30_000,
+  /* Global setup for database testcontainers (teardown handled by setup return value) */
+  globalSetup: './specs/global-setup.ts',
+  /* Global teardown for emergency process cleanup */
+  globalTeardown: './specs/global-teardown.ts',
   fullyParallel: true, // Run tests in parallel for speed
   forbidOnly: !!process.env.CI, // Prevent test.only in CI
   retries: process.env.CI ? 2 : 0, // Retry failed tests in CI
   workers: process.env.CI ? 1 : undefined, // Serial in CI, parallel locally
-  reporter: 'html', // HTML test report
+  reporter: process.env.CI ? 'github' : [['list'], ['html']], // GitHub reporter for CI
+
+  /* Snapshot configuration */
+  snapshotDir: './specs',
+  snapshotPathTemplate:
+    '{snapshotDir}/{testFileDir}/__snapshots__/{testFileName}-snapshots/{arg}{-projectName}{-platform}{ext}',
+  updateSnapshots: process.env.UPDATE_SNAPSHOTS === 'true' ? 'all' : 'missing',
+
+  expect: {
+    timeout: 10000,
+    toHaveScreenshot: {
+      maxDiffPixels: 100,
+      threshold: 0.2,
+      animations: 'disabled',
+      scale: 'css',
+    },
+  },
 
   use: {
     trace: 'on-first-retry', // Capture trace on retry
-    // baseURL: 'http://localhost:3000', // Uncomment when server added
+    screenshot: { mode: 'only-on-failure', fullPage: false },
+    video: 'retain-on-failure',
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: [
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--font-render-hinting=none',
+          ],
+        },
+      },
+    },
   ],
-
-  // webServer: { // Uncomment to auto-start dev server
-  //   command: 'bun run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
 })
 ```
 
 ### Configuration Breakdown
 
-- **testDir**: `./tests` - All E2E tests must be in the `tests/` directory
+- **testDir**: `./specs` - All E2E tests are in the `specs/` directory
+- **globalTimeout**: 10 minutes on CI to prevent GitHub Actions timeouts
+- **timeout**: 60s per test on CI (slower runners), 30s locally
+- **globalSetup/Teardown**: Database testcontainers setup and cleanup
 - **fullyParallel**: `true` - Tests run concurrently for faster execution
 - **forbidOnly**: Prevents accidentally committing `test.only()` in CI
 - **retries**: Auto-retry failed tests in CI (flaky test handling)
 - **workers**: 1 worker in CI (reliable), multiple locally (fast)
-- **reporter**: `'html'` - Generates interactive HTML report at `playwright-report/`
+- **reporter**: GitHub reporter for CI, list + HTML locally
+- **snapshotDir**: Snapshots stored alongside tests in `specs/__snapshots__/`
 - **trace**: Captures execution trace on test retry for debugging
-- **projects**: Tests run on Chromium, Firefox, and WebKit browsers
-- **webServer**: (Optional) Auto-start development server before tests
+- **screenshot/video**: Only on failure to reduce artifacts
+- **projects**: Chromium-only by default (Firefox/WebKit available)
 
 ## Test File Structure
 
 ### Location and Naming
 
-- **Location**: All E2E tests must be in the `tests/` directory
+- **Location**: All E2E tests are in the `specs/` directory
 - **Naming**: `*.spec.ts` (Playwright convention)
 
 ### Example Test
@@ -348,7 +382,7 @@ page.on('console', (msg) => console.log(msg.text()))
 3. **After Feature Development** (recommended):
 
    ```bash
-   bun test:e2e tests/new-feature.spec.ts
+   bun test:e2e specs/new-feature.spec.ts
    ```
 
 4. **Before Releases** (critical):
@@ -359,7 +393,7 @@ page.on('console', (msg) => console.log(msg.text()))
 
 5. **During Development** (optional, for specific tests):
    ```bash
-   playwright test --headed --debug tests/auth.spec.ts
+   playwright test --headed --debug specs/api/auth/sign-in.spec.ts
    ```
 
 ## DO NOT Run E2E Tests as Frequently as Unit Tests

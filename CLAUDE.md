@@ -33,8 +33,8 @@
 | **TypeScript** | ^5.9.3 | Type-safe language |
 | **Effect** | ^3.19.12 | Functional programming, DI, error handling |
 | **Effect Schema** | ^3.19.12 | Server validation (domain/application/infrastructure) |
-| **Hono** | ^4.10.8 | Web framework (API routes, RPC client, OpenAPI) |
-| **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms |
+| **Hono** | ^4.11.1 | Web framework (API routes, RPC client, OpenAPI) |
+| **Zod** | ^4.2.1 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms |
 | **Better Auth** | ^1.4.4 | Authentication |
 | **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) |
 | **React** | ^19.2.3 | UI library |
