@@ -1051,3 +1051,56 @@ jobs:
 
             exit 1
           fi
+
+      # NEW: Validate and fix PR body to ensure auto-close will work
+      # This prevents orphaned issues when Claude writes detailed PR descriptions
+      # instead of the required simple "Closes #<issue_number>" format
+      - name: Validate PR body has auto-close keyword
+        if: steps.duplicate_check.outputs.is_duplicate != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          echo "🔍 Validating PR body contains auto-close keyword..."
+
+          # Find the PR for this issue (using branch pattern)
+          PR_NUMBER=$(gh pr list --repo "$REPO" \
+            --json number,headRefName \
+            --jq "[.[] | select(.headRefName | test(\"^claude/issue-.*$ISSUE_NUMBER.*\"))][0].number")
+
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "⚠️  No PR found to validate - skipping body check"
+            exit 0
+          fi
+
+          echo "📋 Checking PR #$PR_NUMBER body..."
+
+          # Get current PR body
+          PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body')
+
+          # Check if body contains the required auto-close keyword
+          if echo "$PR_BODY" | grep -qE "Closes #$ISSUE_NUMBER([^0-9]|$)"; then
+            echo "✅ PR body contains 'Closes #$ISSUE_NUMBER' - auto-close will work"
+          else
+            echo "⚠️  PR #$PR_NUMBER is MISSING 'Closes #$ISSUE_NUMBER' in body"
+            echo "   Auto-close will NOT work without this keyword"
+            echo "   Attempting to fix by prepending the keyword..."
+
+            # Prepend the auto-close keyword to the existing body
+            # Use printf to avoid YAML parsing issues with multiline strings
+            NEW_BODY=$(printf "Closes #%s\n\n%s" "$ISSUE_NUMBER" "$PR_BODY")
+
+            # Update the PR body
+            if gh pr edit "$PR_NUMBER" --repo "$REPO" --body "$NEW_BODY"; then
+              echo "✅ Successfully added 'Closes #$ISSUE_NUMBER' to PR body"
+              echo "   Auto-close will now work when PR merges"
+
+              # Post comment on issue explaining the fix
+              gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+                --body "🔧 **Auto-Close Keyword Fix Applied**: PR #$PR_NUMBER was missing \`Closes #$ISSUE_NUMBER\` in its body. Added the keyword - issue will now auto-close when PR merges. *🤖 Automated fix*" || true
+            else
+              echo "❌ Failed to update PR body - manual intervention may be needed"
+              echo "   PR will merge but issue may not auto-close"
+            fi
+          fi
