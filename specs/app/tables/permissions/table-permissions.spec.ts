@@ -106,7 +106,7 @@ test.describe('Table-Level Permissions', () => {
   // but when using SET SESSION AUTHORIZATION to switch to app_user (non-superuser), the
   // SET LOCAL session variables are not visible to RLS policy evaluation.
   // This is a PostgreSQL behavior with session authorization switching, not an implementation bug.
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-002: should deny INSERT access when user with member role attempts to create record with admin-only create permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
@@ -249,7 +249,7 @@ test.describe('Table-Level Permissions', () => {
 
   // NOTE: Test infrastructure limitation - SET SESSION AUTHORIZATION + SET LOCAL + RLS evaluation
   // Same issue as test 002 - session variables not visible to RLS policy after SESSION AUTHORIZATION switch
-  test.fixme(
+  test(
     'APP-TABLES-TABLE-PERMISSIONS-004: should grant UPDATE access to authenticated users when table has authenticated-only update permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {

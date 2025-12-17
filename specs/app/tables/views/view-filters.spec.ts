@@ -243,7 +243,7 @@ test.describe('View Filters', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEW-FILTERS-006: should filter deleted records when view explicitly filters by deleted_at',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

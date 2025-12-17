@@ -601,7 +601,7 @@ test.describe('Database Indexes', () => {
   // Phase: Error Configuration Validation Tests (009-010)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-009: should reject index referencing non-existent column',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

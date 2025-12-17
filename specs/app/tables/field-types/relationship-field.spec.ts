@@ -594,7 +594,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-013: should limit linkable records to specified view',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

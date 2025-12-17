@@ -377,7 +377,7 @@ test.describe('Unique Constraints', () => {
   // Phase: Error Configuration Validation Tests (008-009)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-008: should reject unique constraint referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
