@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isRelationshipField, isUserField } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -80,21 +81,6 @@ const generateCustomIndexes = (table: Table): readonly string[] =>
     const fields = index.fields.join(', ')
     return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})`
   }) ?? []
-
-/**
- * Check if field is a relationship field (type: 'relationship')
- * Used to identify foreign key columns that need indexes
- */
-const isRelationshipField = (
-  field: Fields[number]
-): field is Fields[number] & { type: 'relationship'; relatedTable: string } =>
-  field.type === 'relationship' && 'relatedTable' in field && typeof field.relatedTable === 'string'
-
-/**
- * Check if field is a user field (type: 'user')
- * Used to identify user reference columns that need indexes
- */
-const isUserField = (field: Fields[number]): boolean => field.type === 'user'
 
 /**
  * Generate indexes for foreign key columns (relationship and user fields)
