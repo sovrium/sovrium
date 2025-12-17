@@ -91,7 +91,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-002: should reject INSERT when foreign key references non-existent parent record',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
