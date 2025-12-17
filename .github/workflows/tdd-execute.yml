@@ -390,7 +390,17 @@ jobs:
           # NO prompt field - Claude Code will read the @claude comment naturally
           # This allows the queue processor's detailed instructions to be used
           # Agents are auto-discovered from .claude/agents/ directory (no --agents flag needed)
-          claude_args: '--dangerously-skip-permissions'
+          #
+          # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
+          # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
+          # - --max-turns: Prevent runaway conversations (30 turns covers read→implement→test→PR cycle)
+          # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
+          # - --disallowedTools: Block web access (not needed for code implementation)
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-turns 30
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,AskUserQuestion
+            --disallowedTools WebFetch,WebSearch
 
       - name: Detect error type
         id: detect_error

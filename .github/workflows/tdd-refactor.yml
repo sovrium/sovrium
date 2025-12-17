@@ -208,7 +208,17 @@ jobs:
             **Reference**: @docs/development/tdd-automation-pipeline.md
 
           # Agent auto-discovery from .claude/agents/ directory
-          claude_args: '--dangerously-skip-permissions'
+          #
+          # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
+          # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for refactoring)
+          # - --max-turns: Prevent runaway conversations (40 turns for comprehensive refactoring audits)
+          # - --allowedTools: Principle of least privilege - only tools needed for refactoring
+          # - --disallowedTools: Block web access (not needed for codebase refactoring)
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-turns 40
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion
 
       - name: Verify refactor completed
         id: verify
