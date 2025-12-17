@@ -24,7 +24,7 @@ import { test, expect } from '@/specs/fixtures'
  * - RLS-based: PostgreSQL RLS handles per-row permission automatically
  *
  * Domain: api
- * Spec Count: 8
+ * Spec Count: 7
  */
 
 test.describe('API Bulk Operations with Permissions', () => {

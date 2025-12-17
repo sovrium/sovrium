@@ -24,7 +24,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Custom conditions with role checks
  *
  * Domain: api
- * Spec Count: 8
+ * Spec Count: 7
  */
 
 test.describe('API Complex Permission Conditions', () => {
