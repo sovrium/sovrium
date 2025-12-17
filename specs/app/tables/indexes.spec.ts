@@ -628,7 +628,7 @@ test.describe('Database Indexes', () => {
             },
           ],
         })
-      ).rejects.toThrow(/column.*status.*not found|index.*references.*non-existent.*column/i)
+      ).rejects.toThrow(/column.*status.*does not exist|not found/i)
     }
   )
 

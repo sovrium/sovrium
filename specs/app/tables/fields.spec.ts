@@ -305,7 +305,7 @@ test.describe('Table Fields', () => {
             },
           ],
         })
-      ).rejects.toThrow(/expected.*actual.*nonexistent-type|invalid.*type|unsupported/i)
+      ).rejects.toThrow(/unknown.*field.*type|invalid.*type/i)
     }
   )
 

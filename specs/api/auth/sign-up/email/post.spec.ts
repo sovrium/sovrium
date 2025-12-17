@@ -83,8 +83,8 @@ test.describe('Sign up with email and password', () => {
         },
       })
 
-      // THEN: Better Auth returns 422 for validation errors
-      expect(response.status()).toBe(422)
+      // THEN: Better Auth returns 400 for validation errors
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
       expect(data).toHaveProperty('message')
@@ -139,9 +139,8 @@ test.describe('Sign up with email and password', () => {
         },
       })
 
-      // THEN: Better Auth returns 500 for missing password (internal handling)
-      // Note: This is Better Auth behavior - password is handled differently
-      expect(response.status()).toBe(500)
+      // THEN: Better Auth returns 400 for missing password
+      expect(response.status()).toBe(400)
     }
   )
 
