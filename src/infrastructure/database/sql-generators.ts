@@ -566,9 +566,10 @@ export const generateForeignKeyConstraints = (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): readonly string[] => {
   // Generate foreign keys for user fields (type: 'user')
+  // Uses _sovrium_auth_users for namespace isolation from user-created tables
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
     const constraintName = `${tableName}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public._sovrium_auth_users(id)`
   })
 
   // Generate foreign keys for relationship fields (type: 'relationship')
@@ -612,7 +613,7 @@ export const generateForeignKeyConstraints = (
   //   .filter(isUserReferenceField)
   //   .map((field) => {
   //     const constraintName = `${tableName}_${field.name}_fkey`
-  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public._sovrium_auth_users(id)`
   //   })
 
   return [...userFieldConstraints, ...relationshipFieldConstraints, ...userReferenceConstraints]

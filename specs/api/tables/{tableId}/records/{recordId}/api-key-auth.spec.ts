@@ -293,9 +293,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
               { id: 3, name: 'salary', type: 'integer' },
             ],
             permissions: {
-              fields: [
-                { field: 'salary', write: { type: 'roles', roles: ['owner', 'admin'] } },
-              ],
+              fields: [{ field: 'salary', write: { type: 'roles', roles: ['owner', 'admin'] } }],
             },
           },
         ],
@@ -356,9 +354,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
               { id: 3, name: 'salary', type: 'integer' },
             ],
             permissions: {
-              fields: [
-                { field: 'salary', read: { type: 'roles', roles: ['owner', 'admin'] } },
-              ],
+              fields: [{ field: 'salary', read: { type: 'roles', roles: ['owner', 'admin'] } }],
             },
           },
         ],

@@ -8,10 +8,20 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
-import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
 import { logError } from '../../logging'
+import { authDb } from './db'
+import {
+  users,
+  sessions,
+  accounts,
+  verifications,
+  organizations,
+  members,
+  invitations,
+  twoFactors,
+} from './schema'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
 /**
@@ -254,6 +264,27 @@ const AUTH_TABLE_NAMES = {
 } as const
 
 /**
+ * Schema mapping for Better Auth's drizzle adapter
+ *
+ * Better Auth looks up schema by modelName, so we need to map:
+ * - '_sovrium_auth_users' -> users table definition
+ * - '_sovrium_auth_sessions' -> sessions table definition
+ * - etc.
+ *
+ * The keys must match the modelName values used in AUTH_TABLE_NAMES
+ */
+const drizzleSchema = {
+  [AUTH_TABLE_NAMES.user]: users,
+  [AUTH_TABLE_NAMES.session]: sessions,
+  [AUTH_TABLE_NAMES.account]: accounts,
+  [AUTH_TABLE_NAMES.verification]: verifications,
+  [AUTH_TABLE_NAMES.organization]: organizations,
+  [AUTH_TABLE_NAMES.member]: members,
+  [AUTH_TABLE_NAMES.invitation]: invitations,
+  [AUTH_TABLE_NAMES.twoFactor]: twoFactors,
+}
+
+/**
  * Build Better Auth plugins array with custom table names
  *
  * ⚠️ CRITICAL: apiKey plugin is DISABLED due to Better Auth bug
@@ -294,7 +325,11 @@ export function createAuthInstance(authConfig?: Auth) {
   return betterAuth({
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_BASE_URL,
-    database: drizzleAdapter(db, { provider: 'pg', usePlural: true }),
+    database: drizzleAdapter(authDb, {
+      provider: 'pg',
+      usePlural: false,
+      schema: drizzleSchema,
+    }),
     session: { modelName: AUTH_TABLE_NAMES.session },
     account: { modelName: AUTH_TABLE_NAMES.account },
     verification: { modelName: AUTH_TABLE_NAMES.verification },

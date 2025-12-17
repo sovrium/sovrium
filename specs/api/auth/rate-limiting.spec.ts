@@ -75,6 +75,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-002: should reset sign-in rate limit after window expires',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
+      // This test waits 60+ seconds for rate limit window to expire
+      test.slow()
+
       // GIVEN: Application with default rate limiting enabled
       // Note: This test validates rate limit window reset behavior.
       // If default window is longer than 60 seconds, this test may need adjustment
@@ -278,8 +281,16 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         tables: [],
       })
 
-      await signUp({ email: 'user1@example.com', password: 'TestPassword123!', name: 'Test User 1' })
-      await signUp({ email: 'user2@example.com', password: 'TestPassword123!', name: 'Test User 2' })
+      await signUp({
+        email: 'user1@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User 1',
+      })
+      await signUp({
+        email: 'user2@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User 2',
+      })
 
       // WHEN: Same IP attempts sign-in for different users
       // Note: Test assumes default limit is 5 attempts per 60 seconds per IP
@@ -313,6 +324,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     'API-AUTH-RATE-008: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {
+      // This test waits 60+ seconds for rate limit window to expire
+      test.slow()
+
       await test.step('Setup: Start server with default rate limiting', async () => {
         await startServerWithSchema({
           name: 'test-app',

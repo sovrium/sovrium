@@ -329,7 +329,7 @@ test.describe('Created By Field', () => {
 
       await test.step('Verify creator info via JOIN', async () => {
         const creator = await executeQuery(
-          'SELECT d.content, u.name FROM data d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
+          'SELECT d.content, u.name FROM data d JOIN _sovrium_auth_users u ON d.created_by = u.id WHERE d.id = 1'
         )
         expect(creator.name).toBe('Alice')
       })

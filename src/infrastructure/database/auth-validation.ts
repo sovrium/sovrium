@@ -42,11 +42,11 @@ export const ensureBetterAuthUsersTable = async (tx: {
 }): Promise<void> => {
   logInfo('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
 
-  // Check if users table exists
+  // Check if users table exists (uses _sovrium_auth_users prefix for namespace isolation)
   const tableExistsResult = (await tx.unsafe(`
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'users'
+      WHERE table_schema = 'public' AND table_name = '_sovrium_auth_users'
     ) as exists
   `)) as readonly { exists: boolean }[]
 
@@ -60,7 +60,7 @@ export const ensureBetterAuthUsersTable = async (tx: {
   // Verify Better Auth schema (TEXT id column)
   const idColumnResult = (await tx.unsafe(`
     SELECT data_type FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
+    WHERE table_schema = 'public' AND table_name = '_sovrium_auth_users' AND column_name = 'id'
   `)) as readonly { data_type: string }[]
 
   if (!idColumnResult[0]) {

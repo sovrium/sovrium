@@ -942,7 +942,7 @@ describe('sql-generators', () => {
 
       // Then
       expect(result).toContain(
-        'CONSTRAINT posts_author_fkey FOREIGN KEY (author) REFERENCES public.users(id)'
+        'CONSTRAINT posts_author_fkey FOREIGN KEY (author) REFERENCES public._sovrium_auth_users(id)'
       )
     })
 
@@ -1282,7 +1282,7 @@ describe('sql-generators', () => {
         "CONSTRAINT check_status_enum CHECK (status IN ('active', 'inactive'))"
       )
       expect(result).toContain(
-        'CONSTRAINT products_owner_fkey FOREIGN KEY (owner) REFERENCES public.users(id)'
+        'CONSTRAINT products_owner_fkey FOREIGN KEY (owner) REFERENCES public._sovrium_auth_users(id)'
       )
     })
 

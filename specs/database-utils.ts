@@ -85,6 +85,46 @@ export class DatabaseTemplateManager {
     try {
       await migrate(db, { migrationsFolder: './drizzle' })
 
+      // Create auth schema and helper functions for RLS policies
+      // This was previously in migrations but consolidated out
+      await templatePool.query(`
+        CREATE SCHEMA IF NOT EXISTS auth;
+
+        CREATE OR REPLACE FUNCTION auth.user_has_role(role_name TEXT)
+        RETURNS BOOLEAN
+        LANGUAGE sql
+        STABLE
+        AS $$
+          SELECT COALESCE(current_setting('app.user_role', true), '') = role_name
+        $$;
+
+        CREATE OR REPLACE FUNCTION auth.is_authenticated()
+        RETURNS BOOLEAN
+        LANGUAGE sql
+        STABLE
+        AS $$
+          SELECT current_setting('app.user_id', true) IS NOT NULL
+            AND current_setting('app.user_id', true) != ''
+        $$;
+
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_user') THEN
+            CREATE ROLE admin_user;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'member_user') THEN
+            CREATE ROLE member_user;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated_user') THEN
+            CREATE ROLE authenticated_user;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'guest_user') THEN
+            CREATE ROLE guest_user;
+          END IF;
+        END
+        $$;
+      `)
+
       // Configure custom session variables for RLS policies
       // These variables are used by Row-Level Security policies to filter data
       // based on authenticated user context (user_id, organization_id, role)
@@ -113,6 +153,16 @@ export class DatabaseTemplateManager {
         GRANT member_user TO app_user;
         GRANT authenticated_user TO app_user;
         GRANT guest_user TO app_user;
+      `)
+
+      // Grant schema and sequence privileges to test roles
+      // Required for INSERT operations when using SET ROLE to switch roles
+      await templatePool.query(`
+        GRANT USAGE ON SCHEMA public TO admin_user, member_user, authenticated_user, guest_user;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_user, member_user, authenticated_user, guest_user;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin_user, member_user, authenticated_user, guest_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO admin_user, member_user, authenticated_user, guest_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO admin_user, member_user, authenticated_user, guest_user;
       `)
     } finally {
       await templatePool.end()

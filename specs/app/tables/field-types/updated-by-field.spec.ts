@@ -342,7 +342,7 @@ test.describe('Updated By Field', () => {
 
       await test.step('Verify updater info via JOIN', async () => {
         const editor = await executeQuery(
-          'SELECT d.value, u.name FROM data d JOIN users u ON d.updated_by = u.id WHERE d.id = 1'
+          'SELECT d.value, u.name FROM data d JOIN _sovrium_auth_users u ON d.updated_by = u.id WHERE d.id = 1'
         )
         expect(editor.name).toBe('Bob')
       })

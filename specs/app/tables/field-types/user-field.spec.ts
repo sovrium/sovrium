@@ -303,7 +303,7 @@ test.describe('User Field', () => {
 
       await test.step('Verify user info via JOIN', async () => {
         const userInfo = await executeQuery(
-          'SELECT d.id, u.name, u.email FROM data d JOIN users u ON d.assignee = u.id WHERE d.id = 1'
+          'SELECT d.id, u.name, u.email FROM data d JOIN _sovrium_auth_users u ON d.assignee = u.id WHERE d.id = 1'
         )
         expect(userInfo.name).toBe('Alice')
         expect(userInfo.email).toBe('alice@example.com')

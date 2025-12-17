@@ -205,7 +205,6 @@ async function startCliServer(
 
   // Ensure cleanup on process crash/exit
   serverProcess.once('exit', () => {
-     
     activeServerProcesses.delete(serverProcess)
   })
 
@@ -239,7 +238,7 @@ async function startCliServer(
     throw lastError || new Error('Health check failed after retries')
   } catch (error) {
     // Cleanup on startup failure
-     
+
     activeServerProcesses.delete(serverProcess)
     await stopServer(serverProcess)
     throw error
@@ -288,7 +287,7 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
       if (!resolved) {
         resolved = true
         if (timeoutId) clearTimeout(timeoutId)
-         
+
         activeServerProcesses.delete(serverProcess)
         resolve()
       }
@@ -960,7 +959,7 @@ export const test = base.extend<ServerFixtures>({
         const originalPost = page.request.post.bind(page.request)
         const originalGet = page.request.get.bind(page.request)
         const originalPut = page.request.put.bind(page.request)
-         
+
         const originalDelete = page.request.delete.bind(page.request)
         const originalPatch = page.request.patch.bind(page.request)
 
@@ -985,7 +984,6 @@ export const test = base.extend<ServerFixtures>({
           return originalPut(fullUrl, options)
         }
 
-         
         page.request.delete = (urlOrRequest, options?) => {
           const url = typeof urlOrRequest === 'string' ? urlOrRequest : urlOrRequest
           const fullUrl =
@@ -1715,7 +1713,6 @@ export const test = base.extend<ServerFixtures>({
   // API Key fixture: Delete an API key
   deleteApiKey: async ({ page }, use) => {
     await use(async (keyId: string): Promise<void> => {
-       
       const response = await page.request.delete(`/api/auth/api-key/${keyId}`)
 
       if (!response.ok()) {
