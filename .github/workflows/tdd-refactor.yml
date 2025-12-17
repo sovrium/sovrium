@@ -149,16 +149,27 @@ jobs:
           echo "✅ Branch created: $BRANCH_NAME"
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
+      # Generate Claude GitHub App token for claude[bot] attribution on comments
+      # This makes comments appear from "claude[bot]" instead of your personal account
+      # Setup: Install Claude app (https://github.com/apps/claude) and add secrets:
+      #   - CLAUDE_APP_ID: App ID from app settings
+      #   - CLAUDE_APP_PRIVATE_KEY: Generated private key (PEM format)
+      - name: Generate Claude App token
+        id: claude-app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CLAUDE_APP_ID }}
+          private-key: ${{ secrets.CLAUDE_APP_PRIVATE_KEY }}
+
       - name: Run Claude Code with codebase-refactor-auditor
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # CRITICAL: Use PAT token with 'workflows' permission for git push operations
-          # GitHub requires 'workflows' scope to push to repos containing .github/workflows/ files
-          # even when the commit doesn't modify workflow files (security restriction)
-          # Without this, Claude cannot push branches and PRs cannot be created
-          github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          # Use Claude GitHub App token for claude[bot] comment attribution
+          # If app lacks 'workflows' scope for pushing, fall back to PAT:
+          #   github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          github_token: ${{ steps.claude-app-token.outputs.token }}
 
           # Additional permissions for Claude to read CI results
           additional_permissions: |
