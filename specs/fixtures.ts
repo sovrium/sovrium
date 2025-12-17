@@ -195,7 +195,7 @@ async function startCliServer(
       PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit
-      BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing', // Required for Better Auth token signing
+      BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars', // Required for Better Auth token signing (min 32 chars)
     },
     stdio: 'pipe',
   })
