@@ -138,7 +138,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-003: should reject DELETE of parent record when child records exist with RESTRICT behavior',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
