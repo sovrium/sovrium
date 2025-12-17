@@ -689,8 +689,8 @@ The TDD workflows follow [official Claude Code best practices](https://code.clau
 |---------|-----------------|------------------|---------|
 | **Model** | `claude-sonnet-4-5-20250929` | `claude-sonnet-4-5-20250929` | Cost predictability |
 | **Max Turns** | 30 | 40 | Prevent runaway conversations |
-| **Allowed Tools** | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite, AskUserQuestion | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Principle of least privilege |
-| **Disallowed Tools** | WebFetch, WebSearch | WebFetch, WebSearch, AskUserQuestion | Block unnecessary capabilities |
+| **Allowed Tools** | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Principle of least privilege |
+| **Disallowed Tools** | WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand | WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand | Block unnecessary capabilities |
 
 **Why these settings?**
 
@@ -700,9 +700,10 @@ The TDD workflows follow [official Claude Code best practices](https://code.clau
    - `tdd-refactor.yml` (40): Allows more exploration for comprehensive audits
 3. **Tool restrictions**:
    - **Allowed**: Only tools necessary for code implementation and testing
-   - **Blocked WebFetch/WebSearch**: TDD workflow doesn't need web access
-   - **Blocked AskUserQuestion in refactor**: Fully automated pipeline, no human interaction
-4. **AskUserQuestion in execute**: Allowed because manual @claude mentions may need clarification
+   - **Blocked AskUserQuestion**: No human present in automation - would hang or skip steps
+   - **Blocked WebFetch/WebSearch**: External content not needed for code implementation
+   - **Blocked NotebookEdit**: No Jupyter notebooks in project
+   - **Blocked SlashCommand**: Prevents unintended command execution
 
 **Previous approach**: `--dangerously-skip-permissions` (grants ALL tools)
 **Current approach**: Explicit `--allowedTools` and `--disallowedTools` for security hardening

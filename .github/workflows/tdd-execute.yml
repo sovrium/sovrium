@@ -394,12 +394,16 @@ jobs:
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
           # - --max-turns: Prevent runaway conversations (30 turns covers read→implement→test→PR cycle)
           # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
-          # - --disallowedTools: Block web access (not needed for code implementation)
+          # - --disallowedTools: Block tools not needed for autonomous code implementation
+          #   - AskUserQuestion: No human present in automation (would hang or skip)
+          #   - WebFetch/WebSearch: External content not needed
+          #   - NotebookEdit: No Jupyter notebooks in project
+          #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
             --max-turns 30
-            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,AskUserQuestion
-            --disallowedTools WebFetch,WebSearch
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Detect error type
         id: detect_error

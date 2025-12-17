@@ -212,12 +212,16 @@ jobs:
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for refactoring)
           # - --max-turns: Prevent runaway conversations (40 turns for comprehensive refactoring audits)
           # - --allowedTools: Principle of least privilege - only tools needed for refactoring
-          # - --disallowedTools: Block web access (not needed for codebase refactoring)
+          # - --disallowedTools: Block tools not needed for autonomous refactoring
+          #   - AskUserQuestion: No human present in automation (would hang or skip)
+          #   - WebFetch/WebSearch: External content not needed
+          #   - NotebookEdit: No Jupyter notebooks in project
+          #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
             --max-turns 40
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
-            --disallowedTools WebFetch,WebSearch,AskUserQuestion
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Verify refactor completed
         id: verify
