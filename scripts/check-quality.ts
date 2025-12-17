@@ -7,7 +7,7 @@
  */
 
 /**
- * Quality check script - runs linting, type checking, Effect diagnostics, unit tests, coverage check, and smart E2E regression tests
+ * Quality check script - runs linting, type checking, Effect diagnostics, unit tests, spec count validation, coverage check, and smart E2E regression tests
  *
  * Usage:
  *   bun run quality                   # Run all checks with smart E2E detection
@@ -588,7 +588,20 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 5. Coverage check (optional)
+    // 5. Spec count validation
+    const specCountResult = yield* runCheck(
+      'Spec Counts',
+      ['bun', 'run', 'validate:spec-counts'],
+      30_000
+    )
+    results.push(specCountResult)
+    if (!specCountResult.success) {
+      yield* logError('\n⚠️  Stopping checks due to Spec Counts failure (fail-fast mode)')
+      yield* Effect.log('  Run `bun run validate:spec-counts --fix` to auto-fix')
+      return results
+    }
+
+    // 6. Coverage check (optional)
     if (!options.skipCoverage) {
       const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
       results.push(coverageResult)
@@ -605,7 +618,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 6. Smart E2E detection
+    // 7. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({
@@ -691,6 +704,9 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
         yield* Effect.log('  Or use: bun run quality --skip-effect')
       }
       if (failedNames.has('Unit Tests')) yield* Effect.log('  bun test:unit')
+      if (failedNames.has('Spec Counts')) {
+        yield* Effect.log('  bun run validate:spec-counts --fix')
+      }
       if (failedNames.has('Coverage Check')) {
         yield* Effect.log('  Add missing .test.ts files for source files')
         yield* Effect.log('  Or use: bun run quality --skip-coverage')
