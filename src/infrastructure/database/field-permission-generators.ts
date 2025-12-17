@@ -169,7 +169,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Get all database columns
   const databaseColumns = table.fields.filter(shouldCreateDatabaseColumn)
 
-  // Build field permissions map:
+  // Build field permissions map for READ:
   // - Fields with specific read permissions: use their specific permission
   // - Fields without specific permissions: use effective table-level permission
   const allFieldPermissions = databaseColumns.map((field) => {
@@ -215,10 +215,48 @@ $$`
     return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
   })
 
+  // Build field permissions map for WRITE (UPDATE/INSERT):
+  // - Fields with specific write permissions: use their specific permission
+  // - Fields without specific permissions: inherit from table-level create/update permissions
+  // - If no table-level write permission, use authenticated as default (more restrictive than read)
+  const effectiveWritePermission =
+    table.permissions?.create ?? table.permissions?.update ?? ({ type: 'authenticated' } as const)
+
+  const allFieldWritePermissions = databaseColumns.map((field) => {
+    const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
+    return {
+      field: field.name,
+      permission: fieldPermission?.write ?? effectiveWritePermission,
+    }
+  })
+
+  // Build role-to-fields mapping for write
+  const roleFieldsWriteMap = buildRoleFieldsMap(allFieldWritePermissions)
+  const writeBaseRoles = extractRoles(effectiveWritePermission)
+  const roleFieldsWriteWithBase = addBaseFieldsToRestrictedRoles(roleFieldsWriteMap, writeBaseRoles)
+
+  // Generate UPDATE grant statements for fields with write permissions
+  const columnUpdateGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
+    ([role, fields]) => {
+      const columnList = fields.map((f) => `"${f}"`).join(', ')
+      return `GRANT UPDATE (${columnList}) ON ${tableName} TO ${role}`
+    }
+  )
+
+  // Generate INSERT grant for fields with write permissions (typically all fields for INSERT)
+  const columnInsertGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
+    ([role, fields]) => {
+      const columnList = fields.map((f) => `"${f}"`).join(', ')
+      return `GRANT INSERT (${columnList}) ON ${tableName} TO ${role}`
+    }
+  )
+
   return [
     ...createRoleStatements,
     ...schemaGrantStatements,
     ...revokeStatements,
     ...columnGrantStatements,
+    ...columnUpdateGrantStatements,
+    ...columnInsertGrantStatements,
   ]
 }
