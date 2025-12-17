@@ -499,7 +499,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-010: should reject foreign key creation when referenced table does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
