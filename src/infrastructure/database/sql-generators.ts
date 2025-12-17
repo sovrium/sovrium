@@ -591,6 +591,38 @@ const generateCompositeForeignKeyConstraints = (
   })
 
 /**
+ * Generate FOREIGN KEY constraint for relationship field
+ */
+const generateRelationshipConstraint = (
+  tableName: string,
+  field: Fields[number] & { readonly type: 'relationship'; readonly relatedTable: string },
+  tableUsesView?: ReadonlyMap<string, boolean>
+): string => {
+  const constraintName = `${tableName}_${field.name}_fkey`
+  // If the related table uses a VIEW (has lookup fields), reference the base table instead
+  const relatedTableName =
+    tableUsesView?.get(field.relatedTable) === true
+      ? `${field.relatedTable}_base`
+      : field.relatedTable
+
+  // Build referential actions (ON DELETE, ON UPDATE)
+  const onDeleteClause =
+    'onDelete' in field
+      ? mapReferentialAction(field.onDelete as string | undefined, 'delete')
+      : ''
+  const onUpdateClause =
+    'onUpdate' in field
+      ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
+      : ''
+
+  // Use relatedField if specified, otherwise default to 'id'
+  const referencedColumn =
+    'relatedField' in field && field.relatedField ? field.relatedField : 'id'
+
+  return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
+}
+
+/**
  * Generate FOREIGN KEY constraints for user fields, relationship fields, and composite foreign keys
  * Exported for use in migration system to sync FK constraints
  */
@@ -626,30 +658,7 @@ export const generateForeignKeyConstraints = (
         (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
       )
     })
-    .map((field) => {
-      const constraintName = `${tableName}_${field.name}_fkey`
-      // If the related table uses a VIEW (has lookup fields), reference the base table instead
-      const relatedTableName =
-        tableUsesView?.get(field.relatedTable) === true
-          ? `${field.relatedTable}_base`
-          : field.relatedTable
-
-      // Build referential actions (ON DELETE, ON UPDATE)
-      const onDeleteClause =
-        'onDelete' in field
-          ? mapReferentialAction(field.onDelete as string | undefined, 'delete')
-          : ''
-      const onUpdateClause =
-        'onUpdate' in field
-          ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
-          : ''
-
-      // Use relatedField if specified, otherwise default to 'id'
-      const referencedColumn =
-        'relatedField' in field && field.relatedField ? field.relatedField : 'id'
-
-      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
-    })
+    .map((field) => generateRelationshipConstraint(tableName, field, tableUsesView))
 
   // Foreign keys disabled for created-by/updated-by fields
   // Blocked by: https://github.com/sovrium/sovrium/issues/3980

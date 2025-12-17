@@ -659,7 +659,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-014: should support many-to-many relationships via junction table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
