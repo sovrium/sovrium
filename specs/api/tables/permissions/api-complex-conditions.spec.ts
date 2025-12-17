@@ -81,11 +81,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User requests notes via API
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only user's own notes are returned (custom condition evaluates {userId})
       expect(response.status()).toBe(200)
@@ -149,11 +145,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User requests projects
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only active projects are returned
       expect(response.status()).toBe(200)
@@ -218,11 +210,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User requests documents
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: User sees public docs and their own private docs
       expect(response.status()).toBe(200)
@@ -286,11 +274,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User requests orders
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only orders under $1000 are returned
       expect(response.status()).toBe(200)
@@ -362,9 +346,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User reads articles - should see own and published
-      const readResponse = await request.get('/api/tables/1/records', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const readResponse = await request.get('/api/tables/1/records')
 
       expect(readResponse.status()).toBe(200)
       const readData = await readResponse.json()
@@ -373,7 +355,6 @@ test.describe('API Complex Permission Conditions', () => {
       // WHEN: User tries to update their draft - should succeed
       const updateDraftResponse = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: { title: 'My Updated Draft' },
@@ -383,7 +364,6 @@ test.describe('API Complex Permission Conditions', () => {
       // WHEN: User tries to update their published article - should fail
       const updatePublishedResponse = await request.patch('/api/tables/1/records/2', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: { title: 'Trying to Change Published' },
@@ -445,11 +425,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User requests tasks
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: User sees unassigned tasks and their own tasks
       expect(response.status()).toBe(200)
@@ -516,11 +492,7 @@ test.describe('API Complex Permission Conditions', () => {
       `)
 
       // WHEN: User requests events
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only today and future events are returned
       expect(response.status()).toBe(200)
@@ -548,8 +520,6 @@ test.describe('API Complex Permission Conditions', () => {
       createOrganization,
       signOut,
     }) => {
-      let org: { organization: { id: string } }
-
       await test.step('Setup: Create schema with complex custom permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -598,7 +568,7 @@ test.describe('API Complex Permission Conditions', () => {
 
       await test.step('Setup: Create users in same organization', async () => {
         await createAuthenticatedUser({ email: 'user1@example.com' })
-        org = await createOrganization({ name: 'Shared Org' })
+        await createOrganization({ name: 'Shared Org' })
 
         await signOut()
 
@@ -612,7 +582,6 @@ test.describe('API Complex Permission Conditions', () => {
         // Create a draft document
         const draftResponse = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -626,7 +595,6 @@ test.describe('API Complex Permission Conditions', () => {
         // Create a published public document
         const publishedResponse = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -642,9 +610,7 @@ test.describe('API Complex Permission Conditions', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'user2@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -658,9 +624,7 @@ test.describe('API Complex Permission Conditions', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'user1@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -671,24 +635,18 @@ test.describe('API Complex Permission Conditions', () => {
 
       await test.step('User1 can update their draft but not published', async () => {
         // Get document IDs
-        const docsResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const docsResponse = await request.get('/api/tables/1/records')
         const docs = await docsResponse.json()
         const draftDoc = docs.records.find((r: any) => r.status === 'draft')
         const publishedDoc = docs.records.find((r: any) => r.status === 'published')
 
         // Update draft - should succeed
-        const updateDraftResponse = await request.patch(
-          `/api/tables/1/records/${draftDoc.id}`,
-          {
-            headers: {
-              'X-Organization-Id': org.organization.id,
-              'Content-Type': 'application/json',
-            },
-            data: { title: 'Updated Draft Title' },
-          }
-        )
+        const updateDraftResponse = await request.patch(`/api/tables/1/records/${draftDoc.id}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: { title: 'Updated Draft Title' },
+        })
         expect(updateDraftResponse.status()).toBe(200)
 
         // Update published - should fail
@@ -696,7 +654,6 @@ test.describe('API Complex Permission Conditions', () => {
           `/api/tables/1/records/${publishedDoc.id}`,
           {
             headers: {
-              'X-Organization-Id': org.organization.id,
               'Content-Type': 'application/json',
             },
             data: { title: 'Trying to Update Published' },
@@ -707,29 +664,19 @@ test.describe('API Complex Permission Conditions', () => {
 
       await test.step('User1 can delete their draft but not published', async () => {
         // Get document IDs
-        const docsResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const docsResponse = await request.get('/api/tables/1/records')
         const docs = await docsResponse.json()
         const draftDoc = docs.records.find((r: any) => r.status === 'draft')
         const publishedDoc = docs.records.find((r: any) => r.status === 'published')
 
         // Delete published - should fail
         const deletePublishedResponse = await request.delete(
-          `/api/tables/1/records/${publishedDoc.id}`,
-          {
-            headers: { 'X-Organization-Id': org.organization.id },
-          }
+          `/api/tables/1/records/${publishedDoc.id}`
         )
         expect(deletePublishedResponse.status()).toBe(403)
 
         // Delete draft - should succeed
-        const deleteDraftResponse = await request.delete(
-          `/api/tables/1/records/${draftDoc.id}`,
-          {
-            headers: { 'X-Organization-Id': org.organization.id },
-          }
-        )
+        const deleteDraftResponse = await request.delete(`/api/tables/1/records/${draftDoc.id}`)
         expect(deleteDraftResponse.status()).toBe(204)
       })
 
@@ -738,32 +685,21 @@ test.describe('API Complex Permission Conditions', () => {
         await createAuthenticatedUser({ email: 'user2@example.com' })
 
         // Get the remaining published doc
-        const docsResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const docsResponse = await request.get('/api/tables/1/records')
         const docs = await docsResponse.json()
         const publishedDoc = docs.records[0]
 
         // User2 cannot update User1's doc
-        const updateResponse = await request.patch(
-          `/api/tables/1/records/${publishedDoc.id}`,
-          {
-            headers: {
-              'X-Organization-Id': org.organization.id,
-              'Content-Type': 'application/json',
-            },
-            data: { title: 'Hacked Title' },
-          }
-        )
+        const updateResponse = await request.patch(`/api/tables/1/records/${publishedDoc.id}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: { title: 'Hacked Title' },
+        })
         expect(updateResponse.status()).toBe(403)
 
         // User2 cannot delete User1's doc
-        const deleteResponse = await request.delete(
-          `/api/tables/1/records/${publishedDoc.id}`,
-          {
-            headers: { 'X-Organization-Id': org.organization.id },
-          }
-        )
+        const deleteResponse = await request.delete(`/api/tables/1/records/${publishedDoc.id}`)
         expect(deleteResponse.status()).toBe(403)
       })
     }

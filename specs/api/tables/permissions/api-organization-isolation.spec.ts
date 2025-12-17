@@ -84,11 +84,7 @@ test.describe('API Organization Isolation', () => {
       `)
 
       // WHEN: User from Org A requests projects
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': orgA.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only Org A projects should be returned
       expect(response.status()).toBe(200)
@@ -137,7 +133,7 @@ test.describe('API Organization Isolation', () => {
       })
 
       await createAuthenticatedUser({ email: 'user-a@example.com' })
-      const orgA = await createOrganization({ name: 'Organization A' })
+      await createOrganization({ name: 'Organization A' })
 
       // Record belongs to different org
       await executeQuery(`
@@ -146,11 +142,7 @@ test.describe('API Organization Isolation', () => {
       `)
 
       // WHEN: User from Org A tries to access Org B record by ID
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          'X-Organization-Id': orgA.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1')
 
       // THEN: 404 Not Found (don't leak existence to other orgs)
       expect(response.status()).toBe(404)
@@ -202,7 +194,6 @@ test.describe('API Organization Isolation', () => {
       // WHEN: User creates a task without specifying organization_id
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -261,7 +252,6 @@ test.describe('API Organization Isolation', () => {
       // WHEN: User tries to create record with different org ID
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -327,7 +317,6 @@ test.describe('API Organization Isolation', () => {
       // WHEN: User tries to change organization_id via update
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -393,9 +382,6 @@ test.describe('API Organization Isolation', () => {
 
       // WHEN: User searches for "Alpha"
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
         params: {
           filter: JSON.stringify({
             and: [{ field: 'name', operator: 'contains', value: 'Alpha' }],
@@ -449,7 +435,7 @@ test.describe('API Organization Isolation', () => {
       })
 
       await createAuthenticatedUser({ email: 'user@example.com' })
-      const org = await createOrganization({ name: 'My Organization' })
+      await createOrganization({ name: 'My Organization' })
 
       // Record in different org
       await executeQuery(`
@@ -458,11 +444,7 @@ test.describe('API Organization Isolation', () => {
       `)
 
       // WHEN: User tries to delete record from other org
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1')
 
       // THEN: 404 Not Found (record doesn't exist in user's org context)
       expect(response.status()).toBe(404)
@@ -488,9 +470,6 @@ test.describe('API Organization Isolation', () => {
       executeQuery,
       signOut,
     }) => {
-      let orgA: { organization: { id: string } }
-      let orgB: { organization: { id: string } }
-
       await test.step('Setup: Create multi-tenant schema', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -524,13 +503,13 @@ test.describe('API Organization Isolation', () => {
       await test.step('Setup: Create two organizations with users', async () => {
         // User A in Org A
         await createAuthenticatedUser({ email: 'user-a@example.com' })
-        orgA = await createOrganization({ name: 'Organization A' })
+        await createOrganization({ name: 'Organization A' })
 
         await signOut()
 
         // User B in Org B
         await createAuthenticatedUser({ email: 'user-b@example.com' })
-        orgB = await createOrganization({ name: 'Organization B' })
+        await createOrganization({ name: 'Organization B' })
       })
 
       await test.step('User A creates project in Org A', async () => {
@@ -539,7 +518,6 @@ test.describe('API Organization Isolation', () => {
 
         const response = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': orgA.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -557,7 +535,6 @@ test.describe('API Organization Isolation', () => {
 
         const response = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': orgB.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -573,11 +550,7 @@ test.describe('API Organization Isolation', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'user-a@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': orgA.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -597,11 +570,7 @@ test.describe('API Organization Isolation', () => {
           `SELECT id FROM projects WHERE name = 'Org A Secret Project'`
         )
 
-        const response = await request.get(`/api/tables/1/records/${orgAProject.rows[0].id}`, {
-          headers: {
-            'X-Organization-Id': orgB.organization.id,
-          },
-        })
+        const response = await request.get(`/api/tables/1/records/${orgAProject.rows[0].id}`)
 
         // 404 - don't leak existence
         expect(response.status()).toBe(404)
@@ -612,9 +581,6 @@ test.describe('API Organization Isolation', () => {
         await createAuthenticatedUser({ email: 'user-a@example.com' })
 
         const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': orgA.organization.id,
-          },
           params: {
             aggregate: JSON.stringify({
               count: true,

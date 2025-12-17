@@ -69,20 +69,15 @@ test.describe('API Bulk Operations with Permissions', () => {
       })
 
       await createAuthenticatedUser({ email: 'user@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      await createOrganization({ name: 'Test Org' })
 
       // WHEN: User bulk creates multiple records
       const response = await request.post('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
-          records: [
-            { title: 'Task 1' },
-            { title: 'Task 2' },
-            { title: 'Task 3' },
-          ],
+          records: [{ title: 'Task 1' }, { title: 'Task 2' }, { title: 'Task 3' }],
         },
       })
 
@@ -91,11 +86,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(3)
-      expect(data.records.map((r: any) => r.title)).toEqual([
-        'Task 1',
-        'Task 2',
-        'Task 3',
-      ])
+      expect(data.records.map((r: any) => r.title)).toEqual(['Task 1', 'Task 2', 'Task 3'])
 
       // Verify in database
       const dbResult = await executeQuery('SELECT COUNT(*) as count FROM tasks')
@@ -157,14 +148,10 @@ test.describe('API Bulk Operations with Permissions', () => {
       // WHEN: Member tries to bulk create
       const response = await request.post('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
-          records: [
-            { name: 'Item 1' },
-            { name: 'Item 2' },
-          ],
+          records: [{ name: 'Item 1' }, { name: 'Item 2' }],
         },
       })
 
@@ -228,7 +215,6 @@ test.describe('API Bulk Operations with Permissions', () => {
       // WHEN: User tries to bulk update their own notes
       const response = await request.patch('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -300,7 +286,6 @@ test.describe('API Bulk Operations with Permissions', () => {
       // WHEN: User tries to bulk update BOTH (owns one, doesn't own other)
       const response = await request.patch('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -393,7 +378,6 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       const response = await request.delete('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': orgA.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -472,7 +456,6 @@ test.describe('API Bulk Operations with Permissions', () => {
       // WHEN: Member tries to bulk create with salary field
       const response = await request.post('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -556,7 +539,6 @@ test.describe('API Bulk Operations with Permissions', () => {
       // WHEN: Member attempts large bulk update
       const response = await request.patch('/api/tables/1/records/bulk', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -666,7 +648,6 @@ test.describe('API Bulk Operations with Permissions', () => {
 
         const response = await request.post('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -685,7 +666,6 @@ test.describe('API Bulk Operations with Permissions', () => {
       await test.step('Member cannot bulk create with price field', async () => {
         const response = await request.post('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -702,7 +682,6 @@ test.describe('API Bulk Operations with Permissions', () => {
 
         const response = await request.post('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -721,15 +700,12 @@ test.describe('API Bulk Operations with Permissions', () => {
         await createAuthenticatedUser({ email: 'member@example.com' })
 
         // Get item IDs
-        const listResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const listResponse = await request.get('/api/tables/1/records')
         const items = await listResponse.json()
         const itemIds = items.records.slice(0, 2).map((r: any) => r.id)
 
         const response = await request.patch('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -745,15 +721,12 @@ test.describe('API Bulk Operations with Permissions', () => {
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
 
         // Get item IDs
-        const listResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const listResponse = await request.get('/api/tables/1/records')
         const items = await listResponse.json()
         const itemIds = items.records.slice(0, 2).map((r: any) => r.id)
 
         const response = await request.patch('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -767,13 +740,9 @@ test.describe('API Bulk Operations with Permissions', () => {
         expect(response.status()).toBe(200)
 
         // Verify updates
-        const updatedResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const updatedResponse = await request.get('/api/tables/1/records')
         const updatedItems = await updatedResponse.json()
-        const updated = updatedItems.records.filter((r: any) =>
-          itemIds.includes(r.id)
-        )
+        const updated = updatedItems.records.filter((r: any) => itemIds.includes(r.id))
         expect(updated.some((r: any) => r.quantity === 200)).toBe(true)
         expect(updated.some((r: any) => r.quantity === 100)).toBe(true)
       })
@@ -784,7 +753,6 @@ test.describe('API Bulk Operations with Permissions', () => {
 
         const response = await request.delete('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { ids: [1, 2] },
@@ -798,15 +766,12 @@ test.describe('API Bulk Operations with Permissions', () => {
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
 
         // Get current item count
-        const beforeResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const beforeResponse = await request.get('/api/tables/1/records')
         const beforeItems = await beforeResponse.json()
         const deleteIds = beforeItems.records.slice(0, 2).map((r: any) => r.id)
 
         const response = await request.delete('/api/tables/1/records/bulk', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { ids: deleteIds },
@@ -815,9 +780,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         expect(response.status()).toBe(200)
 
         // Verify deletion
-        const afterResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const afterResponse = await request.get('/api/tables/1/records')
         const afterItems = await afterResponse.json()
         expect(afterItems.records.length).toBe(beforeItems.records.length - 2)
       })

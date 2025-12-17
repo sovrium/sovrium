@@ -83,9 +83,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       `)
 
       // WHEN: Owner requests the secrets
-      const response = await request.get('/api/tables/1/records', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Owner can access
       expect(response.status()).toBe(200)
@@ -152,9 +150,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       })
 
       // WHEN: Admin tries to access owner-only resources
-      const response = await request.get('/api/tables/1/records', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Admin gets empty results (no access)
       // Note: RLS filters results rather than returning 403
@@ -225,9 +221,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       })
 
       // WHEN: Member reads resources
-      const readResponse = await request.get('/api/tables/1/records', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const readResponse = await request.get('/api/tables/1/records')
 
       // THEN: Member can read (included in roles array)
       expect(readResponse.status()).toBe(200)
@@ -237,7 +231,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       // WHEN: Member tries to create
       const createResponse = await request.post('/api/tables/1/records', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: { name: 'Member Resource' },
@@ -247,9 +240,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       expect(createResponse.status()).toBe(403)
 
       // WHEN: Member tries to delete
-      const deleteResponse = await request.delete('/api/tables/1/records/1', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const deleteResponse = await request.delete('/api/tables/1/records/1')
 
       // THEN: Member cannot delete (not in delete roles)
       expect(deleteResponse.status()).toBe(403)
@@ -317,9 +308,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       })
 
       // WHEN: Read-only member reads
-      const readResponse = await request.get('/api/tables/1/records', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const readResponse = await request.get('/api/tables/1/records')
 
       // THEN: Member can read
       expect(readResponse.status()).toBe(200)
@@ -329,7 +318,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       // WHEN: Read-only member tries to create
       const createResponse = await request.post('/api/tables/1/records', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: { content: 'Member Content' },
@@ -341,7 +329,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       // WHEN: Read-only member tries to update
       const updateResponse = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: { content: 'Hacked Content' },
@@ -427,7 +414,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       // WHEN: Member tries to escalate their role
       const escalateResponse = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: { role_field: 'admin' }, // Attempting role escalation
@@ -437,9 +423,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       expect(escalateResponse.status()).toBe(403)
 
       // Verify role was not changed
-      const verifyResult = await executeQuery(
-        'SELECT role_field FROM employees WHERE id = 1'
-      )
+      const verifyResult = await executeQuery('SELECT role_field FROM employees WHERE id = 1')
       expect(verifyResult.rows[0].role_field).toBe('member')
     }
   )
@@ -490,9 +474,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       `)
 
       // WHEN: Owner tries to delete (even owner is denied)
-      const deleteResponse = await request.delete('/api/tables/1/records/1', {
-        headers: { 'X-Organization-Id': org.organization.id },
-      })
+      const deleteResponse = await request.delete('/api/tables/1/records/1')
 
       // THEN: Delete is denied
       expect(deleteResponse.status()).toBe(403)
@@ -589,17 +571,11 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       })
 
       await test.step('Verify all roles can READ', async () => {
-        for (const email of [
-          'owner@example.com',
-          'admin@example.com',
-          'member@example.com',
-        ]) {
+        for (const email of ['owner@example.com', 'admin@example.com', 'member@example.com']) {
           await signOut()
           await createAuthenticatedUser({ email })
 
-          const response = await request.get('/api/tables/1/records', {
-            headers: { 'X-Organization-Id': org.organization.id },
-          })
+          const response = await request.get('/api/tables/1/records')
 
           expect(response.status()).toBe(200)
           const data = await response.json()
@@ -614,7 +590,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
 
         const memberCreateResponse = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { name: 'Member Created', tier: 'member' },
@@ -628,7 +603,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
 
         const outsiderCreateResponse = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { name: 'Outsider Created', tier: 'outsider' },
@@ -644,7 +618,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
 
         const adminUpdateResponse = await request.patch('/api/tables/1/records/1', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { name: 'Admin Updated' },
@@ -657,7 +630,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
 
         const memberUpdateResponse = await request.patch('/api/tables/1/records/1', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { name: 'Member Hacked' },
@@ -667,23 +639,16 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
 
       await test.step('Verify DELETE permissions (owner only)', async () => {
         // Get the member-created resource ID
-        const resourcesResponse = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const resourcesResponse = await request.get('/api/tables/1/records')
         const resources = await resourcesResponse.json()
-        const memberResource = resources.records.find(
-          (r: any) => r.name === 'Member Created'
-        )
+        const memberResource = resources.records.find((r: any) => r.name === 'Member Created')
 
         // Admin cannot delete
         await signOut()
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
 
         const adminDeleteResponse = await request.delete(
-          `/api/tables/1/records/${memberResource.id}`,
-          {
-            headers: { 'X-Organization-Id': org.organization.id },
-          }
+          `/api/tables/1/records/${memberResource.id}`
         )
         expect(adminDeleteResponse.status()).toBe(403)
 
@@ -692,10 +657,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         await createAuthenticatedUser({ email: 'owner@example.com' })
 
         const ownerDeleteResponse = await request.delete(
-          `/api/tables/1/records/${memberResource.id}`,
-          {
-            headers: { 'X-Organization-Id': org.organization.id },
-          }
+          `/api/tables/1/records/${memberResource.id}`
         )
         expect(ownerDeleteResponse.status()).toBe(204)
       })

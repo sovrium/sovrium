@@ -83,11 +83,7 @@ test.describe('API Record-Level Permissions', () => {
       `)
 
       // WHEN: Owner requests their records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only owner's records are returned
       expect(response.status()).toBe(200)
@@ -145,11 +141,7 @@ test.describe('API Record-Level Permissions', () => {
       `)
 
       // WHEN: Non-owner tries to access by ID
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1')
 
       // THEN: 404 Not Found (don't leak existence)
       expect(response.status()).toBe(404)
@@ -194,12 +186,11 @@ test.describe('API Record-Level Permissions', () => {
       })
 
       const user = await createAuthenticatedUser({ email: 'user@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      await createOrganization({ name: 'Test Org' })
 
       // WHEN: User creates a note without specifying owner_id
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -270,7 +261,6 @@ test.describe('API Record-Level Permissions', () => {
       // WHEN: Owner updates their record
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -334,7 +324,6 @@ test.describe('API Record-Level Permissions', () => {
       // WHEN: Non-owner tries to update
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -403,11 +392,7 @@ test.describe('API Record-Level Permissions', () => {
       `)
 
       // WHEN: Admin reads the ticket
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1')
 
       // THEN: Admin can see the record (role-based read)
       expect(response.status()).toBe(200)
@@ -465,11 +450,7 @@ test.describe('API Record-Level Permissions', () => {
       `)
 
       // WHEN: User lists documents
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Only their document (matched by created_by) is returned
       expect(response.status()).toBe(200)
@@ -553,7 +534,6 @@ test.describe('API Record-Level Permissions', () => {
 
         const response = await request.post('/api/tables/1/records', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -568,11 +548,7 @@ test.describe('API Record-Level Permissions', () => {
       })
 
       await test.step('Owner can read their task', async () => {
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -584,11 +560,7 @@ test.describe('API Record-Level Permissions', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'other@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -604,7 +576,6 @@ test.describe('API Record-Level Permissions', () => {
 
         const response = await request.patch(`/api/tables/1/records/${taskId}`, {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: {
@@ -626,11 +597,7 @@ test.describe('API Record-Level Permissions', () => {
         await signOut()
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -647,11 +614,7 @@ test.describe('API Record-Level Permissions', () => {
         )
         const taskId = taskResult.rows[0].id
 
-        const response = await request.delete(`/api/tables/1/records/${taskId}`, {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.delete(`/api/tables/1/records/${taskId}`)
 
         expect(response.status()).toBe(204)
 

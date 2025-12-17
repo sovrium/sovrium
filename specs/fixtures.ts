@@ -592,9 +592,17 @@ type ServerFixtures = {
   /**
    * Create a new organization via API
    * Requires an authenticated user (call createAuthenticatedUser first)
+   * Automatically sets the created organization as the active organization in session
    * @returns The created organization data
    */
   createOrganization: (data: { name: string; slug?: string }) => Promise<OrganizationResult>
+
+  /**
+   * Set the active organization for the current user's session
+   * Use this when switching between organizations in multi-org tests
+   * @param organizationId - The ID of the organization to set as active
+   */
+  setActiveOrganization: (organizationId: string) => Promise<void>
 
   /**
    * Invite a member to an organization via API
@@ -1545,6 +1553,7 @@ export const test = base.extend<ServerFixtures>({
   },
 
   // Organization fixture: Create a new organization via API
+  // Automatically sets the created organization as the active organization in the session
   createOrganization: async ({ page }, use) => {
     await use(async (data: { name: string; slug?: string }): Promise<OrganizationResult> => {
       // Generate slug from name if not provided (Better Auth requires slug)
@@ -1570,7 +1579,42 @@ export const test = base.extend<ServerFixtures>({
       }
 
       const organization = await response.json()
+
+      // Automatically set the created organization as the active organization
+      // This ensures session.activeOrganizationId is set for subsequent API calls
+      const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
+        data: {
+          organizationId: organization.id,
+        },
+      })
+
+      if (!setActiveResponse.ok()) {
+        const errorData = await setActiveResponse.json().catch(() => ({}))
+        throw new Error(
+          `Set active organization failed with status ${setActiveResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
       return { organization }
+    })
+  },
+
+  // Organization fixture: Set the active organization for the current session
+  // Use this when switching between organizations in multi-org tests
+  setActiveOrganization: async ({ page }, use) => {
+    await use(async (organizationId: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/organization/set-active', {
+        data: {
+          organizationId,
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Set active organization failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
     })
   },
 

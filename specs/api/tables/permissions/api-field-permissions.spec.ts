@@ -90,11 +90,7 @@ test.describe('API Field Permission Enforcement', () => {
       `)
 
       // WHEN: Member user requests employee data via API
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: API response should include name but EXCLUDE salary field
       expect(response.status()).toBe(200)
@@ -161,11 +157,7 @@ test.describe('API Field Permission Enforcement', () => {
       `)
 
       // WHEN: Admin user requests employee data via API
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
-      })
+      const response = await request.get('/api/tables/1/records')
 
       // THEN: Admin should see ALL fields including salary
       expect(response.status()).toBe(200)
@@ -235,7 +227,6 @@ test.describe('API Field Permission Enforcement', () => {
       // WHEN: Member tries to update salary field via API
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -315,7 +306,6 @@ test.describe('API Field Permission Enforcement', () => {
       // WHEN: Member updates only the name field (which they have permission for)
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -368,13 +358,10 @@ test.describe('API Field Permission Enforcement', () => {
       })
 
       await createAuthenticatedUser({ email: 'member@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      await createOrganization({ name: 'Test Org' })
 
       // WHEN: Member tries to filter by salary field they can't read
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
-        },
         params: {
           filter: JSON.stringify({
             and: [{ field: 'salary', operator: 'greaterThan', value: 60_000 }],
@@ -482,9 +469,7 @@ test.describe('API Field Permission Enforcement', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'member@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -503,9 +488,7 @@ test.describe('API Field Permission Enforcement', () => {
         await signOut()
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
 
-        const response = await request.get('/api/tables/1/records', {
-          headers: { 'X-Organization-Id': org.organization.id },
-        })
+        const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -525,7 +508,6 @@ test.describe('API Field Permission Enforcement', () => {
 
         const response = await request.patch('/api/tables/1/records/1', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { salary: 200_000 },
@@ -540,7 +522,6 @@ test.describe('API Field Permission Enforcement', () => {
 
         const response = await request.patch('/api/tables/1/records/1', {
           headers: {
-            'X-Organization-Id': org.organization.id,
             'Content-Type': 'application/json',
           },
           data: { salary: 80_000 },
