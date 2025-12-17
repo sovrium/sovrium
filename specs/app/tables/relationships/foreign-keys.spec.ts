@@ -571,7 +571,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-012: should CASCADE UPDATE child records when parent primary key changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
