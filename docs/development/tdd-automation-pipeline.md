@@ -948,27 +948,62 @@ When a PR or issue receives the `needs-manual-resolution` label, it means automa
 - **Orphaned branches**: Deleted if >7 days old with no associated PR
 - **Result**: No manual branch cleanup needed, prevents repository clutter
 
-### Pipeline Blocking Prevention ⚠️ NEW (2025-11-03)
+### Pipeline Blocking Prevention ⚠️ UPDATED (2025-12-17)
 
-Three new safeguards prevent the most common causes of pipeline blocking:
+Four safeguards prevent the most common causes of pipeline blocking:
 
 #### 1. Stuck PR Monitor (Every 10 minutes)
 
-**Problem Solved**: Claude Code creates PR but forgets to enable auto-merge → PR sits open forever
+**Problem Solved**: Claude Code creates PR but forgets to enable auto-merge - PR sits open forever
 **Solution**: Automatically enables auto-merge for stuck PRs after 5 minutes
 **Impact**: Prevents pipeline blocking (like PRs #1541, #1546 incidents)
 
 #### 2. Conflict Resolver (On main push + every 15 minutes)
 
-**Problem Solved**: PRs become conflicted when main advances → PR stuck in CONFLICTING state
+**Problem Solved**: PRs become conflicted when main advances - PR stuck in CONFLICTING state
 **Solution**: Automatically triggers Claude Code to rebase and resolve conflicts
 **Impact**: Prevents stale PRs and pipeline blocking (like PR #1545 incident)
 
-#### 3. Duplicate PR Prevention (During queue processing)
+#### 3. Duplicate PR Prevention - Pre-Processing (During queue processing)
 
 **Problem Solved**: Queue processor creates duplicate PRs for already-completed issues
 **Solution**: Validates issue state and checks for existing PRs before processing
 **Impact**: Prevents duplicate work and conflicting PRs
+
+#### 4. Duplicate PR Prevention - Post-Execution (After Claude completes) ⚠️ NEW
+
+**Problem Solved**: Claude Code runs for 60 minutes, during which another PR is created and merged
+**Solution**: After Claude completes, verify issue is still open and no PRs merged before creating PR
+**Impact**: Prevents duplicate PRs like PR #6067 (created after PR #6066 already merged)
+
+**How it works**:
+
+1. Claude Code can run for up to 60 minutes
+2. During that time, another workflow may process the same issue and merge a PR
+3. Before verifying PR creation, workflow checks if issue is still open
+4. If issue closed or PR already merged, skips PR verification and cleans up any duplicate PRs
+5. Posts explanatory comment on the issue
+
+**Claude Code Instructions** (mandatory pre-PR checks):
+
+```bash
+# Before creating PR, Claude MUST run these checks:
+
+# Check 1: Verify issue is still open
+ISSUE_STATE=$(gh issue view <ISSUE_NUMBER> --json state --jq '.state')
+if [ "$ISSUE_STATE" = "CLOSED" ]; then
+  echo "Issue already closed - skipping PR creation"
+  exit 0
+fi
+
+# Check 2: Check for existing PRs for this issue
+EXISTING_PRS=$(gh pr list --label tdd-automation --state all --json number,body,state \
+  --jq '.[] | select(.body | contains("Closes #<ISSUE_NUMBER>")) | "#\(.number) (\(.state))"')
+if [ -n "$EXISTING_PRS" ]; then
+  echo "Found existing PR(s): $EXISTING_PRS - skipping PR creation"
+  exit 0
+fi
+```
 
 **Combined Result**: Pipeline is now self-healing and requires minimal manual intervention
 
@@ -1093,11 +1128,12 @@ When Claude Code receives a `@claude` mention for TDD automation, it operates in
 
 - [ ] Branch created automatically by Claude Code (pattern: `claude/issue-{ISSUE_NUMBER}-timestamp`)
 - [ ] `.fixme()` removed from test `{SPEC_ID}` ONLY (not other tests)
-- [ ] Both agents invoked: e2e-test-fixer → codebase-refactor-auditor
+- [ ] Both agents invoked: e2e-test-fixer -> codebase-refactor-auditor
 - [ ] Code follows layer-based architecture (Domain/Application/Infrastructure/Presentation)
 - [ ] Copyright headers added: `bun run license`
 - [ ] Changes committed: `fix: implement {SPEC_ID}`
 - [ ] Changes pushed to remote branch
+- [ ] **⚠️ PRE-PR CHECK (Step 3B)**: Issue still open AND no existing PRs (prevents duplicates)
 - [ ] **⚠️ CRITICAL (Step 4A): Pull Request created** (verify: `gh pr list --label tdd-automation`)
 - [ ] PR has correct format (title, body with `Closes #{ISSUE_NUMBER}`, label)
 - [ ] **⚠️ CRITICAL (Step 4B): Auto-merge enabled AND verified** (command: `gh pr view $PR_NUMBER --json autoMergeRequest`)
@@ -1105,9 +1141,10 @@ When Claude Code receives a `@claude` mention for TDD automation, it operates in
 
 ### Most Common Failures
 
-1. **Missing PR creation** (issue #1319) → spec marked failed after 2 min
-2. **Missing auto-merge enablement** (PRs #1541, #1546) → Pipeline blocked for hours
-3. **Auto-merge enabled but not VERIFIED** → May silently fail
+1. **Missing PR creation** (issue #1319) -> spec marked failed after 2 min
+2. **Missing auto-merge enablement** (PRs #1541, #1546) -> Pipeline blocked for hours
+3. **Auto-merge enabled but not VERIFIED** -> May silently fail
+4. **Duplicate PR created** (PR #6067) -> PR created after another PR already merged (60 min timeout issue)
 
 ### Implementation Workflow (4 Steps - ALL REQUIRED)
 
@@ -1153,6 +1190,35 @@ git add -A
 git commit -m "fix: implement {SPEC_ID}"
 git push -u origin HEAD
 ```
+
+#### Step 3B: ⚠️ PRE-PR CHECKS (MANDATORY - Prevents Duplicates)
+
+**BEFORE creating a PR**, verify no PR already exists for this issue.
+This prevents duplicate PRs when Claude Code runs for 60 minutes and another PR merges first.
+
+```bash
+# Check 1: Verify issue is still open (not closed by another merged PR)
+ISSUE_STATE=$(gh issue view {ISSUE_NUMBER} --json state --jq '.state')
+if [ "$ISSUE_STATE" = "CLOSED" ]; then
+  echo "Issue already closed - skipping PR creation"
+  exit 0  # Success - work already done
+fi
+
+# Check 2: Check for existing PRs (open OR merged) for this issue
+EXISTING_PRS=$(gh pr list --label tdd-automation --state all --json number,body,state \
+  --jq '.[] | select(.body | contains("Closes #{ISSUE_NUMBER}")) | "#\(.number) (\(.state))"')
+if [ -n "$EXISTING_PRS" ]; then
+  echo "Found existing PR(s): $EXISTING_PRS - skipping PR creation"
+  exit 0  # Success - PR already exists
+fi
+```
+
+**WHY THIS IS CRITICAL** (PR #6067 incident):
+
+- Claude Code can run for up to 60 minutes
+- During that time, another workflow may create and merge a PR for the same issue
+- Without this check, Claude creates a duplicate PR after the work is already done
+- Duplicate PRs waste CI resources and cause confusion
 
 #### Step 4A: ⚠️ CREATE PULL REQUEST (MANDATORY - NOT OPTIONAL)
 
@@ -1285,11 +1351,17 @@ gh issue comment {ISSUE_NUMBER} \
 ---
 
 **Last Updated**: 2025-12-17
-**Version**: 2.4.0 (Queue System + Self-Healing Safeguards + Reliable Regression Classification)
+**Version**: 2.5.0 (Queue System + Self-Healing Safeguards + Duplicate PR Prevention)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-17 (v2.5.0)**: Added post-execution duplicate PR prevention to fix PR #6067 incident:
+  - **Post-execution duplicate check**: After Claude completes, verify issue still open and no PRs merged
+  - **Pre-PR checks for Claude**: Mandatory checks before creating PR (issue state + existing PRs)
+  - **Automatic duplicate cleanup**: Closes any duplicate PRs created during long-running Claude sessions
+  - **Documentation updates**: CLAUDE.md and tdd-automation-pipeline.md updated with new safeguards
+  - **Root cause**: Claude Code can run up to 60 minutes; another PR may merge during that time
 - **2025-12-17 (v2.4.0)**: Improved regression classification reliability:
   - **JSON-based failure parsing**: Uses Playwright JSON reporter (`--reporter=github,json`) for reliable spec path extraction
   - **Fixes hyphenated path issue**: Paths like `admin-enforcement.spec.ts` no longer misparse
