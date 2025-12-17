@@ -110,7 +110,7 @@ test.describe('Deleted By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-BY-003: should clear deleted_by when record is restored',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
