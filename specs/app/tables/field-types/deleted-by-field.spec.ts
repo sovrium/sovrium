@@ -24,7 +24,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Deleted By Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-BY-001: should create PostgreSQL TEXT NULL column with FOREIGN KEY to Better Auth users',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
