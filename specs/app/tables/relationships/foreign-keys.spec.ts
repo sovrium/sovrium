@@ -531,7 +531,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-011: should reject foreign key when referenced column is not primary or unique key',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -560,7 +560,6 @@ test.describe('Foreign Key Relationships', () => {
                   name: 'customer_email',
                   type: 'relationship',
                   relatedTable: 'customers',
-                  // @ts-expect-error - Future feature: custom reference field
                   relatedField: 'email', // References non-unique column!
                   relationType: 'many-to-one',
                 },
