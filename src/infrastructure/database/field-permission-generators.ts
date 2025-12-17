@@ -19,7 +19,9 @@ const extractRoles = (permission: TablePermission): readonly string[] => {
     return permission.roles.map((role) => `${role}_user`)
   }
   if (permission.type === 'authenticated') {
-    return ['authenticated_user']
+    // Authenticated permissions grant access to all authenticated users
+    // This includes admin_user, member_user, and authenticated_user roles
+    return ['authenticated_user', 'admin_user', 'member_user']
   }
   if (permission.type === 'public') {
     // Public permissions grant access to everyone including unauthenticated users
@@ -110,14 +112,22 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Get all database columns
   const databaseColumns = table.fields.filter(shouldCreateDatabaseColumn)
 
+  // Default table-level permission when not specified but field permissions exist
+  // If field permissions are configured without table-level read, default to authenticated access for unrestricted fields
+  // This ensures authenticated users (admin, member) can access unrestricted fields
+  const defaultTablePermission: { readonly type: 'authenticated' } = {
+    type: 'authenticated',
+  } as const
+  const effectiveTablePermission = tableReadPermission ?? defaultTablePermission
+
   // Build field permissions map:
   // - Fields with specific read permissions: use their specific permission
-  // - Fields without specific permissions: use table-level permission
+  // - Fields without specific permissions: use effective table-level permission (defaults to authenticated)
   const allFieldPermissions = databaseColumns.map((field) => {
     const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
     return {
       field: field.name,
-      permission: fieldPermission?.read ?? tableReadPermission,
+      permission: fieldPermission?.read ?? effectiveTablePermission,
     }
   })
 
@@ -125,7 +135,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   const roleFieldsMap = buildRoleFieldsMap(allFieldPermissions)
 
   // Add base fields to restricted roles (fields they can access beyond restricted ones)
-  const baseRoles = tableReadPermission ? extractRoles(tableReadPermission) : []
+  const baseRoles = extractRoles(effectiveTablePermission)
   const roleFieldsWithBase = addBaseFieldsToRestrictedRoles(roleFieldsMap, baseRoles)
 
   // Generate SQL statements
@@ -146,8 +156,9 @@ $$`
 
   const schemaGrantStatements = finalRoles.map((role) => `GRANT USAGE ON SCHEMA public TO ${role}`)
 
-  // CRITICAL: REVOKE table-level SELECT before granting column-level SELECT
-  // Otherwise, any existing table-level grants would allow access to all columns
+  // CRITICAL: For column-level permissions, we only grant SELECT on specific columns
+  // No table-level SELECT grant needed - column grants are sufficient
+  // First revoke any existing permissions to ensure clean state
   const revokeStatements = finalRoles.map((role) => `REVOKE ALL ON ${tableName} FROM ${role}`)
 
   const columnGrantStatements = Array.from(roleFieldsWithBase.entries()).map(([role, fields]) => {
