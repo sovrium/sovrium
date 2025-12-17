@@ -32,6 +32,7 @@ export {
   clearDatabaseSessionContext,
   getCurrentSessionContext,
   SessionContextError,
+  ForbiddenError,
   type DatabaseTransaction,
 } from './session-context'
 export { withSessionContext, withSessionContextSimple } from './with-session-context'

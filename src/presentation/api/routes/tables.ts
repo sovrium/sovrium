@@ -9,7 +9,7 @@
 
 import { Effect } from 'effect'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure for session context
-import { SessionContextError } from '@/infrastructure/database/session-context'
+import { SessionContextError, type ForbiddenError } from '@/infrastructure/database/session-context'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
@@ -81,6 +81,18 @@ const getTableNameFromId = (app: App, tableId: string): string | undefined => {
  * Handle batch restore errors with appropriate HTTP responses
  */
 const handleBatchRestoreError = (c: Context, error: unknown) => {
+  // Handle ForbiddenError (viewer role attempting write operation)
+  // Use name check to handle multiple import paths resolving to different class instances
+  if (error instanceof Error && error.name === 'ForbiddenError') {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: error.message,
+      },
+      403
+    )
+  }
+
   const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
   if (errorMessage.includes('not found')) {
@@ -331,7 +343,7 @@ function batchRestoreProgram(
   session: Readonly<Session>,
   tableName: string,
   ids: readonly string[]
-): Effect.Effect<BatchRestoreRecordsResponse, SessionContextError> {
+): Effect.Effect<BatchRestoreRecordsResponse, SessionContextError | ForbiddenError> {
   return Effect.gen(function* () {
     const restored = yield* batchRestoreRecords(session, tableName, ids)
     return {
@@ -566,52 +578,82 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     })
 }
 
+// eslint-disable-next-line max-lines-per-function -- Batch routes with authorization checks require multiple steps
 function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
-  return honoApp
-    .post('/api/tables/:tableId/records/batch', async (c) => {
-      const result = await validateRequest(c, batchCreateRecordsRequestSchema)
-      if (!result.success) return result.response
-      return runEffect(c, batchCreateProgram(result.data.records), batchCreateRecordsResponseSchema)
-    })
-    .patch('/api/tables/:tableId/records/batch', async (c) => {
-      const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
-      if (!result.success) return result.response
-      return runEffect(c, batchUpdateProgram(result.data.records), batchUpdateRecordsResponseSchema)
-    })
-    .delete('/api/tables/:tableId/records/batch', async (c) => {
-      const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
-      if (!result.success) return result.response
-      return runEffect(c, batchDeleteProgram(result.data.ids), batchDeleteRecordsResponseSchema)
-    })
-    .post('/api/tables/:tableId/records/batch/restore', async (c) => {
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
+  return (
+    honoApp
+      // IMPORTANT: More specific route (batch/restore) must come BEFORE generic batch routes
+      .post('/api/tables/:tableId/records/batch/restore', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
 
-      const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
-      if (!result.success) return result.response
+        // Authorization check BEFORE validation (viewers cannot restore, regardless of input validity)
+        const { db } = await import('@/infrastructure/database')
+        const userResult = (await db.execute(
+          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+        )) as Array<{ role: string | null }>
+        const userRole = userResult[0]?.role
 
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
+        if (userRole === 'viewer') {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to restore records in this table',
+            },
+            403
+          )
+        }
 
-      try {
-        const response = await Effect.runPromise(
-          batchRestoreProgram(session, tableName, result.data.ids)
+        const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
+        if (!result.success) return result.response
+
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        try {
+          const response = await Effect.runPromise(
+            batchRestoreProgram(session, tableName, result.data.ids)
+          )
+          return c.json(response, 200)
+        } catch (error) {
+          return handleBatchRestoreError(c, error)
+        }
+      })
+      // Generic batch routes AFTER more specific batch/restore route
+      .post('/api/tables/:tableId/records/batch', async (c) => {
+        const result = await validateRequest(c, batchCreateRecordsRequestSchema)
+        if (!result.success) return result.response
+        return runEffect(
+          c,
+          batchCreateProgram(result.data.records),
+          batchCreateRecordsResponseSchema
         )
-        return c.json(response, 200)
-      } catch (error) {
-        return handleBatchRestoreError(c, error)
-      }
-    })
-    .post('/api/tables/:tableId/records/upsert', async (c) => {
-      const result = await validateRequest(c, upsertRecordsRequestSchema)
-      if (!result.success) return result.response
-      return runEffect(c, upsertProgram(result.data.records), upsertRecordsResponseSchema)
-    })
+      })
+      .patch('/api/tables/:tableId/records/batch', async (c) => {
+        const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
+        if (!result.success) return result.response
+        return runEffect(
+          c,
+          batchUpdateProgram(result.data.records),
+          batchUpdateRecordsResponseSchema
+        )
+      })
+      .delete('/api/tables/:tableId/records/batch', async (c) => {
+        const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
+        if (!result.success) return result.response
+        return runEffect(c, batchDeleteProgram(result.data.ids), batchDeleteRecordsResponseSchema)
+      })
+      .post('/api/tables/:tableId/records/upsert', async (c) => {
+        const result = await validateRequest(c, upsertRecordsRequestSchema)
+        if (!result.success) return result.response
+        return runEffect(c, upsertProgram(result.data.records), upsertRecordsResponseSchema)
+      })
+  )
 }
 
 function chainViewRoutesMethods<T extends Hono>(honoApp: T) {
@@ -643,7 +685,10 @@ function chainViewRoutesMethods<T extends Hono>(honoApp: T) {
  * @returns Hono app with table routes chained
  */
 export function chainTableRoutes<T extends Hono>(honoApp: T, app: App) {
+  // Route registration order matters for Hono's router.
+  // More specific routes (batch/restore) must be registered BEFORE
+  // parameterized routes (:recordId/restore) to avoid route collisions.
   return chainViewRoutesMethods(
-    chainBatchRoutesMethods(chainRecordRoutesMethods(chainTableRoutesMethods(honoApp), app), app)
+    chainRecordRoutesMethods(chainBatchRoutesMethods(chainTableRoutesMethods(honoApp), app), app)
   )
 }

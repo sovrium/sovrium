@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { withSessionContext, SessionContextError } from '@/infrastructure/database'
+import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -273,10 +273,22 @@ export function batchRestoreRecords(
   session: Readonly<Session>,
   tableName: string,
   recordIds: readonly string[]
-): Effect.Effect<number, SessionContextError> {
+): Effect.Effect<number, SessionContextError | ForbiddenError> {
+  // eslint-disable-next-line max-lines-per-function -- Batch validation with role checks requires multiple steps
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
+        // Check user role from session context
+        const roleResult = (await tx.execute(
+          `SELECT current_setting('app.user_role', true) as role`
+        )) as Array<{ role: string | null }>
+
+        const userRole = roleResult[0]?.role
+        if (userRole === 'viewer') {
+          // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
+          throw new ForbiddenError('You do not have permission to restore records in this table')
+        }
+
         // Check if table has organization_id column for multi-tenancy
         const columnCheck = (await tx.execute(`
           SELECT column_name
@@ -330,9 +342,14 @@ export function batchRestoreRecords(
         return result.length
       },
       catch: (error) => {
+        // Re-throw ForbiddenError unchanged (authorization failure)
+        // Use name check to handle multiple import paths resolving to different class instances
+        if (error instanceof Error && error.name === 'ForbiddenError') {
+          return new ForbiddenError(error.message)
+        }
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         return new SessionContextError(
-          `Failed to batch restore records from ${tableName}: ${errorMessage}`,
+          `Failed to batch restore records in ${tableName}: ${errorMessage}`,
           error
         )
       },

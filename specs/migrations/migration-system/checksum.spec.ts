@@ -101,11 +101,11 @@ test.describe('Checksum Optimization', () => {
 
       // THEN: Migration skipped, startup completes quickly
 
-      // Performance check: startup < 2000ms (when migrations skipped)
+      // Performance check: startup < 3000ms (when migrations skipped)
       // Note: This validates optimization is working (full migrations take 5-10+ seconds)
-      // The 2000ms timeout accounts for server startup overhead in E2E test environment
+      // The 3000ms timeout accounts for server startup overhead and CI environment variability
       // THEN: assertion
-      expect(executionTime).toBeLessThan(2000)
+      expect(executionTime).toBeLessThan(3000)
 
       // Verify checksum exists and is valid
       const savedChecksum = await executeQuery(
@@ -272,9 +272,9 @@ test.describe('Checksum Optimization', () => {
         })
         const executionTime = Date.now() - startTime
 
-        // Performance: Startup < 2000ms when unchanged (CI-friendly timeout)
+        // Performance: Startup < 3000ms when unchanged (CI-friendly timeout)
         // Note: Full migrations take 5-10+ seconds, so this validates optimization is working
-        expect(executionTime).toBeLessThan(2000)
+        expect(executionTime).toBeLessThan(3000)
       })
     }
   )

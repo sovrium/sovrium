@@ -25,6 +25,19 @@ export class SessionContextError extends Error {
 }
 
 /**
+ * Forbidden error for authorization failures
+ */
+export class ForbiddenError extends Error {
+  readonly _tag = 'ForbiddenError'
+
+  constructor(message: string) {
+    super(message)
+    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
+    this.name = 'ForbiddenError'
+  }
+}
+
+/**
  * Database transaction interface supporting unsafe SQL execution
  */
 export interface DatabaseTransaction {
@@ -43,10 +56,36 @@ const escapeSQL = (value: string): string => {
 }
 
 /**
+ * Get user's global role from Better Auth users table
+ *
+ * Queries the _sovrium_auth_users table for the user's global role.
+ * Returns 'authenticated' if no role is set.
+ *
+ * @param tx - Database transaction
+ * @param userId - User ID from session
+ * @returns Effect resolving to global user role
+ */
+const getGlobalUserRole = (
+  tx: DatabaseTransaction,
+  userId: string
+): Effect.Effect<string, SessionContextError> =>
+  Effect.tryPromise({
+    try: async () => {
+      const rows = (await tx.unsafe(
+        `SELECT role FROM "_sovrium_auth_users" WHERE id = '${escapeSQL(userId)}' LIMIT 1`
+      )) as Array<{ role: string | null }>
+      return rows[0]?.role || 'authenticated'
+    },
+    catch: (error) => new SessionContextError('Failed to query user role from users table', error),
+  })
+
+/**
  * Get user role in active organization from Better Auth members table
  *
- * If session has an active organization, queries the members table to get the user's role.
- * If no active organization, returns 'authenticated' as default role.
+ * Role resolution priority:
+ * 1. If active organization: check members table for org-specific role
+ * 2. If no active organization or no membership: check global user role from users table
+ * 3. Default: 'authenticated'
  *
  * @param tx - Database transaction
  * @param session - Better Auth session
@@ -57,16 +96,16 @@ const getUserRoleInOrganization = (
   session: Readonly<Session>
 ): Effect.Effect<string, SessionContextError> =>
   Effect.gen(function* () {
-    // If no active organization, return default authenticated role
+    // If no active organization, check global user role
     if (!session.activeOrganizationId) {
-      return 'authenticated'
+      return yield* getGlobalUserRole(tx, session.userId)
     }
 
     // Query members table for user role in organization
     const result = yield* Effect.tryPromise({
       try: async () => {
         const rows = (await tx.unsafe(
-          `SELECT role FROM members WHERE organization_id = '${escapeSQL(session.activeOrganizationId || '')}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
+          `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${escapeSQL(session.activeOrganizationId || '')}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
         )) as Member[]
         return rows
       },
@@ -74,9 +113,9 @@ const getUserRoleInOrganization = (
         new SessionContextError('Failed to query user role from members table', error),
     })
 
-    // If no membership found, return default authenticated role
+    // If no membership found, fall back to global user role
     if (!result || result.length === 0) {
-      return 'authenticated'
+      return yield* getGlobalUserRole(tx, session.userId)
     }
 
     const role = result[0]?.role

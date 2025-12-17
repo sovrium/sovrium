@@ -16,6 +16,44 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 type TransactionLike = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /**
+ * Escape SQL string values to prevent SQL injection
+ */
+const escapeSQL = (value: string): string => value.replace(/'/g, "''")
+
+/**
+ * Get user role for session context
+ *
+ * Role resolution priority:
+ * 1. If active organization: check members table for org-specific role
+ * 2. If no active organization or no membership: check global user role from users table
+ * 3. Default: 'authenticated'
+ *
+ * @param tx - Database transaction
+ * @param session - Better Auth session
+ * @returns User role string
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- Database transactions inherently require mutable state for query execution
+const getUserRole = async (tx: TransactionLike, session: Readonly<Session>): Promise<string> => {
+  // If active organization, check members table first
+  if (session.activeOrganizationId) {
+    const memberResult = (await tx.execute(
+      `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${escapeSQL(session.activeOrganizationId)}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
+    )) as Array<{ role: string | null }>
+
+    if (memberResult[0]?.role) {
+      return memberResult[0].role
+    }
+  }
+
+  // Fall back to global user role from users table
+  const userResult = (await tx.execute(
+    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
+  )) as Array<{ role: string | null }>
+
+  return userResult[0]?.role || 'authenticated'
+}
+
+/**
  * Execute a database operation with automatic session context
  *
  * This function wraps database operations in a transaction and automatically sets
@@ -50,12 +88,15 @@ export const withSessionContext = <A, E>(
     const result = yield* Effect.tryPromise({
       try: () =>
         db.transaction(async (tx) => {
+          // Get user role (org-specific or global)
+          const userRole = await getUserRole(tx, session)
+
           // Set session context at the start of the transaction
           // Use tx.execute for raw SQL (Drizzle transaction interface)
           await tx.execute(
             `SET LOCAL app.user_id = '${session.userId.replace(/'/g, "''")}';
              SET LOCAL app.organization_id = '${(session.activeOrganizationId || '').replace(/'/g, "''")}';
-             SET LOCAL app.user_role = 'authenticated';`
+             SET LOCAL app.user_role = '${userRole.replace(/'/g, "''")}';`
           )
 
           // Execute the user's operation with the transaction using the extracted runtime
@@ -90,11 +131,14 @@ export const withSessionContextSimple = async <A>(
   operation: (tx: Readonly<TransactionLike>) => Promise<A>
 ): Promise<A> => {
   return await db.transaction(async (tx) => {
+    // Get user role (org-specific or global)
+    const userRole = await getUserRole(tx, session)
+
     // Set session context at the start of the transaction
     await tx.execute(
       `SET LOCAL app.user_id = '${session.userId.replace(/'/g, "''")}';
        SET LOCAL app.organization_id = '${(session.activeOrganizationId || '').replace(/'/g, "''")}';
-       SET LOCAL app.user_role = 'authenticated';`
+       SET LOCAL app.user_role = '${userRole.replace(/'/g, "''")}';`
     )
 
     // Execute the user's operation with the transaction

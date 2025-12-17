@@ -23,8 +23,8 @@ describe('session-context', () => {
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async (sql: string) => {
           executedSql.push(sql)
-          // Mock members table response
-          if (sql.includes('SELECT role FROM members')) {
+          // Mock members table response (using actual table name)
+          if (sql.includes('SELECT role FROM "_sovrium_auth_members"')) {
             return [{ role: 'admin' }]
           }
           return []
@@ -47,8 +47,11 @@ describe('session-context', () => {
       const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
 
       expect(result).toBeUndefined()
+      // 2 queries: 1 for member role lookup, 1 for SET LOCAL
       expect(executedSql.length).toBe(2)
-      expect(executedSql[0]).toContain('SELECT role FROM members')
+      // First query: members table for org-specific role
+      expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_members"')
+      // Second query: SET LOCAL session variables
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
       expect(executedSql[1]).toContain("SET LOCAL app.organization_id = 'org_456'")
       expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'admin'")
@@ -79,10 +82,14 @@ describe('session-context', () => {
       const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
 
       expect(result).toBeUndefined()
-      expect(executedSql.length).toBe(1)
-      expect(executedSql[0]).toContain("SET LOCAL app.user_id = 'user_123'")
-      expect(executedSql[0]).toContain("SET LOCAL app.organization_id = ''")
-      expect(executedSql[0]).toContain("SET LOCAL app.user_role = 'authenticated'")
+      // 2 queries: 1 for user role lookup, 1 for SET LOCAL
+      expect(executedSql.length).toBe(2)
+      // First query: user role lookup
+      expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_users"')
+      // Second query: SET LOCAL session variables
+      expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
+      expect(executedSql[1]).toContain("SET LOCAL app.organization_id = ''")
+      expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'authenticated'")
     })
 
     it('should escape SQL injection attempts in user ID', async () => {
@@ -110,16 +117,22 @@ describe('session-context', () => {
       const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
 
       expect(result).toBeUndefined()
-      // Single quotes should be doubled for SQL escape
-      expect(executedSql[0]).toContain("SET LOCAL app.user_id = 'user''; DROP TABLE users; --'")
+      // Single quotes should be doubled for SQL escape in both queries
+      // First query: user role lookup with escaped user ID
+      expect(executedSql[0]).toContain("user''; DROP TABLE users; --")
+      // Second query: SET LOCAL with escaped user ID
+      expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user''; DROP TABLE users; --'")
     })
 
     it('should handle missing member record gracefully', async () => {
+      const executedSql: string[] = []
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async (sql: string) => {
-          if (sql.includes('SELECT role FROM members')) {
+          executedSql.push(sql)
+          if (sql.includes('SELECT role FROM "_sovrium_auth_members"')) {
             return [] // No member found
           }
+          // Global user role lookup returns empty (no role)
           return []
         }),
       }
@@ -140,7 +153,13 @@ describe('session-context', () => {
       const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
 
       expect(result).toBeUndefined()
-      // Should default to 'authenticated' role when no member record found
+      // 3 queries: members lookup, users fallback, SET LOCAL
+      expect(executedSql.length).toBe(3)
+      // When no member found, falls back to global user role
+      expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_members"')
+      expect(executedSql[1]).toContain('SELECT role FROM "_sovrium_auth_users"')
+      // SET LOCAL with default 'authenticated' role
+      expect(executedSql[2]).toContain("SET LOCAL app.user_role = 'authenticated'")
     })
 
     it('should fail with SessionContextError on database error', async () => {

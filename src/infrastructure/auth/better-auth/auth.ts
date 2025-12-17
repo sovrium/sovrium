@@ -8,6 +8,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
+import { db } from '@/infrastructure/database'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
 import { logError } from '../../logging'
@@ -22,7 +23,6 @@ import {
   twoFactors,
 } from './schema'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
-import { db } from '@/infrastructure/database'
 
 /**
  * Substitute variables in a template string
