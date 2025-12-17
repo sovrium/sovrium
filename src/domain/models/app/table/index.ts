@@ -10,6 +10,7 @@ import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
 import { detectCycles } from './cycle-detection'
 import { findDuplicate } from './field-types/validation-utils'
 import { FieldsSchema } from './fields'
+import { ForeignKeySchema } from './foreign-keys'
 import { FORMULA_KEYWORDS } from './formula-keywords'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
@@ -1052,6 +1053,27 @@ export const TableSchema = Schema.Struct({
   views: Schema.optional(Schema.Array(ViewSchema)),
 
   /**
+   * Composite foreign key constraints.
+   *
+   * Used for multi-column foreign keys where multiple fields together reference
+   * a composite primary key in another table. Single-column foreign keys are
+   * automatically created from relationship fields.
+   *
+   * @example Composite foreign key
+   * ```typescript
+   * foreignKeys: [{
+   *   name: 'fk_permissions_tenant_user',
+   *   fields: ['tenant_id', 'user_id'],
+   *   referencedTable: 'tenant_users',
+   *   referencedFields: ['tenant_id', 'user_id']
+   * }]
+   * ```
+   *
+   * @see ForeignKeySchema for full configuration options
+   */
+  foreignKeys: Schema.optional(Schema.Array(ForeignKeySchema)),
+
+  /**
    * Table-level permissions (high-level RBAC abstraction).
    *
    * Automatically generates RLS policies based on permission configuration.
@@ -1124,6 +1146,7 @@ export * from './fields'
 export * from './primary-key'
 export * from './unique-constraints'
 export * from './indexes'
+export * from './foreign-keys'
 export * from './field-types'
 export * from './views'
 export * from './permissions'
