@@ -645,7 +645,8 @@ export const generateForeignKeyConstraints = (
           : ''
 
       // Use relatedField if specified, otherwise default to 'id'
-      const referencedColumn = 'relatedField' in field && field.relatedField ? field.relatedField : 'id'
+      const referencedColumn =
+        'relatedField' in field && field.relatedField ? field.relatedField : 'id'
 
       return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
     })
@@ -664,7 +665,12 @@ export const generateForeignKeyConstraints = (
   // Generate composite foreign key constraints
   const compositeFKs = generateCompositeForeignKeyConstraints(compositeForeignKeys ?? [])
 
-  return [...userFieldConstraints, ...relationshipFieldConstraints, ...userReferenceConstraints, ...compositeFKs]
+  return [
+    ...userFieldConstraints,
+    ...relationshipFieldConstraints,
+    ...userReferenceConstraints,
+    ...compositeFKs,
+  ]
 }
 
 /**

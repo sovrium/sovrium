@@ -104,8 +104,7 @@ export const ForeignKeySchema = Schema.Struct({
 }).pipe(
   Schema.annotations({
     title: 'Foreign Key',
-    description:
-      'Composite foreign key constraint for multi-column relationships between tables',
+    description: 'Composite foreign key constraint for multi-column relationships between tables',
   })
 )
 

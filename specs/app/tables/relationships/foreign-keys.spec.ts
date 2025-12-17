@@ -616,7 +616,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-013: should support one-to-one relationships with UNIQUE constraint on foreign key',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
