@@ -211,7 +211,7 @@ test.describe('Deleted By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-BY-005: should create btree index for fast deletion audit when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
