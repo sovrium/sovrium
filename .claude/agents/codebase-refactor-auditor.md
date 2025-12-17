@@ -243,6 +243,84 @@ The agent automatically detects pipeline mode when:
 - **Environment variable**: `CLAUDECODE=1` is set (pipeline execution marker)
 - **Issue context**: GitHub issue template markers present (e.g., "Instructions for @claude" or "Implementation Instructions for @claude") indicating automated handoff
 
+### Quick Exit for Test-Only Changes (Pipeline Mode)
+
+**CRITICAL**: In pipeline mode, ALWAYS check for test-only changes FIRST before running full audit.
+
+When a `.fixme()` test passes immediately after removal (no implementation needed), the full audit workflow is unnecessary. This optimization saves significant time and tokens.
+
+#### Detection Logic
+
+```bash
+# Check if any src/ files were modified in the current branch
+SRC_CHANGES=$(git diff --name-only HEAD~1 | grep '^src/' | wc -l)
+
+# If SRC_CHANGES is 0, this is a test-only change
+if [ "$SRC_CHANGES" -eq 0 ]; then
+  echo "✅ Test-only change detected - Quick Exit path"
+fi
+```
+
+#### Quick Exit Workflow
+
+When **NO `src/` files were modified** (only spec files changed):
+
+1. **Detect test-only change**:
+   ```bash
+   git diff --name-only HEAD~1 | grep '^src/'
+   ```
+   - If output is empty → test-only change confirmed
+
+2. **Run minimal validation**:
+   ```bash
+   bun run quality  # Still validates spec file changes
+   ```
+   - TypeScript: Spec files must typecheck
+   - ESLint: Spec files have lint rules
+   - Unit tests: Ensure no regressions
+   - Smart E2E: Runs affected @regression specs
+
+3. **Output Quick Exit report**:
+   ```markdown
+   ## ✅ Quick Exit: Test-Only Change
+
+   ### Detection
+   - **Branch**: claude/issue-1234-20251217-1430
+   - **Files changed**: 1 (spec file only)
+   - **src/ files modified**: 0
+   - **Result**: No production code changes - skipping full audit
+
+   ### Validation
+   - ✅ `bun run quality` passed
+     - ESLint: ✅ (spec file validated)
+     - TypeScript: ✅ (spec file typechecks)
+     - Unit tests: ✅ (no regressions)
+     - E2E regression: ✅ (smart detection)
+
+   ### Summary
+   The test passed immediately after removing `.fixme()` - the feature was already implemented.
+   No refactoring needed. Pipeline can proceed to commit and PR creation.
+
+   ---
+   *⚡ Quick Exit - Full audit skipped (no src/ changes)*
+   ```
+
+4. **Exit successfully** - Do NOT proceed with Phase 0-5 workflow
+
+#### When Quick Exit Does NOT Apply
+
+Continue with full audit workflow when:
+- Any file in `src/` was modified
+- New files were created in `src/`
+- The change involves more than just `.fixme()` removal
+
+#### Rationale
+
+- **Time savings**: Full audit takes 5-10 minutes; Quick Exit takes <30 seconds
+- **Token savings**: Avoids unnecessary git history analysis and codebase scanning
+- **Safety maintained**: `bun run quality` still validates all spec file changes
+- **CI redundancy**: Full E2E suite runs in test.yml anyway before merge
+
 ### Pipeline-Specific Behavior
 
 When operating in pipeline mode:
