@@ -171,9 +171,7 @@ const translateFieldPermissionCondition = (condition: string): string =>
 /**
  * Generate field condition for custom/owner permissions
  */
-const generateFieldCondition = (
-  permission: TablePermission
-): string => {
+const generateFieldCondition = (permission: TablePermission): string => {
   if (permission.type === 'custom') {
     return translateFieldPermissionCondition(permission.condition)
   }
@@ -187,19 +185,17 @@ const generateFieldCondition = (
 /**
  * Generate single field permission check for trigger
  */
-const generateFieldCheck = (
-  fieldName: string,
-  permission: TablePermission
-): string => {
+const generateFieldCheck = (fieldName: string, permission: TablePermission): string => {
   const condition = generateFieldCondition(permission)
   if (!condition) return ''
 
   // Replace table column references with NEW.column for trigger context
   const triggerCondition = condition.replace(/=\s*([a-z_]+)\b/g, '= NEW."$1"')
 
-  const conditionDesc = permission.type === 'custom'
-    ? permission.condition
-    : `owner check on ${permission.type === 'owner' ? permission.field : 'unknown'}`
+  const conditionDesc =
+    permission.type === 'custom'
+      ? permission.condition
+      : `owner check on ${permission.type === 'owner' ? permission.field : 'unknown'}`
 
   return `
     -- Check if ${fieldName} is being updated
@@ -232,9 +228,7 @@ const generateCustomConditionTriggers = (
   const triggerName = `${tableName}_field_permission_trigger`
 
   // Build condition checks for each field
-  const fieldChecks = customConditionFields.map((fp) =>
-    generateFieldCheck(fp.field, fp.write!)
-  )
+  const fieldChecks = customConditionFields.map((fp) => generateFieldCheck(fp.field, fp.write!))
 
   const dropFunction = `DROP FUNCTION IF EXISTS ${triggerFunctionName}() CASCADE`
 

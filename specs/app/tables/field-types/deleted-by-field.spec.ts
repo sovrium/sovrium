@@ -150,7 +150,7 @@ test.describe('Deleted By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-BY-004: should support querying who deleted records via JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
