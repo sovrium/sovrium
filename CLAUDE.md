@@ -411,7 +411,35 @@ When triggered by @claude mention (posted by queue processor every 15 min):
    git push
    ```
 
-5. **⚠️ MANDATORY: CREATE PULL REQUEST ⚠️**
+5. **⚠️ PRE-PR CHECKS (MANDATORY - Prevent Duplicate PRs) ⚠️**
+
+   **BEFORE creating a PR**, you MUST verify no PR already exists for this issue.
+   This prevents duplicate PRs when Claude Code runs for 60 minutes and another PR merges first.
+
+   ```bash
+   # Check 1: Verify issue is still open (not closed by another merged PR)
+   ISSUE_STATE=$(gh issue view <ISSUE_NUMBER> --json state --jq '.state')
+   if [ "$ISSUE_STATE" = "CLOSED" ]; then
+     echo "Issue already closed - skipping PR creation"
+     exit 0  # Success - work already done
+   fi
+
+   # Check 2: Check for existing PRs (open OR merged) for this issue
+   EXISTING_PRS=$(gh pr list --label tdd-automation --state all --json number,body,state \
+     --jq '.[] | select(.body | contains("Closes #<ISSUE_NUMBER>")) | "#\(.number) (\(.state))"')
+   if [ -n "$EXISTING_PRS" ]; then
+     echo "Found existing PR(s): $EXISTING_PRS - skipping PR creation"
+     exit 0  # Success - PR already exists
+   fi
+   ```
+
+   **WHY THIS IS CRITICAL** (PR #6067 incident):
+   - Claude Code can run for up to 60 minutes
+   - During that time, another workflow may create and merge a PR for the same issue
+   - Without this check, Claude creates a duplicate PR after the work is already done
+   - Duplicate PRs waste CI resources and cause confusion
+
+6. **⚠️ MANDATORY: CREATE PULL REQUEST ⚠️**
 
    **THIS IS NOT OPTIONAL. THE WORKFLOW IS NOT COMPLETE WITHOUT A PR.**
 
@@ -425,7 +453,7 @@ When triggered by @claude mention (posted by queue processor every 15 min):
 
    **Example of what NOT to do** (Issue #1319):
    - Claude removed `.fixme()`, committed, pushed
-   - Did NOT create PR → Marked as failed → Required manual intervention
+   - Did NOT create PR -> Marked as failed -> Required manual intervention
 
    **How to create PR**:
    ```bash
@@ -440,17 +468,17 @@ When triggered by @claude mention (posted by queue processor every 15 min):
    - ❌ **Wrong**: `Closes #1234 - description` (extra text breaks auto-close)
    - Multiple issues: Use separate lines (`Closes #1234\nCloses #5678`)
 
-6. **PR verification**: Workflow automatically verifies PR was created within 2 minutes
+7. **PR verification**: Workflow automatically verifies PR was created within 2 minutes
    - If no PR found: Issue marked as `tdd-spec:failed`, pipeline continues with next spec
    - This prevents pipeline from blocking on "no PR created" scenarios
 
-7. **Monitor validation** (test.yml CI checks):
+8. **Monitor validation** (test.yml CI checks):
    - If fails: Analyze errors, fix, push (retry up to 3 times)
    - Track retries with labels (`retry:spec:1/2/3` or `retry:infra:1/2/3`)
    - After 3 failures: Mark issue `tdd-spec:failed`, exit (allow pipeline to continue)
    - If passes: Enable PR auto-merge with --squash
 
-8. **Issue closes automatically** when PR merges to main (via `Closes #` syntax in PR body)
+9. **Issue closes automatically** when PR merges to main (via `Closes #` syntax in PR body)
 
 ### TDD Labels Reference
 
@@ -529,11 +557,13 @@ git push
 ### Important Rules
 
 - **ALWAYS** run both agents (e2e-test-fixer then refactor-auditor)
+- **ALWAYS** check for existing PRs before creating a new one (prevents duplicates)
 - **ALWAYS** create PR - REQUIRED even if only `.fixme()` removal, NO EXCEPTIONS
 - **DO NOT** modify multiple specs at once (one spec = one issue)
 - **DO NOT** modify test logic - only remove `.fixme()` and implement code
 - **DO NOT** close issues manually - they close automatically on PR merge
 - **DO NOT** consider the task complete until PR is created
+- **DO NOT** create a PR if issue is already closed or PR already exists
 - **DO** commit with format: `fix: implement {SPEC-ID}`
 - **DO** create PR with `tdd-automation` label and include `Closes #<issue_number>` in PR body (⚠️ no extra text after number)
 - **DO** retry up to 3 times on validation failures
@@ -542,10 +572,13 @@ git push
 
 - [ ] `.fixme()` removed, code implemented, both agents run
 - [ ] Copyright headers added, changes committed/pushed
+- [ ] **⚠️ PRE-PR CHECKS**: Issue still open AND no existing PRs (prevents duplicates)
 - [ ] **⚠️ CRITICAL: PR created** with `tdd-automation` label and `Closes #<issue_number>` in body
 - [ ] Auto-merge enabled after validation passes
 
-**Remember**: PR creation is mandatory - Issue #1319 failed because PR was not created.
+**Remember**:
+- PR creation is mandatory - Issue #1319 failed because PR was not created.
+- Pre-PR checks are mandatory - PR #6067 was created as duplicate after PR #6066 already merged.
 
 ### Queue System Architecture
 

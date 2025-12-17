@@ -810,7 +810,11 @@ jobs:
             echo "✅ Fallback retry triggered via issue comment with full context"
           fi
 
-  # Success path: Verify PR was created (same as original workflow)
+  # Success path: Verify PR was created and handle duplicates
+  # IMPORTANT: Claude Code can run for up to 60 minutes. During that time:
+  # - Another workflow might have already created and merged a PR for this issue
+  # - The issue might have been closed by a merged PR
+  # This job detects and handles these duplicate PR scenarios
   verify-success:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -818,9 +822,124 @@ jobs:
     if: needs.execute-claude.outputs.claude_success == 'true'
     permissions:
       issues: write
-      pull-requests: read
+      pull-requests: write  # Need write to close duplicate PRs
     steps:
+      # DUPLICATE PREVENTION: Check if issue was already completed during Claude's execution
+      # This prevents duplicate PRs when Claude runs for 60 minutes and another PR merges first
+      - name: Check for duplicate/stale state
+        id: duplicate_check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          echo "🔍 Checking if issue #$ISSUE_NUMBER is still open and needs a PR..."
+
+          # Check 1: Is the issue still open?
+          ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+
+          if [ "$ISSUE_STATE" = "CLOSED" ]; then
+            echo "⚠️  Issue #$ISSUE_NUMBER is CLOSED - another PR likely merged during Claude's execution"
+            echo "   Skipping PR creation/verification to prevent duplicate PR"
+            echo "is_duplicate=true" >> $GITHUB_OUTPUT
+            echo "reason=issue_closed" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check 2: Are there any merged PRs for this issue?
+          MERGED_PR_COUNT=$(gh pr list \
+            --repo "$REPO" \
+            --search "Closes #$ISSUE_NUMBER in:body" \
+            --state merged \
+            --json number \
+            --jq 'length' 2>/dev/null || echo "0")
+
+          if [ "$MERGED_PR_COUNT" -gt 0 ]; then
+            MERGED_PRS=$(gh pr list \
+              --repo "$REPO" \
+              --search "Closes #$ISSUE_NUMBER in:body" \
+              --state merged \
+              --json number,mergedAt \
+              --jq '[.[] | "#\(.number) (merged \(.mergedAt))"] | join(", ")' 2>/dev/null || echo "")
+            echo "⚠️  Found $MERGED_PR_COUNT merged PR(s) for issue #$ISSUE_NUMBER: $MERGED_PRS"
+            echo "   Skipping PR creation/verification to prevent duplicate PR"
+            echo "is_duplicate=true" >> $GITHUB_OUTPUT
+            echo "reason=pr_already_merged" >> $GITHUB_OUTPUT
+            echo "merged_prs=$MERGED_PRS" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "✅ Issue #$ISSUE_NUMBER is open with no merged PRs - proceeding with PR verification"
+          echo "is_duplicate=false" >> $GITHUB_OUTPUT
+
+      - name: Handle duplicate scenario
+        if: steps.duplicate_check.outputs.is_duplicate == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
+          REASON: ${{ steps.duplicate_check.outputs.reason }}
+          MERGED_PRS: ${{ steps.duplicate_check.outputs.merged_prs }}
+        run: |
+          echo "🔄 Handling duplicate scenario: $REASON"
+
+          if [ "$REASON" = "issue_closed" ]; then
+            # Issue was closed - likely by another merged PR
+            # Any branch/PR created by this Claude run is now obsolete
+            COMMENT_BODY="🔄 **Duplicate Prevention**: Claude Code completed, but issue was already closed.
+
+          This typically happens when:
+          - Another workflow completed and merged a PR for this issue
+          - The issue was manually closed
+          - A concurrent Claude Code run finished first
+
+          **No action needed** - the issue is already resolved.
+
+          ---
+          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+
+            # Post comment only if issue is still accessible (it might be closed)
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$COMMENT_BODY" 2>/dev/null || echo "Could not post comment (issue may be closed)"
+
+          elif [ "$REASON" = "pr_already_merged" ]; then
+            # A PR was already merged for this issue
+            COMMENT_BODY="🔄 **Duplicate Prevention**: Claude Code completed, but a PR was already merged for this issue.
+
+          **Merged PR(s)**: $MERGED_PRS
+
+          This typically happens when Claude Code runs for a long time (up to 60 minutes) and another PR is created and merged during that period.
+
+          **No action needed** - the work is already complete.
+
+          ---
+          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$COMMENT_BODY" 2>/dev/null || echo "Could not post comment (issue may be closed)"
+
+            # Close any open PRs that Claude might have created (they're now duplicates)
+            echo "🔍 Checking for any open PRs created by this run that need to be closed..."
+            OPEN_PRS=$(gh pr list \
+              --repo "$REPO" \
+              --search "Closes #$ISSUE_NUMBER in:body" \
+              --state open \
+              --json number,headRefName \
+              --jq '.[] | "\(.number):\(.headRefName)"' 2>/dev/null || echo "")
+
+            for PR_INFO in $OPEN_PRS; do
+              PR_NUM=$(echo "$PR_INFO" | cut -d: -f1)
+              BRANCH=$(echo "$PR_INFO" | cut -d: -f2)
+              echo "  Closing duplicate PR #$PR_NUM (branch: $BRANCH)..."
+              gh pr close "$PR_NUM" --repo "$REPO" \
+                --comment "🔄 **Closing as duplicate**: PR(s) $MERGED_PRS already merged for issue #$ISSUE_NUMBER." \
+                --delete-branch 2>/dev/null || echo "    Could not close PR #$PR_NUM"
+            done
+          fi
+
+          echo "✅ Duplicate handling complete - exiting successfully (no further action needed)"
+
       - name: Verify PR was created
+        # Skip PR verification if duplicate was detected (issue already closed or PR already merged)
+        if: steps.duplicate_check.outputs.is_duplicate != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           REPO: ${{ github.repository }}
