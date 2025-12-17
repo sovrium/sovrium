@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/restore/post.json
  * Domain: api
- * Spec Count: 10
+ * Spec Count: 9
  *
  * Restore Behavior:
  * - POST /restore clears deleted_at timestamp on soft-deleted records

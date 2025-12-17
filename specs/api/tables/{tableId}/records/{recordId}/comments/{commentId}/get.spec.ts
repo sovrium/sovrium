@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Get single comment by ID
  *
  * Domain: api
- * Spec Count: 8
+ * Spec Count: 7
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage

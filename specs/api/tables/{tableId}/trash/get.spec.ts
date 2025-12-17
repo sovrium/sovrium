@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/trash/get.json
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Trash Endpoint Behavior:
  * - GET /trash returns ONLY soft-deleted records (deleted_at IS NOT NULL)
