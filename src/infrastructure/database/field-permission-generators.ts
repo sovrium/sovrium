@@ -169,6 +169,49 @@ const translateFieldPermissionCondition = (condition: string): string =>
     .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)
 
 /**
+ * Generate field condition for custom/owner permissions
+ */
+const generateFieldCondition = (
+  permission: TablePermission
+): string => {
+  if (permission.type === 'custom') {
+    return translateFieldPermissionCondition(permission.condition)
+  }
+  if (permission.type === 'owner') {
+    const ownerField = permission.field
+    return `${ownerField} = current_setting('app.user_id', true)::TEXT`
+  }
+  return ''
+}
+
+/**
+ * Generate single field permission check for trigger
+ */
+const generateFieldCheck = (
+  fieldName: string,
+  permission: TablePermission
+): string => {
+  const condition = generateFieldCondition(permission)
+  if (!condition) return ''
+
+  // Replace table column references with NEW.column for trigger context
+  const triggerCondition = condition.replace(/=\s*([a-z_]+)\b/g, '= NEW."$1"')
+
+  const conditionDesc = permission.type === 'custom'
+    ? permission.condition
+    : `owner check on ${permission.type === 'owner' ? permission.field : 'unknown'}`
+
+  return `
+    -- Check if ${fieldName} is being updated
+    IF NEW."${fieldName}" IS DISTINCT FROM OLD."${fieldName}" THEN
+      -- Verify custom condition: ${conditionDesc}
+      IF NOT (${triggerCondition}) THEN
+        RAISE EXCEPTION 'permission denied for column ${fieldName}';
+      END IF;
+    END IF;`
+}
+
+/**
  * Generate UPDATE trigger for custom condition field permissions
  * Creates a trigger function that validates custom conditions before allowing column updates
  */
@@ -189,37 +232,9 @@ const generateCustomConditionTriggers = (
   const triggerName = `${tableName}_field_permission_trigger`
 
   // Build condition checks for each field
-  const fieldChecks = customConditionFields.map((fp) => {
-    const fieldName = fp.field
-    const permission = fp.write!
-
-    let condition: string
-    if (permission.type === 'custom') {
-      condition = translateFieldPermissionCondition(permission.condition)
-    } else if (permission.type === 'owner') {
-      // Owner permission: check owner_id = current_setting('app.user_id')
-      const ownerField = permission.field
-      condition = `${ownerField} = current_setting('app.user_id', true)::TEXT`
-    } else {
-      return ''
-    }
-
-    // Replace table column references with NEW.column for trigger context
-    // Only replace column names that appear on the right side of the condition (after = or comparison operator)
-    const triggerCondition = condition.replace(
-      /=\s*([a-z_]+)\b/g,
-      '= NEW."$1"'
-    )
-
-    return `
-    -- Check if ${fieldName} is being updated
-    IF NEW."${fieldName}" IS DISTINCT FROM OLD."${fieldName}" THEN
-      -- Verify custom condition: ${permission.type === 'custom' ? permission.condition : `owner check on ${(permission as any).field}`}
-      IF NOT (${triggerCondition}) THEN
-        RAISE EXCEPTION 'permission denied for column ${fieldName}';
-      END IF;
-    END IF;`
-  })
+  const fieldChecks = customConditionFields.map((fp) =>
+    generateFieldCheck(fp.field, fp.write!)
+  )
 
   const dropFunction = `DROP FUNCTION IF EXISTS ${triggerFunctionName}() CASCADE`
 
