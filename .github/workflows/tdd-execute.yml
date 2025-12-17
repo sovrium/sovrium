@@ -28,12 +28,14 @@ on:
   pull_request_review:
     types: [submitted]
 
-# Concurrency control: One run per issue/PR, queued not cancelled
+# Concurrency control: One run per issue/PR, CANCEL older runs
 # Groups runs by issue/PR number to prevent duplicate execution
+# cancel-in-progress: true prevents race condition where multiple Claude instances
+# work on the same issue (see PR #6066/#6067 incident - duplicate PRs created)
 # Note: claude[bot] comments are filtered in validate-context job (lines 80-98)
 concurrency:
   group: claude-issue-${{ github.event.issue.number || github.event.pull_request.number || github.event.inputs.issue_number || 'default' }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   MAX_INFRASTRUCTURE_RETRIES: 3
