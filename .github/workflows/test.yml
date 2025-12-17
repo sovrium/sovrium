@@ -21,13 +21,119 @@ env:
 
 jobs:
   # ============================================================================
+  # CHANGE TYPE DETECTION
+  # Detects test-only changes (e.g., .fixme() removal) for reduced CI
+  # ============================================================================
+
+  detect-change-type:
+    name: Detect Change Type
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      is_test_only: ${{ steps.detect.outputs.is_test_only }}
+      target_spec: ${{ steps.detect.outputs.target_spec }}
+      is_tdd_automation: ${{ steps.detect.outputs.is_tdd_automation }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect test-only changes
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          IS_TEST_ONLY="false"
+          TARGET_SPEC=""
+          IS_TDD_AUTOMATION="false"
+
+          # Check if this is a TDD automation PR
+          if [ "${{ contains(github.event.pull_request.labels.*.name, 'tdd-automation') }}" = "true" ]; then
+            IS_TDD_AUTOMATION="true"
+            echo "🤖 TDD automation PR detected"
+
+            # Extract target spec from linked issue
+            ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
+            if [ -n "$ISSUE_NUMBER" ]; then
+              ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body' 2>/dev/null || echo "")
+              TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP '\*\*Test File\*\*:\s*`\K[^`]+' | head -1 || echo "")
+              if [ -z "$TARGET_SPEC" ]; then
+                TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP 'specs/[^\s:]+\.spec\.ts' | head -1 || echo "")
+              fi
+              echo "🎯 Target spec: $TARGET_SPEC"
+            fi
+          fi
+
+          # Get changed files compared to base branch
+          echo "🔍 Analyzing changed files..."
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES" | head -20
+
+          # Check if ALL changed files are in specs/ directory
+          NON_SPEC_FILES=$(echo "$CHANGED_FILES" | grep -v '^specs/' | grep -v '^\s*$' || true)
+
+          if [ -z "$NON_SPEC_FILES" ]; then
+            echo "✅ Only spec files changed"
+
+            # Check if changes are only .fixme() removal (no significant logic changes)
+            DIFF_CONTENT=$(git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- specs/)
+
+            # Count lines that are NOT:
+            # - .fixme() related
+            # - file headers (---, +++)
+            # - diff markers (@@)
+            # - empty lines
+            SIGNIFICANT_CHANGES=$(echo "$DIFF_CONTENT" | \
+              grep -E '^[-+]' | \
+              grep -v '^[-+][-+][-+]' | \
+              grep -v '\.fixme\(' | \
+              grep -v '\.skip\(' | \
+              grep -v '^[-+]\s*$' | \
+              wc -l | tr -d ' ')
+
+            echo "📊 Significant changes (non-.fixme): $SIGNIFICANT_CHANGES lines"
+
+            # If less than 10 significant lines changed, consider it test-only
+            if [ "$SIGNIFICANT_CHANGES" -lt 10 ]; then
+              IS_TEST_ONLY="true"
+              echo "✅ Test-only change detected (primarily .fixme() removal)"
+            else
+              echo "ℹ️  Spec files changed with significant modifications"
+            fi
+          else
+            echo "ℹ️  Non-spec files changed:"
+            echo "$NON_SPEC_FILES" | head -10
+          fi
+
+          # Output results
+          echo ""
+          echo "📋 Detection Results:"
+          echo "  is_test_only=$IS_TEST_ONLY"
+          echo "  target_spec=$TARGET_SPEC"
+          echo "  is_tdd_automation=$IS_TDD_AUTOMATION"
+
+          echo "is_test_only=$IS_TEST_ONLY" >> $GITHUB_OUTPUT
+          echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
+          echo "is_tdd_automation=$IS_TDD_AUTOMATION" >> $GITHUB_OUTPUT
+
+  # ============================================================================
   # PARALLEL STATIC ANALYSIS JOBS
   # These run simultaneously to reduce wall-clock time
+  # Skipped for test-only changes to speed up CI
   # ============================================================================
 
   lint:
     name: Lint
-    if: github.event_name == 'push' || github.event.action != 'closed'
+    needs: [detect-change-type]
+    # Skip lint for test-only changes (spec files have separate lint rules)
+    # Always run on push to main, skip on PR if test-only
+    if: |
+      (github.event_name == 'push') ||
+      (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -63,6 +169,8 @@ jobs:
 
   typecheck:
     name: TypeCheck
+    needs: [detect-change-type]
+    # TypeCheck always runs (spec files have TypeScript that needs validation)
     if: github.event_name == 'push' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -90,7 +198,11 @@ jobs:
 
   unit-tests:
     name: Unit Tests
-    if: github.event_name == 'push' || github.event.action != 'closed'
+    needs: [detect-change-type]
+    # Skip unit tests for test-only changes (no production code changed)
+    if: |
+      (github.event_name == 'push') ||
+      (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -123,10 +235,104 @@ jobs:
   # 4 shards running in parallel, each with 2 workers = 8 effective workers
   # ============================================================================
 
+  # E2E for test-only changes: Run only target spec (fast path)
+  e2e-target:
+    name: E2E Target Spec
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      needs.detect-change-type.outputs.is_test_only == 'true'
+    needs: [detect-change-type, typecheck]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(bun pm ls @playwright/test | grep '@playwright/test' | awk '{print $2}' | head -n 1)" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Pre-pull Docker images
+        run: |
+          echo "🐳 Pre-pulling Docker images..."
+          docker pull axllent/mailpit:latest &
+          docker pull postgres:16-alpine &
+          wait
+          echo "✅ Docker images ready"
+
+      - name: Verify Docker ready
+        run: |
+          docker info > /dev/null 2>&1 || { echo "❌ Docker not running"; exit 1; }
+          echo "✅ Docker daemon ready"
+
+      - name: Run target spec only
+        id: e2e
+        env:
+          TARGET_SPEC: ${{ needs.detect-change-type.outputs.target_spec }}
+          CI_WORKERS: 2
+        run: |
+          echo "🎯 Running target spec only (test-only fast path)..."
+          echo "Target: $TARGET_SPEC"
+
+          if [ -n "$TARGET_SPEC" ] && [ -f "$TARGET_SPEC" ]; then
+            echo "🧪 Running: bunx playwright test $TARGET_SPEC"
+            bunx playwright test "$TARGET_SPEC" --reporter=github
+          else
+            echo "⚠️  Target spec not found, running @regression tests that match changed files..."
+            # Fall back to running changed spec files
+            CHANGED_SPECS=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep '\.spec\.ts$' || true)
+            if [ -n "$CHANGED_SPECS" ]; then
+              echo "Running: $CHANGED_SPECS"
+              bunx playwright test $CHANGED_SPECS --reporter=github
+            else
+              echo "✅ No spec files to run"
+            fi
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-target-spec
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # E2E for normal changes: Full 4-shard regression suite
   e2e:
     name: E2E Shard ${{ matrix.shard }}/${{ matrix.total }}
-    if: github.event_name == 'push' || github.event.action != 'closed'
-    needs: [lint, typecheck, unit-tests]
+    # Run full shards only when NOT test-only (or on push to main)
+    if: |
+      (github.event_name == 'push') ||
+      (github.event.action != 'closed' && needs.detect-change-type.outputs.is_test_only != 'true')
+    needs: [detect-change-type, lint, typecheck, unit-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -269,7 +475,7 @@ jobs:
   e2e-results:
     name: E2E Results
     if: always() && (github.event_name == 'push' || github.event.action != 'closed')
-    needs: [e2e]
+    needs: [detect-change-type, e2e, e2e-target]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -278,6 +484,7 @@ jobs:
       regression_specs: ${{ steps.classify-failures.outputs.regression_specs }}
       target_spec: ${{ steps.classify-failures.outputs.target_spec }}
       failure_type: ${{ steps.classify-failures.outputs.failure_type }}
+      is_test_only: ${{ needs.detect-change-type.outputs.is_test_only }}
 
     steps:
       - name: Checkout code
@@ -286,9 +493,10 @@ jobs:
       - name: Download all test results
         uses: actions/download-artifact@v4
         with:
-          pattern: test-results-shard-*
+          pattern: test-results-*
           path: all-test-results/
           merge-multiple: false
+        continue-on-error: true
 
       - name: Download all JSON test results
         uses: actions/download-artifact@v4
@@ -300,16 +508,41 @@ jobs:
 
       - name: Check E2E results
         id: check
+        env:
+          IS_TEST_ONLY: ${{ needs.detect-change-type.outputs.is_test_only }}
         run: |
-          echo "📊 Checking E2E shard results..."
+          echo "📊 Checking E2E results..."
+          echo "   Test-only mode: $IS_TEST_ONLY"
 
-          # Check if any shard failed
           FAILED="false"
-          if [ "${{ needs.e2e.result }}" = "failure" ]; then
-            FAILED="true"
-            echo "❌ One or more E2E shards failed"
+
+          # Check the appropriate job based on change type
+          if [ "$IS_TEST_ONLY" = "true" ]; then
+            # Test-only: check e2e-target job
+            E2E_TARGET_RESULT="${{ needs.e2e-target.result }}"
+            echo "   E2E Target result: $E2E_TARGET_RESULT"
+
+            if [ "$E2E_TARGET_RESULT" = "failure" ]; then
+              FAILED="true"
+              echo "❌ E2E target spec failed"
+            elif [ "$E2E_TARGET_RESULT" = "success" ]; then
+              echo "✅ E2E target spec passed (fast path)"
+            else
+              echo "⚠️  E2E target result: $E2E_TARGET_RESULT"
+            fi
           else
-            echo "✅ All E2E shards passed"
+            # Normal: check e2e shards job
+            E2E_RESULT="${{ needs.e2e.result }}"
+            echo "   E2E Shards result: $E2E_RESULT"
+
+            if [ "$E2E_RESULT" = "failure" ]; then
+              FAILED="true"
+              echo "❌ One or more E2E shards failed"
+            elif [ "$E2E_RESULT" = "success" ]; then
+              echo "✅ All E2E shards passed"
+            else
+              echo "⚠️  E2E result: $E2E_RESULT"
+            fi
           fi
 
           echo "e2e_failed=$FAILED" >> $GITHUB_OUTPUT
@@ -424,7 +657,7 @@ jobs:
 
       - name: Add target failure label
         if: |
-          needs.e2e.result == 'failure' &&
+          (needs.e2e.result == 'failure' || needs.e2e-target.result == 'failure') &&
           contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
           steps.classify-failures.outputs.failure_type == 'target_only'
         env:
@@ -435,9 +668,15 @@ jobs:
           gh pr edit "$PR_NUMBER" --add-label "failure:spec" || true
 
       - name: Fail if E2E tests failed
-        if: needs.e2e.result == 'failure'
+        if: steps.check.outputs.e2e_failed == 'true'
+        env:
+          IS_TEST_ONLY: ${{ needs.detect-change-type.outputs.is_test_only }}
         run: |
-          echo "❌ E2E tests failed - see individual shard results for details"
+          if [ "$IS_TEST_ONLY" = "true" ]; then
+            echo "❌ E2E target spec failed - see test results for details"
+          else
+            echo "❌ E2E tests failed - see individual shard results for details"
+          fi
           exit 1
 
   # ============================================================================
@@ -449,14 +688,18 @@ jobs:
   test:
     name: Test
     if: always() && (github.event_name == 'push' || github.event.action != 'closed')
-    needs: [lint, typecheck, unit-tests, e2e-results]
+    needs: [detect-change-type, lint, typecheck, unit-tests, e2e-results]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - name: Check all jobs passed
+        env:
+          IS_TEST_ONLY: ${{ needs.detect-change-type.outputs.is_test_only }}
         run: |
           echo "📊 Checking results from all parallel jobs..."
+          echo "   Test-only mode: $IS_TEST_ONLY"
           echo ""
+          echo "  Detect:     ${{ needs.detect-change-type.result }}"
           echo "  Lint:       ${{ needs.lint.result }}"
           echo "  TypeCheck:  ${{ needs.typecheck.result }}"
           echo "  Unit Tests: ${{ needs.unit-tests.result }}"
@@ -464,16 +707,43 @@ jobs:
           echo ""
 
           FAILED=""
-          if [ "${{ needs.lint.result }}" != "success" ]; then
-            FAILED="${FAILED}Lint, "
+
+          # For test-only changes, lint and unit-tests are skipped (acceptable)
+          # For normal changes, all jobs must pass
+          LINT_RESULT="${{ needs.lint.result }}"
+          TYPECHECK_RESULT="${{ needs.typecheck.result }}"
+          UNIT_RESULT="${{ needs.unit-tests.result }}"
+          E2E_RESULT="${{ needs.e2e-results.result }}"
+
+          # Lint: skipped is OK for test-only, otherwise must be success
+          if [ "$IS_TEST_ONLY" = "true" ]; then
+            if [ "$LINT_RESULT" != "success" ] && [ "$LINT_RESULT" != "skipped" ]; then
+              FAILED="${FAILED}Lint, "
+            fi
+          else
+            if [ "$LINT_RESULT" != "success" ]; then
+              FAILED="${FAILED}Lint, "
+            fi
           fi
-          if [ "${{ needs.typecheck.result }}" != "success" ]; then
+
+          # TypeCheck: always required (spec files have TypeScript)
+          if [ "$TYPECHECK_RESULT" != "success" ]; then
             FAILED="${FAILED}TypeCheck, "
           fi
-          if [ "${{ needs.unit-tests.result }}" != "success" ]; then
-            FAILED="${FAILED}Unit Tests, "
+
+          # Unit Tests: skipped is OK for test-only, otherwise must be success
+          if [ "$IS_TEST_ONLY" = "true" ]; then
+            if [ "$UNIT_RESULT" != "success" ] && [ "$UNIT_RESULT" != "skipped" ]; then
+              FAILED="${FAILED}Unit Tests, "
+            fi
+          else
+            if [ "$UNIT_RESULT" != "success" ]; then
+              FAILED="${FAILED}Unit Tests, "
+            fi
           fi
-          if [ "${{ needs.e2e-results.result }}" != "success" ]; then
+
+          # E2E: always required
+          if [ "$E2E_RESULT" != "success" ]; then
             FAILED="${FAILED}E2E, "
           fi
 
@@ -482,7 +752,11 @@ jobs:
             exit 1
           fi
 
-          echo "✅ All jobs passed!"
+          if [ "$IS_TEST_ONLY" = "true" ]; then
+            echo "✅ All jobs passed! (test-only fast path - lint & unit tests skipped)"
+          else
+            echo "✅ All jobs passed!"
+          fi
 
   # ============================================================================
   # TDD AUTOMATION JOBS
