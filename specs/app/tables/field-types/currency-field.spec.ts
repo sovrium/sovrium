@@ -318,7 +318,7 @@ test.describe('Currency Field', () => {
                 name: 'invalid',
                 fields: [
                   { id: 1, name: 'id', type: 'integer', required: true },
-                  // @ts-expect-error min > max is rejected
+                  // min > max is rejected (runtime validation)
                   {
                     id: 2,
                     name: 'bad_currency',

@@ -95,10 +95,10 @@ const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): str
  */
 const generateLookupExpression = (
   lookupField: Fields[number] & {
-    type: 'lookup'
-    relationshipField: string
-    relatedField: string
-    filters?: ViewFilterCondition
+    readonly type: 'lookup'
+    readonly relationshipField: string
+    readonly relatedField: string
+    readonly filters?: ViewFilterCondition
   },
   tableName: string,
   allFields: readonly Fields[number][]
@@ -211,11 +211,11 @@ const getDefaultValueForAggregation = (aggregation: string): string => {
  */
 const generateRollupExpression = (
   rollupField: Fields[number] & {
-    type: 'rollup'
-    relationshipField: string
-    relatedField: string
-    aggregation: string
-    filters?: ViewFilterCondition
+    readonly type: 'rollup'
+    readonly relationshipField: string
+    readonly relatedField: string
+    readonly aggregation: string
+    readonly filters?: ViewFilterCondition
   },
   tableName: string,
   allFields: readonly Fields[number][]
@@ -272,9 +272,9 @@ const generateRollupExpression = (
  */
 const generateCountExpression = (
   countField: Fields[number] & {
-    type: 'count'
-    relationshipField: string
-    conditions?: readonly ViewFilterCondition[]
+    readonly type: 'count'
+    readonly relationshipField: string
+    readonly conditions?: readonly ViewFilterCondition[]
   },
   tableName: string,
   allFields: readonly Fields[number][]

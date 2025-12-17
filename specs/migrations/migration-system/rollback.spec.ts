@@ -107,7 +107,7 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'products',
               fields: [
-                // @ts-expect-error - Invalid field type
+                // Invalid field type (runtime validation)
                 { id: 2, name: 'bad', type: 'INVALID' },
               ],
             },
@@ -250,7 +250,7 @@ test.describe('Migration Rollback', () => {
               name: 'categories',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text' },
-                // @ts-expect-error - Invalid type
+                // Invalid type (runtime validation)
                 { id: 3, name: 'invalid', type: 'INVALID_TYPE' },
               ],
             },
@@ -307,7 +307,7 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'test_table',
               fields: [
-                // @ts-expect-error - Invalid type
+                // Invalid type (runtime validation)
                 { id: 2, name: 'bad', type: 'INVALID' },
               ],
             },
@@ -430,7 +430,7 @@ test.describe('Migration Rollback', () => {
                 name: 'items',
                 fields: [
                   { id: 2, name: 'name', type: 'single-line-text' },
-                  // @ts-expect-error - Invalid type
+                  // Invalid type (runtime validation)
                   { id: 3, name: 'bad', type: 'INVALID' },
                 ],
               },

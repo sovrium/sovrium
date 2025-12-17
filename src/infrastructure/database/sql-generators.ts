@@ -249,7 +249,7 @@ const generateDefaultClause = (field: Fields[number]): string => {
  * For volatile formulas, we create regular columns and handle computation via triggers.
  */
 const generateFormulaColumn = (
-  field: Fields[number] & { type: 'formula'; formula: string },
+  field: Fields[number] & { readonly type: 'formula'; readonly formula: string },
   allFields?: readonly Fields[number][]
 ): string => {
   const baseResultType =
