@@ -82,6 +82,50 @@ const generateCustomIndexes = (table: Table): readonly string[] =>
   }) ?? []
 
 /**
+ * Check if field is a relationship field (type: 'relationship')
+ * Used to identify foreign key columns that need indexes
+ */
+const isRelationshipField = (
+  field: Fields[number]
+): field is Fields[number] & { type: 'relationship'; relatedTable: string } =>
+  field.type === 'relationship' && 'relatedTable' in field && typeof field.relatedTable === 'string'
+
+/**
+ * Check if field is a user field (type: 'user')
+ * Used to identify user reference columns that need indexes
+ */
+const isUserField = (field: Fields[number]): boolean => field.type === 'user'
+
+/**
+ * Generate indexes for foreign key columns (relationship and user fields)
+ * Foreign key columns benefit from indexes for JOIN operations and referential integrity checks
+ * This improves query performance when filtering or joining on relationships
+ */
+const generateForeignKeyIndexes = (table: Table): readonly string[] => {
+  const relationshipIndexes = table.fields
+    .filter(isRelationshipField)
+    .filter((field) => {
+      // Only create indexes for many-to-one relationships (where FK exists on this table)
+      // Exclude one-to-many (FK in related table) and many-to-many (uses junction table)
+      return (
+        !('relationType' in field) ||
+        (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
+      )
+    })
+    .map((field) => {
+      const indexName = `idx_${table.name}_${field.name}_fk`
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (${field.name})`
+    })
+
+  const userFieldIndexes = table.fields.filter(isUserField).map((field) => {
+    const indexName = `idx_${table.name}_${field.name}_fk`
+    return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (${field.name})`
+  })
+
+  return [...relationshipIndexes, ...userFieldIndexes]
+}
+
+/**
  * Generate CREATE INDEX statements for indexed fields and autonumber fields
  */
 export const generateIndexStatements = (table: Table): readonly string[] => [
@@ -90,4 +134,5 @@ export const generateIndexStatements = (table: Table): readonly string[] => [
   ...generateGeolocationConstraints(table),
   ...generateFullTextSearchIndexes(table),
   ...generateCustomIndexes(table),
+  ...generateForeignKeyIndexes(table),
 ]
