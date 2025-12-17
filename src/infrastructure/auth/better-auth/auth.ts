@@ -11,7 +11,6 @@ import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
 import { logError } from '../../logging'
-// import { authDb } from './db'
 import {
   users,
   sessions,
