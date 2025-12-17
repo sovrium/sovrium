@@ -252,7 +252,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-004: should include status field for all users when field status has public read but admin-only write permission',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
