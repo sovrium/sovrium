@@ -248,7 +248,23 @@ jobs:
 
           echo "🏃 Marking issue #$ISSUE_NUMBER as in-progress..."
 
-          # Update labels
+          # RACE CONDITION PREVENTION: Re-verify issue is still queued before claiming
+          # Another workflow run could have claimed this issue between validation and now
+          CURRENT_LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name' | tr '\n' ' ')
+
+          if echo "$CURRENT_LABELS" | grep -q "tdd-spec:in-progress"; then
+            echo "⚠️  Issue #$ISSUE_NUMBER already claimed by another run - exiting gracefully"
+            echo "   Current labels: $CURRENT_LABELS"
+            exit 0
+          fi
+
+          if ! echo "$CURRENT_LABELS" | grep -q "tdd-spec:queued"; then
+            echo "⚠️  Issue #$ISSUE_NUMBER no longer queued - exiting gracefully"
+            echo "   Current labels: $CURRENT_LABELS"
+            exit 0
+          fi
+
+          # Update labels (atomic claim)
           gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued"
           gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress"
 
