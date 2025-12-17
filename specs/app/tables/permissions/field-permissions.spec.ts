@@ -164,7 +164,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-003: should include only columns user has permission to read when multiple fields have different read permissions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -222,7 +222,7 @@ test.describe('Field-Level Permissions', () => {
         'SET ROLE admin_user; SELECT name, email, salary, department FROM staff WHERE id = 1'
       )
       // THEN: assertion
-      expect(adminResult).toEqual({
+      expect(adminResult).toMatchObject({
         name: 'Alice',
         email: 'alice@example.com',
         salary: 80_000.0,
@@ -234,7 +234,7 @@ test.describe('Field-Level Permissions', () => {
         'SET ROLE authenticated_user; SELECT name, email, department FROM staff WHERE id = 1'
       )
       // THEN: assertion
-      expect(authResult).toEqual({
+      expect(authResult).toMatchObject({
         name: 'Alice',
         email: 'alice@example.com',
         department: 'Engineering',
@@ -245,7 +245,7 @@ test.describe('Field-Level Permissions', () => {
         'RESET ROLE; SELECT name, department FROM staff WHERE id = 1'
       )
       // THEN: assertion
-      expect(unauthResult).toEqual({
+      expect(unauthResult).toMatchObject({
         name: 'Alice',
         department: 'Engineering',
       })

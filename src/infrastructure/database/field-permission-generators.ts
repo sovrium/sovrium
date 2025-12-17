@@ -32,6 +32,30 @@ const extractRoles = (permission: TablePermission): readonly string[] => {
 }
 
 /**
+ * Get permission hierarchy level
+ * Higher number = more permissive
+ */
+const getPermissionLevel = (permission: TablePermission): number => {
+  if (permission.type === 'public') return 3
+  if (permission.type === 'authenticated') return 2
+  if (permission.type === 'roles') return 1
+  if (permission.type === 'custom' || permission.type === 'owner') return 0
+  return 0
+}
+
+/**
+ * Find the most permissive permission from a list
+ */
+const getMostPermissivePermission = (
+  permissions: readonly TablePermission[]
+): TablePermission | undefined => {
+  if (permissions.length === 0) return undefined
+  return permissions.reduce((most, current) =>
+    getPermissionLevel(current) > getPermissionLevel(most) ? current : most
+  )
+}
+
+/**
  * Build role-to-fields mapping from field permissions
  */
 const buildRoleFieldsMap = (
@@ -77,6 +101,36 @@ const addBaseFieldsToRestrictedRoles = (
 }
 
 /**
+ * Determine effective table permission when not explicitly specified
+ * Uses the most permissive field permission, but defaults to authenticated if only roles exist
+ */
+const getEffectiveTablePermission = (
+  tableReadPermission: TablePermission | undefined,
+  fieldPermissions: readonly { field: string; read?: TablePermission }[]
+): TablePermission => {
+  if (tableReadPermission) {
+    return tableReadPermission
+  }
+
+  // Extract all explicit field read permissions
+  const explicitFieldReadPermissions = fieldPermissions
+    .map((fp) => fp.read)
+    .filter((p): p is TablePermission => p !== undefined)
+
+  // Find most permissive field permission
+  const mostPermissiveFieldPermission = getMostPermissivePermission(explicitFieldReadPermissions)
+
+  // If the most permissive field permission is 'roles' (least permissive), default to authenticated
+  // This ensures that when only specific roles can access certain fields, unrestricted fields
+  // are at least accessible to all authenticated users
+  if (mostPermissiveFieldPermission && mostPermissiveFieldPermission.type !== 'roles') {
+    return mostPermissiveFieldPermission
+  }
+
+  return { type: 'authenticated' } as const
+}
+
+/**
  * Generate PostgreSQL column-level GRANT statements for field permissions
  *
  * When a table has field-level read restrictions, this generates:
@@ -106,23 +160,18 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     return []
   }
 
-  // Map fields to their read permissions
-  const tableReadPermission = table.permissions?.read
+  // Determine effective table-level permission
+  const effectiveTablePermission = getEffectiveTablePermission(
+    table.permissions?.read,
+    fieldPermissions
+  )
 
   // Get all database columns
   const databaseColumns = table.fields.filter(shouldCreateDatabaseColumn)
 
-  // Default table-level permission when not specified but field permissions exist
-  // If field permissions are configured without table-level read, default to authenticated access for unrestricted fields
-  // This ensures authenticated users (admin, member) can access unrestricted fields
-  const defaultTablePermission: { readonly type: 'authenticated' } = {
-    type: 'authenticated',
-  } as const
-  const effectiveTablePermission = tableReadPermission ?? defaultTablePermission
-
   // Build field permissions map:
   // - Fields with specific read permissions: use their specific permission
-  // - Fields without specific permissions: use effective table-level permission (defaults to authenticated)
+  // - Fields without specific permissions: use effective table-level permission
   const allFieldPermissions = databaseColumns.map((field) => {
     const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
     return {
