@@ -299,7 +299,7 @@ test.describe('Table Fields', () => {
               id: 1,
               name: 'users',
               fields: [
-                // @ts-expect-error - Testing invalid field type
+                // Testing invalid field type (runtime validation)
                 { id: 1, name: 'data', type: 'nonexistent-type' },
               ],
             },
@@ -472,7 +472,7 @@ test.describe('Table Fields', () => {
               id: 1,
               name: 'posts',
               fields: [
-                // @ts-expect-error - Testing missing relatedTable
+                // Testing missing relatedTable (runtime validation)
                 {
                   id: 1,
                   name: 'author_id',
@@ -508,7 +508,7 @@ test.describe('Table Fields', () => {
               id: 2,
               name: 'posts',
               fields: [
-                // @ts-expect-error - Testing missing relationType
+                // Testing missing relationType (runtime validation)
                 {
                   id: 1,
                   name: 'author_id',

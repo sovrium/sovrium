@@ -41,6 +41,7 @@ import { SingleAttachmentFieldSchema } from './field-types/single-attachment-fie
 import { SingleLineTextFieldSchema } from './field-types/single-line-text-field'
 import { SingleSelectFieldSchema } from './field-types/single-select-field'
 import { StatusFieldSchema } from './field-types/status-field'
+import { UnknownFieldSchema } from './field-types/unknown-field'
 import { UpdatedAtFieldSchema } from './field-types/updated-at-field'
 import { UpdatedByFieldSchema } from './field-types/updated-by-field'
 import { UrlFieldSchema } from './field-types/url-field'
@@ -99,7 +100,9 @@ export const FieldsSchema = Schema.Array(
     ProgressFieldSchema,
     GeolocationFieldSchema,
     JsonFieldSchema,
-    ArrayFieldSchema
+    ArrayFieldSchema,
+    // Unknown field type (catch-all for invalid types that will fail during SQL generation)
+    UnknownFieldSchema
   )
 ).pipe(
   Schema.minItems(1),

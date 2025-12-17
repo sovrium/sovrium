@@ -24,7 +24,7 @@ test.describe('Error Handling and Rollback', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-001: should rollback PostgreSQL transaction when runtime migration attempts to generate SQL for invalid type',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -40,14 +40,14 @@ test.describe('Error Handling and Rollback', () => {
           tables: [
             {
               id: 1,
-              name: 'users',
+              name: 'customers',
               fields: [{ id: 2, name: 'email', type: 'email' }],
             },
             {
               id: 2,
               name: 'products',
               fields: [
-                // @ts-expect-error - Testing invalid field type
+                // Testing invalid field type (runtime validation)
                 { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
               ],
             },
@@ -55,12 +55,12 @@ test.describe('Error Handling and Rollback', () => {
         })
       }).rejects.toThrow(/Unknown field type: INVALID_TYPE/i)
 
-      // Transaction rolled back - users table NOT created
-      const usersTable = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='users'`
+      // Transaction rolled back - customers table NOT created
+      const customersTable = await executeQuery(
+        `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='customers'`
       )
       // THEN: assertion
-      expect(usersTable.count).toBe(0)
+      expect(customersTable.count).toBe(0)
 
       // Transaction rolled back - products table NOT created
       const productsTable = await executeQuery(
@@ -428,7 +428,7 @@ test.describe('Error Handling and Rollback', () => {
                 id: 8,
                 name: 'test',
                 fields: [
-                  // @ts-expect-error - Testing invalid field type
+                  // Testing invalid field type (runtime validation)
                   { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
                 ],
               },

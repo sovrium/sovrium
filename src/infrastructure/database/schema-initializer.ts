@@ -167,16 +167,23 @@ const executeSchemaInit = (
   app: App
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
-    const db = new SQL(databaseUrl)
+    // Create SQL connection with max: 1 for transaction safety
+    // This ensures only one connection is used, preventing transaction isolation issues
+    const db = new SQL({ url: databaseUrl, max: 1 })
     // Extract runtime to use in async callback (avoids Effect.runPromise inside Effect)
     const runtime = yield* Effect.runtime<never>()
 
     try {
+      // Run transaction using bun:sql's db.begin() for proper transaction management
       yield* Effect.tryPromise({
         try: async () => {
+          // Use db.begin() callback-based transaction API
+          // CRITICAL: db.begin() only rolls back if the callback throws (rejects the Promise)
+          // We use Effect.runPromise which will reject on Effect failure
           /* eslint-disable-next-line functional/no-expression-statements */
           await db.begin(async (tx) => {
-            // Run the migration logic within Effect.gen and convert to Promise
+            // Run the migration logic within Effect.gen
+            // Effect.runPromise will throw (reject) if any Effect fails, triggering ROLLBACK
             /* eslint-disable-next-line functional/no-expression-statements */
             await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
@@ -304,7 +311,10 @@ const executeSchemaInit = (
                 yield* storeSchemaChecksum(tx, app)
               })
             )
+            // db.begin() automatically COMMITs if callback completes successfully
+            logInfo('[executeSchemaInit] Transaction completed successfully (auto-commit)')
           })
+          // If db.begin() callback throws, it automatically ROLLBACKs
         },
         catch: (error) =>
           new SchemaInitializationError({

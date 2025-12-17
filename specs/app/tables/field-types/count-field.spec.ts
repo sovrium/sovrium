@@ -594,7 +594,7 @@ test.describe('Count Field', () => {
                 name: 'invalid',
                 fields: [
                   { id: 1, name: 'id', type: 'integer', required: true },
-                  // @ts-expect-error - Testing missing relationshipField
+                  // Testing missing relationshipField (runtime validation)
                   { id: 2, name: 'bad_count', type: 'count' }, // Missing relationshipField!
                 ],
                 primaryKey: { type: 'composite', fields: ['id'] },
