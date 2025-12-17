@@ -33,7 +33,7 @@ test.describe('API Complex Permission Conditions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-001: custom condition with userId variable substitution',
+    'API-TABLES-PERMISSIONS-CONDITIONS-001: custom condition with userId variable substitution',
     { tag: '@spec' },
     async ({
       request,
@@ -94,7 +94,7 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-002: custom condition with AND logic (status check)',
+    'API-TABLES-PERMISSIONS-CONDITIONS-002: custom condition with AND logic (status check)',
     { tag: '@spec' },
     async ({
       request,
@@ -158,7 +158,7 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-003: custom condition with OR logic using PostgreSQL syntax',
+    'API-TABLES-PERMISSIONS-CONDITIONS-003: custom condition with OR logic using PostgreSQL syntax',
     { tag: '@spec' },
     async ({
       request,
@@ -225,7 +225,7 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-004: custom condition with numeric comparison',
+    'API-TABLES-PERMISSIONS-CONDITIONS-004: custom condition with numeric comparison',
     { tag: '@spec' },
     async ({
       request,
@@ -289,7 +289,7 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-005: different custom conditions for read vs update',
+    'API-TABLES-PERMISSIONS-CONDITIONS-005: different custom conditions for read vs update',
     { tag: '@spec' },
     async ({
       request,
@@ -374,7 +374,7 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-006: custom condition with NULL handling',
+    'API-TABLES-PERMISSIONS-CONDITIONS-006: custom condition with NULL handling',
     { tag: '@spec' },
     async ({
       request,
@@ -440,7 +440,7 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-007: custom condition with date comparison',
+    'API-TABLES-PERMISSIONS-CONDITIONS-007: custom condition with date comparison',
     { tag: '@spec' },
     async ({
       request,
@@ -511,7 +511,7 @@ test.describe('API Complex Permission Conditions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-COMPLEX-CONDITIONS-008: complete custom permission workflow',
+    'API-TABLES-PERMISSIONS-CONDITIONS-008: complete custom permission workflow',
     { tag: '@regression' },
     async ({
       request,

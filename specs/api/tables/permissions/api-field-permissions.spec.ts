@@ -36,7 +36,7 @@ test.describe('API Field Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-FIELD-PERMISSIONS-001: should exclude salary field from API response when member lacks read permission',
+    'API-TABLES-PERMISSIONS-FIELD-001: should exclude salary field from API response when member lacks read permission',
     { tag: '@spec' },
     async ({
       request,
@@ -105,7 +105,7 @@ test.describe('API Field Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-FIELD-PERMISSIONS-002: should include all fields in API response when admin has full read permission',
+    'API-TABLES-PERMISSIONS-FIELD-002: should include all fields in API response when admin has full read permission',
     { tag: '@spec' },
     async ({
       request,
@@ -171,7 +171,7 @@ test.describe('API Field Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-FIELD-PERMISSIONS-003: should reject write operation when user lacks field write permission',
+    'API-TABLES-PERMISSIONS-FIELD-003: should reject write operation when user lacks field write permission',
     { tag: '@spec' },
     async ({
       request,
@@ -248,7 +248,7 @@ test.describe('API Field Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-FIELD-PERMISSIONS-004: should allow partial update when user has write permission for some fields',
+    'API-TABLES-PERMISSIONS-FIELD-004: should allow partial update when user has write permission for some fields',
     { tag: '@spec' },
     async ({
       request,
@@ -324,7 +324,7 @@ test.describe('API Field Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-FIELD-PERMISSIONS-005: should return 403 when filtering by restricted field',
+    'API-TABLES-PERMISSIONS-FIELD-005: should return 403 when filtering by restricted field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
       // GIVEN: Table where salary field is admin-only
@@ -383,7 +383,7 @@ test.describe('API Field Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-FIELD-PERMISSIONS-006: complete field permission workflow via API',
+    'API-TABLES-PERMISSIONS-FIELD-006: complete field permission workflow via API',
     { tag: '@regression' },
     async ({
       request,

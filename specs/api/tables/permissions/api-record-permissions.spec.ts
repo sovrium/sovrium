@@ -36,7 +36,7 @@ test.describe('API Record-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-001: owner can read their own records',
+    'API-TABLES-PERMISSIONS-RECORD-001: owner can read their own records',
     { tag: '@spec' },
     async ({
       request,
@@ -96,7 +96,7 @@ test.describe('API Record-Level Permissions', () => {
   )
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-002: non-owner cannot read others records',
+    'API-TABLES-PERMISSIONS-RECORD-002: non-owner cannot read others records',
     { tag: '@spec' },
     async ({
       request,
@@ -149,7 +149,7 @@ test.describe('API Record-Level Permissions', () => {
   )
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-003: owner_id is auto-set to current user on create',
+    'API-TABLES-PERMISSIONS-RECORD-003: owner_id is auto-set to current user on create',
     { tag: '@spec' },
     async ({
       request,
@@ -214,7 +214,7 @@ test.describe('API Record-Level Permissions', () => {
   )
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-004: owner can update their own records',
+    'API-TABLES-PERMISSIONS-RECORD-004: owner can update their own records',
     { tag: '@spec' },
     async ({
       request,
@@ -277,7 +277,7 @@ test.describe('API Record-Level Permissions', () => {
   )
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-005: non-owner cannot update others records',
+    'API-TABLES-PERMISSIONS-RECORD-005: non-owner cannot update others records',
     { tag: '@spec' },
     async ({
       request,
@@ -343,7 +343,7 @@ test.describe('API Record-Level Permissions', () => {
   )
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-006: admin can access all records via role-based read permission',
+    'API-TABLES-PERMISSIONS-RECORD-006: admin can access all records via role-based read permission',
     { tag: '@spec' },
     async ({
       request,
@@ -403,7 +403,7 @@ test.describe('API Record-Level Permissions', () => {
   )
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-007: custom owner field (created_by instead of owner_id)',
+    'API-TABLES-PERMISSIONS-RECORD-007: custom owner field (created_by instead of owner_id)',
     { tag: '@spec' },
     async ({
       request,
@@ -466,7 +466,7 @@ test.describe('API Record-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-RECORD-PERMISSIONS-008: complete owner-based access workflow',
+    'API-TABLES-PERMISSIONS-RECORD-008: complete owner-based access workflow',
     { tag: '@regression' },
     async ({
       request,

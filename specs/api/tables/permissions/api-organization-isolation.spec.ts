@@ -36,7 +36,7 @@ test.describe('API Organization Isolation', () => {
   // ============================================================================
 
   test.fixme(
-    "API-ORG-ISOLATION-001: should only return records from user's organization in list endpoint",
+    "API-TABLES-PERMISSIONS-ORG-001: should only return records from user's organization in list endpoint",
     { tag: '@spec' },
     async ({
       request,
@@ -98,7 +98,7 @@ test.describe('API Organization Isolation', () => {
   )
 
   test.fixme(
-    'API-ORG-ISOLATION-002: should return 404 when accessing record from different organization',
+    'API-TABLES-PERMISSIONS-ORG-002: should return 404 when accessing record from different organization',
     { tag: '@spec' },
     async ({
       request,
@@ -153,7 +153,7 @@ test.describe('API Organization Isolation', () => {
   )
 
   test.fixme(
-    'API-ORG-ISOLATION-003: should auto-set organization_id on create when organizationScoped is true',
+    'API-TABLES-PERMISSIONS-ORG-003: should auto-set organization_id on create when organizationScoped is true',
     { tag: '@spec' },
     async ({
       request,
@@ -217,7 +217,7 @@ test.describe('API Organization Isolation', () => {
   )
 
   test.fixme(
-    'API-ORG-ISOLATION-004: should reject create with mismatched organization_id',
+    'API-TABLES-PERMISSIONS-ORG-004: should reject create with mismatched organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
       // GIVEN: User attempts to create record for different organization
@@ -271,7 +271,7 @@ test.describe('API Organization Isolation', () => {
   )
 
   test.fixme(
-    'API-ORG-ISOLATION-005: should prevent update to change organization_id',
+    'API-TABLES-PERMISSIONS-ORG-005: should prevent update to change organization_id',
     { tag: '@spec' },
     async ({
       request,
@@ -336,7 +336,7 @@ test.describe('API Organization Isolation', () => {
   )
 
   test.fixme(
-    'API-ORG-ISOLATION-006: should filter search results by organization',
+    'API-TABLES-PERMISSIONS-ORG-006: should filter search results by organization',
     { tag: '@spec' },
     async ({
       request,
@@ -399,7 +399,7 @@ test.describe('API Organization Isolation', () => {
   )
 
   test.fixme(
-    'API-ORG-ISOLATION-007: should prevent delete of records from other organizations',
+    'API-TABLES-PERMISSIONS-ORG-007: should prevent delete of records from other organizations',
     { tag: '@spec' },
     async ({
       request,
@@ -460,7 +460,7 @@ test.describe('API Organization Isolation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-ISOLATION-008: complete multi-org isolation workflow via API',
+    'API-TABLES-PERMISSIONS-ORG-008: complete multi-org isolation workflow via API',
     { tag: '@regression' },
     async ({
       request,

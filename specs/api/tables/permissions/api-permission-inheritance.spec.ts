@@ -38,7 +38,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   // ============================================================================
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-001: owner role has access when explicitly listed',
+    'API-TABLES-PERMISSIONS-INHERIT-001: owner role has access when explicitly listed',
     { tag: '@spec' },
     async ({
       request,
@@ -94,7 +94,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   )
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-002: admin cannot access owner-only resources',
+    'API-TABLES-PERMISSIONS-INHERIT-002: admin cannot access owner-only resources',
     { tag: '@spec' },
     async ({
       request,
@@ -161,7 +161,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   )
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-003: cascading permission includes multiple roles explicitly',
+    'API-TABLES-PERMISSIONS-INHERIT-003: cascading permission includes multiple roles explicitly',
     { tag: '@spec' },
     async ({
       request,
@@ -248,7 +248,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   )
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-004: member role gets read-only access when excluded from create/update',
+    'API-TABLES-PERMISSIONS-INHERIT-004: member role gets read-only access when excluded from create/update',
     { tag: '@spec' },
     async ({
       request,
@@ -340,7 +340,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   )
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-005: role escalation attempt fails',
+    'API-TABLES-PERMISSIONS-INHERIT-005: role escalation attempt fails',
     { tag: '@spec' },
     async ({
       request,
@@ -429,7 +429,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   )
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-006: empty roles array denies all access',
+    'API-TABLES-PERMISSIONS-INHERIT-006: empty roles array denies all access',
     { tag: '@spec' },
     async ({
       request,
@@ -492,7 +492,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   // ============================================================================
 
   test.fixme(
-    'API-PERMISSION-INHERITANCE-007: complete role hierarchy workflow',
+    'API-TABLES-PERMISSIONS-INHERIT-007: complete role hierarchy workflow',
     { tag: '@regression' },
     async ({
       request,

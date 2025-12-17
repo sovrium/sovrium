@@ -33,7 +33,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-BULK-OPERATIONS-001: bulk create succeeds when user has create permission',
+    'API-TABLES-PERMISSIONS-BULK-001: bulk create succeeds when user has create permission',
     { tag: '@spec' },
     async ({
       request,
@@ -95,7 +95,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   test.fixme(
-    'API-BULK-OPERATIONS-002: bulk create fails entirely when user lacks permission',
+    'API-TABLES-PERMISSIONS-BULK-002: bulk create fails entirely when user lacks permission',
     { tag: '@spec' },
     async ({
       request,
@@ -165,7 +165,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   test.fixme(
-    'API-BULK-OPERATIONS-003: bulk update succeeds for owned records only',
+    'API-TABLES-PERMISSIONS-BULK-003: bulk update succeeds for owned records only',
     { tag: '@spec' },
     async ({
       request,
@@ -237,7 +237,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   test.fixme(
-    'API-BULK-OPERATIONS-004: bulk update with mixed ownership returns partial success or fails atomically',
+    'API-TABLES-PERMISSIONS-BULK-004: bulk update with mixed ownership returns partial success or fails atomically',
     { tag: '@spec' },
     async ({
       request,
@@ -319,7 +319,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   test.fixme(
-    'API-BULK-OPERATIONS-005: bulk delete respects organization isolation',
+    'API-TABLES-PERMISSIONS-BULK-005: bulk delete respects organization isolation',
     { tag: '@spec' },
     async ({
       request,
@@ -396,7 +396,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   test.fixme(
-    'API-BULK-OPERATIONS-006: bulk create with field-level permissions',
+    'API-TABLES-PERMISSIONS-BULK-006: bulk create with field-level permissions',
     { tag: '@spec' },
     async ({
       request,
@@ -475,7 +475,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   test.fixme(
-    'API-BULK-OPERATIONS-007: bulk update with rate limiting by permission level',
+    'API-TABLES-PERMISSIONS-BULK-007: bulk update with rate limiting by permission level',
     { tag: '@spec' },
     async ({
       request,
@@ -568,7 +568,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-BULK-OPERATIONS-008: complete bulk operations workflow with permissions',
+    'API-TABLES-PERMISSIONS-BULK-008: complete bulk operations workflow with permissions',
     { tag: '@regression' },
     async ({
       request,
