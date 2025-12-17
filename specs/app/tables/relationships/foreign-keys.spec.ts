@@ -187,7 +187,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-004: should CASCADE DELETE child records when parent is deleted',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -233,7 +233,7 @@ test.describe('Foreign Key Relationships', () => {
       // Child orders automatically deleted
       const remainingOrders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
       // THEN: assertion
-      expect(remainingOrders.rows[0]).toMatchObject({ count: '0' })
+      expect(remainingOrders.rows[0]).toMatchObject({ count: 0 })
     }
   )
 
