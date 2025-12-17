@@ -31,7 +31,7 @@ export const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
 /**
  * Verify Better Auth users table exists for foreign key references
  *
- * User fields (user, created-by, updated-by) require Better Auth's users table.
+ * User fields (user, created-by, updated-by, deleted-by) require Better Auth's users table.
  * Better Auth uses TEXT ids, so user fields store TEXT foreign keys.
  *
  * @throws BetterAuthUsersTableRequired if users table doesn't exist or lacks required columns
@@ -53,7 +53,7 @@ export const ensureBetterAuthUsersTable = async (tx: {
   if (!tableExistsResult[0]?.exists) {
     throw new BetterAuthUsersTableRequired({
       message:
-        'User fields require Better Auth users table. Please configure Better Auth authentication before using user, created-by, or updated-by field types.',
+        'User fields require Better Auth users table. Please configure Better Auth authentication before using user, created-by, updated-by, or deleted-by field types.',
     })
   }
 

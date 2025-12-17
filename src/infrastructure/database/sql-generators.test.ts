@@ -49,6 +49,21 @@ describe('sql-generators', () => {
       expect(result).toBe(true)
     })
 
+    test('returns true for deleted-by field', () => {
+      // Given
+
+      const field = {
+        name: 'deleted_by',
+        type: 'deleted-by',
+      }
+
+      // When
+      const result = isUserReferenceField(field as any)
+
+      // Then
+      expect(result).toBe(true)
+    })
+
     test('returns false for user field', () => {
       // Given
 
@@ -362,6 +377,21 @@ describe('sql-generators', () => {
       expect(result).toBe('TEXT')
     })
 
+    test('maps deleted-by to TEXT', () => {
+      // Given
+
+      const field = {
+        name: 'deleted_by',
+        type: 'deleted-by',
+      }
+
+      // When
+      const result = mapFieldTypeToPostgres(field as any)
+
+      // Then
+      expect(result).toBe('TEXT')
+    })
+
     test('maps json to JSONB', () => {
       // Given
 
@@ -577,6 +607,21 @@ describe('sql-generators', () => {
 
       // Then
       expect(result).toBe('updated_by TEXT NOT NULL')
+    })
+
+    test('generates definition for deleted-by as nullable (no NOT NULL)', () => {
+      // Given
+
+      const field = {
+        name: 'deleted_by',
+        type: 'deleted-by',
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe('deleted_by TEXT')
     })
 
     test('generates GENERATED column for formula field', () => {
