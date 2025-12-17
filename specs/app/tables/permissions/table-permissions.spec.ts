@@ -154,7 +154,7 @@ test.describe('Table-Level Permissions', () => {
       )
       expect(policyDetails).toMatchObject({
         cmd: 'INSERT',
-        with_check: "(auth.user_has_role('admin'::text))",
+        with_check: "auth.user_has_role('admin'::text)",
       })
 
       // Admin user can INSERT records

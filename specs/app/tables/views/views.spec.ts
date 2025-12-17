@@ -485,7 +485,7 @@ test.describe('Table Views', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-VIEWS-009: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -539,7 +539,7 @@ test.describe('Table Views', () => {
 
       await test.step('Verify view filters and sorts records correctly', async () => {
         const viewRecords = await executeQuery('SELECT title, status FROM active_view')
-        expect(viewRecords).toEqual([
+        expect(viewRecords.rows).toEqual([
           { title: 'Item 3', status: 'active' },
           { title: 'Item 1', status: 'active' },
         ])
@@ -549,7 +549,7 @@ test.describe('Table Views', () => {
         const inactiveInView = await executeQuery(
           "SELECT * FROM active_view WHERE status = 'inactive'"
         )
-        expect(inactiveInView).toHaveLength(0)
+        expect(inactiveInView.rows).toHaveLength(0)
       })
 
       await test.step('Verify view exists in database', async () => {
