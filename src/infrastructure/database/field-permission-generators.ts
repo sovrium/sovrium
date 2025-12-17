@@ -131,6 +131,80 @@ const getEffectiveTablePermission = (
 }
 
 /**
+ * Generate role creation and schema grant statements
+ */
+const generateRoleSetupStatements = (
+  roles: readonly string[],
+  tableName: string
+): readonly string[] => {
+  // Filter out PUBLIC role from creation (it's a built-in PostgreSQL role)
+  const customRoles = roles.filter((role) => role !== 'PUBLIC')
+
+  const createRoleStatements = customRoles.map(
+    (role) => `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
+    CREATE ROLE ${role} WITH LOGIN;
+  END IF;
+END
+$$`
+  )
+
+  const schemaGrantStatements = roles.map((role) => `GRANT USAGE ON SCHEMA public TO ${role}`)
+  const revokeStatements = roles.map((role) => `REVOKE ALL ON ${tableName} FROM ${role}`)
+
+  return [...createRoleStatements, ...schemaGrantStatements, ...revokeStatements]
+}
+
+/**
+ * Generate write permission grants (UPDATE and INSERT) for fields
+ */
+const generateWritePermissionGrants = (
+  tableName: string,
+  databaseColumns: readonly { name: string }[],
+  fieldPermissions: readonly { field: string; write?: TablePermission }[],
+  tablePermissions: Table['permissions']
+): readonly string[] => {
+  // Build field permissions map for WRITE (UPDATE/INSERT):
+  // - Fields with specific write permissions: use their specific permission
+  // - Fields without specific permissions: inherit from table-level create/update permissions
+  // - If no table-level write permission, use authenticated as default (more restrictive than read)
+  const effectiveWritePermission =
+    tablePermissions?.create ?? tablePermissions?.update ?? ({ type: 'authenticated' } as const)
+
+  const allFieldWritePermissions = databaseColumns.map((field) => {
+    const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
+    return {
+      field: field.name,
+      permission: fieldPermission?.write ?? effectiveWritePermission,
+    }
+  })
+
+  // Build role-to-fields mapping for write
+  const roleFieldsWriteMap = buildRoleFieldsMap(allFieldWritePermissions)
+  const writeBaseRoles = extractRoles(effectiveWritePermission)
+  const roleFieldsWriteWithBase = addBaseFieldsToRestrictedRoles(roleFieldsWriteMap, writeBaseRoles)
+
+  // Generate UPDATE grant statements for fields with write permissions
+  const columnUpdateGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
+    ([role, fields]) => {
+      const columnList = fields.map((f) => `"${f}"`).join(', ')
+      return `GRANT UPDATE (${columnList}) ON ${tableName} TO ${role}`
+    }
+  )
+
+  // Generate INSERT grant for fields with write permissions (typically all fields for INSERT)
+  const columnInsertGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
+    ([role, fields]) => {
+      const columnList = fields.map((f) => `"${f}"`).join(', ')
+      return `GRANT INSERT (${columnList}) ON ${tableName} TO ${role}`
+    }
+  )
+
+  return [...columnUpdateGrantStatements, ...columnInsertGrantStatements]
+}
+
+/**
  * Generate PostgreSQL column-level GRANT statements for field permissions
  *
  * When a table has field-level read restrictions, this generates:
@@ -190,73 +264,21 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Generate SQL statements
   const finalRoles = Array.from(roleFieldsWithBase.keys())
 
-  // Filter out PUBLIC role from creation (it's a built-in PostgreSQL role)
-  const customRoles = finalRoles.filter((role) => role !== 'PUBLIC')
-
-  const createRoleStatements = customRoles.map(
-    (role) => `DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
-    CREATE ROLE ${role} WITH LOGIN;
-  END IF;
-END
-$$`
-  )
-
-  const schemaGrantStatements = finalRoles.map((role) => `GRANT USAGE ON SCHEMA public TO ${role}`)
+  const roleSetupStatements = generateRoleSetupStatements(finalRoles, tableName)
 
   // CRITICAL: For column-level permissions, we only grant SELECT on specific columns
   // No table-level SELECT grant needed - column grants are sufficient
-  // First revoke any existing permissions to ensure clean state
-  const revokeStatements = finalRoles.map((role) => `REVOKE ALL ON ${tableName} FROM ${role}`)
-
   const columnGrantStatements = Array.from(roleFieldsWithBase.entries()).map(([role, fields]) => {
     const columnList = fields.map((f) => `"${f}"`).join(', ')
     return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
   })
 
-  // Build field permissions map for WRITE (UPDATE/INSERT):
-  // - Fields with specific write permissions: use their specific permission
-  // - Fields without specific permissions: inherit from table-level create/update permissions
-  // - If no table-level write permission, use authenticated as default (more restrictive than read)
-  const effectiveWritePermission =
-    table.permissions?.create ?? table.permissions?.update ?? ({ type: 'authenticated' } as const)
-
-  const allFieldWritePermissions = databaseColumns.map((field) => {
-    const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
-    return {
-      field: field.name,
-      permission: fieldPermission?.write ?? effectiveWritePermission,
-    }
-  })
-
-  // Build role-to-fields mapping for write
-  const roleFieldsWriteMap = buildRoleFieldsMap(allFieldWritePermissions)
-  const writeBaseRoles = extractRoles(effectiveWritePermission)
-  const roleFieldsWriteWithBase = addBaseFieldsToRestrictedRoles(roleFieldsWriteMap, writeBaseRoles)
-
-  // Generate UPDATE grant statements for fields with write permissions
-  const columnUpdateGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
-    ([role, fields]) => {
-      const columnList = fields.map((f) => `"${f}"`).join(', ')
-      return `GRANT UPDATE (${columnList}) ON ${tableName} TO ${role}`
-    }
+  const writeGrantStatements = generateWritePermissionGrants(
+    tableName,
+    databaseColumns,
+    fieldPermissions,
+    table.permissions
   )
 
-  // Generate INSERT grant for fields with write permissions (typically all fields for INSERT)
-  const columnInsertGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
-    ([role, fields]) => {
-      const columnList = fields.map((f) => `"${f}"`).join(', ')
-      return `GRANT INSERT (${columnList}) ON ${tableName} TO ${role}`
-    }
-  )
-
-  return [
-    ...createRoleStatements,
-    ...schemaGrantStatements,
-    ...revokeStatements,
-    ...columnGrantStatements,
-    ...columnUpdateGrantStatements,
-    ...columnInsertGrantStatements,
-  ]
+  return [...roleSetupStatements, ...columnGrantStatements, ...writeGrantStatements]
 }
