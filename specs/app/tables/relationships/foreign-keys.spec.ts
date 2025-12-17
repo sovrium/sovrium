@@ -740,7 +740,7 @@ test.describe('Foreign Key Relationships', () => {
   // @regression test - OPTIMIZED integration workflow
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-015: user can complete full foreign-key workflow with CASCADE behaviors',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
