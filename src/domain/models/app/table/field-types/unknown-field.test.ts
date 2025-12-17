@@ -24,18 +24,22 @@ describe('UnknownFieldSchema', () => {
     })
   })
 
-  it('should accept standard field types', () => {
-    const result = Schema.decodeUnknownSync(UnknownFieldSchema)({
-      id: 2,
-      name: 'email',
-      type: 'email',
-    })
+  it('should reject known field types', () => {
+    expect(() =>
+      Schema.decodeUnknownSync(UnknownFieldSchema)({
+        id: 2,
+        name: 'email',
+        type: 'email',
+      })
+    ).toThrow()
 
-    expect(result).toEqual({
-      id: 2,
-      name: 'email',
-      type: 'email',
-    })
+    expect(() =>
+      Schema.decodeUnknownSync(UnknownFieldSchema)({
+        id: 3,
+        name: 'count',
+        type: 'integer',
+      })
+    ).toThrow()
   })
 
   it('should require id, name, and type', () => {

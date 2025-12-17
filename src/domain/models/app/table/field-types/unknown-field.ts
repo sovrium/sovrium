@@ -9,6 +9,52 @@ import { Schema } from 'effect'
 import { BaseFieldSchema } from './base-field'
 
 /**
+ * Known field types that should NOT match UnknownFieldSchema
+ */
+const KNOWN_FIELD_TYPES = [
+  'array',
+  'autonumber',
+  'barcode',
+  'button',
+  'checkbox',
+  'color',
+  'count',
+  'created-at',
+  'created-by',
+  'currency',
+  'date',
+  'datetime',
+  'decimal',
+  'deleted-at',
+  'duration',
+  'email',
+  'formula',
+  'geolocation',
+  'integer',
+  'json',
+  'long-text',
+  'lookup',
+  'multi-select',
+  'multiple-attachments',
+  'percentage',
+  'phone-number',
+  'progress',
+  'rating',
+  'relationship',
+  'rich-text',
+  'rollup',
+  'single-attachment',
+  'single-line-text',
+  'single-select',
+  'status',
+  'time',
+  'updated-at',
+  'updated-by',
+  'url',
+  'user',
+] as const
+
+/**
  * Unknown Field Type
  *
  * Represents a field with an unrecognized type that passes schema validation
@@ -29,7 +75,11 @@ import { BaseFieldSchema } from './base-field'
  */
 export const UnknownFieldSchema = Schema.Struct({
   ...BaseFieldSchema.fields,
-  type: Schema.String, // Accept any string as type
+  type: Schema.String.pipe(
+    Schema.filter((t) => !KNOWN_FIELD_TYPES.includes(t as (typeof KNOWN_FIELD_TYPES)[number]), {
+      message: () => 'Type must be an unknown field type (not a recognized field type)',
+    })
+  ),
 })
 
 export type UnknownField = Schema.Schema.Type<typeof UnknownFieldSchema>
