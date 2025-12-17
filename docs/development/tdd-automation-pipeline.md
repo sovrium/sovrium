@@ -794,6 +794,94 @@ If a spec has been in-progress for > 90 minutes with no activity:
    git push
    ```
 
+### Handling `needs-manual-resolution` PRs/Issues
+
+When a PR or issue receives the `needs-manual-resolution` label, it means automatic resolution failed after multiple attempts and human intervention is required.
+
+**Common scenarios that trigger this label**:
+
+| Scenario                 | Cause                                 | Resolution                                     |
+| ------------------------ | ------------------------------------- | ---------------------------------------------- |
+| **Empty diff**           | PR was superseded by main             | Close PR and issue as "completed"              |
+| **Merge conflicts**      | Auto-conflict resolution failed       | Manually resolve and push                      |
+| **Max retries exceeded** | 3 fix attempts failed                 | Analyze root cause, fix manually               |
+| **Test too complex**     | Spec requires architectural decisions | Add `skip-automated` label, implement manually |
+
+**Step-by-step resolution process**:
+
+1. **Identify the issue type**:
+
+   ```bash
+   # Check PR state and diff
+   gh pr view {pr-number} --json state,mergeable,body
+   gh pr diff {pr-number} | wc -l  # If 0, PR is superseded (empty diff)
+   ```
+
+2. **For empty diff PRs** (work already done elsewhere):
+
+   ```bash
+   # Close PR as superseded
+   gh pr close {pr-number} --comment "Closing: superseded by main (empty diff)"
+
+   # Close linked issue as completed
+   gh issue close {issue-number} --reason completed
+   gh issue edit {issue-number} --add-label "tdd-spec:completed"
+   gh issue edit {issue-number} --remove-label "tdd-spec:in-progress,needs-manual-resolution"
+   ```
+
+3. **For merge conflicts**:
+
+   ```bash
+   # Checkout and resolve
+   git fetch origin
+   git checkout {branch-name}
+   git rebase origin/main  # or git merge origin/main
+
+   # Resolve conflicts, then push
+   git push --force-with-lease
+
+   # Re-enable auto-merge
+   gh pr merge {pr-number} --auto --squash
+   ```
+
+4. **For max retries exceeded** (test failures):
+
+   ```bash
+   # Check what's failing
+   gh pr checks {pr-number}
+
+   # Run tests locally
+   git checkout {branch-name}
+   bun test:e2e:regression
+
+   # Fix the issue, commit, and push
+   git commit -m "fix: resolve {SPEC-ID} failures"
+   git push
+   ```
+
+5. **For too-complex specs**:
+
+   ```bash
+   # Mark for manual implementation
+   gh issue edit {issue-number} --add-label "skip-automated"
+   gh issue edit {issue-number} --remove-label "needs-manual-resolution,tdd-spec:in-progress"
+   gh issue edit {issue-number} --add-label "tdd-spec:queued"  # Or implement manually
+
+   # Add explanatory comment
+   gh issue comment {issue-number} --body "Marked for manual implementation - spec requires architectural decisions beyond automation scope."
+   ```
+
+**After resolution**:
+
+- Remove `needs-manual-resolution` label
+- Ensure issue has appropriate state label (`tdd-spec:completed`, `tdd-spec:queued`, or `tdd-spec:failed`)
+- The queue will automatically continue with the next spec
+
+**Prevention**: The pipeline now includes automatic detection for:
+
+- **Empty diffs**: PRs superseded by main are auto-closed (`tdd-monitor.yml`)
+- **Superseded tests**: Tests already passing in main are detected before processing (`tdd-dispatch.yml`)
+
 ### Queue not populating
 
 1. Check if scan finds specs:
@@ -931,6 +1019,8 @@ Remove or comment out the "Enable auto-merge" step.
 - [ ] Parallel processing (2-3 specs at once)
 - [x] Priority queue (high-priority specs first) - **Implemented**: `schema-priority-calculator.ts`
 - [x] Automatic retries (up to 3 attempts) - **Implemented**: `retry:spec:1/2/3` labels
+- [x] Empty diff detection (superseded PRs) - **Implemented**: `tdd-monitor.yml` v2.3.0
+- [x] Superseded test detection (before processing) - **Implemented**: `tdd-dispatch.yml` v2.3.0
 - [ ] Slack notifications
 - [ ] Cost tracking dashboard
 
@@ -1178,12 +1268,17 @@ gh issue comment {ISSUE_NUMBER} \
 
 ---
 
-**Last Updated**: 2025-11-24
-**Version**: 2.2.0 (Queue System + Self-Healing Safeguards + Phase 1 Optimizations)
+**Last Updated**: 2025-12-17
+**Version**: 2.3.0 (Queue System + Self-Healing Safeguards + Superseded Detection)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-17 (v2.3.0)**: Added superseded detection to prevent wasted effort on already-completed specs:
+  - Empty diff detection in `tdd-monitor.yml` (auto-closes PRs with no changes vs main)
+  - Superseded test detection in `tdd-dispatch.yml` (checks if `.fixme()` still exists before processing)
+  - Comprehensive `needs-manual-resolution` handling documentation
+  - Issues and PRs superseded by main are now auto-closed with clear explanations
 - **2025-11-03 (v2.1.0)**: Added three self-healing safeguards to prevent pipeline blocking:
   - Stuck PR Monitor workflow (auto-enables auto-merge)
   - Conflict Resolver workflow (auto-resolves merge conflicts)
