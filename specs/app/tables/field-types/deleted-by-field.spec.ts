@@ -211,7 +211,7 @@ test.describe('Deleted By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-BY-005: should create btree index for fast deletion audit when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -255,7 +255,7 @@ test.describe('Deleted By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DELETED-BY-006: user can complete full deleted-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -326,7 +326,7 @@ test.describe('Deleted By Field', () => {
         const auditTrail = await executeQuery(`
           SELECT p.name, u.name as deleted_by_name
           FROM projects p
-          JOIN users u ON p.deleted_by = u.id
+          JOIN _sovrium_auth_users u ON p.deleted_by = u.id
           WHERE p.deleted_at IS NOT NULL
           ORDER BY p.id
         `)
