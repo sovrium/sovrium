@@ -8,6 +8,7 @@
 /* eslint-disable max-lines -- File size will be addressed by codebase-refactor-auditor */
 
 import { logWarning } from '@/infrastructure/logging/effect-logger'
+import { translatePermissionCondition } from './permission-condition-translator'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
@@ -773,28 +774,6 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
 }
 
 /**
- * Translate record permission condition to PostgreSQL RLS expression
- *
- * Replaces variable placeholders with current_setting() calls:
- * - {userId} → current_setting('app.user_id', true)::TEXT
- * - {organizationId} → current_setting('app.organization_id', true)::TEXT
- * - {user.department} → current_setting('app.user_department', true)::TEXT
- *
- * The second parameter (true) makes current_setting return NULL if the setting doesn't exist,
- * instead of raising an error.
- *
- * Note: User IDs are TEXT in Better Auth, not INTEGER
- *
- * @param condition - Record permission condition with variable placeholders
- * @returns PostgreSQL RLS expression
- */
-const translateRecordPermissionCondition = (condition: string): string =>
-  condition
-    .replace(/\{userId\}/g, "current_setting('app.user_id', true)::TEXT")
-    .replace(/\{organizationId\}/g, "current_setting('app.organization_id', true)::TEXT")
-    .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)
-
-/**
  * Generate RLS policy statements for record-level permissions
  *
  * When a table has `permissions.records` array, this generates RLS policies
@@ -830,9 +809,7 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
     const policyName = `${tableName}_record_${action}`
 
     // Combine multiple conditions with AND logic
-    const translatedConditions = permissions.map((p) =>
-      translateRecordPermissionCondition(p.condition)
-    )
+    const translatedConditions = permissions.map((p) => translatePermissionCondition(p.condition))
     const combinedCondition =
       translatedConditions.length === 1
         ? translatedConditions[0]
