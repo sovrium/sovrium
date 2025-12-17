@@ -441,6 +441,50 @@ jobs:
           exit 1
 
   # ============================================================================
+  # FINAL STATUS CHECK
+  # Single rollup job that branch protection can require
+  # Aggregates results from all parallel jobs
+  # ============================================================================
+
+  test:
+    name: Test
+    if: always() && (github.event_name == 'push' || github.event.action != 'closed')
+    needs: [lint, typecheck, unit-tests, e2e-results]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check all jobs passed
+        run: |
+          echo "📊 Checking results from all parallel jobs..."
+          echo ""
+          echo "  Lint:       ${{ needs.lint.result }}"
+          echo "  TypeCheck:  ${{ needs.typecheck.result }}"
+          echo "  Unit Tests: ${{ needs.unit-tests.result }}"
+          echo "  E2E:        ${{ needs.e2e-results.result }}"
+          echo ""
+
+          FAILED=""
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            FAILED="${FAILED}Lint, "
+          fi
+          if [ "${{ needs.typecheck.result }}" != "success" ]; then
+            FAILED="${FAILED}TypeCheck, "
+          fi
+          if [ "${{ needs.unit-tests.result }}" != "success" ]; then
+            FAILED="${FAILED}Unit Tests, "
+          fi
+          if [ "${{ needs.e2e-results.result }}" != "success" ]; then
+            FAILED="${FAILED}E2E, "
+          fi
+
+          if [ -n "$FAILED" ]; then
+            echo "❌ Failed jobs: ${FAILED%, }"
+            exit 1
+          fi
+
+          echo "✅ All jobs passed!"
+
+  # ============================================================================
   # TDD AUTOMATION JOBS
   # ============================================================================
 
