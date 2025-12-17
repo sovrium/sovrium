@@ -185,11 +185,19 @@ jobs:
         id: e2e
         run: |
           echo "🧪 Running E2E shard ${{ matrix.shard }} of ${{ matrix.total }}..."
-          bunx playwright test --grep "@regression" --shard=${{ matrix.shard }}/${{ matrix.total }}
+          # Use JSON reporter alongside default for reliable failure parsing
+          bunx playwright test --grep "@regression" --shard=${{ matrix.shard }}/${{ matrix.total }} \
+            --reporter=github,json
+          # Move JSON results to predictable location
+          if [ -f "test-results.json" ]; then
+            mv test-results.json "test-results-shard-${{ matrix.shard }}.json"
+          fi
         continue-on-error: true
         env:
           # Use 2 workers per shard (4 shards × 2 workers = 8 effective workers)
           CI_WORKERS: 2
+          # JSON reporter outputs to this file
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results.json
 
       - name: Retry E2E tests on failure
         id: e2e-retry
@@ -203,9 +211,16 @@ jobs:
           docker ps -aq --filter "name=mailpit" | xargs -r docker rm -f 2>/dev/null || true
 
           echo "🔄 Retrying shard ${{ matrix.shard }}..."
-          bunx playwright test --grep "@regression" --shard=${{ matrix.shard }}/${{ matrix.total }}
+          # Use JSON reporter alongside default for reliable failure parsing
+          bunx playwright test --grep "@regression" --shard=${{ matrix.shard }}/${{ matrix.total }} \
+            --reporter=github,json
+          # Move JSON results to predictable location (overwrite previous if exists)
+          if [ -f "test-results.json" ]; then
+            mv test-results.json "test-results-shard-${{ matrix.shard }}.json"
+          fi
         env:
           CI_WORKERS: 2
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results.json
 
       - name: E2E shard final status
         if: always()
@@ -225,6 +240,15 @@ jobs:
         with:
           name: test-results-shard-${{ matrix.shard }}
           path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload JSON test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-results-shard-${{ matrix.shard }}
+          path: test-results-shard-${{ matrix.shard }}.json
           retention-days: 7
           if-no-files-found: ignore
 
@@ -265,6 +289,14 @@ jobs:
           pattern: test-results-shard-*
           path: all-test-results/
           merge-multiple: false
+
+      - name: Download all JSON test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: json-results-shard-*
+          path: all-json-results/
+          merge-multiple: false
+        continue-on-error: true
 
       - name: Check E2E results
         id: check
@@ -308,9 +340,29 @@ jobs:
             echo "🎯 Target spec: $TARGET_SPEC"
           fi
 
-          # Parse failed tests from merged test results
+          # Parse failed tests from JSON results (reliable) or fall back to directory names
           FAILED_SPECS=""
-          if [ -d "all-test-results" ]; then
+
+          # Method 1: Parse from JSON results (preferred - contains exact file paths)
+          if [ -d "all-json-results" ]; then
+            echo "📄 Parsing failed specs from JSON results..."
+            # Extract unique file paths from all JSON result files where status is not "passed"
+            FAILED_SPECS=$(find all-json-results -name "*.json" -exec cat {} \; 2>/dev/null | \
+              jq -r '.suites[]?.specs[]? | select(.tests[]?.status != "passed") | .file // empty' 2>/dev/null | \
+              sort -u | tr '\n' ',' | sed 's/,$//' || echo "")
+
+            # If jq parsing failed or empty, try alternative JSON structure
+            if [ -z "$FAILED_SPECS" ]; then
+              FAILED_SPECS=$(find all-json-results -name "*.json" -exec cat {} \; 2>/dev/null | \
+                jq -r '.suites[]? | select(.specs[]?.tests[]?.status != "passed") | .file // empty' 2>/dev/null | \
+                sort -u | tr '\n' ',' | sed 's/,$//' || echo "")
+            fi
+          fi
+
+          # Method 2: Fall back to directory-based parsing (legacy, less reliable for hyphenated paths)
+          if [ -z "$FAILED_SPECS" ] && [ -d "all-test-results" ]; then
+            echo "⚠️  JSON results unavailable, falling back to directory-based parsing..."
+            echo "    Note: This may misparse specs with hyphens in their paths"
             FAILED_SPECS=$(find all-test-results -type d -name "*.spec.ts*" 2>/dev/null | \
               sed 's|.*/test-results-shard-[0-9]*/||' | \
               sed 's|-chromium.*||' | \

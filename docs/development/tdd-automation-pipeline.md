@@ -161,7 +161,8 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Lint code (`bun run lint`)
    - Type check (`bun run typecheck`)
    - Run unit tests (`bun test:unit`)
-   - Run E2E regression tests (`bun test:e2e:regression`)
+   - Run E2E regression tests with sharding (`bun test:e2e:regression`)
+   - **JSON reporter** for reliable failure path extraction (v2.4.0)
 
 2. **close-tdd-issue job** (only on PR merge):
    - Triggers when PR with `tdd-automation` label merges
@@ -169,6 +170,8 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Closes issue with reason "completed"
    - Adds label `tdd-spec:completed`
    - Removes label `tdd-spec:in-progress`
+   - **Cleans up retry labels** (`retry:spec:1/2/3`, `retry:infra:1/2/3`) on success
+   - **Cleans up failure labels** (`failure:spec`, `failure:regression`, `failure:infra`) on success
    - **Note**: PR body MUST include `Closes #<issue_number>` for automatic closure
 
 3. **verify-issue-closed job** (safeguard after PR merge):
@@ -184,6 +187,19 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Automatically deletes the branch to prevent stale branches
    - Complements GitHub's auto-delete setting (which only handles merged PRs)
    - **Note**: Merged PR branches are auto-deleted by GitHub repository setting
+
+5. **e2e-results job** (regression classification):
+   - Aggregates results from all E2E shards
+   - **JSON-based failure parsing** (v2.4.0): Uses Playwright JSON reporter for reliable spec path extraction
+   - Classifies failures as: `target_only`, `regression_only`, or `mixed`
+   - Applies appropriate failure labels (`failure:spec`, `failure:regression`)
+   - **Fallback**: Directory-based parsing if JSON unavailable (less reliable for hyphenated paths)
+
+6. **handle-regressions job** (automatic regression fix):
+   - Triggers when regressions detected in TDD PRs
+   - Posts @claude comment with fix instructions
+   - Provides regression spec list and target spec context
+   - Enables automatic recovery without manual intervention
 
 #### **tdd-monitor.yml** (Monitoring & Recovery)
 
@@ -1269,11 +1285,17 @@ gh issue comment {ISSUE_NUMBER} \
 ---
 
 **Last Updated**: 2025-12-17
-**Version**: 2.3.0 (Queue System + Self-Healing Safeguards + Superseded Detection)
+**Version**: 2.4.0 (Queue System + Self-Healing Safeguards + Reliable Regression Classification)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-17 (v2.4.0)**: Improved regression classification reliability:
+  - **JSON-based failure parsing**: Uses Playwright JSON reporter (`--reporter=github,json`) for reliable spec path extraction
+  - **Fixes hyphenated path issue**: Paths like `admin-enforcement.spec.ts` no longer misparse
+  - **Fallback to directory parsing**: Legacy method still available if JSON unavailable
+  - **Label cleanup on success**: Retry and failure labels now cleaned up when issue completes
+  - **Spec rename handling documented**: Old issues auto-close, new issues created on next scan
 - **2025-12-17 (v2.3.0)**: Added superseded detection to prevent wasted effort on already-completed specs:
   - Empty diff detection in `tdd-monitor.yml` (auto-closes PRs with no changes vs main)
   - Superseded test detection in `tdd-dispatch.yml` (checks if `.fixme()` still exists before processing)
