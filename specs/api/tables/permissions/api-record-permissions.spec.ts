@@ -27,7 +27,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Admin access controlled via role-based permissions on separate operations
  *
  * Domain: api
- * Spec Count: 8
+ * Spec Count: 7
  */
 
 test.describe('API Record-Level Permissions', () => {
