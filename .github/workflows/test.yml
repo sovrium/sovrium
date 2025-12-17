@@ -282,10 +282,56 @@ jobs:
       - name: Pre-pull Docker images
         run: |
           echo "🐳 Pre-pulling Docker images..."
-          docker pull axllent/mailpit:latest &
-          docker pull postgres:16-alpine &
-          wait
-          echo "✅ Docker images ready"
+
+          # Pull with retry logic for registry resilience
+          pull_with_retry() {
+            local image=$1
+            local max_attempts=3
+
+            for attempt in $(seq 1 $max_attempts); do
+              echo "  Pulling $image (attempt $attempt/$max_attempts)..."
+              if docker pull "$image" 2>&1; then
+                echo "  ✅ $image pulled successfully"
+                return 0
+              fi
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "  ⚠️ Pull failed, waiting 10s before retry..."
+                sleep 10
+              fi
+            done
+
+            # Check if image exists locally (from cache)
+            if docker image inspect "$image" > /dev/null 2>&1; then
+              echo "  ℹ️ Using cached image for $image"
+              return 0
+            fi
+
+            echo "  ❌ Failed to pull $image after $max_attempts attempts"
+            return 1
+          }
+
+          # Track failures for reporting
+          FAILED_IMAGES=""
+
+          # Pull images with fallback behavior
+          if ! pull_with_retry "axllent/mailpit:latest"; then
+            FAILED_IMAGES="$FAILED_IMAGES mailpit"
+          fi
+
+          if ! pull_with_retry "postgres:16-alpine"; then
+            FAILED_IMAGES="$FAILED_IMAGES postgres"
+          fi
+
+          if [ -n "$FAILED_IMAGES" ]; then
+            echo ""
+            echo "⚠️ Some images failed to pull:$FAILED_IMAGES"
+            echo "   Tests may fail if images are not cached locally"
+            echo "   This could indicate Docker Hub is experiencing issues"
+          else
+            echo "✅ All Docker images ready"
+          fi
+        continue-on-error: true
 
       - name: Verify Docker ready
         run: |
@@ -377,10 +423,56 @@ jobs:
       - name: Pre-pull Docker images
         run: |
           echo "🐳 Pre-pulling Docker images..."
-          docker pull axllent/mailpit:latest &
-          docker pull postgres:16-alpine &
-          wait
-          echo "✅ Docker images ready"
+
+          # Pull with retry logic for registry resilience
+          pull_with_retry() {
+            local image=$1
+            local max_attempts=3
+
+            for attempt in $(seq 1 $max_attempts); do
+              echo "  Pulling $image (attempt $attempt/$max_attempts)..."
+              if docker pull "$image" 2>&1; then
+                echo "  ✅ $image pulled successfully"
+                return 0
+              fi
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "  ⚠️ Pull failed, waiting 10s before retry..."
+                sleep 10
+              fi
+            done
+
+            # Check if image exists locally (from cache)
+            if docker image inspect "$image" > /dev/null 2>&1; then
+              echo "  ℹ️ Using cached image for $image"
+              return 0
+            fi
+
+            echo "  ❌ Failed to pull $image after $max_attempts attempts"
+            return 1
+          }
+
+          # Track failures for reporting
+          FAILED_IMAGES=""
+
+          # Pull images with fallback behavior
+          if ! pull_with_retry "axllent/mailpit:latest"; then
+            FAILED_IMAGES="$FAILED_IMAGES mailpit"
+          fi
+
+          if ! pull_with_retry "postgres:16-alpine"; then
+            FAILED_IMAGES="$FAILED_IMAGES postgres"
+          fi
+
+          if [ -n "$FAILED_IMAGES" ]; then
+            echo ""
+            echo "⚠️ Some images failed to pull:$FAILED_IMAGES"
+            echo "   Tests may fail if images are not cached locally"
+            echo "   This could indicate Docker Hub is experiencing issues"
+          else
+            echo "✅ All Docker images ready"
+          fi
+        continue-on-error: true
 
       - name: Verify Docker ready
         run: |

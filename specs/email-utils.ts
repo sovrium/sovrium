@@ -88,6 +88,58 @@ function findDockerPath(): string {
 }
 
 /**
+ * Ensure a Docker image is available locally, pulling with retry if needed.
+ * This handles Docker Hub outages gracefully by retrying with exponential backoff.
+ *
+ * @param dockerPath - Path to docker executable
+ * @param image - Docker image name (e.g., 'axllent/mailpit:latest')
+ */
+async function ensureImageAvailable(dockerPath: string, image: string): Promise<void> {
+  // Check if image exists locally
+  try {
+    execSync(`${dockerPath} image inspect ${image}`, { stdio: 'ignore' })
+    console.log(`📧 Using cached Docker image: ${image}`)
+    return
+  } catch {
+    // Image not cached, need to pull
+  }
+
+  // Pull with retry logic
+  const isCI = !!process.env.CI
+  const maxAttempts = isCI ? 3 : 2
+  const baseDelay = 5000
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`📧 Pulling Docker image (attempt ${attempt}/${maxAttempts}): ${image}`)
+      execSync(`${dockerPath} pull ${image}`, {
+        stdio: 'inherit',
+        timeout: 120_000, // 2 minute timeout for pull
+      })
+      console.log(`✅ Successfully pulled: ${image}`)
+      return
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'stderr' in error
+          ? (error as { stderr: Buffer }).stderr?.toString()
+          : String(error)
+
+      if (attempt < maxAttempts) {
+        const delay = baseDelay * Math.pow(2, attempt - 1)
+        console.log(`⚠️ Image pull failed: ${errorMessage}`)
+        console.log(`   Retrying in ${delay / 1000}s...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      } else {
+        throw new Error(
+          `Failed to pull Docker image after ${maxAttempts} attempts: ${image}. ` +
+            `Docker registry may be unavailable. Error: ${errorMessage}`
+        )
+      }
+    }
+  }
+}
+
+/**
  * Check if Mailpit container is running
  */
 export function isMailpitRunning(): boolean {
@@ -120,6 +172,10 @@ export async function startGlobalMailpit(): Promise<void> {
   }
 
   const dockerPath = findDockerPath()
+  const mailpitImage = 'axllent/mailpit:latest'
+
+  // First, ensure the image is available (with retry for registry issues)
+  await ensureImageAvailable(dockerPath, mailpitImage)
 
   try {
     // Check if container exists but is stopped
@@ -132,15 +188,15 @@ export async function startGlobalMailpit(): Promise<void> {
       // Container exists, check if running
       if (!isMailpitRunning()) {
         console.log('📧 Starting existing Mailpit container...')
-        execSync(`${dockerPath} start ${globalContainerName}`, { stdio: 'ignore' })
+        execSync(`${dockerPath} start ${globalContainerName}`, { stdio: 'pipe' })
       }
     } else {
       // Create new container
       console.log('📧 Starting new Mailpit container...')
       execSync(
         `${dockerPath} run -d --name ${globalContainerName} ` +
-          `-p ${globalSmtpPort}:1025 -p ${globalWebPort}:8025 axllent/mailpit`,
-        { stdio: 'ignore' }
+          `-p ${globalSmtpPort}:1025 -p ${globalWebPort}:8025 ${mailpitImage}`,
+        { stdio: 'pipe' }
       )
     }
 
@@ -149,7 +205,20 @@ export async function startGlobalMailpit(): Promise<void> {
     globalMailpitStarted = true
     console.log(`✅ Mailpit ready (SMTP: ${globalSmtpPort}, Web: ${globalWebPort})`)
   } catch (error) {
-    throw new Error(`Failed to start Mailpit: ${error}`)
+    // Extract Docker error message for better diagnostics
+    const dockerError =
+      error instanceof Error && 'stderr' in error
+        ? (error as { stderr: Buffer }).stderr?.toString().trim()
+        : null
+    const errorMessage = dockerError || String(error)
+
+    throw new Error(
+      `Failed to start Mailpit container: ${errorMessage}\n` +
+        `  Container: ${globalContainerName}\n` +
+        `  Image: ${mailpitImage}\n` +
+        `  Ports: SMTP=${globalSmtpPort}, Web=${globalWebPort}\n` +
+        `  Tip: Run 'docker ps -a' to check container status`
+    )
   }
 }
 
