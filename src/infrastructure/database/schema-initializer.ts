@@ -80,10 +80,10 @@ const detectCircularDependenciesWithOptionalFK = (
 
   tables.forEach((table) => {
     const optionalRelationships = table.fields.filter(
-      (field) =>
+      (field): field is typeof field & { relatedTable: string } =>
         isRelationshipField(field) &&
         field.relatedTable !== table.name && // Exclude self-references
-        field.required !== true // Optional FK (allows NULL)
+        field.required === false // Explicitly optional FK (allows NULL)
     )
 
     optionalRelationships.forEach((field) => {

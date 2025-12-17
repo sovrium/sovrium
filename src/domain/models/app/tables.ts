@@ -95,7 +95,7 @@ const detectCircularRelationships = (
             field.relatedTable !== undefined &&
             field.relatedTable !== table.name && // Exclude self-references
             (field.relationType === 'many-to-one' || field.relationType === undefined) && // Only track dependencies from FK side
-            field.required === true // Only track REQUIRED relationships (NOT NULL constraint prevents INSERT-UPDATE pattern)
+            field.required !== false // Track required relationships (undefined = required by default, only false = optional)
         )
         .map((field) => field.relatedTable as string)
       return [table.name, relatedTables] as const
