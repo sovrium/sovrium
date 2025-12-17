@@ -29,7 +29,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Test combined role + operation permissions
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('API Permission Inheritance and Role Hierarchy', () => {

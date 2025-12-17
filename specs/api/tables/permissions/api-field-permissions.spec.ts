@@ -23,7 +23,7 @@ import { test, expect } from '@/specs/fixtures'
  * 4. Tests what users actually experience
  *
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - Exhaustive field permission scenarios
