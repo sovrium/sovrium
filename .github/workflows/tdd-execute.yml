@@ -380,17 +380,30 @@ jobs:
         continue-on-error: true # Capture exit code instead of failing immediately
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # CRITICAL: Use PAT token with 'workflows' permission for git push operations
+          # Use PAT with 'workflows' scope for git push operations
           # GitHub requires 'workflows' scope to push to repos containing .github/workflows/ files
-          # even when the commit doesn't modify workflow files (security restriction)
-          # Without this, Claude cannot push branches and PRs cannot be created
+          # Comments will appear from your personal account (not claude[bot])
           github_token: ${{ secrets.GH_PAT_WORKFLOW }}
           additional_permissions: |
             actions: read
           # NO prompt field - Claude Code will read the @claude comment naturally
           # This allows the queue processor's detailed instructions to be used
           # Agents are auto-discovered from .claude/agents/ directory (no --agents flag needed)
-          claude_args: '--dangerously-skip-permissions'
+          #
+          # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
+          # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
+          # - --max-turns: Prevent runaway conversations (30 turns covers read→implement→test→PR cycle)
+          # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
+          # - --disallowedTools: Block tools not needed for autonomous code implementation
+          #   - AskUserQuestion: No human present in automation (would hang or skip)
+          #   - WebFetch/WebSearch: External content not needed
+          #   - NotebookEdit: No Jupyter notebooks in project
+          #   - SlashCommand: Prevents unintended command execution
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-turns 30
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Detect error type
         id: detect_error

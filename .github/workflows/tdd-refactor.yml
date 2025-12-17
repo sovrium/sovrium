@@ -154,10 +154,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # CRITICAL: Use PAT token with 'workflows' permission for git push operations
+          # Use PAT with 'workflows' scope for git push operations
           # GitHub requires 'workflows' scope to push to repos containing .github/workflows/ files
-          # even when the commit doesn't modify workflow files (security restriction)
-          # Without this, Claude cannot push branches and PRs cannot be created
+          # Comments will appear from your personal account (not claude[bot])
           github_token: ${{ secrets.GH_PAT_WORKFLOW }}
 
           # Additional permissions for Claude to read CI results
@@ -208,7 +207,21 @@ jobs:
             **Reference**: @docs/development/tdd-automation-pipeline.md
 
           # Agent auto-discovery from .claude/agents/ directory
-          claude_args: '--dangerously-skip-permissions'
+          #
+          # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
+          # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for refactoring)
+          # - --max-turns: Prevent runaway conversations (40 turns for comprehensive refactoring audits)
+          # - --allowedTools: Principle of least privilege - only tools needed for refactoring
+          # - --disallowedTools: Block tools not needed for autonomous refactoring
+          #   - AskUserQuestion: No human present in automation (would hang or skip)
+          #   - WebFetch/WebSearch: External content not needed
+          #   - NotebookEdit: No Jupyter notebooks in project
+          #   - SlashCommand: Prevents unintended command execution
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-turns 40
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Verify refactor completed
         id: verify

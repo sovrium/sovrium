@@ -61,6 +61,13 @@ const autoGenerateTableIds = (
  * NOT circular dependencies because the foreign key is always on the "many" side, allowing proper
  * table creation order (create "one" side first, then "many" side with FK).
  *
+ * Circular dependencies are ALLOWED when at least one side allows NULL (required: false).
+ * This enables the INSERT-UPDATE pattern:
+ * 1. INSERT with NULL foreign key
+ * 2. INSERT second table with reference to first
+ * 3. UPDATE first table to complete the circular reference
+ * PostgreSQL validates constraints at statement end, making this pattern valid.
+ *
  * @param tables - Array of tables to validate
  * @returns Array of table names involved in circular dependencies, or empty array if none found
  */
@@ -72,12 +79,13 @@ const detectCircularRelationships = (
       readonly type: string
       readonly relatedTable?: string
       readonly relationType?: string
+      readonly required?: boolean
     }>
   }>
 ): ReadonlyArray<string> => {
-  // Build dependency graph: table name -> tables it references via many-to-one relationships
-  // We only track many-to-one relationships because those are the ones that require the related
-  // table to exist first (they have the foreign key)
+  // Build dependency graph: table name -> tables it references via REQUIRED many-to-one relationships
+  // We only track REQUIRED (NOT NULL) relationships because those prevent INSERT-UPDATE pattern
+  // Optional (NULL-able) relationships can be created later via UPDATE after both tables exist
   const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
     tables.map((table) => {
       const relatedTables = table.fields
@@ -86,7 +94,8 @@ const detectCircularRelationships = (
             field.type === 'relationship' &&
             field.relatedTable !== undefined &&
             field.relatedTable !== table.name && // Exclude self-references
-            (field.relationType === 'many-to-one' || field.relationType === undefined) // Only track dependencies from FK side
+            (field.relationType === 'many-to-one' || field.relationType === undefined) && // Only track dependencies from FK side
+            field.required !== false // Track required relationships (undefined = required by default, only false = optional)
         )
         .map((field) => field.relatedTable as string)
       return [table.name, relatedTables] as const
