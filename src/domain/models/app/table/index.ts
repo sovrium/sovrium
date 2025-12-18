@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
+import { CheckConstraintsSchema } from './check-constraints'
 import { FieldsSchema } from './fields'
 import { ForeignKeySchema } from './foreign-keys'
 import { IndexesSchema } from './indexes'
@@ -18,7 +19,6 @@ import { validateTablePermissions } from './table-permissions-validation'
 import { validatePrimaryKey } from './table-primary-key-validation'
 import { validateViews } from './table-views-validation'
 import { UniqueConstraintsSchema } from './unique-constraints'
-import { CheckConstraintsSchema } from './check-constraints'
 import { ViewSchema } from './views'
 
 // Re-export SPECIAL_FIELDS for external use
