@@ -129,7 +129,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-003: should preserve UTC offset when inserting TIMESTAMPTZ values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
