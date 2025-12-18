@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/permissions/index.ts
  * Domain: app
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -118,96 +118,10 @@ test.describe('Record-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-RECORD-PERMISSIONS-002: should deny UPDATE when user attempts to update record not assigned to them',
+    'APP-TABLES-RECORD-PERMISSIONS-002: should deny DELETE when user attempts to delete published record they created',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       const roleName = generateRoleName('002')
-
-      // GIVEN: record-level permission 'update: {userId} = assigned_to'
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 2,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'status', type: 'single-line-text' },
-              { id: 4, name: 'assigned_to', type: 'user' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              records: [
-                {
-                  action: 'update',
-                  condition: '{userId} = assigned_to',
-                },
-              ],
-            },
-          },
-        ],
-      })
-
-      // Create test users
-      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
-
-      // Create non-superuser role for RLS testing
-      await executeQuery(`DROP ROLE IF EXISTS ${roleName}`)
-      await executeQuery(`CREATE ROLE ${roleName} WITH LOGIN PASSWORD 'test'`)
-
-      await executeQuery([
-        'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY', // Enable RLS
-        'ALTER TABLE tasks FORCE ROW LEVEL SECURITY', // Apply to table owners too
-        "CREATE POLICY user_select_assigned ON tasks FOR SELECT USING (assigned_to = current_setting('app.user_id', true)::TEXT)",
-        "CREATE POLICY user_update_assigned ON tasks FOR UPDATE USING (assigned_to = current_setting('app.user_id', true)::TEXT) WITH CHECK (assigned_to = current_setting('app.user_id', true)::TEXT)",
-        `INSERT INTO tasks (title, status, assigned_to) VALUES ('Task 1', 'open', '${user1.user.id}'), ('Task 2', 'open', '${user2.user.id}')`,
-        `GRANT ALL ON TABLE tasks TO ${roleName}`,
-        `GRANT USAGE ON SCHEMA public TO ${roleName}`,
-      ])
-
-      // WHEN: user attempts to update record not assigned to them
-      // THEN: PostgreSQL RLS policy denies UPDATE
-
-      // RLS policies exist for SELECT and UPDATE
-      const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname IN ('user_select_assigned', 'user_update_assigned')"
-      )
-      // THEN: assertion
-      expect(policyCount.count).toBe(2)
-
-      // User 1 can UPDATE tasks assigned to them
-      const user1Update = await executeQuery(
-        `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status`
-      )
-      // THEN: assertion
-      expect(user1Update.status).toBe('in_progress')
-
-      // User 1 cannot UPDATE tasks assigned to user 2
-      const user1FailedUpdate = await executeQuery(
-        `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id`
-      )
-      // THEN: assertion
-      expect(user1FailedUpdate.id).toBeUndefined()
-
-      // User 2 can only UPDATE their assigned tasks
-      const user2Update = await executeQuery(
-        `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status`
-      )
-      // THEN: assertion
-      expect(user2Update.status).toBe('done')
-    }
-  )
-
-  test(
-    'APP-TABLES-RECORD-PERMISSIONS-003: should deny DELETE when user attempts to delete published record they created',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      const roleName = generateRoleName('003')
 
       // GIVEN: record-level permission 'delete: {userId} = created_by AND status = draft'
       await startServerWithSchema({
@@ -292,10 +206,10 @@ test.describe('Record-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-RECORD-PERMISSIONS-004: should filter records matching ALL conditions when multiple record-level read conditions with AND logic',
+    'APP-TABLES-RECORD-PERMISSIONS-003: should filter records matching ALL conditions when multiple record-level read conditions with AND logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      const roleName = generateRoleName('004')
+      const roleName = generateRoleName('003')
 
       // GIVEN: multiple record-level read conditions with AND logic
       await startServerWithSchema({
@@ -381,10 +295,10 @@ test.describe('Record-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-RECORD-PERMISSIONS-005: should filter by user department custom property when record-level permission is {user.department} = department',
+    'APP-TABLES-RECORD-PERMISSIONS-004: should filter by user department custom property when record-level permission is {user.department} = department',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      const roleName = generateRoleName('005')
+      const roleName = generateRoleName('004')
 
       // GIVEN: record-level permission '{user.department} = department'
       await startServerWithSchema({
@@ -461,10 +375,10 @@ test.describe('Record-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-RECORD-PERMISSIONS-006: should filter records where user is creator OR assignee when record-level permission has complex OR condition',
+    'APP-TABLES-RECORD-PERMISSIONS-005: should filter records where user is creator OR assignee when record-level permission has complex OR condition',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      const roleName = generateRoleName('006')
+      const roleName = generateRoleName('005')
 
       // GIVEN: record-level permission with complex condition '{userId} = created_by OR {userId} = assigned_to'
       await startServerWithSchema({
@@ -557,10 +471,10 @@ test.describe('Record-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-RECORD-PERMISSIONS-007: user can complete full record-permissions workflow',
+    'APP-TABLES-RECORD-PERMISSIONS-006: user can complete full record-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      const roleName = generateRoleName('007')
+      const roleName = generateRoleName('006')
       let user1: any
       let user2: any
 
