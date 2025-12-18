@@ -200,6 +200,9 @@ const findColumnsToDrop = (
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
 
+    // Never drop intrinsic metadata column deleted_at (automatic soft-delete field)
+    if (columnName === 'deleted_at') return false
+
     // Don't drop if it's being renamed
     if (renamedOldNames.has(columnName)) return false
 
@@ -306,7 +309,18 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  return [...renameStatements, ...dropStatements, ...addStatements, ...nullabilityChanges]
+  // Add automatic deleted_at column if it doesn't exist (intrinsic metadata field)
+  const deletedAtStatements = !existingColumns.has('deleted_at')
+    ? [`ALTER TABLE ${table.name} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`]
+    : []
+
+  return [
+    ...renameStatements,
+    ...dropStatements,
+    ...addStatements,
+    ...deletedAtStatements,
+    ...nullabilityChanges,
+  ]
 }
 
 /**

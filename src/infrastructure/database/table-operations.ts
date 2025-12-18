@@ -170,6 +170,11 @@ export const generateCreateTableSQL = (
       return generateColumnDefinition(field, isPrimaryKey, table.fields)
     })
 
+  // Add automatic deleted_at column for soft-delete functionality
+  // This is an intrinsic metadata field present on ALL tables (similar to id)
+  // NULL = active record, NOT NULL = soft-deleted record
+  const deletedAtColumnDefinition = ['deleted_at TIMESTAMPTZ']
+
   // Add PRIMARY KEY constraint on id if no custom primary key is defined
   const tableConstraints = generateTableConstraints(table, tableUsesView, skipForeignKeys)
 
@@ -183,6 +188,7 @@ export const generateCreateTableSQL = (
   const allDefinitions = [
     ...idColumnDefinition,
     ...columnDefinitions,
+    ...deletedAtColumnDefinition,
     ...tableConstraints,
     ...primaryKeyConstraint,
   ]
