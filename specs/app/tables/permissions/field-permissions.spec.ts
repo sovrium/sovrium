@@ -433,9 +433,7 @@ test.describe('Field-Level Permissions', () => {
       // Authenticated user can SELECT all fields when no field restrictions exist
       // Note: Empty fields array [] means "no field-level restrictions",
       // so all fields inherit table-level permission (authenticated via RLS)
-      const authResult = await executeQuery(
-        'SELECT id, title, created_at FROM posts WHERE id = 1'
-      )
+      const authResult = await executeQuery('SELECT id, title, created_at FROM posts WHERE id = 1')
       // THEN: assertion (created_at is null because no default value and not inserted)
       expect(authResult).toMatchObject({
         id: 1,
