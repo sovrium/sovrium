@@ -306,7 +306,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-007: should handle ambiguous timestamps during DST fall-back with explicit offset',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -349,7 +349,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-008: should compare timestamps correctly across different timezones',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -388,7 +388,7 @@ test.describe('Timezone Handling', () => {
         `SELECT COUNT(DISTINCT occurred_at) as count FROM global_events`
       )
       // THEN: assertion - all 3 events at same UTC instant
-      expect(distinctTimes.rows[0]).toMatchObject({ count: '1' })
+      expect(distinctTimes.rows[0]).toMatchObject({ count: 1 })
 
       // Ordering works correctly
       const ordered = await executeQuery(`SELECT title FROM global_events ORDER BY occurred_at, id`)
@@ -397,7 +397,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-009: should validate Effect.DateTime integration with PostgreSQL timestamps',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

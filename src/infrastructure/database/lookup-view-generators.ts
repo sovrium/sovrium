@@ -6,6 +6,7 @@
  */
 
 import { generateSqlCondition } from './filter-operators'
+import { toSingular, generateJunctionTableName } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 import type { ViewFilterCondition } from '@/domain/models/app/table/views/filters'
@@ -90,8 +91,95 @@ const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: string): str
 }
 
 /**
+ * Generate reverse lookup expression (one-to-many)
+ */
+const generateReverseLookupExpression = (
+  lookupName: string,
+  relationshipField: string,
+  relatedField: string,
+  filters: ViewFilterCondition | undefined,
+  tableAlias: string,
+  actualTableName: string
+): string => {
+  // Infer table name from lookup field name (e.g., "active_tasks" → "tasks")
+  const lookupNameParts = lookupName.split('_')
+  const relatedTable = lookupNameParts[lookupNameParts.length - 1] ?? actualTableName
+
+  const alias = `${relatedTable}_for_${lookupName}`
+  const baseCondition = `${alias}.${relationshipField} = ${tableAlias}.id`
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
+  const whereClause = whereConditions.join(' AND ')
+
+  return `(
+    SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
+    FROM ${relatedTable} AS ${alias}
+    WHERE ${whereClause}
+  ) AS ${lookupName}`
+}
+
+/**
+ * Generate many-to-many lookup expression (through junction table)
+ */
+const generateManyToManyLookupExpression = (
+  lookupName: string,
+  relatedTable: string,
+  relatedField: string,
+  filters: ViewFilterCondition | undefined,
+  tableAlias: string,
+  actualTableName: string
+): string => {
+  const alias = `${relatedTable}_for_${lookupName}`
+  const junctionTable = generateJunctionTableName(actualTableName, relatedTable)
+  const junctionAlias = `junction_${lookupName}`
+  const foreignKeyInJunction = `${toSingular(actualTableName)}_id`
+  const relatedForeignKeyInJunction = `${toSingular(relatedTable)}_id`
+
+  const baseCondition = `${junctionAlias}.${foreignKeyInJunction} = ${tableAlias}.id`
+  const joinCondition = `${alias}.id = ${junctionAlias}.${relatedForeignKeyInJunction}`
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
+  const whereClause = whereConditions.join(' AND ')
+
+  return `(
+    SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
+    FROM ${junctionTable} AS ${junctionAlias}
+    INNER JOIN ${relatedTable} AS ${alias} ON ${joinCondition}
+    WHERE ${whereClause}
+  ) AS ${lookupName}`
+}
+
+/**
+ * Generate forward lookup expression (many-to-one)
+ */
+const generateForwardLookupExpression = (
+  lookupName: string,
+  relationshipField: string,
+  relatedTable: string,
+  relatedField: string,
+  filters: ViewFilterCondition | undefined,
+  tableAlias: string
+): string => {
+  const alias = `${relatedTable}_for_${lookupName}`
+
+  if (filters) {
+    const whereClause = buildWhereClause(filters, alias)
+    return `(
+      SELECT ${alias}.${relatedField}
+      FROM ${relatedTable} AS ${alias}
+      WHERE ${alias}.id = ${tableAlias}.${relationshipField} AND ${whereClause}
+    ) AS ${lookupName}`
+  }
+
+  // Direct column reference via LEFT JOIN (handled in main VIEW SELECT)
+  return `${alias}.${relatedField} AS ${lookupName}`
+}
+
+/**
  * Generate lookup column expression
- * Handles both forward (many-to-one) and reverse (one-to-many) lookups
+ * Handles forward (many-to-one), reverse (one-to-many), and many-to-many lookups
  */
 const generateLookupExpression = (
   lookupField: Fields[number] & {
@@ -100,60 +188,55 @@ const generateLookupExpression = (
     readonly relatedField: string
     readonly filters?: ViewFilterCondition
   },
-  tableName: string,
-  allFields: readonly Fields[number][]
+  tableAlias: string,
+  allFields: readonly Fields[number][],
+  actualTableName: string
 ): string => {
   const { name: lookupName, relationshipField, relatedField, filters } = lookupField
-
-  // Find the relationship field in the current table
   const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
 
+  // Reverse lookup (relationship field not in current table)
   if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
-    // Reverse lookup: relationshipField is in the RELATED table, not this table
-    // Example: projects.active_tasks looks up tasks.title WHERE tasks.project_id = projects.id
-    // Infer table name from lookup field name (e.g., "active_tasks" → "tasks")
-    // Extract the last word which should be the table name (supports patterns like "active_tasks", "team_member_names")
-    const lookupNameParts = lookupName.split('_')
-    const relatedTable = lookupNameParts[lookupNameParts.length - 1] ?? tableName
-
-    // Build subquery for reverse lookup with optional filtering
-    const alias = `${relatedTable}_for_${lookupName}`
-    const baseCondition = `${alias}.${relationshipField} = ${tableName}.id`
-    const whereConditions = filters
-      ? [baseCondition, buildWhereClause(filters, alias)]
-      : [baseCondition]
-
-    const whereClause = whereConditions.join(' AND ')
-
-    // Use STRING_AGG with ORDER BY for comma-separated, alphabetically sorted results
-    return `(
-      SELECT STRING_AGG(${alias}.${relatedField}::TEXT, ', ' ORDER BY ${alias}.${relatedField})
-      FROM ${relatedTable} AS ${alias}
-      WHERE ${whereClause}
-    ) AS ${lookupName}`
+    return generateReverseLookupExpression(
+      lookupName,
+      relationshipField,
+      relatedField,
+      filters,
+      tableAlias,
+      actualTableName
+    )
   }
 
-  // Forward lookup (many-to-one): follow the foreign key
+  // Many-to-many lookup (via junction table)
+  if (
+    'relationType' in relationshipFieldDef &&
+    relationshipFieldDef.relationType === 'many-to-many' &&
+    'relatedTable' in relationshipFieldDef &&
+    typeof relationshipFieldDef.relatedTable === 'string'
+  ) {
+    return generateManyToManyLookupExpression(
+      lookupName,
+      relationshipFieldDef.relatedTable,
+      relatedField,
+      filters,
+      tableAlias,
+      actualTableName
+    )
+  }
+
+  // Forward lookup (many-to-one)
   if (
     'relatedTable' in relationshipFieldDef &&
     typeof relationshipFieldDef.relatedTable === 'string'
   ) {
-    const { relatedTable } = relationshipFieldDef
-    const alias = `${relatedTable}_for_${lookupName}`
-
-    // Simple JOIN for forward lookup (filters not typical here, but supported)
-    if (filters) {
-      const whereClause = buildWhereClause(filters, alias)
-      return `(
-        SELECT ${alias}.${relatedField}
-        FROM ${relatedTable} AS ${alias}
-        WHERE ${alias}.id = ${tableName}.${relationshipField} AND ${whereClause}
-      ) AS ${lookupName}`
-    }
-
-    // Direct column reference via LEFT JOIN (handled in main VIEW SELECT)
-    // Preserve original type (no ::TEXT cast)
-    return `${alias}.${relatedField} AS ${lookupName}`
+    return generateForwardLookupExpression(
+      lookupName,
+      relationshipField,
+      relationshipFieldDef.relatedTable,
+      relatedField,
+      filters,
+      tableAlias
+    )
   }
 
   // Fallback: NULL if relationship is invalid
@@ -344,7 +427,7 @@ export const generateLookupViewSQL = (table: Table): string => {
 
   // Generate lookup expressions (subqueries or JOIN references)
   const lookupExpressions = lookupFields.map((field) =>
-    generateLookupExpression(field, 'base', table.fields)
+    generateLookupExpression(field, 'base', table.fields, table.name)
   )
 
   // Generate rollup expressions (aggregation subqueries)
@@ -357,13 +440,15 @@ export const generateLookupViewSQL = (table: Table): string => {
     generateCountExpression(field, 'base', table.fields)
   )
 
-  // Determine if we need JOINs for forward lookups
+  // Determine if we need JOINs for forward lookups (many-to-one only, not many-to-many)
   const forwardLookups = lookupFields.filter((field) => {
     const relationshipFieldDef = table.fields.find((f) => f.name === field.relationshipField)
     return (
       relationshipFieldDef &&
       relationshipFieldDef.type === 'relationship' &&
-      'relatedTable' in relationshipFieldDef
+      'relatedTable' in relationshipFieldDef &&
+      'relationType' in relationshipFieldDef &&
+      relationshipFieldDef.relationType !== 'many-to-many'
     )
   })
 
@@ -409,7 +494,7 @@ export const shouldUseView = (table: Table): boolean =>
   hasLookupFields(table) || hasRollupFields(table) || hasCountFields(table)
 
 /**
- * Get base fields (non-lookup, non-rollup, non-count, non-one-to-many, non-id fields)
+ * Get base fields (non-lookup, non-rollup, non-count, non-one-to-many, non-many-to-many, non-id fields)
  */
 const getBaseFields = (table: Table): readonly string[] =>
   table.fields
@@ -418,11 +503,11 @@ const getBaseFields = (table: Table): readonly string[] =>
       if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') {
         return false
       }
-      // Exclude one-to-many relationship fields (don't create columns)
+      // Exclude one-to-many and many-to-many relationship fields (don't create columns)
       if (
         field.type === 'relationship' &&
         'relationType' in field &&
-        field.relationType === 'one-to-many'
+        (field.relationType === 'one-to-many' || field.relationType === 'many-to-many')
       ) {
         return false
       }
