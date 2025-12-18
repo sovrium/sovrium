@@ -569,13 +569,75 @@ const mapReferentialAction = (
 }
 
 /**
- * Generate FOREIGN KEY constraints for user fields and relationship fields
+ * Generate composite foreign key constraints from table.foreignKeys array
+ */
+const generateCompositeForeignKeyConstraints = (
+  compositeForeignKeys: readonly {
+    readonly name: string
+    readonly fields: readonly string[]
+    readonly referencedTable: string
+    readonly referencedFields: readonly string[]
+    readonly onDelete?: string
+    readonly onUpdate?: string
+  }[]
+): readonly string[] =>
+  compositeForeignKeys.map((fk) => {
+    const localFields = fk.fields.join(', ')
+    const referencedFields = fk.referencedFields.join(', ')
+    const onDeleteClause = mapReferentialAction(fk.onDelete, 'delete')
+    const onUpdateClause = mapReferentialAction(fk.onUpdate, 'update')
+
+    return `CONSTRAINT ${fk.name} FOREIGN KEY (${localFields}) REFERENCES ${fk.referencedTable}(${referencedFields})${onDeleteClause}${onUpdateClause}`
+  })
+
+/**
+ * Generate FOREIGN KEY constraint for relationship field
+ */
+const generateRelationshipConstraint = (
+  tableName: string,
+  field: Fields[number] & { readonly type: 'relationship'; readonly relatedTable: string },
+  tableUsesView?: ReadonlyMap<string, boolean>
+): string => {
+  const constraintName = `${tableName}_${field.name}_fkey`
+  // If the related table uses a VIEW (has lookup fields), reference the base table instead
+  const relatedTableName =
+    tableUsesView?.get(field.relatedTable) === true
+      ? `${field.relatedTable}_base`
+      : field.relatedTable
+
+  // Build referential actions (ON DELETE, ON UPDATE)
+  const onDeleteClause =
+    'onDelete' in field
+      ? mapReferentialAction(field.onDelete as string | undefined, 'delete')
+      : ''
+  const onUpdateClause =
+    'onUpdate' in field
+      ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
+      : ''
+
+  // Use relatedField if specified, otherwise default to 'id'
+  const referencedColumn =
+    'relatedField' in field && field.relatedField ? field.relatedField : 'id'
+
+  return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
+}
+
+/**
+ * Generate FOREIGN KEY constraints for user fields, relationship fields, and composite foreign keys
  * Exported for use in migration system to sync FK constraints
  */
 export const generateForeignKeyConstraints = (
   tableName: string,
   fields: readonly Fields[number][],
-  tableUsesView?: ReadonlyMap<string, boolean>
+  tableUsesView?: ReadonlyMap<string, boolean>,
+  compositeForeignKeys?: readonly {
+    readonly name: string
+    readonly fields: readonly string[]
+    readonly referencedTable: string
+    readonly referencedFields: readonly string[]
+    readonly onDelete?: string
+    readonly onUpdate?: string
+  }[]
 ): readonly string[] => {
   // Generate foreign keys for user fields (type: 'user')
   // Uses _sovrium_auth_users for namespace isolation from user-created tables
@@ -596,26 +658,7 @@ export const generateForeignKeyConstraints = (
         (field.relationType !== 'one-to-many' && field.relationType !== 'many-to-many')
       )
     })
-    .map((field) => {
-      const constraintName = `${tableName}_${field.name}_fkey`
-      // If the related table uses a VIEW (has lookup fields), reference the base table instead
-      const relatedTableName =
-        tableUsesView?.get(field.relatedTable) === true
-          ? `${field.relatedTable}_base`
-          : field.relatedTable
-
-      // Build referential actions (ON DELETE, ON UPDATE)
-      const onDeleteClause =
-        'onDelete' in field
-          ? mapReferentialAction(field.onDelete as string | undefined, 'delete')
-          : ''
-      const onUpdateClause =
-        'onUpdate' in field
-          ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
-          : ''
-
-      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(id)${onDeleteClause}${onUpdateClause}`
-    })
+    .map((field) => generateRelationshipConstraint(tableName, field, tableUsesView))
 
   // Foreign keys disabled for created-by/updated-by fields
   // Blocked by: https://github.com/sovrium/sovrium/issues/3980
@@ -628,12 +671,21 @@ export const generateForeignKeyConstraints = (
   //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public._sovrium_auth_users(id)`
   //   })
 
-  return [...userFieldConstraints, ...relationshipFieldConstraints, ...userReferenceConstraints]
+  // Generate composite foreign key constraints
+  const compositeFKs = generateCompositeForeignKeyConstraints(compositeForeignKeys ?? [])
+
+  return [
+    ...userFieldConstraints,
+    ...relationshipFieldConstraints,
+    ...userReferenceConstraints,
+    ...compositeFKs,
+  ]
 }
 
 /**
  * Generate primary key constraint if defined
  * Skips single-field composite keys when the field is SERIAL (PRIMARY KEY is already inline)
+ * Note: Special field 'id' is automatically SERIAL, so PRIMARY KEY is inline
  */
 const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
   if (table.primaryKey?.type === 'composite' && table.primaryKey.fields) {
@@ -641,6 +693,13 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
     if (table.primaryKey.fields.length === 1) {
       const pkFieldName = table.primaryKey.fields[0]
       const pkField = table.fields.find((f) => f.name === pkFieldName)
+
+      // Special case: 'id' field is automatically SERIAL, PRIMARY KEY is inline
+      if (pkFieldName === 'id' && !pkField) {
+        // PRIMARY KEY is already inline in the automatic id column definition
+        return []
+      }
+
       if (pkField && shouldUseSerial(pkField, true)) {
         // PRIMARY KEY is already inline in the SERIAL column definition
         return []
@@ -688,7 +747,7 @@ export const generateTableConstraints = (
   ...generateCompositeUniqueConstraints(table),
   ...(skipForeignKeys
     ? []
-    : generateForeignKeyConstraints(table.name, table.fields, tableUsesView)),
+    : generateForeignKeyConstraints(table.name, table.fields, tableUsesView, table.foreignKeys)),
 ]
 
 /**

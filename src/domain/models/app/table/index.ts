@@ -10,6 +10,7 @@ import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
 import { detectCycles } from './cycle-detection'
 import { findDuplicate } from './field-types/validation-utils'
 import { FieldsSchema } from './fields'
+import { ForeignKeySchema } from './foreign-keys'
 import { FORMULA_KEYWORDS } from './formula-keywords'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
@@ -110,7 +111,7 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
  * Special field references that are always available in formulas.
  * These are system-managed fields that exist on all tables.
  */
-const SPECIAL_FIELDS = new Set(['id', 'created_at', 'updated_at'])
+export const SPECIAL_FIELDS = new Set(['id', 'created_at', 'updated_at', 'deleted_at']) as ReadonlySet<string>
 
 /**
  * Validate formula fields in a table (syntax, field references, circular dependencies).
@@ -383,8 +384,10 @@ const validatePrimaryKey = (
     }
   }
 
-  // Check for non-existent field references
-  const invalidField = primaryKey.fields.find((field) => !fieldNames.has(field))
+  // Check for non-existent field references (allow special fields)
+  const invalidField = primaryKey.fields.find(
+    (field) => !fieldNames.has(field) && !SPECIAL_FIELDS.has(field)
+  )
 
   if (invalidField) {
     return {
@@ -622,7 +625,9 @@ const validateViewFilters = (
     .filter((view) => view.filters !== undefined)
     .flatMap((view) => {
       const referencedFields = extractFieldReferencesFromFilter(view.filters!)
-      const invalidFields = referencedFields.filter((fieldName) => !fieldNames.has(fieldName))
+      const invalidFields = referencedFields.filter(
+        (fieldName) => !fieldNames.has(fieldName) && !SPECIAL_FIELDS.has(fieldName)
+      )
       return invalidFields.map((invalidField) => ({ view, invalidField }))
     })
     .at(0)
@@ -654,7 +659,9 @@ const validateViewFields = (
         view.fields !== undefined && view.fields.length > 0
     )
     .flatMap((view) => {
-      const invalidFields = view.fields.filter((fieldName) => !fieldNames.has(fieldName))
+      const invalidFields = view.fields.filter(
+        (fieldName) => !fieldNames.has(fieldName) && !SPECIAL_FIELDS.has(fieldName)
+      )
       return invalidFields.map((invalidField) => ({ view, invalidField }))
     })
     .at(0)
@@ -688,7 +695,9 @@ const validateViewGroupBy = (
       (view): view is typeof view & { readonly groupBy: { readonly field: string } } =>
         view.groupBy !== undefined
     )
-    .find((view) => !fieldNames.has(view.groupBy.field))
+    .find(
+      (view) => !fieldNames.has(view.groupBy.field) && !SPECIAL_FIELDS.has(view.groupBy.field)
+    )
 
   if (invalidView) {
     return {
@@ -723,7 +732,9 @@ const validateViewSorts = (
       } => view.sorts !== undefined && view.sorts.length > 0
     )
     .flatMap((view) => {
-      const invalidFields = view.sorts.filter((sort) => !fieldNames.has(sort.field))
+      const invalidFields = view.sorts.filter(
+        (sort) => !fieldNames.has(sort.field) && !SPECIAL_FIELDS.has(sort.field)
+      )
       return invalidFields.map((sort) => ({ view, invalidField: sort.field }))
     })
     .at(0)
@@ -1052,6 +1063,27 @@ export const TableSchema = Schema.Struct({
   views: Schema.optional(Schema.Array(ViewSchema)),
 
   /**
+   * Composite foreign key constraints.
+   *
+   * Used for multi-column foreign keys where multiple fields together reference
+   * a composite primary key in another table. Single-column foreign keys are
+   * automatically created from relationship fields.
+   *
+   * @example Composite foreign key
+   * ```typescript
+   * foreignKeys: [{
+   *   name: 'fk_permissions_tenant_user',
+   *   fields: ['tenant_id', 'user_id'],
+   *   referencedTable: 'tenant_users',
+   *   referencedFields: ['tenant_id', 'user_id']
+   * }]
+   * ```
+   *
+   * @see ForeignKeySchema for full configuration options
+   */
+  foreignKeys: Schema.optional(Schema.Array(ForeignKeySchema)),
+
+  /**
    * Table-level permissions (high-level RBAC abstraction).
    *
    * Automatically generates RLS policies based on permission configuration.
@@ -1124,6 +1156,7 @@ export * from './fields'
 export * from './primary-key'
 export * from './unique-constraints'
 export * from './indexes'
+export * from './foreign-keys'
 export * from './field-types'
 export * from './views'
 export * from './permissions'

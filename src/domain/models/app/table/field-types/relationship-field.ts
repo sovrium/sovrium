@@ -80,6 +80,15 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      relatedField: Schema.optional(
+        Schema.String.pipe(
+          Schema.nonEmptyString({ message: () => 'relatedField is required' }),
+          Schema.annotations({
+            description:
+              'Name of the field in the related table to reference (defaults to id). The referenced field must have a primary key or unique constraint.',
+          })
+        )
+      ),
     })
   ),
   Schema.annotations({

@@ -34,7 +34,7 @@ test.describe('Special Fields in Formulas', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-001: should allow formula to reference id without explicit field definition',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -73,7 +73,7 @@ test.describe('Special Fields in Formulas', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-002: should allow formula to reference created_at without explicit field definition',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -110,7 +110,7 @@ test.describe('Special Fields in Formulas', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-003: should allow formula to reference updated_at without explicit field definition',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

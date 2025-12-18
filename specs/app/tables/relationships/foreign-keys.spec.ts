@@ -439,7 +439,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-009: should support composite foreign keys on multi-column references',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -466,7 +466,6 @@ test.describe('Foreign Key Relationships', () => {
               { id: 2, name: 'user_id', type: 'integer', required: true },
               { id: 3, name: 'resource', type: 'single-line-text' },
             ],
-            // @ts-expect-error - Future feature: composite foreign keys
             foreignKeys: [
               {
                 name: 'fk_permissions_tenant_user',
@@ -500,7 +499,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-010: should reject foreign key creation when referenced table does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -532,7 +531,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-011: should reject foreign key when referenced column is not primary or unique key',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -561,7 +560,6 @@ test.describe('Foreign Key Relationships', () => {
                   name: 'customer_email',
                   type: 'relationship',
                   relatedTable: 'customers',
-                  // @ts-expect-error - Future feature: custom reference field
                   relatedField: 'email', // References non-unique column!
                   relationType: 'many-to-one',
                 },
@@ -573,7 +571,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-012: should CASCADE UPDATE child records when parent primary key changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -618,7 +616,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-013: should support one-to-one relationships with UNIQUE constraint on foreign key',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -661,7 +659,7 @@ test.describe('Foreign Key Relationships', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-014: should support many-to-many relationships via junction table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -742,7 +740,7 @@ test.describe('Foreign Key Relationships', () => {
   // @regression test - OPTIMIZED integration workflow
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FK-015: user can complete full foreign-key workflow with CASCADE behaviors',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
