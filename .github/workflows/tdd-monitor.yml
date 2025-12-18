@@ -43,7 +43,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  STUCK_TIMEOUT_MINUTES: 90 # Specs stuck >90 min are recovered
+  STUCK_TIMEOUT_MINUTES: 105 # Specs stuck >105 min are recovered (15 min buffer above Claude timeout)
   PR_STUCK_TIMEOUT_MINUTES: 120 # PRs stuck >120 min are force-closed
   RETRY_STUCK_TIMEOUT_MINUTES: 30 # Retries stuck >30 min are recovered
   FAILED_PR_COOLDOWN_MINUTES: 30 # Wait 30 min between regression fix attempts
