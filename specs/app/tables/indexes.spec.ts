@@ -281,12 +281,12 @@ test.describe('Database Indexes', () => {
 
       // THEN: PostgreSQL only creates default primary key index
 
-      // Only primary key index exists
+      // Only primary key index and automatic deleted_at index exist
       const count = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'`
       )
-      // THEN: assertion
-      expect(count.rows[0]).toMatchObject({ count: 1 })
+      // THEN: assertion (pkey + deleted_at index for soft-delete filtering)
+      expect(count.rows[0]).toMatchObject({ count: 2 })
 
       // Primary key index is on id column
       const pkeyIndex = await executeQuery(
@@ -295,9 +295,9 @@ test.describe('Database Indexes', () => {
       // THEN: assertion
       expect(pkeyIndex.rows[0]).toMatchObject({ indexname: 'logs_pkey' })
 
-      // No custom indexes created
+      // Only automatic deleted_at index created (no user-defined custom indexes)
       const customIndexes = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey'`
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey' AND indexname NOT LIKE '%deleted_at%'`
       )
       // THEN: assertion
       expect(customIndexes.rows[0]).toMatchObject({ count: 0 })
@@ -362,9 +362,9 @@ test.describe('Database Indexes', () => {
 
       // THEN: PostgreSQL creates all specified indexes independently
 
-      // All three indexes exist
+      // All three user-defined indexes exist (excluding automatic deleted_at index)
       const count = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%'`
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%' AND indexname NOT LIKE '%deleted_at%'`
       )
       // THEN: assertion
       expect(count.rows[0]).toMatchObject({ count: 3 })

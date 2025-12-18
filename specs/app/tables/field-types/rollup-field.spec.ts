@@ -313,17 +313,19 @@ test.describe('Rollup Field', () => {
         'INSERT INTO employees (department_id, salary) VALUES (1, 90000), (1, 85000), (1, 95000), (2, 70000), (2, 75000), (3, 60000)'
       )
 
-      // THEN: Rollup works efficiently for all departments
-      const allDepartments = await executeQuery('SELECT * FROM departments ORDER BY id')
+      // THEN: Rollup works efficiently for all departments (use explicit columns to avoid special fields)
+      const allDepartments = await executeQuery(
+        'SELECT id, name, total_salary FROM departments ORDER BY id'
+      )
       expect(allDepartments.rows).toEqual([
         { id: 1, name: 'Engineering', total_salary: 270_000 }, // 90k + 85k + 95k
         { id: 2, name: 'Sales', total_salary: 145_000 }, // 70k + 75k
         { id: 3, name: 'Marketing', total_salary: 60_000 },
       ])
 
-      // THEN: Can filter departments by computed rollup value
+      // THEN: Can filter departments by computed rollup value (use explicit columns to avoid special fields)
       const highBudgetDepts = await executeQuery(
-        'SELECT * FROM departments WHERE total_salary > 100000 ORDER BY id'
+        'SELECT id, name, total_salary FROM departments WHERE total_salary > 100000 ORDER BY id'
       )
       expect(highBudgetDepts.rows).toEqual([
         { id: 1, name: 'Engineering', total_salary: 270_000 },

@@ -51,8 +51,8 @@ test.describe('Button Field', () => {
       const columns = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='records'"
       )
-      // THEN: assertion
-      expect(columns.count).toBe(1) // Only id column
+      // THEN: assertion (id + 3 special fields = 4, button field is UI-only and creates no column)
+      expect(columns.count).toBe(4)
     }
   )
 
