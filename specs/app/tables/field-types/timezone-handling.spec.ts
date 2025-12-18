@@ -218,7 +218,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-005: should convert TIMESTAMP WITH TIME ZONE to session timezone on retrieval',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
