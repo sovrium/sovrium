@@ -39,7 +39,7 @@ concurrency:
 
 env:
   MAX_INFRASTRUCTURE_RETRIES: 3
-  CLAUDE_TIMEOUT_MINUTES: 75
+  CLAUDE_TIMEOUT_MINUTES: 90
 
 jobs:
   # Pre-check job: Validate context exists before running Claude Code
@@ -372,7 +372,7 @@ jobs:
   # Main Claude Code execution with timeout monitoring
   execute-claude:
     runs-on: ubuntu-latest
-    timeout-minutes: 80 # Slightly longer than Claude timeout (75) to allow cleanup
+    timeout-minutes: 95 # Slightly longer than Claude timeout (90) to allow cleanup
     needs: [validate-context, classify-previous-error]
     if: |
       always() &&
@@ -434,7 +434,7 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: 75
+        timeout-minutes: 90
         continue-on-error: true # Capture exit code instead of failing immediately
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -450,7 +450,9 @@ jobs:
           #
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
-          # - --max-turns: Prevent runaway conversations (30 turns covers read→implement→test→PR cycle)
+          # - --max-budget-usd: Cost-based limit instead of turn-based (complex specs need 55-90+ turns)
+          #   Using $10 budget allows complex specs to complete while preventing runaway costs
+          #   The 90-minute timeout acts as the ultimate time-based backstop
           # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
           # - --disallowedTools: Block tools not needed for autonomous code implementation
           #   - AskUserQuestion: No human present in automation (would hang or skip)
@@ -459,7 +461,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-turns 30
+            --max-budget-usd 10.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 

@@ -210,7 +210,9 @@ jobs:
           #
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for refactoring)
-          # - --max-turns: Prevent runaway conversations (40 turns for comprehensive refactoring audits)
+          # - --max-budget-usd: Cost-based limit instead of turn-based (refactoring can be extensive)
+          #   Using $10 budget allows comprehensive audits while preventing runaway costs
+          #   The 120-minute timeout acts as the ultimate time-based backstop
           # - --allowedTools: Principle of least privilege - only tools needed for refactoring
           # - --disallowedTools: Block tools not needed for autonomous refactoring
           #   - AskUserQuestion: No human present in automation (would hang or skip)
@@ -219,7 +221,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-turns 40
+            --max-budget-usd 10.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
