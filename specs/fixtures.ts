@@ -1087,42 +1087,42 @@ export const test = base.extend<ServerFixtures>({
       pathParts[1] = testDbName // Replace database name
       url.pathname = pathParts.join('/')
 
-      // Create pg client for the test database
-      const client = new Client({ connectionString: url.toString() })
-      clients.push(client)
-      await client.connect()
-
-      try {
-        // Handle both single query and array of queries
-        if (Array.isArray(query)) {
-          // Execute queries sequentially
-          let lastResult: any = { rows: [], rowCount: 0 }
-          for (const sql of query) {
-            const result = await client.query(sql)
-            const rows = result.rows
-            const rowCount = result.rowCount || 0
-            // Always include rows/rowCount, spread first row for single-row queries
-            lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
-          }
-          return lastResult
-        }
-
-        // Handle semicolon-separated statements (e.g., SET LOCAL ... ; SELECT ...)
-        // Note: Must respect string literals when splitting (don't split on ';' inside quotes)
-        if (!params && query.includes(';')) {
-          const statements = splitSQLStatements(query)
-          return await executeStatementsInTransaction(client, statements)
-        }
-
-        // Single statement
-        const result = params ? await client.query(query, params) : await client.query(query)
-        const rows = result.rows
-        const rowCount = result.rowCount || 0
-        return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
-      } finally {
-        // Close connection after each query execution
-        await client.end()
+      // Reuse existing client for this test to maintain session state (timezone, etc.)
+      // This ensures SET TIME ZONE commands persist across executeQuery calls
+      let client = (testInfo as any)._testDatabaseClient
+      if (!client) {
+        client = new Client({ connectionString: url.toString() })
+        ;(testInfo as any)._testDatabaseClient = client
+        clients.push(client)
+        await client.connect()
       }
+
+      // Handle both single query and array of queries
+      if (Array.isArray(query)) {
+        // Execute queries sequentially
+        let lastResult: any = { rows: [], rowCount: 0 }
+        for (const sql of query) {
+          const result = await client.query(sql)
+          const rows = result.rows
+          const rowCount = result.rowCount || 0
+          // Always include rows/rowCount, spread first row for single-row queries
+          lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+        }
+        return lastResult
+      }
+
+      // Handle semicolon-separated statements (e.g., SET LOCAL ... ; SELECT ...)
+      // Note: Must respect string literals when splitting (don't split on ';' inside quotes)
+      if (!params && query.includes(';')) {
+        const statements = splitSQLStatements(query)
+        return await executeStatementsInTransaction(client, statements)
+      }
+
+      // Single statement
+      const result = params ? await client.query(query, params) : await client.query(query)
+      const rows = result.rows
+      const rowCount = result.rowCount || 0
+      return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
     })
 
     // Cleanup: Close any remaining connections (shouldn't be any, but just in case)
