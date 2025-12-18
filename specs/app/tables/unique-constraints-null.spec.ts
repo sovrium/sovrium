@@ -166,7 +166,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-004: should document required+unique differs from optional+unique behavior',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -209,7 +209,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         `SELECT COUNT(*) as count FROM optional_unique WHERE email IS NULL`
       )
       // THEN: assertion
-      expect(nullCount.rows[0]).toMatchObject({ count: '2' })
+      expect(nullCount.rows[0]).toMatchObject({ count: 2 })
     }
   )
 
