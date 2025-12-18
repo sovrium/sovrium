@@ -76,7 +76,8 @@ export const generateAuthenticatedBasedGrants = (table: Table): readonly string[
   const tableName = table.name
 
   // Check if table has field-level permissions
-  const hasFieldPermissions = table.permissions?.fields && table.permissions.fields.length > 0
+  const hasFieldPermissions =
+    table.permissions?.fields !== undefined && table.permissions.fields.length > 0
 
   const createRoleStatements = [
     `DO $$
@@ -135,7 +136,8 @@ export const generateRoleBasedGrants = (table: Table): readonly string[] => {
   }
 
   // Check if table has field-level permissions
-  const hasFieldPermissions = table.permissions?.fields && table.permissions.fields.length > 0
+  const hasFieldPermissions =
+    table.permissions?.fields !== undefined && table.permissions.fields.length > 0
 
   // Always create guest_user for testing permission denials (but don't grant access)
   const allRoles = ['guest_user', ...databaseRoles]
