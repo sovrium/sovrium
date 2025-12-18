@@ -241,7 +241,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         ],
       })
 
-      // THEN: PostgreSQL allows multiple NULLs (partial index doesn't apply to NULL)
+      // WHEN: inserting multiple records with NULL usernames
 
       await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Alice', NULL)`)
       await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Bob', NULL)`)
