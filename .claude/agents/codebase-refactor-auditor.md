@@ -1409,13 +1409,13 @@ A successful refactoring audit must meet different criteria for immediate refact
 The following criteria must ALL be met for Phase 1.1 completion:
 - [ ] Analyze git history to identify recent major commits
 - [ ] Establish clean E2E test baseline (Phase 0)
-- [ ] **`bun run quality` passes** (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
+- [ ] **`bun run quality --include-effect` passes** (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
 - [ ] **Verify layer architecture compliance** (no cross-layer import violations)
 - [ ] Identify architectural issues in recent changes with file/line references
 - [ ] Propose concrete, code-complete refactorings for recent changes
 - [ ] Execute refactorings incrementally for recent changes
 - [ ] Maintain 100% E2E test baseline pass rate (Phase 5)
-- [ ] **`bun run quality` still passes** after all refactorings
+- [ ] **`bun run quality --include-effect` still passes** after all refactorings
 - [ ] Document test results before and after
 - [ ] Leave recent changes in working state (all tests passing)
 
@@ -1432,7 +1432,7 @@ The following criteria must ALL be met for Phase 1.2 completion:
 ### Overall Success
 - **Immediate refactorings complete**: All Phase 1.1 changes implemented and validated
 - **Recommendations documented**: All Phase 1.2 issues identified and prioritized
-- **`bun run quality` passes**: ALL quality checks pass (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
+- **`bun run quality --include-effect` passes**: ALL quality checks pass (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
 - **Layer architecture compliant**: No cross-layer import violations in src/
 - **Tests passing**: E2E baseline maintained for implemented changes
 - **Human in control**: Phase 1.2 changes await explicit approval
@@ -1454,7 +1454,7 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 - **Layer architecture compliance**: 0 cross-layer import violations (MUST be zero)
 - **Framework patterns corrected**: X manual memoizations removed, Y Effect.ts patterns improved, Z other corrections
 - **Type safety improvements**: X 'any' types replaced with proper types
-- **`bun run quality` status**: ✅ All checks passing (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
+- **`bun run quality --include-effect` status**: ✅ All checks passing (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
 
 **Test Coverage & Safety**:
 - **Test baseline maintained**: 100% of @spec/@regression tests passing (no regressions)
@@ -1473,7 +1473,7 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 - **Duplication eliminated**: 8 instances consolidated into 3 shared utilities
 - **Violations fixed**: 15 total (5 critical, 7 high, 3 medium)
 - **Layer architecture**: ✅ 0 cross-layer violations (compliant)
-- **`bun run quality`**: ✅ All checks passing
+- **`bun run quality --include-effect`**: ✅ All checks passing
   - ESLint: ✅ 0 errors, 0 warnings
   - TypeScript: ✅ No type errors
   - Effect Diagnostics: ✅ No Effect-specific issues
