@@ -326,7 +326,13 @@ export const generateAlterTableStatements = (
   // Add automatic deleted_at column if not present (soft-delete by default)
   const deletedAtStatement = generateDeletedAtStatement(table, existingColumns)
 
-  return [...renameStatements, ...dropStatements, ...addStatements, ...deletedAtStatement, ...nullabilityChanges]
+  return [
+    ...renameStatements,
+    ...dropStatements,
+    ...addStatements,
+    ...deletedAtStatement,
+    ...nullabilityChanges,
+  ]
 }
 
 /**

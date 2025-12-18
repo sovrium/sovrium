@@ -191,7 +191,7 @@ test.describe('Special Fields in Formulas', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-005: should automatically create deleted_at column on all tables',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
