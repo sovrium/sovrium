@@ -262,7 +262,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-006: should handle daylight saving time transitions correctly',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
