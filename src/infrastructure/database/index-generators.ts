@@ -79,7 +79,8 @@ const generateCustomIndexes = (table: Table): readonly string[] =>
   table.indexes?.map((index) => {
     const uniqueClause = index.unique ? 'UNIQUE ' : ''
     const fields = index.fields.join(', ')
-    return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})`
+    const whereClause = 'where' in index && index.where ? ` WHERE ${index.where}` : ''
+    return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})${whereClause}`
   }) ?? []
 
 /**

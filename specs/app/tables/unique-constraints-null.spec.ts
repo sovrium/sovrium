@@ -213,7 +213,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-005: should use partial unique index to enforce uniqueness only on non-NULL values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -234,7 +234,6 @@ test.describe('NULL Handling in Unique Constraints', () => {
                 name: 'idx_accounts_username_unique',
                 fields: ['username'],
                 unique: true,
-                // @ts-expect-error - Future feature: partial unique indexes with WHERE clause
                 where: 'username IS NOT NULL', // Partial index excludes NULLs
               },
             ],
@@ -252,7 +251,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         `SELECT COUNT(*) as count FROM accounts WHERE username IS NULL`
       )
       // THEN: assertion
-      expect(nullCount.rows[0]).toMatchObject({ count: '3' })
+      expect(nullCount.rows[0]).toMatchObject({ count: 3 })
 
       // Non-NULL usernames still unique
       await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Dave', 'alice')`)
