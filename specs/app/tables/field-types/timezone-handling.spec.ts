@@ -81,7 +81,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-002: should use TIMESTAMP WITH TIME ZONE for timezone-aware datetime fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -129,7 +129,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-003: should preserve UTC offset when inserting TIMESTAMPTZ values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -176,7 +176,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-004: should NOT convert TIMESTAMP WITHOUT TIME ZONE on session timezone change',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
