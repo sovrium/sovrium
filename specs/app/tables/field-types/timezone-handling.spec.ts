@@ -306,7 +306,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-007: should handle ambiguous timestamps during DST fall-back with explicit offset',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
