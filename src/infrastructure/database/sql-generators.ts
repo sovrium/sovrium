@@ -104,6 +104,14 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
     return `NUMERIC(${field.precision},2)`
   }
 
+  // Handle datetime fields with timezone awareness
+  // datetime with timezone property uses TIMESTAMPTZ (timezone-aware)
+  // datetime without timezone property uses TIMESTAMP (zoneless)
+  if (field.type === 'datetime') {
+    const hasTimezone = 'timezone' in field && field.timezone !== undefined
+    return hasTimezone ? 'TIMESTAMPTZ' : 'TIMESTAMP'
+  }
+
   const postgresType = fieldTypeToPostgresMap[field.type]
   if (!postgresType) {
     // eslint-disable-next-line functional/no-throw-statements -- Error is caught by Effect.try in table-operations.ts
