@@ -306,7 +306,14 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  return [...renameStatements, ...dropStatements, ...addStatements, ...nullabilityChanges]
+  // Add automatic deleted_at column if not present (soft-delete by default)
+  const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
+  const hasDeletedAtColumn = existingColumns.has('deleted_at')
+  const deletedAtStatement = !hasDeletedAtField && !hasDeletedAtColumn
+    ? [`ALTER TABLE ${table.name} ADD COLUMN deleted_at TIMESTAMPTZ`]
+    : []
+
+  return [...renameStatements, ...dropStatements, ...addStatements, ...deletedAtStatement, ...nullabilityChanges]
 }
 
 /**

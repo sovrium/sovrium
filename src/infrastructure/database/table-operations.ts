@@ -180,9 +180,16 @@ export const generateCreateTableSQL = (
       ? ['PRIMARY KEY (id)']
       : []
 
+  // Add automatic deleted_at column (soft-delete by default) if not explicitly defined
+  const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
+  const deletedAtColumnDefinition = !hasDeletedAtField
+    ? ['deleted_at TIMESTAMPTZ']
+    : []
+
   const allDefinitions = [
     ...idColumnDefinition,
     ...columnDefinitions,
+    ...deletedAtColumnDefinition,
     ...tableConstraints,
     ...primaryKeyConstraint,
   ]
