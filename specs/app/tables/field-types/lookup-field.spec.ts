@@ -357,7 +357,7 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-006: should concatenate values from multiple linked records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
