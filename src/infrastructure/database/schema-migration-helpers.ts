@@ -200,7 +200,10 @@ const findColumnsToDrop = (
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
 
-    // Never drop intrinsic deleted_at column (soft-delete system column)
+    // Never drop intrinsic special fields (APP-TABLES-SPECIAL-FIELDS-007)
+    // These are automatic timestamp columns managed by triggers
+    if (columnName === 'created_at') return false
+    if (columnName === 'updated_at') return false
     if (columnName === 'deleted_at') return false
 
     // Don't drop if it's being renamed
@@ -257,6 +260,36 @@ const findNullabilityChanges = (
 /**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns, nullability changes)
  */
+/**
+ * Generate statements to add created_at column if not present
+ * Uses DEFAULT NOW() to populate existing rows during ALTER TABLE
+ */
+const generateCreatedAtStatement = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+): readonly string[] => {
+  const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
+  const hasCreatedAtColumn = existingColumns.has('created_at')
+  return !hasCreatedAtField && !hasCreatedAtColumn
+    ? [`ALTER TABLE ${table.name} ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
+    : []
+}
+
+/**
+ * Generate statements to add updated_at column if not present
+ * Uses DEFAULT NOW() to populate existing rows during ALTER TABLE
+ */
+const generateUpdatedAtStatement = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+): readonly string[] => {
+  const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
+  const hasUpdatedAtColumn = existingColumns.has('updated_at')
+  return !hasUpdatedAtField && !hasUpdatedAtColumn
+    ? [`ALTER TABLE ${table.name} ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
+    : []
+}
+
 /**
  * Generate statements to add deleted_at column if not present
  */
@@ -326,13 +359,18 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  // Add automatic deleted_at column if not present (soft-delete by default)
+  // Add automatic special fields if not present (APP-TABLES-SPECIAL-FIELDS-007)
+  // created_at and updated_at must be added before deleted_at to maintain column order consistency
+  const createdAtStatement = generateCreatedAtStatement(table, existingColumns)
+  const updatedAtStatement = generateUpdatedAtStatement(table, existingColumns)
   const deletedAtStatement = generateDeletedAtStatement(table, existingColumns)
 
   return [
     ...renameStatements,
     ...dropStatements,
     ...addStatements,
+    ...createdAtStatement,
+    ...updatedAtStatement,
     ...deletedAtStatement,
     ...nullabilityChanges,
   ]

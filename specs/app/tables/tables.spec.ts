@@ -63,9 +63,12 @@ test.describe('Data Tables', () => {
       const columns = await executeQuery(
         `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'products' ORDER BY ordinal_position`
       )
-      // THEN: assertion
+      // THEN: assertion (includes automatic special fields: created_at, updated_at, deleted_at)
       expect(columns.rows).toEqual([
         { column_name: 'id', data_type: 'integer', is_nullable: 'NO' },
+        { column_name: 'created_at', data_type: 'timestamp with time zone', is_nullable: 'NO' },
+        { column_name: 'updated_at', data_type: 'timestamp with time zone', is_nullable: 'NO' },
+        { column_name: 'deleted_at', data_type: 'timestamp with time zone', is_nullable: 'YES' },
         { column_name: 'title', data_type: 'character varying', is_nullable: 'NO' },
       ])
 
@@ -128,9 +131,12 @@ test.describe('Data Tables', () => {
       const columns = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position`
       )
-      // THEN: assertion
+      // THEN: assertion (includes automatic special fields: created_at, updated_at, deleted_at)
       expect(columns.rows).toEqual([
         { column_name: 'id', data_type: 'integer' },
+        { column_name: 'created_at', data_type: 'timestamp with time zone' },
+        { column_name: 'updated_at', data_type: 'timestamp with time zone' },
+        { column_name: 'deleted_at', data_type: 'timestamp with time zone' },
         { column_name: 'name', data_type: 'character varying' },
         { column_name: 'email', data_type: 'character varying' },
         { column_name: 'age', data_type: 'integer' },
@@ -302,9 +308,12 @@ test.describe('Data Tables', () => {
       const columns = await executeQuery(
         `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position`
       )
-      // THEN: assertion
+      // THEN: assertion (includes automatic special fields: created_at, updated_at, deleted_at)
       expect(columns.rows).toEqual([
         { column_name: 'id', data_type: 'integer', is_nullable: 'NO' },
+        { column_name: 'created_at', data_type: 'timestamp with time zone', is_nullable: 'NO' },
+        { column_name: 'updated_at', data_type: 'timestamp with time zone', is_nullable: 'NO' },
+        { column_name: 'deleted_at', data_type: 'timestamp with time zone', is_nullable: 'YES' },
         { column_name: 'email', data_type: 'character varying', is_nullable: 'NO' },
         { column_name: 'name', data_type: 'character varying', is_nullable: 'NO' },
       ])
@@ -755,8 +764,8 @@ test.describe('Data Tables', () => {
       const columnCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
       )
-      // THEN: assertion
-      expect(columnCount.rows[0]).toMatchObject({ count: 3 })
+      // THEN: assertion (id + created_at + updated_at + deleted_at + name + phone = 6)
+      expect(columnCount.rows[0]).toMatchObject({ count: 6 })
     }
   )
 
@@ -805,7 +814,7 @@ test.describe('Data Tables', () => {
         ],
       })
 
-      // THEN: column is removed, table has 2 remaining columns (id + data)
+      // THEN: column is removed, table has 5 remaining columns (id + created_at + updated_at + deleted_at + data)
       const statusColumn = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data' AND column_name = 'status'`
       )
@@ -815,8 +824,8 @@ test.describe('Data Tables', () => {
       const remainingColumns = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data'`
       )
-      // THEN: assertion
-      expect(remainingColumns.rows[0]).toMatchObject({ count: 2 })
+      // THEN: assertion (id + created_at + updated_at + deleted_at + data = 5)
+      expect(remainingColumns.rows[0]).toMatchObject({ count: 5 })
     }
   )
 
@@ -1235,11 +1244,14 @@ test.describe('Data Tables', () => {
         ],
       })
 
-      // THEN: table should be created with correct column types
+      // THEN: table should be created with correct column types (includes automatic special fields)
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks' ORDER BY ordinal_position"
       )
       expect(columnInfo.rows).toEqual([
+        { column_name: 'created_at', data_type: 'timestamp with time zone' },
+        { column_name: 'updated_at', data_type: 'timestamp with time zone' },
+        { column_name: 'deleted_at', data_type: 'timestamp with time zone' },
         { column_name: 'id', data_type: 'integer' },
         { column_name: 'title', data_type: 'character varying' },
         { column_name: 'assigned_to', data_type: 'text' },

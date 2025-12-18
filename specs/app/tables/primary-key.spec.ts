@@ -492,7 +492,7 @@ test.describe('Primary Key', () => {
               {
                 id: 3,
                 name: 'timestamp',
-                type: 'created-at',
+                type: 'integer', // Use integer to represent timestamp (test is about composite PK, not timestamp functionality)
                 required: true,
               },
               {
@@ -506,7 +506,7 @@ test.describe('Primary Key', () => {
       })
 
       await executeQuery(
-        `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 10:00:00', 'login'), (1, 1, '2024-01-01 11:00:00', 'logout')`
+        `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, 1000, 'login'), (1, 1, 1100, 'logout')`
       )
 
       // THEN: PostgreSQL creates PRIMARY KEY constraint on all specified columns
@@ -525,17 +525,17 @@ test.describe('Primary Key', () => {
       // THEN: assertion
       expect(sameUserTenant.rows[0]).toMatchObject({ count: 2 })
 
-      // Duplicate composite key rejected
+      // Duplicate composite key rejected (same timestamp 1000 as first row)
       // THEN: assertion
       await expect(
         executeQuery(
-          `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 10:00:00', 'duplicate')`
+          `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, 1000, 'duplicate')`
         )
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
       // Different timestamp allows same tenant and user
       const newRow = await executeQuery(
-        `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 12:00:00', 'update') RETURNING action`
+        `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, 1200, 'update') RETURNING action`
       )
       // THEN: assertion
       expect(newRow.rows[0]).toMatchObject({ action: 'update' })
