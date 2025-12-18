@@ -261,12 +261,12 @@ test.describe('NULL Handling in Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-006: should demonstrate PostgreSQL behavior when NULL used as distinct value in global settings',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table requiring NULL-aware uniqueness (treat NULL as distinct value)
-      // NOTE: PostgreSQL default allows multiple (NULL, key) combinations
+      // NOTE: PostgreSQL default allows multiple (NULL, setting_key) combinations
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -275,13 +275,13 @@ test.describe('NULL Handling in Unique Constraints', () => {
             name: 'settings',
             fields: [
               { id: 1, name: 'user_id', type: 'integer', required: false },
-              { id: 2, name: 'key', type: 'single-line-text', required: true },
+              { id: 2, name: 'setting_key', type: 'single-line-text', required: true },
               { id: 3, name: 'value', type: 'single-line-text' },
             ],
             uniqueConstraints: [
               {
                 name: 'uq_settings_user_key',
-                fields: ['user_id', 'key'],
+                fields: ['user_id', 'setting_key'],
                 // Application-level enforcement may be needed for "only one global setting per key"
               },
             ],
@@ -289,26 +289,26 @@ test.describe('NULL Handling in Unique Constraints', () => {
         ],
       })
 
-      // THEN: PostgreSQL default behavior allows multiple (NULL, key) combinations
+      // THEN: PostgreSQL default behavior allows multiple (NULL, setting_key) combinations
 
       await executeQuery(
-        `INSERT INTO settings (user_id, key, value) VALUES (NULL, 'theme', 'dark')`
+        `INSERT INTO settings (user_id, setting_key, value) VALUES (NULL, 'theme', 'dark')`
       )
 
       // This inserts successfully (PostgreSQL allows multiple NULL user_id)
       await executeQuery(
-        `INSERT INTO settings (user_id, key, value) VALUES (NULL, 'theme', 'light')`
+        `INSERT INTO settings (user_id, setting_key, value) VALUES (NULL, 'theme', 'light')`
       )
 
       // Verify both inserted (may be undesired - should only allow one global 'theme')
       const globalSettings = await executeQuery(
-        `SELECT COUNT(*) as count FROM settings WHERE user_id IS NULL AND key = 'theme'`
+        `SELECT COUNT(*) as count FROM settings WHERE user_id IS NULL AND setting_key = 'theme'`
       )
       // THEN: assertion - documents PostgreSQL behavior
-      expect(globalSettings.rows[0]).toMatchObject({ count: '2' })
+      expect(globalSettings.rows[0]).toMatchObject({ count: 2 })
 
       // NOTE: Application should validate "only one global setting per key" before INSERT
-      // Or use partial unique index: UNIQUE (key) WHERE user_id IS NULL
+      // Or use partial unique index: UNIQUE (setting_key) WHERE user_id IS NULL
     }
   )
 
