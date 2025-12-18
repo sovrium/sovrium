@@ -737,12 +737,13 @@ test.describe('Database Indexes', () => {
         const indexes = await executeQuery(
           `SELECT indexname FROM pg_indexes WHERE tablename = 'users' AND indexname LIKE 'idx_users_%' ORDER BY indexname`
         )
-        expect(indexes.rows).toHaveLength(3)
+        expect(indexes.rows).toHaveLength(4)
         expect(indexes.rows).toEqual(
           expect.arrayContaining([
-            expect.objectContaining({ indexname: 'idx_users_username' }),
-            expect.objectContaining({ indexname: 'idx_users_email' }),
             expect.objectContaining({ indexname: 'idx_users_created_at' }),
+            expect.objectContaining({ indexname: 'idx_users_deleted_at' }),
+            expect.objectContaining({ indexname: 'idx_users_email' }),
+            expect.objectContaining({ indexname: 'idx_users_username' }),
           ])
         )
       })
