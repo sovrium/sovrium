@@ -1018,11 +1018,11 @@ jobs:
 
             # Check for recent fix comments (cooldown period)
             # Matches both this job's comments AND test.yml's handle-regressions comments
-            # NOTE: test.yml now posts "Regression Analysis (Informational)" comments without @claude
-            #       This job is the sole owner of posting @claude mentions for regression fixes
+            # NOTE: test.yml now posts "Regression Auto-Fix Required" comments WITH @claude for immediate response
+            #       This job serves as a backup safety net for any missed regressions
             RECENT_FIX_COMMENT=$(gh api \
               "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Analysis\") or contains(\"Regression Detected\")) | select(.created_at > \"${CUTOFF_TIME}\")] | length" 2>/dev/null || echo "0")
+              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Auto-Fix Required\") or contains(\"Regression Detected\")) | select(.created_at > \"${CUTOFF_TIME}\")] | length" 2>/dev/null || echo "0")
 
             if [ "$RECENT_FIX_COMMENT" -gt 0 ]; then
               echo "   ⏭️  Skipping - fix already triggered within last ${COOLDOWN_MINUTES} minutes"

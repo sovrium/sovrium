@@ -203,7 +203,7 @@ The agent respects pipeline configuration (hardcoded in workflows):
 
 **Regression Detection Triggers**:
 - CI fails with `failure:regression` label added to PR
-- Comment contains "Regression Detected - Auto-Fix Required"
+- Comment contains "Regression Auto-Fix Required" or "Regression Detected"
 - Failure type is `regression_only` or `mixed`
 
 **When You Receive a Regression Fix Request**:
