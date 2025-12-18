@@ -5,6 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * RLS Policy Generators
+ *
+ * High-level policy generators for different permission types.
+ * Core utilities are in rls-policy-core.ts.
+ */
+
 import { logWarning } from '@/infrastructure/logging/effect-logger'
 import { translatePermissionCondition } from './permission-condition-translator'
 import {
@@ -17,8 +24,21 @@ import {
   hasRecordLevelPermissions,
   hasRolePermissions,
 } from './rls-permission-checks'
+import {
+  generateEnableRLS,
+  generatePolicyStatements,
+  generateOwnerCheck,
+  generateAuthenticatedCheck,
+  generateRoleCheck,
+  generateDropPolicies,
+  generateCreatePolicies,
+  generateAuthenticatedPolicyStatements,
+  generateRolePolicyStatements,
+  generateOwnerPolicyStatements,
+  generateOperationCheck,
+  generatePolicyName,
+} from './rls-policy-core'
 import type { Table } from '@/domain/models/app/table'
-import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 // Re-export grant functions for backward compatibility
 export {
@@ -27,283 +47,9 @@ export {
   generateRoleBasedGrants,
 } from './rls-grants'
 
-/**
- * Generate ALTER TABLE statements to enable RLS
- * Uses FORCE to enforce policies even for superusers (critical for E2E tests)
- *
- * @param tableName - Name of the table
- * @returns Array of ALTER TABLE statements
- */
-const generateEnableRLS = (tableName: string): readonly string[] => [
-  `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`,
-  `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`,
-]
-
-/**
- * Generate policy statements for a specific operation
- *
- * Creates DROP and CREATE POLICY statements for any permission type.
- * UPDATE requires both USING and WITH CHECK clauses, while SELECT/DELETE use USING,
- * and INSERT uses WITH CHECK.
- *
- * @param tableName - Name of the table
- * @param policyName - Name of the policy
- * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
- * @param checkExpression - SQL expression for permission check
- * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
- */
-const generatePolicyStatements = (
-  tableName: string,
-  policyName: string,
-  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
-  checkExpression: string | undefined
-): readonly string[] => {
-  if (!checkExpression) {
-    return []
-  }
-
-  const dropStatement = `DROP POLICY IF EXISTS ${policyName} ON ${tableName}`
-
-  // UPDATE requires both USING and WITH CHECK clauses
-  if (sqlCommand === 'UPDATE') {
-    return [
-      dropStatement,
-      `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} USING (${checkExpression}) WITH CHECK (${checkExpression})`,
-    ]
-  }
-
-  // INSERT uses WITH CHECK, SELECT/DELETE use USING
-  const clause = sqlCommand === 'INSERT' ? 'WITH CHECK' : 'USING'
-  return [
-    dropStatement,
-    `CREATE POLICY ${policyName} ON ${tableName} FOR ${sqlCommand} ${clause} (${checkExpression})`,
-  ]
-}
-
-/**
- * Generate owner check expression for RLS policies
- *
- * @param permission - Permission configuration
- * @returns SQL expression for owner check, or undefined if no owner check needed
- */
-const generateOwnerCheck = (permission?: TablePermission): string | undefined => {
-  if (!permission || permission.type !== 'owner') {
-    return undefined
-  }
-
-  // Generate owner check: owner_id = current_setting('app.user_id')::TEXT
-  const ownerField = permission.field
-  return `${ownerField} = current_setting('app.user_id')::TEXT`
-}
-
-/**
- * Generate authenticated check expression for RLS policies
- *
- * @param permission - Permission configuration
- * @returns SQL expression for authenticated check, or undefined if not authenticated permission
- */
-const generateAuthenticatedCheck = (permission?: TablePermission): string | undefined => {
-  if (!permission || permission.type !== 'authenticated') {
-    return undefined
-  }
-
-  return 'auth.is_authenticated()'
-}
-
-/**
- * Generate role check expression for RLS policies
- *
- * @param permission - Permission configuration
- * @returns SQL expression for role check, or undefined if no role check needed
- */
-const generateRoleCheck = (permission?: TablePermission): string | undefined => {
-  if (!permission || permission.type !== 'roles') {
-    return undefined
-  }
-
-  // Generate OR'd role checks using auth.user_has_role() function
-  const roleChecks = permission.roles.map((role) => `auth.user_has_role('${role}')`).join(' OR ')
-
-  return `(${roleChecks})`
-}
-
-/**
- * Combine organization and role checks
- *
- * @param orgIdCheck - Organization ID check expression
- * @param roleCheck - Role check expression (optional)
- * @returns Combined SQL expression
- */
-const combineChecks = (orgIdCheck: string, roleCheck: string | undefined): string => {
-  if (!roleCheck) {
-    return orgIdCheck
-  }
-
-  return `${orgIdCheck} AND ${roleCheck}`
-}
-
-/**
- * Generate DROP POLICY statements for a table
- *
- * @param tableName - Name of the table
- * @returns Array of DROP POLICY statements
- */
-const generateDropPolicies = (tableName: string): readonly string[] => [
-  `DROP POLICY IF EXISTS ${tableName}_org_select ON ${tableName}`,
-  `DROP POLICY IF EXISTS ${tableName}_org_insert ON ${tableName}`,
-  `DROP POLICY IF EXISTS ${tableName}_org_update ON ${tableName}`,
-  `DROP POLICY IF EXISTS ${tableName}_org_delete ON ${tableName}`,
-]
-
-/**
- * Generate CREATE POLICY statements for a table
- *
- * @param tableName - Name of the table
- * @param orgIdCheck - Organization ID check expression
- * @param roleChecks - Role checks for each operation
- * @returns Array of CREATE POLICY statements
- */
-const generateCreatePolicies = (
-  tableName: string,
-  orgIdCheck: string,
-  roleChecks: Readonly<{
-    read: string | undefined
-    create: string | undefined
-    update: string | undefined
-    delete: string | undefined
-  }>
-): readonly string[] => {
-  const selectCheck = combineChecks(orgIdCheck, roleChecks.read)
-  const insertCheck = combineChecks(orgIdCheck, roleChecks.create)
-  const updateCheck = combineChecks(orgIdCheck, roleChecks.update)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-  const deleteCheck = combineChecks(orgIdCheck, roleChecks.delete)
-
-  return [
-    `CREATE POLICY ${tableName}_org_select ON ${tableName} FOR SELECT USING (${selectCheck})`,
-    `CREATE POLICY ${tableName}_org_insert ON ${tableName} FOR INSERT WITH CHECK (${insertCheck})`,
-    `CREATE POLICY ${tableName}_org_update ON ${tableName} FOR UPDATE USING (${updateCheck}) WITH CHECK (${updateCheck})`,
-    `CREATE POLICY ${tableName}_org_delete ON ${tableName} FOR DELETE USING (${deleteCheck})`,
-  ]
-}
-
-/**
- * Generate authenticated policy statements for a specific operation
- *
- * Creates DROP and CREATE POLICY statements for authenticated-only access control.
- *
- * @param tableName - Name of the table
- * @param operation - CRUD operation name (read/create/update/delete)
- * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
- * @param checkExpression - Authenticated check SQL expression
- * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
- */
-const generateAuthenticatedPolicyStatements = (
-  tableName: string,
-  operation: 'read' | 'create' | 'update' | 'delete',
-  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
-  checkExpression: string | undefined
-): readonly string[] => {
-  const policyName = `authenticated_${operation}`
-  return generatePolicyStatements(tableName, policyName, sqlCommand, checkExpression)
-}
-
-/**
- * Generate role policy statements for a specific operation
- *
- * Creates DROP and CREATE POLICY statements for role-based access control.
- *
- * @param tableName - Name of the table
- * @param operation - CRUD operation name (read/create/update/delete)
- * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
- * @param checkExpression - Role check SQL expression
- * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
- */
-const generateRolePolicyStatements = (
-  tableName: string,
-  operation: 'read' | 'create' | 'update' | 'delete',
-  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
-  checkExpression: string | undefined
-): readonly string[] => {
-  const policyName = `${tableName}_role_${operation}`
-  return generatePolicyStatements(tableName, policyName, sqlCommand, checkExpression)
-}
-
-/**
- * Generate owner policy statements for a specific operation
- *
- * Creates DROP and CREATE POLICY statements for owner-based access control.
- *
- * @param tableName - Name of the table
- * @param operation - CRUD operation name (read/create/update/delete)
- * @param sqlCommand - SQL command (SELECT/INSERT/UPDATE/DELETE)
- * @param checkExpression - Owner check SQL expression
- * @returns Array of DROP and CREATE POLICY statements, or empty array if no expression
- */
-const generateOwnerPolicyStatements = (
-  tableName: string,
-  operation: 'read' | 'create' | 'update' | 'delete',
-  sqlCommand: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
-  checkExpression: string | undefined
-): readonly string[] => {
-  const policyName = `${tableName}_owner_${operation}`
-  return generatePolicyStatements(tableName, policyName, sqlCommand, checkExpression)
-}
-
-/**
- * Generate RLS policy statements for owner-based permissions
- *
- * When a table has owner-based permissions (e.g., read: { type: 'owner', field: 'owner_id' }),
- * this generates RLS policies that filter records by the specified owner field.
- *
- * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
- * This is critical for E2E tests where the database user is often a superuser.
- *
- * @param table - Table definition with owner-based permissions
- * @returns Array of SQL statements to enable RLS and create owner-based policies
- */
-const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
-  const tableName = table.name
-  const enableRLS = generateEnableRLS(tableName)
-
-  // Generate owner checks for each operation
-  const ownerChecks = {
-    read: generateOwnerCheck(table.permissions?.read),
-    create: generateOwnerCheck(table.permissions?.create),
-    update: generateOwnerCheck(table.permissions?.update),
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    delete: generateOwnerCheck(table.permissions?.delete),
-  }
-
-  // Generate policies for each CRUD operation
-  const selectPolicies = generateOwnerPolicyStatements(
-    tableName,
-    'read',
-    'SELECT',
-    ownerChecks.read
-  )
-  const insertPolicies = generateOwnerPolicyStatements(
-    tableName,
-    'create',
-    'INSERT',
-    ownerChecks.create
-  )
-  const updatePolicies = generateOwnerPolicyStatements(
-    tableName,
-    'update',
-    'UPDATE',
-    ownerChecks.update
-  )
-  const deletePolicies = generateOwnerPolicyStatements(
-    tableName,
-    'delete',
-    'DELETE',
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field, not a Drizzle delete operation
-    ownerChecks.delete
-  )
-
-  return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
-}
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
 /**
  * Check if table should skip RLS for field-only permissions
@@ -335,24 +81,62 @@ const generateAuthenticatedChecks = (
 })
 
 /**
+ * Return empty array (no policies)
+ */
+const returnEmptyPolicies = (): readonly string[] => []
+
+// ============================================================================
+// Policy Generators by Permission Type
+// ============================================================================
+
+/**
+ * Generate RLS policy statements for owner-based permissions
+ *
+ * When a table has owner-based permissions (e.g., read: { type: 'owner', field: 'owner_id' }),
+ * this generates RLS policies that filter records by the specified owner field.
+ *
+ * @param table - Table definition with owner-based permissions
+ * @returns Array of SQL statements to enable RLS and create owner-based policies
+ */
+const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
+  const enableRLS = generateEnableRLS(tableName)
+
+  // Generate owner checks for each operation
+  const ownerChecks = {
+    read: generateOwnerCheck(table.permissions?.read),
+    create: generateOwnerCheck(table.permissions?.create),
+    update: generateOwnerCheck(table.permissions?.update),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field
+    delete: generateOwnerCheck(table.permissions?.delete),
+  }
+
+  // Generate policies for each CRUD operation
+  const selectPolicies = generateOwnerPolicyStatements(tableName, 'read', 'SELECT', ownerChecks.read)
+  const insertPolicies = generateOwnerPolicyStatements(tableName, 'create', 'INSERT', ownerChecks.create)
+  const updatePolicies = generateOwnerPolicyStatements(tableName, 'update', 'UPDATE', ownerChecks.update)
+  const deletePolicies = generateOwnerPolicyStatements(
+    tableName,
+    'delete',
+    'DELETE',
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- ownerChecks.delete is a permission field
+    ownerChecks.delete
+  )
+
+  return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
+}
+
+/**
  * Generate RLS policy statements for authenticated permissions
  *
  * When a table has authenticated permissions (e.g., read: { type: 'authenticated' }),
  * this generates RLS policies that check if the user is authenticated.
- *
- * IMPORTANT: If ONLY field-level permissions exist (no record-level conditions),
- * RLS is not needed for filtering - column-level grants handle field access.
- * In this case, we skip RLS policies to avoid requiring session context in tests.
- *
- * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
- * This is critical for E2E tests where the database user is often a superuser.
  *
  * @param table - Table definition with authenticated permissions
  * @returns Array of SQL statements to enable RLS and create authenticated policies
  */
 const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => {
   // If table has ONLY field-level permissions (no record-level), skip RLS
-  // Column-level grants will handle field access without requiring session context
   if (shouldSkipRLSForFieldPermissions(table)) {
     return []
   }
@@ -394,11 +178,8 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
 /**
  * Generate RLS policy statements for role-based permissions
  *
- * When a table has role-based permissions (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }),
+ * When a table has role-based permissions (e.g., read: { type: 'roles', roles: ['admin'] }),
  * this generates RLS policies that check the user's role via session variable.
- *
- * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
- * This is critical for E2E tests where the database user is often a superuser.
  *
  * @param table - Table definition with role-based permissions
  * @returns Array of SQL statements to enable RLS and create role-based policies
@@ -418,23 +199,13 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
 
   // Generate policies for each CRUD operation
   const selectPolicies = generateRolePolicyStatements(tableName, 'read', 'SELECT', roleChecks.read)
-  const insertPolicies = generateRolePolicyStatements(
-    tableName,
-    'create',
-    'INSERT',
-    roleChecks.create
-  )
-  const updatePolicies = generateRolePolicyStatements(
-    tableName,
-    'update',
-    'UPDATE',
-    roleChecks.update
-  )
+  const insertPolicies = generateRolePolicyStatements(tableName, 'create', 'INSERT', roleChecks.create)
+  const updatePolicies = generateRolePolicyStatements(tableName, 'update', 'UPDATE', roleChecks.update)
   const deletePolicies = generateRolePolicyStatements(
     tableName,
     'delete',
     'DELETE',
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- roleChecks.delete is a permission field, not a Drizzle delete operation
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- roleChecks.delete is a permission field
     roleChecks.delete
   )
 
@@ -446,9 +217,6 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
  *
  * When a table has `permissions.records` array, this generates RLS policies
  * based on custom conditions defined in the schema.
- *
- * Multiple permissions for the same action are combined with AND logic.
- * For example, two "read" permissions become: (condition1) AND (condition2)
  *
  * @param table - Table definition with record-level permissions
  * @returns Array of SQL statements to enable RLS and create record-level policies
@@ -496,11 +264,6 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
  * 1. ALTER TABLE statement to enable RLS (with FORCE for superusers)
  * 2. CREATE POLICY statements for all CRUD operations
  *
- * The policies filter by organization_id using current_setting('app.organization_id')
- * which is set by the application layer based on the authenticated user's context.
- *
- * Role checks can be combined with organization checks using AND.
- *
  * @param table - Table definition with organization-scoped permissions
  * @returns Array of SQL statements to enable RLS and create organization-scoped policies
  */
@@ -543,59 +306,10 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
   generateEnableRLS(tableName)
 
 /**
- * Return empty array (no policies)
- */
-const returnEmptyPolicies = (): readonly string[] => []
-
-/**
- * Generate policy name based on operation and permission type
- *
- * @param tableName - Name of the table
- * @param operation - CRUD operation (read/create/update/delete)
- * @param permission - Permission configuration
- * @returns Policy name
- */
-const generatePolicyName = (
-  tableName: string,
-  operation: string,
-  permission: TablePermission | undefined
-): string => {
-  if (!permission) {
-    return `${tableName}_${operation}`
-  }
-
-  if (permission.type === 'authenticated') {
-    return `authenticated_${operation}`
-  }
-
-  if (permission.type === 'roles') {
-    return `${tableName}_role_${operation}`
-  }
-
-  if (permission.type === 'owner') {
-    return `${tableName}_owner_${operation}`
-  }
-
-  return `${tableName}_${operation}`
-}
-
-/**
- * Generate permission check for a specific operation
- *
- * @param permission - Permission configuration
- * @returns SQL expression for permission check
- */
-const generateOperationCheck = (permission: TablePermission | undefined): string | undefined =>
-  generateAuthenticatedCheck(permission) ||
-  generateRoleCheck(permission) ||
-  generateOwnerCheck(permission)
-
-/**
  * Generate mixed permission policies (authenticated + role-based combinations)
  *
- * When a table has different permission types for different CRUD operations
- * (e.g., authenticated read + role-based create), this generates policies
- * for each operation based on its individual permission type.
+ * When a table has different permission types for different CRUD operations,
+ * this generates policies for each operation based on its individual permission type.
  *
  * @param table - Table definition with mixed permissions
  * @returns Array of SQL statements to enable RLS and create mixed policies
@@ -608,38 +322,27 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
   const readCheck = generateOperationCheck(table.permissions?.read)
   const createCheck = generateOperationCheck(table.permissions?.create)
   const updateCheck = generateOperationCheck(table.permissions?.update)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
   const deleteCheck = generateOperationCheck(table.permissions?.delete)
 
   const readPolicyName = generatePolicyName(tableName, 'read', table.permissions?.read)
   const createPolicyName = generatePolicyName(tableName, 'create', table.permissions?.create)
   const updatePolicyName = generatePolicyName(tableName, 'update', table.permissions?.update)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
   const deletePolicyName = generatePolicyName(tableName, 'delete', table.permissions?.delete)
 
   // Generate policies for each CRUD operation
   const selectPolicies = generatePolicyStatements(tableName, readPolicyName, 'SELECT', readCheck)
-  const insertPolicies = generatePolicyStatements(
-    tableName,
-    createPolicyName,
-    'INSERT',
-    createCheck
-  )
-  const updatePolicies = generatePolicyStatements(
-    tableName,
-    updatePolicyName,
-    'UPDATE',
-    updateCheck
-  )
-  const deletePolicies = generatePolicyStatements(
-    tableName,
-    deletePolicyName,
-    'DELETE',
-    deleteCheck
-  )
+  const insertPolicies = generatePolicyStatements(tableName, createPolicyName, 'INSERT', createCheck)
+  const updatePolicies = generatePolicyStatements(tableName, updatePolicyName, 'UPDATE', updateCheck)
+  const deletePolicies = generatePolicyStatements(tableName, deletePolicyName, 'DELETE', deleteCheck)
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
+
+// ============================================================================
+// Policy Generator Selection
+// ============================================================================
 
 /**
  * Determine which RLS policy generator to use based on table permissions
@@ -653,9 +356,6 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
  * 6. Authenticated → auth.is_authenticated()
  * 7. Role-based → Role checks
  * 8. Organization-scoped → Organization ID filter
- *
- * Complexity is acceptable here as it's a routing function that delegates to specialized generators.
- * Each branch is simple and directly maps to a policy generator.
  */
 const selectPolicyGenerator = (
   table: Table
@@ -698,6 +398,10 @@ const selectPolicyGenerator = (
   return returnEmptyPolicies
 }
 
+// ============================================================================
+// Main Export
+// ============================================================================
+
 /**
  * Generate RLS policy statements for tables with various permission types
  *
@@ -706,7 +410,6 @@ const selectPolicyGenerator = (
  * 1. **Public permissions** (e.g., read: { type: 'public' }):
  *    - No RLS is enabled
  *    - All access is unrestricted
- *    - Returns empty array (no SQL statements)
  *
  * 2. **No permissions** (default deny):
  *    - Enables RLS with no policies
@@ -714,27 +417,19 @@ const selectPolicyGenerator = (
  *
  * 3. **Record-level permissions** (permissions.records array):
  *    - Custom RLS conditions defined per CRUD action
- *    - Supports variable substitution: {userId}, {organizationId}, {user.property}
- *    - Example: { action: 'delete', condition: "{userId} = created_by AND status = 'draft'" }
+ *    - Supports variable substitution: {userId}, {organizationId}
  *
  * 4. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
  *    - Filters records by the specified owner field
- *    - Uses current_setting('app.user_id') to match ownership
  *
  * 5. **Authenticated permissions** (e.g., update: { type: 'authenticated' }):
  *    - Checks if user is authenticated via auth.is_authenticated()
- *    - Creates policies for each CRUD operation that require authentication
  *
- * 6. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin', 'manager'] }):
+ * 6. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin'] }):
  *    - Checks user's role via current_setting('app.user_role')
- *    - Creates policies for each CRUD operation based on allowed roles
  *
  * 7. **Organization-scoped** (permissions.organizationScoped: true):
  *    - Filters by organization_id using current_setting('app.organization_id')
- *    - Can be combined with role checks using AND
- *
- * Uses FORCE ROW LEVEL SECURITY to enforce policies even for superusers/table owners.
- * This is critical for E2E tests where the database user is often a superuser.
  *
  * @param table - Table definition with permissions
  * @returns Array of SQL statements to enable RLS and create policies
