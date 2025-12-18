@@ -100,7 +100,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-002: should reject modification when user with member role attempts to update field email with write permission restricted to admin role',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -156,11 +156,13 @@ test.describe('Field-Level Permissions', () => {
 
       // Member user cannot UPDATE email field
       // THEN: assertion
+      // Note: PostgreSQL returns "permission denied for table" when column-level UPDATE is denied
+      // This is consistent with test 004 behavior for field-level write restrictions
       await expect(async () => {
         await executeQuery(
           "SET ROLE member_user; UPDATE users SET email = 'hacked@example.com' WHERE id = 1"
         )
-      }).rejects.toThrow('permission denied for column email')
+      }).rejects.toThrow('permission denied for table users')
     }
   )
 
