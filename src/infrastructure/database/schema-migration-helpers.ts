@@ -200,6 +200,9 @@ const findColumnsToDrop = (
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
 
+    // Never drop intrinsic deleted_at column (soft-delete system column)
+    if (columnName === 'deleted_at') return false
+
     // Don't drop if it's being renamed
     if (renamedOldNames.has(columnName)) return false
 

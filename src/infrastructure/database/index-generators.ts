@@ -90,7 +90,9 @@ const generateCustomIndexes = (table: Table): readonly string[] =>
  */
 const generateDeletedAtIndex = (table: Table): readonly string[] => {
   const indexName = `idx_${table.name}_deleted_at`
-  return [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (deleted_at)`]
+  return [
+    `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (deleted_at)`,
+  ]
 }
 
 /**
