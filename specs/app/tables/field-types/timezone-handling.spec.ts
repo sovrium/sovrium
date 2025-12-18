@@ -453,7 +453,7 @@ test.describe('Timezone Handling', () => {
   // @regression test - OPTIMIZED integration workflow
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-010: user can complete full timezone-handling workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
