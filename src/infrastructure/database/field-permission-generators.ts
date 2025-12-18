@@ -357,6 +357,70 @@ const generateWritePermissionGrants = (
 }
 
 /**
+ * Build complete field permissions map with defaults
+ */
+const buildAllFieldPermissions = (
+  databaseColumns: readonly { name: string }[],
+  fieldPermissions: readonly { field: string; read?: TablePermission }[],
+  effectiveTablePermission: TablePermission
+): readonly { field: string; permission: TablePermission }[] => {
+  return databaseColumns.map((field) => {
+    const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
+    return {
+      field: field.name,
+      permission: fieldPermission?.read ?? effectiveTablePermission,
+    }
+  })
+}
+
+/**
+ * Separate fields into role-based and custom-based permission categories
+ */
+const separateFieldsByPermissionType = (
+  allFieldPermissions: readonly { field: string; permission: TablePermission }[]
+): {
+  readonly roleBasedFields: readonly { field: string; permission: TablePermission }[]
+  readonly customConditionReadFields: readonly { field: string; permission: TablePermission }[]
+} => {
+  const roleBasedFields = allFieldPermissions.filter(
+    (fp) => fp.permission.type !== 'custom' && fp.permission.type !== 'owner'
+  )
+  const customConditionReadFields = allFieldPermissions.filter(
+    (fp) => fp.permission.type === 'custom' || fp.permission.type === 'owner'
+  )
+  return { roleBasedFields, customConditionReadFields }
+}
+
+/**
+ * Generate SELECT grant statements for role-based column permissions
+ */
+const generateColumnSelectGrants = (
+  tableName: string,
+  roleFieldsWithBase: ReadonlyMap<string, readonly string[]>
+): readonly string[] => {
+  return Array.from(roleFieldsWithBase.entries()).map(([role, fields]) => {
+    const columnList = fields.map((f) => `"${f}"`).join(', ')
+    return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
+  })
+}
+
+/**
+ * Generate SELECT grants for custom condition fields
+ */
+const generateCustomFieldSelectGrants = (
+  tableName: string,
+  customConditionReadFields: readonly { field: string; permission: TablePermission }[]
+): readonly string[] => {
+  if (customConditionReadFields.length === 0) {
+    return []
+  }
+  return (['authenticated_user', 'admin_user', 'member_user'] as const).map((role) => {
+    const columnList = customConditionReadFields.map((f) => `"${f.field}"`).join(', ')
+    return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
+  })
+}
+
+/**
  * Generate PostgreSQL column-level GRANT statements for field permissions
  *
  * When a table has field-level read restrictions, this generates:
@@ -381,68 +445,33 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   const tableName = table.name
   const fieldPermissions = table.permissions?.fields ?? []
 
-  // If no field permissions configured, no column-level grants needed
   if (fieldPermissions.length === 0) {
     return []
   }
 
-  // Determine effective table-level permission
   const effectiveTablePermission = getEffectiveTablePermission(
     table.permissions?.read,
     fieldPermissions
   )
-
-  // Get all database columns
   const databaseColumns = table.fields.filter(shouldCreateDatabaseColumn)
 
-  // Build field permissions map for READ:
-  // - Fields with specific read permissions: use their specific permission
-  // - Fields without specific permissions: use effective table-level permission
-  // - Fields with custom/owner permissions: handled separately via RLS
-  const allFieldPermissions = databaseColumns.map((field) => {
-    const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
-    return {
-      field: field.name,
-      permission: fieldPermission?.read ?? effectiveTablePermission,
-    }
-  })
-
-  // Separate fields into role-based and custom-based permissions
-  const roleBasedFields = allFieldPermissions.filter(
-    (fp) => fp.permission.type !== 'custom' && fp.permission.type !== 'owner'
-  )
-  const customConditionReadFields = allFieldPermissions.filter(
-    (fp) => fp.permission.type === 'custom' || fp.permission.type === 'owner'
+  const allFieldPermissions = buildAllFieldPermissions(
+    databaseColumns,
+    fieldPermissions,
+    effectiveTablePermission
   )
 
-  // Build role-to-fields mapping for role-based permissions only
+  const { roleBasedFields, customConditionReadFields } =
+    separateFieldsByPermissionType(allFieldPermissions)
+
   const roleFieldsMap = buildRoleFieldsMap(roleBasedFields)
-
-  // Add base fields to restricted roles (fields they can access beyond restricted ones)
   const baseRoles = extractRoles(effectiveTablePermission)
   const roleFieldsWithBase = addBaseFieldsToRestrictedRoles(roleFieldsMap, baseRoles)
 
-  // Generate SQL statements
   const finalRoles = Array.from(roleFieldsWithBase.keys())
-
   const roleSetupStatements = generateRoleSetupStatements(finalRoles, tableName)
-
-  // CRITICAL: For column-level permissions, we only grant SELECT on specific columns
-  // No table-level SELECT grant needed - column grants are sufficient
-  const columnGrantStatements = Array.from(roleFieldsWithBase.entries()).map(([role, fields]) => {
-    const columnList = fields.map((f) => `"${f}"`).join(', ')
-    return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
-  })
-
-  // For fields with custom read conditions, grant SELECT to all authenticated roles
-  // RLS policies will enforce the custom conditions at row level
-  const customFieldReadGrants =
-    customConditionReadFields.length > 0
-      ? (['authenticated_user', 'admin_user', 'member_user'] as const).map((role) => {
-          const columnList = customConditionReadFields.map((f) => `"${f.field}"`).join(', ')
-          return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
-        })
-      : []
+  const columnGrantStatements = generateColumnSelectGrants(tableName, roleFieldsWithBase)
+  const customFieldReadGrants = generateCustomFieldSelectGrants(tableName, customConditionReadFields)
 
   const writeGrantStatements = generateWritePermissionGrants(
     tableName,
@@ -451,10 +480,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     table.permissions
   )
 
-  // Generate triggers for custom condition field permissions
   const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
-
-  // Generate RLS policies for custom read conditions
   const customReadPolicies = generateCustomReadRLSPolicies(tableName, fieldPermissions)
 
   return [
