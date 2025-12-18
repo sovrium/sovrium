@@ -259,7 +259,9 @@ export const generateOwnerPolicyStatements = (
  * @param permission - Permission configuration
  * @returns SQL expression for permission check
  */
-export const generateOperationCheck = (permission: TablePermission | undefined): string | undefined =>
+export const generateOperationCheck = (
+  permission: TablePermission | undefined
+): string | undefined =>
   generateAuthenticatedCheck(permission) ||
   generateRoleCheck(permission) ||
   generateOwnerCheck(permission)

@@ -112,9 +112,24 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
   }
 
   // Generate policies for each CRUD operation
-  const selectPolicies = generateOwnerPolicyStatements(tableName, 'read', 'SELECT', ownerChecks.read)
-  const insertPolicies = generateOwnerPolicyStatements(tableName, 'create', 'INSERT', ownerChecks.create)
-  const updatePolicies = generateOwnerPolicyStatements(tableName, 'update', 'UPDATE', ownerChecks.update)
+  const selectPolicies = generateOwnerPolicyStatements(
+    tableName,
+    'read',
+    'SELECT',
+    ownerChecks.read
+  )
+  const insertPolicies = generateOwnerPolicyStatements(
+    tableName,
+    'create',
+    'INSERT',
+    ownerChecks.create
+  )
+  const updatePolicies = generateOwnerPolicyStatements(
+    tableName,
+    'update',
+    'UPDATE',
+    ownerChecks.update
+  )
   const deletePolicies = generateOwnerPolicyStatements(
     tableName,
     'delete',
@@ -199,8 +214,18 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
 
   // Generate policies for each CRUD operation
   const selectPolicies = generateRolePolicyStatements(tableName, 'read', 'SELECT', roleChecks.read)
-  const insertPolicies = generateRolePolicyStatements(tableName, 'create', 'INSERT', roleChecks.create)
-  const updatePolicies = generateRolePolicyStatements(tableName, 'update', 'UPDATE', roleChecks.update)
+  const insertPolicies = generateRolePolicyStatements(
+    tableName,
+    'create',
+    'INSERT',
+    roleChecks.create
+  )
+  const updatePolicies = generateRolePolicyStatements(
+    tableName,
+    'update',
+    'UPDATE',
+    roleChecks.update
+  )
   const deletePolicies = generateRolePolicyStatements(
     tableName,
     'delete',
@@ -333,9 +358,24 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
 
   // Generate policies for each CRUD operation
   const selectPolicies = generatePolicyStatements(tableName, readPolicyName, 'SELECT', readCheck)
-  const insertPolicies = generatePolicyStatements(tableName, createPolicyName, 'INSERT', createCheck)
-  const updatePolicies = generatePolicyStatements(tableName, updatePolicyName, 'UPDATE', updateCheck)
-  const deletePolicies = generatePolicyStatements(tableName, deletePolicyName, 'DELETE', deleteCheck)
+  const insertPolicies = generatePolicyStatements(
+    tableName,
+    createPolicyName,
+    'INSERT',
+    createCheck
+  )
+  const updatePolicies = generatePolicyStatements(
+    tableName,
+    updatePolicyName,
+    'UPDATE',
+    updateCheck
+  )
+  const deletePolicies = generatePolicyStatements(
+    tableName,
+    deletePolicyName,
+    'DELETE',
+    deleteCheck
+  )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
