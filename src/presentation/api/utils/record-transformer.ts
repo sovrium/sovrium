@@ -1,0 +1,55 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * Field value types supported by record transformation
+ */
+export type RecordFieldValue =
+  | string
+  | number
+  | boolean
+  | unknown[]
+  | Record<string, unknown>
+  | null
+
+/**
+ * Transformed record structure for API responses
+ */
+export interface TransformedRecord {
+  readonly id: string
+  readonly fields: Record<string, RecordFieldValue>
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+/**
+ * Transform a raw database record into the API response format
+ *
+ * This utility standardizes record transformation across all table endpoints:
+ * - Converts id to string
+ * - Preserves all fields with proper typing
+ * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
+ *
+ * @param record - Raw database record
+ * @returns Transformed record for API response
+ */
+export const transformRecord = (record: Record<string, unknown>): TransformedRecord => ({
+  id: String(record.id),
+  fields: record as Record<string, RecordFieldValue>,
+  createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
+  updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
+})
+
+/**
+ * Transform multiple database records into API response format
+ *
+ * @param records - Array of raw database records
+ * @returns Array of transformed records (mutable for API response compatibility)
+ */
+export const transformRecords = (
+  records: readonly Record<string, unknown>[]
+): TransformedRecord[] => records.map(transformRecord)

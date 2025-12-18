@@ -5,9 +5,43 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+/**
+ * Validate a table name to prevent SQL injection
+ *
+ * PostgreSQL identifiers cannot be fully parameterized, so we validate them.
+ * This function ensures table names:
+ * - Only contain alphanumeric characters, underscores
+ * - Start with a letter or underscore
+ * - Are within PostgreSQL's 63-character limit
+ *
+ * @param tableName - Raw table name from user input
+ * @throws Error if table name contains invalid characters
+ */
+const validateTableName = (tableName: string): void => {
+  // PostgreSQL identifier rules: start with letter/underscore, contain alphanumeric/underscore
+  // Max 63 characters (PostgreSQL limit)
+  const validIdentifier = /^[a-z_][a-z0-9_]*$/i
+  if (!validIdentifier.test(tableName) || tableName.length > 63) {
+    // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for invalid input
+    throw new Error(`Invalid table name: ${tableName}`)
+  }
+}
+
+/**
+ * Validate a column name to prevent SQL injection
+ */
+const validateColumnName = (columnName: string): void => {
+  const validIdentifier = /^[a-z_][a-z0-9_]*$/i
+  if (!validIdentifier.test(columnName) || columnName.length > 63) {
+    // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for invalid input
+    throw new Error(`Invalid column name: ${columnName}`)
+  }
+}
 
 /**
  * List all records from a table with session context
@@ -25,8 +59,10 @@ export function listRecords(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Query table using raw SQL (RLS policies automatically applied via session context)
-        const result = await tx.execute(`SELECT * FROM ${tableName}`)
+        validateTableName(tableName)
+        // Query table using sql.identifier for safe identifier handling
+        // RLS policies automatically applied via session context
+        const result = await tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}`)
         return result as readonly Record<string, unknown>[]
       },
       catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),
@@ -50,9 +86,10 @@ export function getRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Query with RLS policies applied
+        validateTableName(tableName)
+        // Use parameterized query for recordId (automatic via template literal)
         const result = (await tx.execute(
-          `SELECT * FROM ${tableName} WHERE id = '${recordId}' LIMIT 1`
+          sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
         )) as readonly Record<string, unknown>[]
 
         // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
@@ -82,15 +119,32 @@ export function createRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Build column names and values
-        const columns = Object.keys(fields).join(', ')
-        const values = Object.values(fields)
-          .map((v) => (typeof v === 'string' ? `'${v}'` : v))
-          .join(', ')
+        validateTableName(tableName)
+        const entries = Object.entries(fields)
 
-        // Insert with RLS policies applied
+        if (entries.length === 0) {
+          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
+          throw new Error('Cannot create record with no fields')
+        }
+
+        // Validate and build column identifiers
+        const columnIdentifiers = entries.map(([key]) => {
+          validateColumnName(key)
+          return sql.identifier(key)
+        })
+
+        // Build parameterized values
+        const valueParams = entries.map(([, value]) => value)
+
+        // Build INSERT query using sql.join for columns and values
+        const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
+        const valuesClause = sql.join(
+          valueParams.map((v) => sql`${v}`),
+          sql.raw(', ')
+        )
+
         const result = (await tx.execute(
-          `INSERT INTO ${tableName} (${columns}) VALUES (${values}) RETURNING *`
+          sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
         )) as readonly Record<string, unknown>[]
 
         return result[0] ?? {}
@@ -118,14 +172,23 @@ export function updateRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Build SET clause
-        const setClauses = Object.entries(fields)
-          .map(([key, value]) => `${key} = ${typeof value === 'string' ? `'${value}'` : value}`)
-          .join(', ')
+        validateTableName(tableName)
+        const entries = Object.entries(fields)
 
-        // Update with RLS policies applied
+        if (entries.length === 0) {
+          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
+          throw new Error('Cannot update record with no fields')
+        }
+
+        // Build SET clause with validated columns and parameterized values
+        const setClauses = entries.map(([key, value]) => {
+          validateColumnName(key)
+          return sql`${sql.identifier(key)} = ${value}`
+        })
+        const setClause = sql.join(setClauses, sql.raw(', '))
+
         const result = (await tx.execute(
-          `UPDATE ${tableName} SET ${setClauses} WHERE id = '${recordId}' RETURNING *`
+          sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
         )) as readonly Record<string, unknown>[]
 
         return result[0] ?? {}
@@ -157,9 +220,12 @@ export function deleteRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
-        // Check if record exists before attempting delete
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
+        // Check if record exists before attempting delete (parameterized)
         const checkResult = (await tx.execute(
-          `SELECT id FROM ${tableName} WHERE id = '${recordId}' LIMIT 1`
+          sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
         )) as readonly Record<string, unknown>[]
 
         if (checkResult.length === 0) {
@@ -167,20 +233,18 @@ export function deleteRecord(
         }
 
         // Check if table has deleted_at column for soft delete
-        const columnCheck = (await tx.execute(`
-          SELECT column_name
-          FROM information_schema.columns
-          WHERE table_name = '${tableName}' AND column_name = 'deleted_at'
-        `)) as readonly Record<string, unknown>[]
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
 
         if (columnCheck.length > 0) {
-          // Soft delete: set deleted_at timestamp
+          // Soft delete: set deleted_at timestamp (parameterized)
           // eslint-disable-next-line functional/no-expression-statements -- Database update requires side effect
-          await tx.execute(`UPDATE ${tableName} SET deleted_at = NOW() WHERE id = '${recordId}'`)
+          await tx.execute(sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId}`)
         } else {
-          // Hard delete: remove record
+          // Hard delete: remove record (parameterized)
           // eslint-disable-next-line functional/no-expression-statements -- Database deletion requires side effect
-          await tx.execute(`DELETE FROM ${tableName} WHERE id = '${recordId}'`)
+          await tx.execute(sql`DELETE FROM ${tableIdent} WHERE id = ${recordId}`)
         }
 
         return true
@@ -211,22 +275,26 @@ export function restoreRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
         // Check if table has organization_id column for multi-tenancy
-        const columnCheck = (await tx.execute(`
-          SELECT column_name
-          FROM information_schema.columns
-          WHERE table_name = '${tableName}' AND column_name = 'organization_id'
-        `)) as readonly Record<string, unknown>[]
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+        )) as readonly Record<string, unknown>[]
 
         const hasOrgId = columnCheck.length > 0
-        const orgIdFilter =
+
+        // Build query with optional organization filter
+        // Note: org filter uses escaped value since it's part of dynamic SQL construction
+        const orgIdCondition =
           hasOrgId && session.activeOrganizationId
-            ? `AND organization_id = '${session.activeOrganizationId}'`
-            : ''
+            ? sql` AND organization_id = ${session.activeOrganizationId}`
+            : sql``
 
         // Check if record exists (including soft-deleted records) with organization filtering
         const checkResult = (await tx.execute(
-          `SELECT id, deleted_at FROM ${tableName} WHERE id = '${recordId}' ${orgIdFilter} LIMIT 1`
+          sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId}${orgIdCondition} LIMIT 1`
         )) as readonly Record<string, unknown>[]
 
         if (checkResult.length === 0) {
@@ -244,7 +312,7 @@ export function restoreRecord(
 
         // Restore record by clearing deleted_at (with organization filter for safety)
         const result = (await tx.execute(
-          `UPDATE ${tableName} SET deleted_at = NULL WHERE id = '${recordId}' ${orgIdFilter} RETURNING *`
+          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId}${orgIdCondition} RETURNING *`
         )) as readonly Record<string, unknown>[]
 
         return result[0] ?? {}
@@ -278,9 +346,12 @@ export function batchRestoreRecords(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
         // Check user role from session context
         const roleResult = (await tx.execute(
-          `SELECT current_setting('app.user_role', true) as role`
+          sql`SELECT current_setting('app.user_role', true) as role`
         )) as Array<{ role: string | null }>
 
         const userRole = roleResult[0]?.role
@@ -290,23 +361,21 @@ export function batchRestoreRecords(
         }
 
         // Check if table has organization_id column for multi-tenancy
-        const columnCheck = (await tx.execute(`
-          SELECT column_name
-          FROM information_schema.columns
-          WHERE table_name = '${tableName}' AND column_name = 'organization_id'
-        `)) as readonly Record<string, unknown>[]
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+        )) as readonly Record<string, unknown>[]
 
         const hasOrgId = columnCheck.length > 0
-        const orgIdFilter =
+        const orgIdCondition =
           hasOrgId && session.activeOrganizationId
-            ? `AND organization_id = '${session.activeOrganizationId}'`
-            : ''
+            ? sql` AND organization_id = ${session.activeOrganizationId}`
+            : sql``
 
         // Validate all records exist and are soft-deleted BEFORE restoring any
         const validationResults = await Promise.all(
           recordIds.map(async (recordId) => {
             const checkResult = (await tx.execute(
-              `SELECT id, deleted_at FROM ${tableName} WHERE id = '${recordId}' ${orgIdFilter} LIMIT 1`
+              sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId}${orgIdCondition} LIMIT 1`
             )) as readonly Record<string, unknown>[]
 
             if (checkResult.length === 0) {
@@ -333,10 +402,13 @@ export function batchRestoreRecords(
           )
         }
 
-        // All records validated - restore them all
-        const idList = recordIds.map((id) => `'${id}'`).join(', ')
+        // All records validated - restore them all using parameterized IN clause
+        const idParams = sql.join(
+          recordIds.map((id) => sql`${id}`),
+          sql.raw(', ')
+        )
         const result = (await tx.execute(
-          `UPDATE ${tableName} SET deleted_at = NULL WHERE id IN (${idList}) ${orgIdFilter} RETURNING id`
+          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams})${orgIdCondition} RETURNING id`
         )) as readonly Record<string, unknown>[]
 
         return result.length

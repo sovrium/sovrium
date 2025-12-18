@@ -42,6 +42,7 @@ import {
   type BatchRestoreRecordsResponse,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
+import { transformRecord, transformRecords } from '@/presentation/api/utils/record-transformer'
 import {
   listRecords,
   getRecord,
@@ -177,15 +178,7 @@ function createListRecordsProgram(
     const records = yield* listRecords(session, tableName)
 
     return {
-      records: records.map((r) => ({
-        id: String(r.id),
-        fields: r as Record<
-          string,
-          string | number | boolean | unknown[] | Record<string, unknown> | null
-        >,
-        createdAt: r.created_at ? String(r.created_at) : new Date().toISOString(),
-        updatedAt: r.updated_at ? String(r.updated_at) : new Date().toISOString(),
-      })),
+      records: transformRecords(records),
       pagination: {
         page: 1,
         limit: 10,
@@ -211,17 +204,7 @@ function createGetRecordProgram(
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
-    return {
-      record: {
-        id: String(record.id),
-        fields: record as Record<
-          string,
-          string | number | boolean | unknown[] | Record<string, unknown> | null
-        >,
-        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
-        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
-      },
-    }
+    return { record: transformRecord(record) }
   })
 }
 
@@ -233,18 +216,7 @@ function createRecordProgram(
   return Effect.gen(function* () {
     // Create record with session context (organization_id and owner_id set automatically)
     const record = yield* createRecord(session, tableName, fields)
-
-    return {
-      record: {
-        id: String(record.id),
-        fields: record as Record<
-          string,
-          string | number | boolean | unknown[] | Record<string, unknown> | null
-        >,
-        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
-        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
-      },
-    }
+    return { record: transformRecord(record) }
   })
 }
 
@@ -257,18 +229,7 @@ function updateRecordProgram(
   return Effect.gen(function* () {
     // Update record with session context (RLS policies enforce access control)
     const record = yield* updateRecord(session, tableName, recordId, fields)
-
-    return {
-      record: {
-        id: String(record.id),
-        fields: record as Record<
-          string,
-          string | number | boolean | unknown[] | Record<string, unknown> | null
-        >,
-        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
-        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
-      },
-    }
+    return { record: transformRecord(record) }
   })
 }
 
@@ -292,15 +253,7 @@ function restoreRecordProgram(
 
     return {
       success: true as const,
-      record: {
-        id: String(record.id),
-        fields: record as Record<
-          string,
-          string | number | boolean | unknown[] | Record<string, unknown> | null
-        >,
-        createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
-        updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
-      },
+      record: transformRecord(record),
     }
   })
 }
