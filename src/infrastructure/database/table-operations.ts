@@ -116,6 +116,12 @@ const generateIdColumn = (primaryKeyType: string | undefined, isPrimaryKey: bool
 }
 
 /**
+ * Generate automatic deleted_at column for soft delete support
+ * All tables get this column automatically for soft-delete by default pattern
+ */
+const generateDeletedAtColumn = (): string => 'deleted_at TIMESTAMPTZ'
+
+/**
  * Determine if table needs an automatic id column
  * Creates automatic id column if:
  * - No explicit id field is defined in the fields array
@@ -180,9 +186,15 @@ export const generateCreateTableSQL = (
       ? ['PRIMARY KEY (id)']
       : []
 
+  // Add automatic deleted_at column for soft delete support (soft-delete by default pattern)
+  // Only add if table doesn't already have an explicit deleted-at field
+  const hasDeletedAtField = table.fields.some((field) => field.type === 'deleted-at')
+  const deletedAtColumnDefinition = hasDeletedAtField ? [] : [generateDeletedAtColumn()]
+
   const allDefinitions = [
     ...idColumnDefinition,
     ...columnDefinitions,
+    ...deletedAtColumnDefinition,
     ...tableConstraints,
     ...primaryKeyConstraint,
   ]

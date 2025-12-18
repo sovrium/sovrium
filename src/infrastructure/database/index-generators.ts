@@ -112,6 +112,17 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
 }
 
 /**
+ * Generate index for soft delete column (deleted_at)
+ * All tables automatically get this index for performance on soft delete queries
+ * Common queries: WHERE deleted_at IS NULL (active records)
+ *                 WHERE deleted_at IS NOT NULL (deleted records)
+ */
+const generateDeletedAtIndex = (table: Table): readonly string[] => {
+  const indexName = `idx_${table.name}_deleted_at`
+  return [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (deleted_at)`]
+}
+
+/**
  * Generate CREATE INDEX statements for indexed fields and autonumber fields
  */
 export const generateIndexStatements = (table: Table): readonly string[] => [
@@ -121,4 +132,5 @@ export const generateIndexStatements = (table: Table): readonly string[] => [
   ...generateFullTextSearchIndexes(table),
   ...generateCustomIndexes(table),
   ...generateForeignKeyIndexes(table),
+  ...generateDeletedAtIndex(table),
 ]

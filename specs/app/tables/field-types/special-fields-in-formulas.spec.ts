@@ -233,7 +233,7 @@ test.describe('Special Fields in Formulas', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-006: should automatically create index on deleted_at column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
