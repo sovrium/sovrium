@@ -35,7 +35,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-001: should allow multiple NULL values in UNIQUE column per SQL standard',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -66,7 +66,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         `SELECT COUNT(*) as count FROM contacts WHERE email IS NULL`
       )
       // THEN: assertion
-      expect(nullCount.rows[0]).toMatchObject({ count: '3' })
+      expect(nullCount.rows[0]).toMatchObject({ count: 3 })
 
       // Duplicate non-NULL email still rejected
       await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Dave', 'dave@example.com')`)
