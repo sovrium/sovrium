@@ -312,7 +312,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-007: should combine UNIQUE and CHECK constraints for conditional NULL rules',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -329,7 +329,6 @@ test.describe('NULL Handling in Unique Constraints', () => {
               { id: 2, name: 'email', type: 'email', unique: true, required: false },
               { id: 3, name: 'is_active', type: 'checkbox', default: false },
             ],
-            // @ts-expect-error - Future feature: CHECK constraints
             constraints: [
               {
                 name: 'chk_active_members_have_email',

@@ -18,6 +18,7 @@ import { validateTablePermissions } from './table-permissions-validation'
 import { validatePrimaryKey } from './table-primary-key-validation'
 import { validateViews } from './table-views-validation'
 import { UniqueConstraintsSchema } from './unique-constraints'
+import { CheckConstraintsSchema } from './check-constraints'
 import { ViewSchema } from './views'
 
 // Re-export SPECIAL_FIELDS for external use
@@ -147,6 +148,33 @@ export const TableSchema = Schema.Struct({
   foreignKeys: Schema.optional(Schema.Array(ForeignKeySchema)),
 
   /**
+   * Custom CHECK constraints for complex business rules.
+   *
+   * Used to enforce conditional validation at the database level beyond
+   * simple field-level constraints. Useful for cross-field validation,
+   * conditional requirements, and complex business logic.
+   *
+   * @example Conditional requirement
+   * ```typescript
+   * constraints: [{
+   *   name: 'chk_active_members_have_email',
+   *   check: '(is_active = false) OR (email IS NOT NULL)'
+   * }]
+   * ```
+   *
+   * @example Range validation
+   * ```typescript
+   * constraints: [{
+   *   name: 'chk_end_after_start',
+   *   check: 'end_date > start_date'
+   * }]
+   * ```
+   *
+   * @see CheckConstraintsSchema for full configuration options
+   */
+  constraints: Schema.optional(CheckConstraintsSchema),
+
+  /**
    * Table-level permissions (high-level RBAC abstraction).
    *
    * Automatically generates RLS policies based on permission configuration.
@@ -218,6 +246,7 @@ export * from './name'
 export * from './fields'
 export * from './primary-key'
 export * from './unique-constraints'
+export * from './check-constraints'
 export * from './indexes'
 export * from './foreign-keys'
 export * from './field-types'
