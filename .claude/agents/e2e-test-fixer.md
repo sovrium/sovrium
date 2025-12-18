@@ -432,6 +432,19 @@ For each failing E2E test, follow this exact sequence:
 - Identify the minimal code needed to satisfy the test
 - Check @docs/architecture/testing-strategy.md for F.I.R.S.T principles
 
+**⚡ EARLY EXIT - Test Passes After Removing .fixme() Only (No Code Changes)**:
+- If test turns GREEN immediately after removing `.fixme()` **without any src/ changes**:
+  1. **Confirm no src/ changes needed** - the feature is already implemented
+  2. **Skip codebase-refactor-auditor full audit** - no production code to review
+  3. **Run minimal validation**: `bun run quality` (still validates spec file changes)
+  4. **Commit and proceed directly to PR creation** - do NOT invoke codebase-refactor-auditor
+  5. **Report**: "Test passed immediately - feature already implemented. Skipping full audit (test-only change)."
+
+  **Why this optimization matters**:
+  - Saves 5-10 minutes per spec (avoids full audit)
+  - Reduces chance of duplicate PRs (faster exit = less race condition window)
+  - `bun run quality` still validates: ESLint, TypeScript, unit tests, affected @regression specs
+
 **Edge Case - All Tests Already GREEN**:
 - If `bun test:e2e -- <test-file>` shows all tests passing:
   1. Verify no `test.fixme()` remain in file
