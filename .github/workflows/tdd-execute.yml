@@ -211,6 +211,64 @@ jobs:
           echo "$ISSUE_BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # Log concurrency group status for debugging workflow trigger issues
+      # This helps diagnose cases where @claude comments don't trigger Claude Code
+      - name: Log concurrency group status
+        if: steps.check.outputs.has_context == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+        run: |
+          echo "═══════════════════════════════════════════════════════════════════"
+          echo "🔄 CONCURRENCY GROUP DEBUG INFO"
+          echo "═══════════════════════════════════════════════════════════════════"
+
+          CONCURRENCY_GROUP="claude-issue-$ISSUE_NUMBER"
+          echo "📋 Concurrency Group: $CONCURRENCY_GROUP"
+          echo "📅 Triggered at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "🎯 Event: ${{ github.event_name }}"
+          echo "👤 Sender: ${{ github.event.sender.login }}"
+
+          # Check for other running workflows in the same concurrency group
+          echo ""
+          echo "🔍 Checking for other running workflows for issue #$ISSUE_NUMBER..."
+
+          RUNNING_WORKFLOWS=$(gh run list \
+            --workflow="TDD - Execute (Claude Code)" \
+            --status=in_progress \
+            --json databaseId,displayTitle,createdAt,event \
+            --jq "[.[] | select(.displayTitle | contains(\"#$ISSUE_NUMBER\"))]" 2>/dev/null || echo "[]")
+
+          RUNNING_COUNT=$(echo "$RUNNING_WORKFLOWS" | jq 'length' 2>/dev/null || echo "0")
+
+          if [ "$RUNNING_COUNT" -gt 1 ]; then
+            echo "⚠️  WARNING: $RUNNING_COUNT workflows running for this issue!"
+            echo "   This run may be queued due to concurrency group"
+            echo ""
+            echo "   Running workflows:"
+            echo "$RUNNING_WORKFLOWS" | jq -r '.[] | "   - Run \(.databaseId) started \(.createdAt) via \(.event)"'
+          elif [ "$RUNNING_COUNT" -eq 1 ]; then
+            echo "✅ This is the only running workflow for issue #$ISSUE_NUMBER"
+          else
+            echo "ℹ️  No in-progress workflows found (this workflow is still starting)"
+          fi
+
+          # Check for queued workflows
+          QUEUED_WORKFLOWS=$(gh run list \
+            --workflow="TDD - Execute (Claude Code)" \
+            --status=queued \
+            --json databaseId,displayTitle,createdAt \
+            --jq "[.[] | select(.displayTitle | contains(\"#$ISSUE_NUMBER\"))] | length" 2>/dev/null || echo "0")
+
+          if [ "$QUEUED_WORKFLOWS" -gt 0 ]; then
+            echo ""
+            echo "📥 $QUEUED_WORKFLOWS workflow(s) queued for this issue"
+            echo "   These will run after current workflow completes"
+          fi
+
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════════"
+
   # Error classification: Determine if error is retriable at infrastructure level
   classify-previous-error:
     runs-on: ubuntu-latest

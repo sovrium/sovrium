@@ -1018,9 +1018,11 @@ jobs:
 
             # Check for recent fix comments (cooldown period)
             # Matches both this job's comments AND test.yml's handle-regressions comments
+            # NOTE: test.yml now posts "Regression Analysis (Informational)" comments without @claude
+            #       This job is the sole owner of posting @claude mentions for regression fixes
             RECENT_FIX_COMMENT=$(gh api \
               "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Detected - Auto-Fix Required\")) | select(.created_at > \"${CUTOFF_TIME}\")] | length" 2>/dev/null || echo "0")
+              --jq "[.[] | select(.body | contains(\"Failed PR Recovery\") or contains(\"Regression Analysis\") or contains(\"Regression Detected\")) | select(.created_at > \"${CUTOFF_TIME}\")] | length" 2>/dev/null || echo "0")
 
             if [ "$RECENT_FIX_COMMENT" -gt 0 ]; then
               echo "   ⏭️  Skipping - fix already triggered within last ${COOLDOWN_MINUTES} minutes"
@@ -1043,7 +1045,29 @@ jobs:
               "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               --jq "[.[] | select(.body | contains(\"Failed PR Recovery\"))] | length" 2>/dev/null || echo "0")
 
-            if [ "$FIX_ATTEMPTS" -ge 3 ]; then
+            # Synchronize retry label with comment-based count
+          # This ensures labels match actual retry attempts (fixes label drift issue)
+          if [ "$FIX_ATTEMPTS" -ge 1 ]; then
+            # Remove old retry labels first
+            for i in 1 2 3; do
+              gh pr edit "$PR_NUMBER" --repo ${{ github.repository }} --remove-label "retry:infra:$i" 2>/dev/null || true
+              gh pr edit "$PR_NUMBER" --repo ${{ github.repository }} --remove-label "retry:spec:$i" 2>/dev/null || true
+            done
+            # Add current retry label (use infra for monitor-initiated retries)
+            gh pr edit "$PR_NUMBER" --repo ${{ github.repository }} --add-label "retry:infra:$FIX_ATTEMPTS" 2>/dev/null || true
+            echo "   📊 Updated retry label to retry:infra:$FIX_ATTEMPTS"
+
+            # Also update the linked issue labels
+            if [ -n "$ISSUE_NUMBER" ]; then
+              for i in 1 2 3; do
+                gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} --remove-label "retry:infra:$i" 2>/dev/null || true
+                gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} --remove-label "retry:spec:$i" 2>/dev/null || true
+              done
+              gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} --add-label "retry:infra:$FIX_ATTEMPTS" 2>/dev/null || true
+            fi
+          fi
+
+          if [ "$FIX_ATTEMPTS" -ge 3 ]; then
               echo "   ❌ Max fix attempts (3) reached - marking for manual resolution"
               ESCALATED_COUNT=$((ESCALATED_COUNT + 1))
 
