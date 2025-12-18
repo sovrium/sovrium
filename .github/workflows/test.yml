@@ -592,6 +592,7 @@ jobs:
       regression_specs: ${{ steps.classify-failures.outputs.regression_specs }}
       target_spec: ${{ steps.classify-failures.outputs.target_spec }}
       failure_type: ${{ steps.classify-failures.outputs.failure_type }}
+      infra_error_type: ${{ steps.classify-failures.outputs.infra_error_type }}
       is_test_only: ${{ needs.detect-change-type.outputs.is_test_only }}
 
     steps:
@@ -665,6 +666,89 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           echo "🔍 Classifying test failures for TDD automation PR..."
+
+          # ═══════════════════════════════════════════════════════════════════
+          # INFRASTRUCTURE ERROR DETECTION (Check BEFORE classifying as regression)
+          # Detects environment issues that are NOT caused by code changes
+          # ═══════════════════════════════════════════════════════════════════
+          INFRA_ERROR_DETECTED=false
+          INFRA_ERROR_TYPE=""
+
+          echo "🔧 Checking for infrastructure errors in test results..."
+
+          # Collect all test result content (stdout/stderr from failures)
+          TEST_OUTPUT=""
+          if [ -d "all-test-results" ]; then
+            TEST_OUTPUT=$(find all-test-results -type f \( -name "*.txt" -o -name "*.log" -o -name "output.txt" \) -exec cat {} \; 2>/dev/null || echo "")
+          fi
+
+          # Also check JSON results for error messages
+          if [ -d "all-json-results" ]; then
+            JSON_ERRORS=$(find all-json-results -name "*.json" -exec cat {} \; 2>/dev/null | \
+              jq -r '.. | .error? // .message? // empty' 2>/dev/null | head -100 || echo "")
+            TEST_OUTPUT="$TEST_OUTPUT"$'\n'"$JSON_ERRORS"
+          fi
+
+          # Check for Playwright browser installation errors
+          if echo "$TEST_OUTPUT" | grep -qE "browserType\.launch|Executable doesn't exist|chrome-headless-shell"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="playwright_browser_missing"
+            echo "⚠️  INFRASTRUCTURE ERROR: Playwright browser not installed"
+          # Check for network/connection errors
+          elif echo "$TEST_OUTPUT" | grep -qE "ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|socket hang up"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="network_error"
+            echo "⚠️  INFRASTRUCTURE ERROR: Network connectivity issue"
+          # Check for Docker errors
+          elif echo "$TEST_OUTPUT" | grep -qE "docker.*error|Cannot connect to Docker|docker daemon"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="docker_error"
+            echo "⚠️  INFRASTRUCTURE ERROR: Docker service unavailable"
+          # Check for resource exhaustion
+          elif echo "$TEST_OUTPUT" | grep -qE "out of memory|OOM|ENOMEM|killed"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="resource_exhaustion"
+            echo "⚠️  INFRASTRUCTURE ERROR: Resource exhaustion (OOM)"
+          # Check for permission errors
+          elif echo "$TEST_OUTPUT" | grep -qE "EPERM|EACCES|Permission denied"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="permission_error"
+            echo "⚠️  INFRASTRUCTURE ERROR: Permission denied"
+          # Check for Playwright browser context/page closure errors
+          elif echo "$TEST_OUTPUT" | grep -qE "Target page.*closed|Context disposed|Page closed|browser has been closed"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="browser_context_closed"
+            echo "⚠️  INFRASTRUCTURE ERROR: Browser context prematurely closed"
+          # Check for explicit Playwright test timeout
+          elif echo "$TEST_OUTPUT" | grep -qE "Test timeout of [0-9]+ms exceeded"; then
+            INFRA_ERROR_DETECTED=true
+            INFRA_ERROR_TYPE="test_timeout"
+            echo "⚠️  INFRASTRUCTURE ERROR: Test execution timeout"
+          fi
+
+          # If infrastructure error detected, short-circuit classification
+          if [ "$INFRA_ERROR_DETECTED" = "true" ]; then
+            echo ""
+            echo "🚨 INFRASTRUCTURE ERROR DETECTED - NOT a code regression!"
+            echo "   Error Type: $INFRA_ERROR_TYPE"
+            echo "   This failure should be retried, not classified as regression"
+            echo ""
+
+            # Output as infrastructure failure (will trigger different handling)
+            echo "has_regressions=false" >> $GITHUB_OUTPUT
+            echo "regression_specs=" >> $GITHUB_OUTPUT
+            echo "target_spec=" >> $GITHUB_OUTPUT
+            echo "failure_type=infrastructure" >> $GITHUB_OUTPUT
+            echo "infra_error_type=$INFRA_ERROR_TYPE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "✅ No infrastructure errors detected - proceeding with failure classification"
+          echo ""
+
+          # ═══════════════════════════════════════════════════════════════════
+          # NORMAL CLASSIFICATION LOGIC (Code/Test failures)
+          # ═══════════════════════════════════════════════════════════════════
 
           # Extract target spec from PR body
           ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
@@ -774,6 +858,50 @@ jobs:
         run: |
           echo "🏷️  Adding failure:spec label to PR #$PR_NUMBER (target-only failure)"
           gh pr edit "$PR_NUMBER" --add-label "failure:spec" || true
+
+      - name: Add infrastructure failure label
+        if: |
+          (needs.e2e.result == 'failure' || needs.e2e-target.result == 'failure') &&
+          contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+          steps.classify-failures.outputs.failure_type == 'infrastructure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          INFRA_ERROR_TYPE: ${{ steps.classify-failures.outputs.infra_error_type }}
+        run: |
+          echo "🏷️  Adding failure:infra label to PR #$PR_NUMBER (infrastructure error: $INFRA_ERROR_TYPE)"
+          gh pr edit "$PR_NUMBER" --add-label "failure:infra" || true
+
+          # Also update the linked issue to maintain consistent state
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "🏷️  Adding failure:infra label to linked issue #$ISSUE_NUMBER"
+            gh issue edit "$ISSUE_NUMBER" --add-label "failure:infra" || true
+          fi
+
+          # Post comment explaining infrastructure error
+          gh pr comment "$PR_NUMBER" --body "## 🔧 Infrastructure Error Detected
+
+          **This is NOT a code regression** - it's an environment/infrastructure issue.
+
+          **Error Type**: \`$INFRA_ERROR_TYPE\`
+
+          **What this means**:
+          - The test failures are caused by CI environment issues, not your code changes
+          - The TDD Monitor will automatically retry this PR
+          - No code changes are needed to fix this
+
+          **Common causes**:
+          - \`playwright_browser_missing\`: Playwright browser cache miss
+          - \`network_error\`: Transient network connectivity issues
+          - \`docker_error\`: Docker service unavailable
+          - \`resource_exhaustion\`: Runner ran out of memory
+          - \`browser_context_closed\`: Browser context prematurely closed
+          - \`test_timeout\`: Test execution timeout exceeded
+
+          ---
+          *🤖 Infrastructure Error Handler*"
 
       - name: Fail if E2E tests failed
         if: steps.check.outputs.e2e_failed == 'true'
@@ -1101,7 +1229,10 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Post regression fix instructions to PR
+      - name: Post regression analysis to PR (informational only)
+        # NOTE: This comment does NOT contain @claude to prevent duplicate triggers
+        # The TDD Monitor's failed-pr-recovery job will trigger Claude Code for fixes
+        # This prevents race conditions between test.yml and tdd-monitor.yml
         if: steps.cooldown.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1114,9 +1245,9 @@ jobs:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           cat << 'EOF' > /tmp/comment.md
-          ## 🔧 Regression Detected - Auto-Fix Required
+          ## 🔍 Regression Analysis (Informational)
 
-          @claude This PR has **regressions** - tests failing in files OTHER than the target spec.
+          This PR has **regressions** - tests failing in files OTHER than the target spec.
 
           ### 📊 Failure Analysis
           - **Target Spec**: `$TARGET_SPEC`
@@ -1125,38 +1256,28 @@ jobs:
           - **Spec ID**: `$SPEC_ID`
           - **Issue**: #$ISSUE_NUMBER
 
-          ### 🤖 Auto-Fix Instructions
+          ### 🔄 What Happens Next
 
-          **CRITICAL**: Your changes broke tests in other files. This is a **regression** that must be fixed.
+          **The TDD Monitor will automatically trigger Claude Code to fix this regression.**
 
-          1. **Analyze the regression cause**:
-             - Run `bun test:e2e -- $REGRESSION_SPECS` to see the failing tests
-             - Check what code you changed that could affect these tests
-             - Look for **catch-all patterns** that are too greedy
+          The fix should:
+          1. Analyze the regression cause (usually greedy catch-all patterns)
+          2. Fix the implementation without modifying the failing tests
+          3. Verify with `bun run quality && bun test:e2e:regression`
+          4. Push the fix
 
-          2. **Fix the regression** without modifying the failing tests
-
-          3. **Verify the fix**:
-             ```bash
-             bun run quality
-             bun test:e2e:regression
-             ```
-
-          4. **Push the fix**:
-             ```bash
-             bun run license
-             git add -A
-             git commit -m "fix: resolve regression in $SPEC_ID"
-             git push
-             ```
+          ### 📝 Common Regression Causes
+          - Greedy catch-all schemas (e.g., `UnknownFieldSchema` matching valid types)
+          - Validation changes that are too permissive
+          - Type signature changes breaking dependent code
 
           ---
-          *🤖 Regression Handler - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+          *🤖 Regression Handler (analysis only) - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*
           EOF
 
           envsubst < /tmp/comment.md > /tmp/comment_final.md
           gh pr comment "$PR_NUMBER" --body-file /tmp/comment_final.md
-          echo "✅ Posted regression fix instructions to PR #$PR_NUMBER"
+          echo "✅ Posted regression analysis to PR #$PR_NUMBER (TDD Monitor will trigger fix)"
 
       - name: Update issue with regression status
         if: steps.cooldown.outputs.skip != 'true' && steps.details.outputs.issue_number != ''

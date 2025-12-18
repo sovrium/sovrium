@@ -190,16 +190,20 @@ bun run scripts/tdd-automation/queue-manager.ts status
 
 5. **e2e-results job** (regression classification):
    - Aggregates results from all E2E shards
+   - **Infrastructure error detection** (v2.5.3): Detects environment issues BEFORE classifying as regressions
+     - Detected errors: `playwright_browser_missing`, `network_error`, `docker_error`, `resource_exhaustion`, `permission_error`, `browser_context_closed`, `test_timeout`
+     - Infrastructure errors get `failure:infra` label (on both PR and linked issue)
+     - Prevents false regression classifications for flaky/environment issues
    - **JSON-based failure parsing** (v2.4.0): Uses Playwright JSON reporter for reliable spec path extraction
-   - Classifies failures as: `target_only`, `regression_only`, or `mixed`
-   - Applies appropriate failure labels (`failure:spec`, `failure:regression`)
+   - Classifies failures as: `target_only`, `regression_only`, `mixed`, or `infrastructure`
+   - Applies appropriate failure labels (`failure:spec`, `failure:regression`, `failure:infra`)
    - **Fallback**: Directory-based parsing if JSON unavailable (less reliable for hyphenated paths)
 
-6. **handle-regressions job** (automatic regression fix):
+6. **handle-regressions job** (regression analysis - informational):
    - Triggers when regressions detected in TDD PRs
-   - Posts @claude comment with fix instructions
+   - Posts **informational comment** (NO `@claude` mention) with regression analysis
    - Provides regression spec list and target spec context
-   - Enables automatic recovery without manual intervention
+   - **NOTE**: `tdd-monitor.yml` is the sole owner of triggering Claude Code for fixes (prevents race conditions)
 
 #### **tdd-monitor.yml** (Monitoring & Recovery)
 
@@ -1420,12 +1424,19 @@ gh issue comment {ISSUE_NUMBER} \
 
 ---
 
-**Last Updated**: 2025-12-17
-**Version**: 2.5.2 (Queue System + Self-Healing Safeguards + Race Condition Fixes)
+**Last Updated**: 2025-12-18
+**Version**: 2.5.3 (Queue System + Infrastructure Error Detection + Regression Handler Consolidation)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-18 (v2.5.3)**: Improved infrastructure error detection and regression handling:
+  - **Infrastructure error detection**: `test.yml` now detects 7 types of infrastructure errors BEFORE classifying as regressions
+    - `playwright_browser_missing`, `network_error`, `docker_error`, `resource_exhaustion`, `permission_error`, `browser_context_closed`, `test_timeout`
+  - **Consistent label state**: `failure:infra` label now added to both PR AND linked issue (was PR-only)
+  - **Regression handler consolidation**: `test.yml` now posts analysis-only comments (no `@claude`), `tdd-monitor.yml` is sole owner of Claude triggers
+  - **Cooldown pattern fix**: `tdd-monitor.yml` cooldown now matches new comment format from `test.yml`
+  - **Concurrency debugging**: `tdd-execute.yml` now logs concurrency group status to help diagnose trigger issues
 - **2025-12-17 (v2.5.2)**: Fixed race conditions in conflict resolution to fix PR #6073 incident:
   - **Pre-conflict superseded check**: `tdd-monitor.yml` now checks for empty-diff PRs BEFORE attempting conflict resolution
   - **@claude cooldown (10 min)**: Skips posting @claude comments if one was posted in last 10 minutes (prevents duplicate runs)
