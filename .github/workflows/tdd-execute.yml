@@ -797,46 +797,56 @@ jobs:
         run: |
           echo "🚀 Triggering retry workflow (attempt $NEXT_RETRY)..."
 
-          # Trigger the workflow
-          gh workflow run tdd-execute.yml --repo "$REPO" \
+          # Trigger the workflow - capture exit status to allow fallback on failure
+          # Bug fix: Previously, failure here would exit immediately due to set -e,
+          # preventing the fallback @claude comment from being posted
+          DISPATCH_FAILED=false
+          if ! gh workflow run tdd-execute.yml --repo "$REPO" \
             --field issue_number="$ISSUE_NUMBER" \
-            --field retry_attempt="$NEXT_RETRY"
+            --field retry_attempt="$NEXT_RETRY" 2>&1; then
+            echo "⚠️ Workflow dispatch failed (likely 403 permission error) - will use fallback"
+            DISPATCH_FAILED=true
+          fi
 
-          # Wait for workflow to start
-          echo "⏳ Verifying retry workflow started..."
-          sleep 15
-
-          # Check if workflow started in the last 20 seconds
-          NOW=$(date +%s)
+          # Skip verification if dispatch already failed - go straight to fallback
           RETRY_STARTED=false
+          if [ "$DISPATCH_FAILED" != "true" ]; then
+            # Wait for workflow to start
+            echo "⏳ Verifying retry workflow started..."
+            sleep 15
 
-          # Get recent runs with error handling
-          RECENT_RUNS=$(gh run list \
-            --workflow tdd-execute.yml \
-            --repo "$REPO" \
-            --limit 5 \
-            --json event,createdAt,status 2>&1) || true
+            # Check if workflow started in the last 20 seconds
+            NOW=$(date +%s)
 
-          # Validate JSON before parsing
-          if echo "$RECENT_RUNS" | jq empty 2>/dev/null; then
-            # Check for a workflow_dispatch run created in the last 20 seconds
-            echo "$RECENT_RUNS" | jq -r '.[] | select(.event == "workflow_dispatch")' 2>/dev/null | while read -r run; do
-              if [ -n "$run" ]; then
-                CREATED_AT=$(echo "$run" | jq -r '.createdAt' 2>/dev/null || echo "")
-                if [ -n "$CREATED_AT" ]; then
-                  CREATED_EPOCH=$(date -d "$CREATED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$CREATED_AT" +%s 2>/dev/null || echo 0)
-                  AGE=$((NOW - CREATED_EPOCH))
+            # Get recent runs with error handling
+            RECENT_RUNS=$(gh run list \
+              --workflow tdd-execute.yml \
+              --repo "$REPO" \
+              --limit 5 \
+              --json event,createdAt,status 2>&1) || true
 
-                  if [ "$AGE" -lt 20 ]; then
-                    RETRY_STARTED=true
-                    echo "✅ Retry workflow started successfully"
-                    break
+            # Validate JSON before parsing
+            if echo "$RECENT_RUNS" | jq empty 2>/dev/null; then
+              # Check for a workflow_dispatch run created in the last 20 seconds
+              # Bug fix: Use process substitution to avoid subshell variable scope issue
+              while read -r run; do
+                if [ -n "$run" ]; then
+                  CREATED_AT=$(echo "$run" | jq -r '.createdAt' 2>/dev/null || echo "")
+                  if [ -n "$CREATED_AT" ]; then
+                    CREATED_EPOCH=$(date -d "$CREATED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$CREATED_AT" +%s 2>/dev/null || echo 0)
+                    AGE=$((NOW - CREATED_EPOCH))
+
+                    if [ "$AGE" -lt 20 ]; then
+                      RETRY_STARTED=true
+                      echo "✅ Retry workflow started successfully"
+                      break
+                    fi
                   fi
                 fi
-              fi
-            done
-          else
-            echo "⚠️ Failed to parse workflow runs (JSON error) - will use fallback method"
+              done < <(echo "$RECENT_RUNS" | jq -r '.[] | select(.event == "workflow_dispatch")' 2>/dev/null)
+            else
+              echo "⚠️ Failed to parse workflow runs (JSON error) - will use fallback method"
+            fi
           fi
 
           # If workflow didn't start, use issue comment as fallback
