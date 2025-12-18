@@ -102,7 +102,9 @@ const isManyToMany = (field: Fields[number]): field is Fields[number] & { relate
   typeof field.relatedTable === 'string'
 
 /** Check if relationship field has valid related table */
-const hasRelatedTable = (field: Fields[number]): field is Fields[number] & { relatedTable: string } =>
+const hasRelatedTable = (
+  field: Fields[number]
+): field is Fields[number] & { relatedTable: string } =>
   'relatedTable' in field && typeof field.relatedTable === 'string'
 
 /**
