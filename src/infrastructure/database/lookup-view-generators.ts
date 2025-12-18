@@ -10,7 +10,11 @@ import {
   generateManyToManyLookupExpression,
   generateForwardLookupExpression,
 } from './lookup-expressions'
-import { buildWhereClause, mapAggregationToPostgres, getDefaultValueForAggregation } from './lookup-view-helpers'
+import {
+  buildWhereClause,
+  mapAggregationToPostgres,
+  getDefaultValueForAggregation,
+} from './lookup-view-helpers'
 import {
   getBaseFields,
   generateInsertTrigger,
@@ -138,7 +142,10 @@ const generateLookupExpression = (
   }
 
   // Forward lookup (many-to-one)
-  if ('relatedTable' in relationshipFieldDef && typeof relationshipFieldDef.relatedTable === 'string') {
+  if (
+    'relatedTable' in relationshipFieldDef &&
+    typeof relationshipFieldDef.relatedTable === 'string'
+  ) {
     return generateForwardLookupExpression({
       lookupName,
       relationshipField,

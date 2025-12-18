@@ -57,7 +57,9 @@ export const generateReverseLookupExpression = (config: LookupExpressionConfig):
 
   const alias = `${relatedTable}_for_${lookupName}`
   const baseCondition = `${alias}.${relationshipField} = ${tableAlias}.id`
-  const whereConditions = filters ? [baseCondition, buildWhereClause(filters, alias)] : [baseCondition]
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -80,7 +82,9 @@ export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfi
 
   const baseCondition = `${junctionAlias}.${foreignKeyInJunction} = ${tableAlias}.id`
   const joinCondition = `${alias}.id = ${junctionAlias}.${relatedForeignKeyInJunction}`
-  const whereConditions = filters ? [baseCondition, buildWhereClause(filters, alias)] : [baseCondition]
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
   const whereClause = whereConditions.join(' AND ')
 
   return `(

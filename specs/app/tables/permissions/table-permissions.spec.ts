@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/permissions/index.ts
  * Domain: app
- * Spec Count: 7
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -101,90 +101,6 @@ test.describe('Table-Level Permissions', () => {
     }
   )
 
-  // NOTE: Test infrastructure limitation - SET ROLE + session variables + INSERT WITH CHECK
-  // While SET ROLE preserves session variables for SELECT (USING clause), INSERT operations
-  // with WITH CHECK clauses have different evaluation context in PostgreSQL.
-  // The RLS policy generation is correct - this is tested at the API level instead.
-  // See: specs/api/tables/permissions/api-*.spec.ts for API-level permission tests
-  test.fixme(
-    'APP-TABLES-TABLE-PERMISSIONS-002: should deny INSERT access when user with member role attempts to create record with admin-only create permission',
-    { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: table with role-based create permission for 'admin' role only
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 2,
-            name: 'documents',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              create: {
-                type: 'roles',
-                roles: ['admin'],
-              },
-            },
-          },
-        ],
-      })
-
-      // RLS policies are auto-created by the server based on permissions config
-      // Grant privileges to test users for execution
-      await executeQuery([
-        'GRANT ALL PRIVILEGES ON documents TO app_user, admin_user, member_user',
-        'GRANT ALL PRIVILEGES ON SEQUENCE documents_id_seq TO app_user, admin_user, member_user',
-      ])
-
-      // WHEN: user with 'member' role attempts to create record
-      // THEN: PostgreSQL RLS policy denies INSERT access
-
-      // RLS policy exists for role-based create
-      const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='documents_role_create'"
-      )
-      expect(policyCount.count).toBe(1)
-
-      // Policy uses WITH CHECK clause for INSERT
-      const policyDetails = await executeQuery(
-        "SELECT cmd, with_check FROM pg_policies WHERE tablename='documents' AND policyname='documents_role_create'"
-      )
-      expect(policyDetails).toMatchObject({
-        cmd: 'INSERT',
-        with_check: "auth.user_has_role('admin'::text)",
-      })
-
-      // Admin user can INSERT records (SET ROLE preserves session variable visibility)
-      // NOTE: Session variables must be set BEFORE SET ROLE for RLS to see them
-      const adminInsert = await executeQuery([
-        "SET app.user_role = 'admin'",
-        'SET ROLE admin_user',
-        "INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id",
-        'RESET ROLE',
-      ])
-      expect(adminInsert.id).toBe(1)
-
-      // Member user cannot INSERT records (RLS policy denies based on role)
-      let memberInsertFailed = false
-      try {
-        await executeQuery([
-          "SET app.user_role = 'member'",
-          'SET ROLE member_user',
-          "INSERT INTO documents (title) VALUES ('Doc 2')",
-          'RESET ROLE',
-        ])
-      } catch (error) {
-        memberInsertFailed = true
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        expect(errorMessage).toContain('new row violates row-level security policy')
-      }
-      expect(memberInsertFailed).toBe(true)
-    }
-  )
-
   test(
     'APP-TABLES-TABLE-PERMISSIONS-003: should allow SELECT without RLS policy when table has public read permission',
     { tag: '@spec' },
@@ -241,79 +157,6 @@ test.describe('Table-Level Permissions', () => {
       const unauthResult = await executeQuery('RESET ROLE; SELECT COUNT(*) as count FROM articles')
       // THEN: assertion
       expect(unauthResult.count).toBe(2)
-    }
-  )
-
-  // NOTE: Test infrastructure limitation - SET ROLE + session variables + UPDATE WITH CHECK
-  // Same limitation as test 002 - UPDATE operations with RLS policies have different
-  // evaluation context when combining role switching with session variables.
-  // The RLS policy generation is correct - this is tested at the API level instead.
-  // See: specs/api/tables/permissions/api-*.spec.ts for API-level permission tests
-  test.fixme(
-    'APP-TABLES-TABLE-PERMISSIONS-004: should grant UPDATE access to authenticated users when table has authenticated-only update permission',
-    { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: table with authenticated-only update permission
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'profiles',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'bio', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              update: {
-                type: 'authenticated',
-              },
-            },
-          },
-        ],
-      })
-
-      // Grant privileges to test users for execution
-      await executeQuery([
-        'GRANT ALL PRIVILEGES ON profiles TO app_user, authenticated_user',
-        "INSERT INTO profiles (id, name, bio) VALUES (1, 'Alice', 'Bio 1')",
-      ])
-
-      // WHEN: authenticated user attempts to update record
-      // THEN: PostgreSQL RLS policy grants UPDATE access to authenticated users
-
-      // RLS policy exists for authenticated update
-      const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='profiles' AND policyname='authenticated_update'"
-      )
-      expect(policyCount.count).toBe(1)
-
-      // Authenticated user can UPDATE records (SET ROLE preserves session variable visibility)
-      const authUpdate = await executeQuery([
-        "SET app.user_id = 'test-user-123'",
-        'SET ROLE authenticated_user',
-        "UPDATE profiles SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
-        'RESET ROLE',
-      ])
-      expect(authUpdate.bio).toBe('Updated bio')
-
-      // Unauthenticated user cannot UPDATE records (empty user_id)
-      // Note: With RLS for 'authenticated' type, UPDATE without valid user_id affects 0 rows
-      // (PostgreSQL RLS doesn't throw error for UPDATE - it just filters to 0 matching rows)
-      const unauthUpdate = await executeQuery([
-        "SET app.user_id = ''",
-        'SET ROLE app_user',
-        "UPDATE profiles SET bio = 'Hacked' WHERE id = 1 RETURNING bio",
-        'RESET ROLE',
-      ])
-      // THEN: Update should affect 0 rows (RLS filters out non-matching rows)
-      expect(unauthUpdate.rowCount).toBe(0)
-
-      // Verify the bio was NOT changed
-      const verifyBio = await executeQuery('SELECT bio FROM profiles WHERE id = 1')
-      expect(verifyBio.bio).toBe('Updated bio') // Still the value set by authenticated user
     }
   )
 
