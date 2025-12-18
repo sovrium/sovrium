@@ -199,11 +199,12 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - Applies appropriate failure labels (`failure:spec`, `failure:regression`, `failure:infra`)
    - **Fallback**: Directory-based parsing if JSON unavailable (less reliable for hyphenated paths)
 
-6. **handle-regressions job** (regression analysis - informational):
+6. **handle-regressions job** (regression analysis - immediate trigger):
    - Triggers when regressions detected in TDD PRs
-   - Posts **informational comment** (NO `@claude` mention) with regression analysis
-   - Provides regression spec list and target spec context
-   - **NOTE**: `tdd-monitor.yml` is the sole owner of triggering Claude Code for fixes (prevents race conditions)
+   - Posts `@claude` comment with regression fix instructions using PAT token (immediate Claude Code trigger)
+   - Provides regression spec list, target spec context, and step-by-step fix instructions
+   - Includes cooldown check (30 min) to prevent duplicate triggers with `tdd-monitor.yml`
+   - **NOTE**: Uses `GH_PAT_WORKFLOW` secret for @claude mention to trigger Claude Code
 
 #### **tdd-monitor.yml** (Monitoring & Recovery)
 
@@ -1425,16 +1426,21 @@ gh issue comment {ISSUE_NUMBER} \
 ---
 
 **Last Updated**: 2025-12-18
-**Version**: 2.5.3 (Queue System + Infrastructure Error Detection + Regression Handler Consolidation)
+**Version**: 2.5.4 (Queue System + Immediate Regression Triggering)
 **Status**: Active
 
 **Changelog**:
 
+- **2025-12-18 (v2.5.4)**: Immediate regression triggering for faster feedback:
+  - **test.yml handle-regressions**: Now posts `@claude` comment with PAT token for immediate Claude Code trigger
+  - **Comment format**: Changed from "Regression Analysis (Informational)" to "Regression Auto-Fix Required (Immediate)"
+  - **tdd-monitor.yml coordination**: Updated cooldown pattern to match new comment format, now serves as backup safety net
+  - **Result**: Regressions trigger Claude Code immediately (vs. waiting up to 30 min for tdd-monitor.yml)
 - **2025-12-18 (v2.5.3)**: Improved infrastructure error detection and regression handling:
   - **Infrastructure error detection**: `test.yml` now detects 7 types of infrastructure errors BEFORE classifying as regressions
     - `playwright_browser_missing`, `network_error`, `docker_error`, `resource_exhaustion`, `permission_error`, `browser_context_closed`, `test_timeout`
   - **Consistent label state**: `failure:infra` label now added to both PR AND linked issue (was PR-only)
-  - **Regression handler consolidation**: `test.yml` now posts analysis-only comments (no `@claude`), `tdd-monitor.yml` is sole owner of Claude triggers
+  - **Regression handler consolidation**: ~~`test.yml` now posts analysis-only comments (no `@claude`)~~ (superseded by v2.5.4 - now posts `@claude` immediately)
   - **Cooldown pattern fix**: `tdd-monitor.yml` cooldown now matches new comment format from `test.yml`
   - **Concurrency debugging**: `tdd-execute.yml` now logs concurrency group status to help diagnose trigger issues
 - **2025-12-17 (v2.5.2)**: Fixed race conditions in conflict resolution to fix PR #6073 incident:
