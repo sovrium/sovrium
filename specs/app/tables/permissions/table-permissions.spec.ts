@@ -102,7 +102,7 @@ test.describe('Table-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-003: should allow SELECT without RLS policy when table has public read permission',
+    'APP-TABLES-TABLE-PERMISSIONS-002: should allow SELECT without RLS policy when table has public read permission',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with public read permission
@@ -161,7 +161,7 @@ test.describe('Table-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-005: should deny all SELECT access by default when table has no read permission specified',
+    'APP-TABLES-TABLE-PERMISSIONS-003: should deny all SELECT access by default when table has no read permission specified',
     { tag: '@spec' },
     async ({ page: _page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with no read permission specified (default deny)
@@ -220,11 +220,11 @@ test.describe('Table-Level Permissions', () => {
   )
 
   // ============================================================================
-  // Phase: Error Configuration Validation Tests (006-007)
+  // Phase: Error Configuration Validation Tests (004-005)
   // ============================================================================
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-006: should reject owner permission referencing non-existent field',
+    'APP-TABLES-TABLE-PERMISSIONS-004: should reject owner permission referencing non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Owner permission referencing non-existent field
@@ -256,7 +256,7 @@ test.describe('Table-Level Permissions', () => {
   )
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-007: should reject owner permission field that is not a user type',
+    'APP-TABLES-TABLE-PERMISSIONS-005: should reject owner permission field that is not a user type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Owner permission referencing field that is not user type
@@ -293,7 +293,7 @@ test.describe('Table-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-008: user can complete full table-permissions workflow',
+    'APP-TABLES-TABLE-PERMISSIONS-006: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any
