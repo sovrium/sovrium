@@ -53,13 +53,23 @@ export {
 
 /**
  * Check if table should skip RLS for field-only permissions
+ *
+ * Skip RLS when:
+ * - Field permissions array has at least one entry (actual field restrictions) AND
+ * - No record-level permissions exist
+ *
+ * Rationale: When permissions.fields has entries, column-level GRANT statements
+ * handle field access. RLS is only needed if record-level restrictions exist.
+ * Empty array ([]) means "no field restrictions" and table-level RLS applies.
  */
 const shouldSkipRLSForFieldPermissions = (table: Table): boolean => {
-  const hasFieldPermissions = !!(table.permissions?.fields && table.permissions.fields.length > 0)
+  const hasActualFieldPermissions = !!(
+    table.permissions?.fields && table.permissions.fields.length > 0
+  )
   const hasRecordPermissions = !!(
     table.permissions?.records && table.permissions.records.length > 0
   )
-  return hasFieldPermissions && !hasRecordPermissions
+  return hasActualFieldPermissions && !hasRecordPermissions
 }
 
 /**
