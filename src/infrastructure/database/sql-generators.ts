@@ -685,6 +685,7 @@ export const generateForeignKeyConstraints = (
 /**
  * Generate primary key constraint if defined
  * Skips single-field composite keys when the field is SERIAL (PRIMARY KEY is already inline)
+ * Note: Special field 'id' is automatically SERIAL, so PRIMARY KEY is inline
  */
 const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
   if (table.primaryKey?.type === 'composite' && table.primaryKey.fields) {
@@ -692,6 +693,13 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
     if (table.primaryKey.fields.length === 1) {
       const pkFieldName = table.primaryKey.fields[0]
       const pkField = table.fields.find((f) => f.name === pkFieldName)
+
+      // Special case: 'id' field is automatically SERIAL, PRIMARY KEY is inline
+      if (pkFieldName === 'id' && !pkField) {
+        // PRIMARY KEY is already inline in the automatic id column definition
+        return []
+      }
+
       if (pkField && shouldUseSerial(pkField, true)) {
         // PRIMARY KEY is already inline in the SERIAL column definition
         return []
