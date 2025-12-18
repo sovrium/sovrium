@@ -83,6 +83,17 @@ const generateCustomIndexes = (table: Table): readonly string[] =>
   }) ?? []
 
 /**
+ * Generate index for intrinsic deleted_at column (soft-delete optimization)
+ * This index improves performance for common soft-delete queries:
+ * - WHERE deleted_at IS NULL (active records)
+ * - WHERE deleted_at IS NOT NULL (deleted records)
+ */
+const generateDeletedAtIndex = (table: Table): readonly string[] => {
+  const indexName = `idx_${table.name}_deleted_at`
+  return [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (deleted_at)`]
+}
+
+/**
  * Generate indexes for foreign key columns (relationship and user fields)
  * Foreign key columns benefit from indexes for JOIN operations and referential integrity checks
  * This improves query performance when filtering or joining on relationships
@@ -121,4 +132,5 @@ export const generateIndexStatements = (table: Table): readonly string[] => [
   ...generateFullTextSearchIndexes(table),
   ...generateCustomIndexes(table),
   ...generateForeignKeyIndexes(table),
+  ...generateDeletedAtIndex(table),
 ]
