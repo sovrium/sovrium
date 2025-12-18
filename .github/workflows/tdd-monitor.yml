@@ -310,14 +310,30 @@ jobs:
                 NEXT_RETRY=$((RETRY_NUM + 1))
                 # Preserve retry type (spec vs infra) when incrementing
                 RETRY_TYPE=$(echo "$RETRY_LABEL" | sed -E 's/retry:(spec|infra):.*/\1/')
+
+                # Get spec details from issue for context (needed for Claude running check)
+                SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
+
+                # Check if Claude Code is actively processing this spec
+                # This prevents posting @claude retry while original Claude is still running
+                if [ "$SPEC_ID" != "unknown" ]; then
+                  CLAUDE_RUNNING=$(gh run list \
+                    --repo ${{ github.repository }} \
+                    --workflow "TDD - Execute (Claude Code)" \
+                    --json status,displayTitle \
+                    --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"$SPEC_ID\"))] | length" 2>/dev/null || echo "0")
+
+                  if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+                    echo "   ⏭️  Skipping retry - Claude Code is actively processing spec $SPEC_ID"
+                    continue
+                  fi
+                fi
+
                 echo "   🔄 Triggering retry #$NEXT_RETRY (type: $RETRY_TYPE)"
 
                 gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
                   --remove-label "$RETRY_LABEL" \
                   --add-label "retry:${RETRY_TYPE}:$NEXT_RETRY"
-
-                # Get spec details from issue for context
-                SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
                 TEST_FILE=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json body --jq '.body' | grep -oE 'Test File[^`]*`[^`]+' | sed 's/.*`//' || echo "unknown")
 
                 gh issue comment "$ISSUE_NUMBER" --repo ${{ github.repository }} \
@@ -418,6 +434,31 @@ jobs:
 
               # Only enable auto-merge if PR is >5 min old (give CI time to start)
               if [ "$AGE_MIN" -ge 5 ]; then
+                # Check if Claude Code is actively processing the linked issue
+                # This prevents race conditions where Monitor enables auto-merge while original Claude is still running
+                # NOTE: We use spec ID matching because displayTitle contains spec ID (e.g., "APP-TABLES-001"),
+                # NOT issue number. See PR #6113 race condition incident.
+                PR_BODY=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json body --jq '.body' 2>/dev/null || echo "")
+                LINKED_ISSUE=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+
+                if [ -n "$LINKED_ISSUE" ]; then
+                  ISSUE_TITLE=$(gh issue view "$LINKED_ISSUE" --repo ${{ github.repository }} --json title --jq '.title' 2>/dev/null || echo "")
+                  SPEC_ID=$(echo "$ISSUE_TITLE" | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' | head -1)
+
+                  if [ -n "$SPEC_ID" ]; then
+                    CLAUDE_RUNNING=$(gh run list \
+                      --repo ${{ github.repository }} \
+                      --workflow "TDD - Execute (Claude Code)" \
+                      --json status,displayTitle \
+                      --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"$SPEC_ID\"))] | length" 2>/dev/null || echo "0")
+
+                    if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+                      echo "   ⏭️  Skipping auto-merge - Claude Code is actively processing spec $SPEC_ID (issue #$LINKED_ISSUE)"
+                      continue
+                    fi
+                  fi
+                fi
+
                 echo ""
                 echo "⚠️  PR #$PR_NUMBER missing auto-merge (${AGE_MIN}m old)"
                 echo "   Enabling auto-merge..."
@@ -870,6 +911,29 @@ jobs:
             if [ "$RECENT_CLAUDE_COMMENT" -gt 0 ]; then
               echo "   ⏭️  Skipping - @claude comment already posted within last 10 minutes"
               continue
+            fi
+
+            # Check if Claude Code is actively processing the linked issue
+            # This prevents posting @claude resolve conflicts while original Claude is still running
+            PR_BODY=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json body --jq '.body' 2>/dev/null || echo "")
+            LINKED_ISSUE=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+
+            if [ -n "$LINKED_ISSUE" ]; then
+              ISSUE_TITLE=$(gh issue view "$LINKED_ISSUE" --repo ${{ github.repository }} --json title --jq '.title' 2>/dev/null || echo "")
+              SPEC_ID=$(echo "$ISSUE_TITLE" | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' | head -1)
+
+              if [ -n "$SPEC_ID" ]; then
+                CLAUDE_RUNNING=$(gh run list \
+                  --repo ${{ github.repository }} \
+                  --workflow "TDD - Execute (Claude Code)" \
+                  --json status,displayTitle \
+                  --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"$SPEC_ID\"))] | length" 2>/dev/null || echo "0")
+
+                if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+                  echo "   ⏭️  Skipping conflict resolution - Claude Code is actively processing spec $SPEC_ID (issue #$LINKED_ISSUE)"
+                  continue
+                fi
+              fi
             fi
 
             # Check if already attempted resolution

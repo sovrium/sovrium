@@ -1229,10 +1229,43 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check if Claude Code is actively processing this spec
+        id: claude-check
+        if: steps.cooldown.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPEC_ID: ${{ steps.details.outputs.spec_id }}
+        run: |
+          # Check if Claude Code is actively processing this spec
+          # This prevents posting @claude regression fix while original Claude is still running
+          echo "🔍 Checking if Claude Code is actively processing spec $SPEC_ID..."
+
+          if [ -z "$SPEC_ID" ]; then
+            echo "⚠️  No spec ID found, proceeding with regression notification"
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CLAUDE_RUNNING=$(gh run list \
+            --repo ${{ github.repository }} \
+            --workflow "TDD - Execute (Claude Code)" \
+            --json status,displayTitle \
+            --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"$SPEC_ID\"))] | length" 2>/dev/null || echo "0")
+
+          echo "  Claude Code runs for $SPEC_ID: $CLAUDE_RUNNING"
+
+          if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+            echo "⏭️  Skipping: Claude Code is actively processing spec $SPEC_ID"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No active Claude Code run, proceeding with regression notification"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Post regression fix request to PR (immediate @claude trigger)
         # Uses PAT so @claude triggers Claude Code immediately (no waiting for tdd-monitor.yml)
-        # The cooldown check above prevents duplicate triggers
-        if: steps.cooldown.outputs.skip != 'true'
+        # The cooldown check and claude-check above prevent duplicate triggers
+        if: steps.cooldown.outputs.skip != 'true' && steps.claude-check.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -1315,7 +1348,7 @@ jobs:
           echo "✅ Posted @claude regression fix request to PR #$PR_NUMBER (immediate trigger)"
 
       - name: Update issue with regression status
-        if: steps.cooldown.outputs.skip != 'true' && steps.details.outputs.issue_number != ''
+        if: steps.cooldown.outputs.skip != 'true' && steps.claude-check.outputs.skip != 'true' && steps.details.outputs.issue_number != ''
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.details.outputs.issue_number }}
