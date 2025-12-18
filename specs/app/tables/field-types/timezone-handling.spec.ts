@@ -397,7 +397,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-009: should validate Effect.DateTime integration with PostgreSQL timestamps',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
