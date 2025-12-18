@@ -81,7 +81,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-002: should use TIMESTAMP WITH TIME ZONE for timezone-aware datetime fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
