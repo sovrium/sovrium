@@ -6,7 +6,7 @@
  */
 
 import { hc } from 'hono/client'
-import type { ApiType } from './app'
+import type { ApiType } from '@/infrastructure/server/route-setup/api-routes'
 
 /**
  * Hono RPC Client Factory

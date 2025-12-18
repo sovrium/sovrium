@@ -8,9 +8,9 @@
 import { Layer } from 'effect'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
+import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
-import { PageRendererLive } from '@/presentation/layers/page-renderer-live'
 
 /**
  * Application layer composition

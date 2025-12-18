@@ -12,7 +12,10 @@ import { healthResponseSchema } from '@/presentation/api/schemas/health-schemas'
  * OpenAPI Schema Generator
  *
  * This file creates a parallel OpenAPI schema using OpenAPIHono.
- * **Important**: This is separate from the runtime API routes in `app.ts`.
+ * **Important**: This is separate from the runtime API routes.
+ *
+ * Located in Infrastructure layer because schema generation is an
+ * infrastructure concern (documentation/tooling), not presentation logic.
  *
  * **Why Separate?**
  * - Runtime routes use regular Hono (for RPC compatibility with `:id` syntax)
@@ -20,7 +23,7 @@ import { healthResponseSchema } from '@/presentation/api/schemas/health-schemas'
  * - Both share the same Zod schemas for consistency
  *
  * **Usage**:
- * 1. Runtime: Server uses regular Hono routes from `app.ts`
+ * 1. Runtime: Server uses regular Hono routes from api-routes.ts
  * 2. Docs: Server exposes this schema at `/api/openapi.json` and `/api/scalar`
  * 3. Export: Script exports this schema to `schemas/0.0.1/app.openapi.json`
  */
@@ -30,7 +33,7 @@ import { healthResponseSchema } from '@/presentation/api/schemas/health-schemas'
  *
  * This function defines all API routes using OpenAPI syntax for documentation.
  * The routes here are "dummy" implementations - they're only used to generate
- * the OpenAPI schema. The real implementations are in `app.ts`.
+ * the OpenAPI schema. The real implementations are in api-routes.ts.
  */
 const createOpenApiApp = () => {
   const app = new OpenAPIHono()
@@ -57,7 +60,7 @@ const createOpenApiApp = () => {
   })
 
   // Mount route with dummy handler (only for schema generation)
-  // eslint-disable-next-line functional/no-expression-statements
+
   app.openapi(healthRoute, (c) => {
     return c.json({
       status: 'ok',

@@ -15,6 +15,7 @@ import {
   type SchemaInitializationError,
 } from '@/infrastructure/database/schema-initializer'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
 import {
   setupAuthMiddleware,
   setupAuthRoutes,
@@ -25,7 +26,6 @@ import {
   type HonoAppConfig,
 } from '@/infrastructure/server/route-setup/page-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
-import { createApiRoutes } from '@/presentation/api/app'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'

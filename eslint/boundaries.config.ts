@@ -419,6 +419,7 @@ export default [
             // ==========================================
 
             // Infrastructure services - Can import domain + ports + other infrastructure
+            // Note: infrastructure-server can also import presentation for route composition (wiring)
             {
               from: [
                 'infrastructure-config',
@@ -453,9 +454,14 @@ export default [
                 'infrastructure-server',
                 'infrastructure-css',
                 'infrastructure-service',
+                'infrastructure-layer',
+                // Allow infrastructure-server to import presentation for route composition (wiring)
+                // This is pragmatic - server startup needs to compose routes from presentation layer
+                'presentation-api-route',
+                'presentation-api-middleware',
               ],
               message:
-                'Infrastructure violation: Can only import domain, application/ports, and other infrastructure services. FORBIDDEN: Cannot import use-cases (use ports for dependency inversion).',
+                'Infrastructure violation: Can only import domain, application/ports, and other infrastructure services. Exceptions: infrastructure-server can import presentation for route wiring.',
             },
 
             // Infrastructure layers - Special case, can import all infrastructure for Effect Layer composition
@@ -481,6 +487,7 @@ export default [
                 'infrastructure-server',
                 'infrastructure-css',
                 'infrastructure-service',
+                'infrastructure-layer', // Allow layers to import other layers for composition
               ],
               message:
                 'Infrastructure layer composition: Can import domain, ports, and all infrastructure services for Effect Layer composition.',

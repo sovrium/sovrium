@@ -17,8 +17,10 @@ import { renderHomePage, renderPage } from '@/presentation/rendering/render-home
  * wrapping the presentation layer rendering functions in an
  * Effect Context service.
  *
- * Located in Presentation layer because it directly depends on
- * presentation utilities (render-homepage, render-error-pages).
+ * Located in Infrastructure layer because Effect Layer "Live"
+ * implementations are adapters (ports/adapters pattern).
+ * Infrastructure adapters CAN depend on presentation utilities
+ * for rendering logic.
  *
  * The implementation uses Layer.succeed because all rendering
  * functions are pure and synchronous (no async operations).

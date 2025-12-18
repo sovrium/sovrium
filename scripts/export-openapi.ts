@@ -23,7 +23,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { getOpenAPIDocument } from '../src/presentation/api/openapi-schema'
+import { getOpenAPIDocument } from '../src/infrastructure/server/route-setup/openapi-schema'
 
 /**
  * Determine the version folder based on CLI arguments

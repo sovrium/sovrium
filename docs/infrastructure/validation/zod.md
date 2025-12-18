@@ -210,10 +210,10 @@ export const TimestampsSchema = z.object({
 ```typescript
 // src/presentation/api/client.ts
 import { hc } from 'hono/client'
-import type { AppType } from '@/presentation/api/app'
+import type { ApiType } from '@/infrastructure/server/route-setup/api-routes'
 
 // Type-safe client generation
-const client = hc<AppType>('http://localhost:3000')
+const client = hc<ApiType>('http://localhost:3000')
 
 // Fully typed API calls
 const response = await client.api.users.$post({

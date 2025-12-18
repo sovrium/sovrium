@@ -5,28 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable max-lines -- File size will be addressed by codebase-refactor-auditor */
-
 import { logWarning } from '@/infrastructure/logging/effect-logger'
 import { translatePermissionCondition } from './permission-condition-translator'
+import {
+  CRUD_TO_SQL_COMMAND,
+  hasAuthenticatedPermissions,
+  hasMixedPermissions,
+  hasNoPermissions,
+  hasOnlyPublicPermissions,
+  hasOwnerPermissions,
+  hasRecordLevelPermissions,
+  hasRolePermissions,
+} from './rls-permission-checks'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
-/**
- * Standard test roles used in E2E tests
- * These roles need basic table access even when no permissions are configured
- */
-const TEST_ROLES = ['admin_user', 'member_user', 'authenticated_user'] as const
-
-/**
- * SQL command mapping for CRUD operations
- */
-const CRUD_TO_SQL_COMMAND = {
-  read: 'SELECT',
-  create: 'INSERT',
-  update: 'UPDATE',
-  delete: 'DELETE',
-} as const
+// Re-export grant functions for backward compatibility
+export {
+  generateAuthenticatedBasedGrants,
+  generateBasicTableGrants,
+  generateRoleBasedGrants,
+} from './rls-grants'
 
 /**
  * Generate ALTER TABLE statements to enable RLS
@@ -189,192 +188,6 @@ const generateCreatePolicies = (
 }
 
 /**
- * Check if a permission is public (unrestricted access)
- *
- * @param permission - Permission configuration
- * @returns True if permission type is 'public'
- */
-const isPublicPermission = (permission?: TablePermission): boolean => permission?.type === 'public'
-
-/**
- * Check if table has only public permissions (no RLS needed)
- *
- * When all CRUD permissions are either undefined or public,
- * the table doesn't need RLS policies - it's fully accessible.
- *
- * @param table - Table definition
- * @returns True if all permissions are public or undefined
- */
-const hasOnlyPublicPermissions = (table: Table): boolean => {
-  const { permissions } = table
-  if (!permissions) {
-    return false
-  }
-
-  // If organizationScoped is set, it's not public
-  if (permissions.organizationScoped) {
-    return false
-  }
-
-  // If field-level or record-level permissions exist, it's not fully public
-  if (permissions.fields && permissions.fields.length > 0) {
-    return false
-  }
-  if (permissions.records && permissions.records.length > 0) {
-    return false
-  }
-
-  // Check if all CRUD permissions are either undefined or public
-  const crudPermissions = [
-    permissions.read,
-    permissions.create,
-    permissions.update,
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
-    permissions.delete,
-  ]
-
-  // At least one permission must be defined for this to be a "public permissions" table
-  const hasAnyPermission = crudPermissions.some((p) => p !== undefined)
-  if (!hasAnyPermission) {
-    return false
-  }
-
-  // All defined permissions must be public
-  return crudPermissions.every((p) => p === undefined || isPublicPermission(p))
-}
-
-/**
- * Check if table has no permissions configured (default deny)
- *
- * @param table - Table definition
- * @returns True if no permissions are configured
- */
-const hasNoPermissions = (table: Table): boolean => {
-  const { permissions } = table
-  if (!permissions) {
-    return true
-  }
-
-  // If organizationScoped is explicitly set (true or false), it's a permission configuration
-  if (permissions.organizationScoped !== undefined) {
-    return false
-  }
-
-  return (
-    !permissions.read &&
-    !permissions.create &&
-    !permissions.update &&
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    !permissions.delete &&
-    (!permissions.fields || permissions.fields.length === 0) &&
-    (!permissions.records || permissions.records.length === 0)
-  )
-}
-
-/**
- * Generate basic table access grants for tables with no permissions
- *
- * When a table has no permissions configured, RLS is enabled with no policies (default deny).
- * However, test roles still need SELECT permission on the table itself to query it.
- * RLS will return empty results since no policies allow access.
- *
- * This grants:
- * 1. CREATE ROLE statements for test roles (if not exists)
- * 2. USAGE on public schema
- * 3. SELECT on the table
- *
- * @param table - Table definition
- * @returns Array of SQL statements to create roles and grant access
- */
-export const generateBasicTableGrants = (table: Table): readonly string[] => {
-  if (!hasNoPermissions(table)) {
-    return []
-  }
-
-  const tableName = table.name
-
-  const createRoleStatements = TEST_ROLES.map(
-    (role) => `DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
-    CREATE ROLE ${role} WITH LOGIN;
-  END IF;
-END
-$$`
-  )
-
-  const grantStatements = TEST_ROLES.flatMap((role) => [
-    `GRANT USAGE ON SCHEMA public TO ${role}`,
-    `GRANT SELECT ON ${tableName} TO ${role}`,
-  ])
-
-  return [...createRoleStatements, ...grantStatements]
-}
-
-/**
- * Check if table has owner-based permissions
- *
- * @param table - Table definition
- * @returns True if any CRUD operation uses owner-based permission
- */
-const hasOwnerPermissions = (table: Table): boolean => {
-  const { permissions } = table
-  if (!permissions) {
-    return false
-  }
-
-  return (
-    permissions.read?.type === 'owner' ||
-    permissions.create?.type === 'owner' ||
-    permissions.update?.type === 'owner' ||
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    permissions.delete?.type === 'owner'
-  )
-}
-
-/**
- * Check if table has authenticated permissions
- *
- * @param table - Table definition
- * @returns True if any CRUD operation uses authenticated permission
- */
-const hasAuthenticatedPermissions = (table: Table): boolean => {
-  const { permissions } = table
-  if (!permissions) {
-    return false
-  }
-
-  return (
-    permissions.read?.type === 'authenticated' ||
-    permissions.create?.type === 'authenticated' ||
-    permissions.update?.type === 'authenticated' ||
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    permissions.delete?.type === 'authenticated'
-  )
-}
-
-/**
- * Check if table has role-based permissions (without organization scoping)
- *
- * @param table - Table definition
- * @returns True if any CRUD operation uses role-based permission
- */
-const hasRolePermissions = (table: Table): boolean => {
-  const { permissions } = table
-  if (!permissions) {
-    return false
-  }
-
-  return (
-    permissions.read?.type === 'roles' ||
-    permissions.create?.type === 'roles' ||
-    permissions.update?.type === 'roles' ||
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    permissions.delete?.type === 'roles'
-  )
-}
-
-/**
  * Generate authenticated policy statements for a specific operation
  *
  * Creates DROP and CREATE POLICY statements for authenticated-only access control.
@@ -490,151 +303,6 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
   )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
-}
-
-/**
- * Extract unique database roles from table permissions
- *
- * Maps application roles to database test roles with '_user' suffix.
- * Example: 'admin' → 'admin_user', 'member' → 'member_user'
- *
- * @param table - Table definition with permissions
- * @returns Read-only set of database role names
- */
-const extractDatabaseRoles = (table: Table): ReadonlySet<string> => {
-  const { permissions } = table
-
-  if (!permissions) {
-    return new Set<string>()
-  }
-
-  // Extract roles from each CRUD operation
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field, not a Drizzle delete operation
-  const operations = [permissions.read, permissions.create, permissions.update, permissions.delete]
-
-  // Collect all application roles and map to database roles
-  const databaseRoles = operations
-    .filter((permission) => permission?.type === 'roles')
-    .flatMap((permission) =>
-      permission.type === 'roles' ? permission.roles.map((appRole) => `${appRole}_user`) : []
-    )
-
-  // Return unique roles as ReadonlySet
-  return new Set(databaseRoles)
-}
-
-/**
- * Generate table grants for authenticated permissions
- *
- * When a table has authenticated permissions, the authenticated_user role needs basic table-level access.
- * RLS policies will then filter rows based on authentication status.
- *
- * This grants:
- * 1. CREATE ROLE statement for authenticated_user (if not exists)
- * 2. USAGE on public schema
- * 3. ALL on the table (RLS policies will restrict row access)
- *
- * @param table - Table definition with authenticated permissions
- * @returns Array of SQL statements to create roles and grant access
- */
-export const generateAuthenticatedBasedGrants = (table: Table): readonly string[] => {
-  if (!hasAuthenticatedPermissions(table)) {
-    return []
-  }
-
-  const tableName = table.name
-
-  // Check if table has field-level permissions
-  const hasFieldPermissions = table.permissions?.fields && table.permissions.fields.length > 0
-
-  const createRoleStatements = [
-    `DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated_user') THEN
-    CREATE ROLE authenticated_user WITH LOGIN;
-  END IF;
-END
-$$`,
-  ]
-
-  // If field permissions exist, generateFieldPermissionGrants handles column-level grants
-  // Only grant schema usage here to avoid conflicts
-  if (hasFieldPermissions) {
-    return [...createRoleStatements, `GRANT USAGE ON SCHEMA public TO authenticated_user`]
-  }
-
-  // No field permissions - grant full table access
-  const grantStatements = [
-    `GRANT USAGE ON SCHEMA public TO authenticated_user`,
-    `GRANT ALL ON ${tableName} TO authenticated_user`,
-  ]
-
-  return [...createRoleStatements, ...grantStatements]
-}
-
-/**
- * Generate table grants for role-based permissions
- *
- * When a table has role-based permissions, specific test roles need basic table-level access.
- * RLS policies will then filter rows based on the application role.
- *
- * This grants access ONLY to roles mentioned in the permissions (not all test roles).
- * Example: If permissions specify ['admin', 'member'], only admin_user and member_user get grants.
- *
- * Additionally creates guest_user role (without grants) for testing permission denials.
- *
- * This grants:
- * 1. CREATE ROLE statements for mentioned roles + guest_user (if not exists)
- * 2. USAGE on public schema (for permitted roles only)
- * 3. ALL on the table (for permitted roles only - RLS policies will restrict row access)
- *
- * @param table - Table definition with role-based permissions
- * @returns Array of SQL statements to create roles and grant access
- */
-export const generateRoleBasedGrants = (table: Table): readonly string[] => {
-  if (!hasRolePermissions(table)) {
-    return []
-  }
-
-  const tableName = table.name
-  const databaseRoles = Array.from(extractDatabaseRoles(table))
-
-  if (databaseRoles.length === 0) {
-    return []
-  }
-
-  // Check if table has field-level permissions
-  const hasFieldPermissions = table.permissions?.fields && table.permissions.fields.length > 0
-
-  // Always create guest_user for testing permission denials (but don't grant access)
-  const allRoles = ['guest_user', ...databaseRoles]
-
-  const createRoleStatements = allRoles.map(
-    (role) => `DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
-    CREATE ROLE ${role} WITH LOGIN;
-  END IF;
-END
-$$`
-  )
-
-  // If field permissions exist, generateFieldPermissionGrants handles column-level grants
-  // Only grant schema usage here to avoid conflicts
-  if (hasFieldPermissions) {
-    const schemaGrantStatements = databaseRoles.map(
-      (role) => `GRANT USAGE ON SCHEMA public TO ${role}`
-    )
-    return [...createRoleStatements, ...schemaGrantStatements]
-  }
-
-  // No field permissions - grant full table access
-  const grantStatements = databaseRoles.flatMap((role) => [
-    `GRANT USAGE ON SCHEMA public TO ${role}`,
-    `GRANT ALL ON ${tableName} TO ${role}`,
-  ])
-
-  return [...createRoleStatements, ...grantStatements]
 }
 
 /**
@@ -866,15 +534,6 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
 }
 
 /**
- * Check if table has record-level permissions configured
- *
- * @param table - Table definition
- * @returns True if table has permissions.records array with at least one permission
- */
-const hasRecordLevelPermissions = (table: Table): boolean =>
-  !!(table.permissions?.records && table.permissions.records.length > 0)
-
-/**
  * Generate default deny RLS policies (no permissions configured)
  *
  * @param tableName - Name of the table
@@ -980,32 +639,6 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
   )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
-}
-
-/**
- * Check if table has mixed permission types (different types for different CRUD operations)
- *
- * @param table - Table definition
- * @returns True if table has mixed authenticated/role/owner permissions
- */
-const hasMixedPermissions = (table: Table): boolean => {
-  const { permissions } = table
-  if (!permissions || permissions.organizationScoped) {
-    return false
-  }
-
-  // Get permission types for each operation (excluding public and record-level)
-  const permissionTypes = [
-    permissions.read?.type,
-    permissions.create?.type,
-    permissions.update?.type,
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
-    permissions.delete?.type,
-  ].filter((type) => type && type !== 'public')
-
-  // If there are at least 2 permission types, it's mixed
-  const uniqueTypes = new Set(permissionTypes)
-  return uniqueTypes.size >= 2
 }
 
 /**

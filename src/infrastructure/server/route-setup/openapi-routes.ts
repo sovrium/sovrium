@@ -8,7 +8,7 @@
 import { Scalar } from '@scalar/hono-api-reference'
 import { type Hono } from 'hono'
 import { auth } from '@/infrastructure/auth/better-auth/auth'
-import { getOpenAPIDocument } from '@/presentation/api/openapi-schema'
+import { getOpenAPIDocument } from '@/infrastructure/server/route-setup/openapi-schema'
 
 /**
  * Setup OpenAPI documentation routes

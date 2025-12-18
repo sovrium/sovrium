@@ -19,6 +19,9 @@ import type { Hono } from 'hono'
 /**
  * Create API routes using method chaining pattern
  *
+ * Located in Infrastructure layer because this is route composition/wiring
+ * (infrastructure concern), not route handler logic (presentation concern).
+ *
  * **Why Chaining?**
  * Hono RPC requires method chaining (not .route() mounting) for proper type inference.
  * This allows the RPC client to extract route types automatically.
@@ -43,6 +46,7 @@ import type { Hono } from 'hono'
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with all API routes chained
  */
+// eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
 export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // Create Better Auth instance for middleware
   const auth = createAuthInstance(app.auth)
@@ -51,7 +55,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithHealth = honoApp.get('/api/health', async (c) => {
     // Use Effect.gen for functional composition
     const program = Effect.gen(function* () {
-      // Build health response
+      // Build health response (explicitly typed for Zod validation)
+      // eslint-disable-next-line functional/prefer-immutable-types -- Required for Zod schema validation
       const response: HealthResponse = {
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -114,7 +119,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
  * @example
  * ```typescript
  * import { hc } from 'hono/client'
- * import type { ApiType } from '@/presentation/api/app'
+ * import type { ApiType } from '@/infrastructure/server/route-setup/api-routes'
  *
  * const client = hc<ApiType>('http://localhost:3000')
  * const res = await client.api.health.$get()
