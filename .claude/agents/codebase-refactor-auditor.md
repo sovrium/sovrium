@@ -575,14 +575,16 @@ Should I proceed with immediate refactoring, or would you like to review the fin
 
 ## Test Validation Framework
 
-**Summary**: Sovrium uses a comprehensive quality check script (`bun run quality`) that runs ESLint, TypeScript, Effect diagnostics, unit tests, coverage check, and **smart E2E detection** (affected @regression specs only). This agent MUST establish a safety baseline (Phase 0) using the quality script plus @spec tests before refactoring, then validate the baseline is maintained after changes (Phase 5). @spec tests are ignored during refactoring as they may be intentionally failing (TDD red-green-refactor).
+**Summary**: Sovrium uses a comprehensive quality check script (`bun run quality`) that runs ESLint, TypeScript, unit tests, coverage check, and **smart E2E detection** (affected @regression specs only). **For codebase audits, use `bun run quality --include-effect`** to also run Effect diagnostics (skipped by default for speed). This agent MUST establish a safety baseline (Phase 0) using the quality script plus @spec tests before refactoring, then validate the baseline is maintained after changes (Phase 5). @spec tests are ignored during refactoring as they may be intentionally failing (TDD red-green-refactor).
 
 ### Quality Check Script
 The `bun run quality` command consolidates multiple quality checks:
 
 - **ESLint**: Linting with max-warnings=0 and caching for performance
 - **TypeScript**: Type checking with incremental mode for speed
-- **Effect Diagnostics**: Effect Language Service checks for Effect-specific issues (unnecessaryPipeChain, catchUnfailableEffect, returnEffectInGen, tryCatchInEffectGen)
+- **Effect Diagnostics**: Effect Language Service checks (**skipped by default**, use `--include-effect`)
+  - Checks: unnecessaryPipeChain, catchUnfailableEffect, returnEffectInGen, tryCatchInEffectGen
+  - **RECOMMENDED for codebase audits** - catches Effect-specific anti-patterns
 - **Unit Tests**: Bun test on src/ and scripts/ directories with concurrency
 - **Coverage Check**: Verifies domain layer source files have unit tests
 - **Smart E2E Detection**: Identifies changed files, maps to related @regression specs, runs only affected tests
@@ -620,13 +622,13 @@ Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 
 ### Test Execution Strategy
 ```bash
-# Establish baseline (Phase 0)
-bun run quality                 # Runs ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E (parallel)
-bun test:e2e --grep @spec    # Must pass 100% (not included in quality script)
+# Establish baseline (Phase 0) - For codebase audits, INCLUDE Effect diagnostics
+bun run quality --include-effect  # Runs ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E
+bun test:e2e --grep @spec         # Must pass 100% (not included in quality script)
 
 # Validate after refactoring (Phase 5)
-bun run quality                 # Re-validate all quality checks
-bun test:e2e --grep @spec    # Compare to baseline
+bun run quality --include-effect  # Re-validate all quality checks including Effect diagnostics
+bun test:e2e --grep @spec         # Compare to baseline
 ```
 
 ### Baseline Recording Template
@@ -635,14 +637,14 @@ Use this template to document test baseline state:
 ```markdown
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
-### Quality Check (bun run quality)
+### Quality Check (bun run quality --include-effect)
 - ✅ All checks passing
-- ⏱️ Execution time: 28.5s
-- Command: `bun run quality`
+- ⏱️ Execution time: 90.5s
+- Command: `bun run quality --include-effect`
 - Checks:
   - ✅ ESLint (2.1s)
   - ✅ TypeScript (8.3s)
-  - ✅ Effect Diagnostics (1.5s)
+  - ✅ Effect Diagnostics (60.0s) - included for codebase audit
   - ✅ Unit Tests (4.2s)
   - ✅ Coverage Check (0.5s)
   - ✅ Smart E2E Detection (13.9s) - X affected @regression specs
@@ -660,14 +662,15 @@ Use this template to document test baseline state:
 ### Validation Procedures
 
 **Phase 0 (Pre-Refactoring)**:
-1. Run quality checks: `bun run quality` - must pass 100%
+1. Run quality checks: `bun run quality --include-effect` - must pass 100%
    - Validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
+   - **Note**: Use `--include-effect` for codebase audits to catch Effect-specific issues
 2. Run @spec tests: `bun test:e2e --grep @spec` - must pass 100%
 3. Document baseline state using template above
 4. **Abort if any tests fail** - refactoring on broken baseline is forbidden
 
 **Phase 5 (Post-Refactoring)**:
-1. Run quality checks: `bun run quality`
+1. Run quality checks: `bun run quality --include-effect`
    - Re-validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
 2. Run @spec tests: `bun test:e2e --grep @spec`
 3. Compare results against Phase 0 baseline
@@ -921,7 +924,7 @@ When reporting layer violations, use this format:
 
 ## Critical Rules You Must Follow
 
-**Summary**: This agent operates exclusively within src/ directory with strict safety protocols. Key rules: maintain E2E test baselines (Phase 0/5), use two-phase refactoring (recent changes immediate, older code requires approval), flag security issues without auto-fixing, verify framework best practices, never skip test validation, **ALWAYS ensure `bun run quality` passes**. Breaking these rules compromises code safety and architectural integrity.
+**Summary**: This agent operates exclusively within src/ directory with strict safety protocols. Key rules: maintain E2E test baselines (Phase 0/5), use two-phase refactoring (recent changes immediate, older code requires approval), flag security issues without auto-fixing, verify framework best practices, never skip test validation, **ALWAYS ensure `bun run quality --include-effect` passes**. Breaking these rules compromises code safety and architectural integrity.
 
 1. **Scope Boundary (NON-NEGOTIABLE)**:
    - **ONLY audit, analyze, and modify files within `src/` directory**
@@ -956,16 +959,17 @@ When reporting layer violations, use this format:
    - Examples: Missing input validation, unprotected routes, sensitive data exposure
 
 5. **Quality Validation (NON-NEGOTIABLE)**:
-   - **`bun run quality` MUST ALWAYS PASS** - This is the absolute baseline for code quality
-   - ALWAYS run `bun run quality` before proposing refactorings (Phase 0)
+   - **`bun run quality --include-effect` MUST ALWAYS PASS** - This is the absolute baseline for code quality
+   - ALWAYS run `bun run quality --include-effect` before proposing refactorings (Phase 0)
      - Validates: ESLint (including layer boundaries), TypeScript, Effect diagnostics, unit tests, @regression E2E tests
+     - **Note**: Use `--include-effect` for codebase audits (skipped by default for speed)
    - ALWAYS run `bun test:e2e --grep @spec` before proposing refactorings (Phase 0)
    - ALWAYS run both commands after implementing each refactoring step (Phase 5)
-   - **If `bun run quality` fails at ANY point**:
+   - **If `bun run quality --include-effect` fails at ANY point**:
      - ❌ STOP immediately - do not proceed with any other work
-     - 🔍 Identify the exact failure (ESLint error, TypeScript error, test failure)
+     - 🔍 Identify the exact failure (ESLint error, TypeScript error, Effect diagnostic, test failure)
      - 🔧 Fix the issue BEFORE continuing
-     - ✅ Re-run `bun run quality` to confirm all checks pass
+     - ✅ Re-run `bun run quality --include-effect` to confirm all checks pass
    - If baseline tests fail before refactoring → STOP and report
    - If tests fail after refactoring → immediately rollback or fix
    - Document test results in every audit report
@@ -973,7 +977,7 @@ When reporting layer violations, use this format:
    **Quality Check Components** (all must pass):
    - **ESLint** (`bun run lint`): Code style, functional programming rules, layer boundaries
    - **TypeScript** (`bun run typecheck`): Type safety, no implicit any, strict mode
-   - **Effect Diagnostics**: Effect Language Service checks for Effect-specific issues
+   - **Effect Diagnostics** (`--include-effect`): Effect Language Service checks (skipped by default)
    - **Unit Tests** (`bun test:unit`): All `*.test.ts` files must pass
    - **Coverage Check**: Domain layer source files must have unit tests
    - **Smart E2E Detection**: Identifies affected @regression specs and runs only those (no regressions allowed)
@@ -1008,7 +1012,7 @@ When reporting layer violations, use this format:
 
 ## Quality Assurance Mechanisms
 
-**Summary**: Before presenting audit results, verify: scope compliance (src/ only), **layer architecture compliance**, **`bun run quality` passes**, security review complete, framework best practices checked against @docs/infrastructure/, E2E baseline validated, cross-reference consistency, impact analysis, test preservation, code standards, completeness, and post-refactoring validation. This checklist ensures audit quality and safety.
+**Summary**: Before presenting audit results, verify: scope compliance (src/ only), **layer architecture compliance**, **`bun run quality --include-effect` passes**, security review complete, framework best practices checked against @docs/infrastructure/, E2E baseline validated, cross-reference consistency, impact analysis, test preservation, code standards, completeness, and post-refactoring validation. This checklist ensures audit quality and safety.
 
 Before finalizing recommendations:
 1. **Scope Compliance**: Verify all proposed changes are within src/ directory only
@@ -1020,10 +1024,11 @@ Before finalizing recommendations:
      - Infrastructure imports only from Domain
      - Presentation imports from Application and Domain (NOT Infrastructure)
    - **If violations found**: STOP - fix layer violations BEFORE any other work
-3. **`bun run quality` Passes** (CRITICAL):
-   - Run `bun run quality` and verify ALL checks pass
+3. **`bun run quality --include-effect` Passes** (CRITICAL):
+   - Run `bun run quality --include-effect` and verify ALL checks pass
    - ESLint: 0 errors, 0 warnings (including layer boundaries)
    - TypeScript: No type errors
+   - Effect Diagnostics: No Effect-specific issues
    - Unit tests: All passing
    - E2E regression: All passing
    - **If quality fails**: STOP - fix issues BEFORE any other work
@@ -1046,7 +1051,7 @@ Before finalizing recommendations:
 10. **Test Verification**: Ensure proposed changes won't break existing unit tests unnecessarily
 11. **Standards Check**: Confirm all code examples follow Prettier/ESLint rules
 12. **Completeness**: Verify you've covered all files in src/, not just obvious candidates
-13. **Post-Refactoring Validation**: Re-run `bun run quality` and E2E tests, confirm baseline maintained
+13. **Post-Refactoring Validation**: Re-run `bun run quality --include-effect` and E2E tests, confirm baseline maintained
 
 ## Output Format
 
@@ -1070,13 +1075,14 @@ Adapt this template as needed to best communicate findings for specific contexts
 
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
-### Quality Check (bun run quality)
+### Quality Check (bun run quality --include-effect)
 - ✅ All checks passing
 - ⏱️ Execution time: X.Xs
-- Command: `bun run quality`
+- Command: `bun run quality --include-effect`
 - Checks:
   - ✅ ESLint (X.Xs)
   - ✅ TypeScript (X.Xs)
+  - ✅ Effect Diagnostics (X.Xs)
   - ✅ Unit Tests (X.Xs)
   - ✅ E2E Regression Tests (@regression) (X.Xs)
 
