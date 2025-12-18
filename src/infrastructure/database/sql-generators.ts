@@ -607,17 +607,12 @@ const generateRelationshipConstraint = (
 
   // Build referential actions (ON DELETE, ON UPDATE)
   const onDeleteClause =
-    'onDelete' in field
-      ? mapReferentialAction(field.onDelete as string | undefined, 'delete')
-      : ''
+    'onDelete' in field ? mapReferentialAction(field.onDelete as string | undefined, 'delete') : ''
   const onUpdateClause =
-    'onUpdate' in field
-      ? mapReferentialAction(field.onUpdate as string | undefined, 'update')
-      : ''
+    'onUpdate' in field ? mapReferentialAction(field.onUpdate as string | undefined, 'update') : ''
 
   // Use relatedField if specified, otherwise default to 'id'
-  const referencedColumn =
-    'relatedField' in field && field.relatedField ? field.relatedField : 'id'
+  const referencedColumn = 'relatedField' in field && field.relatedField ? field.relatedField : 'id'
 
   return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES ${relatedTableName}(${referencedColumn})${onDeleteClause}${onUpdateClause}`
 }

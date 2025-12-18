@@ -111,7 +111,12 @@ const extractFieldReferences = (formula: string): ReadonlyArray<string> => {
  * Special field references that are always available in formulas.
  * These are system-managed fields that exist on all tables.
  */
-export const SPECIAL_FIELDS = new Set(['id', 'created_at', 'updated_at', 'deleted_at']) as ReadonlySet<string>
+export const SPECIAL_FIELDS = new Set([
+  'id',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+]) as ReadonlySet<string>
 
 /**
  * Validate formula fields in a table (syntax, field references, circular dependencies).
@@ -695,9 +700,7 @@ const validateViewGroupBy = (
       (view): view is typeof view & { readonly groupBy: { readonly field: string } } =>
         view.groupBy !== undefined
     )
-    .find(
-      (view) => !fieldNames.has(view.groupBy.field) && !SPECIAL_FIELDS.has(view.groupBy.field)
-    )
+    .find((view) => !fieldNames.has(view.groupBy.field) && !SPECIAL_FIELDS.has(view.groupBy.field))
 
   if (invalidView) {
     return {

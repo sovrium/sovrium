@@ -254,6 +254,23 @@ const findNullabilityChanges = (
 /**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns, nullability changes)
  */
+/**
+ * Generate statements to add deleted_at column if not present
+ */
+const generateDeletedAtStatement = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+): readonly string[] => {
+  const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
+  const hasDeletedAtColumn = existingColumns.has('deleted_at')
+  return !hasDeletedAtField && !hasDeletedAtColumn
+    ? [`ALTER TABLE ${table.name} ADD COLUMN deleted_at TIMESTAMPTZ`]
+    : []
+}
+
+/**
+ * Generate ALTER TABLE statements for schema migrations
+ */
 export const generateAlterTableStatements = (
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
@@ -306,7 +323,16 @@ export const generateAlterTableStatements = (
     return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
   })
 
-  return [...renameStatements, ...dropStatements, ...addStatements, ...nullabilityChanges]
+  // Add automatic deleted_at column if not present (soft-delete by default)
+  const deletedAtStatement = generateDeletedAtStatement(table, existingColumns)
+
+  return [
+    ...renameStatements,
+    ...dropStatements,
+    ...addStatements,
+    ...deletedAtStatement,
+    ...nullabilityChanges,
+  ]
 }
 
 /**

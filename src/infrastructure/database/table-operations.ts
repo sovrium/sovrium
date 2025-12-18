@@ -129,6 +129,25 @@ const needsAutomaticIdColumn = (table: Table, primaryKeyFields: readonly string[
 }
 
 /**
+ * Generate deleted_at column definition if not explicitly defined
+ */
+const generateDeletedAtColumn = (table: Table): readonly string[] => {
+  const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
+  return !hasDeletedAtField ? ['deleted_at TIMESTAMPTZ'] : []
+}
+
+/**
+ * Generate primary key constraint if needed
+ */
+const generatePrimaryKeyConstraintIfNeeded = (
+  table: Table,
+  primaryKeyFields: readonly string[]
+): readonly string[] =>
+  needsAutomaticIdColumn(table, primaryKeyFields) && primaryKeyFields.length === 0
+    ? ['PRIMARY KEY (id)']
+    : []
+
+/**
  * Generate CREATE TABLE statement
  * When table has lookup fields, creates a base table (_base suffix) and will later create a VIEW
  *
@@ -150,8 +169,7 @@ export const generateCreateTableSQL = (
 
   // Generate automatic id column based on primary key type
   // Add PRIMARY KEY inline if the primary key is on the 'id' field
-  const primaryKeyOnId =
-    primaryKeyFields.length === 1 && primaryKeyFields[0] === 'id'
+  const primaryKeyOnId = primaryKeyFields.length === 1 && primaryKeyFields[0] === 'id'
   const idColumnDefinition = needsAutomaticIdColumn(table, primaryKeyFields)
     ? [generateIdColumn(table.primaryKey?.type, primaryKeyOnId)]
     : []
@@ -173,18 +191,12 @@ export const generateCreateTableSQL = (
   // Add PRIMARY KEY constraint on id if no custom primary key is defined
   const tableConstraints = generateTableConstraints(table, tableUsesView, skipForeignKeys)
 
-  // If no explicit primary key is defined, add PRIMARY KEY on id
-  // Note: If primary key is explicitly defined (even on special 'id' field), generatePrimaryKeyConstraint will handle it
-  const primaryKeyConstraint =
-    needsAutomaticIdColumn(table, primaryKeyFields) && primaryKeyFields.length === 0
-      ? ['PRIMARY KEY (id)']
-      : []
-
   const allDefinitions = [
     ...idColumnDefinition,
     ...columnDefinitions,
+    ...generateDeletedAtColumn(table),
     ...tableConstraints,
-    ...primaryKeyConstraint,
+    ...generatePrimaryKeyConstraintIfNeeded(table, primaryKeyFields),
   ]
 
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
