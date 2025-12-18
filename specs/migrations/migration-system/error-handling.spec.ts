@@ -176,12 +176,12 @@ test.describe('Error Handling and Rollback', () => {
       // THEN: assertion
       expect(dataCheck.count).toBe(1)
 
-      // Table still has only 2 columns (id, email)
+      // Table still has only 5 columns (id + created_at + updated_at + deleted_at + email)
       const columnCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'`
       )
       // THEN: assertion
-      expect(columnCount.count).toBe(2)
+      expect(columnCount.count).toBe(5)
     }
   )
 

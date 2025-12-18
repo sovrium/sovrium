@@ -104,11 +104,12 @@ test.describe('Indexed Field Property', () => {
       // THEN: assertion
       expect(noIndex.count).toBe(0)
 
-      const onlyPrimaryKey = await executeQuery(
-        "SELECT indexname FROM pg_indexes WHERE tablename='products'"
+      // Primary key index exists (there's also an automatic deleted_at index for soft-delete queries)
+      const primaryKeyIndex = await executeQuery(
+        "SELECT indexname FROM pg_indexes WHERE tablename='products' AND indexname = 'products_pkey'"
       )
       // THEN: assertion
-      expect(onlyPrimaryKey.indexname).toBe('products_pkey')
+      expect(primaryKeyIndex.indexname).toBe('products_pkey')
 
       const sequentialScan = await executeQuery(
         "SELECT name FROM products WHERE description LIKE '%Description%'"

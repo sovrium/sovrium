@@ -397,13 +397,39 @@ When triggered by @claude mention (posted by queue processor every 15 min):
    - Implement minimal code to pass test
    - Follow Sovrium architecture patterns
 
-3. **Run @agent-codebase-refactor-auditor** (ALWAYS):
+3. **⚡ Check for Test-Only Change (Early Exit)**:
+
+   After removing `.fixme()`, check if the test passes WITHOUT any `src/` changes:
+   ```bash
+   # Check if any src/ files were modified
+   SRC_CHANGES=$(git diff --name-only HEAD | grep '^src/' | wc -l)
+   if [ "$SRC_CHANGES" -eq 0 ]; then
+     echo "⚡ Test-only change detected - skipping full audit"
+     # Run minimal validation only
+     bun run quality
+     # Skip step 4 (codebase-refactor-auditor)
+     # Proceed directly to step 5 (Commit)
+   fi
+   ```
+
+   **When to use Early Exit**:
+   - Test passes immediately after removing `.fixme()` (feature already implemented)
+   - No files in `src/` were modified (only spec files changed)
+   - Example: Issue #5999 - test passed immediately, no code changes needed
+
+   **Benefits of Early Exit**:
+   - Saves 5-10 minutes per spec
+   - Reduces duplicate PR risk (faster completion = less race condition window)
+   - `bun run quality` still validates spec file changes
+
+4. **Run @agent-codebase-refactor-auditor** (ONLY if `src/` files changed):
+   - **SKIP this step** if Early Exit applies (test-only change)
    - Review implementation for code quality
    - Check for duplication
    - Ensure architectural compliance
    - Refactor and optimize as needed
 
-4. **Commit changes**:
+5. **Commit changes**:
    ```bash
    bun run license  # Add copyright headers
    git add -A
@@ -411,35 +437,48 @@ When triggered by @claude mention (posted by queue processor every 15 min):
    git push
    ```
 
-5. **⚠️ PRE-PR CHECKS (MANDATORY - Prevent Duplicate PRs) ⚠️**
+6. **⚠️ PRE-PR CHECKS (MANDATORY - Prevent Duplicate PRs) ⚠️**
 
-   **BEFORE creating a PR**, you MUST verify no PR already exists for this issue.
-   This prevents duplicate PRs when Claude Code runs for 60 minutes and another PR merges first.
+   **BEFORE creating a PR**, you MUST run ALL THREE checks. Skip PR creation if ANY check fails.
 
    ```bash
-   # Check 1: Verify issue is still open (not closed by another merged PR)
-   ISSUE_STATE=$(gh issue view <ISSUE_NUMBER> --json state --jq '.state')
+   ISSUE_NUMBER=<ISSUE_NUMBER>  # Replace with actual issue number
+   CURRENT_BRANCH=$(git branch --show-current)
+
+   # Check 1: Verify issue is still open
+   ISSUE_STATE=$(gh issue view $ISSUE_NUMBER --json state --jq '.state')
    if [ "$ISSUE_STATE" = "CLOSED" ]; then
-     echo "Issue already closed - skipping PR creation"
-     exit 0  # Success - work already done
+     echo "✅ Issue already closed - skipping PR creation (work already done)"
+     exit 0
    fi
 
-   # Check 2: Check for existing PRs (open OR merged) for this issue
+   # Check 2: Check for existing PRs for this issue (open OR merged)
    EXISTING_PRS=$(gh pr list --label tdd-automation --state all --json number,body,state \
-     --jq '.[] | select(.body | contains("Closes #<ISSUE_NUMBER>")) | "#\(.number) (\(.state))"')
+     --jq '.[] | select(.body | contains("Closes #'$ISSUE_NUMBER'")) | "#\(.number) (\(.state))"')
    if [ -n "$EXISTING_PRS" ]; then
-     echo "Found existing PR(s): $EXISTING_PRS - skipping PR creation"
-     exit 0  # Success - PR already exists
+     echo "✅ Found existing PR(s): $EXISTING_PRS - skipping PR creation"
+     exit 0
    fi
+
+   # Check 3: Check for PR from current branch (catches same-run duplicates)
+   BRANCH_PR=$(gh pr list --head "$CURRENT_BRANCH" --state all --json number,state \
+     --jq '.[] | "#\(.number) (\(.state))"')
+   if [ -n "$BRANCH_PR" ]; then
+     echo "✅ PR already exists from this branch: $BRANCH_PR - skipping PR creation"
+     exit 0
+   fi
+
+   echo "✅ All checks passed - safe to create PR"
    ```
 
-   **WHY THIS IS CRITICAL** (PR #6067 incident):
+   **WHY THIS IS CRITICAL** (PR #6067 and PR #6097 incidents):
    - Claude Code can run for up to 60 minutes
    - During that time, another workflow may create and merge a PR for the same issue
-   - Without this check, Claude creates a duplicate PR after the work is already done
-   - Duplicate PRs waste CI resources and cause confusion
+   - **Check 3 is NEW**: In issue #5999, two PRs (#6096, #6097) were created from the SAME branch
+   - This happens when Claude creates a PR, continues running, and tries to create another
+   - Without all 3 checks, duplicate PRs waste CI resources and cause confusion
 
-6. **⚠️ MANDATORY: CREATE PULL REQUEST ⚠️**
+7. **⚠️ MANDATORY: CREATE PULL REQUEST ⚠️**
 
    **THIS IS NOT OPTIONAL. THE WORKFLOW IS NOT COMPLETE WITHOUT A PR.**
 
@@ -468,17 +507,17 @@ When triggered by @claude mention (posted by queue processor every 15 min):
    - ❌ **Wrong**: `Closes #1234 - description` (extra text breaks auto-close)
    - Multiple issues: Use separate lines (`Closes #1234\nCloses #5678`)
 
-7. **PR verification**: Workflow automatically verifies PR was created within 2 minutes
+8. **PR verification**: Workflow automatically verifies PR was created within 2 minutes
    - If no PR found: Issue marked as `tdd-spec:failed`, pipeline continues with next spec
    - This prevents pipeline from blocking on "no PR created" scenarios
 
-8. **Monitor validation** (test.yml CI checks):
+9. **Monitor validation** (test.yml CI checks):
    - If fails: Analyze errors, fix, push (retry up to 3 times)
    - Track retries with labels (`retry:spec:1/2/3` or `retry:infra:1/2/3`)
    - After 3 failures: Mark issue `tdd-spec:failed`, exit (allow pipeline to continue)
    - If passes: Enable PR auto-merge with --squash
 
-9. **Issue closes automatically** when PR merges to main (via `Closes #` syntax in PR body)
+10. **Issue closes automatically** when PR merges to main (via `Closes #` syntax in PR body)
 
 ### TDD Labels Reference
 

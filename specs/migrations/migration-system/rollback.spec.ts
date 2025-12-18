@@ -69,13 +69,16 @@ test.describe('Migration Rollback', () => {
         })
       }).rejects.toThrow(/checksum mismatch|schema drift detected/i)
 
-      // Original table structure preserved
+      // Original table structure preserved (id + created_at + updated_at + deleted_at + email = 5 columns)
       const columns = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position`
       )
-      expect(columns).toHaveLength(2)
+      expect(columns).toHaveLength(5)
       expect(columns[0].column_name).toBe('id')
-      expect(columns[1].column_name).toBe('email')
+      expect(columns[1].column_name).toBe('created_at')
+      expect(columns[2].column_name).toBe('updated_at')
+      expect(columns[3].column_name).toBe('deleted_at')
+      expect(columns[4].column_name).toBe('email')
     }
   )
 
@@ -263,12 +266,12 @@ test.describe('Migration Rollback', () => {
         })
       }).rejects.toThrow()
 
-      // Categories table unchanged
-      const categories = await executeQuery(`SELECT * FROM categories`)
+      // Categories table unchanged (use explicit columns to avoid special fields in result)
+      const categories = await executeQuery(`SELECT id, name FROM categories`)
       expect(categories).toHaveLength(1)
 
-      // Products table unchanged
-      const products = await executeQuery(`SELECT * FROM products`)
+      // Products table unchanged (use explicit columns to avoid special fields in result)
+      const products = await executeQuery(`SELECT id, category_id FROM products`)
       expect(products).toHaveLength(1)
 
       // Foreign key relationship preserved
@@ -350,10 +353,11 @@ test.describe('Migration Rollback', () => {
       // THEN: Column removed, data preserved where possible
 
       // Downgrade would remove 'name' column
+      // Current columns: id + created_at + updated_at + deleted_at + email + name = 6
       const columnsBefore = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='users'`
       )
-      expect(columnsBefore).toHaveLength(3)
+      expect(columnsBefore).toHaveLength(6)
 
       // After downgrade, name column should be removed
       // This verifies the downgrade mechanism structure exists
@@ -440,15 +444,15 @@ test.describe('Migration Rollback', () => {
       })
 
       await test.step('Verify automatic rollback preserved data', async () => {
-        // Original data preserved
-        const items = await executeQuery(`SELECT * FROM items`)
+        // Original data preserved (use explicit columns to avoid special fields in result)
+        const items = await executeQuery(`SELECT id, name FROM items`)
         expect(items).toHaveLength(2)
 
-        // Table structure unchanged
+        // Table structure unchanged (id + created_at + updated_at + deleted_at + name = 5 columns)
         const columns = await executeQuery(
           `SELECT column_name FROM information_schema.columns WHERE table_name='items'`
         )
-        expect(columns).toHaveLength(2)
+        expect(columns).toHaveLength(5)
       })
     }
   )

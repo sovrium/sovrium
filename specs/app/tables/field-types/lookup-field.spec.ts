@@ -97,8 +97,10 @@ test.describe('Lookup Field', () => {
       const order3 = await executeQuery('SELECT * FROM orders WHERE id = 3')
       expect(order3.customer_name).toBe('Alice Johnson')
 
-      // THEN: Can query all orders with lookup values
-      const allOrders = await executeQuery('SELECT * FROM orders ORDER BY id')
+      // THEN: Can query all orders with lookup values (use explicit columns to avoid special fields)
+      const allOrders = await executeQuery(
+        'SELECT id, customer_id, amount, customer_name FROM orders ORDER BY id'
+      )
       expect(allOrders.rows).toEqual([
         { id: 1, customer_id: 1, amount: 150.0, customer_name: 'Alice Johnson' },
         { id: 2, customer_id: 2, amount: 200.0, customer_name: 'Bob Smith' },

@@ -200,7 +200,10 @@ const findColumnsToDrop = (
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
 
-    // Never drop intrinsic deleted_at column (soft-delete system column)
+    // Never drop intrinsic special fields (APP-TABLES-SPECIAL-FIELDS-007)
+    // These are automatic timestamp columns managed by triggers
+    if (columnName === 'created_at') return false
+    if (columnName === 'updated_at') return false
     if (columnName === 'deleted_at') return false
 
     // Don't drop if it's being renamed
@@ -258,6 +261,36 @@ const findNullabilityChanges = (
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns, nullability changes)
  */
 /**
+ * Generate statements to add created_at column if not present
+ * Uses DEFAULT NOW() to populate existing rows during ALTER TABLE
+ */
+const generateCreatedAtStatement = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+): readonly string[] => {
+  const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
+  const hasCreatedAtColumn = existingColumns.has('created_at')
+  return !hasCreatedAtField && !hasCreatedAtColumn
+    ? [`ALTER TABLE ${table.name} ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
+    : []
+}
+
+/**
+ * Generate statements to add updated_at column if not present
+ * Uses DEFAULT NOW() to populate existing rows during ALTER TABLE
+ */
+const generateUpdatedAtStatement = (
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+): readonly string[] => {
+  const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
+  const hasUpdatedAtColumn = existingColumns.has('updated_at')
+  return !hasUpdatedAtField && !hasUpdatedAtColumn
+    ? [`ALTER TABLE ${table.name} ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`]
+    : []
+}
+
+/**
  * Generate statements to add deleted_at column if not present
  */
 const generateDeletedAtStatement = (
@@ -269,6 +302,28 @@ const generateDeletedAtStatement = (
   return !hasDeletedAtField && !hasDeletedAtColumn
     ? [`ALTER TABLE ${table.name} ADD COLUMN deleted_at TIMESTAMPTZ`]
     : []
+}
+
+/**
+ * Build drop/add column statements from the computed columns to modify
+ */
+const buildColumnStatements = (options: {
+  readonly tableName: string
+  readonly columnsToDrop: readonly string[]
+  readonly columnsToAdd: readonly Fields[number][]
+  readonly primaryKeyFields: readonly string[]
+  readonly allFields: readonly Fields[number][]
+}): { readonly dropStatements: readonly string[]; readonly addStatements: readonly string[] } => {
+  const { tableName, columnsToDrop, columnsToAdd, primaryKeyFields, allFields } = options
+  const dropStatements = columnsToDrop.map(
+    (columnName) => `ALTER TABLE ${tableName} DROP COLUMN ${columnName} CASCADE`
+  )
+  const addStatements = columnsToAdd.map((field) => {
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    const columnDef = generateColumnDefinition(field, isPrimaryKey, allFields)
+    return `ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`
+  })
+  return { dropStatements, addStatements }
 }
 
 /**
@@ -299,7 +354,7 @@ export const generateAlterTableStatements = (
   const renamedNewNames = new Set(fieldRenames.values())
   const schemaFieldsByName = new Map(table.fields.map((field) => [field.name, field]))
 
-  // Find columns to add/drop
+  // Find columns to add/drop and nullability changes
   const columnsToAdd = findColumnsToAdd(table, existingColumns, renamedNewNames)
   const columnsToDrop = findColumnsToDrop(
     existingColumns,
@@ -307,8 +362,6 @@ export const generateAlterTableStatements = (
     shouldProtectIdColumn,
     renamedOldNames
   )
-
-  // Find nullability changes (SET NOT NULL / DROP NOT NULL)
   const nullabilityChanges = findNullabilityChanges(
     table,
     existingColumns,
@@ -316,24 +369,23 @@ export const generateAlterTableStatements = (
     primaryKeyFields
   )
 
-  // Generate ALTER TABLE statements
-  const dropStatements = columnsToDrop.map(
-    (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName} CASCADE`
-  )
-  const addStatements = columnsToAdd.map((field) => {
-    const isPrimaryKey = primaryKeyFields.includes(field.name)
-    const columnDef = generateColumnDefinition(field, isPrimaryKey, table.fields)
-    return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
+  // Build column modification statements
+  const { dropStatements, addStatements } = buildColumnStatements({
+    tableName: table.name,
+    columnsToDrop,
+    columnsToAdd,
+    primaryKeyFields,
+    allFields: table.fields,
   })
 
-  // Add automatic deleted_at column if not present (soft-delete by default)
-  const deletedAtStatement = generateDeletedAtStatement(table, existingColumns)
-
+  // Add automatic special fields if not present (APP-TABLES-SPECIAL-FIELDS-007)
   return [
     ...renameStatements,
     ...dropStatements,
     ...addStatements,
-    ...deletedAtStatement,
+    ...generateCreatedAtStatement(table, existingColumns),
+    ...generateUpdatedAtStatement(table, existingColumns),
+    ...generateDeletedAtStatement(table, existingColumns),
     ...nullabilityChanges,
   ]
 }

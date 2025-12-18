@@ -275,7 +275,8 @@ test.describe('Migration Audit Trail', () => {
       const actualColumns = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='customers' ORDER BY ordinal_position`
       )
-      expect(actualColumns.rows).toHaveLength(3)
+      // 6 columns: id + 3 special fields (created_at, updated_at, deleted_at) + email + extra_column
+      expect(actualColumns.rows).toHaveLength(6)
 
       // Recorded schema only has 2 columns
       const recordedSchema = await executeQuery(
