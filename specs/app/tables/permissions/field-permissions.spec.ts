@@ -513,11 +513,11 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('Verify non-owner cannot read private field', async () => {
-        await expect(async () => {
-          await executeQuery(
+        await expect(
+          executeQuery(
             `SET LOCAL app.user_id = '${user2.user.id}'; SELECT private_field FROM records WHERE id = 1`
           )
-        }).rejects.toThrow('permission denied')
+        ).rejects.toThrow('permission denied')
       })
 
       await test.step('Verify owner can update private field', async () => {
@@ -528,11 +528,11 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('Verify non-owner cannot update private field', async () => {
-        await expect(async () => {
-          await executeQuery(
+        await expect(
+          executeQuery(
             `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE records SET private_field = 'Hacked' WHERE id = 1`
           )
-        }).rejects.toThrow('permission denied')
+        ).rejects.toThrow('permission denied')
       })
     }
   )
