@@ -94,6 +94,17 @@ export const hasRollupFields = (table: Table): boolean =>
 export const hasCountFields = (table: Table): boolean =>
   table.fields.some((field) => isCountField(field))
 
+/** Check if relationship field is many-to-many with valid related table */
+const isManyToMany = (field: Fields[number]): field is Fields[number] & { relatedTable: string } =>
+  'relationType' in field &&
+  field.relationType === 'many-to-many' &&
+  'relatedTable' in field &&
+  typeof field.relatedTable === 'string'
+
+/** Check if relationship field has valid related table */
+const hasRelatedTable = (field: Fields[number]): field is Fields[number] & { relatedTable: string } =>
+  'relatedTable' in field && typeof field.relatedTable === 'string'
+
 /**
  * Generate lookup column expression
  * Handles forward (many-to-one), reverse (one-to-many), and many-to-many lookups
@@ -125,12 +136,7 @@ const generateLookupExpression = (
   }
 
   // Many-to-many lookup (via junction table)
-  if (
-    'relationType' in relationshipFieldDef &&
-    relationshipFieldDef.relationType === 'many-to-many' &&
-    'relatedTable' in relationshipFieldDef &&
-    typeof relationshipFieldDef.relatedTable === 'string'
-  ) {
+  if (isManyToMany(relationshipFieldDef)) {
     return generateManyToManyLookupExpression({
       lookupName,
       relatedTable: relationshipFieldDef.relatedTable,
@@ -142,10 +148,7 @@ const generateLookupExpression = (
   }
 
   // Forward lookup (many-to-one)
-  if (
-    'relatedTable' in relationshipFieldDef &&
-    typeof relationshipFieldDef.relatedTable === 'string'
-  ) {
+  if (hasRelatedTable(relationshipFieldDef)) {
     return generateForwardLookupExpression({
       lookupName,
       relationshipField,
