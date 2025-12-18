@@ -1229,13 +1229,12 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Post regression analysis to PR (informational only)
-        # NOTE: This comment does NOT contain @claude to prevent duplicate triggers
-        # The TDD Monitor's failed-pr-recovery job will trigger Claude Code for fixes
-        # This prevents race conditions between test.yml and tdd-monitor.yml
+      - name: Post regression fix request to PR (immediate @claude trigger)
+        # Uses PAT so @claude triggers Claude Code immediately (no waiting for tdd-monitor.yml)
+        # The cooldown check above prevents duplicate triggers
         if: steps.cooldown.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           ISSUE_NUMBER: ${{ steps.details.outputs.issue_number }}
           SPEC_ID: ${{ steps.details.outputs.spec_id }}
@@ -1245,7 +1244,9 @@ jobs:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           cat << 'EOF' > /tmp/comment.md
-          ## 🔍 Regression Analysis (Informational)
+          @claude fix the regression in this PR
+
+          ## 🔧 Regression Auto-Fix Required (Immediate)
 
           This PR has **regressions** - tests failing in files OTHER than the target spec.
 
@@ -1256,28 +1257,62 @@ jobs:
           - **Spec ID**: `$SPEC_ID`
           - **Issue**: #$ISSUE_NUMBER
 
-          ### 🔄 What Happens Next
+          ### 🤖 Automation Mode
+          - ✅ Make autonomous decisions - proceed with best judgment
+          - ❌ DO NOT ask questions
 
-          **The TDD Monitor will automatically trigger Claude Code to fix this regression.**
+          ### ✅ Fix Instructions
 
-          The fix should:
-          1. Analyze the regression cause (usually greedy catch-all patterns)
-          2. Fix the implementation without modifying the failing tests
-          3. Verify with `bun run quality && bun test:e2e:regression`
-          4. Push the fix
+          1. **Checkout the PR branch and pull latest**:
+             ```bash
+             git fetch origin $BRANCH
+             git checkout $BRANCH
+             git pull origin $BRANCH
+             ```
 
-          ### 📝 Common Regression Causes
-          - Greedy catch-all schemas (e.g., `UnknownFieldSchema` matching valid types)
-          - Validation changes that are too permissive
-          - Type signature changes breaking dependent code
+          2. **Run the failing regression specs to understand the failure**:
+             ```bash
+             bun test:e2e -- $REGRESSION_SPECS
+             ```
+
+          3. **Identify the regression cause**:
+             - Look at what changed in the implementation
+             - Common causes: catch-all schemas that are too greedy, validation changes affecting other tests
+             - Check `git diff HEAD~1` to see recent changes
+
+          4. **Fix WITHOUT modifying the failing tests**:
+             - Preserve existing validation behavior
+             - For catch-all schemas: explicitly EXCLUDE known types
+             - Ensure backward compatibility
+
+          5. **Verify ALL tests pass**:
+             ```bash
+             bun run quality
+             bun test:e2e -- $TARGET_SPEC
+             bun test:e2e -- $REGRESSION_SPECS
+             ```
+
+          6. **Push the fix**:
+             ```bash
+             bun run license
+             git add -A
+             git commit -m "fix: resolve regression in $SPEC_ID"
+             git push
+             ```
+
+          7. **Verify auto-merge is still enabled**:
+             ```bash
+             gh pr view $PR_NUMBER --json autoMergeRequest
+             ```
+             If null, re-enable: `gh pr merge $PR_NUMBER --auto --squash`
 
           ---
-          *🤖 Regression Handler (analysis only) - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+          *🤖 Regression Handler (Immediate Response) - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*
           EOF
 
           envsubst < /tmp/comment.md > /tmp/comment_final.md
           gh pr comment "$PR_NUMBER" --body-file /tmp/comment_final.md
-          echo "✅ Posted regression analysis to PR #$PR_NUMBER (TDD Monitor will trigger fix)"
+          echo "✅ Posted @claude regression fix request to PR #$PR_NUMBER (immediate trigger)"
 
       - name: Update issue with regression status
         if: steps.cooldown.outputs.skip != 'true' && steps.details.outputs.issue_number != ''
