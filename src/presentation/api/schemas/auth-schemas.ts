@@ -103,8 +103,12 @@ export const signOutResponseSchema = z.object({
  * Session response schema
  *
  * Returned when fetching current session.
+ * Alias for sessionWithUserSchema for API clarity.
  */
-export const getSessionResponseSchema = sessionWithUserSchema
+export const getSessionResponseSchema = z.object({
+  session: sessionSchema,
+  user: userSchema,
+})
 
 /**
  * List sessions response schema

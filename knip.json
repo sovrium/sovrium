@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/**/*.ts", "src/**/*.tsx"],
-  "project": ["src/**/*.ts", "src/**/*.tsx"],
+  "entry": ["src/**/*.ts", "src/**/*.tsx", "eslint/**/*.ts"],
+  "project": ["src/**/*.ts", "src/**/*.tsx", "eslint/**/*.ts"],
   "ignore": ["**/*.test.ts", "**/*.spec.ts", "scripts/**", "tests/**"],
   "ignoreDependencies": [
     "tailwindcss",
@@ -13,19 +13,9 @@
     "@tanstack/react-table",
     "@eslint/compat",
     "@apidevtools/json-schema-ref-parser",
-    "@eslint/js",
     "@types/dompurify",
-    "eslint-plugin-boundaries",
-    "eslint-plugin-check-file",
-    "eslint-plugin-drizzle",
-    "eslint-plugin-functional",
-    "eslint-plugin-playwright",
-    "eslint-plugin-react",
-    "eslint-plugin-react-hooks",
-    "eslint-plugin-react-refresh",
-    "eslint-plugin-unicorn",
-    "globals",
-    "typescript-eslint"
+    "@hono/zod-validator"
   ],
+  "ignoreBinaries": ["pull_with_retry", "actionlint"],
   "ignoreExportsUsedInFile": true
 }
