@@ -73,7 +73,7 @@ test.describe('Special Fields in Formulas', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-002: should allow formula to reference created_at without explicit field definition',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
