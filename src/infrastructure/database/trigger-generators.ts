@@ -8,32 +8,56 @@
 import type { Table } from '@/domain/models/app/table'
 
 /**
- * Generate trigger to prevent updates to created-at fields (immutability)
+ * Generate triggers for created-at fields (set on INSERT, prevent UPDATE)
+ * Includes intrinsic created_at column if not explicitly defined
  */
 export const generateCreatedAtTriggers = (table: Table): readonly string[] => {
   const createdAtFields = table.fields.filter((field) => field.type === 'created-at')
+  const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
 
-  if (createdAtFields.length === 0) return []
+  // Collect all created_at field names
+  const fieldNames = [
+    ...createdAtFields.map((f) => f.name),
+    // Include intrinsic created_at column if not explicitly defined
+    ...(!hasCreatedAtField ? ['created_at'] : []),
+  ]
 
-  const fieldNames = createdAtFields.map((f) => f.name)
-  const triggerFunctionName = `prevent_${table.name}_created_at_update`
-  const triggerName = `trigger_${table.name}_created_at_immutable`
+  if (fieldNames.length === 0) return []
+
+  const setFunctionName = `set_${table.name}_created_at`
+  const setTriggerName = `a_trigger_${table.name}_set_created_at` // Prefix with 'a_' to ensure it runs before formula triggers
+  const preventFunctionName = `prevent_${table.name}_created_at_update`
+  const preventTriggerName = `a_trigger_${table.name}_created_at_immutable` // Prefix with 'a_' to ensure it runs before formula triggers
 
   return [
-    // Create trigger function
-    `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
+    // Create trigger function to set created_at on INSERT
+    `CREATE OR REPLACE FUNCTION ${setFunctionName}()
+RETURNS TRIGGER AS $$
+BEGIN
+  ${fieldNames.map((name) => `NEW.${name} = CURRENT_TIMESTAMP;`).join('\n  ')}
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`,
+    // Create INSERT trigger
+    `DROP TRIGGER IF EXISTS ${setTriggerName} ON ${table.name}`,
+    `CREATE TRIGGER ${setTriggerName}
+BEFORE INSERT ON ${table.name}
+FOR EACH ROW
+EXECUTE FUNCTION ${setFunctionName}()`,
+    // Create trigger function to prevent updates
+    `CREATE OR REPLACE FUNCTION ${preventFunctionName}()
 RETURNS TRIGGER AS $$
 BEGIN
   ${fieldNames.map((name) => `NEW.${name} = OLD.${name};`).join('\n  ')}
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql`,
-    // Create trigger
-    `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
-    `CREATE TRIGGER ${triggerName}
+    // Create UPDATE trigger
+    `DROP TRIGGER IF EXISTS ${preventTriggerName} ON ${table.name}`,
+    `CREATE TRIGGER ${preventTriggerName}
 BEFORE UPDATE ON ${table.name}
 FOR EACH ROW
-EXECUTE FUNCTION ${triggerFunctionName}()`,
+EXECUTE FUNCTION ${preventFunctionName}()`,
   ]
 }
 
@@ -86,19 +110,27 @@ EXECUTE FUNCTION set_updated_by()`,
 }
 
 /**
- * Generate trigger to automatically update updated-at fields on UPDATE
+ * Generate triggers to automatically set/update updated-at fields on INSERT/UPDATE
+ * Includes intrinsic updated_at column if not explicitly defined
  */
 export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
   const updatedAtFields = table.fields.filter((field) => field.type === 'updated-at')
+  const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
 
-  if (updatedAtFields.length === 0) return []
+  // Collect all updated_at field names
+  const fieldNames = [
+    ...updatedAtFields.map((f) => f.name),
+    // Include intrinsic updated_at column if not explicitly defined
+    ...(!hasUpdatedAtField ? ['updated_at'] : []),
+  ]
 
-  const fieldNames = updatedAtFields.map((f) => f.name)
+  if (fieldNames.length === 0) return []
+
   const triggerFunctionName = `update_${table.name}_updated_at`
-  const triggerName = `trigger_${table.name}_updated_at`
+  const triggerName = `a_trigger_${table.name}_updated_at` // Prefix with 'a_' to ensure it runs before formula triggers
 
   return [
-    // Create trigger function
+    // Create trigger function (handles both INSERT and UPDATE)
     `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -106,10 +138,10 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql`,
-    // Create trigger
+    // Create trigger for both INSERT and UPDATE
     `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
     `CREATE TRIGGER ${triggerName}
-BEFORE UPDATE ON ${table.name}
+BEFORE INSERT OR UPDATE ON ${table.name}
 FOR EACH ROW
 EXECUTE FUNCTION ${triggerFunctionName}()`,
   ]

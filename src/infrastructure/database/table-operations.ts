@@ -129,6 +129,24 @@ const needsAutomaticIdColumn = (table: Table, primaryKeyFields: readonly string[
 }
 
 /**
+ * Generate created_at column definition if not explicitly defined
+ * Note: No DEFAULT clause - value will be set by trigger to avoid volatility issues with formulas
+ */
+const generateCreatedAtColumn = (table: Table): readonly string[] => {
+  const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
+  return !hasCreatedAtField ? ['created_at TIMESTAMPTZ NOT NULL'] : []
+}
+
+/**
+ * Generate updated_at column definition if not explicitly defined
+ * Note: No DEFAULT clause - value will be set by trigger to avoid volatility issues with formulas
+ */
+const generateUpdatedAtColumn = (table: Table): readonly string[] => {
+  const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
+  return !hasUpdatedAtField ? ['updated_at TIMESTAMPTZ NOT NULL'] : []
+}
+
+/**
  * Generate deleted_at column definition if not explicitly defined
  */
 const generateDeletedAtColumn = (table: Table): readonly string[] => {
@@ -193,8 +211,10 @@ export const generateCreateTableSQL = (
 
   const allDefinitions = [
     ...idColumnDefinition,
-    ...columnDefinitions,
+    ...generateCreatedAtColumn(table),
+    ...generateUpdatedAtColumn(table),
     ...generateDeletedAtColumn(table),
+    ...columnDefinitions,
     ...tableConstraints,
     ...generatePrimaryKeyConstraintIfNeeded(table, primaryKeyFields),
   ]

@@ -274,7 +274,7 @@ test.describe('Special Fields in Formulas', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-SPECIAL-FIELDS-007: user can use all special fields in formulas without explicit definitions',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

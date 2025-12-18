@@ -153,12 +153,17 @@ const volatileTypeCasts = ['::TIMESTAMP', '::TIMESTAMPTZ', '::DATE', '::TIME']
 /**
  * Check if formula contains volatile functions that make it non-immutable
  * PostgreSQL GENERATED ALWAYS AS columns must be immutable (deterministic)
+ *
+ * Special timestamp fields (created_at, updated_at) are set by triggers, so formulas
+ * referencing them must use trigger-based computation, not GENERATED columns
  */
 export const isFormulaVolatile = (formula: string): boolean => {
   const upperFormula = formula.toUpperCase()
   return (
     volatileSQLFunctions.some((fn) => upperFormula.includes(fn)) ||
-    volatileTypeCasts.some((cast) => upperFormula.includes(cast))
+    volatileTypeCasts.some((cast) => upperFormula.includes(cast)) ||
+    upperFormula.includes('CREATED_AT') ||
+    upperFormula.includes('UPDATED_AT')
   )
 }
 
