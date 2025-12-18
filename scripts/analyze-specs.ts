@@ -639,13 +639,15 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
   const { promisify } = await import('node:util')
   const execAsync = promisify(exec)
 
-  // Pattern to match TDD automation commits: "fix: implement APP-XXX-001"
-  const specIdPattern = /fix:\s*implement\s+([A-Z]+-[A-Z0-9-]+-\d{3})/i
+  // Pattern to match any fix commit containing a spec ID (e.g., APP-XXX-001)
+  // Matches: "fix: implement APP-XXX-001", "fix(test): correct APP-XXX-001", etc.
+  const specIdPattern = /([A-Z]+-[A-Z0-9-]+-\d{3})/
 
   try {
-    // Get all commits matching TDD pattern in the last 90 days
+    // Get all fix commits containing spec IDs in the last 90 days
+    // Uses extended regex to match spec ID pattern in commit messages
     const { stdout } = await execAsync(
-      'git log --oneline --since="90 days ago" --grep="fix: implement" --format="%H|%aI|%s"',
+      'git log --oneline --since="90 days ago" --extended-regexp --grep="^fix.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
       { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
     )
 
