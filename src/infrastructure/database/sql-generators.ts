@@ -89,6 +89,16 @@ const mapFormulaResultTypeToPostgres = (resultType: string | undefined): string 
 }
 
 /**
+ * Map datetime field to PostgreSQL column type based on timezone property
+ * datetime with timezone property uses TIMESTAMPTZ (timezone-aware)
+ * datetime without timezone property uses TIMESTAMP (zoneless)
+ */
+const mapDateTimeFieldToPostgres = (field: Fields[number]): string => {
+  const hasTimezone = 'timezone' in field && field.timezone !== undefined
+  return hasTimezone ? 'TIMESTAMPTZ' : 'TIMESTAMP'
+}
+
+/**
  * Map field type to PostgreSQL column type
  * Throws error if field type is not recognized
  */
@@ -105,11 +115,8 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
   }
 
   // Handle datetime fields with timezone awareness
-  // datetime with timezone property uses TIMESTAMPTZ (timezone-aware)
-  // datetime without timezone property uses TIMESTAMP (zoneless)
   if (field.type === 'datetime') {
-    const hasTimezone = 'timezone' in field && field.timezone !== undefined
-    return hasTimezone ? 'TIMESTAMPTZ' : 'TIMESTAMP'
+    return mapDateTimeFieldToPostgres(field)
   }
 
   const postgresType = fieldTypeToPostgresMap[field.type]
