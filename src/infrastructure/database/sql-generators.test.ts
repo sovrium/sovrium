@@ -254,7 +254,7 @@ describe('sql-generators', () => {
       expect(result).toBe('DATE')
     })
 
-    test('maps datetime without timezone to TIMESTAMP (zoneless)', () => {
+    test('maps datetime to TIMESTAMPTZ (timezone-aware by default)', () => {
       // Given
 
       const field = {
@@ -266,10 +266,10 @@ describe('sql-generators', () => {
       const result = mapFieldTypeToPostgres(field as any)
 
       // Then
-      expect(result).toBe('TIMESTAMP')
+      expect(result).toBe('TIMESTAMPTZ')
     })
 
-    test('maps datetime with timezone to TIMESTAMPTZ (timezone-aware)', () => {
+    test('maps datetime with explicit timezone to TIMESTAMPTZ (timezone-aware)', () => {
       // Given
 
       const field = {
