@@ -238,6 +238,59 @@ EXECUTE FUNCTION ${triggerFunctionName}()`
 }
 
 /**
+ * Generate RLS policies for custom read conditions on fields
+ *
+ * PostgreSQL doesn't support column-level dynamic permissions (like GRANT SELECT (column)
+ * WHERE condition). Instead, we use RLS to prevent row access when custom conditions aren't met.
+ *
+ * Note: This means users can't SELECT the restricted field without also being able to see
+ * the row. This is a PostgreSQL limitation - we enforce at row level, not column level.
+ */
+const generateCustomReadRLSPolicies = (
+  tableName: string,
+  fieldPermissions: readonly { field: string; read?: TablePermission }[]
+): readonly string[] => {
+  // Find fields with custom condition read permissions
+  const customReadFields = fieldPermissions.filter(
+    (fp) => fp.read?.type === 'custom' || fp.read?.type === 'owner'
+  )
+
+  if (customReadFields.length === 0) {
+    return []
+  }
+
+  // Enable RLS on the table
+  const enableRLS = `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`
+
+  // Enable RLS for authenticated users (they bypass RLS by default)
+  const forceRLS = `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`
+
+  // Create a single policy that combines all custom read conditions
+  // Row is visible if ALL custom conditions are met
+  const conditions = customReadFields.map((fp) => {
+    const condition = generateFieldCondition(fp.read!)
+    return `(${condition})`
+  })
+
+  const combinedCondition = conditions.join(' AND ')
+  const policyName = `${tableName}_custom_field_read_policy`
+
+  const policy = `
+-- Drop existing policy if exists
+DROP POLICY IF EXISTS ${policyName} ON ${tableName};
+
+-- Create policy for custom field read conditions
+-- Row is visible only if ALL custom field conditions are met
+CREATE POLICY ${policyName}
+ON ${tableName}
+FOR SELECT
+TO authenticated_user, admin_user, member_user
+USING (${combinedCondition})`
+
+  return [enableRLS, forceRLS, policy]
+}
+
+/**
  * Generate write permission grants (UPDATE and INSERT) for fields
  */
 const generateWritePermissionGrants = (
@@ -345,6 +398,7 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Build field permissions map for READ:
   // - Fields with specific read permissions: use their specific permission
   // - Fields without specific permissions: use effective table-level permission
+  // - Fields with custom/owner permissions: handled separately via RLS
   const allFieldPermissions = databaseColumns.map((field) => {
     const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
     return {
@@ -353,8 +407,16 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     }
   })
 
-  // Build role-to-fields mapping
-  const roleFieldsMap = buildRoleFieldsMap(allFieldPermissions)
+  // Separate fields into role-based and custom-based permissions
+  const roleBasedFields = allFieldPermissions.filter(
+    (fp) => fp.permission.type !== 'custom' && fp.permission.type !== 'owner'
+  )
+  const customConditionReadFields = allFieldPermissions.filter(
+    (fp) => fp.permission.type === 'custom' || fp.permission.type === 'owner'
+  )
+
+  // Build role-to-fields mapping for role-based permissions only
+  const roleFieldsMap = buildRoleFieldsMap(roleBasedFields)
 
   // Add base fields to restricted roles (fields they can access beyond restricted ones)
   const baseRoles = extractRoles(effectiveTablePermission)
@@ -372,6 +434,16 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
   })
 
+  // For fields with custom read conditions, grant SELECT to all authenticated roles
+  // RLS policies will enforce the custom conditions at row level
+  const customFieldReadGrants =
+    customConditionReadFields.length > 0
+      ? (['authenticated_user', 'admin_user', 'member_user'] as const).map((role) => {
+          const columnList = customConditionReadFields.map((f) => `"${f.field}"`).join(', ')
+          return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
+        })
+      : []
+
   const writeGrantStatements = generateWritePermissionGrants(
     tableName,
     databaseColumns,
@@ -382,10 +454,15 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   // Generate triggers for custom condition field permissions
   const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
 
+  // Generate RLS policies for custom read conditions
+  const customReadPolicies = generateCustomReadRLSPolicies(tableName, fieldPermissions)
+
   return [
     ...roleSetupStatements,
     ...columnGrantStatements,
+    ...customFieldReadGrants,
     ...writeGrantStatements,
     ...customConditionTriggers,
+    ...customReadPolicies,
   ]
 }
