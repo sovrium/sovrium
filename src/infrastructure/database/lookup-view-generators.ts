@@ -107,7 +107,9 @@ const generateReverseLookupExpression = (
 
   const alias = `${relatedTable}_for_${lookupName}`
   const baseCondition = `${alias}.${relationshipField} = ${tableAlias}.id`
-  const whereConditions = filters ? [baseCondition, buildWhereClause(filters, alias)] : [baseCondition]
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -136,7 +138,9 @@ const generateManyToManyLookupExpression = (
 
   const baseCondition = `${junctionAlias}.${foreignKeyInJunction} = ${tableAlias}.id`
   const joinCondition = `${alias}.id = ${junctionAlias}.${relatedForeignKeyInJunction}`
-  const whereConditions = filters ? [baseCondition, buildWhereClause(filters, alias)] : [baseCondition]
+  const whereConditions = filters
+    ? [baseCondition, buildWhereClause(filters, alias)]
+    : [baseCondition]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -221,7 +225,10 @@ const generateLookupExpression = (
   }
 
   // Forward lookup (many-to-one)
-  if ('relatedTable' in relationshipFieldDef && typeof relationshipFieldDef.relatedTable === 'string') {
+  if (
+    'relatedTable' in relationshipFieldDef &&
+    typeof relationshipFieldDef.relatedTable === 'string'
+  ) {
     return generateForwardLookupExpression(
       lookupName,
       relationshipField,
