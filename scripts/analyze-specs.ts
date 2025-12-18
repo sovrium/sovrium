@@ -692,10 +692,10 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
       estimatedCompletionDate = completionDate.toISOString().split('T')[0] || null
     }
 
-    // Get recent fixes (last 10)
-    const recentFixes = commits.slice(0, 10).map((c) => ({
+    // Get recent fixes (last 20)
+    const recentFixes = commits.slice(0, 20).map((c) => ({
       specId: c.specId,
-      date: c.date.split('T')[0] || c.date,
+      date: c.date.replace('T', ' ').substring(0, 16),
       commitHash: c.hash.substring(0, 7),
     }))
 
@@ -808,7 +808,7 @@ function generateMarkdown(state: SpecState): string {
     // Recent fixes
     if (state.tddAutomation.recentFixes.length > 0) {
       lines.push('<details>')
-      lines.push('<summary>Recent Fixes (last 10)</summary>')
+      lines.push('<summary>Recent Fixes (last 20)</summary>')
       lines.push('')
       lines.push('| Spec ID | Date | Commit |')
       lines.push('|---------|------|--------|')
