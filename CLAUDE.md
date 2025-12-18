@@ -733,19 +733,19 @@ The TDD workflows follow [official Claude Code best practices](https://code.clau
 | Setting | tdd-execute.yml | tdd-refactor.yml | Purpose |
 |---------|-----------------|------------------|---------|
 | **Model** | `claude-sonnet-4-5-20250929` | `claude-sonnet-4-5-20250929` | Cost predictability |
-| **Max Budget** | $10.00 | N/A (uses max-turns 40) | Cost control without blocking complex specs |
+| **Max Budget** | $10.00 | $10.00 | Cost control without blocking complex tasks |
 | **Allowed Tools** | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Edit, Read, Write, Bash, Glob, Grep, Task, TodoWrite | Principle of least privilege |
 | **Disallowed Tools** | WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand | WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand | Block unnecessary capabilities |
 
 **Why these settings?**
 
 1. **Explicit model selection**: Prevents unexpected cost increases if default model changes
-2. **Cost/turn limits**:
-   - `tdd-execute.yml`: Uses `--max-budget-usd 10.00` (cost-based) instead of turn-based limits
-     - Complex specs (RLS, permissions) need 55-90+ turns, which turn limits would block
-     - Budget limit prevents runaway costs while allowing task completion
-     - 90-minute timeout acts as ultimate time-based backstop
-   - `tdd-refactor.yml`: Uses `--max-turns 40` (scope is more predictable)
+2. **Cost limits** (both workflows use `--max-budget-usd 10.00`):
+   - Budget-based limits adapt to task complexity (turn limits can block legitimate work)
+   - Complex specs (RLS, permissions) need 55-90+ turns
+   - Comprehensive refactoring audits can also be extensive
+   - Budget prevents runaway costs while allowing tasks to complete
+   - Time-based timeouts act as ultimate backstops (90 min for execute, 120 min for refactor)
 3. **Tool restrictions**:
    - **Allowed**: Only tools necessary for code implementation and testing
    - **Blocked AskUserQuestion**: No human present in automation - would hang or skip steps
