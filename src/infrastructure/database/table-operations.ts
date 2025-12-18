@@ -101,24 +101,31 @@ const areTypesCompatible = (oldType: string, newType: string): boolean => {
 
 /**
  * Generate automatic id column definition based on primary key type
+ * @param primaryKeyType - Type of primary key (uuid, bigserial, or default serial)
+ * @param isPrimaryKey - Whether this id column is the primary key (adds PRIMARY KEY constraint inline)
  */
-const generateIdColumn = (primaryKeyType: string | undefined): string => {
+const generateIdColumn = (primaryKeyType: string | undefined, isPrimaryKey: boolean): string => {
+  const pkConstraint = isPrimaryKey ? ' PRIMARY KEY' : ''
   if (primaryKeyType === 'uuid') {
-    return 'id UUID NOT NULL DEFAULT gen_random_uuid()'
+    return `id UUID NOT NULL DEFAULT gen_random_uuid()${pkConstraint}`
   }
   if (primaryKeyType === 'bigserial') {
-    return 'id BIGSERIAL NOT NULL'
+    return `id BIGSERIAL NOT NULL${pkConstraint}`
   }
-  return 'id SERIAL NOT NULL'
+  return `id SERIAL NOT NULL${pkConstraint}`
 }
 
 /**
  * Determine if table needs an automatic id column
+ * Creates automatic id column if:
+ * - No explicit id field is defined in the fields array
+ * - Either: no primary key is defined OR primary key references the special 'id' field
  */
 const needsAutomaticIdColumn = (table: Table, primaryKeyFields: readonly string[]): boolean => {
   const hasIdField = table.fields.some((field) => field.name === 'id')
-  const hasCustomPrimaryKey = primaryKeyFields.length > 0
-  return !hasIdField && !hasCustomPrimaryKey
+  const primaryKeyReferencesId = primaryKeyFields.includes('id')
+  const hasNonIdPrimaryKey = primaryKeyFields.length > 0 && !primaryKeyReferencesId
+  return !hasIdField && !hasNonIdPrimaryKey
 }
 
 /**
@@ -142,8 +149,11 @@ export const generateCreateTableSQL = (
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
   // Generate automatic id column based on primary key type
+  // Add PRIMARY KEY inline if the primary key is on the 'id' field
+  const primaryKeyOnId =
+    primaryKeyFields.length === 1 && primaryKeyFields[0] === 'id'
   const idColumnDefinition = needsAutomaticIdColumn(table, primaryKeyFields)
-    ? [generateIdColumn(table.primaryKey?.type)]
+    ? [generateIdColumn(table.primaryKey?.type, primaryKeyOnId)]
     : []
 
   // Filter out UI-only fields (like button), lookup fields, and rollup fields (handled by VIEW)
@@ -164,9 +174,11 @@ export const generateCreateTableSQL = (
   const tableConstraints = generateTableConstraints(table, tableUsesView, skipForeignKeys)
 
   // If no explicit primary key is defined, add PRIMARY KEY on id
-  const primaryKeyConstraint = needsAutomaticIdColumn(table, primaryKeyFields)
-    ? ['PRIMARY KEY (id)']
-    : []
+  // Note: If primary key is explicitly defined (even on special 'id' field), generatePrimaryKeyConstraint will handle it
+  const primaryKeyConstraint =
+    needsAutomaticIdColumn(table, primaryKeyFields) && primaryKeyFields.length === 0
+      ? ['PRIMARY KEY (id)']
+      : []
 
   const allDefinitions = [
     ...idColumnDefinition,
