@@ -176,7 +176,7 @@ test.describe('Timezone Handling', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-004: should NOT convert TIMESTAMP WITHOUT TIME ZONE on session timezone change',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
