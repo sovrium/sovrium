@@ -1047,6 +1047,16 @@ export const test = base.extend<ServerFixtures>({
       // Convert to string for test assertions to match expected format
       types.setTypeParser(types.builtins.DATE, (val: string) => val)
 
+      // Parse TIMESTAMP (WITHOUT TIME ZONE) as string
+      // PostgreSQL TIMESTAMP type (OID 1114) returns Date objects by default
+      // Convert to string for test assertions to match expected format
+      types.setTypeParser(types.builtins.TIMESTAMP, (val: string) => val)
+
+      // Parse TIMESTAMPTZ (WITH TIME ZONE) as string
+      // PostgreSQL TIMESTAMPTZ type (OID 1184) returns Date objects by default
+      // Convert to string for test assertions to match expected format
+      types.setTypeParser(types.builtins.TIMESTAMPTZ, (val: string) => val)
+
       // Parse POINT as string (keep (x,y) format)
       // PostgreSQL POINT type (OID 600) returns string in format "(x,y)"
       // Keep as string for test assertions to match expected format

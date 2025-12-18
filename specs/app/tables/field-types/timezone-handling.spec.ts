@@ -36,7 +36,7 @@ test.describe('Timezone Handling', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-TIMEZONE-001: should store created-at as TIMESTAMP WITHOUT TIME ZONE by default',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

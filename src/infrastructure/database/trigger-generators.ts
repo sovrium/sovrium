@@ -34,7 +34,7 @@ export const generateCreatedAtTriggers = (table: Table): readonly string[] => {
     `CREATE OR REPLACE FUNCTION ${setFunctionName}()
 RETURNS TRIGGER AS $$
 BEGIN
-  ${fieldNames.map((name) => `NEW.${name} = CURRENT_TIMESTAMP;`).join('\n  ')}
+  ${fieldNames.map((name) => `IF NEW.${name} IS NULL THEN NEW.${name} = CURRENT_TIMESTAMP; END IF;`).join('\n  ')}
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql`,
