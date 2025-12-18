@@ -7,26 +7,33 @@
  */
 
 /**
- * Quality check script - runs linting, type checking, Effect diagnostics, unit tests, spec count validation, coverage check, and smart E2E regression tests
+ * Quality check script - runs linting, type checking, Effect diagnostics, unit tests, Knip (unused code), spec count validation, coverage check, and smart E2E regression tests
  *
  * Usage:
- *   bun run quality                   # Run all checks with smart E2E detection
+ *   bun run quality                   # Run all checks (Effect diagnostics skipped by default)
  *   bun run quality <file>            # Run checks on specific file (ESLint, TypeScript, unit tests only)
  *   bun run quality --skip-e2e        # Skip E2E tests entirely
  *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
- *   bun run quality --skip-effect     # Skip Effect diagnostics (Effect Language Service checks)
+ *   bun run quality --include-effect  # Include Effect diagnostics (slow, ~60-120s)
+ *   bun run quality --skip-knip       # Skip Knip unused code detection
  *   bun run quality src/index.ts      # Example: check specific file
  *
  * Effect Diagnostics:
  * - Uses Effect Language Service to check for Effect-specific issues
  * - Detects unnecessaryPipeChain, catchUnfailableEffect, returnEffectInGen, tryCatchInEffectGen
- * - Run with --skip-effect to bypass these checks
+ * - SKIPPED by default for faster feedback (CI does not run it)
+ * - Use --include-effect for thorough checks (recommended before codebase audits)
  *
  * Smart E2E Detection:
  * - Detects changed files (local: uncommitted changes, CI: diff from main branch)
  * - Maps source file changes to related E2E specs
  * - Runs @regression E2E tests only for affected specs (fast feedback)
  * - Skips E2E if no specs or related source files changed
+ *
+ * Knip (Unused Code Detection):
+ * - Detects unused files, dependencies, and exports
+ * - Uses knip.json configuration for project entry points
+ * - Use --skip-knip to bypass this check
  *
  * Coverage Check:
  * - Enforces unit test coverage for domain layer (93%+ covered)
@@ -102,7 +109,8 @@ interface QualityOptions {
   readonly file?: string
   readonly skipE2E: boolean
   readonly skipCoverage: boolean
-  readonly skipEffect: boolean
+  readonly includeEffect: boolean
+  readonly skipKnip: boolean
 }
 
 /**
@@ -114,7 +122,8 @@ const parseArgs = (): QualityOptions => {
     file: args.find((a) => !a.startsWith('--')),
     skipE2E: args.includes('--skip-e2e'),
     skipCoverage: args.includes('--skip-coverage'),
-    skipEffect: args.includes('--skip-effect'),
+    includeEffect: args.includes('--include-effect'),
+    skipKnip: args.includes('--skip-knip'),
   }
 }
 
@@ -560,7 +569,7 @@ const runFullChecks = (options: QualityOptions) =>
     }
 
     // 3. Effect diagnostics (optional)
-    if (!options.skipEffect) {
+    if (options.includeEffect) {
       const effectResult = yield* runEffectDiagnostics
       results.push(effectResult)
       if (!effectResult.success) {
@@ -568,7 +577,7 @@ const runFullChecks = (options: QualityOptions) =>
         return results
       }
     } else {
-      yield* skip('Effect Diagnostics skipped (--skip-effect flag)')
+      yield* skip('Effect Diagnostics skipped (use --include-effect to include)')
       results.push({
         name: 'Effect Diagnostics',
         success: true,
@@ -588,7 +597,25 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 5. Spec count validation
+    // 5. Knip (unused code detection)
+    if (!options.skipKnip) {
+      const knipResult = yield* runCheck('Knip', ['bunx', 'knip'], 30_000)
+      results.push(knipResult)
+      if (!knipResult.success) {
+        yield* logError('\n⚠️  Stopping checks due to Knip failure (fail-fast mode)')
+        yield* Effect.log('  Run `bun run clean` to see detailed unused code report')
+        return results
+      }
+    } else {
+      yield* skip('Knip skipped (--skip-knip flag)')
+      results.push({
+        name: 'Knip',
+        success: true,
+        duration: 0,
+      })
+    }
+
+    // 6. Spec count validation
     const specCountResult = yield* runCheck(
       'Spec Counts',
       ['bun', 'run', 'validate:spec-counts'],
@@ -601,7 +628,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 6. Coverage check (optional)
+    // 7. Coverage check (optional)
     if (!options.skipCoverage) {
       const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
       results.push(coverageResult)
@@ -618,7 +645,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 7. Smart E2E detection
+    // 8. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({
@@ -701,9 +728,13 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
         yield* Effect.log(
           '  bun node_modules/@effect/language-service/cli.js diagnostics --project tsconfig.json'
         )
-        yield* Effect.log('  Or use: bun run quality --skip-effect')
+        yield* Effect.log('  Add --include-effect flag to run this check')
       }
       if (failedNames.has('Unit Tests')) yield* Effect.log('  bun test:unit')
+      if (failedNames.has('Knip')) {
+        yield* Effect.log('  bun run clean')
+        yield* Effect.log('  Or use: bun run quality --skip-knip')
+      }
       if (failedNames.has('Spec Counts')) {
         yield* Effect.log('  bun run validate:spec-counts --fix')
       }

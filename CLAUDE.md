@@ -80,7 +80,7 @@ bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
 bun run quality                    # Check code quality with smart E2E detection
 bun run quality --skip-e2e         # Skip E2E tests entirely
 bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
-bun run quality --skip-effect      # Skip Effect diagnostics (Effect Language Service)
+bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
 bun run generate:roadmap           # Generate roadmap from specifications
 bun run validate:docs              # Validate documentation versions match package.json
 bun run release                    # Manually trigger release (semantic-release)
@@ -126,10 +126,12 @@ The `bun run quality` command includes **smart E2E detection** to prevent timeou
 
 1. **ESLint** - Code linting with caching
 2. **TypeScript** - Type checking (incremental)
-3. **Effect Diagnostics** - Effect Language Service checks for Effect-specific issues (unnecessaryPipeChain, catchUnfailableEffect, returnEffectInGen, tryCatchInEffectGen)
+3. **Effect Diagnostics** - Effect Language Service checks (skipped by default, use `--include-effect`)
 4. **Unit Tests** - All `.test.ts` files in `src/` and `scripts/`
-5. **Coverage Check** - Verifies domain layer has unit tests
-6. **Smart E2E Detection** - Identifies affected @regression specs and runs them
+5. **Knip** - Detects unused files, dependencies, and exports
+6. **Spec Counts** - Validates spec count annotations match actual tests
+7. **Coverage Check** - Verifies domain layer has unit tests
+8. **Smart E2E Detection** - Identifies affected @regression specs and runs them
 
 ### How Smart E2E Detection Works
 
@@ -163,20 +165,20 @@ The `bun run quality` command includes **smart E2E detection** to prevent timeou
 ```
 → ESLint... ✓ (2341ms)
 → TypeScript... ✓ (4521ms)
-→ Effect Diagnostics... ✓ (1523ms)
+⏭ Effect Diagnostics skipped (use --include-effect to include)
 → Unit Tests... ✓ (12034ms)
 → Coverage Check... ✓
 → Analyzing changed files... (3 files, mode: local)
 ⏭ Skipping E2E: no modified specs or related sources
 ─────────────────────────────────────────────
-✅ All quality checks passed! (20419ms)
+✅ All quality checks passed! (18896ms)
 ```
 
 **Example Output (E2E runs for affected specs)**:
 ```
 → ESLint... ✓ (2341ms)
 → TypeScript... ✓ (4521ms)
-→ Effect Diagnostics... ✓ (1523ms)
+⏭ Effect Diagnostics skipped (use --include-effect to include)
 → Unit Tests... ✓ (12034ms)
 → Coverage Check... ✓
 → Analyzing changed files... (5 files, mode: ci)
@@ -204,10 +206,11 @@ bun run quality --skip-coverage  # Skip coverage check (gradual adoption)
 ### Override Options
 
 ```bash
-bun run quality              # Smart detection (default)
-bun run quality --skip-e2e   # Force skip E2E tests entirely
+bun run quality                  # Smart detection (default, Effect diagnostics skipped)
+bun run quality --skip-e2e       # Force skip E2E tests entirely
 bun run quality --skip-coverage  # Skip coverage enforcement
-bun run quality --skip-effect    # Skip Effect diagnostics
+bun run quality --skip-knip      # Skip Knip unused code detection
+bun run quality --include-effect # Include Effect diagnostics (slow, ~60-120s)
 ```
 
 ### CI vs Local Behavior
