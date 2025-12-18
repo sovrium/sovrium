@@ -503,6 +503,25 @@ jobs:
                 continue
               fi
 
+              # Check if Claude Code is actively processing the linked issue
+              # This prevents race conditions where Monitor triggers updates while original Claude is still running
+              PR_BODY=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json body --jq '.body' 2>/dev/null || echo "")
+              LINKED_ISSUE=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
+
+              if [ -n "$LINKED_ISSUE" ]; then
+                CLAUDE_RUNNING=$(gh run list \
+                  --repo ${{ github.repository }} \
+                  --workflow "TDD - Execute (Claude Code)" \
+                  --json status,displayTitle \
+                  --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"#$LINKED_ISSUE\"))] | length" 2>/dev/null || echo "0")
+
+                if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+                  echo "   ⏭️  Skipping - Claude Code is actively processing linked issue #$LINKED_ISSUE"
+                  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                  continue
+                fi
+              fi
+
               echo "   Triggering branch update..."
 
               # Post @claude comment to update branch
