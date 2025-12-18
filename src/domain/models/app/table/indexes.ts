@@ -53,7 +53,7 @@ export const IndexesSchema = Schema.Array(
         Schema.annotations({
           description:
             'WHERE clause for partial indexes. Creates an index that includes only rows satisfying the condition. Useful for enforcing uniqueness only on non-NULL values.',
-          examples: ['username IS NOT NULL', 'status = \'active\'', 'deleted_at IS NULL'],
+          examples: ['username IS NOT NULL', "status = 'active'", 'deleted_at IS NULL'],
         })
       )
     ),
