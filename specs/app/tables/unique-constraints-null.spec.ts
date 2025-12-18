@@ -76,7 +76,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-002: should allow multiple NULL combinations in composite UNIQUE constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -115,7 +115,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
       // Verify all inserted
       const totalCount = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(totalCount.rows[0]).toMatchObject({ count: '4' })
+      expect(totalCount.rows[0]).toMatchObject({ count: 4 })
 
       // Non-NULL combination still enforces uniqueness
       await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (1, 'test@example.com')`)
