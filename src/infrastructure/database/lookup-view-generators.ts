@@ -131,8 +131,12 @@ export const generateLookupViewSQL = (table: Table): string => {
   }
 
   // Generate expressions for computed columns
-  const lookupExpressions = lookupFields.map((f) => generateLookupExpression(f, 'base', table.fields, table.name))
-  const rollupExpressions = rollupFields.map((f) => generateRollupExpression(f, 'base', table.fields))
+  const lookupExpressions = lookupFields.map((f) =>
+    generateLookupExpression(f, 'base', table.fields, table.name)
+  )
+  const rollupExpressions = rollupFields.map((f) =>
+    generateRollupExpression(f, 'base', table.fields)
+  )
   const countExpressions = countFields.map((f) => generateCountExpression(f, 'base', table.fields))
 
   // Build JOIN clauses for forward lookups (many-to-one only)
@@ -143,7 +147,12 @@ export const generateLookupViewSQL = (table: Table): string => {
     .join('\n  ')
 
   // Assemble the final VIEW SQL
-  const selectClause = ['base.*', ...lookupExpressions, ...rollupExpressions, ...countExpressions].join(',\n    ')
+  const selectClause = [
+    'base.*',
+    ...lookupExpressions,
+    ...rollupExpressions,
+    ...countExpressions,
+  ].join(',\n    ')
 
   return `CREATE OR REPLACE VIEW ${table.name} AS
   SELECT
