@@ -497,6 +497,9 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     }
   ),
   Schema.filter((tables) => {
+    return tables.length > 0 || 'At least one table required - empty migration not allowed'
+  }),
+  Schema.filter((tables) => {
     const ids = tables.map((table) => table.id)
     const uniqueIds = new Set(ids)
     return ids.length === uniqueIds.size || 'Table IDs must be unique within the schema'

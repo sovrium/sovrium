@@ -403,7 +403,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-010: should reject empty migration with no schema changes',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
