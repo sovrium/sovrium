@@ -503,6 +503,104 @@ export const generateAlterTableStatements = (
 }
 
 /**
+ * Get drop statements for removed unique constraints
+ */
+const getUniqueConstraintDropStatements = (
+  table: Table,
+  previousSchema: { readonly tables: readonly object[] } | undefined,
+  currentUniqueFields: readonly string[]
+): readonly string[] => {
+  if (!previousSchema) return []
+
+  const previousTable = previousSchema.tables.find(
+    (t: object) => 'name' in t && t.name === table.name
+  ) as
+    | {
+        name: string
+        fields?: readonly { name?: string; unique?: boolean }[]
+        uniqueConstraints?: readonly { name: string }[]
+      }
+    | undefined
+
+  if (!previousTable) return []
+
+  // Single-field constraints that were removed
+  const previousUniqueFields =
+    previousTable.fields?.filter((f) => f.name && 'unique' in f && f.unique).map((f) => f.name!) ??
+    []
+
+  const removedFields = previousUniqueFields.filter(
+    (fieldName) => !currentUniqueFields.includes(fieldName)
+  )
+
+  const singleFieldDrops = removedFields.map((fieldName) => {
+    const constraintName = `${table.name}_${fieldName}_key`
+    return `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
+  })
+
+  // Composite constraints that were removed
+  const previousCompositeNames = previousTable.uniqueConstraints?.map((c) => c.name) ?? []
+  const currentCompositeNames = table.uniqueConstraints?.map((c) => c.name) ?? []
+
+  const removedComposites = previousCompositeNames.filter(
+    (name) => !currentCompositeNames.includes(name)
+  )
+
+  const compositeDrops = removedComposites.map(
+    (constraintName) => `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
+  )
+
+  return [...singleFieldDrops, ...compositeDrops]
+}
+
+/**
+ * Build SQL statements to add unique constraints (single-field and composite)
+ */
+const buildUniqueConstraintAddStatements = (
+  table: Table,
+  uniqueFields: readonly string[]
+): readonly string[] => {
+  // Single-field constraints
+  const singleFieldStatements = uniqueFields.map((fieldName) => {
+    const constraintName = `${table.name}_${fieldName}_key`
+    return `
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = '${table.name}'
+            AND constraint_type = 'UNIQUE'
+            AND constraint_name = '${constraintName}'
+        ) THEN
+          ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
+        END IF;
+      END$$;
+    `
+  })
+
+  // Composite constraints
+  const compositeStatements =
+    table.uniqueConstraints?.map((constraint) => {
+      const fields = constraint.fields.join(', ')
+      return `
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE table_name = '${table.name}'
+              AND constraint_type = 'UNIQUE'
+              AND constraint_name = '${constraint.name}'
+          ) THEN
+            ALTER TABLE ${table.name} ADD CONSTRAINT ${constraint.name} UNIQUE (${fields});
+          END IF;
+        END$$;
+      `
+    }) ?? []
+
+  return [...singleFieldStatements, ...compositeStatements]
+}
+
+/**
  * Sync unique constraints for existing table
  * Adds named UNIQUE constraints for:
  * 1. Single-field constraints (fields with unique property)
@@ -516,99 +614,11 @@ export const syncUniqueConstraints = (
   previousSchema?: { readonly tables: readonly object[] }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Single-field unique constraints (current schema)
     const uniqueFields = table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
+    const dropStatements = getUniqueConstraintDropStatements(table, previousSchema, uniqueFields)
+    const addStatements = buildUniqueConstraintAddStatements(table, uniqueFields)
 
-    // Find previous unique constraints to drop
-    const dropStatements = previousSchema
-      ? (() => {
-          const previousTable = previousSchema.tables.find(
-            (t: object) => 'name' in t && t.name === table.name
-          ) as
-            | {
-                name: string
-                fields?: readonly { name?: string; unique?: boolean }[]
-                uniqueConstraints?: readonly { name: string }[]
-              }
-            | undefined
-
-          if (!previousTable) return []
-
-          // Find single-field constraints that were removed
-          const previousUniqueFields =
-            previousTable.fields
-              ?.filter((f) => f.name && 'unique' in f && f.unique)
-              .map((f) => f.name!) ?? []
-
-          const removedFields = previousUniqueFields.filter(
-            (fieldName) => !uniqueFields.includes(fieldName)
-          )
-
-          const singleFieldDrops = removedFields.map((fieldName) => {
-            const constraintName = `${table.name}_${fieldName}_key`
-            return `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
-          })
-
-          // Find composite constraints that were removed
-          const previousCompositeNames = previousTable.uniqueConstraints?.map((c) => c.name) ?? []
-          const currentCompositeNames = table.uniqueConstraints?.map((c) => c.name) ?? []
-
-          const removedComposites = previousCompositeNames.filter(
-            (name) => !currentCompositeNames.includes(name)
-          )
-
-          const compositeDrops = removedComposites.map(
-            (constraintName) =>
-              `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
-          )
-
-          return [...singleFieldDrops, ...compositeDrops]
-        })()
-      : []
-
-    // Build statements for single-field constraints (add if not exists)
-    const singleFieldStatements = uniqueFields.map((fieldName) => {
-      const constraintName = `${table.name}_${fieldName}_key`
-      return `
-        DO $$
-        BEGIN
-          IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
-            WHERE table_name = '${table.name}'
-              AND constraint_type = 'UNIQUE'
-              AND constraint_name = '${constraintName}'
-          ) THEN
-            ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
-          END IF;
-        END$$;
-      `
-    })
-
-    // Build statements for composite constraints (add if not exists)
-    const compositeStatements =
-      table.uniqueConstraints?.map((constraint) => {
-        const fields = constraint.fields.join(', ')
-        return `
-          DO $$
-          BEGIN
-            IF NOT EXISTS (
-              SELECT 1 FROM information_schema.table_constraints
-              WHERE table_name = '${table.name}'
-                AND constraint_type = 'UNIQUE'
-                AND constraint_name = '${constraint.name}'
-            ) THEN
-              ALTER TABLE ${table.name} ADD CONSTRAINT ${constraint.name} UNIQUE (${fields});
-            END IF;
-          END$$;
-        `
-      }) ?? []
-
-    // Execute all constraint statements (drop first, then add)
-    yield* executeSQLStatements(tx, [
-      ...dropStatements,
-      ...singleFieldStatements,
-      ...compositeStatements,
-    ])
+    yield* executeSQLStatements(tx, [...dropStatements, ...addStatements])
   })
 
 /**
