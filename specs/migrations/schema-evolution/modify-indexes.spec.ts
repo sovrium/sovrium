@@ -24,7 +24,7 @@ test.describe('Modify Indexes Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-001: should create index creates btree index on specified field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
