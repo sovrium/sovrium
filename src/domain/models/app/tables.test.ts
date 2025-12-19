@@ -11,16 +11,15 @@ import { TablesSchema, TableSchema, type Tables, type Table } from './tables'
 
 describe('TablesSchema', () => {
   describe('Valid Tables Collections', () => {
-    test('should accept empty array of tables', () => {
+    test('should reject empty array of tables', () => {
       // GIVEN: An empty array of tables
       const tables: readonly unknown[] = []
 
       // WHEN: The tables array is validated against the schema
-      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
-
-      // THEN: The empty array should be accepted
-      expect(result).toEqual([])
-      expect(result.length).toBe(0)
+      // THEN: Should throw validation error (empty migrations not allowed)
+      expect(() => Schema.decodeUnknownSync(TablesSchema)(tables)).toThrow(
+        /At least one table required/
+      )
     })
 
     test('should accept array with single table', () => {
@@ -410,16 +409,15 @@ describe('TablesSchema', () => {
       expect(typedResult[0]!.name).toBe('users')
     })
 
-    test('should infer empty array type correctly', () => {
+    test('should reject empty array correctly', () => {
       // GIVEN: An empty tables array
       const tables: readonly unknown[] = []
 
       // WHEN: The tables array is validated against the schema
-      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
-
-      // THEN: TypeScript should infer the correct type
-      const typedResult: Tables = result
-      expect(typedResult.length).toBe(0)
+      // THEN: Should throw validation error (empty migrations not allowed)
+      expect(() => Schema.decodeUnknownSync(TablesSchema)(tables)).toThrow(
+        /At least one table required/
+      )
     })
 
     test('should infer individual table types correctly', () => {
