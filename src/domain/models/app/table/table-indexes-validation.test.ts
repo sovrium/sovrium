@@ -65,8 +65,10 @@ describe('validateIndexes', () => {
   })
 
   test('should handle empty indexes array', () => {
-    const indexes: ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<string> }> =
-      []
+    const indexes: ReadonlyArray<{
+      readonly name: string
+      readonly fields: ReadonlyArray<string>
+    }> = []
     const fieldNames = new Set(['id', 'email'])
 
     const result = validateIndexes(indexes, fieldNames)
