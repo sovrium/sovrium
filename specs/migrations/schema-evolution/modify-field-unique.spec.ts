@@ -201,7 +201,7 @@ test.describe('Modify Field Unique Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-004: user can complete full modify-field-unique workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
