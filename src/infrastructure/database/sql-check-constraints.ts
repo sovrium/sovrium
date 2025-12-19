@@ -206,3 +206,24 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
       const constraintName = `check_${field.name}_format`
       return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '^#[0-9a-fA-F]{6}$')`
     })
+
+/**
+ * Generate custom CHECK constraints defined at table level
+ *
+ * Used for complex business rules that involve multiple fields or
+ * conditional validation beyond field-level constraints.
+ *
+ * @example
+ * ```typescript
+ * const constraints = [{
+ *   name: 'chk_active_members_have_email',
+ *   check: '(is_active = false) OR (email IS NOT NULL)'
+ * }]
+ * ```
+ */
+export const generateCustomCheckConstraints = (
+  constraints?: readonly { readonly name: string; readonly check: string }[]
+): readonly string[] =>
+  constraints
+    ? constraints.map((constraint) => `CONSTRAINT ${constraint.name} CHECK (${constraint.check})`)
+    : []
