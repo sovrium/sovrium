@@ -92,7 +92,7 @@ test.describe('Modify Field Options Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-002: should drop check constraint, add new check without removed value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
