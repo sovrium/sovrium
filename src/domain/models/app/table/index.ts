@@ -240,15 +240,15 @@ export const TableSchema = Schema.Struct({
 export type Table = Schema.Schema.Type<typeof TableSchema>
 
 // Re-export all table model schemas and types for convenient imports
-export * from './id'
+export * from './check-constraints'
 export * from './field-name'
-export * from './name'
+export * from './field-types'
 export * from './fields'
+export * from './foreign-keys'
+export * from './id'
+export * from './indexes'
+export * from './name'
+export * from './permissions'
 export * from './primary-key'
 export * from './unique-constraints'
-export * from './check-constraints'
-export * from './indexes'
-export * from './foreign-keys'
-export * from './field-types'
 export * from './views'
-export * from './permissions'
