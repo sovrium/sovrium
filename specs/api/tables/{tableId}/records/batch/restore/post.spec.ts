@@ -60,7 +60,7 @@ test.describe('Batch Restore records', () => {
       const beforeRestore = await executeQuery(
         `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL`
       )
-      expect(parseInt(beforeRestore.count)).toBe(3)
+      expect(beforeRestore.count).toBe('3')
 
       // WHEN: User batch restores the soft-deleted records
       const response = await request.post('/api/tables/1/records/batch/restore', {
@@ -78,7 +78,7 @@ test.describe('Batch Restore records', () => {
       const afterRestore = await executeQuery(
         `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL`
       )
-      expect(parseInt(afterRestore.count)).toBe(3)
+      expect(afterRestore.count).toBe('3')
     }
   )
 
@@ -122,7 +122,7 @@ test.describe('Batch Restore records', () => {
       const result = await executeQuery(
         `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL`
       )
-      expect(parseInt(result.count)).toBe(2)
+      expect(result.count).toBe('2')
     }
   )
 
@@ -296,7 +296,7 @@ test.describe('Batch Restore records', () => {
         const activeCount = await executeQuery(
           `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL`
         )
-        expect(parseInt(activeCount.count)).toBe(4)
+        expect(activeCount.count).toBe('4')
       })
 
       await test.step('Verify batch restoring active records fails', async () => {

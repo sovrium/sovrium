@@ -622,7 +622,7 @@ test.describe('API Record-Level Permissions', () => {
         const verifyResult = await executeQuery(
           `SELECT COUNT(*) as count FROM private_tasks WHERE id = ${taskId}`
         )
-        expect(verifyResult.rows[0].count).toBe(0)
+        expect(verifyResult.rows[0].count).toBe('0')
       })
     }
   )

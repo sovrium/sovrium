@@ -483,7 +483,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       const verifyResult = await executeQuery(
         'SELECT COUNT(*) as count FROM system_logs WHERE id = 1'
       )
-      expect(verifyResult.rows[0].count).toBe(1)
+      expect(verifyResult.rows[0].count).toBe('1')
     }
   )
 

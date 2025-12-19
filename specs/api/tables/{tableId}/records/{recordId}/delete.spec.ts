@@ -551,7 +551,7 @@ test.describe('Delete record', () => {
 
       // THEN: Record is permanently removed from database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM logs WHERE id=1`)
-      expect(result.rows[0].count).toBe(0)
+      expect(result.rows[0].count).toBe('0')
     }
   )
 
@@ -590,7 +590,7 @@ test.describe('Delete record', () => {
 
       // THEN: Record remains in database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM data WHERE id=1`)
-      expect(result.rows[0].count).toBe(1)
+      expect(result.rows[0].count).toBe('1')
     }
   )
 
@@ -890,7 +890,7 @@ test.describe('Delete record', () => {
         const activeUsers = await executeQuery(`
           SELECT COUNT(*) as count FROM contacts WHERE deleted_at IS NULL
         `)
-        expect(activeUsers.rows[0].count).toBe(2)
+        expect(activeUsers.rows[0].count).toBe('2')
       })
 
       await test.step('Verify deleting already-deleted record fails', async () => {
@@ -905,7 +905,7 @@ test.describe('Delete record', () => {
         const verifyPermanent = await executeQuery(
           `SELECT COUNT(*) as count FROM contacts WHERE id=2`
         )
-        expect(verifyPermanent.rows[0].count).toBe(0)
+        expect(verifyPermanent.rows[0].count).toBe('0')
       })
 
       await test.step('Verify unauthenticated delete fails', async () => {

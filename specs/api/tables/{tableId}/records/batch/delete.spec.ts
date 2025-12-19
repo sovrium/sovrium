@@ -76,7 +76,7 @@ test.describe('Batch delete records', () => {
       const deletedCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM users WHERE id IN (1, 2) AND deleted_at IS NOT NULL
       `)
-      expect(deletedCheck.rows[0].count).toBe(2)
+      expect(deletedCheck.rows[0].count).toBe('2')
 
       // THEN: Remaining record is still active (deleted_at is NULL)
       const remainingCheck = await executeQuery(`
@@ -213,7 +213,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
       `)
-      expect(result.rows[0].count).toBe(2)
+      expect(result.rows[0].count).toBe('2')
     }
   )
 
@@ -263,7 +263,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
       `)
-      expect(result.rows[0].count).toBe(2)
+      expect(result.rows[0].count).toBe('2')
     }
   )
 
@@ -356,7 +356,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
       `)
-      expect(result.rows[0].count).toBe(2)
+      expect(result.rows[0].count).toBe('2')
     }
   )
 
@@ -407,7 +407,7 @@ test.describe('Batch delete records', () => {
       const deletedCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2) AND deleted_at IS NOT NULL
       `)
-      expect(deletedCheck.rows[0].count).toBe(2)
+      expect(deletedCheck.rows[0].count).toBe('2')
 
       // THEN: Remaining record is still active
       const remainingCheck = await executeQuery(`
@@ -464,7 +464,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2) AND deleted_at IS NOT NULL
       `)
-      expect(result.rows[0].count).toBe(2)
+      expect(result.rows[0].count).toBe('2')
     }
   )
 
@@ -604,7 +604,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL
       `)
-      expect(result.rows[0].count).toBe(3)
+      expect(result.rows[0].count).toBe('3')
     }
   )
 
@@ -653,11 +653,11 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM logs WHERE id IN (1, 2)
       `)
-      expect(result.rows[0].count).toBe(0)
+      expect(result.rows[0].count).toBe('0')
 
       // THEN: Remaining record still exists
       const remaining = await executeQuery(`SELECT COUNT(*) as count FROM logs WHERE id=3`)
-      expect(remaining.rows[0].count).toBe(1)
+      expect(remaining.rows[0].count).toBe('1')
     }
   )
 
@@ -716,14 +716,14 @@ test.describe('Batch delete records', () => {
         const afterDelete = await executeQuery(`
           SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3) AND deleted_at IS NOT NULL
         `)
-        expect(afterDelete.rows[0].count).toBe(3)
+        expect(afterDelete.rows[0].count).toBe('3')
       })
 
       await test.step('Verify active records count', async () => {
         const activeCount = await executeQuery(`
           SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL
         `)
-        expect(activeCount.rows[0].count).toBe(2)
+        expect(activeCount.rows[0].count).toBe('2')
       })
 
       await test.step('Verify partial failure triggers rollback', async () => {
@@ -762,7 +762,7 @@ test.describe('Batch delete records', () => {
         const verifyPermanent = await executeQuery(`
           SELECT COUNT(*) as count FROM tasks WHERE id IN (4, 5)
         `)
-        expect(verifyPermanent.rows[0].count).toBe(0)
+        expect(verifyPermanent.rows[0].count).toBe('0')
       })
 
       await test.step('Verify payload size limit enforced', async () => {
