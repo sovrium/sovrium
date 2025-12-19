@@ -136,7 +136,7 @@ test.describe('Modify Field Unique Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-003: should alter table drop constraint unique_orders_order_number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
