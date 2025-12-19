@@ -274,7 +274,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-006: should create index concurrently allows reads/writes during creation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
