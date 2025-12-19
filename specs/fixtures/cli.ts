@@ -55,19 +55,19 @@ export async function startCliWithConfigFile(
     databaseUrl?: string
   }
 ): Promise<CliServerResult> {
-  const args = ['run', 'src/cli.ts', '--config', configPath]
-
-  if (options?.port) {
-    args.push('--port', options.port.toString())
-  }
-
-  if (options?.hostname) {
-    args.push('--hostname', options.hostname)
-  }
+  const args = ['run', 'src/cli.ts', 'start', configPath]
 
   const env = {
     ...process.env,
   } as Record<string, string>
+
+  if (options?.port !== undefined) {
+    env.PORT = options.port.toString()
+  }
+
+  if (options?.hostname) {
+    env.HOSTNAME = options.hostname
+  }
 
   if (options?.databaseUrl) {
     env.DATABASE_URL = options.databaseUrl
@@ -149,7 +149,7 @@ export async function captureCliOutput(
   }
 ): Promise<{ output: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
-    const args = ['run', 'src/cli.ts', '--config', configPath]
+    const args = ['run', 'src/cli.ts', 'start', configPath]
 
     const childProcess = spawn('bun', args, {
       env: {

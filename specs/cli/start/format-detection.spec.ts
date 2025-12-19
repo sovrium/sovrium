@@ -57,7 +57,7 @@ test.describe('CLI Start Command - Format Detection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-FORMAT-002: should auto-detect YAML format from .yaml extension',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -77,7 +77,7 @@ description: Auto-detected as YAML from .yaml extension
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-FORMAT-003: should auto-detect YAML format from .yml extension',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -97,7 +97,7 @@ description: Auto-detected as YAML from .yml extension
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-FORMAT-004: should report error for unsupported file extensions',
     { tag: '@spec' },
     async () => {
@@ -126,7 +126,7 @@ description: Auto-detected as YAML from .yml extension
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-FORMAT-005: should handle format detection with mixed case extensions',
     { tag: '@spec' },
     async ({ startCliServerWithConfig }) => {
@@ -157,7 +157,7 @@ description: Auto-detected as YAML from .yml extension
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-FORMAT-006: user can start server with different config formats seamlessly',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {

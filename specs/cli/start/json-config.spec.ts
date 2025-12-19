@@ -37,7 +37,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-JSON-001: should start server with valid JSON config file',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -60,7 +60,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-JSON-002: should handle invalid JSON syntax with clear error message',
     { tag: '@spec' },
     async () => {
@@ -86,7 +86,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-JSON-003: should validate JSON schema and report validation errors',
     { tag: '@spec' },
     async () => {
@@ -112,7 +112,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-JSON-004: should report file not found error with helpful message',
     { tag: '@spec' },
     async () => {
@@ -130,7 +130,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-JSON-005: should support JSON config with all app schema features',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -189,7 +189,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-JSON-006: should support JSON config with environment variable overrides',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -218,7 +218,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-JSON-007: user can start server from JSON config and navigate app',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {

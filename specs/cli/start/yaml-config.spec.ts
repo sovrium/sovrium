@@ -38,7 +38,7 @@ test.describe('CLI Start Command - YAML Configuration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-YAML-001: should start server with valid YAML config file',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -61,7 +61,7 @@ description: App loaded from YAML config file
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-YAML-002: should support .yml file extension',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -81,7 +81,7 @@ description: Testing .yml file support
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-YAML-003: should handle invalid YAML syntax with clear error message',
     { tag: '@spec' },
     async () => {
@@ -108,7 +108,7 @@ description:
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-YAML-004: should validate YAML schema and report validation errors',
     { tag: '@spec' },
     async () => {
@@ -133,7 +133,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-YAML-005: should support YAML-specific features (comments, multi-line strings)',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -173,7 +173,7 @@ theme:
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-YAML-006: should support comprehensive YAML config with all app schema features',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -228,7 +228,7 @@ pages:
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-YAML-007: should report file not found error for YAML config',
     { tag: '@spec' },
     async () => {
@@ -250,7 +250,7 @@ pages:
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-YAML-008: user can start server from YAML config and navigate app',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
