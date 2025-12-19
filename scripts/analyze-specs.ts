@@ -10,7 +10,7 @@
 /**
  * Spec Quality Analyzer
  *
- * Analyzes E2E test files (.spec.ts) for quality and generates a SPEC-STATE.md file
+ * Analyzes E2E test files (.spec.ts) for quality and generates a SPEC-PROGRESS.md file
  * that serves as a single source of truth for test coverage and specification review.
  *
  * Quality checks:
@@ -30,7 +30,7 @@
  *   --verify-progress  Cross-reference with GitHub PRs/issues to detect discrepancies
  *
  * Output:
- *   - SPEC-STATE.md: Reviewable specification state document
+ *   - SPEC-PROGRESS.md: Reviewable specification state document
  *   - Console: Quality report with issues and suggestions
  *
  * Examples:

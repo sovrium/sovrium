@@ -137,7 +137,7 @@ test.describe('Modify Field Default Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-DEFAULT-003: should alter table alter column drop default',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -155,7 +155,7 @@ test.describe('Modify Field Default Migration', () => {
                 type: 'single-line-text',
                 required: true,
               },
-              { id: 3, name: 'created_at', type: 'datetime', default: 'NOW()' }, // TIMESTAMPTZ → datetime
+              { id: 3, name: 'created_at', type: 'datetime', required: true, default: 'NOW()' }, // TIMESTAMPTZ → datetime
             ],
           },
         ],
@@ -176,7 +176,7 @@ test.describe('Modify Field Default Migration', () => {
                 type: 'single-line-text',
                 required: true,
               },
-              { id: 3, name: 'created_at', type: 'datetime' }, // No default
+              { id: 3, name: 'created_at', type: 'datetime', required: true }, // No default
             ],
           },
         ],

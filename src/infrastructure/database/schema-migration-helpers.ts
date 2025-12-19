@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines */
+
 import { Effect } from 'effect'
 import { shouldCreateDatabaseColumn } from './field-utils'
 import {
@@ -13,7 +15,11 @@ import {
   type TransactionLike,
   type SQLExecutionError,
 } from './sql-execution'
-import { mapFieldTypeToPostgres, generateColumnDefinition, isFieldNotNull } from './sql-generators'
+import {
+  mapFieldTypeToPostgres,
+  generateColumnDefinition,
+  isFieldNotNull,
+} from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -232,6 +238,26 @@ const findColumnsToDrop = (
   })
 
 /**
+ * Filter fields that should be checked for schema modifications
+ * Excludes UI-only fields, renamed fields, and fields not in the database
+ */
+const filterModifiableFields = (
+  fields: readonly Fields[number][],
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>
+): readonly Fields[number][] =>
+  fields.filter((field) => {
+    // Skip UI-only fields, renamed fields, and fields not in database
+    if (!shouldCreateDatabaseColumn(field)) return false
+    if (renamedNewNames.has(field.name)) return false
+    if (!existingColumns.has(field.name)) return false
+    return true
+  })
+
+/**
  * Find columns that need nullability changes
  * Returns ALTER COLUMN statements for SET NOT NULL / DROP NOT NULL
  */
@@ -244,30 +270,78 @@ const findNullabilityChanges = (
   renamedNewNames: ReadonlySet<string>,
   primaryKeyFields: readonly string[]
 ): readonly string[] =>
-  table.fields
-    .filter((field) => {
-      // Skip UI-only fields, renamed fields, and fields not in database
-      if (!shouldCreateDatabaseColumn(field)) return false
-      if (renamedNewNames.has(field.name)) return false
-      if (!existingColumns.has(field.name)) return false
-      return true
-    })
-    .flatMap((field) => {
-      const existing = existingColumns.get(field.name)!
-      const isPrimaryKey = primaryKeyFields.includes(field.name)
-      const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
-      const currentlyNotNull = existing.isNullable === 'NO'
+  filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
+    const existing = existingColumns.get(field.name)!
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
+    const currentlyNotNull = existing.isNullable === 'NO'
 
-      // If nullability differs, generate ALTER COLUMN statement
-      if (shouldBeNotNull && !currentlyNotNull) {
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+    // If nullability differs, generate ALTER COLUMN statement
+    if (shouldBeNotNull && !currentlyNotNull) {
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+    }
+    if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
+      // Only DROP NOT NULL if it's not a primary key or auto-managed field
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+    }
+    return []
+  })
+
+/**
+ * Find columns that need default value changes
+ * Returns ALTER COLUMN statements for SET DEFAULT or DROP DEFAULT
+ */
+const findDefaultValueChanges = (
+  table: Table,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>,
+  previousSchema?: { readonly tables: readonly object[] }
+): readonly string[] => {
+  // Find previous table definition to compare default values
+  const previousTable = previousSchema?.tables.find(
+    (t: object) => 'name' in t && t.name === table.name
+  ) as
+    | {
+        name: string
+        fields?: readonly { id?: number; name?: string; default?: unknown }[]
       }
-      if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
-        // Only DROP NOT NULL if it's not a primary key or auto-managed field
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+    | undefined
+
+  const previousFieldsByName = new Map(
+    previousTable?.fields
+      ?.filter((f) => f.name !== undefined)
+      .map((f) => [f.name!, f.default]) ?? []
+  )
+
+  return filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
+      const currentDefault = 'default' in field ? field.default : undefined
+      const previousDefault = previousFieldsByName.get(field.name)
+
+      // Only generate ALTER statements if default value changed
+      if (currentDefault === previousDefault) return []
+
+      // Case 1: Default removed (was set, now undefined)
+      if (previousDefault !== undefined && currentDefault === undefined) {
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP DEFAULT`]
       }
+
+      // Case 2: Default added or modified (generate SET DEFAULT statement)
+      if (currentDefault !== undefined) {
+        const columnDef = generateColumnDefinition(field, false, table.fields)
+        // Extract DEFAULT clause from column definition
+        const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
+        if (defaultMatch) {
+          const defaultClause = defaultMatch[1]
+          return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`]
+        }
+      }
+
       return []
     })
+}
 
 /**
  * Format a default value for use in SQL
@@ -479,7 +553,12 @@ export const generateAlterTableStatements = (
     primaryKeyFields
   )
 
-  const defaultValueChanges = findDefaultValueChanges(table, existingColumns, renamedNewNames)
+  const defaultValueChanges = findDefaultValueChanges(
+    table,
+    existingColumns,
+    renamedNewNames,
+    previousSchema
+  )
 
   // Build column modification statements
   const { dropStatements, addStatements } = buildColumnStatements({
