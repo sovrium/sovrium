@@ -172,7 +172,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-004: should drop old index and create new composite index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -214,7 +214,7 @@ test.describe('Modify Indexes Migration', () => {
 
       // Old single-column index removed
       const oldIndexCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer'`
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer_id'`
       )
       expect(oldIndexCheck.count).toBe(0)
 
