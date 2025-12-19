@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
+import { Pool } from 'pg'
+import * as schema from '@/infrastructure/auth/better-auth/schema'
 import type {
   ExecuteQueryFn,
   RoleContext,
@@ -12,6 +16,376 @@ import type {
   QuerySuccessOptions,
   MultiOrgScenarioResult,
 } from './types'
+
+// =============================================================================
+// Database Template Manager
+// =============================================================================
+
+/**
+ * Database Template Manager for Fast Test Isolation
+ *
+ * Strategy:
+ * 1. Create a template database once with all migrations applied
+ * 2. For each test, duplicate the template into a new database (fast operation)
+ * 3. Tests run against isolated databases in parallel
+ * 4. Cleanup drops test databases after completion
+ *
+ * Benefits:
+ * - Fast: Database duplication is ~10-100x faster than running migrations
+ * - Isolated: Each test gets a pristine database copy
+ * - Parallel: Tests can run concurrently without interference
+ */
+export class DatabaseTemplateManager {
+  private templateDbName = 'sovrium_test_template'
+  private adminConnectionUrl: string
+
+  constructor(private containerConnectionUrl: string) {
+    // Extract admin connection (connect to 'postgres' database for admin operations)
+    const url = new URL(containerConnectionUrl)
+    url.pathname = '/postgres'
+    this.adminConnectionUrl = url.toString()
+  }
+
+  /**
+   * Create template database and run all migrations
+   * Called once during global setup
+   */
+  async createTemplate(): Promise<void> {
+    // Wait for container to be fully ready before creating admin pool
+    await this.waitForContainerReady()
+
+    // Create admin pool once and reuse for both drop and create
+    const adminPool = new Pool({
+      connectionString: this.adminConnectionUrl,
+      max: 1,
+      connectionTimeoutMillis: 5000,
+    })
+
+    try {
+      // Drop template if exists (for clean slate)
+      await this.dropDatabaseWithPool(adminPool, this.templateDbName)
+
+      // Create fresh template database
+      await adminPool.query(`CREATE DATABASE "${this.templateDbName}"`)
+
+      // Create a non-superuser role for RLS testing
+      // Superusers always bypass RLS (even with NOBYPASSRLS), so we create
+      // a separate role 'app_user' without superuser privileges.
+      // Tests should use SET ROLE app_user to switch to this role before queries.
+      await adminPool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+            CREATE ROLE app_user WITH LOGIN INHERIT;
+          END IF;
+        END
+        $$;
+        GRANT ALL PRIVILEGES ON DATABASE "${this.templateDbName}" TO app_user;
+        GRANT app_user TO test;
+      `)
+    } finally {
+      await adminPool.end()
+    }
+
+    // Run migrations on template
+    const templateUrl = this.getTemplateUrl()
+    const templatePool = new Pool({ connectionString: templateUrl })
+    const db = drizzle(templatePool, { schema })
+
+    try {
+      await migrate(db, { migrationsFolder: './drizzle' })
+
+      // Create auth schema and helper functions for RLS policies
+      // This was previously in migrations but consolidated out
+      await templatePool.query(`
+        CREATE SCHEMA IF NOT EXISTS auth;
+
+        CREATE OR REPLACE FUNCTION auth.user_has_role(role_name TEXT)
+        RETURNS BOOLEAN
+        LANGUAGE sql
+        STABLE
+        AS $$
+          SELECT COALESCE(current_setting('app.user_role', true), '') = role_name
+        $$;
+
+        CREATE OR REPLACE FUNCTION auth.is_authenticated()
+        RETURNS BOOLEAN
+        LANGUAGE sql
+        STABLE
+        AS $$
+          SELECT current_setting('app.user_id', true) IS NOT NULL
+            AND current_setting('app.user_id', true) != ''
+        $$;
+
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_user') THEN
+            CREATE ROLE admin_user;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'member_user') THEN
+            CREATE ROLE member_user;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated_user') THEN
+            CREATE ROLE authenticated_user;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'guest_user') THEN
+            CREATE ROLE guest_user;
+          END IF;
+        END
+        $$;
+      `)
+
+      // Configure custom session variables for RLS policies
+      // These variables are used by Row-Level Security policies to filter data
+      // based on authenticated user context (user_id, organization_id, role)
+      await templatePool.query(`
+        ALTER DATABASE "${this.templateDbName}" SET app.user_id = '';
+        ALTER DATABASE "${this.templateDbName}" SET app.organization_id = '';
+        ALTER DATABASE "${this.templateDbName}" SET app.user_role = '';
+      `)
+
+      // Grant schema and table access to app_user for RLS testing
+      // This allows the non-superuser role to access all tables through SET ROLE
+      await templatePool.query(`
+        GRANT USAGE ON SCHEMA public TO app_user;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
+        GRANT USAGE ON SCHEMA auth TO app_user;
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO app_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO app_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO app_user;
+      `)
+
+      // Grant test roles to app_user so it can switch roles via SET ROLE
+      // This allows app_user (non-superuser) to test RLS policies with different permission levels
+      await templatePool.query(`
+        GRANT admin_user TO app_user;
+        GRANT member_user TO app_user;
+        GRANT authenticated_user TO app_user;
+        GRANT guest_user TO app_user;
+      `)
+
+      // Grant schema and sequence privileges to test roles
+      // Required for INSERT operations when using SET ROLE to switch roles
+      await templatePool.query(`
+        GRANT USAGE ON SCHEMA public TO admin_user, member_user, authenticated_user, guest_user;
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_user, member_user, authenticated_user, guest_user;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin_user, member_user, authenticated_user, guest_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO admin_user, member_user, authenticated_user, guest_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO admin_user, member_user, authenticated_user, guest_user;
+      `)
+    } finally {
+      await templatePool.end()
+    }
+  }
+
+  /**
+   * Wait for PostgreSQL container to be ready
+   * Creates and destroys temporary pools to avoid connection termination issues
+   */
+  private async waitForContainerReady(maxAttempts = 20): Promise<void> {
+    console.log(`   🔄 Waiting for PostgreSQL container at ${this.adminConnectionUrl}...`)
+
+    for (let i = 0; i < maxAttempts; i++) {
+      // Create a fresh pool for each attempt
+      const testPool = new Pool({
+        connectionString: this.adminConnectionUrl,
+        max: 1,
+        connectionTimeoutMillis: 5000, // Increased from 3000ms to 5000ms
+      })
+
+      try {
+        await testPool.query('SELECT 1')
+        await testPool.end()
+        // Success! Container is ready
+        console.log(`   ✅ Container ready after ${i + 1} attempt(s)`)
+        return
+      } catch (error) {
+        // Always end the pool, even on error
+        try {
+          await testPool.end()
+        } catch {
+          // Ignore pool cleanup errors
+        }
+
+        if (i === maxAttempts - 1) {
+          throw new Error(
+            `PostgreSQL container not ready after ${maxAttempts} attempts: ${error instanceof Error ? error.message : error}`
+          )
+        }
+
+        // Log every few attempts for debugging
+        if (i % 3 === 0) {
+          console.log(
+            `   ⏳ Attempt ${i + 1}/${maxAttempts} failed: ${error instanceof Error ? error.message : error}`
+          )
+        }
+
+        // Improved backoff strategy:
+        // - First 3 attempts: 500ms (container might be starting up)
+        // - Next 3 attempts: 1000ms (PostgreSQL initializing)
+        // - Remaining attempts: 1500ms (extended wait for slow systems)
+        const backoff = i < 3 ? 500 : i < 6 ? 1000 : 1500
+        await new Promise((resolve) => setTimeout(resolve, backoff))
+      }
+    }
+  }
+
+  /**
+   * Duplicate template into a new test database
+   * Called before each test that needs database access
+   */
+  async duplicateTemplate(testDbName: string): Promise<string> {
+    const adminPool = new Pool({ connectionString: this.adminConnectionUrl })
+    try {
+      // Terminate connections to template (required for duplication)
+      await adminPool.query(
+        `
+        SELECT pg_terminate_backend(pg_stat_activity.pid)
+        FROM pg_stat_activity
+        WHERE pg_stat_activity.datname = $1
+          AND pid <> pg_backend_pid()
+      `,
+        [this.templateDbName]
+      )
+
+      // Small delay to ensure connections are fully terminated
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      // Create new database from template
+      await adminPool.query(`CREATE DATABASE "${testDbName}" TEMPLATE "${this.templateDbName}"`)
+    } finally {
+      await adminPool.end()
+    }
+
+    return this.getTestDatabaseUrl(testDbName)
+  }
+
+  /**
+   * Drop test database
+   * Called after each test for cleanup
+   */
+  async dropTestDatabase(testDbName: string): Promise<void> {
+    await this.dropDatabase(testDbName)
+  }
+
+  /**
+   * Cleanup template database
+   * Called during global teardown
+   */
+  async cleanup(): Promise<void> {
+    await this.dropDatabase(this.templateDbName)
+  }
+
+  /**
+   * Get template database URL
+   */
+  private getTemplateUrl(): string {
+    return this.getTestDatabaseUrl(this.templateDbName)
+  }
+
+  /**
+   * Get test database URL
+   */
+  private getTestDatabaseUrl(dbName: string): string {
+    const url = new URL(this.containerConnectionUrl)
+    url.pathname = `/${dbName}`
+    return url.toString()
+  }
+
+  /**
+   * Drop database if exists (creates its own pool)
+   */
+  private async dropDatabase(dbName: string): Promise<void> {
+    const adminPool = new Pool({
+      connectionString: this.adminConnectionUrl,
+      max: 1,
+      connectionTimeoutMillis: 5000,
+    })
+
+    try {
+      await this.dropDatabaseWithPool(adminPool, dbName)
+    } finally {
+      await adminPool.end()
+    }
+  }
+
+  /**
+   * Drop database if exists (uses provided pool)
+   */
+  private async dropDatabaseWithPool(adminPool: Pool, dbName: string): Promise<void> {
+    // Use retry logic to handle transient connection issues
+    const maxRetries = 3
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // First, check if database exists
+        const checkResult = await adminPool.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [
+          dbName,
+        ])
+
+        // If database doesn't exist, we're done
+        if (checkResult.rows.length === 0) {
+          return
+        }
+
+        // Terminate all connections to the target database (force)
+        await adminPool.query(
+          `
+          SELECT pg_terminate_backend(pid)
+          FROM pg_stat_activity
+          WHERE datname = $1
+            AND pid <> pg_backend_pid()
+        `,
+          [dbName]
+        )
+
+        // Wait for connections to fully terminate
+        await new Promise((resolve) => setTimeout(resolve, 200))
+
+        // Use DROP DATABASE with FORCE (PostgreSQL 13+)
+        // This will forcefully terminate remaining connections
+        await adminPool.query(`DROP DATABASE "${dbName}" WITH (FORCE)`)
+
+        // Success! Break retry loop
+        return
+      } catch (error) {
+        // If this was the last attempt, log warning and continue
+        if (attempt === maxRetries) {
+          console.warn(
+            `Warning dropping database ${dbName} after ${maxRetries} attempts:`,
+            error instanceof Error ? error.message : error
+          )
+          // Don't throw, just continue - database drop is best-effort
+          return
+        }
+
+        // Log retry attempt for debugging
+        console.log(
+          `Retry ${attempt}/${maxRetries} for dropping ${dbName}:`,
+          error instanceof Error ? error.message : error
+        )
+
+        // Wait before retry (exponential backoff)
+        await new Promise((resolve) => setTimeout(resolve, attempt * 200))
+      }
+    }
+  }
+}
+
+/**
+ * Generate unique test database name
+ * Uses worker index and timestamp to ensure uniqueness across parallel tests
+ */
+export function generateTestDatabaseName(testInfo: { workerIndex: number }): string {
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(7)
+  return `sovrium_test_${testInfo.workerIndex}_${timestamp}_${random}`
+}
+
+// =============================================================================
+// SQL Statement Utilities
+// =============================================================================
 
 /**
  * Split SQL query into multiple statements, respecting string literals
@@ -543,3 +917,12 @@ export async function createMultiOrgScenario(
 
   return { userOrgRecordIds, otherOrgRecordIds }
 }
+
+// Re-export types from types.ts for convenience
+export type {
+  RoleContext,
+  ExecuteQueryFn,
+  RlsPolicyInfo,
+  QuerySuccessOptions,
+  MultiOrgScenarioResult,
+} from './types'

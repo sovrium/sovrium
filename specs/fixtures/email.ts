@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'node:child_process'
-import { isDockerRunning } from './docker-utils'
+import { isDockerRunning } from './docker'
 
 /**
  * Email received by Mailpit

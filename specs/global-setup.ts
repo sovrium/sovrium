@@ -6,9 +6,9 @@
  */
 
 import { execSync } from 'node:child_process'
-import { DatabaseTemplateManager } from './fixtures/database-utils'
-import { ensureDockerRunning } from './fixtures/docker-utils'
-import { startGlobalMailpit, stopGlobalMailpit } from './fixtures/email-utils'
+import { DatabaseTemplateManager } from './fixtures/database'
+import { ensureDockerRunning } from './fixtures/docker'
+import { startGlobalMailpit, stopGlobalMailpit } from './fixtures/email'
 
 /**
  * Retry configuration for infrastructure setup

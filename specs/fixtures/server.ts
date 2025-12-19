@@ -7,8 +7,8 @@
 
 import { spawn } from 'node:child_process'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
-import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
-import { MailpitHelper } from './email-utils'
+import { DatabaseTemplateManager, generateTestDatabaseName } from './database'
+import { MailpitHelper } from './email'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { ChildProcess } from 'node:child_process'
 

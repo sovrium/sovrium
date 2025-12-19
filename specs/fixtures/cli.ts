@@ -135,20 +135,23 @@ export async function startCliWithConfigFile(
 }
 
 /**
- * Capture CLI command output (stdout + stderr)
- * @param args - CLI command arguments (e.g., ['--version'])
- * @param options - Optional environment variables and input
- * @returns Combined stdout and stderr output
+ * Capture CLI command output (stdout + stderr) for error testing
+ * @param configPath - Path to the config file to test
+ * @param options - Optional settings for waitForServer, env, etc.
+ * @returns Object with output, exitCode, and process
  */
 export async function captureCliOutput(
-  args: string[],
+  configPath: string,
   options?: {
+    waitForServer?: boolean
     env?: Record<string, string>
     input?: string
   }
-): Promise<string> {
+): Promise<{ output: string; exitCode: number | null }> {
   return new Promise((resolve, reject) => {
-    const childProcess = spawn('bun', ['run', 'src/cli.ts', ...args], {
+    const args = ['run', 'src/cli.ts', '--config', configPath]
+
+    const childProcess = spawn('bun', args, {
       env: {
         ...process.env,
         ...options?.env,
@@ -172,11 +175,9 @@ export async function captureCliOutput(
 
     childProcess.on('exit', (code) => {
       const output = outputBuffer.join('')
-      if (code === 0) {
-        resolve(output)
-      } else {
-        reject(new Error(`CLI exited with code ${code}. Output: ${output}`))
-      }
+      // Always resolve (don't reject on non-zero exit codes)
+      // This allows tests to check error handling scenarios
+      resolve({ output, exitCode: code })
     })
 
     // Send input if provided
@@ -184,5 +185,14 @@ export async function captureCliOutput(
       childProcess.stdin.write(options.input)
       childProcess.stdin.end()
     }
+
+    // Timeout after 10 seconds (CLI should fail fast for error cases)
+    setTimeout(() => {
+      childProcess.kill()
+      resolve({ output: outputBuffer.join(''), exitCode: null })
+    }, 10_000)
   })
 }
+
+// Re-export types from types.ts for convenience
+export type { CliServerResult, CliOutputResult } from './types'

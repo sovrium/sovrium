@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { MailpitHelper } from './email-utils'
+import type { MailpitHelper } from './email'
 import type { App } from '@/domain/models/app'
 import type { APIRequestContext } from '@playwright/test'
 import type { ChildProcess } from 'node:child_process'
@@ -156,6 +156,15 @@ export type CliServerResult = {
 }
 
 /**
+ * Result type for CLI output capture
+ */
+export type CliOutputResult = {
+  output: string
+  exitCode: number | null
+  process: ChildProcess
+}
+
+/**
  * RLS Testing types
  */
 export interface RoleContext {
@@ -231,14 +240,6 @@ export type ServerFixtures = {
 
   // Database query execution
   executeQuery: ExecuteQueryFn
-
-  // Migration application (stub)
-  applyMigration: (migration: {
-    version: string
-    name: string
-    up: string
-    down: string
-  }) => Promise<void>
 
   // Static site generation
   generateStaticSite: (
