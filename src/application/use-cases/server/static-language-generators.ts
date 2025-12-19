@@ -44,7 +44,8 @@ export const generateMultiLanguageFiles = (
   | ServerCreationError
   | SSGGenerationError
   | AuthConfigRequiredForUserFields
-  | SchemaInitializationError,
+  | SchemaInitializationError
+  | Error,
   never
 > =>
   Effect.gen(function* () {
@@ -148,7 +149,8 @@ export const generateSingleLanguageFiles = (
   | ServerCreationError
   | SSGGenerationError
   | AuthConfigRequiredForUserFields
-  | SchemaInitializationError,
+  | SchemaInitializationError
+  | Error,
   never
 > =>
   Effect.gen(function* () {

@@ -65,7 +65,8 @@ export const startServer = (
   | ServerCreationError
   | CSSCompilationError
   | AuthConfigRequiredForUserFields
-  | SchemaInitializationError,
+  | SchemaInitializationError
+  | Error,
   ServerFactory | PageRenderer
 > =>
   Effect.gen(function* () {

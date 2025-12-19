@@ -147,8 +147,8 @@ export const createServer = (
   | CSSCompilationError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  | Error
 > =>
-  // eslint-disable-next-line max-lines-per-function -- Server setup generator needs comprehensive initialization
   Effect.gen(function* () {
     const {
       app,

@@ -36,10 +36,7 @@ export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =
 
     // Test database connection first to fail fast on connection errors
     yield* Effect.tryPromise({
-      try: async () => {
-        // Simple connection test - run a basic query using Bun SQL's unsafe() method
-        await client.unsafe('SELECT 1')
-      },
+      try: () => client.unsafe('SELECT 1'),
       catch: (error) => {
         const errorMessage = String(error)
         return new Error(`Database connection failed: ${errorMessage}`)
