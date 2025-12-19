@@ -12,8 +12,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
-import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
-import { MailpitHelper, generateTestId } from './email-utils'
+import { DatabaseTemplateManager, generateTestDatabaseName } from './fixtures/database-utils'
+import { MailpitHelper, generateTestId } from './fixtures/email-utils'
 import type { App } from '@/domain/models/app'
 import type { APIRequestContext } from '@playwright/test'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
@@ -2286,7 +2286,7 @@ export const test = base.extend<ServerFixtures>({
 
 export { expect } from '@playwright/test'
 export type { Locator } from '@playwright/test'
-export type { MailpitEmail } from './email-utils'
+export type { MailpitEmail } from './fixtures/email-utils'
 
 // =============================================================================
 // Role-Based Query Execution Utilities

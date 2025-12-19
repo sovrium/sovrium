@@ -59,4 +59,4 @@ export {
 // (parent contains the main Playwright test.extend implementation)
 export { test, expect } from '../fixtures'
 export type { Locator } from '@playwright/test'
-export type { MailpitEmail } from '../email-utils'
+export type { MailpitEmail } from './email-utils'

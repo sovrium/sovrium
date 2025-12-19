@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import { extractTokenFromUrl } from '../../../../email-utils'
+import { extractTokenFromUrl } from '../../../../fixtures/email-utils'
 
 /**
  * E2E Tests for Sign up with email and password

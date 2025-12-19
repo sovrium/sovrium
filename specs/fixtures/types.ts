@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { MailpitHelper } from '../email-utils'
+import type { MailpitHelper } from './email-utils'
 import type { App } from '@/domain/models/app'
 import type { APIRequestContext } from '@playwright/test'
 import type { ChildProcess } from 'node:child_process'
