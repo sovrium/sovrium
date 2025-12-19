@@ -76,7 +76,7 @@ test.describe('Database Views Migration', () => {
 
       // View exists and returns only active users
       const activeUsers = await executeQuery(`SELECT COUNT(*) as count FROM active_users`)
-      expect(activeUsers.count).toBe(2)
+      expect(activeUsers.count).toBe('2')
 
       // View contains correct data
       const names = await executeQuery(`SELECT name FROM active_users ORDER BY name`)
@@ -144,7 +144,7 @@ test.describe('Database Views Migration', () => {
       const viewExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_users'`
       )
-      expect(viewExists.count).toBe(0)
+      expect(viewExists.count).toBe('0')
 
       // Query against view fails
       await expect(async () => {
@@ -153,7 +153,7 @@ test.describe('Database Views Migration', () => {
 
       // Base table still exists
       const users = await executeQuery(`SELECT COUNT(*) as count FROM users`)
-      expect(users.count).toBe(2)
+      expect(users.count).toBe('2')
     }
   )
 
@@ -288,7 +288,7 @@ test.describe('Database Views Migration', () => {
       const matViewExists = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_matviews WHERE matviewname = 'order_stats'`
       )
-      expect(matViewExists.count).toBe(1)
+      expect(matViewExists.count).toBe('1')
 
       // Materialized view contains aggregated data
       const stats = await executeQuery(`SELECT * FROM order_stats WHERE customer_id = 1`)
@@ -434,16 +434,16 @@ test.describe('Database Views Migration', () => {
       const userOrdersExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'user_orders'`
       )
-      expect(userOrdersExists.count).toBe(0)
+      expect(userOrdersExists.count).toBe('0')
 
       const activeOrdersExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_orders'`
       )
-      expect(activeOrdersExists.count).toBe(0)
+      expect(activeOrdersExists.count).toBe('0')
 
       // Base tables still exist
       const users = await executeQuery(`SELECT COUNT(*) as count FROM users`)
-      expect(users.count).toBe(1)
+      expect(users.count).toBe('1')
     }
   )
 
@@ -487,7 +487,7 @@ test.describe('Database Views Migration', () => {
       await test.step('Verify view returns only in-stock products', async () => {
         // View returns only in-stock products
         const available = await executeQuery(`SELECT COUNT(*) as count FROM available_products`)
-        expect(available.count).toBe(2)
+        expect(available.count).toBe('2')
 
         // View data is correct
         const widget = await executeQuery(
@@ -500,7 +500,7 @@ test.describe('Database Views Migration', () => {
         const obsolete = await executeQuery(
           `SELECT COUNT(*) as count FROM available_products WHERE name = 'Obsolete'`
         )
-        expect(obsolete.count).toBe(0)
+        expect(obsolete.count).toBe('0')
       })
     }
   )

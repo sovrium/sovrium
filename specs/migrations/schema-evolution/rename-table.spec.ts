@@ -66,7 +66,7 @@ test.describe('Rename Table Migration', () => {
 
       // Data preserved in renamed table
       const customers = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
-      expect(customers.count).toBe(2)
+      expect(customers.count).toBe('2')
 
       // Data accessible by new name
       const alice = await executeQuery(
@@ -78,7 +78,7 @@ test.describe('Rename Table Migration', () => {
       const oldTableExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'users'`
       )
-      expect(oldTableExists.count).toBe(0)
+      expect(oldTableExists.count).toBe('0')
 
       // Unique constraint still enforced
       await expect(async () => {
@@ -211,7 +211,7 @@ test.describe('Rename Table Migration', () => {
 
       // Data preserved
       const items = await executeQuery(`SELECT COUNT(*) as count FROM items`)
-      expect(items.count).toBe(2)
+      expect(items.count).toBe('2')
     }
   )
 
@@ -264,12 +264,12 @@ test.describe('Rename Table Migration', () => {
       const usersExist = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'users'`
       )
-      expect(usersExist.count).toBe(1)
+      expect(usersExist.count).toBe('1')
 
       const customersExist = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'customers'`
       )
-      expect(customersExist.count).toBe(1)
+      expect(customersExist.count).toBe('1')
 
       // Original data preserved
       const alice = await executeQuery(`SELECT name FROM users WHERE name = 'Alice' LIMIT 1`)
@@ -324,7 +324,7 @@ test.describe('Rename Table Migration', () => {
       await test.step('Verify table renamed and data preserved', async () => {
         // New table accessible
         const staff = await executeQuery(`SELECT COUNT(*) as count FROM staff`)
-        expect(staff.count).toBe(2)
+        expect(staff.count).toBe('2')
 
         // Query by department works
         const engineers = await executeQuery(
@@ -336,7 +336,7 @@ test.describe('Rename Table Migration', () => {
         const oldTableExists = await executeQuery(
           `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'employees'`
         )
-        expect(oldTableExists.count).toBe(0)
+        expect(oldTableExists.count).toBe('0')
       })
     }
   )

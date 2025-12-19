@@ -184,24 +184,18 @@ export class DatabaseTemplateManager {
    * Creates and destroys temporary pools to avoid connection termination issues
    */
   private async waitForContainerReady(maxAttempts = 20): Promise<void> {
-    console.log(`   🔄 Waiting for PostgreSQL container at ${this.adminConnectionUrl}...`)
-
     for (let i = 0; i < maxAttempts; i++) {
-      // Create a fresh pool for each attempt
       const testPool = new Pool({
         connectionString: this.adminConnectionUrl,
         max: 1,
-        connectionTimeoutMillis: 5000, // Increased from 3000ms to 5000ms
+        connectionTimeoutMillis: 5000,
       })
 
       try {
         await testPool.query('SELECT 1')
         await testPool.end()
-        // Success! Container is ready
-        console.log(`   ✅ Container ready after ${i + 1} attempt(s)`)
         return
       } catch (error) {
-        // Always end the pool, even on error
         try {
           await testPool.end()
         } catch {
@@ -214,17 +208,6 @@ export class DatabaseTemplateManager {
           )
         }
 
-        // Log every few attempts for debugging
-        if (i % 3 === 0) {
-          console.log(
-            `   ⏳ Attempt ${i + 1}/${maxAttempts} failed: ${error instanceof Error ? error.message : error}`
-          )
-        }
-
-        // Improved backoff strategy:
-        // - First 3 attempts: 500ms (container might be starting up)
-        // - Next 3 attempts: 1000ms (PostgreSQL initializing)
-        // - Remaining attempts: 1500ms (extended wait for slow systems)
         const backoff = i < 3 ? 500 : i < 6 ? 1000 : 1500
         await new Promise((resolve) => setTimeout(resolve, backoff))
       }
@@ -359,12 +342,6 @@ export class DatabaseTemplateManager {
           // Don't throw, just continue - database drop is best-effort
           return
         }
-
-        // Log retry attempt for debugging
-        console.log(
-          `Retry ${attempt}/${maxRetries} for dropping ${dbName}:`,
-          error instanceof Error ? error.message : error
-        )
 
         // Wait before retry (exponential backoff)
         await new Promise((resolve) => setTimeout(resolve, attempt * 200))

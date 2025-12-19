@@ -1799,7 +1799,7 @@ test.describe('Data Tables', () => {
         expect(update.rows[0]).toMatchObject({ price: '24.99' })
 
         const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-        expect(select.rows[0]).toMatchObject({ count: 1 })
+        expect(select.rows[0]).toMatchObject({ count: '1' })
       })
 
       await test.step('Verify constraints enforce data integrity', async () => {
@@ -1816,7 +1816,7 @@ test.describe('Data Tables', () => {
 
       await test.step('Verify final data state', async () => {
         const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-        expect(finalCount.rows[0]).toMatchObject({ count: 1 })
+        expect(finalCount.rows[0]).toMatchObject({ count: '1' })
       })
     }
   )

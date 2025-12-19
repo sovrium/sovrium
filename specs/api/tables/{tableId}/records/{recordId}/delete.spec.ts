@@ -660,7 +660,7 @@ test.describe('Delete record', () => {
       const tasksInTrash = await executeQuery(`
         SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL
       `)
-      expect(tasksInTrash.count).toBe(2)
+      expect(tasksInTrash.count).toBe('2')
 
       // THEN: Normal task queries return zero results
       const apiResponse = await request.get('/api/tables/17/records', {})

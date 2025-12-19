@@ -52,7 +52,7 @@ test.describe('Button Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='records'"
       )
       // THEN: assertion (id + 3 special fields = 4, button field is UI-only and creates no column)
-      expect(columns.count).toBe(4)
+      expect(columns.count).toBe('4')
     }
   )
 
@@ -169,7 +169,7 @@ test.describe('Button Field', () => {
         "SELECT COUNT(*) as count FROM orders WHERE status = 'pending'"
       )
       // THEN: assertion
-      expect(shippable.count).toBe(1)
+      expect(shippable.count).toBe('1')
     }
   )
 

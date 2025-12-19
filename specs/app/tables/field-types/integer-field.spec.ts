@@ -94,7 +94,7 @@ test.describe('Integer Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%'"
       )
       // THEN: assertion
-      expect(checkConstraint.count).toBe(1)
+      expect(checkConstraint.count).toBe('1')
 
       const validInsert = await executeQuery(
         'INSERT INTO inventory (stock) VALUES (500) RETURNING stock'
@@ -155,7 +155,7 @@ test.describe('Integer Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      expect(uniqueConstraint.count).toBe('1')
 
       // THEN: assertion
       await expect(executeQuery('INSERT INTO orders (order_number) VALUES (1001)')).rejects.toThrow(

@@ -126,7 +126,7 @@ test.describe('Email Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='members' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      expect(uniqueConstraint.count).toBe('1')
 
       // THEN: assertion
       await expect(
@@ -135,7 +135,7 @@ test.describe('Email Field', () => {
 
       const rowCount = await executeQuery('SELECT COUNT(*) as count FROM members')
       // THEN: assertion
-      expect(rowCount.count).toBe(1)
+      expect(rowCount.count).toBe('1')
     }
   )
 

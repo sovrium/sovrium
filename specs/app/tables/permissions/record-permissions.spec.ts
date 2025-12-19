@@ -92,21 +92,21 @@ test.describe('Record-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='user_read_own'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(1)
+      expect(policyCount.count).toBe('1')
 
       // User 1 can only SELECT their own records
       const user1Count = await executeQuery(
         `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM documents`
       )
       // THEN: assertion
-      expect(user1Count.count).toBe(2)
+      expect(user1Count.count).toBe('2')
 
       // User 2 can only SELECT their own records
       const user2Count = await executeQuery(
         `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user2.user.id}'; SELECT COUNT(*) as count FROM documents`
       )
       // THEN: assertion
-      expect(user2Count.count).toBe(1)
+      expect(user2Count.count).toBe('1')
 
       // User 1 sees titles of their documents
       const user1Titles = await executeQuery(
@@ -180,7 +180,7 @@ test.describe('Record-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles' AND policyname='user_delete_draft'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(1)
+      expect(policyCount.count).toBe('1')
 
       // User 1 can DELETE their draft article
       const user1Delete = await executeQuery(
@@ -276,7 +276,7 @@ test.describe('Record-Level Permissions', () => {
         `SET ROLE ${roleName}; SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM projects`
       )
       // THEN: assertion
-      expect(engCount.count).toBe(1)
+      expect(engCount.count).toBe('1')
 
       // Engineering user sees Project A (active)
       const engProject = await executeQuery(
@@ -356,7 +356,7 @@ test.describe('Record-Level Permissions', () => {
         `SET ROLE ${roleName}; SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM employees`
       )
       // THEN: assertion
-      expect(engCount.count).toBe(2)
+      expect(engCount.count).toBe('2')
 
       // Engineering user sees Alice and Charlie
       const engEmployees = await executeQuery(
@@ -444,7 +444,7 @@ test.describe('Record-Level Permissions', () => {
         `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM tickets`
       )
       // THEN: assertion
-      expect(user1Count.count).toBe(3)
+      expect(user1Count.count).toBe('3')
 
       // User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)
       const user1Tickets = await executeQuery(
@@ -536,31 +536,39 @@ test.describe('Record-Level Permissions', () => {
       })
 
       await test.step('Verify user can read their own records', async () => {
-        const readResult = await executeQuery(
-          `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items`
-        )
-        expect(readResult.count).toBe(1)
+        const readResult = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          'SELECT COUNT(*) as count FROM items',
+        ])
+        expect(readResult.rows[0].count).toBe('1')
       })
 
       await test.step('Verify user can update their own records', async () => {
-        const updateResult = await executeQuery(
-          `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title`
-        )
-        expect(updateResult.title).toBe('Updated')
+        const updateResult = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          "UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title",
+        ])
+        expect(updateResult.rows[0].title).toBe('Updated')
       })
 
       await test.step('Verify user can delete their own draft records', async () => {
-        const deleteResult = await executeQuery(
-          `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM items WHERE id = 1 RETURNING id`
-        )
-        expect(deleteResult.id).toBe(1)
+        const deleteResult = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          'DELETE FROM items WHERE id = 1 RETURNING id',
+        ])
+        expect(deleteResult.rows[0].id).toBe(1)
       })
 
       await test.step('Verify user cannot access other users records', async () => {
-        const crossUserResult = await executeQuery(
-          `SET ROLE ${roleName}; SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`
-        )
-        expect(crossUserResult.count).toBe(0)
+        const crossUserResult = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          `SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`,
+        ])
+        expect(crossUserResult.rows[0].count).toBe('0')
       })
     }
   )

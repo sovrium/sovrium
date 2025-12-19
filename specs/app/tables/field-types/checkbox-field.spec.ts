@@ -267,7 +267,7 @@ test.describe('Checkbox Field', () => {
         const filtered = await executeQuery(
           'SELECT COUNT(*) as count FROM data WHERE checkbox_field = TRUE'
         )
-        expect(filtered.count).toBe(1)
+        expect(filtered.count).toBe('1')
       })
 
       await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {

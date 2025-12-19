@@ -53,7 +53,7 @@ test.describe('Unique Field Property', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      expect(uniqueConstraint.count).toBe('1')
 
       // Duplicate value should be rejected
       // THEN: assertion
@@ -103,14 +103,14 @@ test.describe('Unique Field Property', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%category%'"
       )
       // THEN: assertion
-      expect(noUniqueConstraint.count).toBe(0)
+      expect(noUniqueConstraint.count).toBe('0')
 
       // Duplicate values should be allowed
       const duplicatesExist = await executeQuery(
         "SELECT COUNT(*) as count FROM products WHERE category = 'Electronics'"
       )
       // THEN: assertion
-      expect(duplicatesExist.count).toBe(2)
+      expect(duplicatesExist.count).toBe('2')
 
       // Additional duplicate should succeed
       const additionalDuplicate = await executeQuery(
@@ -147,14 +147,14 @@ test.describe('Unique Field Property', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='accounts' AND constraint_type='UNIQUE'"
       )
       // THEN: assertion
-      expect(currentlyNonUnique.count).toBe(0)
+      expect(currentlyNonUnique.count).toBe('0')
 
       const duplicatesExist = await executeQuery(
         'SELECT username, COUNT(*) as count FROM accounts GROUP BY username HAVING COUNT(*) > 1'
       )
       // THEN: assertion
       expect(duplicatesExist.username).toBe('alice')
-      expect(duplicatesExist.count).toBe(2)
+      expect(duplicatesExist.count).toBe('2')
 
       // THEN: PostgreSQL migration fails if existing duplicates present
       await expect(
@@ -247,13 +247,13 @@ test.describe('Unique Field Property', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='contacts' AND constraint_type='UNIQUE'"
       )
       // THEN: assertion
-      expect(uniqueConstraintExists.count).toBe(1)
+      expect(uniqueConstraintExists.count).toBe('1')
 
       const multipleNulls = await executeQuery(
         'SELECT COUNT(*) as count FROM contacts WHERE phone IS NULL'
       )
       // THEN: assertion
-      expect(multipleNulls.count).toBe(2)
+      expect(multipleNulls.count).toBe('2')
 
       // Additional NULL should succeed
       const additionalNull = await executeQuery(
@@ -311,7 +311,7 @@ test.describe('Unique Field Property', () => {
         const uniqueConstraint = await executeQuery(
           "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='data' AND constraint_type='UNIQUE' AND constraint_name LIKE '%unique_field%'"
         )
-        expect(uniqueConstraint.count).toBe(1)
+        expect(uniqueConstraint.count).toBe('1')
       })
 
       await test.step('Insert initial unique value', async () => {

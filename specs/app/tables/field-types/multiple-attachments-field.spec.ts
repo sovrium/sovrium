@@ -129,7 +129,7 @@ test.describe('Multiple Attachments Field', () => {
         'SELECT COUNT(*) as count FROM docs WHERE files @> \'[{"type": "pdf"}]\''
       )
       // THEN: assertion
-      expect(result.count).toBe(1)
+      expect(result.count).toBe('1')
     }
   )
 

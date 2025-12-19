@@ -72,7 +72,7 @@ test.describe('Table-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='projects' AND policyname='member_read'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(1)
+      expect(policyCount.count).toBe('1')
 
       // Policy uses USING clause for SELECT
       const policyDetails = await executeQuery(
@@ -89,7 +89,7 @@ test.describe('Table-Level Permissions', () => {
         "SET ROLE member_user; SET app.user_role = 'member'; SELECT COUNT(*) as count FROM projects"
       )
       // THEN: assertion
-      expect(memberResult.count).toBe(2)
+      expect(memberResult.count).toBe('2')
 
       // Non-member user cannot SELECT records (RLS filters to 0 rows)
       // Note: RLS doesn't throw errors - it returns 0 rows when policy denies access
@@ -97,7 +97,7 @@ test.describe('Table-Level Permissions', () => {
       const guestResult = await executeQuery(
         "SET ROLE guest_user; SET app.user_role = 'guest'; SELECT COUNT(*) as count FROM projects"
       )
-      expect(guestResult.count).toBe(0)
+      expect(guestResult.count).toBe('0')
     }
   )
 
@@ -146,17 +146,17 @@ test.describe('Table-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(0)
+      expect(policyCount.count).toBe('0')
 
       // Any user can SELECT records
       const anyUserResult = await executeQuery('SELECT COUNT(*) as count FROM articles')
       // THEN: assertion
-      expect(anyUserResult.count).toBe(2)
+      expect(anyUserResult.count).toBe('2')
 
       // Unauthenticated session can SELECT records
       const unauthResult = await executeQuery('RESET ROLE; SELECT COUNT(*) as count FROM articles')
       // THEN: assertion
-      expect(unauthResult.count).toBe(2)
+      expect(unauthResult.count).toBe('2')
     }
   )
 
@@ -201,21 +201,21 @@ test.describe('Table-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='secrets' AND cmd='SELECT'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(0)
+      expect(policyCount.count).toBe('0')
 
       // Admin user cannot SELECT (no policy)
       const adminResult = await executeQuery(
         'SET ROLE admin_user; SELECT COUNT(*) as count FROM secrets'
       )
       // THEN: assertion
-      expect(adminResult.count).toBe(0)
+      expect(adminResult.count).toBe('0')
 
       // Any user gets empty result set (RLS blocks)
       const memberResult = await executeQuery(
         'SET ROLE member_user; SELECT COUNT(*) as count FROM secrets'
       )
       // THEN: assertion
-      expect(memberResult.count).toBe(0)
+      expect(memberResult.count).toBe('0')
     }
   )
 
@@ -341,30 +341,36 @@ test.describe('Table-Level Permissions', () => {
         const policies = await executeQuery(
           "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='data'"
         )
-        expect(policies.count).toBe(2)
+        expect(policies.count).toBe('2')
       })
 
       await test.step('Verify authenticated user can read', async () => {
         // Set session context to simulate authenticated user, then switch role
-        const readResult = await executeQuery(
-          `SET app.user_id = '${user1.user.id}'; SET ROLE authenticated_user; SELECT COUNT(*) as count FROM data`
-        )
-        expect(readResult.count).toBe(1)
+        const readResult = await executeQuery([
+          `SET app.user_id = '${user1.user.id}'`,
+          'SET ROLE authenticated_user',
+          'SELECT COUNT(*) as count FROM data',
+        ])
+        expect(readResult.rows[0].count).toBe('1')
       })
 
       await test.step('Verify admin can create', async () => {
         // Set user context and role for admin user, then switch database role
-        const createResult = await executeQuery(
-          `SET app.user_id = '${user1.user.id}'; SET app.user_role = 'admin'; SET ROLE admin_user; INSERT INTO data (content, owner_id) VALUES ('Data 2', '${user1.user.id}') RETURNING id`
-        )
-        expect(createResult.id).toBe(2)
+        const createResult = await executeQuery([
+          `SET app.user_id = '${user1.user.id}'`,
+          "SET app.user_role = 'admin'",
+          'SET ROLE admin_user',
+          `INSERT INTO data (content, owner_id) VALUES ('Data 2', '${user1.user.id}') RETURNING id`,
+        ])
+        expect(createResult.rows[0].id).toBe(2)
       })
 
       await test.step('Verify non-admin cannot create', async () => {
         await expect(async () => {
-          await executeQuery(
-            "SET ROLE member_user; INSERT INTO data (content, owner_id) VALUES ('Data 3', 3)"
-          )
+          await executeQuery([
+            'SET ROLE member_user',
+            "INSERT INTO data (content, owner_id) VALUES ('Data 3', 3)",
+          ])
         }).rejects.toThrow()
       })
 

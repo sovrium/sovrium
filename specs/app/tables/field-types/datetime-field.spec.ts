@@ -265,7 +265,7 @@ test.describe('DateTime Field', () => {
         const rangeQuery = await executeQuery(
           "SELECT COUNT(*) as count FROM data WHERE datetime_field >= '2024-06-15 10:00:00+00' AND datetime_field <= '2024-06-15 15:00:00+00'"
         )
-        expect(rangeQuery.count).toBe(2)
+        expect(rangeQuery.count).toBe('2')
       })
 
       await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {

@@ -224,10 +224,7 @@ export async function killAllServerProcesses(): Promise<void> {
     return
   }
 
-  console.log(`🧹 Killing ${activeServerProcesses.size} active server processes...`)
-
   const killPromises = Array.from(activeServerProcesses).map((process) => stopServer(process))
-
   await Promise.allSettled(killPromises)
 
   // Final check: kill any remaining Bun processes running src/cli.ts
@@ -239,8 +236,6 @@ export async function killAllServerProcesses(): Promise<void> {
   } catch {
     // Ignore errors - processes might already be dead
   }
-
-  console.log('✅ All server processes cleaned up')
 }
 
 /**

@@ -253,12 +253,12 @@ test.describe('Modify Field Type Migration', () => {
 
       // Text values converted to integers
       const existingData = await executeQuery(`SELECT count FROM metrics WHERE name = 'page_views'`)
-      expect(existingData.count).toBe(1500)
+      expect(existingData.count).toBe('1500')
 
       // Can perform arithmetic operations
       await executeQuery(`UPDATE metrics SET count = count + 100 WHERE name = 'clicks'`)
       const updatedData = await executeQuery(`SELECT count FROM metrics WHERE name = 'clicks'`)
-      expect(updatedData.count).toBe(350)
+      expect(updatedData.count).toBe('350')
     }
   )
 
@@ -317,7 +317,7 @@ test.describe('Modify Field Type Migration', () => {
       const rangeQuery = await executeQuery(
         `SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'::timestamptz`
       )
-      expect(rangeQuery.count).toBe(2)
+      expect(rangeQuery.count).toBe('2')
     }
   )
 

@@ -90,13 +90,13 @@ test.describe('Array Field', () => {
         "SELECT COUNT(*) as count FROM posts WHERE 'nodejs' = ANY(keywords)"
       )
       // THEN: assertion
-      expect(containsValue.count).toBe(2)
+      expect(containsValue.count).toBe('2')
 
       const arrayOverlap = await executeQuery(
         "SELECT COUNT(*) as count FROM posts WHERE keywords && ARRAY['nodejs', 'python']"
       )
       // THEN: assertion
-      expect(arrayOverlap.count).toBe(3)
+      expect(arrayOverlap.count).toBe('3')
 
       const arrayLength = await executeQuery(
         'SELECT array_length(keywords, 1) as length FROM posts WHERE id = 1'
@@ -267,7 +267,7 @@ test.describe('Array Field', () => {
         const containsCheck = await executeQuery(
           "SELECT COUNT(*) as count FROM data WHERE 'b' = ANY(items)"
         )
-        expect(containsCheck.count).toBe(1)
+        expect(containsCheck.count).toBe('1')
 
         const lengthCheck = await executeQuery(
           'SELECT array_length(items, 1) as length FROM data WHERE id = 1'

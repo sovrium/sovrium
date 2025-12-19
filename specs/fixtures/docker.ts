@@ -102,8 +102,7 @@ async function installColima(): Promise<void> {
     )
   }
 
-  console.log('📦 Installing Colima (open-source Docker alternative) via Homebrew...')
-  console.log('   This may take a few minutes...')
+  console.log('📦 Installing Colima via Homebrew...')
 
   // Find brew executable
   const brewPath =
@@ -119,7 +118,6 @@ async function installColima(): Promise<void> {
   try {
     // Install both Colima and Docker CLI
     execSync(`${brewPath} install colima docker`, { stdio: 'inherit' })
-    console.log('✅ Colima installed successfully')
   } catch (error) {
     throw new Error('Failed to install Colima. Please install Docker manually.', {
       cause: error,
@@ -217,8 +215,6 @@ export async function startDockerService(): Promise<void> {
 
   // Auto-install Colima on macOS if no Docker found
   if (!installation && platform() === 'darwin') {
-    console.log('🔍 No Docker installation found.')
-    console.log('💡 Installing Colima (open-source, free alternative to Docker Desktop)...')
     await installColima()
     installation = 'colima'
   }
@@ -238,8 +234,6 @@ export async function startDockerService(): Promise<void> {
       `No Docker installation detected.\n\n${suggestions[os] || 'Please install Docker and try again.'}`
     )
   }
-
-  console.log(`🐳 Docker is not running. Starting ${installation}...`)
 
   const os = platform()
 
@@ -327,8 +321,6 @@ export async function startDockerService(): Promise<void> {
 
   // Wait for Docker daemon to be ready
   await waitForDocker()
-
-  console.log(`✅ ${installation} is now running`)
 }
 
 /**
@@ -343,8 +335,6 @@ async function waitForDocker(timeoutMs: number = 60_000): Promise<void> {
     if (isDockerRunning()) {
       return
     }
-
-    console.log('⏳ Waiting for Docker to start...')
     await new Promise((resolve) => setTimeout(resolve, pollInterval))
   }
 
@@ -389,11 +379,6 @@ export async function ensureDockerRunning(): Promise<void> {
   }
 
   if (isDockerRunning()) {
-    if (installation && installation !== 'unknown') {
-      console.log(`✅ Docker daemon is already running (${installation})`)
-    } else {
-      console.log('✅ Docker daemon is already running')
-    }
     return
   }
 

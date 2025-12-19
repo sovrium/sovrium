@@ -509,30 +509,36 @@ test.describe('Field-Level Permissions', () => {
 
       await test.step('Verify owner can read all fields including private field', async () => {
         // WHEN: Owner queries their own record as authenticated user
-        const ownerRead = await executeQuery(
-          `SET LOCAL ROLE authenticated_user; SET LOCAL app.user_id = '${user1.user.id}'; SELECT title, public_field, private_field FROM records WHERE id = 1`
-        )
+        const ownerRead = await executeQuery([
+          'SET LOCAL ROLE authenticated_user',
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          'SELECT title, public_field, private_field FROM records WHERE id = 1',
+        ])
         // THEN: Owner sees all fields including private_field
-        expect(ownerRead.title).toBe('Record 1')
-        expect(ownerRead.private_field).toBe('Private')
+        expect(ownerRead.rows[0].title).toBe('Record 1')
+        expect(ownerRead.rows[0].private_field).toBe('Private')
       })
 
       await test.step('Verify non-owner cannot read private field', async () => {
         // WHEN: Non-owner queries the record as authenticated user
         // Note: PostgreSQL RLS filters entire rows when field-level custom conditions aren't met
         // This is a documented PostgreSQL limitation - column-level dynamic permissions don't exist
-        const nonOwnerRead = await executeQuery(
-          `SET LOCAL ROLE authenticated_user; SET LOCAL app.user_id = '${user2.user.id}'; SELECT private_field FROM records WHERE id = 1`
-        )
+        const nonOwnerRead = await executeQuery([
+          'SET LOCAL ROLE authenticated_user',
+          `SET LOCAL app.user_id = '${user2.user.id}'`,
+          'SELECT private_field FROM records WHERE id = 1',
+        ])
         // THEN: RLS filters out the row (non-owner sees zero rows, not permission denied)
         expect(nonOwnerRead.rows).toHaveLength(0)
       })
 
       await test.step('Verify owner can update private field', async () => {
         // WHEN: Owner updates their private field as authenticated user
-        const ownerUpdate = await executeQuery(
-          `SET LOCAL ROLE authenticated_user; SET LOCAL app.user_id = '${user1.user.id}'; UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field`
-        )
+        const ownerUpdate = await executeQuery([
+          'SET LOCAL ROLE authenticated_user',
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          "UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field",
+        ])
         // THEN: Update succeeds
         expect(ownerUpdate.rows).toHaveLength(1)
         expect(ownerUpdate.rows[0].private_field).toBe('Updated')
@@ -542,9 +548,11 @@ test.describe('Field-Level Permissions', () => {
         // WHEN: Non-owner attempts to update the private field
         // Note: Write permissions use BEFORE UPDATE triggers which raise exceptions
         try {
-          await executeQuery(
-            `SET LOCAL ROLE authenticated_user; SET LOCAL app.user_id = '${user2.user.id}'; UPDATE records SET private_field = 'Hacked' WHERE id = 1`
-          )
+          await executeQuery([
+            'SET LOCAL ROLE authenticated_user',
+            `SET LOCAL app.user_id = '${user2.user.id}'`,
+            "UPDATE records SET private_field = 'Hacked' WHERE id = 1",
+          ])
           // If we get here, the update succeeded which is wrong
           throw new Error('Expected update to fail with permission denied')
         } catch (error: unknown) {

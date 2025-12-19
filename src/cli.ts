@@ -325,6 +325,7 @@ const isJsonFile = (arg: string | undefined): boolean =>
       await handleStartCommand(configArg)
       break
     case 'static':
+    case 'build': // Alias for static
       // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
       await handleStaticCommand(configArg)
       break

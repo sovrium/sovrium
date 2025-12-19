@@ -80,7 +80,7 @@ test.describe('Count Field', () => {
 
       // THEN: count field returns number of linked records
       const projectWithCount = await executeQuery('SELECT * FROM projects WHERE id = 1')
-      expect(projectWithCount.task_count).toBe(3)
+      expect(projectWithCount.task_count).toBe('3')
     }
   )
 
@@ -139,7 +139,7 @@ test.describe('Count Field', () => {
 
       // THEN: count field returns 0, not null
       const emptyCategory = await executeQuery('SELECT * FROM categories WHERE id = 1')
-      expect(emptyCategory.product_count).toBe(0)
+      expect(emptyCategory.product_count).toBe('0')
     }
   )
 
@@ -199,21 +199,21 @@ test.describe('Count Field', () => {
 
       // THEN: initial count is 1
       const initialCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
-      expect(initialCount.book_count).toBe(1)
+      expect(initialCount.book_count).toBe('1')
 
       // WHEN: adding more linked records
       await executeQuery("INSERT INTO books (title, author_id) VALUES ('Sense and Sensibility', 1)")
 
       // THEN: count updates immediately
       const updatedCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
-      expect(updatedCount.book_count).toBe(2)
+      expect(updatedCount.book_count).toBe('2')
 
       // WHEN: removing a linked record
       await executeQuery('DELETE FROM books WHERE id = 1')
 
       // THEN: count reflects the removal
       const afterDeleteCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
-      expect(afterDeleteCount.book_count).toBe(1)
+      expect(afterDeleteCount.book_count).toBe('1')
     }
   )
 
@@ -296,13 +296,13 @@ test.describe('Count Field', () => {
 
       // THEN: Alice created 2 tasks, assigned 2 tasks
       const aliceCounts = await executeQuery('SELECT * FROM team_members WHERE id = 1')
-      expect(aliceCounts.created_task_count).toBe(2)
-      expect(aliceCounts.assigned_task_count).toBe(2)
+      expect(aliceCounts.created_task_count).toBe('2')
+      expect(aliceCounts.assigned_task_count).toBe('2')
 
       // THEN: Bob created 1 task, assigned 1 task
       const bobCounts = await executeQuery('SELECT * FROM team_members WHERE id = 2')
-      expect(bobCounts.created_task_count).toBe(1)
-      expect(bobCounts.assigned_task_count).toBe(1)
+      expect(bobCounts.created_task_count).toBe('1')
+      expect(bobCounts.assigned_task_count).toBe('1')
     }
   )
 
@@ -378,8 +378,8 @@ test.describe('Count Field', () => {
 
       // THEN: conditional counts filter correctly
       const projectCounts = await executeQuery('SELECT * FROM projects WHERE id = 1')
-      expect(projectCounts.completed_task_count).toBe(2)
-      expect(projectCounts.pending_task_count).toBe(3)
+      expect(projectCounts.completed_task_count).toBe('2')
+      expect(projectCounts.pending_task_count).toBe('3')
     }
   )
 
@@ -549,21 +549,21 @@ test.describe('Count Field', () => {
 
       await test.step('Verify count field returns correct number', async () => {
         const engineeringCount = await executeQuery('SELECT * FROM departments WHERE id = 1')
-        expect(engineeringCount.employee_count).toBe(3)
+        expect(engineeringCount.employee_count).toBe('3')
 
         const salesCount = await executeQuery('SELECT * FROM departments WHERE id = 2')
-        expect(salesCount.employee_count).toBe(1)
+        expect(salesCount.employee_count).toBe('1')
       })
 
       await test.step('Verify zero count for department with no employees', async () => {
         const emptyDept = await executeQuery('SELECT * FROM departments WHERE id = 3')
-        expect(emptyDept.employee_count).toBe(0)
+        expect(emptyDept.employee_count).toBe('0')
       })
 
       await test.step('Verify conditional count filters correctly', async () => {
         // Engineering has 3 employees, but only 2 are active
         const activeCount = await executeQuery('SELECT * FROM departments WHERE id = 1')
-        expect(activeCount.active_employee_count).toBe(2)
+        expect(activeCount.active_employee_count).toBe('2')
       })
 
       await test.step('Verify count updates when records change', async () => {
@@ -571,17 +571,17 @@ test.describe('Count Field', () => {
         await executeQuery('UPDATE employees SET department_id = 2 WHERE id = 3')
 
         const updatedEngineering = await executeQuery('SELECT * FROM departments WHERE id = 1')
-        expect(updatedEngineering.employee_count).toBe(2)
+        expect(updatedEngineering.employee_count).toBe('2')
 
         const updatedSales = await executeQuery('SELECT * FROM departments WHERE id = 2')
-        expect(updatedSales.employee_count).toBe(2)
+        expect(updatedSales.employee_count).toBe('2')
       })
 
       await test.step('Verify count updates when employee deleted', async () => {
         await executeQuery('DELETE FROM employees WHERE id = 1')
 
         const afterDelete = await executeQuery('SELECT * FROM departments WHERE id = 1')
-        expect(afterDelete.employee_count).toBe(1)
+        expect(afterDelete.employee_count).toBe('1')
       })
 
       await test.step('Error handling: count field without relationshipField is rejected', async () => {

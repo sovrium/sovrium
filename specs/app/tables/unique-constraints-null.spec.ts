@@ -390,7 +390,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         const nullCount = await executeQuery(
           `SELECT COUNT(*) as count FROM contacts WHERE email IS NULL`
         )
-        expect(nullCount.rows[0]).toMatchObject({ count: 2 })
+        expect(nullCount.rows[0]).toMatchObject({ count: '2' })
       })
 
       await test.step('Verify non-NULL uniqueness still enforced', async () => {
@@ -408,12 +408,12 @@ test.describe('NULL Handling in Unique Constraints', () => {
 
         // Final count: 3 NULLs, 1 non-NULL
         const totalCount = await executeQuery(`SELECT COUNT(*) as count FROM contacts`)
-        expect(totalCount.rows[0]).toMatchObject({ count: 4 })
+        expect(totalCount.rows[0]).toMatchObject({ count: '4' })
 
         const nonNullCount = await executeQuery(
           `SELECT COUNT(*) as count FROM contacts WHERE email IS NOT NULL`
         )
-        expect(nonNullCount.rows[0]).toMatchObject({ count: 1 })
+        expect(nonNullCount.rows[0]).toMatchObject({ count: '1' })
       })
     }
   )

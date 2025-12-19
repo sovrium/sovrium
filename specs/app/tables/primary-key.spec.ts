@@ -650,7 +650,7 @@ test.describe('Primary Key', () => {
       await test.step('Verify UUID generation works', async () => {
         await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2)`)
         const sessions = await executeQuery(`SELECT COUNT(DISTINCT id) as count FROM sessions`)
-        expect(sessions.rows[0]).toMatchObject({ count: 2 })
+        expect(sessions.rows[0]).toMatchObject({ count: '2' })
       })
 
       await test.step('Verify composite primary key works', async () => {
@@ -660,7 +660,7 @@ test.describe('Primary Key', () => {
         const tenantUsers = await executeQuery(
           `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
         )
-        expect(tenantUsers.rows[0]).toMatchObject({ count: 2 }) // Same user in different tenants
+        expect(tenantUsers.rows[0]).toMatchObject({ count: '2' }) // Same user in different tenants
       })
 
       await test.step('Verify primary key constraints enforce uniqueness', async () => {

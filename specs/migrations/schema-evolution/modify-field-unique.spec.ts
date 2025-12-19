@@ -126,13 +126,13 @@ test.describe('Modify Field Unique Migration', () => {
       const duplicates = await executeQuery(
         `SELECT COUNT(*) as count FROM products WHERE sku = 'SKU-001'`
       )
-      expect(duplicates.count).toBe(2)
+      expect(duplicates.count).toBe('2')
 
       // No unique constraint added
       const constraintCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%sku%'`
       )
-      expect(constraintCheck.count).toBe(0)
+      expect(constraintCheck.count).toBe('0')
     }
   )
 
@@ -186,14 +186,14 @@ test.describe('Modify Field Unique Migration', () => {
       const constraintCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'`
       )
-      expect(constraintCheck.count).toBe(0)
+      expect(constraintCheck.count).toBe('0')
 
       // Duplicate values now allowed
       await executeQuery(`INSERT INTO orders (order_number) VALUES ('ORD-001')`)
       const duplicates = await executeQuery(
         `SELECT COUNT(*) as count FROM orders WHERE order_number = 'ORD-001'`
       )
-      expect(duplicates.count).toBe(2)
+      expect(duplicates.count).toBe('2')
     }
   )
 

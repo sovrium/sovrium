@@ -127,14 +127,14 @@ test.describe('Modify Unique Constraints Migration', () => {
       const constraintCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='accounts' AND constraint_type='UNIQUE' AND constraint_name LIKE '%username%'`
       )
-      expect(constraintCheck.count).toBe(0)
+      expect(constraintCheck.count).toBe('0')
 
       // Duplicate username now allowed
       await executeQuery(`INSERT INTO accounts (username) VALUES ('alice')`)
       const duplicates = await executeQuery(
         `SELECT COUNT(*) as count FROM accounts WHERE username = 'alice'`
       )
-      expect(duplicates.count).toBe(2)
+      expect(duplicates.count).toBe('2')
     }
   )
 
@@ -241,13 +241,13 @@ test.describe('Modify Unique Constraints Migration', () => {
       const duplicates = await executeQuery(
         `SELECT COUNT(*) as count FROM products WHERE sku = 'SKU-001'`
       )
-      expect(duplicates.count).toBe(2)
+      expect(duplicates.count).toBe('2')
 
       // No unique constraint added
       const constraintCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%sku%'`
       )
-      expect(constraintCheck.count).toBe(0)
+      expect(constraintCheck.count).toBe('0')
     }
   )
 
@@ -309,14 +309,14 @@ test.describe('Modify Unique Constraints Migration', () => {
       const oldConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%' AND constraint_name NOT LIKE '%tenant%'`
       )
-      expect(oldConstraint.count).toBe(0)
+      expect(oldConstraint.count).toBe('0')
 
       // Same order_number in different tenants now allowed
       await executeQuery(`INSERT INTO orders (order_number, tenant_id) VALUES ('ORD-001', 2)`)
       const sameOrderDifferentTenant = await executeQuery(
         `SELECT COUNT(*) as count FROM orders WHERE order_number = 'ORD-001'`
       )
-      expect(sameOrderDifferentTenant.count).toBe(2)
+      expect(sameOrderDifferentTenant.count).toBe('2')
 
       // Same order_number in same tenant still rejected
       await expect(async () => {

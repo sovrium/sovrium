@@ -98,7 +98,6 @@ async function ensureImageAvailable(dockerPath: string, image: string): Promise<
   // Check if image exists locally
   try {
     execSync(`${dockerPath} image inspect ${image}`, { stdio: 'ignore' })
-    console.log(`📧 Using cached Docker image: ${image}`)
     return
   } catch {
     // Image not cached, need to pull
@@ -111,12 +110,10 @@ async function ensureImageAvailable(dockerPath: string, image: string): Promise<
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      console.log(`📧 Pulling Docker image (attempt ${attempt}/${maxAttempts}): ${image}`)
       execSync(`${dockerPath} pull ${image}`, {
-        stdio: 'inherit',
-        timeout: 120_000, // 2 minute timeout for pull
+        stdio: 'pipe',
+        timeout: 120_000,
       })
-      console.log(`✅ Successfully pulled: ${image}`)
       return
     } catch (error) {
       const errorMessage =
@@ -126,8 +123,7 @@ async function ensureImageAvailable(dockerPath: string, image: string): Promise<
 
       if (attempt < maxAttempts) {
         const delay = baseDelay * Math.pow(2, attempt - 1)
-        console.log(`⚠️ Image pull failed: ${errorMessage}`)
-        console.log(`   Retrying in ${delay / 1000}s...`)
+        console.warn(`⚠️ Image pull failed, retrying...`)
         await new Promise((resolve) => setTimeout(resolve, delay))
       } else {
         throw new Error(
@@ -195,7 +191,6 @@ export function isMailpitRunning(): boolean {
  */
 export async function startGlobalMailpit(): Promise<void> {
   if (globalMailpitStarted && isMailpitRunning()) {
-    console.log('📧 Mailpit already running')
     return
   }
 
@@ -221,12 +216,10 @@ export async function startGlobalMailpit(): Promise<void> {
     if (existsResult.trim() === globalContainerName) {
       // Container exists, check if running
       if (!isMailpitRunning()) {
-        console.log('📧 Starting existing Mailpit container...')
         execSync(`${dockerPath} start ${globalContainerName}`, { stdio: 'pipe' })
       }
     } else {
       // Create new container
-      console.log('📧 Starting new Mailpit container...')
       execSync(
         `${dockerPath} run -d --name ${globalContainerName} ` +
           `-p ${globalSmtpPort}:1025 -p ${globalWebPort}:8025 ${mailpitImage}`,
@@ -237,7 +230,6 @@ export async function startGlobalMailpit(): Promise<void> {
     // Wait for Mailpit to be ready
     await waitForMailpitReady()
     globalMailpitStarted = true
-    console.log(`✅ Mailpit ready (SMTP: ${globalSmtpPort}, Web: ${globalWebPort})`)
   } catch (error) {
     // Extract Docker error message for better diagnostics
     const dockerError =
@@ -247,12 +239,8 @@ export async function startGlobalMailpit(): Promise<void> {
     const errorMessage = dockerError || String(error)
 
     // Capture container diagnostics for debugging CI issues
-    console.log('❌ Mailpit startup failed - gathering diagnostics...')
     const containerState = getContainerState(globalContainerName)
     const containerLogs = getContainerLogs(globalContainerName)
-
-    console.log(`📋 Container State: ${containerState}`)
-    console.log(`📋 Container Logs (last 20 lines):\n${containerLogs}`)
 
     throw new Error(
       `Failed to start Mailpit container: ${errorMessage}\n` +
@@ -276,7 +264,6 @@ export async function stopGlobalMailpit(): Promise<void> {
     execSync(`${dockerPath} stop ${globalContainerName}`, { stdio: 'ignore' })
     execSync(`${dockerPath} rm ${globalContainerName}`, { stdio: 'ignore' })
     globalMailpitStarted = false
-    console.log('✅ Mailpit stopped')
   } catch {
     // Container might not exist, ignore errors
   }
@@ -289,29 +276,14 @@ export async function stopGlobalMailpit(): Promise<void> {
  * - Local: 30 attempts × 100ms = 3 seconds
  * - CI: 60 attempts × 200ms = 12 seconds
  *
- * Includes progress logging every 10 attempts (every 2s on CI) to aid debugging
- * of container startup issues that can cause 10+ minute hangs in CI.
  */
 async function waitForMailpitReady(): Promise<void> {
   const isCI = !!process.env.CI
   const maxAttempts = isCI ? 60 : 30
   const delayMs = isCI ? 200 : 100
   const baseUrl = `http://localhost:${globalWebPort}`
-  const progressInterval = 10 // Log every 10 attempts
-
-  console.log(
-    `⏳ Waiting for Mailpit to be ready (max ${maxAttempts} attempts, ${delayMs}ms interval)...`
-  )
 
   for (let i = 0; i < maxAttempts; i++) {
-    // Progress logging every 10 attempts (every 2s on CI, 1s locally)
-    if (i > 0 && i % progressInterval === 0) {
-      const elapsedMs = i * delayMs
-      console.log(
-        `   Still waiting for Mailpit... (attempt ${i}/${maxAttempts}, ${elapsedMs}ms elapsed)`
-      )
-    }
-
     try {
       const response = await fetch(`${baseUrl}/api/v1/messages`)
       if (response.ok) {

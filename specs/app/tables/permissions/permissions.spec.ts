@@ -72,7 +72,7 @@ test.describe('Table Permissions', () => {
       // THEN: assertion
       // Note: 3 policies total: 2 manually created (admin_only_select, admin_only_insert)
       // + 1 automatic from RLS policy generator (admin_data_org_select)
-      expect(policyCount.count).toBe(3)
+      expect(policyCount.count).toBe('3')
 
       // Grant permissions to test roles
       // IMPORTANT: PostgreSQL superusers ALWAYS bypass RLS (even with FORCE ROW LEVEL SECURITY).
@@ -90,7 +90,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM admin_data',
       ])
       // THEN: assertion
-      expect(adminResult.count).toBe(1)
+      expect(adminResult.count).toBe('1')
 
       // Member user cannot SELECT records (table-level denied)
       const memberResult = await executeQuery([
@@ -100,7 +100,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM admin_data',
       ])
       // THEN: assertion
-      expect(memberResult.count).toBe(0)
+      expect(memberResult.count).toBe('0')
 
       // Field/record permissions not evaluated when table-level denies
       const fieldPolicies = await executeQuery(
@@ -158,7 +158,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM users',
       ])
       // THEN: assertion
-      expect(authCount.count).toBe(1)
+      expect(authCount.count).toBe('1')
 
       // Authenticated user can SELECT allowed fields
       const authFields = await executeQuery([
@@ -265,7 +265,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM tasks',
       ])
       // THEN: assertion
-      expect(noUserIdResult.count).toBe(0)
+      expect(noUserIdResult.count).toBe('0')
 
       // Authenticated user passes table level, filtered by record level
       const userCount = await executeQuery([
@@ -275,7 +275,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM tasks',
       ])
       // THEN: assertion
-      expect(userCount.count).toBe(1)
+      expect(userCount.count).toBe('1')
 
       // User 1 sees only their task (record-level filter)
       const userTask = await executeQuery([
@@ -340,7 +340,7 @@ test.describe('Table Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='confidential'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe(0)
+      expect(policyCount.count).toBe('0')
 
       // Admin user gets empty result (RLS blocks)
       const adminResult = await executeQuery([
@@ -348,7 +348,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM confidential',
       ])
       // THEN: assertion
-      expect(adminResult.count).toBe(0)
+      expect(adminResult.count).toBe('0')
 
       // Any user gets empty result (default deny)
       const userResult = await executeQuery([
@@ -356,7 +356,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM confidential',
       ])
       // THEN: assertion
-      expect(userResult.count).toBe(0)
+      expect(userResult.count).toBe('0')
     }
   )
 
@@ -433,7 +433,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM posts',
       ])
       // THEN: assertion
-      expect(publicCount.count).toBe(1)
+      expect(publicCount.count).toBe('1')
 
       // Unauthenticated user can see title but not body (field filter)
       const publicTitle = await executeQuery([
@@ -454,7 +454,7 @@ test.describe('Table Permissions', () => {
         'SELECT COUNT(*) as count FROM posts',
       ])
       // THEN: assertion
-      expect(authorCount.count).toBe(2)
+      expect(authorCount.count).toBe('2')
 
       // Author can read body field on their posts
       // Must use SET ROLE app_user to enforce RLS (superusers bypass RLS)
@@ -739,7 +739,7 @@ test.describe('Table Permissions', () => {
         const policies = await executeQuery(
           "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents'"
         )
-        expect(policies.count).toBeGreaterThan(0)
+        expect(Number(policies.count)).toBeGreaterThan(0)
       })
 
       await test.step('Verify authenticated user can access published documents', async () => {
@@ -747,7 +747,7 @@ test.describe('Table Permissions', () => {
           `SET LOCAL app.user_id = '${user3.user.id}'`,
           "SELECT COUNT(*) as count FROM documents WHERE status = 'published'",
         ])
-        expect(userDocs.count).toBe(1)
+        expect(userDocs.rows[0].count).toBe('1')
       })
 
       await test.step('Verify field-level restriction for non-admin users', async () => {

@@ -92,7 +92,7 @@ test.describe('Single Line Text Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%username%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      expect(uniqueConstraint.count).toBe('1')
 
       // THEN: assertion
       await expect(
@@ -101,7 +101,7 @@ test.describe('Single Line Text Field', () => {
 
       const rowCount = await executeQuery('SELECT COUNT(*) as count FROM users')
       // THEN: assertion
-      expect(rowCount.count).toBe(1)
+      expect(rowCount.count).toBe('1')
     }
   )
 
@@ -317,7 +317,7 @@ test.describe('Single Line Text Field', () => {
       expect(injectionInsert.message).toBe("'; DROP TABLE messages; --")
 
       const tableExists = await executeQuery('SELECT COUNT(*) as count FROM messages')
-      expect(tableExists.count).toBe(3)
+      expect(tableExists.count).toBe('3')
     }
   )
 
@@ -342,7 +342,7 @@ test.describe('Single Line Text Field', () => {
 
       // WHEN: querying the database
       const totalCount = await executeQuery('SELECT COUNT(*) as count FROM products')
-      expect(totalCount.count).toBe(1000)
+      expect(totalCount.count).toBe('1000')
 
       // WHEN: querying the database
       const sampleRecords = await executeQuery(
@@ -393,7 +393,7 @@ test.describe('Single Line Text Field', () => {
       const rangeQuery = await executeQuery(
         "SELECT COUNT(*) as count FROM inventory WHERE product_code >= 'PROD-1000' AND product_code < 'PROD-2000'"
       )
-      expect(rangeQuery.count).toBe(1112)
+      expect(rangeQuery.count).toBe('1112')
     }
   )
 
@@ -420,13 +420,13 @@ test.describe('Single Line Text Field', () => {
 
       // THEN: PostgreSQL executes text search and returns matching records
       const totalRecords = await executeQuery('SELECT COUNT(*) as count FROM articles')
-      expect(totalRecords.count).toBe(5000)
+      expect(totalRecords.count).toBe('5000')
 
       // WHEN: executing query
       const featuredCount = await executeQuery(
         "SELECT COUNT(*) as count FROM articles WHERE title LIKE 'Featured%'"
       )
-      expect(featuredCount.count).toBe(500)
+      expect(featuredCount.count).toBe('500')
 
       // WHEN: executing query
       const wildcardSearch = await executeQuery(
@@ -438,7 +438,7 @@ test.describe('Single Line Text Field', () => {
       const caseInsensitive = await executeQuery(
         "SELECT COUNT(*) as count FROM articles WHERE title ILIKE '%FEATURED%'"
       )
-      expect(caseInsensitive.count).toBe(500)
+      expect(caseInsensitive.count).toBe('500')
     }
   )
 
@@ -481,7 +481,7 @@ test.describe('Single Line Text Field', () => {
       const finalCount = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE username = 'concurrent_user'"
       )
-      expect(finalCount.count).toBe(1)
+      expect(finalCount.count).toBe('1')
     }
   )
 
@@ -530,7 +530,7 @@ test.describe('Single Line Text Field', () => {
       const oldValueCount = await executeQuery(
         "SELECT COUNT(*) as count FROM products WHERE sku = 'PROD-001'"
       )
-      expect(oldValueCount.count).toBe(0)
+      expect(oldValueCount.count).toBe('0')
     }
   )
 
@@ -571,7 +571,7 @@ test.describe('Single Line Text Field', () => {
       expect(uniqueCount.unique_count).toBe(1000)
 
       const totalCount = await executeQuery('SELECT COUNT(*) as count FROM events')
-      expect(totalCount.count).toBe(1000)
+      expect(totalCount.count).toBe('1000')
 
       const duplicateCount = await executeQuery(
         'SELECT COUNT(*) as duplicate_count FROM (SELECT event_code, COUNT(*) as cnt FROM events GROUP BY event_code HAVING COUNT(*) > 1) duplicates'
@@ -693,7 +693,7 @@ test.describe('Single Line Text Field', () => {
       expect(maxLength.len).toBe(255)
 
       const recordCount = await executeQuery('SELECT COUNT(*) as count FROM boundaries')
-      expect(recordCount.count).toBe(2)
+      expect(recordCount.count).toBe('2')
 
       const maxLengthRecord = await executeQuery(
         'SELECT LEFT(value, 10) as prefix, LENGTH(value) as len FROM boundaries WHERE id = 2'

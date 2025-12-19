@@ -153,14 +153,14 @@ test.describe('Rich Text Field', () => {
         "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'product')"
       )
       // THEN: assertion
-      expect(productSearch.count).toBe(1)
+      expect(productSearch.count).toBe('1')
 
       // WHEN: querying the database
       const orSearch = await executeQuery(
         "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'design | service')"
       )
       // THEN: assertion
-      expect(orSearch.count).toBe(2)
+      expect(orSearch.count).toBe('2')
     }
   )
 
@@ -195,7 +195,7 @@ test.describe('Rich Text Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='documents' AND constraint_type='UNIQUE' AND constraint_name LIKE '%slug%'"
       )
       // THEN: assertion
-      expect(uniqueCount.count).toBe(1)
+      expect(uniqueCount.count).toBe('1')
 
       // THEN: assertion
       await expect(
@@ -237,7 +237,7 @@ test.describe('Rich Text Field', () => {
         const searchResult = await executeQuery(
           "SELECT COUNT(*) as count FROM data WHERE to_tsvector('english', description) @@ to_tsquery('english', 'important')"
         )
-        expect(searchResult.count).toBe(1)
+        expect(searchResult.count).toBe('1')
       })
 
       await test.step('Error handling: unique constraint rejects duplicate values', async () => {

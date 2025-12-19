@@ -350,7 +350,7 @@ test.describe('Multi Select Field', () => {
         const matching = await executeQuery(
           "SELECT COUNT(*) as count FROM data WHERE multiselect_field @> ARRAY['opt1']"
         )
-        expect(matching.count).toBe(1)
+        expect(matching.count).toBe('1')
       })
 
       await test.step('Error handling: empty options array is rejected', async () => {
