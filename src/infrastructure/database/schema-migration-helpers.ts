@@ -15,11 +15,7 @@ import {
   type TransactionLike,
   type SQLExecutionError,
 } from './sql-execution'
-import {
-  mapFieldTypeToPostgres,
-  generateColumnDefinition,
-  isFieldNotNull,
-} from './sql-generators'
+import { mapFieldTypeToPostgres, generateColumnDefinition, isFieldNotNull } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -311,36 +307,35 @@ const findDefaultValueChanges = (
     | undefined
 
   const previousFieldsByName = new Map(
-    previousTable?.fields
-      ?.filter((f) => f.name !== undefined)
-      .map((f) => [f.name!, f.default]) ?? []
+    previousTable?.fields?.filter((f) => f.name !== undefined).map((f) => [f.name!, f.default]) ??
+      []
   )
 
   return filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
-      const currentDefault = 'default' in field ? field.default : undefined
-      const previousDefault = previousFieldsByName.get(field.name)
+    const currentDefault = 'default' in field ? field.default : undefined
+    const previousDefault = previousFieldsByName.get(field.name)
 
-      // Only generate ALTER statements if default value changed
-      if (currentDefault === previousDefault) return []
+    // Only generate ALTER statements if default value changed
+    if (currentDefault === previousDefault) return []
 
-      // Case 1: Default removed (was set, now undefined)
-      if (previousDefault !== undefined && currentDefault === undefined) {
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP DEFAULT`]
+    // Case 1: Default removed (was set, now undefined)
+    if (previousDefault !== undefined && currentDefault === undefined) {
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP DEFAULT`]
+    }
+
+    // Case 2: Default added or modified (generate SET DEFAULT statement)
+    if (currentDefault !== undefined) {
+      const columnDef = generateColumnDefinition(field, false, table.fields)
+      // Extract DEFAULT clause from column definition
+      const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
+      if (defaultMatch) {
+        const defaultClause = defaultMatch[1]
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`]
       }
+    }
 
-      // Case 2: Default added or modified (generate SET DEFAULT statement)
-      if (currentDefault !== undefined) {
-        const columnDef = generateColumnDefinition(field, false, table.fields)
-        // Extract DEFAULT clause from column definition
-        const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
-        if (defaultMatch) {
-          const defaultClause = defaultMatch[1]
-          return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`]
-        }
-      }
-
-      return []
-    })
+    return []
+  })
 }
 
 /**
@@ -512,17 +507,66 @@ export const generateAlterTableStatements = (
  * Adds named UNIQUE constraints for:
  * 1. Single-field constraints (fields with unique property)
  * 2. Composite unique constraints (table.uniqueConstraints)
+ * Removes constraints that are no longer in the schema
  * Uses PostgreSQL default naming convention: {table}_{column}_key for single fields
  */
 export const syncUniqueConstraints = (
   tx: TransactionLike,
-  table: Table
+  table: Table,
+  previousSchema?: { readonly tables: readonly object[] }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Single-field unique constraints
+    // Single-field unique constraints (current schema)
     const uniqueFields = table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
 
-    // Build statements for single-field constraints
+    // Find previous unique constraints to drop
+    const dropStatements = previousSchema
+      ? (() => {
+          const previousTable = previousSchema.tables.find(
+            (t: object) => 'name' in t && t.name === table.name
+          ) as
+            | {
+                name: string
+                fields?: readonly { name?: string; unique?: boolean }[]
+                uniqueConstraints?: readonly { name: string }[]
+              }
+            | undefined
+
+          if (!previousTable) return []
+
+          // Find single-field constraints that were removed
+          const previousUniqueFields =
+            previousTable.fields
+              ?.filter((f) => f.name && 'unique' in f && f.unique)
+              .map((f) => f.name!) ?? []
+
+          const removedFields = previousUniqueFields.filter(
+            (fieldName) => !uniqueFields.includes(fieldName)
+          )
+
+          const singleFieldDrops = removedFields.map((fieldName) => {
+            const constraintName = `${table.name}_${fieldName}_key`
+            return `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
+          })
+
+          // Find composite constraints that were removed
+          const previousCompositeNames = previousTable.uniqueConstraints?.map((c) => c.name) ?? []
+          const currentCompositeNames = table.uniqueConstraints?.map((c) => c.name) ?? []
+
+          const removedComposites = previousCompositeNames.filter(
+            (name) => !currentCompositeNames.includes(name)
+          )
+
+          const compositeDrops = removedComposites.map(
+            (constraintName) =>
+              `ALTER TABLE ${table.name} DROP CONSTRAINT IF EXISTS ${constraintName}`
+          )
+
+          return [...singleFieldDrops, ...compositeDrops]
+        })()
+      : []
+
+    // Build statements for single-field constraints (add if not exists)
     const singleFieldStatements = uniqueFields.map((fieldName) => {
       const constraintName = `${table.name}_${fieldName}_key`
       return `
@@ -540,7 +584,7 @@ export const syncUniqueConstraints = (
       `
     })
 
-    // Build statements for composite constraints
+    // Build statements for composite constraints (add if not exists)
     const compositeStatements =
       table.uniqueConstraints?.map((constraint) => {
         const fields = constraint.fields.join(', ')
@@ -559,8 +603,12 @@ export const syncUniqueConstraints = (
         `
       }) ?? []
 
-    // Execute all constraint statements
-    yield* executeSQLStatements(tx, [...singleFieldStatements, ...compositeStatements])
+    // Execute all constraint statements (drop first, then add)
+    yield* executeSQLStatements(tx, [
+      ...dropStatements,
+      ...singleFieldStatements,
+      ...compositeStatements,
+    ])
   })
 
 /**

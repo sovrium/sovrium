@@ -4337,9 +4337,7 @@ test.describe('Formula Field', () => {
       await executeQuery('INSERT INTO complex (price, quantity, discount) VALUES (99.99, 3, 10)')
       // THEN: complex nested formula calculates correctly
       expect(
-        parseFloat(
-          (await executeQuery('SELECT final_price FROM complex WHERE id = 1')).final_price
-        )
+        parseFloat((await executeQuery('SELECT final_price FROM complex WHERE id = 1')).final_price)
       ).toBeCloseTo(269.97, 1)
     }
   )

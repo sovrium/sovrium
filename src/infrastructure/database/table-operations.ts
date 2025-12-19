@@ -439,7 +439,7 @@ export const migrateExistingTableEffect = (params: {
     }
 
     // Always add/update unique constraints for existing tables
-    yield* syncUniqueConstraints(tx, table)
+    yield* syncUniqueConstraints(tx, table, previousSchema)
 
     // Always sync foreign key constraints to ensure referential actions are up-to-date
     yield* syncForeignKeyConstraints(tx, table, tableUsesView)
