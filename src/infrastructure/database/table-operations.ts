@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines */
+
 import { Effect } from 'effect'
 import { generateFieldPermissionGrants } from './field-permission-generators'
 import { shouldCreateDatabaseColumn } from './field-utils'

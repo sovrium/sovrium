@@ -764,21 +764,21 @@ export const syncIndexes = (
       | undefined
 
     // Determine which indexes should be dropped
-    const dropStatements: string[] = []
+    const dropStatements: readonly string[] = (() => {
+      if (!previousTable) return []
 
-    if (previousTable) {
       // Drop indexes for fields that no longer have indexed: true
       const previousIndexedFields =
         previousTable.fields
           ?.filter((f) => f.name && 'indexed' in f && f.indexed)
           .map((f) => f.name!) ?? []
 
-      const currentIndexedFields = table.fields
-        .filter((f) => 'indexed' in f && f.indexed)
-        .map((f) => f.name)
+      const currentIndexedFields = new Set(
+        table.fields.filter((f) => 'indexed' in f && f.indexed).map((f) => f.name)
+      )
 
       const removedIndexedFields = previousIndexedFields.filter(
-        (fieldName) => !currentIndexedFields.includes(fieldName)
+        (fieldName) => !currentIndexedFields.has(fieldName)
       )
 
       const fieldIndexDrops = removedIndexedFields.map((fieldName) => {
@@ -796,8 +796,8 @@ export const syncIndexes = (
 
       const customIndexDrops = removedCustomIndexes.map((name) => `DROP INDEX IF EXISTS ${name}`)
 
-      dropStatements.push(...fieldIndexDrops, ...customIndexDrops)
-    }
+      return [...fieldIndexDrops, ...customIndexDrops]
+    })()
 
     // Generate CREATE INDEX statements for all current indexes
     const createStatements = generateIndexStatements(table)
