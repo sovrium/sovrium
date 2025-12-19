@@ -423,7 +423,7 @@ test.describe('Error Handling and Rollback', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-011: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -466,7 +466,8 @@ test.describe('Error Handling and Rollback', () => {
       })
 
       await test.step('Test constraint violation preserves existing data', async () => {
-        await expect(async () => {
+        let migrationError: Error | null = null
+        try {
           await startServerWithSchema({
             name: 'test-app',
             tables: [
@@ -475,12 +476,16 @@ test.describe('Error Handling and Rollback', () => {
                 name: 'data',
                 fields: [
                   { id: 2, name: 'value', type: 'single-line-text' },
-                  { id: 3, name: 'required_field', type: 'single-line-text' },
+                  { id: 3, name: 'required_field', type: 'single-line-text', required: true },
                 ],
               },
             ],
           })
-        }).rejects.toThrow()
+        } catch (error) {
+          migrationError = error as Error
+        }
+
+        expect(migrationError).not.toBeNull()
 
         // Verify existing data preserved
         const dataCheck = await executeQuery(
