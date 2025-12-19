@@ -992,10 +992,10 @@ test.describe('Rollup Field', () => {
         await executeQuery("INSERT INTO projects (name) VALUES ('Empty Project')")
         const emptyProject = await executeQuery('SELECT * FROM projects WHERE id = 3')
 
-        expect(emptyProject.total_hours).toBe(0)
+        expect(emptyProject.total_hours).toBe('0')
         expect(emptyProject.task_count).toBe(0)
         expect(emptyProject.avg_hours).toBeNull() // AVG of empty set is NULL
-        expect(emptyProject.completed_hours).toBe(0)
+        expect(emptyProject.completed_hours).toBe('0')
       })
 
       await test.step('Verify rollup updates when records change', async () => {
