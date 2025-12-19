@@ -1014,7 +1014,7 @@ jobs:
                  - **Config files** (package.json, tsconfig.json, etc.): Accept incoming (main) version
                  - **Source code** (src/): Keep both implementations if compatible, otherwise prefer main
                  - **Test files** (specs/): Keep both test cases, merge test logic carefully
-                 - **Generated files** (SPEC-STATE.md, etc.): Accept incoming (main) version
+                 - **Generated files** (SPEC-PROGRESS.md, etc.): Accept incoming (main) version
 
               4. **Verify resolution is correct**:
                  \`\`\`bash
@@ -1280,7 +1280,7 @@ jobs:
           fi
 
   # Job 6: Update Spec State
-  # Runs analyze:specs and commits SPEC-STATE.md after successful test implementation
+  # Runs analyze:specs and commits SPEC-PROGRESS.md after successful test implementation
   update-spec-state:
     name: 📈 Update Spec State
     runs-on: ubuntu-latest
@@ -1315,9 +1315,9 @@ jobs:
           SPEC_CHANGED=false
           README_CHANGED=false
 
-          if ! git diff --quiet SPEC-STATE.md 2>/dev/null; then
+          if ! git diff --quiet SPEC-PROGRESS.md 2>/dev/null; then
             SPEC_CHANGED=true
-            echo "📝 SPEC-STATE.md has changes"
+            echo "📝 SPEC-PROGRESS.md has changes"
           fi
 
           if ! git diff --quiet README.md 2>/dev/null; then
@@ -1329,7 +1329,7 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "✅ No changes to SPEC-STATE.md or README.md"
+            echo "✅ No changes to SPEC-PROGRESS.md or README.md"
           fi
 
       - name: Commit and push changes
@@ -1339,8 +1339,8 @@ jobs:
           git config --local user.name "github-actions[bot]"
 
           # Add both files (git add only stages if file has changes)
-          git add SPEC-STATE.md README.md
-          git commit -m "chore: update SPEC-STATE.md [skip ci]
+          git add SPEC-PROGRESS.md README.md
+          git commit -m "chore: update SPEC-PROGRESS.md [skip ci]
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -1348,7 +1348,7 @@ jobs:
 
           git push
 
-          echo "✅ SPEC-STATE.md and README.md committed and pushed"
+          echo "✅ SPEC-PROGRESS.md and README.md committed and pushed"
 
   # Job 7: Branch Cleanup (Weekly)
   # Cleans up stale TDD branches - runs only on Sundays
