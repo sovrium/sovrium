@@ -459,6 +459,197 @@ type AdminUserResult = {
   user: AuthUser & { role?: string }
 }
 
+// ============================================================================
+// CLI Config File Helpers
+// ============================================================================
+
+/**
+ * Helper to create a temporary config file with specified extension
+ * @param content - The file content (JSON string, YAML string, etc.)
+ * @param extension - The file extension (json, yaml, yml, etc.)
+ * @returns The path to the created config file
+ */
+export async function createTempConfigFile(content: string, extension: string): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-cli-test-'))
+  const configPath = join(tempDir, `config.${extension}`)
+  const { writeFile } = await import('node:fs/promises')
+  await writeFile(configPath, content, 'utf-8')
+  return configPath
+}
+
+/**
+ * Helper to clean up a temporary config file and its directory
+ * @param configPath - The path to the config file
+ */
+export async function cleanupTempConfigFile(configPath: string): Promise<void> {
+  await rm(join(configPath, '..'), { recursive: true, force: true })
+}
+
+/**
+ * Result type for CLI server started with config file
+ */
+export type CliServerResult = {
+  process: ChildProcess
+  url: string
+  port: number
+  cleanup: () => Promise<void>
+}
+
+/**
+ * Helper to start CLI with a config file and wait for server to be ready
+ * @param configPath - Path to the config file (.json, .yaml, .yml)
+ * @param options - Optional configuration for port, hostname, database
+ * @returns Server process, URL, port, and cleanup function
+ */
+export async function startCliWithConfigFile(
+  configPath: string,
+  options: { port?: number; hostname?: string; databaseUrl?: string } = {}
+): Promise<CliServerResult> {
+  const env: Record<string, string> = {
+    ...process.env,
+    PORT: String(options.port ?? 0),
+    ...(options.hostname && { HOSTNAME: options.hostname }),
+    ...(options.databaseUrl && { DATABASE_URL: options.databaseUrl }),
+    BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars',
+  }
+
+  const serverProcess = spawn('bun', ['run', 'src/cli.ts', 'start', configPath], {
+    env,
+    stdio: 'pipe',
+  })
+
+  // Register process in global registry for emergency cleanup
+  activeServerProcesses.add(serverProcess)
+
+  return new Promise((resolve, reject) => {
+    const outputBuffer: string[] = []
+    let resolved = false
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        activeServerProcesses.delete(serverProcess)
+        serverProcess.kill('SIGKILL')
+        reject(new Error(`Server did not start within 5s. Output: ${outputBuffer.join('\n')}`))
+      }
+    }, 5000)
+
+    const checkOutput = (data: Buffer) => {
+      const output = data.toString()
+      outputBuffer.push(output)
+
+      const match = output.match(/Homepage: http:\/\/localhost:(\d+)/)
+      if (match && !resolved) {
+        resolved = true
+        clearTimeout(timeout)
+        const port = parseInt(match[1]!, 10)
+        const url = `http://localhost:${port}`
+
+        resolve({
+          process: serverProcess,
+          url,
+          port,
+          cleanup: async () => {
+            activeServerProcesses.delete(serverProcess)
+            serverProcess.kill('SIGTERM')
+            await new Promise((r) => setTimeout(r, 100))
+            if (!serverProcess.killed) {
+              serverProcess.kill('SIGKILL')
+            }
+          },
+        })
+      }
+    }
+
+    serverProcess.stdout?.on('data', checkOutput)
+    serverProcess.stderr?.on('data', checkOutput)
+
+    serverProcess.on('error', (error) => {
+      if (!resolved) {
+        clearTimeout(timeout)
+        activeServerProcesses.delete(serverProcess)
+        reject(error)
+      }
+    })
+
+    serverProcess.on('exit', (code) => {
+      if (!resolved) {
+        clearTimeout(timeout)
+        activeServerProcesses.delete(serverProcess)
+        reject(
+          new Error(
+            `Server exited with code ${code} before starting. Output: ${outputBuffer.join('\n')}`
+          )
+        )
+      }
+    })
+  })
+}
+
+/**
+ * Result type for CLI output capture
+ */
+export type CliOutputResult = {
+  output: string
+  exitCode: number | null
+  process: ChildProcess
+}
+
+/**
+ * Helper to start CLI and capture output without waiting for server
+ * Useful for testing error scenarios (invalid config, missing files, etc.)
+ * @param configPath - Path to the config file
+ * @param options - Optional configuration
+ * @returns CLI output, exit code, and process
+ */
+export async function captureCliOutput(
+  configPath: string,
+  options: { waitForServer?: boolean; timeout?: number } = {}
+): Promise<CliOutputResult> {
+  const { waitForServer = false, timeout = 3000 } = options
+
+  const serverProcess = spawn('bun', ['run', 'src/cli.ts', 'start', configPath], {
+    env: {
+      ...process.env,
+      PORT: '0',
+      BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars',
+    },
+    stdio: 'pipe',
+  })
+
+  return new Promise((resolve) => {
+    const chunks: string[] = []
+    let exitCode: number | null = null
+
+    const timeoutId = setTimeout(() => {
+      if (!serverProcess.killed) {
+        serverProcess.kill('SIGKILL')
+      }
+      resolve({ output: chunks.join(''), exitCode, process: serverProcess })
+    }, timeout)
+
+    serverProcess.stdout?.on('data', (data) => {
+      const output = data.toString()
+      chunks.push(output)
+
+      // If waiting for server and we see the success message, resolve early
+      if (waitForServer && output.includes('Homepage: http://localhost:')) {
+        clearTimeout(timeoutId)
+        resolve({ output: chunks.join(''), exitCode: 0, process: serverProcess })
+      }
+    })
+
+    serverProcess.stderr?.on('data', (data) => {
+      chunks.push(data.toString())
+    })
+
+    serverProcess.on('exit', (code) => {
+      exitCode = code
+      clearTimeout(timeoutId)
+      resolve({ output: chunks.join(''), exitCode, process: serverProcess })
+    })
+  })
+}
+
 /**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
