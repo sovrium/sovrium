@@ -24,7 +24,7 @@ test.describe('Modify Field Unique Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-001: should alter table add constraint unique_users_username unique (username)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -67,7 +67,7 @@ test.describe('Modify Field Unique Migration', () => {
       const constraintCheck = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
-      expect(constraintCheck.constraint_name).toMatch(/unique.*username/i)
+      expect(constraintCheck.constraint_name).toBe('users_username_key')
 
       // Duplicate username rejected
       await expect(async () => {
