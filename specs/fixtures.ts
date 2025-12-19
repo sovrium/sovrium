@@ -953,6 +953,38 @@ type ServerFixtures = {
    * @returns void on success
    */
   adminSetRole: (userId: string, role: string) => Promise<void>
+
+  // =========================================================================
+  // CLI Server Fixtures
+  // =========================================================================
+
+  /**
+   * Start a CLI server with a config file and manage lifecycle automatically
+   * Creates temp config file, starts server, and cleans up after test
+   *
+   * @example
+   * ```typescript
+   * test('should load JSON config', async ({ startCliServerWithConfig, page }) => {
+   *   const server = await startCliServerWithConfig({
+   *     format: 'json',
+   *     config: { name: 'Test App', description: 'Test' }
+   *   })
+   *
+   *   await page.goto(server.url)
+   *   await expect(page.getByTestId('app-name-heading')).toHaveText('Test App')
+   * })
+   * ```
+   */
+  startCliServerWithConfig: (options: {
+    format: 'json' | 'yaml' | 'yml'
+    config: object | string // Object for JSON/YAML, string for raw content
+    port?: number
+    hostname?: string
+    databaseUrl?: string
+  }) => Promise<{
+    url: string
+    port: number
+  }>
 }
 
 /**
@@ -1423,6 +1455,65 @@ export const test = base.extend<ServerFixtures>({
     // Cleanup: Remove all temporary directories
     for (const tempDir of tempDirs) {
       await rm(tempDir, { recursive: true, force: true })
+    }
+  },
+
+  // CLI Server fixture: Start server with config file and automatic cleanup
+  startCliServerWithConfig: async ({ page }, use, testInfo) => {
+    const tempConfigPaths: string[] = []
+    // Use container object to avoid TypeScript control flow analysis issues with closures
+    const state: { cleanup: (() => Promise<void>) | null } = { cleanup: null }
+
+    await use(async (options) => {
+      // Create temp config file
+      const content =
+        typeof options.config === 'string'
+          ? options.config
+          : options.format === 'json'
+            ? JSON.stringify(options.config, null, 2)
+            : // For YAML, if object provided, stringify with yaml package
+              (await import('yaml')).stringify(options.config)
+
+      const configPath = await createTempConfigFile(content, options.format)
+      tempConfigPaths.push(configPath)
+
+      // Start server
+      const server = await startCliWithConfigFile(configPath, {
+        port: options.port,
+        hostname: options.hostname,
+        databaseUrl: options.databaseUrl,
+      })
+
+      // Store cleanup function for later
+      state.cleanup = server.cleanup
+
+      // Store serverUrl in testInfo for other fixtures to access
+      ;(testInfo as any)._serverUrl = server.url
+
+      // Set baseURL for page assertions
+      // @ts-expect-error - We need to set baseURL for relative URL assertions
+      page._browserContext._options.baseURL = server.url
+
+      // Override page.goto to prepend baseURL for relative paths
+      const originalGoto = page.goto.bind(page)
+      page.goto = (url: string, opts?: Parameters<typeof page.goto>[1]) => {
+        const fullUrl = url.startsWith('/') ? `${server.url}${url}` : url
+        return originalGoto(fullUrl, opts)
+      }
+
+      return {
+        url: server.url,
+        port: server.port,
+      }
+    })
+
+    // Cleanup: Stop server and remove temp config files
+    if (state.cleanup) {
+      await state.cleanup()
+    }
+
+    for (const configPath of tempConfigPaths) {
+      await cleanupTempConfigFile(configPath)
     }
   },
 

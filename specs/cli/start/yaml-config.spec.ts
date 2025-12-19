@@ -10,7 +10,6 @@ import {
   expect,
   createTempConfigFile,
   cleanupTempConfigFile,
-  startCliWithConfigFile,
   captureCliOutput,
 } from '@/specs/fixtures'
 
@@ -42,57 +41,43 @@ test.describe('CLI Start Command - YAML Configuration', () => {
   test.fixme(
     'CLI-START-YAML-001: should start server with valid YAML config file',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: Valid YAML configuration file with minimal app schema
-      const yamlConfig = `
+      // WHEN: Starting server with YAML config via CLI (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'yaml',
+        config: `
 name: Test App from YAML
 description: App loaded from YAML config file
-`
-      const configPath = await createTempConfigFile(yamlConfig, 'yaml')
+`,
+      })
 
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
-
-      try {
-        // WHEN: Starting server with YAML config via CLI
-        server = await startCliWithConfigFile(configPath)
-
-        // THEN: Server starts successfully and serves the app
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Test App from YAML')
-        await expect(page.getByTestId('app-description')).toHaveText(
-          'App loaded from YAML config file'
-        )
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
+      // THEN: Server starts successfully and serves the app
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('Test App from YAML')
+      await expect(page.getByTestId('app-description')).toHaveText(
+        'App loaded from YAML config file'
+      )
     }
   )
 
   test.fixme(
     'CLI-START-YAML-002: should support .yml file extension',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: Valid YAML configuration with .yml extension
-      const yamlConfig = `
+      // WHEN: Starting server with .yml config via CLI (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'yml',
+        config: `
 name: Test YML Extension
 description: Testing .yml file support
-`
-      const configPath = await createTempConfigFile(yamlConfig, 'yml')
+`,
+      })
 
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
-
-      try {
-        // WHEN: Starting server with .yml config via CLI
-        server = await startCliWithConfigFile(configPath)
-
-        // THEN: Server starts successfully with .yml file
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Test YML Extension')
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
+      // THEN: Server starts successfully with .yml file
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('Test YML Extension')
     }
   )
 
@@ -151,9 +136,12 @@ version: 1.0.0
   test.fixme(
     'CLI-START-YAML-005: should support YAML-specific features (comments, multi-line strings)',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: YAML config with comments and multi-line strings
-      const yamlConfig = `
+      // WHEN: Starting server with YAML-specific features (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'yaml',
+        config: `
 # Application configuration
 name: YAML Features Test
 
@@ -170,37 +158,30 @@ theme:
   colors:
     primary: "#3B82F6"  # Blue
     secondary: "#10B981"  # Green
-`
-      const configPath = await createTempConfigFile(yamlConfig, 'yaml')
+`,
+      })
 
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
+      // THEN: Server parses YAML correctly, preserving multi-line strings
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('YAML Features Test')
 
-      try {
-        // WHEN: Starting server with YAML-specific features
-        server = await startCliWithConfigFile(configPath)
-
-        // THEN: Server parses YAML correctly, preserving multi-line strings
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('YAML Features Test')
-
-        // Verify multi-line description is preserved
-        const description = await page.getByTestId('app-description').textContent()
-        expect(description).toContain('This is a multi-line description')
-        expect(description).toContain('that preserves line breaks')
-        expect(description).toContain('and demonstrates YAML features')
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
+      // Verify multi-line description is preserved
+      const description = await page.getByTestId('app-description').textContent()
+      expect(description).toContain('This is a multi-line description')
+      expect(description).toContain('that preserves line breaks')
+      expect(description).toContain('and demonstrates YAML features')
     }
   )
 
   test.fixme(
     'CLI-START-YAML-006: should support comprehensive YAML config with all app schema features',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: Comprehensive YAML config with theme, pages, and metadata
-      const yamlConfig = `
+      // WHEN: Starting server with comprehensive YAML config (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'yaml',
+        config: `
 name: Full Featured YAML App
 description: App with all schema features in YAML
 version: 2.1.0
@@ -228,32 +209,22 @@ pages:
       - type: p
         children:
           - This app was configured using YAML
-`
-      const configPath = await createTempConfigFile(yamlConfig, 'yaml')
+`,
+      })
 
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
+      // THEN: Server applies all configuration correctly
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('Full Featured YAML App')
+      await expect(page.getByTestId('app-version-badge')).toHaveText('2.1.0')
+      await expect(page.locator('h1')).toHaveText('Welcome to Full Featured YAML App')
+      await expect(page.locator('p')).toHaveText('This app was configured using YAML')
 
-      try {
-        // WHEN: Starting server with comprehensive YAML config
-        server = await startCliWithConfigFile(configPath)
-
-        // THEN: Server applies all configuration correctly
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Full Featured YAML App')
-        await expect(page.getByTestId('app-version-badge')).toHaveText('2.1.0')
-        await expect(page.locator('h1')).toHaveText('Welcome to Full Featured YAML App')
-        await expect(page.locator('p')).toHaveText('This app was configured using YAML')
-
-        // Verify theme colors applied
-        const root = page.locator('html')
-        const primaryColor = await root.evaluate((el) =>
-          getComputedStyle(el).getPropertyValue('--color-primary')
-        )
-        expect(primaryColor.trim()).toBe('#3B82F6')
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
+      // Verify theme colors applied
+      const root = page.locator('html')
+      const primaryColor = await root.evaluate((el) =>
+        getComputedStyle(el).getPropertyValue('--color-primary')
+      )
+      expect(primaryColor.trim()).toBe('#3B82F6')
     }
   )
 
@@ -282,12 +253,11 @@ pages:
   test.fixme(
     'CLI-START-YAML-008: user can start server from YAML config and navigate app',
     { tag: '@regression' },
-    async ({ page }) => {
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
-      let configPath: string | null = null
-
-      await test.step('Setup: Create YAML config with multiple pages and comments', async () => {
-        const yamlConfig = `
+    async ({ startCliServerWithConfig, page }) => {
+      await test.step('Start server with multi-page YAML config', async () => {
+        await startCliServerWithConfig({
+          format: 'yaml',
+          config: `
 # Multi-page YAML application configuration
 name: Multi-Page YAML App
 description: Testing complete YAML workflow
@@ -324,16 +294,12 @@ pages:
       - type: p
         children:
           - This application demonstrates YAML configuration
-`
-        configPath = await createTempConfigFile(yamlConfig, 'yaml')
-      })
-
-      await test.step('Start server with YAML config', async () => {
-        server = await startCliWithConfigFile(configPath!)
+`,
+        })
       })
 
       await test.step('Verify home page renders correctly', async () => {
-        await page.goto(server!.url)
+        await page.goto('/')
         await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Page YAML App')
         await expect(page.getByTestId('app-version-badge')).toHaveText('3.0.0-rc.1')
         await expect(page.locator('h1')).toHaveText('Home Page')
@@ -341,16 +307,11 @@ pages:
       })
 
       await test.step('Navigate to about page', async () => {
-        await page.goto(`${server!.url}/about`)
+        await page.goto('/about')
         await expect(page.locator('h1')).toHaveText('About Us')
         await expect(page.locator('p')).toHaveText(
           'This application demonstrates YAML configuration'
         )
-      })
-
-      await test.step('Verify server cleanup', async () => {
-        if (server) await server.cleanup()
-        if (configPath) await cleanupTempConfigFile(configPath)
       })
     }
   )

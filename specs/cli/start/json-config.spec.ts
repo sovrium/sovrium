@@ -10,7 +10,6 @@ import {
   expect,
   createTempConfigFile,
   cleanupTempConfigFile,
-  startCliWithConfigFile,
   captureCliOutput,
 } from '@/specs/fixtures'
 
@@ -41,36 +40,23 @@ test.describe('CLI Start Command - JSON Configuration', () => {
   test.fixme(
     'CLI-START-JSON-001: should start server with valid JSON config file',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: Valid JSON configuration file with minimal app schema
-      const configPath = await createTempConfigFile(
-        JSON.stringify(
-          {
-            name: 'Test App from JSON',
-            description: 'App loaded from JSON config file',
-          },
-          null,
-          2
-        ),
-        'json'
+      // WHEN: Starting server with JSON config via CLI (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'json',
+        config: {
+          name: 'Test App from JSON',
+          description: 'App loaded from JSON config file',
+        },
+      })
+
+      // THEN: Server starts successfully and serves the app
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('Test App from JSON')
+      await expect(page.getByTestId('app-description')).toHaveText(
+        'App loaded from JSON config file'
       )
-
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
-
-      try {
-        // WHEN: Starting server with JSON config via CLI
-        server = await startCliWithConfigFile(configPath)
-
-        // THEN: Server starts successfully and serves the app
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Test App from JSON')
-        await expect(page.getByTestId('app-description')).toHaveText(
-          'App loaded from JSON config file'
-        )
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
     }
   )
 
@@ -147,10 +133,12 @@ test.describe('CLI Start Command - JSON Configuration', () => {
   test.fixme(
     'CLI-START-JSON-005: should support JSON config with all app schema features',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: Comprehensive JSON config with theme, pages, and metadata
-      const configPath = await createTempConfigFile(
-        JSON.stringify({
+      // WHEN: Starting server with comprehensive JSON config (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'json',
+        config: {
           name: 'Full Featured App',
           description: 'App with all schema features',
           version: '1.2.3',
@@ -183,67 +171,46 @@ test.describe('CLI Start Command - JSON Configuration', () => {
               ],
             },
           ],
-        }),
-        'json'
+        },
+      })
+
+      // THEN: Server applies all configuration correctly
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('Full Featured App')
+      await expect(page.getByTestId('app-version-badge')).toHaveText('1.2.3')
+      await expect(page.locator('h1')).toHaveText('Welcome to Full Featured App')
+
+      // Verify theme colors applied (check CSS variables)
+      const root = page.locator('html')
+      const primaryColor = await root.evaluate((el) =>
+        getComputedStyle(el).getPropertyValue('--color-primary')
       )
-
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
-
-      try {
-        // WHEN: Starting server with comprehensive JSON config
-        server = await startCliWithConfigFile(configPath)
-
-        // THEN: Server applies all configuration correctly
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Full Featured App')
-        await expect(page.getByTestId('app-version-badge')).toHaveText('1.2.3')
-        await expect(page.locator('h1')).toHaveText('Welcome to Full Featured App')
-
-        // Verify theme colors applied (check CSS variables)
-        const root = page.locator('html')
-        const primaryColor = await root.evaluate((el) =>
-          getComputedStyle(el).getPropertyValue('--color-primary')
-        )
-        expect(primaryColor.trim()).toBe('#3B82F6')
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
+      expect(primaryColor.trim()).toBe('#3B82F6')
     }
   )
 
   test.fixme(
     'CLI-START-JSON-006: should support JSON config with environment variable overrides',
     { tag: '@spec' },
-    async ({ page }) => {
+    async ({ startCliServerWithConfig, page }) => {
       // GIVEN: JSON config file AND environment variables (PORT, HOSTNAME)
-      const configPath = await createTempConfigFile(
-        JSON.stringify({
+      // WHEN: Starting server with specific port via environment variable (handled by fixture)
+      const server = await startCliServerWithConfig({
+        format: 'json',
+        config: {
           name: 'Env Override Test',
           description: 'Testing environment variable integration',
-        }),
-        'json'
-      )
+        },
+        port: 0, // Let Bun auto-select port
+        hostname: 'localhost',
+      })
 
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
+      // THEN: Server respects environment variables and starts successfully
+      await page.goto(server.url)
+      await expect(page.getByTestId('app-name-heading')).toHaveText('Env Override Test')
 
-      try {
-        // WHEN: Starting server with specific port via environment variable
-        server = await startCliWithConfigFile(configPath, {
-          port: 0, // Let Bun auto-select port
-          hostname: 'localhost',
-        })
-
-        // THEN: Server respects environment variables and starts successfully
-        await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Env Override Test')
-
-        // Verify server is accessible on the specified host
-        expect(server.url).toContain('localhost')
-      } finally {
-        if (server) await server.cleanup()
-        await cleanupTempConfigFile(configPath)
-      }
+      // Verify server is accessible on the specified host
+      expect(server.url).toContain('localhost')
     }
   )
 
@@ -254,13 +221,11 @@ test.describe('CLI Start Command - JSON Configuration', () => {
   test.fixme(
     'CLI-START-JSON-007: user can start server from JSON config and navigate app',
     { tag: '@regression' },
-    async ({ page }) => {
-      let server: Awaited<ReturnType<typeof startCliWithConfigFile>> | null = null
-      let configPath: string | null = null
-
-      await test.step('Setup: Create JSON config with multiple pages', async () => {
-        configPath = await createTempConfigFile(
-          JSON.stringify({
+    async ({ startCliServerWithConfig, page }) => {
+      await test.step('Start server with multi-page JSON config', async () => {
+        await startCliServerWithConfig({
+          format: 'json',
+          config: {
             name: 'Multi-Page JSON App',
             description: 'Testing complete JSON workflow',
             version: '2.0.0-beta',
@@ -300,17 +265,12 @@ test.describe('CLI Start Command - JSON Configuration', () => {
                 ],
               },
             ],
-          }),
-          'json'
-        )
-      })
-
-      await test.step('Start server with JSON config', async () => {
-        server = await startCliWithConfigFile(configPath!)
+          },
+        })
       })
 
       await test.step('Verify home page renders correctly', async () => {
-        await page.goto(server!.url)
+        await page.goto('/')
         await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Page JSON App')
         await expect(page.getByTestId('app-version-badge')).toHaveText('2.0.0-beta')
         await expect(page.locator('h1')).toHaveText('Home Page')
@@ -318,13 +278,8 @@ test.describe('CLI Start Command - JSON Configuration', () => {
       })
 
       await test.step('Navigate to about page', async () => {
-        await page.goto(`${server!.url}/about`)
+        await page.goto('/about')
         await expect(page.locator('h1')).toHaveText('About Us')
-      })
-
-      await test.step('Verify server cleanup', async () => {
-        if (server) await server.cleanup()
-        if (configPath) await cleanupTempConfigFile(configPath)
       })
     }
   )
