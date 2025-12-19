@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines */
+
 import { Effect } from 'effect'
 import { shouldCreateDatabaseColumn } from './field-utils'
 import {
@@ -13,7 +15,11 @@ import {
   type TransactionLike,
   type SQLExecutionError,
 } from './sql-execution'
-import { mapFieldTypeToPostgres, generateColumnDefinition, isFieldNotNull } from './sql-generators'
+import {
+  mapFieldTypeToPostgres,
+  generateColumnDefinition,
+  isFieldNotNull,
+} from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -161,7 +167,10 @@ export const detectFieldRenames = (
  * Check if id column needs to be recreated due to type mismatch
  */
 const needsIdColumnRecreation = (
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   shouldProtectIdColumn: boolean
 ): boolean => {
   if (!shouldProtectIdColumn) return false
@@ -176,7 +185,10 @@ const needsIdColumnRecreation = (
  */
 const findColumnsToAdd = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   renamedNewNames: ReadonlySet<string>
 ): readonly Fields[number][] =>
   table.fields.filter((field) => {
@@ -191,7 +203,10 @@ const findColumnsToAdd = (
  * Find columns that should be dropped from the table
  */
 const findColumnsToDrop = (
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   schemaFieldsByName: ReadonlyMap<string, Fields[number]>,
   shouldProtectIdColumn: boolean,
   renamedOldNames: ReadonlySet<string>
@@ -223,39 +238,110 @@ const findColumnsToDrop = (
   })
 
 /**
+ * Filter fields that should be checked for schema modifications
+ * Excludes UI-only fields, renamed fields, and fields not in the database
+ */
+const filterModifiableFields = (
+  fields: readonly Fields[number][],
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>
+): readonly Fields[number][] =>
+  fields.filter((field) => {
+    // Skip UI-only fields, renamed fields, and fields not in database
+    if (!shouldCreateDatabaseColumn(field)) return false
+    if (renamedNewNames.has(field.name)) return false
+    if (!existingColumns.has(field.name)) return false
+    return true
+  })
+
+/**
  * Find columns that need nullability changes
  * Returns ALTER COLUMN statements for SET NOT NULL / DROP NOT NULL
  */
 const findNullabilityChanges = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   renamedNewNames: ReadonlySet<string>,
   primaryKeyFields: readonly string[]
 ): readonly string[] =>
-  table.fields
-    .filter((field) => {
-      // Skip UI-only fields, renamed fields, and fields not in database
-      if (!shouldCreateDatabaseColumn(field)) return false
-      if (renamedNewNames.has(field.name)) return false
-      if (!existingColumns.has(field.name)) return false
-      return true
-    })
-    .flatMap((field) => {
-      const existing = existingColumns.get(field.name)!
-      const isPrimaryKey = primaryKeyFields.includes(field.name)
-      const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
-      const currentlyNotNull = existing.isNullable === 'NO'
+  filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
+    const existing = existingColumns.get(field.name)!
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
+    const currentlyNotNull = existing.isNullable === 'NO'
 
-      // If nullability differs, generate ALTER COLUMN statement
-      if (shouldBeNotNull && !currentlyNotNull) {
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+    // If nullability differs, generate ALTER COLUMN statement
+    if (shouldBeNotNull && !currentlyNotNull) {
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+    }
+    if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
+      // Only DROP NOT NULL if it's not a primary key or auto-managed field
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+    }
+    return []
+  })
+
+/**
+ * Find columns that need default value changes
+ * Returns ALTER COLUMN statements for SET DEFAULT or DROP DEFAULT
+ */
+const findDefaultValueChanges = (
+  table: Table,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>,
+  previousSchema?: { readonly tables: readonly object[] }
+): readonly string[] => {
+  // Find previous table definition to compare default values
+  const previousTable = previousSchema?.tables.find(
+    (t: object) => 'name' in t && t.name === table.name
+  ) as
+    | {
+        name: string
+        fields?: readonly { id?: number; name?: string; default?: unknown }[]
       }
-      if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
-        // Only DROP NOT NULL if it's not a primary key or auto-managed field
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+    | undefined
+
+  const previousFieldsByName = new Map(
+    previousTable?.fields
+      ?.filter((f) => f.name !== undefined)
+      .map((f) => [f.name!, f.default]) ?? []
+  )
+
+  return filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
+      const currentDefault = 'default' in field ? field.default : undefined
+      const previousDefault = previousFieldsByName.get(field.name)
+
+      // Only generate ALTER statements if default value changed
+      if (currentDefault === previousDefault) return []
+
+      // Case 1: Default removed (was set, now undefined)
+      if (previousDefault !== undefined && currentDefault === undefined) {
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP DEFAULT`]
       }
+
+      // Case 2: Default added or modified (generate SET DEFAULT statement)
+      if (currentDefault !== undefined) {
+        const columnDef = generateColumnDefinition(field, false, table.fields)
+        // Extract DEFAULT clause from column definition
+        const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
+        if (defaultMatch) {
+          const defaultClause = defaultMatch[1]
+          return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`]
+        }
+      }
+
       return []
     })
+}
 
 /**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns, nullability changes)
@@ -266,7 +352,10 @@ const findNullabilityChanges = (
  */
 const generateCreatedAtStatement = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
 ): readonly string[] => {
   const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
   const hasCreatedAtColumn = existingColumns.has('created_at')
@@ -281,7 +370,10 @@ const generateCreatedAtStatement = (
  */
 const generateUpdatedAtStatement = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
 ): readonly string[] => {
   const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
   const hasUpdatedAtColumn = existingColumns.has('updated_at')
@@ -295,7 +387,10 @@ const generateUpdatedAtStatement = (
  */
 const generateDeletedAtStatement = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
 ): readonly string[] => {
   const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
   const hasDeletedAtColumn = existingColumns.has('deleted_at')
@@ -332,7 +427,10 @@ const buildColumnStatements = (options: {
 /* eslint-disable-next-line max-lines-per-function */
 export const generateAlterTableStatements = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   previousSchema?: { readonly tables: readonly object[] }
 ): readonly string[] => {
   const primaryKeyFields =
@@ -380,6 +478,13 @@ export const generateAlterTableStatements = (
     primaryKeyFields
   )
 
+  const defaultValueChanges = findDefaultValueChanges(
+    table,
+    existingColumns,
+    renamedNewNames,
+    previousSchema
+  )
+
   // Build column modification statements
   const { dropStatements, addStatements } = buildColumnStatements({
     tableName: table.name,
@@ -398,6 +503,7 @@ export const generateAlterTableStatements = (
     ...generateUpdatedAtStatement(table, existingColumns),
     ...generateDeletedAtStatement(table, existingColumns),
     ...nullabilityChanges,
+    ...defaultValueChanges,
   ]
 }
 

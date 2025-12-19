@@ -336,7 +336,10 @@ const copyDataAndResetSequences = (
 const recreateTableWithDataEffect = (
   tx: TransactionLike,
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
@@ -412,7 +415,10 @@ export type MigrationConfig = {
 export const migrateExistingTableEffect = (params: {
   readonly tx: TransactionLike
   readonly table: Table
-  readonly existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  readonly existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
   readonly tableUsesView?: ReadonlyMap<string, boolean>
   readonly previousSchema?: { readonly tables: readonly object[] }
 }): Effect.Effect<void, SQLExecutionError> =>
