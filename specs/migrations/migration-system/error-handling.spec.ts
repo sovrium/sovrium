@@ -125,7 +125,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-003: should rollback transaction when ALTER TABLE operation fails due to constraint violation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -146,7 +146,8 @@ test.describe('Error Handling and Rollback', () => {
       // THEN: Transaction rolled back, table schema unchanged
 
       // ALTER TABLE fails (NOT NULL without default on existing data)
-      await expect(async () => {
+      let migrationError: Error | null = null
+      try {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
@@ -155,12 +156,17 @@ test.describe('Error Handling and Rollback', () => {
               name: 'users',
               fields: [
                 { id: 2, name: 'email', type: 'email' },
-                { id: 3, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'name', type: 'single-line-text', required: true },
               ],
             },
           ],
         })
-      }).rejects.toThrow(/column "name" contains null values/i)
+      } catch (error) {
+        migrationError = error as Error
+      }
+
+      expect(migrationError).not.toBeNull()
+      expect(migrationError?.message).toMatch(/column.*name.*contains null values/i)
 
       // Column NOT added to table
       const columnCheck = await executeQuery(
