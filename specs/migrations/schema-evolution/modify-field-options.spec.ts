@@ -24,7 +24,7 @@ test.describe('Modify Field Options Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-001: should drop check constraint, add new check with additional value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
