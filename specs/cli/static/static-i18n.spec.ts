@@ -28,7 +28,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Static Site Generation - Multi-Language Support', () => {
   test(
-    'STATIC-I18N-001: should generate language directories',
+    'CLI-STATIC-I18N-001: should generate language directories',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with multiple languages configured
@@ -127,7 +127,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
   )
 
   test(
-    'STATIC-I18N-002: should create language-specific HTML files',
+    'CLI-STATIC-I18N-002: should create language-specific HTML files',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with translations
@@ -204,7 +204,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
   )
 
   test(
-    'STATIC-I18N-003: should generate hreflang links in HTML head',
+    'CLI-STATIC-I18N-003: should generate hreflang links in HTML head',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with multiple languages and baseUrl
@@ -285,7 +285,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
   )
 
   test(
-    'STATIC-I18N-004: should create language switcher links',
+    'CLI-STATIC-I18N-004: should create language switcher links',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with language switcher in layout
@@ -407,7 +407,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
   )
 
   test(
-    'STATIC-I18N-005: complete multi-language workflow',
+    'CLI-STATIC-I18N-005: complete multi-language workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

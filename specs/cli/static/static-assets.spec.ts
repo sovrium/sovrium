@@ -28,7 +28,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Static Site Generation - Asset Management', () => {
   test(
-    'STATIC-ASSETS-001: should copy files from public/ directory',
+    'CLI-STATIC-ASSETS-001: should copy files from public/ directory',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with public directory containing assets
@@ -88,7 +88,7 @@ test.describe('Static Site Generation - Asset Management', () => {
   )
 
   test(
-    'STATIC-ASSETS-002: should preserve directory structure',
+    'CLI-STATIC-ASSETS-002: should preserve directory structure',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: public directory with complex structure
@@ -157,7 +157,7 @@ test.describe('Static Site Generation - Asset Management', () => {
   )
 
   test(
-    'STATIC-ASSETS-003: should handle binary files correctly',
+    'CLI-STATIC-ASSETS-003: should handle binary files correctly',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: public directory with binary files
@@ -217,7 +217,7 @@ test.describe('Static Site Generation - Asset Management', () => {
   )
 
   test(
-    'STATIC-ASSETS-004: should update asset references in HTML and CSS',
+    'CLI-STATIC-ASSETS-004: should update asset references in HTML and CSS',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with asset references in HTML and public assets
@@ -322,7 +322,7 @@ test.describe('Static Site Generation - Asset Management', () => {
   )
 
   test(
-    'STATIC-ASSETS-005: complete asset management workflow',
+    'CLI-STATIC-ASSETS-005: complete asset management workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

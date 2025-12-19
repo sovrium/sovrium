@@ -29,7 +29,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Static Site Generation', () => {
   test(
-    'STATIC-GENERATION-001: should generate HTML files for all pages',
+    'CLI-STATIC-GENERATION-001: should generate HTML files for all pages',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with multiple pages
@@ -77,7 +77,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-002: should generate valid HTML with DOCTYPE',
+    'CLI-STATIC-GENERATION-002: should generate valid HTML with DOCTYPE',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with home page
@@ -126,7 +126,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-003: should compile CSS with theme tokens',
+    'CLI-STATIC-GENERATION-003: should compile CSS with theme tokens',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with custom theme
@@ -196,7 +196,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-004: should create proper directory structure',
+    'CLI-STATIC-GENERATION-004: should create proper directory structure',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with nested pages
@@ -261,7 +261,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-005: should handle nested page paths correctly',
+    'CLI-STATIC-GENERATION-005: should handle nested page paths correctly',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with deeply nested paths
@@ -311,7 +311,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-006: should generate well-formatted HTML',
+    'CLI-STATIC-GENERATION-006: should generate well-formatted HTML',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with structured content
@@ -428,7 +428,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-007: complete static generation workflow',
+    'CLI-STATIC-GENERATION-007: complete static generation workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string
