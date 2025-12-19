@@ -329,7 +329,7 @@ test.describe('Modify Indexes Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
