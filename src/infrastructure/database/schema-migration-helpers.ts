@@ -786,6 +786,21 @@ export const syncIndexes = (
         return `DROP INDEX IF EXISTS ${indexName}`
       })
 
+      // Drop indexes for fields that changed from indexed to unique
+      // When a field becomes unique, the old regular index must be dropped before creating unique constraint
+      const currentUniqueFields = new Set(
+        table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
+      )
+
+      const indexToUniqueFields = previousIndexedFields.filter((fieldName) =>
+        currentUniqueFields.has(fieldName)
+      )
+
+      const indexToUniqueDrops = indexToUniqueFields.map((fieldName) => {
+        const indexName = `idx_${table.name}_${fieldName}`
+        return `DROP INDEX IF EXISTS ${indexName}`
+      })
+
       // Drop custom indexes that were removed
       const previousCustomIndexes = previousTable.indexes?.map((idx) => idx.name) ?? []
       const currentCustomIndexes = table.indexes?.map((idx) => idx.name) ?? []
@@ -796,7 +811,7 @@ export const syncIndexes = (
 
       const customIndexDrops = removedCustomIndexes.map((name) => `DROP INDEX IF EXISTS ${name}`)
 
-      return [...fieldIndexDrops, ...customIndexDrops]
+      return [...fieldIndexDrops, ...indexToUniqueDrops, ...customIndexDrops]
     })()
 
     // Generate CREATE INDEX statements for all current indexes
