@@ -88,7 +88,7 @@ test.describe('Modify Field Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-CONSTRAINTS-002: should drop old check constraint, add new check with updated max',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
