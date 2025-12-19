@@ -327,7 +327,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-008: should reject migration with invalid dependency order',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
