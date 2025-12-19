@@ -34,9 +34,24 @@ export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =
     const client = new SQL(databaseUrl)
     const db = drizzle({ client, schema })
 
+    // Test database connection first to fail fast on connection errors
+    yield* Effect.tryPromise({
+      try: async () => {
+        // Simple connection test - run a basic query using Bun SQL's unsafe() method
+        await client.unsafe('SELECT 1')
+      },
+      catch: (error) => {
+        const errorMessage = String(error)
+        return new Error(`Database connection failed: ${errorMessage}`)
+      },
+    })
+
     yield* Effect.tryPromise({
       try: () => migrate(db, { migrationsFolder: './drizzle' }),
-      catch: (error) => new Error(`Migration failed: ${String(error)}`),
+      catch: (error) => {
+        const errorMessage = String(error)
+        return new Error(`Migration failed: ${errorMessage}`)
+      },
     })
 
     yield* Effect.promise(() => client.close())

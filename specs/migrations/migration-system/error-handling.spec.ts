@@ -233,7 +233,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-005: should abort application startup when database connection error occurs',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
