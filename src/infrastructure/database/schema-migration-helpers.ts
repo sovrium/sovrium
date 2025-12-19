@@ -520,6 +520,7 @@ export const syncForeignKeyConstraints = (
 /**
  * Sync CHECK constraints for existing table
  * Adds CHECK constraints for fields with validation requirements (enum values, ranges, formats, etc.)
+ * Drops and recreates constraints when they are modified (e.g., min/max value changes)
  * This is needed when fields are added via ALTER TABLE and need their CHECK constraints
  */
 export const syncCheckConstraints = (
@@ -540,31 +541,36 @@ export const syncCheckConstraints = (
         !constraint.includes('PRIMARY KEY')
     )
 
-    // Build statements to add CHECK constraints if they don't exist
-    const statements = checkConstraints.map((constraint) => {
+    // Build statements to drop existing constraints and add new ones
+    // This ensures constraints are updated when validation rules change (e.g., max value increases)
+    const statements = checkConstraints.flatMap((constraint) => {
       // Extract constraint name from the constraint SQL
       // Format: "CONSTRAINT {constraintName} CHECK ..."
       const match = constraint.match(/CONSTRAINT\s+(\w+)\s+CHECK/)
-      if (!match) return ''
+      if (!match) return []
 
       const constraintName = match[1]
 
-      return `
-        DO $$
-        BEGIN
-          IF NOT EXISTS (
-            SELECT 1 FROM information_schema.table_constraints
-            WHERE table_name = '${table.name}'
-              AND constraint_type = 'CHECK'
-              AND constraint_name = '${constraintName}'
-          ) THEN
-            ALTER TABLE ${table.name} ADD ${constraint};
-          END IF;
-        END$$;
-      `
+      // Drop existing constraint if it exists, then add the new constraint
+      // This handles both new constraints and modified constraints
+      return [
+        `
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.table_constraints
+              WHERE table_name = '${table.name}'
+                AND constraint_type = 'CHECK'
+                AND constraint_name = '${constraintName}'
+            ) THEN
+              ALTER TABLE ${table.name} DROP CONSTRAINT ${constraintName};
+            END IF;
+          END$$;
+        `,
+        `ALTER TABLE ${table.name} ADD ${constraint}`,
+      ]
     })
 
-    // Filter out empty statements and execute
-    const validStatements = statements.filter((stmt) => stmt !== '')
-    yield* executeSQLStatements(tx, validStatements)
+    // Execute all statements sequentially (drop then add for each constraint)
+    yield* executeSQLStatements(tx, statements)
   })
