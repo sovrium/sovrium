@@ -738,3 +738,70 @@ export const syncCheckConstraints = (
     // Execute all statements sequentially (drop then add for each constraint)
     yield* executeSQLStatements(tx, statements)
   })
+
+/**
+ * Sync indexes for existing table
+ * Drops indexes that are no longer needed and creates new indexes
+ * This is needed when field indexed property changes or custom indexes are added/removed
+ */
+export const syncIndexes = (
+  tx: TransactionLike,
+  table: Table,
+  previousSchema?: { readonly tables: readonly object[] }
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { generateIndexStatements } = yield* Effect.promise(() => import('./index-generators'))
+
+    // Get previous table definition
+    const previousTable = previousSchema?.tables.find(
+      (t: object) => 'name' in t && t.name === table.name
+    ) as
+      | {
+          name: string
+          fields?: readonly { name?: string; indexed?: boolean }[]
+          indexes?: readonly { name: string }[]
+        }
+      | undefined
+
+    // Determine which indexes should be dropped
+    const dropStatements: readonly string[] = (() => {
+      if (!previousTable) return []
+
+      // Drop indexes for fields that no longer have indexed: true
+      const previousIndexedFields =
+        previousTable.fields
+          ?.filter((f) => f.name && 'indexed' in f && f.indexed)
+          .map((f) => f.name!) ?? []
+
+      const currentIndexedFields = new Set(
+        table.fields.filter((f) => 'indexed' in f && f.indexed).map((f) => f.name)
+      )
+
+      const removedIndexedFields = previousIndexedFields.filter(
+        (fieldName) => !currentIndexedFields.has(fieldName)
+      )
+
+      const fieldIndexDrops = removedIndexedFields.map((fieldName) => {
+        const indexName = `idx_${table.name}_${fieldName}`
+        return `DROP INDEX IF EXISTS ${indexName}`
+      })
+
+      // Drop custom indexes that were removed
+      const previousCustomIndexes = previousTable.indexes?.map((idx) => idx.name) ?? []
+      const currentCustomIndexes = table.indexes?.map((idx) => idx.name) ?? []
+
+      const removedCustomIndexes = previousCustomIndexes.filter(
+        (name) => !currentCustomIndexes.includes(name)
+      )
+
+      const customIndexDrops = removedCustomIndexes.map((name) => `DROP INDEX IF EXISTS ${name}`)
+
+      return [...fieldIndexDrops, ...customIndexDrops]
+    })()
+
+    // Generate CREATE INDEX statements for all current indexes
+    const createStatements = generateIndexStatements(table)
+
+    // Execute drop statements first, then create statements
+    yield* executeSQLStatements(tx, [...dropStatements, ...createStatements])
+  })
