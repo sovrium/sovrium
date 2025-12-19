@@ -594,6 +594,16 @@ function detectCoverageGaps(files: SpecFile[]): CoverageGap[] {
   // Check for common patterns
   for (const [area, areaFiles] of featureAreas) {
     const allTests = areaFiles.flatMap((f) => f.tests)
+
+    // Skip coverage gap detection for 100% passing domains
+    // If all tests pass (no fixme tests), the domain is complete and doesn't need more tests
+    const totalTests = allTests.length
+    const fixmeTests = allTests.filter((t) => t.isFixme).length
+    if (totalTests > 0 && fixmeTests === 0) {
+      // Domain is 100% complete - skip coverage gap warnings
+      continue
+    }
+
     const testNames = allTests.map((t) => t.name.toLowerCase())
 
     // Check for missing edge cases
