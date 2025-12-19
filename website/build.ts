@@ -1,8 +1,8 @@
-import { generateStatic } from '@/index'
+import { build } from '@/index'
 import { app } from './app'
 
 // eslint-disable-next-line functional/no-expression-statements -- Entry point script
-await generateStatic(app, {
+await build(app, {
   outputDir: './website/build',
   baseUrl: 'https://sovrium.com',
   generateSitemap: true,

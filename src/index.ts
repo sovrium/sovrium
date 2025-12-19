@@ -123,7 +123,7 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
 }
 
 /**
- * Generate static site files from an Sovrium application
+ * Build static site files from a Sovrium application
  *
  * This function generates static HTML files and supporting assets that can be
  * deployed to any static hosting provider (GitHub Pages, Netlify, Vercel, etc.).
@@ -135,7 +135,7 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  * @example
  * Basic usage:
  * ```typescript
- * import { generateStatic } from 'sovrium'
+ * import { build } from 'sovrium'
  *
  * const myApp = {
  *   name: 'My App',
@@ -149,15 +149,15 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  *   ]
  * }
  *
- * const result = await generateStatic(myApp)
+ * const result = await build(myApp)
  * console.log(`Generated ${result.files.length} files to ${result.outputDir}`)
  * ```
  *
  * @example
  * With options:
  * ```typescript
- * const result = await generateStatic(myApp, {
- *   outputDir: './build',
+ * const result = await build(myApp, {
+ *   outputDir: './dist',
  *   baseUrl: 'https://example.com',
  *   generateSitemap: true,
  *   generateRobotsTxt: true,
@@ -165,7 +165,7 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  * })
  * ```
  */
-export const generateStatic = async (
+export const build = async (
   app: AppEncoded,
   options: GenerateStaticOptions = {}
 ): Promise<GenerateStaticResult> => {
@@ -187,6 +187,11 @@ export const generateStatic = async (
   // Run the Effect program and return the result
   return await Effect.runPromise(program)
 }
+
+/**
+ * @deprecated Use `build` instead. This alias will be removed in v1.0.0.
+ */
+export const generateStatic = build
 
 /**
  * Re-export types for convenience

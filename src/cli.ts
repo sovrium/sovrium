@@ -51,7 +51,7 @@
  */
 
 import { Effect, Console } from 'effect'
-import { start, generateStatic, type StartOptions, type GenerateStaticOptions } from '@/index'
+import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
 import type { AppEncoded } from '@/domain/models/app'
 
 /**
@@ -299,7 +299,7 @@ const handleStaticCommand = async (filePath?: string): Promise<void> => {
 
   // Generate static site
   // eslint-disable-next-line functional/no-expression-statements
-  await generateStatic(app, options).catch((error) => {
+  await build(app, options).catch((error) => {
     Effect.runSync(Console.error('Failed to generate static site:', error))
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
