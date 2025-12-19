@@ -58,7 +58,7 @@ test.describe('Decimal Field', () => {
         'INSERT INTO products (price) VALUES (99.99) RETURNING price'
       )
       // THEN: assertion
-      expect(validInsert.price).toBe(99.99)
+      expect(validInsert.price).toBe('99.99')
     }
   )
 
@@ -88,7 +88,7 @@ test.describe('Decimal Field', () => {
         'INSERT INTO transactions (amount) VALUES (500.50) RETURNING amount'
       )
       // THEN: assertion
-      expect(parseFloat(validInsert.amount)).toBe(500.5)
+      expect(validInsert.amount).toBe('500.50')
 
       // THEN: assertion
       await expect(

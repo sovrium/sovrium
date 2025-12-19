@@ -1789,7 +1789,7 @@ test.describe('Data Tables', () => {
         const update = await executeQuery(
           `UPDATE products SET price = 24.99 WHERE sku = 'WIDGET-001' RETURNING price`
         )
-        expect(update.rows[0]).toMatchObject({ price: 24.99 })
+        expect(update.rows[0]).toMatchObject({ price: '24.99' })
 
         const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
         expect(select.rows[0]).toMatchObject({ count: 1 })

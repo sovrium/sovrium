@@ -280,7 +280,7 @@ test.describe('Modify Field Constraints Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-CONSTRAINTS-005: user can complete full modify-field-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

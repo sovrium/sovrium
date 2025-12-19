@@ -976,26 +976,26 @@ test.describe('Rollup Field', () => {
         const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
 
         // Verify SUM aggregation
-        expect(project.total_hours).toBe(60.0) // 8 + 16 + 24 + 12
+        expect(project.total_hours).toBe('60.0') // 8 + 16 + 24 + 12
 
         // Verify COUNT aggregation
         expect(project.task_count).toBe(4)
 
         // Verify AVG aggregation
-        expect(project.avg_hours).toBe(15.0) // 60 / 4
+        expect(project.avg_hours).toBe('15.0000000000000000') // 60 / 4
 
         // Verify conditional rollup filtering
-        expect(project.completed_hours).toBe(24.0) // 8 + 16
+        expect(project.completed_hours).toBe('24.0') // 8 + 16
       })
 
       await test.step('Verify rollup returns zero for empty relations', async () => {
         await executeQuery("INSERT INTO projects (name) VALUES ('Empty Project')")
         const emptyProject = await executeQuery('SELECT * FROM projects WHERE id = 3')
 
-        expect(emptyProject.total_hours).toBe(0)
+        expect(emptyProject.total_hours).toBe('0')
         expect(emptyProject.task_count).toBe(0)
         expect(emptyProject.avg_hours).toBeNull() // AVG of empty set is NULL
-        expect(emptyProject.completed_hours).toBe(0)
+        expect(emptyProject.completed_hours).toBe('0')
       })
 
       await test.step('Verify rollup updates when records change', async () => {
