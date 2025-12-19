@@ -272,7 +272,7 @@ test.describe('Error Handling and Rollback', () => {
   // Phase: Additional Startup Configuration Validation Tests (006-007)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-006: should reject schema with index on non-existent column',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

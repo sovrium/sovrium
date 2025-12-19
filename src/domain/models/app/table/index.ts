@@ -63,6 +63,10 @@ const validateTableSchema = (table: {
     readonly formula?: string
   }>
   readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
+  readonly indexes?: ReadonlyArray<{
+    readonly name: string
+    readonly fields: ReadonlyArray<string>
+  }>
   readonly views?: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
   readonly permissions?: {
     readonly organizationScoped?: boolean
@@ -91,6 +95,24 @@ const validateTableSchema = (table: {
     const primaryKeyValidationError = validatePrimaryKey(table.primaryKey, fieldNames)
     if (primaryKeyValidationError) {
       return primaryKeyValidationError
+    }
+  }
+
+  // Validate indexes if present
+  if (table.indexes && table.indexes.length > 0) {
+    const invalidIndex = table.indexes
+      .flatMap((index) =>
+        index.fields
+          .filter((fieldName) => !fieldNames.has(fieldName))
+          .map((fieldName) => ({ indexName: index.name, fieldName }))
+      )
+      .at(0)
+
+    if (invalidIndex) {
+      return {
+        message: `Index "${invalidIndex.indexName}" references non-existent column "${invalidIndex.fieldName}"`,
+        path: ['indexes'],
+      }
     }
   }
 
