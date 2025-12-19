@@ -300,7 +300,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-007: should reject schema with duplicate table IDs',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
