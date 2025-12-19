@@ -92,7 +92,8 @@ export const generateStatic = (
   | SSGGenerationError
   | FileCopyError
   | AuthConfigRequiredForUserFields
-  | SchemaInitializationError,
+  | SchemaInitializationError
+  | Error,
   ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Complex Effect generator with multiple file generation steps and support file creation

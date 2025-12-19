@@ -473,7 +473,7 @@ type ServerFixtures = {
     appSchema: App,
     options?: {
       useDatabase?: boolean
-      database?: { url: string }
+      database?: { url?: string }
     }
   ) => Promise<void>
   /**
@@ -910,12 +910,16 @@ export const test = base.extend<ServerFixtures>({
         appSchema: App,
         options?: {
           useDatabase?: boolean
+          database?: { url?: string }
         }
       ) => {
         let databaseUrl: string | undefined = undefined
 
-        // Enable database by default (can be disabled with useDatabase: false)
-        if (options?.useDatabase !== false) {
+        // Use custom database URL if provided
+        if (options?.database?.url) {
+          databaseUrl = options.database.url
+        } else if (options?.useDatabase !== false) {
+          // Enable database by default (can be disabled with useDatabase: false)
           // Check if database was already initialized by executeQuery
           const existingDbName = (testInfo as any)._testDatabaseName
           if (existingDbName) {

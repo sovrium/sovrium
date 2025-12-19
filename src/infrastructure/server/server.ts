@@ -147,8 +147,8 @@ export const createServer = (
   | CSSCompilationError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  | Error
 > =>
-  // eslint-disable-next-line max-lines-per-function -- Server setup generator needs comprehensive initialization
   Effect.gen(function* () {
     const {
       app,
@@ -167,15 +167,11 @@ export const createServer = (
       Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
     )
 
-    // Run Better Auth table creation (if DATABASE_URL is configured and auth is enabled)
-    if (databaseUrl && app.auth) {
-      yield* runMigrations(databaseUrl).pipe(
-        Effect.catchAll((error) => {
-          // Log error but don't fail - allow server to start even if table creation fails
-          // This is useful for development where the database might not be ready yet
-          return Console.error(`Better Auth table creation warning: ${error.message}`)
-        })
-      )
+    // Run Drizzle migrations (if DATABASE_URL is configured)
+    // This runs Better Auth table creation when auth is enabled
+    // Also validates database connection early to fail fast on connection errors
+    if (databaseUrl) {
+      yield* runMigrations(databaseUrl)
     }
 
     // Initialize database schema from app configuration

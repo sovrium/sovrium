@@ -63,7 +63,7 @@ export class ServerFactory extends Context.Tag('ServerFactory')<
      * Creates and starts a server instance
      *
      * @param config - Server configuration with app data and rendering functions
-     * @returns Effect that yields ServerInstance or creation/compilation/auth config errors
+     * @returns Effect that yields ServerInstance or creation/compilation/auth config/migration errors
      */
     readonly create: (
       config: ServerFactoryConfig
@@ -73,6 +73,7 @@ export class ServerFactory extends Context.Tag('ServerFactory')<
       | CSSCompilationError
       | AuthConfigRequiredForUserFields
       | SchemaInitializationError
+      | Error
     >
   }
 >() {}
