@@ -67,9 +67,9 @@ test.describe('Formula Field', () => {
       // THEN: assertion
       expect(firstRecord.quantity).toBe(5)
       // THEN: assertion
-      expect(firstRecord.unit_price).toBe(19.99)
+      expect(parseFloat(firstRecord.unit_price)).toBe(19.99)
       // THEN: assertion
-      expect(firstRecord.total).toBe(99.95)
+      expect(parseFloat(firstRecord.total)).toBe(99.95)
 
       // WHEN: executing query
       const secondRecord = await executeQuery(
@@ -78,9 +78,9 @@ test.describe('Formula Field', () => {
       // THEN: assertion
       expect(secondRecord.quantity).toBe(10)
       // THEN: assertion
-      expect(secondRecord.unit_price).toBe(9.5)
+      expect(parseFloat(secondRecord.unit_price)).toBe(9.5)
       // THEN: assertion
-      expect(secondRecord.total).toBe(95.0)
+      expect(parseFloat(secondRecord.total)).toBe(95.0)
     }
   )
 
@@ -182,29 +182,29 @@ test.describe('Formula Field', () => {
         'SELECT price, on_sale, discount_price FROM products WHERE id = 1'
       )
       // THEN: assertion
-      expect(onSale.price).toBe(100)
+      expect(parseFloat(onSale.price)).toBe(100)
       // THEN: assertion
       expect(onSale.on_sale).toBe(true)
       // THEN: assertion
-      expect(onSale.discount_price).toBe(80)
+      expect(parseFloat(onSale.discount_price)).toBe(80)
 
       // WHEN: executing query
       const notOnSale = await executeQuery(
         'SELECT price, on_sale, discount_price FROM products WHERE id = 2'
       )
       // THEN: assertion
-      expect(notOnSale.price).toBe(50)
+      expect(parseFloat(notOnSale.price)).toBe(50)
       // THEN: assertion
       expect(notOnSale.on_sale).toBe(false)
       // THEN: assertion
-      expect(notOnSale.discount_price).toBe(50)
+      expect(parseFloat(notOnSale.discount_price)).toBe(50)
 
       // WHEN: executing query
       const saleToggled = await executeQuery(
         'UPDATE products SET on_sale = true WHERE id = 2 RETURNING discount_price'
       )
       // THEN: assertion
-      expect(saleToggled.discount_price).toBe(40)
+      expect(parseFloat(saleToggled.discount_price)).toBe(40)
     }
   )
 
@@ -243,27 +243,27 @@ test.describe('Formula Field', () => {
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 1'
       )
       // THEN: assertion
-      expect(firstMeasurement.raw_value).toBe(19.9567)
+      expect(parseFloat(firstMeasurement.raw_value)).toBe(19.9567)
       // THEN: assertion
-      expect(firstMeasurement.rounded_value).toBe(19.96)
+      expect(parseFloat(firstMeasurement.rounded_value)).toBe(19.96)
 
       // WHEN: executing query
       const secondMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 2'
       )
       // THEN: assertion
-      expect(secondMeasurement.raw_value).toBe(49.1234)
+      expect(parseFloat(secondMeasurement.raw_value)).toBe(49.1234)
       // THEN: assertion
-      expect(secondMeasurement.rounded_value).toBe(49.12)
+      expect(parseFloat(secondMeasurement.rounded_value)).toBe(49.12)
 
       // WHEN: executing query
       const negativeMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 3'
       )
       // THEN: assertion
-      expect(negativeMeasurement.raw_value).toBe(-15.6789)
+      expect(parseFloat(negativeMeasurement.raw_value)).toBe(-15.6789)
       // THEN: assertion
-      expect(negativeMeasurement.rounded_value).toBe(-15.68)
+      expect(parseFloat(negativeMeasurement.rounded_value)).toBe(-15.68)
     }
   )
 
@@ -373,13 +373,13 @@ test.describe('Formula Field', () => {
 
       // THEN: verify ABS calculation
       const negative = await executeQuery('SELECT absolute FROM numbers WHERE id = 1')
-      expect(negative.absolute).toBe(5.5)
+      expect(parseFloat(negative.absolute)).toBe(5.5)
 
       const positive = await executeQuery('SELECT absolute FROM numbers WHERE id = 2')
-      expect(positive.absolute).toBe(3.2)
+      expect(parseFloat(positive.absolute)).toBe(3.2)
 
       const zero = await executeQuery('SELECT absolute FROM numbers WHERE id = 3')
-      expect(zero.absolute).toBe(0)
+      expect(parseFloat(zero.absolute)).toBe(0)
     }
   )
 
@@ -415,7 +415,7 @@ test.describe('Formula Field', () => {
 
       // THEN: verify average calculation
       const result = await executeQuery('SELECT average FROM scores WHERE id = 1')
-      expect(result.average).toBe(90)
+      expect(parseFloat(result.average)).toBe(90)
     }
   )
 
@@ -532,17 +532,17 @@ test.describe('Formula Field', () => {
 
       // THEN: verify EXP calculation
       const expZero = await executeQuery('SELECT result FROM exponents WHERE id = 1')
-      expect(expZero.result).toBe(1)
+      expect(parseFloat(expZero.result)).toBe(1)
 
       const expOne = await executeQuery(
         'SELECT ROUND(result, 5) as result FROM exponents WHERE id = 2'
       )
-      expect(expOne.result).toBeCloseTo(2.718_28, 4)
+      expect(parseFloat(expOne.result)).toBeCloseTo(2.718_28, 4)
 
       const expTwo = await executeQuery(
         'SELECT ROUND(result, 4) as result FROM exponents WHERE id = 3'
       )
-      expect(expTwo.result).toBeCloseTo(7.3891, 3)
+      expect(parseFloat(expTwo.result)).toBeCloseTo(7.3891, 3)
     }
   )
 
@@ -656,13 +656,13 @@ test.describe('Formula Field', () => {
 
       // THEN: verify LOG calculation
       const logOne = await executeQuery('SELECT log_base10 FROM logarithms WHERE id = 1')
-      expect(logOne.log_base10).toBe(0)
+      expect(parseFloat(logOne.log_base10)).toBe(0)
 
       const logTen = await executeQuery('SELECT log_base10 FROM logarithms WHERE id = 2')
-      expect(logTen.log_base10).toBe(1)
+      expect(parseFloat(logTen.log_base10)).toBe(1)
 
       const logHundred = await executeQuery('SELECT log_base10 FROM logarithms WHERE id = 3')
-      expect(logHundred.log_base10).toBe(2)
+      expect(parseFloat(logHundred.log_base10)).toBe(2)
     }
   )
 
@@ -696,12 +696,12 @@ test.describe('Formula Field', () => {
 
       // THEN: verify LN calculation
       const lnOne = await executeQuery('SELECT natural_log FROM logarithms WHERE id = 1')
-      expect(lnOne.natural_log).toBe(0)
+      expect(parseFloat(lnOne.natural_log)).toBe(0)
 
       const lnE = await executeQuery(
         'SELECT ROUND(natural_log, 4) as natural_log FROM logarithms WHERE id = 2'
       )
-      expect(lnE.natural_log).toBeCloseTo(1, 3)
+      expect(parseFloat(lnE.natural_log)).toBeCloseTo(1, 3)
     }
   )
 
@@ -737,10 +737,10 @@ test.describe('Formula Field', () => {
 
       // THEN: verify GREATEST calculation
       const positive = await executeQuery('SELECT maximum FROM comparisons WHERE id = 1')
-      expect(positive.maximum).toBe(10)
+      expect(parseFloat(positive.maximum)).toBe(10)
 
       const negative = await executeQuery('SELECT maximum FROM comparisons WHERE id = 2')
-      expect(negative.maximum).toBe(-1)
+      expect(parseFloat(negative.maximum)).toBe(-1)
     }
   )
 
@@ -776,10 +776,10 @@ test.describe('Formula Field', () => {
 
       // THEN: verify LEAST calculation
       const positive = await executeQuery('SELECT minimum FROM comparisons WHERE id = 1')
-      expect(positive.minimum).toBe(3)
+      expect(parseFloat(positive.minimum)).toBe(3)
 
       const negative = await executeQuery('SELECT minimum FROM comparisons WHERE id = 2')
-      expect(negative.minimum).toBe(-5)
+      expect(parseFloat(negative.minimum)).toBe(-5)
     }
   )
 
@@ -898,13 +898,13 @@ test.describe('Formula Field', () => {
 
       // THEN: verify POWER calculation
       const first = await executeQuery('SELECT result FROM powers WHERE id = 1')
-      expect(first.result).toBe(8)
+      expect(parseFloat(first.result)).toBe(8)
 
       const second = await executeQuery('SELECT result FROM powers WHERE id = 2')
-      expect(second.result).toBe(100)
+      expect(parseFloat(second.result)).toBe(100)
 
       const third = await executeQuery('SELECT result FROM powers WHERE id = 3')
-      expect(third.result).toBe(1)
+      expect(parseFloat(third.result)).toBe(1)
     }
   )
 
@@ -938,13 +938,13 @@ test.describe('Formula Field', () => {
 
       // THEN: verify TRUNC with precision calculation
       const pi = await executeQuery('SELECT truncated FROM values WHERE id = 1')
-      expect(pi.truncated).toBe(3.14)
+      expect(parseFloat(pi.truncated)).toBe(3.14)
 
       const nine = await executeQuery('SELECT truncated FROM values WHERE id = 2')
-      expect(nine.truncated).toBe(9.99)
+      expect(parseFloat(nine.truncated)).toBe(9.99)
 
       const negative = await executeQuery('SELECT truncated FROM values WHERE id = 3')
-      expect(negative.truncated).toBe(-2.56)
+      expect(parseFloat(negative.truncated)).toBe(-2.56)
     }
   )
 
@@ -978,13 +978,13 @@ test.describe('Formula Field', () => {
 
       // THEN: verify round up calculation
       const pi = await executeQuery('SELECT rounded_up FROM values WHERE id = 1')
-      expect(pi.rounded_up).toBe(3.15)
+      expect(parseFloat(pi.rounded_up)).toBe(3.15)
 
       const nine = await executeQuery('SELECT rounded_up FROM values WHERE id = 2')
-      expect(nine.rounded_up).toBe(10)
+      expect(parseFloat(nine.rounded_up)).toBe(10)
 
       const two = await executeQuery('SELECT rounded_up FROM values WHERE id = 3')
-      expect(two.rounded_up).toBe(2.01)
+      expect(parseFloat(two.rounded_up)).toBe(2.01)
     }
   )
 
@@ -1018,15 +1018,15 @@ test.describe('Formula Field', () => {
 
       // THEN: verify SQRT calculation
       const four = await executeQuery('SELECT square_root FROM roots WHERE id = 1')
-      expect(four.square_root).toBe(2)
+      expect(parseFloat(four.square_root)).toBe(2)
 
       const nine = await executeQuery('SELECT square_root FROM roots WHERE id = 2')
-      expect(nine.square_root).toBe(3)
+      expect(parseFloat(nine.square_root)).toBe(3)
 
       const two = await executeQuery(
         'SELECT ROUND(square_root, 5) as square_root FROM roots WHERE id = 3'
       )
-      expect(two.square_root).toBeCloseTo(1.414_21, 4)
+      expect(parseFloat(two.square_root)).toBeCloseTo(1.414_21, 4)
     }
   )
 
@@ -1062,10 +1062,10 @@ test.describe('Formula Field', () => {
 
       // THEN: verify SUM calculation
       const integers = await executeQuery('SELECT total FROM totals WHERE id = 1')
-      expect(integers.total).toBe(60)
+      expect(parseFloat(integers.total)).toBe(60)
 
       const decimals = await executeQuery('SELECT total FROM totals WHERE id = 2')
-      expect(decimals.total).toBe(7.5)
+      expect(parseFloat(decimals.total)).toBe(7.5)
     }
   )
 
@@ -1099,10 +1099,10 @@ test.describe('Formula Field', () => {
 
       // THEN: verify CAST calculation
       const integer = await executeQuery('SELECT numeric_value FROM conversions WHERE id = 1')
-      expect(integer.numeric_value).toBe(123)
+      expect(parseFloat(integer.numeric_value)).toBe(123)
 
       const decimal = await executeQuery('SELECT numeric_value FROM conversions WHERE id = 2')
-      expect(decimal.numeric_value).toBe(45.67)
+      expect(parseFloat(decimal.numeric_value)).toBe(45.67)
     }
   )
 
@@ -1191,13 +1191,13 @@ test.describe('Formula Field', () => {
 
       // THEN: verify COALESCE calculation
       const hasPrimary = await executeQuery('SELECT result FROM fallbacks WHERE id = 1')
-      expect(hasPrimary.result).toBe(10)
+      expect(parseFloat(hasPrimary.result)).toBe(10)
 
       const hasBackup = await executeQuery('SELECT result FROM fallbacks WHERE id = 2')
-      expect(hasBackup.result).toBe(20)
+      expect(parseFloat(hasBackup.result)).toBe(20)
 
       const hasDefault = await executeQuery('SELECT result FROM fallbacks WHERE id = 3')
-      expect(hasDefault.result).toBe(30)
+      expect(parseFloat(hasDefault.result)).toBe(30)
     }
   )
 
@@ -3481,7 +3481,9 @@ test.describe('Formula Field', () => {
       expect(
         (await executeQuery('SELECT safe_div FROM divisions WHERE id = 1')).safe_div
       ).toBeNull()
-      expect((await executeQuery('SELECT safe_div FROM divisions WHERE id = 2')).safe_div).toBe(5)
+      expect(
+        parseFloat((await executeQuery('SELECT safe_div FROM divisions WHERE id = 2')).safe_div)
+      ).toBe(5)
     }
   )
 
@@ -3539,7 +3541,9 @@ test.describe('Formula Field', () => {
       // WHEN: inserting a numeric text value
       await executeQuery("INSERT INTO coercions (text) VALUES ('42.5')")
       // THEN: formula parses text to numeric value
-      expect((await executeQuery('SELECT as_num FROM coercions WHERE id = 1')).as_num).toBe(42.5)
+      expect(
+        parseFloat((await executeQuery('SELECT as_num FROM coercions WHERE id = 1')).as_num)
+      ).toBe(42.5)
     }
   )
 
@@ -3571,7 +3575,9 @@ test.describe('Formula Field', () => {
       // WHEN: inserting a negative value
       await executeQuery('INSERT INTO nested (value) VALUES (-16)')
       // THEN: formula applies ABS, then SQRT, then ROUND correctly
-      expect((await executeQuery('SELECT result FROM nested WHERE id = 1')).result).toBe(4)
+      expect(
+        parseFloat((await executeQuery('SELECT result FROM nested WHERE id = 1')).result)
+      ).toBe(4)
     }
   )
 
@@ -4331,7 +4337,9 @@ test.describe('Formula Field', () => {
       await executeQuery('INSERT INTO complex (price, quantity, discount) VALUES (99.99, 3, 10)')
       // THEN: complex nested formula calculates correctly
       expect(
-        (await executeQuery('SELECT final_price FROM complex WHERE id = 1')).final_price
+        parseFloat(
+          (await executeQuery('SELECT final_price FROM complex WHERE id = 1')).final_price
+        )
       ).toBeCloseTo(269.97, 1)
     }
   )
@@ -4368,7 +4376,9 @@ test.describe('Formula Field', () => {
         'INSERT INTO invoices (subtotal, tax_rate, shipping) VALUES (100, 0.08, 5)'
       )
       // THEN: invoice total is calculated correctly
-      expect((await executeQuery('SELECT total FROM invoices WHERE id = 1')).total).toBe(113)
+      expect(
+        parseFloat((await executeQuery('SELECT total FROM invoices WHERE id = 1')).total)
+      ).toBe(113)
     }
   )
 
@@ -4403,9 +4413,9 @@ test.describe('Formula Field', () => {
         'INSERT INTO products (original_price, discount_percent) VALUES (79.99, 25)'
       )
       // THEN: sale price is calculated correctly
-      expect((await executeQuery('SELECT sale_price FROM products WHERE id = 1')).sale_price).toBe(
-        59.99
-      )
+      expect(
+        parseFloat((await executeQuery('SELECT sale_price FROM products WHERE id = 1')).sale_price)
+      ).toBe(59.99)
     }
   )
 

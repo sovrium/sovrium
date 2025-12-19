@@ -202,7 +202,13 @@ test.describe('Migration Audit Trail', () => {
       // GIVEN: Initialize test database - internal tables created automatically
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
+        tables: [
+          {
+            id: 999,
+            name: 'placeholder',
+            fields: [{ id: 1, name: 'id', type: 'integer' }],
+          },
+        ],
       })
 
       // GIVEN: Multiple migrations in history

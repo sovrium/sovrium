@@ -123,10 +123,16 @@ test.describe('Required Field Property', () => {
     'APP-TABLES-FIELD-REQUIRED-003: should fail migration when attempting to add NOT NULL constraint with existing NULL values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // Initialize test database with minimal schema
+      // Initialize test database with minimal schema (placeholder table required by validation)
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
+        tables: [
+          {
+            id: 999,
+            name: 'placeholder',
+            fields: [{ id: 1, name: 'id', type: 'integer' }],
+          },
+        ],
       })
 
       // GIVEN: required field with existing NULL values

@@ -54,6 +54,7 @@ test.describe('Remove Field Migration', () => {
           {
             id: 1,
             name: 'contacts',
+            allowDestructive: true, // Allow column drop
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'email', type: 'email' },
@@ -111,6 +112,7 @@ test.describe('Remove Field Migration', () => {
           {
             id: 2,
             name: 'products',
+            allowDestructive: true, // Allow column drop
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
@@ -133,7 +135,7 @@ test.describe('Remove Field Migration', () => {
       const dataCheck = await executeQuery(`SELECT title, price FROM products WHERE id = 1`)
       // THEN: assertion
       expect(dataCheck.title).toBe('Product A')
-      expect(dataCheck.price).toBe(99.99)
+      expect(parseFloat(dataCheck.price)).toBe(99.99) // NUMERIC returned as string by pg
     }
   )
 
@@ -165,6 +167,7 @@ test.describe('Remove Field Migration', () => {
           {
             id: 3,
             name: 'tasks',
+            allowDestructive: true, // Allow column drop
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
@@ -247,6 +250,7 @@ test.describe('Remove Field Migration', () => {
           {
             id: 5,
             name: 'orders',
+            allowDestructive: true, // Allow column drop
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 3, name: 'total', type: 'decimal' },
@@ -275,7 +279,7 @@ test.describe('Remove Field Migration', () => {
       // Data in remaining columns preserved
       const dataCheck = await executeQuery(`SELECT total FROM orders WHERE id = 1`)
       // THEN: assertion
-      expect(dataCheck.total).toBe(150)
+      expect(parseFloat(dataCheck.total)).toBe(150) // NUMERIC returned as string by pg
     }
   )
 

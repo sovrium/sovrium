@@ -197,7 +197,7 @@ test.describe('Row-Level Security Enforcement', () => {
       // The actual field filtering happens at the application layer based on schema config
       const data = await executeQuery(`SELECT name, email, salary, ssn FROM employees WHERE id = 1`)
       expect(data.rows[0].name).toBe('John Doe')
-      expect(data.rows[0].salary).toBe(75_000)
+      expect(parseFloat(data.rows[0].salary)).toBe(75_000) // decimal returned as string by pg
       expect(data.rows[0].ssn).toBe('123-45-6789')
     }
   )

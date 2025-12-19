@@ -550,7 +550,13 @@ test.describe('Database Indexes', () => {
       // Initialize database for raw SQL testing
       await startServerWithSchema({
         name: 'test-app',
-        tables: [], // No app tables needed - testing raw PostgreSQL GIN functionality
+        tables: [
+          {
+            id: 999,
+            name: 'placeholder',
+            fields: [{ id: 1, name: 'id', type: 'integer' }],
+          },
+        ], // Placeholder table needed - testing raw PostgreSQL GIN functionality
       })
 
       await executeQuery(
@@ -628,7 +634,7 @@ test.describe('Database Indexes', () => {
             },
           ],
         })
-      ).rejects.toThrow(/column.*status.*does not exist|not found/i)
+      ).rejects.toThrow(/references non-existent column|column.*status.*does not exist|not found/i)
     }
   )
 

@@ -102,9 +102,9 @@ test.describe('Lookup Field', () => {
         'SELECT id, customer_id, amount, customer_name FROM orders ORDER BY id'
       )
       expect(allOrders.rows).toEqual([
-        { id: 1, customer_id: 1, amount: 150.0, customer_name: 'Alice Johnson' },
-        { id: 2, customer_id: 2, amount: 200.0, customer_name: 'Bob Smith' },
-        { id: 3, customer_id: 1, amount: 75.5, customer_name: 'Alice Johnson' },
+        { id: 1, customer_id: 1, amount: '150.00', customer_name: 'Alice Johnson' },
+        { id: 2, customer_id: 2, amount: '200.00', customer_name: 'Bob Smith' },
+        { id: 3, customer_id: 1, amount: '75.50', customer_name: 'Alice Johnson' },
       ])
     }
   )
@@ -346,14 +346,14 @@ test.describe('Lookup Field', () => {
 
       // THEN: Lookup shows initial value
       const initialItem = await executeQuery('SELECT * FROM line_items WHERE id = 1')
-      expect(initialItem.product_price).toBe(19.99)
+      expect(parseFloat(initialItem.product_price)).toBe(19.99)
 
       // WHEN: Updating related product price
       await executeQuery('UPDATE products SET price = 24.99 WHERE id = 1')
 
       // THEN: Lookup reflects updated value immediately (view-based)
       const updatedItem = await executeQuery('SELECT * FROM line_items WHERE id = 1')
-      expect(updatedItem.product_price).toBe(24.99)
+      expect(parseFloat(updatedItem.product_price)).toBe(24.99)
     }
   )
 
@@ -540,7 +540,7 @@ test.describe('Lookup Field', () => {
       // THEN: All lookup field types are directly accessible
       const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
       expect(order.product_name).toBe('Widget Pro') // text
-      expect(order.product_price).toBe(99.99) // decimal
+      expect(parseFloat(order.product_price)).toBe(99.99) // decimal (returned as string by pg)
       expect(order.product_release_date).toBe('2024-03-15') // date (returned as ISO string by pg fixtures)
       expect(order.product_in_stock).toBe(true) // boolean
     }
