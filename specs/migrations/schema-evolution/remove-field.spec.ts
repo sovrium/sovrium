@@ -320,6 +320,7 @@ test.describe('Remove Field Migration', () => {
                 { id: 2, name: 'title', type: 'single-line-text' },
                 { id: 3, name: 'description', type: 'single-line-text' },
               ],
+              allowDestructive: true, // Allow column drop
             },
           ],
         })

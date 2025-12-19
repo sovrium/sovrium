@@ -268,6 +268,28 @@ export const TableSchema = Schema.Struct({
    * @see TablePermissionsSchema for full configuration options
    */
   permissions: Schema.optional(TablePermissionsSchema),
+
+  /**
+   * Allow destructive operations (column drops, table drops) without confirmation.
+   *
+   * When set to true, migrations are allowed to drop columns that exist in the database
+   * but are not present in the schema. This can result in data loss.
+   *
+   * When false or undefined, migrations will throw an error if a column needs to be dropped,
+   * requiring explicit confirmation to proceed with data loss operations.
+   *
+   * @default false
+   *
+   * @example Allow column drops
+   * ```typescript
+   * {
+   *   name: 'users',
+   *   fields: [{ id: 1, name: 'email', type: 'email' }],
+   *   allowDestructive: true // Allows dropping columns not in schema
+   * }
+   * ```
+   */
+  allowDestructive: Schema.optional(Schema.Boolean),
 }).pipe(
   Schema.filter(validateTableSchema),
   Schema.annotations({
