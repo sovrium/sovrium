@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
+import { CheckConstraintsSchema } from './check-constraints'
 import { FieldsSchema } from './fields'
 import { ForeignKeySchema } from './foreign-keys'
 import { IndexesSchema } from './indexes'
@@ -147,6 +148,33 @@ export const TableSchema = Schema.Struct({
   foreignKeys: Schema.optional(Schema.Array(ForeignKeySchema)),
 
   /**
+   * Custom CHECK constraints for complex business rules.
+   *
+   * Used to enforce conditional validation at the database level beyond
+   * simple field-level constraints. Useful for cross-field validation,
+   * conditional requirements, and complex business logic.
+   *
+   * @example Conditional requirement
+   * ```typescript
+   * constraints: [{
+   *   name: 'chk_active_members_have_email',
+   *   check: '(is_active = false) OR (email IS NOT NULL)'
+   * }]
+   * ```
+   *
+   * @example Range validation
+   * ```typescript
+   * constraints: [{
+   *   name: 'chk_end_after_start',
+   *   check: 'end_date > start_date'
+   * }]
+   * ```
+   *
+   * @see CheckConstraintsSchema for full configuration options
+   */
+  constraints: Schema.optional(CheckConstraintsSchema),
+
+  /**
    * Table-level permissions (high-level RBAC abstraction).
    *
    * Automatically generates RLS policies based on permission configuration.
@@ -212,14 +240,15 @@ export const TableSchema = Schema.Struct({
 export type Table = Schema.Schema.Type<typeof TableSchema>
 
 // Re-export all table model schemas and types for convenient imports
-export * from './id'
+export * from './check-constraints'
 export * from './field-name'
-export * from './name'
+export * from './field-types'
 export * from './fields'
+export * from './foreign-keys'
+export * from './id'
+export * from './indexes'
+export * from './name'
+export * from './permissions'
 export * from './primary-key'
 export * from './unique-constraints'
-export * from './indexes'
-export * from './foreign-keys'
-export * from './field-types'
 export * from './views'
-export * from './permissions'
