@@ -1736,7 +1736,9 @@ export const test = base.extend<ServerFixtures>({
         const client = new Client({ connectionString: url.toString() })
         await client.connect()
         try {
-          await client.query(`UPDATE "user" SET role = 'admin' WHERE id = $1`, [userId])
+          await client.query(`UPDATE "_sovrium_auth_users" SET role = 'admin' WHERE id = $1`, [
+            userId,
+          ])
         } finally {
           await client.end()
         }
