@@ -161,7 +161,10 @@ export const detectFieldRenames = (
  * Check if id column needs to be recreated due to type mismatch
  */
 const needsIdColumnRecreation = (
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   shouldProtectIdColumn: boolean
 ): boolean => {
   if (!shouldProtectIdColumn) return false
@@ -176,7 +179,10 @@ const needsIdColumnRecreation = (
  */
 const findColumnsToAdd = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   renamedNewNames: ReadonlySet<string>
 ): readonly Fields[number][] =>
   table.fields.filter((field) => {
@@ -191,7 +197,10 @@ const findColumnsToAdd = (
  * Find columns that should be dropped from the table
  */
 const findColumnsToDrop = (
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   schemaFieldsByName: ReadonlyMap<string, Fields[number]>,
   shouldProtectIdColumn: boolean,
   renamedOldNames: ReadonlySet<string>
@@ -228,7 +237,10 @@ const findColumnsToDrop = (
  */
 const findNullabilityChanges = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   renamedNewNames: ReadonlySet<string>,
   primaryKeyFields: readonly string[]
 ): readonly string[] =>
@@ -258,6 +270,96 @@ const findNullabilityChanges = (
     })
 
 /**
+ * Find columns that need default value changes
+ * Returns ALTER COLUMN statements for SET DEFAULT / DROP DEFAULT
+ */
+const findDefaultValueChanges = (
+  table: Table,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>
+): readonly string[] =>
+  table.fields
+    .filter((field) => {
+      // Skip UI-only fields, renamed fields, and fields not in database
+      if (!shouldCreateDatabaseColumn(field)) return false
+      if (renamedNewNames.has(field.name)) return false
+      if (!existingColumns.has(field.name)) return false
+      return true
+    })
+    .flatMap((field) => {
+      const existing = existingColumns.get(field.name)!
+      const hasDefault = 'default' in field && field.default !== undefined
+      const currentDefault = existing.columnDefault
+
+      // If field has default but column doesn't, add it
+      if (hasDefault && !currentDefault) {
+        const defaultValue = field.default
+        let formattedDefault: string
+
+        // Handle special default values
+        if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
+          formattedDefault = 'NOW()'
+        } else if (
+          typeof defaultValue === 'string' &&
+          defaultValue.toUpperCase() === 'CURRENT_DATE'
+        ) {
+          formattedDefault = 'CURRENT_DATE'
+        } else if (typeof defaultValue === 'boolean') {
+          formattedDefault = String(defaultValue)
+        } else if (typeof defaultValue === 'number') {
+          formattedDefault = String(defaultValue)
+        } else {
+          formattedDefault = `'${defaultValue}'`
+        }
+
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${formattedDefault}`]
+      }
+
+      // If field doesn't have default but column does, drop it
+      if (!hasDefault && currentDefault) {
+        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP DEFAULT`]
+      }
+
+      // If both have defaults but they differ, update it
+      if (hasDefault && currentDefault) {
+        const defaultValue = field.default
+        let formattedDefault: string
+
+        // Handle special default values
+        if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
+          formattedDefault = 'NOW()'
+        } else if (
+          typeof defaultValue === 'string' &&
+          defaultValue.toUpperCase() === 'CURRENT_DATE'
+        ) {
+          formattedDefault = 'CURRENT_DATE'
+        } else if (typeof defaultValue === 'boolean') {
+          formattedDefault = String(defaultValue)
+        } else if (typeof defaultValue === 'number') {
+          formattedDefault = String(defaultValue)
+        } else {
+          formattedDefault = `'${defaultValue}'`
+        }
+
+        // Check if current default contains the expected value
+        // PostgreSQL may format defaults differently (e.g., 'medium'::text vs 'medium')
+        const normalizedCurrent = currentDefault.toLowerCase().replace(/::.*$/, '')
+        const normalizedExpected = formattedDefault.toLowerCase().replace(/'/g, '')
+
+        if (!normalizedCurrent.includes(normalizedExpected)) {
+          return [
+            `ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${formattedDefault}`,
+          ]
+        }
+      }
+
+      return []
+    })
+
+/**
  * Generate ALTER TABLE statements for schema changes (ADD/DROP columns, nullability changes)
  */
 /**
@@ -266,7 +368,10 @@ const findNullabilityChanges = (
  */
 const generateCreatedAtStatement = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
 ): readonly string[] => {
   const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
   const hasCreatedAtColumn = existingColumns.has('created_at')
@@ -281,7 +386,10 @@ const generateCreatedAtStatement = (
  */
 const generateUpdatedAtStatement = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
 ): readonly string[] => {
   const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
   const hasUpdatedAtColumn = existingColumns.has('updated_at')
@@ -295,7 +403,10 @@ const generateUpdatedAtStatement = (
  */
 const generateDeletedAtStatement = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
 ): readonly string[] => {
   const hasDeletedAtField = table.fields.some((field) => field.name === 'deleted_at')
   const hasDeletedAtColumn = existingColumns.has('deleted_at')
@@ -332,7 +443,10 @@ const buildColumnStatements = (options: {
 /* eslint-disable-next-line max-lines-per-function */
 export const generateAlterTableStatements = (
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   previousSchema?: { readonly tables: readonly object[] }
 ): readonly string[] => {
   const primaryKeyFields =
@@ -380,6 +494,8 @@ export const generateAlterTableStatements = (
     primaryKeyFields
   )
 
+  const defaultValueChanges = findDefaultValueChanges(table, existingColumns, renamedNewNames)
+
   // Build column modification statements
   const { dropStatements, addStatements } = buildColumnStatements({
     tableName: table.name,
@@ -398,6 +514,7 @@ export const generateAlterTableStatements = (
     ...generateUpdatedAtStatement(table, existingColumns),
     ...generateDeletedAtStatement(table, existingColumns),
     ...nullabilityChanges,
+    ...defaultValueChanges,
   ]
 }
 

@@ -207,7 +207,7 @@ test.describe('Modify Field Default Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

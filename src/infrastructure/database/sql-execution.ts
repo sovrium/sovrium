@@ -30,6 +30,7 @@ export interface ColumnInfo {
   readonly column_name: string
   readonly data_type: string
   readonly is_nullable: string
+  readonly column_default: string | null
 }
 
 /**
@@ -160,13 +161,13 @@ export const getExistingColumns = (
   tx: TransactionLike,
   tableName: string
 ): Effect.Effect<
-  ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  ReadonlyMap<string, { dataType: string; isNullable: string; columnDefault: string | null }>,
   SQLExecutionError
 > =>
   executeSQL(
     tx,
     `
-    SELECT column_name, data_type, is_nullable
+    SELECT column_name, data_type, is_nullable, column_default
     FROM information_schema.columns
     WHERE table_name = '${tableName}'
       AND table_schema = 'public'
@@ -180,6 +181,7 @@ export const getExistingColumns = (
           {
             dataType: row.data_type,
             isNullable: row.is_nullable,
+            columnDefault: row.column_default,
           },
         ])
       )
