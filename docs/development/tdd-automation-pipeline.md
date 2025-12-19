@@ -254,7 +254,7 @@ bun run scripts/tdd-automation/queue-manager.ts status
    - **Result**: Automatically recovers PRs stuck with failed CI instead of timing out
 
 6. **📈 Update Spec State** (on push to main only)
-   - Runs `analyze:specs` to update SPEC-STATE.md
+   - Runs `analyze:specs` to update SPEC-PROGRESS.md
    - Commits changes automatically
 
 7. **🗑️ Branch Cleanup** (weekly on Sundays only)

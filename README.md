@@ -7,13 +7,13 @@
 
 <p align="center">
   <a href="https://github.com/sovrium/sovrium/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-BSL--1.1-blue" alt="License" /></a>
-  <a href="SPEC-STATE.md"><img src="https://img.shields.io/badge/progress-67%25-blue" alt="Progress" /></a>
+  <a href="SPEC-PROGRESS.md"><img src="https://img.shields.io/badge/progress-67%25-blue" alt="Progress" /></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f472b6" alt="Bun" /></a>
 </p>
 
 <p align="center">
   <a href="docs/specifications/vision.md">Vision</a> •
-  <a href="SPEC-STATE.md">Roadmap</a> •
+  <a href="SPEC-PROGRESS.md">Roadmap</a> •
   <a href="CLAUDE.md">Docs</a> •
   <a href="https://github.com/sovrium/sovrium/issues">Issues</a>
 </p>
@@ -123,7 +123,7 @@ Built on proven open-source tools:
 
 **Next**: Dynamic routing, CRUD operations, admin dashboards, multi-tenancy
 
-Track progress → [SPEC-STATE.md](SPEC-STATE.md)
+Track progress → [SPEC-PROGRESS.md](SPEC-PROGRESS.md)
 
 ---
 
