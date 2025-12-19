@@ -320,7 +320,7 @@ test.describe('Formula Field', () => {
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 2'
       )
       // THEN: assertion
-      expect(futureDueUnpaid.due_date).toBe('2025-12-31')
+      expect(futureDueUnpaid.due_date.toLocaleDateString('en-CA')).toBe('2025-12-31')
       // THEN: assertion
       expect(futureDueUnpaid.paid).toBe(false)
       // THEN: assertion
@@ -331,7 +331,7 @@ test.describe('Formula Field', () => {
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 3'
       )
       // THEN: assertion
-      expect(pastDuePaid.due_date).toBe('2024-06-01')
+      expect(pastDuePaid.due_date.toLocaleDateString('en-CA')).toBe('2024-06-01')
       // THEN: assertion
       expect(pastDuePaid.paid).toBe(true)
       // THEN: assertion

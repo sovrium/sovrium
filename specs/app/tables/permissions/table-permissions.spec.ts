@@ -85,18 +85,22 @@ test.describe('Table-Level Permissions', () => {
       })
 
       // Member user can SELECT records
-      const memberResult = await executeQuery(
-        "SET ROLE member_user; SET app.user_role = 'member'; SELECT COUNT(*) as count FROM projects"
-      )
+      const memberResult = await executeQuery([
+        'SET ROLE member_user',
+        "SET app.user_role = 'member'",
+        'SELECT COUNT(*) as count FROM projects',
+      ])
       // THEN: assertion
       expect(memberResult.count).toBe('2')
 
       // Non-member user cannot SELECT records (RLS filters to 0 rows)
       // Note: RLS doesn't throw errors - it returns 0 rows when policy denies access
       // THEN: assertion
-      const guestResult = await executeQuery(
-        "SET ROLE guest_user; SET app.user_role = 'guest'; SELECT COUNT(*) as count FROM projects"
-      )
+      const guestResult = await executeQuery([
+        'SET ROLE guest_user',
+        "SET app.user_role = 'guest'",
+        'SELECT COUNT(*) as count FROM projects',
+      ])
       expect(guestResult.count).toBe('0')
     }
   )
@@ -154,7 +158,10 @@ test.describe('Table-Level Permissions', () => {
       expect(anyUserResult.count).toBe('2')
 
       // Unauthenticated session can SELECT records
-      const unauthResult = await executeQuery('RESET ROLE; SELECT COUNT(*) as count FROM articles')
+      const unauthResult = await executeQuery([
+        'RESET ROLE',
+        'SELECT COUNT(*) as count FROM articles',
+      ])
       // THEN: assertion
       expect(unauthResult.count).toBe('2')
     }
@@ -204,16 +211,18 @@ test.describe('Table-Level Permissions', () => {
       expect(policyCount.count).toBe('0')
 
       // Admin user cannot SELECT (no policy)
-      const adminResult = await executeQuery(
-        'SET ROLE admin_user; SELECT COUNT(*) as count FROM secrets'
-      )
+      const adminResult = await executeQuery([
+        'SET ROLE admin_user',
+        'SELECT COUNT(*) as count FROM secrets',
+      ])
       // THEN: assertion
       expect(adminResult.count).toBe('0')
 
       // Any user gets empty result set (RLS blocks)
-      const memberResult = await executeQuery(
-        'SET ROLE member_user; SELECT COUNT(*) as count FROM secrets'
-      )
+      const memberResult = await executeQuery([
+        'SET ROLE member_user',
+        'SELECT COUNT(*) as count FROM secrets',
+      ])
       // THEN: assertion
       expect(memberResult.count).toBe('0')
     }

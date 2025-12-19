@@ -37,7 +37,7 @@ test.describe('CLI Start Command - Format Detection', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-FORMAT-001: should auto-detect JSON format from .json extension',
     { tag: '@spec' },
     async ({ startCliServerWithConfig, page }) => {
@@ -46,14 +46,14 @@ test.describe('CLI Start Command - Format Detection', () => {
       const server = await startCliServerWithConfig({
         format: 'json',
         config: {
-          name: 'JSON Format Test',
+          name: 'json-format-test',
           description: 'Auto-detected as JSON',
         },
       })
 
       // THEN: Server detects JSON format and starts successfully
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('JSON Format Test')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('json-format-test')
     }
   )
 
@@ -66,14 +66,14 @@ test.describe('CLI Start Command - Format Detection', () => {
       const server = await startCliServerWithConfig({
         format: 'yaml',
         config: `
-name: YAML Format Test
+name: yaml-format-test
 description: Auto-detected as YAML from .yaml extension
 `,
       })
 
       // THEN: Server detects YAML format and starts successfully
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('YAML Format Test')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('yaml-format-test')
     }
   )
 
@@ -86,14 +86,14 @@ description: Auto-detected as YAML from .yaml extension
       const server = await startCliServerWithConfig({
         format: 'yml',
         config: `
-name: YML Format Test
+name: yml-format-test
 description: Auto-detected as YAML from .yml extension
 `,
       })
 
       // THEN: Server detects YAML format from .yml and starts successfully
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('YML Format Test')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('yml-format-test')
     }
   )
 
@@ -116,10 +116,8 @@ description: Auto-detected as YAML from .yml extension
           const result = await captureCliOutput(configPath, { waitForServer: false })
 
           // THEN: CLI reports unsupported format error
-          expect(result.output.toLowerCase()).toMatch(
-            /unsupported|invalid|unknown.*format|file type|extension/i
-          )
-          expect(result.output).toContain(testCase.ext)
+          expect(result.output).toContain('Unsupported file format')
+          expect(result.output).toContain(`.${testCase.ext}`)
           expect(result.exitCode).not.toBe(0) // Should exit with error code
         } finally {
           await cleanupTempConfigFile(configPath)
@@ -138,19 +136,19 @@ description: Auto-detected as YAML from .yml extension
       // Test uppercase JSON
       await startCliServerWithConfig({
         format: 'json', // Extension case handled by file system
-        config: { name: 'Uppercase JSON', description: 'Test' },
+        config: { name: 'uppercase-json', description: 'Test' },
       })
 
       // Test mixed case YAML
       await startCliServerWithConfig({
         format: 'yaml',
-        config: 'name: Mixed Case YAML\ndescription: Test\n',
+        config: 'name: mixed-case-yaml\ndescription: Test\n',
       })
 
       // Test uppercase YML
       await startCliServerWithConfig({
         format: 'yml',
-        config: 'name: Uppercase YML\ndescription: Test\n',
+        config: 'name: uppercase-yml\ndescription: Test\n',
       })
     }
   )
@@ -167,42 +165,42 @@ description: Auto-detected as YAML from .yml extension
         const server = await startCliServerWithConfig({
           format: 'json',
           config: {
-            name: 'Multi-Format JSON App',
+            name: 'multi-format-json-app',
             description: 'JSON config test',
             version: '1.0.0',
           },
         })
 
         await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Format JSON App')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-format-json-app')
       })
 
       await test.step('Test YAML format detection and startup', async () => {
         const server = await startCliServerWithConfig({
           format: 'yaml',
           config: `
-name: Multi-Format YAML App
+name: multi-format-yaml-app
 description: YAML config test
 version: 2.0.0
 `,
         })
 
         await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Format YAML App')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-format-yaml-app')
       })
 
       await test.step('Test YML format detection and startup', async () => {
         const server = await startCliServerWithConfig({
           format: 'yml',
           config: `
-name: Multi-Format YML App
+name: multi-format-yml-app
 description: YML config test
 version: 3.0.0
 `,
         })
 
         await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Format YML App')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-format-yml-app')
       })
     }
   )

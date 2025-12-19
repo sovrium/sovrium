@@ -951,7 +951,7 @@ test.describe('Data Tables', () => {
       // WHEN: DELETE statement removes 1 row
       // THEN: PostgreSQL removes row, row count decreases to 2
       const initialCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
-      expect(initialCount.rows[0]).toMatchObject({ count: 3 })
+      expect(initialCount.rows[0]).toMatchObject({ count: '3' })
 
       const deletion = await executeQuery(
         `DELETE FROM customers WHERE email = 'john@example.com' RETURNING email`

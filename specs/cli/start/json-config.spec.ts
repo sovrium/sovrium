@@ -46,14 +46,14 @@ test.describe('CLI Start Command - JSON Configuration', () => {
       const server = await startCliServerWithConfig({
         format: 'json',
         config: {
-          name: 'Test App from JSON',
+          name: 'test-app-from-json',
           description: 'App loaded from JSON config file',
         },
       })
 
       // THEN: Server starts successfully and serves the app
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('Test App from JSON')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('test-app-from-json')
       await expect(page.getByTestId('app-description')).toHaveText(
         'App loaded from JSON config file'
       )

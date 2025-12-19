@@ -51,6 +51,7 @@
  */
 
 import { Effect, Console } from 'effect'
+import { load as parseYaml } from 'js-yaml'
 import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
 import type { AppEncoded } from '@/domain/models/app'
 
@@ -58,34 +59,55 @@ import type { AppEncoded } from '@/domain/models/app'
  * Show CLI help text
  */
 const showHelp = (): void => {
-  Effect.runSync(
-    Effect.gen(function* () {
-      yield* Console.log('Sovrium CLI')
-      yield* Console.log('')
-      yield* Console.log('Commands:')
-      yield* Console.log('  sovrium start [config.json]   Start a development server (default)')
-      yield* Console.log('  sovrium static [config.json]  Generate static site files')
-      yield* Console.log('  sovrium --help                Show this help message')
-      yield* Console.log('')
-      yield* Console.log('Examples:')
-      yield* Console.log('  # Start development server with JSON file')
-      yield* Console.log('  sovrium start app.json')
-      yield* Console.log('')
-      yield* Console.log('  # Start with environment variable')
-      yield* Console.log('  SOVRIUM_APP_JSON=\'{"name":"My App"}\' sovrium start')
-      yield* Console.log('')
-      yield* Console.log('  # Generate static site')
-      yield* Console.log('  sovrium static app.json')
-      yield* Console.log('')
-      yield* Console.log(
-        'For more information, see the documentation at https://sovrium.com/docs/cli'
-      )
-    })
-  )
+  const helpText = [
+    'Sovrium CLI',
+    '',
+    'Commands:',
+    '  sovrium start [config]        Start a development server (default)',
+    '  sovrium static [config]       Generate static site files',
+    '  sovrium --help                Show this help message',
+    '',
+    'Supported config formats: .json, .yaml, .yml',
+    '',
+    'Examples:',
+    '  # Start development server with JSON file',
+    '  sovrium start app.json',
+    '',
+    '  # Start with YAML file',
+    '  sovrium start app.yaml',
+    '',
+    '  # Start with environment variable',
+    '  SOVRIUM_APP_JSON=\'{"name":"My App"}\' sovrium start',
+    '',
+    '  # Generate static site',
+    '  sovrium static app.json',
+    '',
+    'For more information, see the documentation at https://sovrium.com/docs/cli',
+  ]
+
+  Effect.runSync(Console.log(helpText.join('\n')))
 }
 
 /**
- * Load app schema from a JSON file
+ * Detect file format from file extension
+ */
+const detectFormat = (filePath: string): 'json' | 'yaml' | 'unsupported' => {
+  const lowerPath = filePath.toLowerCase()
+  if (lowerPath.endsWith('.json')) return 'json'
+  if (lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml')) return 'yaml'
+  return 'unsupported'
+}
+
+/**
+ * Extract file extension from path
+ */
+const getFileExtension = (filePath: string): string => {
+  const match = filePath.match(/\.([^.]+)$/)
+  return match?.[1] ?? ''
+}
+
+/**
+ * Load app schema from a config file (JSON or YAML)
  */
 const loadSchemaFromFile = async (filePath: string, command: string): Promise<AppEncoded> => {
   const file = Bun.file(filePath)
@@ -105,13 +127,42 @@ const loadSchemaFromFile = async (filePath: string, command: string): Promise<Ap
     process.exit(1)
   }
 
-  try {
-    const content = await file.text()
-    return JSON.parse(content) as AppEncoded
-  } catch (error) {
+  // Detect format from file extension
+  const format = detectFormat(filePath)
+
+  if (format === 'unsupported') {
+    const extension = getFileExtension(filePath)
     Effect.runSync(
       Effect.gen(function* () {
-        yield* Console.error(`Error: Failed to parse JSON file: ${filePath}`)
+        yield* Console.error(`Error: Unsupported file format: .${extension}`)
+        yield* Console.error('')
+        yield* Console.error('Supported formats: .json, .yaml, .yml')
+        yield* Console.error('')
+        yield* Console.error('Usage:')
+        yield* Console.error(`  sovrium ${command} <config.json>`)
+        yield* Console.error(`  sovrium ${command} <config.yaml>`)
+      })
+    )
+    // Terminate process - imperative statement required for CLI
+    // eslint-disable-next-line functional/no-expression-statements
+    process.exit(1)
+  }
+
+  try {
+    const content = await file.text()
+
+    if (format === 'json') {
+      return JSON.parse(content) as AppEncoded
+    } else {
+      // format === 'yaml'
+      const parsed = parseYaml(content)
+      return parsed as AppEncoded
+    }
+  } catch (error) {
+    const formatName = format === 'json' ? 'JSON' : 'YAML'
+    Effect.runSync(
+      Effect.gen(function* () {
+        yield* Console.error(`Error: Failed to parse ${formatName} file: ${filePath}`)
         yield* Console.error('')
         yield* Console.error('Details:', error instanceof Error ? error.message : String(error))
       })
@@ -312,10 +363,17 @@ const command = Bun.argv[2] || 'start'
 const configArg = Bun.argv[3]
 
 /**
- * Check if argument is a JSON file path
+ * Check if argument is a config file path (JSON, YAML, or YML)
  */
-const isJsonFile = (arg: string | undefined): boolean =>
-  arg !== undefined && (arg.endsWith('.json') || arg.includes('/'))
+const isConfigFile = (arg: string | undefined): boolean =>
+  arg !== undefined &&
+  (arg.endsWith('.json') ||
+    arg.endsWith('.yaml') ||
+    arg.endsWith('.yml') ||
+    arg.endsWith('.JSON') ||
+    arg.endsWith('.YAML') ||
+    arg.endsWith('.YML') ||
+    arg.includes('/'))
 
 // Execute command - side effects required for CLI operation
 ;(async () => {
@@ -338,8 +396,8 @@ const isJsonFile = (arg: string | undefined): boolean =>
       process.exit(0)
       break
     default:
-      // If the command looks like a JSON file path, treat it as config for 'start'
-      if (isJsonFile(command)) {
+      // If the command looks like a config file path, treat it as config for 'start'
+      if (isConfigFile(command)) {
         // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
         await handleStartCommand(command)
       } else if (!command.startsWith('-')) {

@@ -68,9 +68,10 @@ test.describe('Field-Level Permissions', () => {
       // THEN: PostgreSQL query excludes salary column for non-admin users
 
       // Admin user can SELECT salary column
-      const adminResult = await executeQuery(
-        'SET ROLE admin_user; SELECT id, name, salary, department FROM employees WHERE id = 1'
-      )
+      const adminResult = await executeQuery([
+        'SET ROLE admin_user',
+        'SELECT id, name, salary, department FROM employees WHERE id = 1',
+      ])
       // THEN: assertion
       expect(adminResult).toMatchObject({
         id: 1,
@@ -80,9 +81,10 @@ test.describe('Field-Level Permissions', () => {
       })
 
       // Member user SELECT excludes salary (application layer filtering)
-      const memberResult = await executeQuery(
-        'SET ROLE member_user; SELECT id, name, department FROM employees WHERE id = 1'
-      )
+      const memberResult = await executeQuery([
+        'SET ROLE member_user',
+        'SELECT id, name, department FROM employees WHERE id = 1',
+      ])
       // THEN: assertion
       expect(memberResult).toMatchObject({
         id: 1,
@@ -95,7 +97,7 @@ test.describe('Field-Level Permissions', () => {
       // Note: PostgreSQL's column-level GRANT restrictions return "permission denied for table"
       // error message, not "permission denied for column", when a restricted column is queried
       await expect(async () => {
-        await executeQuery('SET ROLE member_user; SELECT salary FROM employees WHERE id = 1')
+        await executeQuery(['SET ROLE member_user', 'SELECT salary FROM employees WHERE id = 1'])
       }).rejects.toThrow('permission denied for table employees')
     }
   )
@@ -141,16 +143,18 @@ test.describe('Field-Level Permissions', () => {
       // THEN: PostgreSQL UPDATE triggers or application layer rejects modification
 
       // Admin user can UPDATE email field
-      const adminUpdate = await executeQuery(
-        "SET ROLE admin_user; UPDATE users SET email = 'alice.new@example.com' WHERE id = 1 RETURNING email"
-      )
+      const adminUpdate = await executeQuery([
+        'SET ROLE admin_user',
+        "UPDATE users SET email = 'alice.new@example.com' WHERE id = 1 RETURNING email",
+      ])
       // THEN: assertion
       expect(adminUpdate.email).toBe('alice.new@example.com')
 
       // Member user can UPDATE other fields
-      const memberUpdate = await executeQuery(
-        "SET ROLE member_user; UPDATE users SET bio = 'Updated bio' WHERE id = 1 RETURNING bio"
-      )
+      const memberUpdate = await executeQuery([
+        'SET ROLE member_user',
+        "UPDATE users SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
+      ])
       // THEN: assertion
       expect(memberUpdate.bio).toBe('Updated bio')
 
@@ -159,9 +163,10 @@ test.describe('Field-Level Permissions', () => {
       // Note: PostgreSQL returns "permission denied for table" when column-level UPDATE is denied
       // This is consistent with test 004 behavior for field-level write restrictions
       await expect(async () => {
-        await executeQuery(
-          "SET ROLE member_user; UPDATE users SET email = 'hacked@example.com' WHERE id = 1"
-        )
+        await executeQuery([
+          'SET ROLE member_user',
+          "UPDATE users SET email = 'hacked@example.com' WHERE id = 1",
+        ])
       }).rejects.toThrow('permission denied for table users')
     }
   )
@@ -220,9 +225,10 @@ test.describe('Field-Level Permissions', () => {
       // THEN: PostgreSQL SELECT includes only columns user has permission to read
 
       // Admin user sees all fields
-      const adminResult = await executeQuery(
-        'SET ROLE admin_user; SELECT name, email, salary, department FROM staff WHERE id = 1'
-      )
+      const adminResult = await executeQuery([
+        'SET ROLE admin_user',
+        'SELECT name, email, salary, department FROM staff WHERE id = 1',
+      ])
       // THEN: assertion
       expect(adminResult).toMatchObject({
         name: 'Alice',
@@ -232,9 +238,10 @@ test.describe('Field-Level Permissions', () => {
       })
 
       // Authenticated user sees name, email, department (no salary)
-      const authResult = await executeQuery(
-        'SET ROLE authenticated_user; SELECT name, email, department FROM staff WHERE id = 1'
-      )
+      const authResult = await executeQuery([
+        'SET ROLE authenticated_user',
+        'SELECT name, email, department FROM staff WHERE id = 1',
+      ])
       // THEN: assertion
       expect(authResult).toMatchObject({
         name: 'Alice',
@@ -243,9 +250,10 @@ test.describe('Field-Level Permissions', () => {
       })
 
       // Unauthenticated user sees name, department only
-      const unauthResult = await executeQuery(
-        'RESET ROLE; SELECT name, department FROM staff WHERE id = 1'
-      )
+      const unauthResult = await executeQuery([
+        'RESET ROLE',
+        'SELECT name, department FROM staff WHERE id = 1',
+      ])
       // THEN: assertion
       expect(unauthResult).toMatchObject({
         name: 'Alice',
@@ -295,9 +303,10 @@ test.describe('Field-Level Permissions', () => {
       // THEN: PostgreSQL SELECT includes status field for all users
 
       // Unauthenticated user can SELECT status
-      const unauthResult = await executeQuery(
-        'RESET ROLE; SELECT title, status FROM tickets WHERE id = 1'
-      )
+      const unauthResult = await executeQuery([
+        'RESET ROLE',
+        'SELECT title, status FROM tickets WHERE id = 1',
+      ])
       // THEN: assertion
       expect(unauthResult).toMatchObject({
         title: 'Bug #123',
@@ -305,18 +314,20 @@ test.describe('Field-Level Permissions', () => {
       })
 
       // Admin user can UPDATE status
-      const adminUpdate = await executeQuery(
-        "SET ROLE admin_user; UPDATE tickets SET status = 'closed' WHERE id = 1 RETURNING status"
-      )
+      const adminUpdate = await executeQuery([
+        'SET ROLE admin_user',
+        "UPDATE tickets SET status = 'closed' WHERE id = 1 RETURNING status",
+      ])
       // THEN: assertion
       expect(adminUpdate.status).toBe('closed')
 
       // Member user cannot UPDATE status
       // THEN: assertion
       await expect(async () => {
-        await executeQuery(
-          "SET ROLE member_user; UPDATE tickets SET status = 'reopened' WHERE id = 1"
-        )
+        await executeQuery([
+          'SET ROLE member_user',
+          "UPDATE tickets SET status = 'reopened' WHERE id = 1",
+        ])
       }).rejects.toThrow('permission denied for table tickets')
     }
   )
@@ -369,24 +380,27 @@ test.describe('Field-Level Permissions', () => {
       // THEN: PostgreSQL RLS policy or application layer denies UPDATE
 
       // Owner (user 1) can UPDATE notes on their task
-      const ownerUpdate = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes`
-      )
+      const ownerUpdate = await executeQuery([
+        `SET LOCAL app.user_id = '${user1.user.id}'`,
+        "UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes",
+      ])
       // THEN: assertion
       expect(ownerUpdate.notes).toBe('Updated by owner')
 
       // Non-owner (user 2) cannot UPDATE notes on task 1
       // THEN: assertion
       await expect(async () => {
-        await executeQuery(
-          `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1`
-        )
+        await executeQuery([
+          `SET LOCAL app.user_id = '${user2.user.id}'`,
+          "UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1",
+        ])
       }).rejects.toThrow('permission denied for column notes')
 
       // Owner can UPDATE notes on their own task (task 2)
-      const owner2Update = await executeQuery(
-        `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes`
-      )
+      const owner2Update = await executeQuery([
+        `SET LOCAL app.user_id = '${user2.user.id}'`,
+        "UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes",
+      ])
       // THEN: assertion
       expect(owner2Update.notes).toBe('My notes')
     }
