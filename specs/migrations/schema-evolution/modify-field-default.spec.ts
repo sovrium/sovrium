@@ -24,7 +24,7 @@ test.describe('Modify Field Default Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     "MIGRATION-MODIFY-DEFAULT-001: should alter table alter column set default 'medium'",
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
