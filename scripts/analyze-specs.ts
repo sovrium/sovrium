@@ -1045,36 +1045,26 @@ function generateMarkdown(state: SpecState): string {
   lines.push('')
 
   // ==========================================================================
-  // EXECUTIVE SUMMARY
+  // EXECUTIVE SUMMARY (consolidated table - no prose duplication)
   // ==========================================================================
   lines.push('## 🎯 Executive Summary')
-  lines.push('')
-  lines.push(
-    `**Current Status**: ${progressPercent}% Complete (${state.summary.totalPassing}/${state.summary.totalTests} tests passing)`
-  )
-  lines.push(`**Quality Score**: ${state.summary.qualityScore}%`)
-  if (state.tddAutomation.estimatedCompletionDate) {
-    lines.push(
-      `**Estimated Completion**: ${state.tddAutomation.estimatedCompletionDate} (${etaText})`
-    )
-  }
-  lines.push(`**Daily Velocity**: ${state.tddAutomation.avgFixesPerDay} specs/day`)
-  lines.push('')
-
-  // Key Metrics at a Glance table
-  lines.push('### Key Metrics at a Glance')
   lines.push('')
   lines.push('| Category | Metric | Status |')
   lines.push('|----------|--------|--------|')
   lines.push(
-    `| **Overall Progress** | [${'█'.repeat(progressFilled)}${'░'.repeat(progressEmpty)}] ${progressPercent}% | ${health.emoji} ${health.label} |`
+    `| **Overall Progress** | [${'█'.repeat(progressFilled)}${'░'.repeat(progressEmpty)}] ${progressPercent}% (${state.summary.totalPassing}/${state.summary.totalTests} tests) | ${health.emoji} ${health.label} |`
   )
   lines.push(
-    `| **TDD Automation** | ${state.tddAutomation.avgFixesPerDay} specs/day | ${state.tddAutomation.avgFixesPerDay >= 25 ? '🟢 Healthy' : state.tddAutomation.avgFixesPerDay >= 15 ? '🟡 Moderate' : '🔴 Slow'} |`
+    `| **Daily Velocity** | ${state.tddAutomation.avgFixesPerDay} specs/day | ${state.tddAutomation.avgFixesPerDay >= 25 ? '🟢 Healthy' : state.tddAutomation.avgFixesPerDay >= 15 ? '🟡 Moderate' : '🔴 Slow'} |`
   )
   lines.push(
-    `| **Quality** | ${state.summary.qualityScore}% score | ${state.summary.qualityScore >= 90 ? '🟢 Excellent' : state.summary.qualityScore >= 75 ? '🟡 Good' : '🔴 Needs Work'} |`
+    `| **Quality Score** | ${state.summary.qualityScore}% | ${state.summary.qualityScore >= 90 ? '🟢 Excellent' : state.summary.qualityScore >= 75 ? '🟡 Good' : '🔴 Needs Work'} |`
   )
+  if (state.tddAutomation.estimatedCompletionDate) {
+    lines.push(
+      `| **Estimated Completion** | ${state.tddAutomation.estimatedCompletionDate} (${etaText}) | ${health.emoji} ${health.label} |`
+    )
+  }
   lines.push(
     `| **Blockers** | ${state.summary.issuesByType.errors} errors, ${state.summary.issuesByType.warnings} warnings | ${state.summary.issuesByType.errors === 0 ? '🟢 Clear' : '🔴 Blocked'} |`
   )
@@ -1183,11 +1173,7 @@ function generateMarkdown(state: SpecState): string {
   lines.push(`| 🔄 Duplicate IDs | ${state.summary.duplicateSpecIds} |`)
   lines.push('')
 
-  // Progress bar
-  lines.push(
-    `**Progress:** [${'█'.repeat(progressFilled)}${'░'.repeat(progressEmpty)}] ${progressPercent}% (${state.summary.totalPassing}/${state.summary.totalTests})`
-  )
-  lines.push('')
+  // Progress bar removed - now only in Executive Summary to avoid redundancy
 
   // ==========================================================================
   // TDD AUTOMATION
@@ -1196,13 +1182,7 @@ function generateMarkdown(state: SpecState): string {
     lines.push('## 🤖 TDD Automation')
     lines.push('')
 
-    if (state.tddAutomation.estimatedDaysRemaining !== null) {
-      lines.push(`**⏱️ Estimated Time Remaining:** ${etaText}`)
-      if (state.tddAutomation.estimatedCompletionDate) {
-        lines.push(`**📅 Estimated Completion:** ${state.tddAutomation.estimatedCompletionDate}`)
-      }
-      lines.push('')
-    }
+    // Prose headers removed - ETA already in Executive Summary, details in table below
 
     lines.push('| Metric | Value |')
     lines.push('|--------|-------|')
@@ -1212,6 +1192,9 @@ function generateMarkdown(state: SpecState): string {
     lines.push(`| Fixed Last 30d | ${state.tddAutomation.fixedLast30d} |`)
     lines.push(`| Avg Fixes/Day | ${state.tddAutomation.avgFixesPerDay} |`)
     lines.push(`| Remaining | ${state.summary.totalFixme} |`)
+    if (state.tddAutomation.estimatedDaysRemaining !== null) {
+      lines.push(`| ETA | ${etaText} (${state.tddAutomation.estimatedCompletionDate || 'N/A'}) |`)
+    }
     lines.push('')
 
     // Recent fixes
