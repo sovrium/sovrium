@@ -4,11 +4,11 @@
 
 ## Project Context
 
-**Vision**: Sovrium aims to be a configuration-driven application platform (see `@docs/specifications/vision.md` for full vision)
+**Vision**: Sovrium aims to be a configuration-driven application platform (see `VISION.md` for full vision)
 **Current Status**: Phase 0 - Foundation (minimal schema with metadata only)
-**Implementation Progress**: See `ROADMAP.md` for detailed feature tracking and development phases
+**Implementation Progress**: See `SPEC-PROGRESS.md` for detailed feature tracking and development phases
 
-> 💡 When writing code or tests, keep the target architecture in mind (vision.md) while working within current capabilities (ROADMAP.md)
+> 💡 When writing code or tests, keep the target architecture in mind (VISION.md) while working within current capabilities (SPEC-PROGRESS.md)
 
 ## Quick Reference
 

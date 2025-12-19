@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/specifications/vision.md">Vision</a> •
+  <a href="VISION.md">Vision</a> •
   <a href="SPEC-PROGRESS.md">Roadmap</a> •
   <a href="CLAUDE.md">Docs</a> •
   <a href="https://github.com/sovrium/sovrium/issues">Issues</a>

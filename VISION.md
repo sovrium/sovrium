@@ -1,12 +1,14 @@
 # Sovrium Vision & Mission
 
-> **⚠️ Vision Document**: This document describes the **purpose, vision, and target state** for Sovrium. Most features described here are **not yet implemented**. For current capabilities, see [ROADMAP.md](../../ROADMAP.md).
+> **⚠️ Vision Document**: This document describes the **purpose, vision, and target state** for Sovrium. Most features described here are **not yet implemented**. For current capabilities, see [SPEC-PROGRESS.md](SPEC-PROGRESS.md).
 
 ---
 
 ## Mission Statement
 
-**To make every organization sovereign in their information systems—free from SaaS lock-in, in complete control of their data, and empowered to build business applications through simple JSON configuration.**
+**To make every organization sovereign in their information systems—free from SaaS lock-in, in complete control of their data, and empowered to build business applications through configuration-as-code.**
+
+_Own your data. Own your tools. Own your future._
 
 ---
 
@@ -46,23 +48,48 @@ No-code tools promised to make software development accessible, but instead crea
 
 ### What Sovrium Does
 
-Sovrium is a **source-available runtime** that interprets JSON configuration files to build and serve full-featured web applications—without code generation, without vendor lock-in, without loss of control.
+Sovrium is a **source-available runtime** that interprets configuration files to build and serve full-featured web applications—without code generation, without vendor lock-in, without loss of control.
 
-```typescript
-// Your entire business application in one JSON file
+**Choose your format**—JSON, YAML, or TypeScript:
+
+```json
+// sovrium.json — Universal, simple
 {
   "name": "Company CRM",
-  "tables": [ /* your data structures */ ],
-  "pages": [ /* your web interfaces */ ],
-  "automations": [ /* your workflows */ ],
-  "connections": [ /* your integrations */ ]
+  "tables": [{ "id": 1, "name": "contacts", "fields": [...] }],
+  "pages": [{ "id": 1, "path": "/", "title": "Dashboard" }]
 }
+```
+
+```yaml
+# sovrium.yaml — Readable, with comments
+name: Company CRM
+tables:
+  - id: 1
+    name: contacts
+    fields: [...] # Your data structures
+pages:
+  - id: 1
+    path: /
+    title: Dashboard
+```
+
+```typescript
+// app.ts — Type-safe, with IDE completion
+import { start } from 'sovrium'
+
+await start({
+  name: 'Company CRM',
+  tables: [{ id: 1, name: 'contacts', fields: [...] }],
+  pages: [{ id: 1, path: '/', title: 'Dashboard' }],
+})
 ```
 
 **One command to run:**
 
 ```bash
-bun run sovrium start config.json
+sovrium start config.json    # or config.yaml
+bun run app.ts               # for TypeScript
 ```
 
 **Result**: A complete web application with database, authentication, API, and UI—running on your infrastructure, under your control.
@@ -70,11 +97,11 @@ bun run sovrium start config.json
 ### How It Works
 
 ```
-JSON Configuration → Sovrium Runtime → Live Application
-     (Your business logic)  (Our engine)    (Your infrastructure)
+Configuration File → Sovrium Runtime → Live Application
+  (Your business logic)   (Our engine)    (Your infrastructure)
 ```
 
-1. **You write**: JSON configuration describing your business needs
+1. **You write**: Configuration in your preferred format (JSON, YAML, or TypeScript)
 2. **Sovrium interprets**: Configuration at runtime (no code generation)
 3. **You own**: Full application running on your servers
 4. **You control**: Data, features, deployment, everything
@@ -96,9 +123,10 @@ Organizations should **own** their information systems, not **rent** them.
 
 Business applications should be **configured**, not **programmed**.
 
-- **JSON/TypeScript** instead of visual drag-and-drop
+- **Text-based configuration** (JSON, YAML, or TypeScript) instead of visual drag-and-drop
 - **Version control** (Git) for all configuration
 - **Type safety** with compile-time validation
+- **Format flexibility** — choose what fits your team (JSON for simplicity, YAML for readability, TypeScript for type safety)
 - **Reusable templates** as organizational knowledge
 
 ### 3. **Minimal Dependencies**
@@ -121,7 +149,7 @@ Engineering teams should focus on **business logic**, not **infrastructure compl
 
 ### 5. **Configuration Reusability**
 
-JSON templates become **organizational assets** that accelerate development.
+Configuration templates become **organizational assets** that accelerate development.
 
 ```typescript
 // Base template: CRM
@@ -146,7 +174,7 @@ const partnerCRM = { ...crmTemplate, permissions: [...] }
 - **Alternative to**: Airtable, Retool, Notion, Webflow, Zapier (self-hosted, config-driven)
 - **Installation**: Bun package (`npm install sovrium`)
 - **Deployment**: Your infrastructure (AWS, Vercel, Docker, bare metal)
-- **Configuration**: JSON/TypeScript files (version-controlled)
+- **Configuration**: JSON, YAML, or TypeScript files (version-controlled, your choice)
 - **Source**: Source-available, fair-code model
 - **Target users**: Developers, DevOps teams, technical organizations
 - **Best for**: Internal tools, customer portals, business applications, APIs
@@ -172,7 +200,7 @@ const partnerCRM = { ...crmTemplate, permissions: [...] }
 | **Monthly Cost**    | $0 (infra only)                | $20-50/user/month             |
 | **Vendor Lock-in**  | ✅ None (self-hosted)          | ❌ Complete                   |
 | **Customization**   | ✅ Unlimited (source access)   | ⚠️ Limited to vendor features |
-| **Version Control** | ✅ Git-native JSON             | ⚠️ Limited or none            |
+| **Version Control** | ✅ Git-native config files     | ⚠️ Limited or none            |
 | **Privacy**         | ✅ 100% your control           | ❌ Third-party servers        |
 | **Dependencies**    | ✅ Minimal (compute + storage) | ❌ Full vendor dependency     |
 
@@ -256,7 +284,7 @@ When businesses need internal tools, customer portals, or business applications,
 ✅ **Choose Sovrium if you**:
 
 - Value data ownership and privacy
-- Have engineering resources (can write JSON)
+- Have engineering resources (can write configuration files)
 - Want to minimize SaaS subscriptions
 - Need to build multiple internal tools
 - Require customization beyond vendor offerings
@@ -313,7 +341,7 @@ All features are defined in `src/domain/models/app/` using Effect Schema:
 
 **The Problem**: Organizations are trapped in SaaS dependency—paying monthly fees, losing data control, and adapting their business to vendor limitations.
 
-**The Solution**: Sovrium gives organizations **digital sovereignty**—own your data, define your features, build your tools, all through simple JSON configuration.
+**The Solution**: Sovrium gives organizations **digital sovereignty**—own your data, define your features, build your tools, all through configuration-as-code in your preferred format.
 
 **The Vision**: A world where every organization can build the software they need, without surrendering control to SaaS vendors or drowning in infrastructure complexity.
 

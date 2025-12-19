@@ -10,7 +10,7 @@
 
 ## Product Vision & Roadmap
 
-- `@docs/specifications/vision.md` - Target state and product vision (future capabilities)
+- `VISION.md` - Target state and product vision (future capabilities)
 - `@SPEC-PROGRESS.md` - Test coverage progress, TDD automation stats, and actionable next steps
 
 ## Schema Architecture

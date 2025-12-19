@@ -397,7 +397,7 @@ The following aspects of runtime SQL migrations require manual code review and c
    - Benchmark startup time (target < 5s for typical schemas)
    - Profile memory usage
 
-**Tracking**: See `ROADMAP.md` Phase 0 - Foundation for complete implementation roadmap
+**Tracking**: See `SPEC-PROGRESS.md` Phase 0 - Foundation for complete implementation roadmap
 
 **Design Review**: Product Architecture review completed (2025-01-25). Raw SQL generation approach validated as simpler and more performant than Drizzle .ts file generation.
 
