@@ -282,7 +282,10 @@ const applyTableFeatures = (
  * Get compatible columns between existing and new table for data migration
  */
 const getCompatibleColumns = (
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>
 ): readonly string[] =>
   Array.from(existingColumns.keys()).filter((col) => {
@@ -336,7 +339,10 @@ const copyDataAndResetSequences = (
 const recreateTableWithDataEffect = (
   tx: TransactionLike,
   table: Table,
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
@@ -412,7 +418,10 @@ export type MigrationConfig = {
 export const migrateExistingTableEffect = (params: {
   readonly tx: TransactionLike
   readonly table: Table
-  readonly existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+  readonly existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >
   readonly tableUsesView?: ReadonlyMap<string, boolean>
   readonly previousSchema?: { readonly tables: readonly object[] }
 }): Effect.Effect<void, SQLExecutionError> =>

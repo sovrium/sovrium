@@ -270,6 +270,26 @@ const findNullabilityChanges = (
     })
 
 /**
+ * Format a default value for use in SQL
+ * Handles special values like NOW(), CURRENT_DATE, and properly quotes strings
+ */
+const formatDefaultValue = (defaultValue: unknown): string => {
+  if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
+    return 'NOW()'
+  }
+  if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'CURRENT_DATE') {
+    return 'CURRENT_DATE'
+  }
+  if (typeof defaultValue === 'boolean') {
+    return String(defaultValue)
+  }
+  if (typeof defaultValue === 'number') {
+    return String(defaultValue)
+  }
+  return `'${defaultValue}'`
+}
+
+/**
  * Find columns that need default value changes
  * Returns ALTER COLUMN statements for SET DEFAULT / DROP DEFAULT
  */
@@ -296,25 +316,7 @@ const findDefaultValueChanges = (
 
       // If field has default but column doesn't, add it
       if (hasDefault && !currentDefault) {
-        const defaultValue = field.default
-        let formattedDefault: string
-
-        // Handle special default values
-        if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
-          formattedDefault = 'NOW()'
-        } else if (
-          typeof defaultValue === 'string' &&
-          defaultValue.toUpperCase() === 'CURRENT_DATE'
-        ) {
-          formattedDefault = 'CURRENT_DATE'
-        } else if (typeof defaultValue === 'boolean') {
-          formattedDefault = String(defaultValue)
-        } else if (typeof defaultValue === 'number') {
-          formattedDefault = String(defaultValue)
-        } else {
-          formattedDefault = `'${defaultValue}'`
-        }
-
+        const formattedDefault = formatDefaultValue(field.default)
         return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${formattedDefault}`]
       }
 
@@ -325,24 +327,7 @@ const findDefaultValueChanges = (
 
       // If both have defaults but they differ, update it
       if (hasDefault && currentDefault) {
-        const defaultValue = field.default
-        let formattedDefault: string
-
-        // Handle special default values
-        if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
-          formattedDefault = 'NOW()'
-        } else if (
-          typeof defaultValue === 'string' &&
-          defaultValue.toUpperCase() === 'CURRENT_DATE'
-        ) {
-          formattedDefault = 'CURRENT_DATE'
-        } else if (typeof defaultValue === 'boolean') {
-          formattedDefault = String(defaultValue)
-        } else if (typeof defaultValue === 'number') {
-          formattedDefault = String(defaultValue)
-        } else {
-          formattedDefault = `'${defaultValue}'`
-        }
+        const formattedDefault = formatDefaultValue(field.default)
 
         // Check if current default contains the expected value
         // PostgreSQL may format defaults differently (e.g., 'medium'::text vs 'medium')
