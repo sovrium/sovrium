@@ -191,7 +191,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-004: should fail and rollback all table creations when foreign key references non-existent table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -201,6 +201,7 @@ test.describe('Error Handling and Rollback', () => {
       // THEN: Migration fails and rolls back all table creations
 
       // Foreign key creation fails (users table does not exist)
+      // Error can occur at either schema validation or PostgreSQL execution level
       await expect(async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -221,7 +222,7 @@ test.describe('Error Handling and Rollback', () => {
             },
           ],
         })
-      }).rejects.toThrow(/relation "users" does not exist/i)
+      }).rejects.toThrow(/relatedTable "users" does not exist|relation "users" does not exist/i)
 
       // Posts table NOT created
       const postsTable = await executeQuery(
