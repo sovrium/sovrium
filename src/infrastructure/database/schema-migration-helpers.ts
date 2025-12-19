@@ -238,6 +238,26 @@ const findColumnsToDrop = (
   })
 
 /**
+ * Filter fields that should be checked for schema modifications
+ * Excludes UI-only fields, renamed fields, and fields not in the database
+ */
+const filterModifiableFields = (
+  fields: readonly Fields[number][],
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>
+): readonly Fields[number][] =>
+  fields.filter((field) => {
+    // Skip UI-only fields, renamed fields, and fields not in database
+    if (!shouldCreateDatabaseColumn(field)) return false
+    if (renamedNewNames.has(field.name)) return false
+    if (!existingColumns.has(field.name)) return false
+    return true
+  })
+
+/**
  * Find columns that need nullability changes
  * Returns ALTER COLUMN statements for SET NOT NULL / DROP NOT NULL
  */
@@ -250,30 +270,22 @@ const findNullabilityChanges = (
   renamedNewNames: ReadonlySet<string>,
   primaryKeyFields: readonly string[]
 ): readonly string[] =>
-  table.fields
-    .filter((field) => {
-      // Skip UI-only fields, renamed fields, and fields not in database
-      if (!shouldCreateDatabaseColumn(field)) return false
-      if (renamedNewNames.has(field.name)) return false
-      if (!existingColumns.has(field.name)) return false
-      return true
-    })
-    .flatMap((field) => {
-      const existing = existingColumns.get(field.name)!
-      const isPrimaryKey = primaryKeyFields.includes(field.name)
-      const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
-      const currentlyNotNull = existing.isNullable === 'NO'
+  filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
+    const existing = existingColumns.get(field.name)!
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    const shouldBeNotNull = isFieldNotNull(field, isPrimaryKey)
+    const currentlyNotNull = existing.isNullable === 'NO'
 
-      // If nullability differs, generate ALTER COLUMN statement
-      if (shouldBeNotNull && !currentlyNotNull) {
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
-      }
-      if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
-        // Only DROP NOT NULL if it's not a primary key or auto-managed field
-        return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
-      }
-      return []
-    })
+    // If nullability differs, generate ALTER COLUMN statement
+    if (shouldBeNotNull && !currentlyNotNull) {
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+    }
+    if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
+      // Only DROP NOT NULL if it's not a primary key or auto-managed field
+      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} DROP NOT NULL`]
+    }
+    return []
+  })
 
 /**
  * Find columns that need default value changes
@@ -304,15 +316,7 @@ const findDefaultValueChanges = (
       .map((f) => [f.name!, f.default]) ?? []
   )
 
-  return table.fields
-    .filter((field) => {
-      // Skip UI-only fields, renamed fields, and fields not in database
-      if (!shouldCreateDatabaseColumn(field)) return false
-      if (renamedNewNames.has(field.name)) return false
-      if (!existingColumns.has(field.name)) return false
-      return true
-    })
-    .flatMap((field) => {
+  return filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
       const currentDefault = 'default' in field ? field.default : undefined
       const previousDefault = previousFieldsByName.get(field.name)
 
