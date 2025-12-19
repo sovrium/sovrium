@@ -47,14 +47,14 @@ test.describe('CLI Start Command - YAML Configuration', () => {
       const server = await startCliServerWithConfig({
         format: 'yaml',
         config: `
-name: Test App from YAML
+name: test-app-from-yaml
 description: App loaded from YAML config file
 `,
       })
 
       // THEN: Server starts successfully and serves the app
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('Test App from YAML')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('test-app-from-yaml')
       await expect(page.getByTestId('app-description')).toHaveText(
         'App loaded from YAML config file'
       )
@@ -70,14 +70,14 @@ description: App loaded from YAML config file
       const server = await startCliServerWithConfig({
         format: 'yml',
         config: `
-name: Test YML Extension
+name: test-yml-extension
 description: Testing .yml file support
 `,
       })
 
       // THEN: Server starts successfully with .yml file
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('Test YML Extension')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('test-yml-extension')
     }
   )
 
@@ -143,7 +143,7 @@ version: 1.0.0
         format: 'yaml',
         config: `
 # Application configuration
-name: YAML Features Test
+name: yaml-features-test
 
 # Multi-line description using pipe operator
 description: |
@@ -163,7 +163,7 @@ theme:
 
       // THEN: Server parses YAML correctly, preserving multi-line strings
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('YAML Features Test')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('yaml-features-test')
 
       // Verify multi-line description is preserved
       const description = await page.getByTestId('app-description').textContent()
@@ -182,7 +182,7 @@ theme:
       const server = await startCliServerWithConfig({
         format: 'yaml',
         config: `
-name: Full Featured YAML App
+name: full-featured-yaml-app
 description: App with all schema features in YAML
 version: 2.1.0
 
@@ -205,7 +205,7 @@ pages:
     sections:
       - type: h1
         children:
-          - Welcome to Full Featured YAML App
+          - Welcome to full-featured-yaml-app
       - type: p
         children:
           - This app was configured using YAML
@@ -214,9 +214,9 @@ pages:
 
       // THEN: Server applies all configuration correctly
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('Full Featured YAML App')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('full-featured-yaml-app')
       await expect(page.getByTestId('app-version-badge')).toHaveText('2.1.0')
-      await expect(page.locator('h1')).toHaveText('Welcome to Full Featured YAML App')
+      await expect(page.locator('h1')).toHaveText('Welcome to full-featured-yaml-app')
       await expect(page.locator('p')).toHaveText('This app was configured using YAML')
 
       // Verify theme colors applied
@@ -259,7 +259,7 @@ pages:
           format: 'yaml',
           config: `
 # Multi-page YAML application configuration
-name: Multi-Page YAML App
+name: multi-page-yaml-app
 description: Testing complete YAML workflow
 version: 3.0.0-rc.1
 
@@ -300,7 +300,7 @@ pages:
 
       await test.step('Verify home page renders correctly', async () => {
         await page.goto('/')
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Page YAML App')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-page-yaml-app')
         await expect(page.getByTestId('app-version-badge')).toHaveText('3.0.0-rc.1')
         await expect(page.locator('h1')).toHaveText('Home Page')
         await expect(page.locator('p')).toHaveText('Welcome to the YAML-configured app')

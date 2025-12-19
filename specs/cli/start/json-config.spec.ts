@@ -139,7 +139,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
       const server = await startCliServerWithConfig({
         format: 'json',
         config: {
-          name: 'Full Featured App',
+          name: 'full-featured-app',
           description: 'App with all schema features',
           version: '1.2.3',
           theme: {
@@ -166,7 +166,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
               sections: [
                 {
                   type: 'h1',
-                  children: ['Welcome to Full Featured App'],
+                  children: ['Welcome to full-featured-app'],
                 },
               ],
             },
@@ -176,9 +176,9 @@ test.describe('CLI Start Command - JSON Configuration', () => {
 
       // THEN: Server applies all configuration correctly
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('Full Featured App')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('full-featured-app')
       await expect(page.getByTestId('app-version-badge')).toHaveText('1.2.3')
-      await expect(page.locator('h1')).toHaveText('Welcome to Full Featured App')
+      await expect(page.locator('h1')).toHaveText('Welcome to full-featured-app')
 
       // Verify theme colors applied (check CSS variables)
       const root = page.locator('html')
@@ -198,7 +198,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
       const server = await startCliServerWithConfig({
         format: 'json',
         config: {
-          name: 'Env Override Test',
+          name: 'env-override-test',
           description: 'Testing environment variable integration',
         },
         port: 0, // Let Bun auto-select port
@@ -207,7 +207,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
 
       // THEN: Server respects environment variables and starts successfully
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('Env Override Test')
+      await expect(page.getByTestId('app-name-heading')).toHaveText('env-override-test')
 
       // Verify server is accessible on the specified host
       expect(server.url).toContain('localhost')
@@ -226,7 +226,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
         await startCliServerWithConfig({
           format: 'json',
           config: {
-            name: 'Multi-Page JSON App',
+            name: 'multi-page-json-app',
             description: 'Testing complete JSON workflow',
             version: '2.0.0-beta',
             pages: [
@@ -271,7 +271,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
 
       await test.step('Verify home page renders correctly', async () => {
         await page.goto('/')
-        await expect(page.getByTestId('app-name-heading')).toHaveText('Multi-Page JSON App')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-page-json-app')
         await expect(page.getByTestId('app-version-badge')).toHaveText('2.0.0-beta')
         await expect(page.locator('h1')).toHaveText('Home Page')
         await expect(page.locator('p')).toHaveText('Welcome to the app')
