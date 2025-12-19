@@ -289,22 +289,19 @@ test.describe('NULL Handling in Unique Constraints', () => {
         ],
       })
 
-      // THEN: PostgreSQL default behavior allows multiple (NULL, setting_key) combinations
-
+      // WHEN: inserting multiple global settings with NULL user_id
       await executeQuery(
         `INSERT INTO settings (user_id, setting_key, value) VALUES (NULL, 'theme', 'dark')`
       )
-
-      // This inserts successfully (PostgreSQL allows multiple NULL user_id)
+      // PostgreSQL allows multiple NULL user_id (each NULL is distinct)
       await executeQuery(
         `INSERT INTO settings (user_id, setting_key, value) VALUES (NULL, 'theme', 'light')`
       )
 
-      // Verify both inserted (may be undesired - should only allow one global 'theme')
+      // THEN: PostgreSQL default behavior allows multiple (NULL, setting_key) combinations
       const globalSettings = await executeQuery(
         `SELECT COUNT(*) as count FROM settings WHERE user_id IS NULL AND setting_key = 'theme'`
       )
-      // THEN: assertion - documents PostgreSQL behavior
       expect(globalSettings.rows[0]).toMatchObject({ count: 2 })
 
       // NOTE: Application should validate "only one global setting per key" before INSERT

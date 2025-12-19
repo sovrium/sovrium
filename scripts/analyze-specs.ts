@@ -27,6 +27,7 @@
  *   --filter=pattern   Filter files by regex pattern (e.g., --filter=version)
  *   --fixme            Show list of fixme tests for prioritization
  *   --no-error         Don't exit with error code on quality issues
+ *   --verify-progress  Cross-reference with GitHub PRs/issues to detect discrepancies
  *
  * Output:
  *   - SPEC-STATE.md: Reviewable specification state document
@@ -38,7 +39,7 @@
  *   bun run analyze:specs --fixme            # Show fixme tests to implement next
  */
 
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
 import { join, relative, basename } from 'node:path'
 import * as prettier from 'prettier'
 
@@ -136,6 +137,40 @@ interface TDDAutomationStats {
   }>
 }
 
+interface GitHubReference {
+  type: 'pr' | 'issue' | 'commit'
+  number?: number
+  hash?: string
+  title: string
+  specId: string
+  date: string
+  url?: string
+}
+
+interface ProgressDiscrepancy {
+  specId: string
+  status: 'missing-in-codebase' | 'still-fixme' | 'fixed-but-not-tracked'
+  references: GitHubReference[]
+  suggestion: string
+}
+
+interface VerificationResult {
+  allReferences: GitHubReference[]
+  discrepancies: ProgressDiscrepancy[]
+  fixedSpecIds: Set<string>
+}
+
+interface DomainSummary {
+  domain: string
+  totalFiles: number
+  totalTests: number
+  passingTests: number
+  fixmeTests: number
+  progressPercent: number
+  status: '🟢' | '🟡' | '🔴'
+  files: SpecFile[]
+}
+
 // =============================================================================
 // Constants
 // =============================================================================
@@ -153,7 +188,8 @@ const TAG_PATTERN = /\{\s*tag:\s*['"`](@spec|@regression)['"`]\s*\}/
 const TODO_PATTERN = /\/\/\s*TODO[:\s](.+?)(?:\n|$)/gi
 
 const SPECS_DIR = join(process.cwd(), 'specs')
-const OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md')
+const OUTPUT_FILE = join(process.cwd(), 'SPEC-PROGRESS.md')
+const OLD_OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md') // For migration
 const README_FILE = join(process.cwd(), 'README.md')
 
 // =============================================================================
@@ -558,6 +594,16 @@ function detectCoverageGaps(files: SpecFile[]): CoverageGap[] {
   // Check for common patterns
   for (const [area, areaFiles] of featureAreas) {
     const allTests = areaFiles.flatMap((f) => f.tests)
+
+    // Skip coverage gap detection for 100% passing domains
+    // If all tests pass (no fixme tests), the domain is complete and doesn't need more tests
+    const totalTests = allTests.length
+    const fixmeTests = allTests.filter((t) => t.isFixme).length
+    if (totalTests > 0 && fixmeTests === 0) {
+      // Domain is 100% complete - skip coverage gap warnings
+      continue
+    }
+
     const testNames = allTests.map((t) => t.name.toLowerCase())
 
     // Check for missing edge cases
@@ -639,15 +685,16 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
   const { promisify } = await import('node:util')
   const execAsync = promisify(exec)
 
-  // Pattern to match any fix commit containing a spec ID (e.g., APP-XXX-001)
-  // Matches: "fix: implement APP-XXX-001", "fix(test): correct APP-XXX-001", etc.
+  // Pattern to match any commit containing a spec ID (e.g., APP-XXX-001)
+  // Matches: "fix: implement APP-XXX-001", "test: activate APP-XXX-001", "feat: implement APP-XXX-001", etc.
   const specIdPattern = /([A-Z]+-[A-Z0-9-]+-\d{3})/
 
   try {
-    // Get all fix commits containing spec IDs in the last 90 days
-    // Uses extended regex to match spec ID pattern in commit messages
+    // Get all spec-related commits in the last 90 days
+    // Uses extended regex to match conventional commit types with spec IDs
+    // Includes: fix:, fix(test):, test:, feat:, refactor:, etc.
     const { stdout } = await execAsync(
-      'git log --oneline --since="90 days ago" --extended-regexp --grep="^fix.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
+      'git log --oneline --since="90 days ago" --extended-regexp --grep="^(fix|test|feat|refactor|chore)(\\([^)]*\\))?:.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
       { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
     )
 
@@ -726,76 +773,416 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
   }
 }
 
+/**
+ * Verify progress by cross-referencing GitHub PRs, issues, and commits.
+ * Detects discrepancies between what's been fixed and what's still marked as fixme.
+ */
+async function verifyProgressFromGitHub(
+  fixmeSpecIds: Set<string>,
+  passingSpecIds: Set<string>
+): Promise<VerificationResult> {
+  const { exec } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execAsync = promisify(exec)
+
+  const specIdPattern = /([A-Z]+-[A-Z0-9-]+-\d{3})/g
+  const allReferences: GitHubReference[] = []
+  const fixedSpecIds = new Set<string>()
+
+  try {
+    // 1. Fetch merged PRs with spec IDs (last 90 days)
+    const { stdout: prOutput } = await execAsync(
+      'gh pr list --state merged --limit 500 --json number,title,mergedAt,url',
+      { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
+    )
+
+    const prs = JSON.parse(prOutput) as Array<{
+      number: number
+      title: string
+      mergedAt: string
+      url: string
+    }>
+
+    for (const pr of prs) {
+      const matches = pr.title.matchAll(specIdPattern)
+      for (const match of matches) {
+        const specId = match[1]
+        if (!specId) continue
+        allReferences.push({
+          type: 'pr',
+          number: pr.number,
+          title: pr.title,
+          specId,
+          date: pr.mergedAt,
+          url: pr.url,
+        })
+        fixedSpecIds.add(specId)
+      }
+    }
+
+    // 2. Fetch closed issues with tdd-spec:completed label
+    const { stdout: issueOutput } = await execAsync(
+      'gh issue list --state closed --label "tdd-spec:completed" --limit 500 --json number,title,closedAt,url',
+      { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
+    )
+
+    const issues = JSON.parse(issueOutput) as Array<{
+      number: number
+      title: string
+      closedAt: string
+      url: string
+    }>
+
+    for (const issue of issues) {
+      const matches = issue.title.matchAll(specIdPattern)
+      for (const match of matches) {
+        const specId = match[1]
+        if (!specId) continue
+        allReferences.push({
+          type: 'issue',
+          number: issue.number,
+          title: issue.title,
+          specId,
+          date: issue.closedAt,
+          url: issue.url,
+        })
+        fixedSpecIds.add(specId)
+      }
+    }
+
+    // 3. Fetch commits with spec IDs (last 90 days) - all conventional commit types
+    const { stdout: commitOutput } = await execAsync(
+      'git log --oneline --since="90 days ago" --extended-regexp --grep="[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
+      { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
+    )
+
+    const commitLines = commitOutput.trim().split('\n').filter(Boolean)
+    for (const line of commitLines) {
+      const [hash, date, ...messageParts] = line.split('|')
+      const message = messageParts.join('|')
+      if (!hash || !date || !message) continue
+
+      const matches = message.matchAll(specIdPattern)
+      for (const match of matches) {
+        const specId = match[1]
+        if (!specId) continue
+        allReferences.push({
+          type: 'commit',
+          hash: hash.substring(0, 7),
+          title: message,
+          specId,
+          date,
+        })
+        fixedSpecIds.add(specId)
+      }
+    }
+
+    // 4. Detect discrepancies
+    const discrepancies: ProgressDiscrepancy[] = []
+
+    // Find specs that have been fixed (in PRs/commits) but are still marked as fixme
+    for (const specId of fixedSpecIds) {
+      if (fixmeSpecIds.has(specId)) {
+        const refs = allReferences.filter((r) => r.specId === specId)
+        discrepancies.push({
+          specId,
+          status: 'still-fixme',
+          references: refs,
+          suggestion: `Spec ${specId} has been fixed (see PRs/commits) but is still marked as .fixme() in the test file`,
+        })
+      }
+    }
+
+    // Find specs that are passing but not tracked in TDD automation
+    for (const specId of passingSpecIds) {
+      if (!fixedSpecIds.has(specId)) {
+        // This is normal for specs that were never fixme - skip
+        // Only flag if we expected it to be tracked
+      }
+    }
+
+    return {
+      allReferences,
+      discrepancies,
+      fixedSpecIds,
+    }
+  } catch (error) {
+    console.warn('Warning: Could not verify progress from GitHub:', error)
+    return {
+      allReferences: [],
+      discrepancies: [],
+      fixedSpecIds: new Set(),
+    }
+  }
+}
+
 // =============================================================================
 // Output Generation
 // =============================================================================
 
+/**
+ * Calculate domain-level summaries for the Table of Contents and rollup display.
+ */
+function calculateDomainSummaries(files: SpecFile[]): DomainSummary[] {
+  const byDomain = new Map<string, SpecFile[]>()
+
+  for (const file of files) {
+    const domain = file.relativePath.split('/')[0] || 'root'
+    if (!byDomain.has(domain)) {
+      byDomain.set(domain, [])
+    }
+    byDomain.get(domain)!.push(file)
+  }
+
+  const summaries: DomainSummary[] = []
+
+  for (const [domain, domainFiles] of byDomain) {
+    const totalTests = domainFiles.reduce((sum, f) => sum + f.metadata.totalTests, 0)
+    const passingTests = domainFiles.reduce((sum, f) => sum + f.metadata.passingTests, 0)
+    const fixmeTests = domainFiles.reduce((sum, f) => sum + f.metadata.fixmeTests, 0)
+    const progressPercent = totalTests > 0 ? Math.round((passingTests / totalTests) * 100) : 100
+
+    // Determine status based on progress and issues
+    const hasErrors = domainFiles.some((f) => f.issues.some((i) => i.type === 'error'))
+    const hasWarnings = domainFiles.some((f) => f.issues.some((i) => i.type === 'warning'))
+
+    let status: '🟢' | '🟡' | '🔴'
+    if (hasErrors) {
+      status = '🔴'
+    } else if (progressPercent === 100 && !hasWarnings) {
+      status = '🟢'
+    } else if (progressPercent >= 80 || (progressPercent === 100 && hasWarnings)) {
+      status = '🟡'
+    } else {
+      status = '🟡'
+    }
+
+    summaries.push({
+      domain: domain.toUpperCase(),
+      totalFiles: domainFiles.length,
+      totalTests,
+      passingTests,
+      fixmeTests,
+      progressPercent,
+      status,
+      files: domainFiles,
+    })
+  }
+
+  // Sort by domain name for consistent ordering
+  return summaries.sort((a, b) => a.domain.localeCompare(b.domain))
+}
+
+/**
+ * Get a human-readable status label based on progress.
+ */
+function getStatusLabel(progressPercent: number, hasIssues: boolean): string {
+  if (progressPercent === 100 && !hasIssues) return 'Complete'
+  if (progressPercent === 100 && hasIssues) return 'Review Needed'
+  if (progressPercent >= 80) return 'Almost Done'
+  if (progressPercent >= 50) return 'In Progress'
+  return 'Early Stage'
+}
+
+/**
+ * Get overall health status for executive summary.
+ */
+function getOverallHealth(
+  progressPercent: number,
+  errors: number,
+  avgFixesPerDay: number
+): { emoji: string; label: string } {
+  if (errors > 0) return { emoji: '🔴', label: 'Blocked' }
+  if (avgFixesPerDay >= 25 && progressPercent >= 50) return { emoji: '🟢', label: 'On Track' }
+  if (avgFixesPerDay >= 15) return { emoji: '🟡', label: 'Progressing' }
+  return { emoji: '🟡', label: 'Needs Attention' }
+}
+
 function generateMarkdown(state: SpecState): string {
   const lines: string[] = []
 
-  // Header
-  lines.push('# SPEC STATE')
-  lines.push('')
-  lines.push(`> Generated: ${state.generatedAt}`)
-  lines.push('>')
-  lines.push('> This file is auto-generated by `bun run scripts/analyze-specs.ts`')
-  lines.push('> Use it to review, iterate, and track test coverage.')
-  lines.push('')
+  // Calculate domain summaries for TOC and rollups
+  const domainSummaries = calculateDomainSummaries(state.files)
 
-  // Summary
-  lines.push('## Summary')
-  lines.push('')
-  lines.push(`| Metric | Value |`)
-  lines.push(`|--------|-------|`)
-  lines.push(`| **Quality Score** | ${state.summary.qualityScore}% |`)
-  lines.push(`| Total Files | ${state.summary.totalFiles} |`)
-  lines.push(`| Total Tests | ${state.summary.totalTests} |`)
-  lines.push(`| @spec Tests | ${state.summary.totalSpecs} |`)
-  lines.push(`| @regression Tests | ${state.summary.totalRegressions} |`)
-  lines.push(`| Passing | ${state.summary.totalPassing} |`)
-  lines.push(`| Fixme | ${state.summary.totalFixme} |`)
-  lines.push(`| Errors | ${state.summary.issuesByType.errors} |`)
-  lines.push(`| Warnings | ${state.summary.issuesByType.warnings} |`)
-  lines.push(`| Suggestions | ${state.summary.issuesByType.suggestions} |`)
-  lines.push(`| Duplicate Spec IDs | ${state.summary.duplicateSpecIds} |`)
-  lines.push('')
-
-  // Progress bar
+  // Calculate key metrics
   const progressPercent = Math.round(
     (state.summary.totalPassing / Math.max(state.summary.totalTests, 1)) * 100
   )
   const progressFilled = Math.round(progressPercent / 5)
   const progressEmpty = 20 - progressFilled
+
+  // Get overall health status
+  const health = getOverallHealth(
+    progressPercent,
+    state.summary.issuesByType.errors,
+    state.tddAutomation.avgFixesPerDay
+  )
+
+  // Calculate ETA text
+  let etaText = 'Unknown'
+  if (state.tddAutomation.estimatedDaysRemaining !== null) {
+    const days = state.tddAutomation.estimatedDaysRemaining
+    etaText =
+      days === 0
+        ? 'Less than 1 day'
+        : days === 1
+          ? '~1 day'
+          : days < 7
+            ? `~${days} days`
+            : days < 30
+              ? `~${Math.ceil(days / 7)} weeks`
+              : `~${Math.ceil(days / 30)} months`
+  }
+
+  // ==========================================================================
+  // HEADER
+  // ==========================================================================
+  lines.push('# Spec Progress Report')
+  lines.push('')
+  lines.push(`> Generated: ${state.generatedAt}`)
+  lines.push('>')
+  lines.push('> Auto-generated by `bun run analyze:specs` • Track test coverage and TDD progress')
+  lines.push('')
+
+  // ==========================================================================
+  // EXECUTIVE SUMMARY (consolidated table - no prose duplication)
+  // ==========================================================================
+  lines.push('## 🎯 Executive Summary')
+  lines.push('')
+  lines.push('| Category | Metric | Status |')
+  lines.push('|----------|--------|--------|')
   lines.push(
-    `**Progress:** [${'█'.repeat(progressFilled)}${'░'.repeat(progressEmpty)}] ${progressPercent}% (${state.summary.totalPassing}/${state.summary.totalTests})`
+    `| **Overall Progress** | [${'█'.repeat(progressFilled)}${'░'.repeat(progressEmpty)}] ${progressPercent}% (${state.summary.totalPassing}/${state.summary.totalTests} tests) | ${health.emoji} ${health.label} |`
+  )
+  lines.push(
+    `| **Daily Velocity** | ${state.tddAutomation.avgFixesPerDay} specs/day | ${state.tddAutomation.avgFixesPerDay >= 25 ? '🟢 Healthy' : state.tddAutomation.avgFixesPerDay >= 15 ? '🟡 Moderate' : '🔴 Slow'} |`
+  )
+  lines.push(
+    `| **Quality Score** | ${state.summary.qualityScore}% | ${state.summary.qualityScore >= 90 ? '🟢 Excellent' : state.summary.qualityScore >= 75 ? '🟡 Good' : '🔴 Needs Work'} |`
+  )
+  if (state.tddAutomation.estimatedCompletionDate) {
+    lines.push(
+      `| **Estimated Completion** | ${state.tddAutomation.estimatedCompletionDate} (${etaText}) | ${health.emoji} ${health.label} |`
+    )
+  }
+  lines.push(
+    `| **Blockers** | ${state.summary.issuesByType.errors} errors, ${state.summary.issuesByType.warnings} warnings | ${state.summary.issuesByType.errors === 0 ? '🟢 Clear' : '🔴 Blocked'} |`
   )
   lines.push('')
 
-  // TDD Automation Stats
+  // ==========================================================================
+  // TABLE OF CONTENTS
+  // ==========================================================================
+  lines.push('## 📑 Table of Contents')
+  lines.push('')
+  lines.push('- [Executive Summary](#-executive-summary)')
+  lines.push('- [Next Steps](#-next-steps)')
+  lines.push('- [Detailed Metrics](#-detailed-metrics)')
+  lines.push('- [TDD Automation](#-tdd-automation)')
+  lines.push('- [Feature Breakdown](#-feature-breakdown)')
+  for (const domain of domainSummaries) {
+    lines.push(
+      `  - [${domain.domain}](#${domain.domain.toLowerCase()}) • ${domain.status} ${domain.progressPercent}% (${domain.totalFiles} files)`
+    )
+  }
+  lines.push('- [Quick Reference](#-quick-reference)')
+  lines.push('')
+
+  // ==========================================================================
+  // NEXT STEPS (Actionable)
+  // ==========================================================================
+  lines.push('## 🎯 Next Steps')
+  lines.push('')
+
+  // Collect all issues
+  const allIssues = state.files.flatMap((f) =>
+    f.issues.map((i) => ({ ...i, file: f.relativePath }))
+  )
+  const errors = allIssues.filter((i) => i.type === 'error')
+  const warnings = allIssues.filter((i) => i.type === 'warning')
+
+  // Priority 1 - Immediate Action
+  if (errors.length > 0 || state.duplicateSpecIds.length > 0) {
+    lines.push('### 🚨 Priority 1 - Immediate Action')
+    lines.push('')
+    if (state.duplicateSpecIds.length > 0) {
+      lines.push(
+        `- **Fix ${state.duplicateSpecIds.length} duplicate spec IDs** - Critical for TDD queue`
+      )
+      for (const dup of state.duplicateSpecIds.slice(0, 3)) {
+        lines.push(`  - \`${dup.specId}\` appears ${dup.locations.length} times`)
+      }
+    }
+    for (const error of errors.slice(0, 5)) {
+      const location = error.line ? `:${error.line}` : ''
+      lines.push(`- ❌ **${error.code}** in \`${error.file}${location}\``)
+    }
+    lines.push('')
+  }
+
+  // Priority 2 - This Week
+  if (warnings.length > 0 || state.coverageGaps.length > 0) {
+    lines.push('### ⚠️ Priority 2 - This Week')
+    lines.push('')
+    for (const warning of warnings.slice(0, 5)) {
+      const location = warning.line ? `:${warning.line}` : ''
+      lines.push(`- **Fix warning** in \`${warning.file}${location}\` (${warning.code})`)
+    }
+    if (state.coverageGaps.length > 0) {
+      lines.push(
+        `- **Review ${state.coverageGaps.length} coverage gaps** - Add missing test scenarios`
+      )
+    }
+    lines.push('')
+  }
+
+  // Priority 3 - Ongoing
+  lines.push('### 📋 Priority 3 - Ongoing')
+  lines.push('')
+  const requiredVelocity =
+    state.tddAutomation.estimatedDaysRemaining !== null &&
+    state.tddAutomation.estimatedDaysRemaining > 0
+      ? Math.ceil(state.summary.totalFixme / state.tddAutomation.estimatedDaysRemaining)
+      : state.tddAutomation.avgFixesPerDay
+  lines.push(
+    `- **Maintain velocity** - Need ${requiredVelocity} specs/day to hit ETA (current: ${state.tddAutomation.avgFixesPerDay})`
+  )
+  lines.push(`- **${state.summary.totalFixme} tests remaining** - TDD automation running`)
+  lines.push(
+    `- **Quality gate** - Keep quality score above 85% (current: ${state.summary.qualityScore}%)`
+  )
+  lines.push('')
+
+  // ==========================================================================
+  // DETAILED METRICS
+  // ==========================================================================
+  lines.push('## 📊 Detailed Metrics')
+  lines.push('')
+  lines.push('| Metric | Value |')
+  lines.push('|--------|-------|')
+  lines.push(`| **Quality Score** | ${state.summary.qualityScore}% |`)
+  lines.push(`| Total Files | ${state.summary.totalFiles} |`)
+  lines.push(`| Total Tests | ${state.summary.totalTests} |`)
+  lines.push(`| @spec Tests | ${state.summary.totalSpecs} |`)
+  lines.push(`| @regression Tests | ${state.summary.totalRegressions} |`)
+  lines.push(`| ✅ Passing | ${state.summary.totalPassing} |`)
+  lines.push(`| ⏸️ Fixme | ${state.summary.totalFixme} |`)
+  lines.push(`| ❌ Errors | ${state.summary.issuesByType.errors} |`)
+  lines.push(`| ⚠️ Warnings | ${state.summary.issuesByType.warnings} |`)
+  lines.push(`| 💡 Suggestions | ${state.summary.issuesByType.suggestions} |`)
+  lines.push(`| 🔄 Duplicate IDs | ${state.summary.duplicateSpecIds} |`)
+  lines.push('')
+
+  // Progress bar removed - now only in Executive Summary to avoid redundancy
+
+  // ==========================================================================
+  // TDD AUTOMATION
+  // ==========================================================================
   if (state.tddAutomation.totalFixed > 0 || state.summary.totalFixme > 0) {
     lines.push('## 🤖 TDD Automation')
     lines.push('')
 
-    // ETA calculation
-    if (state.tddAutomation.estimatedDaysRemaining !== null) {
-      const days = state.tddAutomation.estimatedDaysRemaining
-      const etaText =
-        days === 0
-          ? 'Less than 1 day'
-          : days === 1
-            ? '~1 day'
-            : days < 7
-              ? `~${days} days`
-              : days < 30
-                ? `~${Math.ceil(days / 7)} weeks`
-                : `~${Math.ceil(days / 30)} months`
-
-      lines.push(`**⏱️ Estimated Time Remaining:** ${etaText}`)
-      if (state.tddAutomation.estimatedCompletionDate) {
-        lines.push(`**📅 Estimated Completion:** ${state.tddAutomation.estimatedCompletionDate}`)
-      }
-      lines.push('')
-    }
+    // Prose headers removed - ETA already in Executive Summary, details in table below
 
     lines.push('| Metric | Value |')
     lines.push('|--------|-------|')
@@ -805,6 +1192,9 @@ function generateMarkdown(state: SpecState): string {
     lines.push(`| Fixed Last 30d | ${state.tddAutomation.fixedLast30d} |`)
     lines.push(`| Avg Fixes/Day | ${state.tddAutomation.avgFixesPerDay} |`)
     lines.push(`| Remaining | ${state.summary.totalFixme} |`)
+    if (state.tddAutomation.estimatedDaysRemaining !== null) {
+      lines.push(`| ETA | ${etaText} (${state.tddAutomation.estimatedCompletionDate || 'N/A'}) |`)
+    }
     lines.push('')
 
     // Recent fixes
@@ -823,110 +1213,110 @@ function generateMarkdown(state: SpecState): string {
     }
   }
 
-  // Coverage Gaps
-  if (state.coverageGaps.length > 0) {
-    lines.push('## Coverage Gaps')
-    lines.push('')
-    for (const gap of state.coverageGaps) {
-      lines.push(`### ${gap.feature}`)
-      lines.push('')
-      lines.push('Missing behaviors:')
-      for (const behavior of gap.missingBehaviors) {
-        lines.push(`- [ ] ${behavior}`)
-      }
-      lines.push('')
-      lines.push(`> 💡 ${gap.suggestion}`)
-      lines.push('')
-    }
-  }
-
-  // Duplicate Spec IDs
-  if (state.duplicateSpecIds.length > 0) {
-    lines.push('## ❌ Duplicate Spec IDs')
-    lines.push('')
-    lines.push('> **CRITICAL**: Each spec ID must be unique across the entire test suite.')
-    lines.push('> Duplicate IDs will cause issues in the TDD automation queue.')
+  // ==========================================================================
+  // ISSUES REQUIRING ATTENTION
+  // ==========================================================================
+  if (state.duplicateSpecIds.length > 0 || state.coverageGaps.length > 0 || allIssues.length > 0) {
+    lines.push('## ⚡ Issues Requiring Attention')
     lines.push('')
 
-    for (const dup of state.duplicateSpecIds) {
-      lines.push(`### \`${dup.specId}\` (${dup.locations.length} occurrences)`)
+    // Duplicate Spec IDs
+    if (state.duplicateSpecIds.length > 0) {
+      lines.push('### ❌ Duplicate Spec IDs')
       lines.push('')
-      for (const loc of dup.locations) {
-        lines.push(`- \`${loc.file}:${loc.line}\``)
-        lines.push(`  ${loc.testName.substring(0, 80)}${loc.testName.length > 80 ? '...' : ''}`)
-      }
+      lines.push('> **CRITICAL**: Each spec ID must be unique. Duplicates break TDD queue.')
       lines.push('')
-    }
-  }
 
-  // Quality Issues
-  const allIssues = state.files.flatMap((f) =>
-    f.issues.map((i) => ({ ...i, file: f.relativePath }))
-  )
-
-  if (allIssues.length > 0) {
-    lines.push('## Quality Issues')
-    lines.push('')
-
-    const errors = allIssues.filter((i) => i.type === 'error')
-    const warnings = allIssues.filter((i) => i.type === 'warning')
-    const suggestions = allIssues.filter((i) => i.type === 'suggestion')
-
-    if (errors.length > 0) {
-      lines.push('### Errors')
-      lines.push('')
-      for (const issue of errors) {
-        const location = issue.line ? `:${issue.line}` : ''
-        lines.push(`- **${issue.code}** in \`${issue.file}${location}\``)
-        lines.push(`  ${issue.message}`)
-        if (issue.testId) {
-          lines.push(`  Test: ${issue.testId}`)
+      for (const dup of state.duplicateSpecIds) {
+        lines.push(`**\`${dup.specId}\`** (${dup.locations.length} occurrences)`)
+        for (const loc of dup.locations) {
+          lines.push(`- \`${loc.file}:${loc.line}\``)
         }
+        lines.push('')
       }
-      lines.push('')
     }
 
-    if (warnings.length > 0) {
-      lines.push('### Warnings')
-      lines.push('')
-      for (const issue of warnings) {
-        const location = issue.line ? `:${issue.line}` : ''
-        lines.push(`- **${issue.code}** in \`${issue.file}${location}\``)
-        lines.push(`  ${issue.message}`)
+    // Quality Issues
+    if (allIssues.length > 0) {
+      const suggestions = allIssues.filter((i) => i.type === 'suggestion')
+
+      if (errors.length > 0) {
+        lines.push('### ❌ Errors')
+        lines.push('')
+        for (const issue of errors) {
+          const location = issue.line ? `:${issue.line}` : ''
+          lines.push(`- **${issue.code}** in \`${issue.file}${location}\``)
+          lines.push(`  ${issue.message}`)
+        }
+        lines.push('')
       }
-      lines.push('')
+
+      if (warnings.length > 0) {
+        lines.push('### ⚠️ Warnings')
+        lines.push('')
+        for (const issue of warnings) {
+          const location = issue.line ? `:${issue.line}` : ''
+          lines.push(`- **${issue.code}** in \`${issue.file}${location}\``)
+          lines.push(`  ${issue.message}`)
+        }
+        lines.push('')
+      }
+
+      if (suggestions.length > 0) {
+        lines.push('<details>')
+        lines.push('<summary>💡 Suggestions</summary>')
+        lines.push('')
+        for (const issue of suggestions) {
+          lines.push(`- **${issue.code}** in \`${issue.file}\` - ${issue.message}`)
+        }
+        lines.push('')
+        lines.push('</details>')
+        lines.push('')
+      }
     }
 
-    if (suggestions.length > 0) {
-      lines.push('### Suggestions')
+    // Coverage Gaps
+    if (state.coverageGaps.length > 0) {
+      lines.push('### 📉 Coverage Gaps')
       lines.push('')
-      for (const issue of suggestions) {
-        lines.push(`- **${issue.code}** in \`${issue.file}\``)
-        lines.push(`  ${issue.message}`)
+      for (const gap of state.coverageGaps) {
+        lines.push(`**${gap.feature}** - Missing:`)
+        for (const behavior of gap.missingBehaviors) {
+          lines.push(`- [ ] ${behavior}`)
+        }
+        lines.push('')
       }
-      lines.push('')
     }
   }
 
-  // Specifications by Feature
-  lines.push('## Specifications by Feature')
+  // ==========================================================================
+  // FEATURE BREAKDOWN (with domain rollups)
+  // ==========================================================================
+  lines.push('## 📁 Feature Breakdown')
   lines.push('')
 
-  // Group by feature area
-  const byArea = new Map<string, SpecFile[]>()
-  for (const file of state.files) {
-    const area = file.relativePath.split('/')[0] || 'root'
-    if (!byArea.has(area)) {
-      byArea.set(area, [])
-    }
-    byArea.get(area)!.push(file)
-  }
+  for (const domain of domainSummaries) {
+    const domainProgressFilled = Math.round(domain.progressPercent / 5)
+    const domainProgressEmpty = 20 - domainProgressFilled
+    const statusLabel = getStatusLabel(
+      domain.progressPercent,
+      domain.files.some((f) => f.issues.length > 0)
+    )
 
-  for (const [area, areaFiles] of byArea) {
-    lines.push(`### ${area.toUpperCase()}`)
+    lines.push(`### ${domain.domain}`)
+    lines.push('')
+    lines.push(
+      `${domain.status} **${domain.totalFiles} files** | **${domain.totalTests} tests** | [${'█'.repeat(domainProgressFilled)}${'░'.repeat(domainProgressEmpty)}] ${domain.progressPercent}% | ${statusLabel}`
+    )
     lines.push('')
 
-    for (const file of areaFiles) {
+    lines.push('<details>')
+    lines.push(
+      `<summary>View ${domain.domain} specs (${domain.totalFiles} files, ${domain.passingTests}/${domain.totalTests} passing)</summary>`
+    )
+    lines.push('')
+
+    for (const file of domain.files) {
       const statusEmoji =
         file.metadata.fixmeTests > 0
           ? '🚧'
@@ -936,7 +1326,12 @@ function generateMarkdown(state: SpecState): string {
               ? '⚠️'
               : '✅'
 
-      lines.push(`#### ${statusEmoji} ${file.feature}`)
+      const fileProgress =
+        file.metadata.totalTests > 0
+          ? Math.round((file.metadata.passingTests / file.metadata.totalTests) * 100)
+          : 100
+
+      lines.push(`#### ${statusEmoji} ${file.feature} (${fileProgress}%)`)
       lines.push('')
       lines.push(`📁 \`${file.relativePath}\``)
       lines.push('')
@@ -946,11 +1341,9 @@ function generateMarkdown(state: SpecState): string {
         lines.push('')
       }
 
-      // Stats
-      lines.push(`| Tests | Passing | Fixme | @spec | @regression |`)
-      lines.push(`|-------|---------|-------|-------|-------------|`)
+      // Compact stats with progress
       lines.push(
-        `| ${file.metadata.totalTests} | ${file.metadata.passingTests} | ${file.metadata.fixmeTests} | ${file.metadata.specTests} | ${file.metadata.regressionTests} |`
+        `**${file.metadata.passingTests}/${file.metadata.totalTests}** passing | ${file.metadata.fixmeTests} fixme | ${file.metadata.specTests} @spec | ${file.metadata.regressionTests} @regression`
       )
       lines.push('')
 
@@ -979,10 +1372,15 @@ function generateMarkdown(state: SpecState): string {
         lines.push('')
       }
     }
+
+    lines.push('</details>')
+    lines.push('')
   }
 
-  // Quick Reference
-  lines.push('## Quick Reference')
+  // ==========================================================================
+  // QUICK REFERENCE
+  // ==========================================================================
+  lines.push('## 📖 Quick Reference')
   lines.push('')
   lines.push('### Test Structure Template')
   lines.push('')
@@ -1015,13 +1413,16 @@ function generateMarkdown(state: SpecState): string {
   lines.push('')
   lines.push('```bash')
   lines.push('# Regenerate this file')
-  lines.push('bun run scripts/analyze-specs.ts')
+  lines.push('bun run analyze:specs')
   lines.push('')
   lines.push('# Run all specs')
   lines.push('bun test:e2e:spec')
   lines.push('')
   lines.push('# Run regression tests')
   lines.push('bun test:e2e:regression')
+  lines.push('')
+  lines.push('# Verify progress against GitHub')
+  lines.push('bun run analyze:specs --verify-progress')
   lines.push('```')
   lines.push('')
 
@@ -1037,6 +1438,7 @@ async function main() {
   const filterPattern = args.find((a) => a.startsWith('--filter='))?.replace('--filter=', '')
   const showFixmeOnly = args.includes('--fixme')
   const noErrorExit = args.includes('--no-error') || !!filterPattern
+  const verifyProgress = args.includes('--verify-progress')
 
   console.log('🔍 Analyzing spec files...')
   console.log('')
@@ -1137,6 +1539,15 @@ async function main() {
   })
   await writeFile(OUTPUT_FILE, formattedMarkdown)
 
+  // Migration: Delete old SPEC-STATE.md if it exists
+  try {
+    await access(OLD_OUTPUT_FILE)
+    await unlink(OLD_OUTPUT_FILE)
+    console.log(`🗑️  Deleted old file: SPEC-STATE.md (migrated to SPEC-PROGRESS.md)`)
+  } catch {
+    // File doesn't exist, no migration needed
+  }
+
   // Update README badges with current progress
   const progressPercent = Math.round((totalPassing / Math.max(totalTests, 1)) * 100)
   const readmeContent = await readFile(README_FILE, 'utf-8')
@@ -1144,15 +1555,21 @@ async function main() {
   // URL-encode the badge values
   const specsBadge = `specs-${progressPercent}%25%20(${totalPassing}%2F${totalTests})-blue`
   const qualityBadge = `quality-${qualityScore}%25-brightgreen`
+  const progressBadge = `progress-${progressPercent}%25-blue`
 
-  // Update badges using regex
-  // Handle angle-bracket format: [![text](<url>)] - match until >
-  // Handle regular format: [![text](url)] - match until )
+  // Update badges using regex - handles multiple formats
   const updatedReadme = readmeContent
+    // Handle HTML img tag format: <img src="https://img.shields.io/badge/progress-XX%25-blue"
+    .replace(
+      /<img src="https:\/\/img\.shields\.io\/badge\/progress-\d+%25-blue"/,
+      `<img src="https://img.shields.io/badge/${progressBadge}"`
+    )
+    // Handle markdown angle-bracket format: [![text](<url>)]
     .replace(
       /\[!\[Spec Progress\]\(<https:\/\/img\.shields\.io\/badge\/specs-[^>]+>\)\]/,
       `[![Spec Progress](<https://img.shields.io/badge/${specsBadge}>)]`
     )
+    // Handle markdown regular format: [![text](url)]
     .replace(
       /\[!\[Spec Progress\]\(https:\/\/img\.shields\.io\/badge\/specs-[^)]+\)\]/,
       `[![Spec Progress](<https://img.shields.io/badge/${specsBadge}>)]`
@@ -1165,6 +1582,8 @@ async function main() {
       /\[!\[Quality Score\]\(https:\/\/img\.shields\.io\/badge\/quality-[^)]+\)\]/,
       `[![Quality Score](https://img.shields.io/badge/${qualityBadge})]`
     )
+    // Migration: Update SPEC-STATE.md links to SPEC-PROGRESS.md
+    .replace(/SPEC-STATE\.md/g, 'SPEC-PROGRESS.md')
 
   if (updatedReadme !== readmeContent) {
     const formattedReadme = await prettier.format(updatedReadme, {
@@ -1261,6 +1680,116 @@ async function main() {
         }
         console.log('')
       }
+    }
+  }
+
+  // Verify progress against GitHub PRs/issues and commits
+  if (verifyProgress) {
+    console.log('')
+    console.log('━'.repeat(60))
+    console.log('🔍 PROGRESS VERIFICATION (GitHub Cross-Reference)')
+    console.log('━'.repeat(60))
+    console.log('')
+
+    // Collect fixme and passing spec IDs from analyzed files
+    const fixmeSpecIds = new Set<string>()
+    const passingSpecIds = new Set<string>()
+
+    for (const file of analyzedFiles) {
+      for (const test of file.tests) {
+        if (test.id) {
+          if (test.isFixme) {
+            fixmeSpecIds.add(test.id)
+          } else {
+            passingSpecIds.add(test.id)
+          }
+        }
+      }
+    }
+
+    console.log(`📊 Codebase Status:`)
+    console.log(`   ├─ Fixme spec IDs:   ${fixmeSpecIds.size}`)
+    console.log(`   └─ Passing spec IDs: ${passingSpecIds.size}`)
+    console.log('')
+
+    console.log('🔄 Fetching GitHub references...')
+    const verification = await verifyProgressFromGitHub(fixmeSpecIds, passingSpecIds)
+
+    // Group references by type
+    const prRefs = verification.allReferences.filter((r) => r.type === 'pr')
+    const issueRefs = verification.allReferences.filter((r) => r.type === 'issue')
+    const commitRefs = verification.allReferences.filter((r) => r.type === 'commit')
+
+    // Deduplicate spec IDs across all sources
+    const uniqueSpecIdsFromPRs = new Set(prRefs.map((r) => r.specId))
+    const uniqueSpecIdsFromIssues = new Set(issueRefs.map((r) => r.specId))
+    const uniqueSpecIdsFromCommits = new Set(commitRefs.map((r) => r.specId))
+
+    console.log('')
+    console.log(`📦 GitHub References Found:`)
+    console.log(
+      `   ├─ Merged PRs:        ${prRefs.length} (${uniqueSpecIdsFromPRs.size} unique spec IDs)`
+    )
+    console.log(
+      `   ├─ Closed Issues:     ${issueRefs.length} (${uniqueSpecIdsFromIssues.size} unique spec IDs)`
+    )
+    console.log(
+      `   └─ Commits:           ${commitRefs.length} (${uniqueSpecIdsFromCommits.size} unique spec IDs)`
+    )
+    console.log('')
+    console.log(`   Total unique spec IDs tracked: ${verification.fixedSpecIds.size}`)
+    console.log('')
+
+    // Show discrepancies
+    if (verification.discrepancies.length > 0) {
+      console.log('⚠️  DISCREPANCIES DETECTED:')
+      console.log('')
+      for (const disc of verification.discrepancies) {
+        console.log(`   ❌ ${disc.specId} (${disc.status})`)
+        console.log(`      ${disc.suggestion}`)
+        console.log(`      References:`)
+        for (const ref of disc.references.slice(0, 3)) {
+          switch (ref.type) {
+            case 'pr':
+              console.log(`        - PR #${ref.number}: ${ref.title.substring(0, 60)}...`)
+              break
+            case 'issue':
+              console.log(`        - Issue #${ref.number}: ${ref.title.substring(0, 60)}...`)
+              break
+            case 'commit':
+              console.log(`        - Commit ${ref.hash}: ${ref.title.substring(0, 60)}...`)
+              break
+          }
+        }
+        if (disc.references.length > 3) {
+          console.log(`        ... and ${disc.references.length - 3} more references`)
+        }
+        console.log('')
+      }
+
+      console.log('━'.repeat(60))
+      console.log(`❌ Found ${verification.discrepancies.length} discrepancies`)
+      console.log(
+        '   These specs appear to be fixed in PRs/commits but are still marked as .fixme()'
+      )
+      console.log(
+        '   Action: Remove .fixme() from these tests or investigate why they are still failing'
+      )
+      console.log('━'.repeat(60))
+    } else {
+      console.log('✅ No discrepancies found - all fixed specs are correctly tracked!')
+    }
+    console.log('')
+
+    // Show recent fixes from GitHub for comparison
+    const recentPRs = prRefs.slice(0, 10)
+    if (recentPRs.length > 0) {
+      console.log('📋 Recent Merged PRs with Spec IDs (last 10):')
+      for (const pr of recentPRs) {
+        const dateStr = new Date(pr.date).toISOString().substring(0, 16).replace('T', ' ')
+        console.log(`   PR #${pr.number} | ${dateStr} | ${pr.specId}`)
+      }
+      console.log('')
     }
   }
 
