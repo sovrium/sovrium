@@ -237,14 +237,14 @@ test.describe('Add Field Migration', () => {
       )
       // THEN: assertion
       expect(existingRow.order_number).toBe('ORD-001')
-      expect(existingRow.total).toBe(0) // NUMERIC type is parsed as number
+      expect(parseFloat(existingRow.total)).toBe(0) // NUMERIC returned as string by pg
 
       // New rows can override default
       const newRow = await executeQuery(
         `INSERT INTO orders (order_number, total) VALUES ('ORD-003', 150.50) RETURNING total`
       )
       // THEN: assertion
-      expect(newRow.total).toBe(150.5) // NUMERIC type is parsed as number
+      expect(parseFloat(newRow.total)).toBe(150.5) // NUMERIC returned as string by pg
     }
   )
 

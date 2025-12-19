@@ -188,7 +188,7 @@ test.describe('Table Permissions', () => {
       // THEN: assertion
       expect(adminFields.name).toBe('Alice')
       expect(adminFields.email).toBe('alice@example.com')
-      expect(adminFields.salary).toBe(75_000.0)
+      expect(parseFloat(adminFields.salary)).toBe(75_000.0) // decimal returned as string by pg
     }
   )
 

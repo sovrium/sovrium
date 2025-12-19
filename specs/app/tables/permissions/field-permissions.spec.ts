@@ -75,7 +75,7 @@ test.describe('Field-Level Permissions', () => {
       expect(adminResult).toMatchObject({
         id: 1,
         name: 'Alice',
-        salary: 75_000.0,
+        salary: '75000.00', // decimal returned as string by pg
         department: 'Engineering',
       })
 
@@ -227,7 +227,7 @@ test.describe('Field-Level Permissions', () => {
       expect(adminResult).toMatchObject({
         name: 'Alice',
         email: 'alice@example.com',
-        salary: 80_000.0,
+        salary: '80000.00', // decimal returned as string by pg
         department: 'Engineering',
       })
 

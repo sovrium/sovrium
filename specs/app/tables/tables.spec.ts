@@ -803,6 +803,7 @@ test.describe('Data Tables', () => {
           {
             id: 18,
             name: 'temp_data',
+            allowDestructive: true, // Allow column drop
             fields: [
               {
                 id: 1,
@@ -1077,7 +1078,13 @@ test.describe('Data Tables', () => {
       // WHEN: migration removes table from schema
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
+        tables: [
+          {
+            id: 999,
+            name: 'placeholder',
+            fields: [{ id: 1, name: 'id', type: 'integer' }],
+          },
+        ],
       })
 
       // THEN: table is removed completely, pg_tables no longer shows it

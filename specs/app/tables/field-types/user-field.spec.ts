@@ -129,7 +129,13 @@ test.describe('User Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
-        tables: [],
+        tables: [
+          {
+            id: 999,
+            name: 'placeholder',
+            fields: [{ id: 1, name: 'id', type: 'integer' }],
+          },
+        ],
       })
 
       const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })

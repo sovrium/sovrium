@@ -95,17 +95,17 @@ test.describe('Rollup Field', () => {
 
       // THEN: Rollup field is directly accessible (Airtable-style)
       const alice = await executeQuery('SELECT * FROM customers WHERE id = 1')
-      expect(alice.total_order_amount).toBe(325.5) // 100 + 150 + 75.50
+      expect(parseFloat(alice.total_order_amount)).toBe(325.5) // 100 + 150 + 75.50
 
       const bob = await executeQuery('SELECT * FROM customers WHERE id = 2')
-      expect(bob.total_order_amount).toBe(200.0)
+      expect(parseFloat(bob.total_order_amount)).toBe(200.0)
 
       // WHEN: Customer with no orders
       await executeQuery("INSERT INTO customers (name) VALUES ('Charlie')")
 
       // THEN: Rollup returns 0 for empty aggregation
       const charlie = await executeQuery('SELECT * FROM customers WHERE id = 3')
-      expect(charlie.total_order_amount).toBe(0)
+      expect(parseFloat(charlie.total_order_amount)).toBe(0)
     }
   )
 
@@ -251,7 +251,7 @@ test.describe('Rollup Field', () => {
 
       // THEN: Statistical rollup fields are directly accessible
       const product = await executeQuery('SELECT * FROM products WHERE id = 1')
-      expect(product.avg_rating).toBe(4.25) // (5 + 4 + 5 + 3) / 4
+      expect(parseFloat(product.avg_rating)).toBe(4.25) // (5 + 4 + 5 + 3) / 4
       expect(product.min_rating).toBe(3)
       expect(product.max_rating).toBe(5)
     }
@@ -318,9 +318,9 @@ test.describe('Rollup Field', () => {
         'SELECT id, name, total_salary FROM departments ORDER BY id'
       )
       expect(allDepartments.rows).toEqual([
-        { id: 1, name: 'Engineering', total_salary: 270_000 }, // 90k + 85k + 95k
-        { id: 2, name: 'Sales', total_salary: 145_000 }, // 70k + 75k
-        { id: 3, name: 'Marketing', total_salary: 60_000 },
+        { id: 1, name: 'Engineering', total_salary: '270000' }, // 90k + 85k + 95k (returned as string)
+        { id: 2, name: 'Sales', total_salary: '145000' }, // 70k + 75k (returned as string)
+        { id: 3, name: 'Marketing', total_salary: '60000' }, // (returned as string)
       ])
 
       // THEN: Can filter departments by computed rollup value (use explicit columns to avoid special fields)
@@ -328,8 +328,8 @@ test.describe('Rollup Field', () => {
         'SELECT id, name, total_salary FROM departments WHERE total_salary > 100000 ORDER BY id'
       )
       expect(highBudgetDepts.rows).toEqual([
-        { id: 1, name: 'Engineering', total_salary: 270_000 },
-        { id: 2, name: 'Sales', total_salary: 145_000 },
+        { id: 1, name: 'Engineering', total_salary: '270000' },
+        { id: 2, name: 'Sales', total_salary: '145000' },
       ])
     }
   )
@@ -397,11 +397,11 @@ test.describe('Rollup Field', () => {
 
       // THEN: Rollup value is directly accessible
       const acme = await executeQuery("SELECT * FROM accounts WHERE account_name = 'Acme Corp'")
-      expect(acme.revenue_total).toBe(8000) // 5000 + 3000
+      expect(parseFloat(acme.revenue_total)).toBe(8000) // 5000 + 3000
 
       // THEN: Can aggregate on rollup fields
       const totalRevenue = await executeQuery('SELECT SUM(revenue_total) as total FROM accounts')
-      expect(totalRevenue.total).toBe(18_000) // 8000 + 10000
+      expect(parseFloat(totalRevenue.total)).toBe(18_000) // 8000 + 10000
     }
   )
 
@@ -681,8 +681,8 @@ test.describe('Rollup Field', () => {
 
       // THEN: Conditional rollup sums only matching records
       const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
-      expect(project.completed_hours).toBe(24.0) // 8 + 16
-      expect(project.pending_hours).toBe(36.0) // 24 + 12
+      expect(parseFloat(project.completed_hours)).toBe(24.0) // 8 + 16
+      expect(parseFloat(project.pending_hours)).toBe(36.0) // 24 + 12
     }
   )
 
@@ -1004,7 +1004,7 @@ test.describe('Rollup Field', () => {
 
         // THEN: Computed rollup values update automatically
         const updated = await executeQuery('SELECT * FROM projects WHERE id = 1')
-        expect(updated.completed_hours).toBe(48.0) // 8 + 16 + 24 (now completed)
+        expect(parseFloat(updated.completed_hours)).toBe(48.0) // 8 + 16 + 24 (now completed)
       })
 
       await test.step('Verify can filter by rollup values', async () => {

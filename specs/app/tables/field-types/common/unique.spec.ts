@@ -125,10 +125,16 @@ test.describe('Unique Field Property', () => {
     'APP-TABLES-FIELD-UNIQUE-003: should fail migration when attempting to add UNIQUE constraint with existing duplicates',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: unique field with existing duplicate values
+      // GIVEN: unique field with existing duplicate values (placeholder table required by validation)
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
+        tables: [
+          {
+            id: 999,
+            name: 'placeholder',
+            fields: [{ id: 1, name: 'id', type: 'integer' }],
+          },
+        ],
       })
       await executeQuery([
         'DROP TABLE IF EXISTS accounts',
