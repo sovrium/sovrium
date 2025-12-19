@@ -13,7 +13,7 @@ import type { AppEncoded } from '@/domain/models/app'
  * E2E Tests for Programmatic API - start() Function
  *
  * Source: src/index.ts (start function)
- * Domain: cli
+ * Domain: package
  * Spec Count: 7
  *
  * Programmatic API Behavior:
@@ -35,7 +35,7 @@ test.describe('Programmatic API - start()', () => {
   // ============================================================================
 
   test.fixme(
-    'CLI-API-START-001: should start server with minimal config object',
+    'PACKAGE-START-001: should start server with minimal config object',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: Minimal app configuration object (no file, direct TypeScript)
@@ -64,7 +64,7 @@ test.describe('Programmatic API - start()', () => {
   )
 
   test.fixme(
-    'CLI-API-START-002: should support custom port option',
+    'PACKAGE-START-002: should support custom port option',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: App config with custom port via options object
@@ -94,7 +94,7 @@ test.describe('Programmatic API - start()', () => {
   )
 
   test.fixme(
-    'CLI-API-START-003: should support custom hostname option',
+    'PACKAGE-START-003: should support custom hostname option',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: App config with custom hostname
@@ -120,7 +120,7 @@ test.describe('Programmatic API - start()', () => {
   )
 
   test.fixme(
-    'CLI-API-START-004: should validate schema and reject invalid config',
+    'PACKAGE-START-004: should validate schema and reject invalid config',
     { tag: '@spec' },
     async () => {
       // GIVEN: Invalid app config (missing required 'name' field)
@@ -136,7 +136,7 @@ test.describe('Programmatic API - start()', () => {
   )
 
   test.fixme(
-    'CLI-API-START-005: should provide working stop() method for graceful shutdown',
+    'PACKAGE-START-005: should provide working stop() method for graceful shutdown',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: Running server
@@ -160,7 +160,7 @@ test.describe('Programmatic API - start()', () => {
   )
 
   test.fixme(
-    'CLI-API-START-006: should support comprehensive app configuration',
+    'PACKAGE-START-006: should support comprehensive app configuration',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: Comprehensive app config with theme, pages, metadata
@@ -229,7 +229,7 @@ test.describe('Programmatic API - start()', () => {
   )
 
   test.fixme(
-    'CLI-API-START-007: should start server with default options when none provided',
+    'PACKAGE-START-007: should start server with default options when none provided',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: App config with NO options object
@@ -259,7 +259,7 @@ test.describe('Programmatic API - start()', () => {
   // ============================================================================
 
   test.fixme(
-    'CLI-API-START-008: developer can embed Sovrium server in TypeScript application',
+    'PACKAGE-START-008: developer can embed Sovrium server in TypeScript application',
     { tag: '@regression' },
     async ({ page }) => {
       let server1: Awaited<ReturnType<typeof start>> | undefined

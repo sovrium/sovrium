@@ -16,7 +16,7 @@ import type { AppEncoded } from '@/domain/models/app'
  * E2E Tests for Programmatic API - build() Function
  *
  * Source: src/index.ts (build function)
- * Domain: cli
+ * Domain: package
  * Spec Count: 8
  *
  * Programmatic API Behavior:
@@ -38,7 +38,7 @@ test.describe('Programmatic API - build()', () => {
   // ============================================================================
 
   test.fixme(
-    'CLI-API-BUILD-001: should generate static site with minimal config object',
+    'PACKAGE-BUILD-001: should generate static site with minimal config object',
     { tag: '@spec' },
     async () => {
       // GIVEN: Minimal app configuration object (no file, direct TypeScript)
@@ -84,7 +84,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-002: should support custom output directory option',
+    'PACKAGE-BUILD-002: should support custom output directory option',
     { tag: '@spec' },
     async () => {
       // GIVEN: App config with custom output directory
@@ -124,7 +124,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-003: should validate schema and reject invalid config',
+    'PACKAGE-BUILD-003: should validate schema and reject invalid config',
     { tag: '@spec' },
     async () => {
       // GIVEN: Invalid app config (missing required 'name' field)
@@ -141,7 +141,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-004: should return complete file list in result',
+    'PACKAGE-BUILD-004: should return complete file list in result',
     { tag: '@spec' },
     async () => {
       // GIVEN: App with multiple pages
@@ -193,7 +193,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-005: should support generation options (baseUrl, sitemap, robots)',
+    'PACKAGE-BUILD-005: should support generation options (baseUrl, sitemap, robots)',
     { tag: '@spec' },
     async () => {
       // GIVEN: App config with generation options
@@ -247,7 +247,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-006: should support comprehensive app configuration',
+    'PACKAGE-BUILD-006: should support comprehensive app configuration',
     { tag: '@spec' },
     async ({ page }) => {
       // GIVEN: Comprehensive app config with theme, pages, metadata
@@ -317,7 +317,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-007: should generate with default options when none provided',
+    'PACKAGE-BUILD-007: should generate with default options when none provided',
     { tag: '@spec' },
     async () => {
       // GIVEN: App config with NO options object
@@ -356,7 +356,7 @@ test.describe('Programmatic API - build()', () => {
   )
 
   test.fixme(
-    'CLI-API-BUILD-008: should support deployment-specific options',
+    'PACKAGE-BUILD-008: should support deployment-specific options',
     { tag: '@spec' },
     async () => {
       // GIVEN: App config with GitHub Pages deployment options
@@ -411,7 +411,7 @@ test.describe('Programmatic API - build()', () => {
   // ============================================================================
 
   test.fixme(
-    'CLI-API-BUILD-009: developer can integrate static generation in build scripts',
+    'PACKAGE-BUILD-009: developer can integrate static generation in build scripts',
     { tag: '@regression' },
     async ({ page }) => {
       let result: Awaited<ReturnType<typeof build>> | undefined
