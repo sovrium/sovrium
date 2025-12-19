@@ -298,12 +298,32 @@ export const test = base.extend<ServerFixtures>({
       try {
         // Execute single query or multiple statements
         if (Array.isArray(sql)) {
-          // Multiple statements - execute sequentially
-          let result: any = { rows: [], rowCount: 0 }
-          for (const statement of sql) {
-            result = await client.query(statement, params)
+          // Multiple statements - execute in a transaction to support SET LOCAL
+          await client.query('BEGIN')
+          try {
+            let result: any = { rows: [], rowCount: 0 }
+            for (const statement of sql) {
+              result = await client.query(statement, params)
+            }
+            await client.query('COMMIT')
+
+            // Apply single-row spreading logic for transaction results too
+            if (result.rows.length === 1) {
+              return {
+                ...result.rows[0],
+                rows: result.rows,
+                rowCount: result.rowCount ?? result.rows.length,
+              }
+            }
+
+            return {
+              rows: result.rows,
+              rowCount: result.rowCount ?? result.rows.length,
+            }
+          } catch (error) {
+            await client.query('ROLLBACK')
+            throw error
           }
-          return result
         }
 
         const result = await client.query(sql, params)

@@ -499,23 +499,31 @@ test.describe('Timezone Handling', () => {
         await executeQuery(`SET TIME ZONE 'UTC'`)
         const utc = await executeQuery(`SELECT scheduled_at FROM events WHERE id = 1`)
         // 10:00 EST = 15:00 UTC
-        expect(utc.rows[0].scheduled_at).toMatch(/15:00:00/)
+        expect(utc.rows[0].scheduled_at.toISOString()).toMatch(/15:00:00/)
 
-        await executeQuery(`SET TIME ZONE 'America/New_York'`)
-        const est = await executeQuery(`SELECT scheduled_at FROM events WHERE id = 1`)
-        // Returns original timezone
-        expect(est.rows[0].scheduled_at).toMatch(/10:00:00/)
+        const est = await executeQuery([
+          `SET TIME ZONE 'America/New_York'`,
+          `SELECT scheduled_at::TEXT as scheduled_text FROM events WHERE id = 1`,
+        ])
+        // Returns original timezone when formatted as text (10:00 EST)
+        expect(est.scheduled_text).toMatch(/10:00:00/)
       })
 
       await test.step('Verify zoneless timestamp is not converted', async () => {
-        await executeQuery(`SET TIME ZONE 'UTC'`)
-        const utcCreated = await executeQuery(`SELECT created_at FROM events WHERE id = 1`)
+        const utcCreated = await executeQuery([
+          `SET TIME ZONE 'UTC'`,
+          `SELECT created_at FROM events WHERE id = 1`,
+        ])
 
-        await executeQuery(`SET TIME ZONE 'America/New_York'`)
-        const estCreated = await executeQuery(`SELECT created_at FROM events WHERE id = 1`)
+        const estCreated = await executeQuery([
+          `SET TIME ZONE 'America/New_York'`,
+          `SELECT created_at FROM events WHERE id = 1`,
+        ])
 
-        // Same value regardless of session timezone
-        expect(utcCreated.rows[0].created_at).toBe(estCreated.rows[0].created_at)
+        // Same value regardless of session timezone (compare ISO strings)
+        expect(utcCreated.rows[0].created_at.toISOString()).toBe(
+          estCreated.rows[0].created_at.toISOString()
+        )
       })
     }
   )
