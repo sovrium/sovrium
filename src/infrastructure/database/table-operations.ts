@@ -282,7 +282,10 @@ const applyTableFeatures = (
  * Get compatible columns between existing and new table for data migration
  */
 const getCompatibleColumns = (
-  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
   newColumnInfo: ReadonlyMap<string, { columnDefault: string | null; dataType: string }>
 ): readonly string[] =>
   Array.from(existingColumns.keys()).filter((col) => {
