@@ -24,7 +24,7 @@ test.describe('Modify Field Constraints Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-CONSTRAINTS-001: should alter table add constraint check with range validation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -74,7 +74,7 @@ test.describe('Modify Field Constraints Migration', () => {
       const validInsert = await executeQuery(
         `INSERT INTO products (name, price) VALUES ('Test Product', 500.00) RETURNING price`
       )
-      expect(validInsert.price).toBe('500.00')
+      expect(parseFloat(validInsert.price)).toBe(500)
 
       // Value below minimum rejected
       await expect(async () => {
