@@ -81,7 +81,7 @@ test.describe('Modify Field Default Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     "MIGRATION-MODIFY-DEFAULT-002: should alter table alter column set default 'pending' (replaces old default)",
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
