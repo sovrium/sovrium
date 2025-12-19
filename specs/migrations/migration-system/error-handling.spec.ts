@@ -361,7 +361,7 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-009: should reject destructive operations without confirmation flag',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -378,7 +378,7 @@ test.describe('Error Handling and Rollback', () => {
       })
       await executeQuery([`INSERT INTO legacy_data (value) VALUES ('important data')`])
 
-      // WHEN: Attempting to drop column/table without explicit confirmation
+      // WHEN: Attempting to drop column without explicit confirmation
       // THEN: Should throw validation error requiring confirmation
       await expect(
         startServerWithSchema({
@@ -388,6 +388,7 @@ test.describe('Error Handling and Rollback', () => {
               id: 1,
               name: 'legacy_data',
               fields: [
+                { id: 3, name: 'other_field', type: 'single-line-text' },
                 // 'value' column removed - destructive operation!
               ],
               // No 'allowDestructive: true' flag

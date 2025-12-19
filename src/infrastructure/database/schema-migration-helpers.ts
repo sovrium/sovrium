@@ -329,6 +329,7 @@ const buildColumnStatements = (options: {
 /**
  * Generate ALTER TABLE statements for schema migrations
  */
+/* eslint-disable-next-line max-lines-per-function */
 export const generateAlterTableStatements = (
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>,
@@ -362,6 +363,16 @@ export const generateAlterTableStatements = (
     shouldProtectIdColumn,
     renamedOldNames
   )
+
+  // Validate destructive operations (column drops) require explicit confirmation
+  if (columnsToDrop.length > 0 && !table.allowDestructive) {
+    const droppedColumns = columnsToDrop.join(', ')
+    /* eslint-disable-next-line functional/no-throw-statements */
+    throw new Error(
+      `Destructive operation detected: Dropping column(s) [${droppedColumns}] from table '${table.name}' requires confirmation. Set allowDestructive: true to proceed with data loss, or keep the field(s) in the schema to preserve data.`
+    )
+  }
+
   const nullabilityChanges = findNullabilityChanges(
     table,
     existingColumns,
