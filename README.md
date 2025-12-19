@@ -22,11 +22,40 @@
 
 ## What is Sovrium?
 
-Sovrium turns **TypeScript/JSON configuration** into full-featured web applications—database, auth, API, and UI included.
+Sovrium turns **configuration files** into full-featured web applications—database, auth, API, and UI included.
 
-No code generation. No external services. Just config and `bun run`.
+No code generation. No external services. Just config and `sovrium start`.
+
+**Choose your format**—YAML for readability, TypeScript for type safety:
+
+```yaml
+# sovrium.yaml
+name: my-crm
+
+tables:
+  - id: 1
+    name: contacts
+    fields:
+      - id: 1
+        name: email
+        type: email
+      - id: 2
+        name: name
+        type: single-line-text
+
+pages:
+  - name: home
+    path: /
+    sections:
+      - type: h1
+        content: Hello World
+```
+
+<details>
+<summary>Or use TypeScript for IDE completion</summary>
 
 ```typescript
+// app.ts
 import { start } from 'sovrium'
 
 await start({
@@ -51,8 +80,11 @@ await start({
 })
 ```
 
+</details>
+
 ```bash
-bun run app.ts
+sovrium start sovrium.yaml   # Run with YAML
+bun run app.ts               # Or run with TypeScript
 # → http://localhost:3000
 ```
 
@@ -82,8 +114,19 @@ bun run app.ts
 # Install
 bun add sovrium
 
+# Create config
+cat > sovrium.yaml << EOF
+name: my-app
+pages:
+  - name: home
+    path: /
+    sections:
+      - type: h1
+        content: Hello World
+EOF
+
 # Run
-bun run your-app.ts
+sovrium start sovrium.yaml
 ```
 
 ---
@@ -91,7 +134,7 @@ bun run your-app.ts
 ## Features
 
 - ⚡ **Fast** — Bun runtime, zero compilation
-- 🔧 **Config-driven** — TypeScript/JSON, not drag-and-drop
+- 🔧 **Config-driven** — YAML, JSON, or TypeScript—not drag-and-drop
 - 🗄️ **Database included** — PostgreSQL with auto-generated schemas
 - 🔐 **Auth built-in** — Sessions, OAuth, SSO ready
 - 🎨 **React SSR** — Server-rendered UI with Tailwind
