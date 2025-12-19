@@ -175,9 +175,8 @@ test.describe('CLI Start Command - JSON Configuration', () => {
       })
 
       // THEN: Server applies all configuration correctly
+      // Note: Custom pages bypass default layout, so app-name-heading/version-badge are NOT rendered
       await page.goto(server.url)
-      await expect(page.getByTestId('app-name-heading')).toHaveText('full-featured-app')
-      await expect(page.getByTestId('app-version-badge')).toHaveText('1.2.3')
       await expect(page.locator('h1')).toHaveText('Welcome to full-featured-app')
 
       // Verify theme colors applied (check CSS variables)
@@ -270,9 +269,8 @@ test.describe('CLI Start Command - JSON Configuration', () => {
       })
 
       await test.step('Verify home page renders correctly', async () => {
+        // Note: Custom pages bypass default layout - header elements not rendered
         await page.goto('/')
-        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-page-json-app')
-        await expect(page.getByTestId('app-version-badge')).toHaveText('2.0.0-beta')
         await expect(page.locator('h1')).toHaveText('Home Page')
         await expect(page.locator('p')).toHaveText('Welcome to the app')
       })
