@@ -160,7 +160,7 @@ test.describe('Modify Field Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-CONSTRAINTS-003: should migration fails due to invalid existing data (negative age)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
