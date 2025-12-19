@@ -133,19 +133,22 @@ description: Auto-detected as YAML from .yml extension
       // GIVEN: Config files with mixed case extensions (.JSON, .Yaml, .YML)
       // Note: We test one at a time since fixture handles cleanup automatically
 
-      // Test uppercase JSON
+      // WHEN: Starting server with uppercase JSON extension
+      // THEN: Server starts successfully (format detection is case-insensitive)
       await startCliServerWithConfig({
         format: 'json', // Extension case handled by file system
         config: { name: 'uppercase-json', description: 'Test' },
       })
 
-      // Test mixed case YAML
+      // WHEN: Starting server with mixed case YAML extension
+      // THEN: Server starts successfully
       await startCliServerWithConfig({
         format: 'yaml',
         config: 'name: mixed-case-yaml\ndescription: Test\n',
       })
 
-      // Test uppercase YML
+      // WHEN: Starting server with uppercase YML extension
+      // THEN: Server starts successfully
       await startCliServerWithConfig({
         format: 'yml',
         config: 'name: uppercase-yml\ndescription: Test\n',
