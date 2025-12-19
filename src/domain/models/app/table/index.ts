@@ -15,6 +15,7 @@ import { NameSchema } from './name'
 import { TablePermissionsSchema } from './permissions'
 import { PrimaryKeySchema } from './primary-key'
 import { SPECIAL_FIELDS, validateFormulaFields } from './table-formula-validation'
+import { validateIndexes } from './table-indexes-validation'
 import { validateTablePermissions } from './table-permissions-validation'
 import { validatePrimaryKey } from './table-primary-key-validation'
 import { validateViews } from './table-views-validation'
@@ -50,6 +51,93 @@ export { SPECIAL_FIELDS }
  */
 
 /**
+ * Run all structural validations (formula fields, primary keys, indexes).
+ *
+ * @param table - Table to validate
+ * @param fieldNames - Set of valid field names
+ * @returns Validation error object if invalid, undefined if valid
+ */
+const validateTableStructure = (
+  table: {
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+      readonly formula?: string
+    }>
+    readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
+    readonly indexes?: ReadonlyArray<{
+      readonly name: string
+      readonly fields: ReadonlyArray<string>
+    }>
+  },
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Validate formula fields
+  const formulaError = validateFormulaFields(table.fields)
+  if (formulaError) return formulaError
+
+  // Validate primary key if present
+  if (table.primaryKey) {
+    const primaryKeyError = validatePrimaryKey(table.primaryKey, fieldNames)
+    if (primaryKeyError) return primaryKeyError
+  }
+
+  // Validate indexes if present
+  if (table.indexes && table.indexes.length > 0) {
+    const indexError = validateIndexes(table.indexes, fieldNames)
+    if (indexError) return indexError
+  }
+
+  return undefined
+}
+
+/**
+ * Run all access control validations (permissions and views).
+ *
+ * @param table - Table to validate
+ * @param fieldNames - Set of valid field names
+ * @returns Validation error object if invalid, undefined if valid
+ */
+const validateTableAccessControl = (
+  table: {
+    readonly fields: ReadonlyArray<{
+      readonly name: string
+      readonly type: string
+      readonly formula?: string
+    }>
+    readonly views?: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
+    readonly permissions?: {
+      readonly organizationScoped?: boolean
+      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      readonly fields?: ReadonlyArray<{
+        readonly field: string
+        readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+        readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
+      }>
+      readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
+    }
+  },
+  fieldNames: ReadonlySet<string>
+): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
+  // Validate permissions if present
+  if (table.permissions) {
+    const permissionsError = validateTablePermissions(table.permissions, table.fields, fieldNames)
+    if (permissionsError) return permissionsError
+  }
+
+  // Validate views if present
+  if (table.views && table.views.length > 0) {
+    const viewsError = validateViews(table.views, table.fields, fieldNames)
+    if (viewsError) return viewsError
+  }
+
+  return undefined
+}
+
+/**
  * Validate table schema including fields, permissions, views, and roles.
  * Orchestrates all validation functions from extracted modules.
  *
@@ -63,6 +151,10 @@ const validateTableSchema = (table: {
     readonly formula?: string
   }>
   readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
+  readonly indexes?: ReadonlyArray<{
+    readonly name: string
+    readonly fields: ReadonlyArray<string>
+  }>
   readonly views?: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
   readonly permissions?: {
     readonly organizationScoped?: boolean
@@ -80,39 +172,13 @@ const validateTableSchema = (table: {
 }): { readonly message: string; readonly path: ReadonlyArray<string> } | true => {
   const fieldNames = new Set(table.fields.map((field) => field.name))
 
-  // Validate formula fields
-  const formulaValidationError = validateFormulaFields(table.fields)
-  if (formulaValidationError) {
-    return formulaValidationError
-  }
+  // Validate structural aspects (fields, constraints, indexes)
+  const structureError = validateTableStructure(table, fieldNames)
+  if (structureError) return structureError
 
-  // Validate primary key if present
-  if (table.primaryKey) {
-    const primaryKeyValidationError = validatePrimaryKey(table.primaryKey, fieldNames)
-    if (primaryKeyValidationError) {
-      return primaryKeyValidationError
-    }
-  }
-
-  // Validate permissions if present
-  if (table.permissions) {
-    const permissionsValidationError = validateTablePermissions(
-      table.permissions,
-      table.fields,
-      fieldNames
-    )
-    if (permissionsValidationError) {
-      return permissionsValidationError
-    }
-  }
-
-  // Validate views if present
-  if (table.views && table.views.length > 0) {
-    const viewsValidationError = validateViews(table.views, table.fields, fieldNames)
-    if (viewsValidationError) {
-      return viewsValidationError
-    }
-  }
+  // Validate access control (permissions, views)
+  const accessControlError = validateTableAccessControl(table, fieldNames)
+  if (accessControlError) return accessControlError
 
   return true
 }
