@@ -77,7 +77,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-002: should create index creates multi-column btree index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
