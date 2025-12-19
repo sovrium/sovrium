@@ -756,8 +756,9 @@ const generateDropIndexStatements = (
 
   // Drop indexes for fields that no longer have indexed: true
   const previousIndexedFields =
-    previousTable.fields?.filter((f) => f.name && 'indexed' in f && f.indexed).map((f) => f.name!) ??
-    []
+    previousTable.fields
+      ?.filter((f) => f.name && 'indexed' in f && f.indexed)
+      .map((f) => f.name!) ?? []
 
   const currentIndexedFields = new Set(
     table.fields.filter((f) => 'indexed' in f && f.indexed).map((f) => f.name)
