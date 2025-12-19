@@ -127,7 +127,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-003: should drop index removes index from table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
