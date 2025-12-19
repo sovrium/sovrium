@@ -471,7 +471,10 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   const finalRoles = Array.from(roleFieldsWithBase.keys())
   const roleSetupStatements = generateRoleSetupStatements(finalRoles, tableName)
   const columnGrantStatements = generateColumnSelectGrants(tableName, roleFieldsWithBase)
-  const customFieldReadGrants = generateCustomFieldSelectGrants(tableName, customConditionReadFields)
+  const customFieldReadGrants = generateCustomFieldSelectGrants(
+    tableName,
+    customConditionReadFields
+  )
 
   const writeGrantStatements = generateWritePermissionGrants(
     tableName,

@@ -52,15 +52,18 @@ export {
 // ============================================================================
 
 /**
- * Check if table should skip RLS for field-only permissions
+ * Check if table should skip table-level RLS policies for SELECT
  *
- * Skip RLS when:
- * - Field permissions array has at least one entry (actual field restrictions) AND
+ * Skip table-level SELECT policies ONLY when:
+ * - Field permissions exist with ONLY role-based permissions (not custom/owner)
  * - No record-level permissions exist
  *
- * Rationale: When permissions.fields has entries, column-level GRANT statements
- * handle field access. RLS is only needed if record-level restrictions exist.
+ * Rationale: Column-level GRANT statements only handle static role-based field
+ * access. Custom/owner field permissions require RLS at the row level.
  * Empty array ([]) means "no field restrictions" and table-level RLS applies.
+ *
+ * IMPORTANT: This only affects SELECT policies. UPDATE/DELETE/CREATE policies
+ * must still be generated based on table-level permissions.
  */
 const shouldSkipRLSForFieldPermissions = (table: Table): boolean => {
   const hasActualFieldPermissions = !!(
@@ -69,7 +72,35 @@ const shouldSkipRLSForFieldPermissions = (table: Table): boolean => {
   const hasRecordPermissions = !!(
     table.permissions?.records && table.permissions.records.length > 0
   )
-  return hasActualFieldPermissions && !hasRecordPermissions
+
+  // If no field permissions, don't skip RLS
+  if (!hasActualFieldPermissions) {
+    return false
+  }
+
+  // If record permissions exist, don't skip RLS (records need RLS)
+  if (hasRecordPermissions) {
+    return false
+  }
+
+  // Check if any field permission uses custom/owner type (requires RLS)
+  const hasCustomFieldPermissions = table.permissions?.fields?.some(
+    (fp) =>
+      fp.read?.type === 'custom' ||
+      fp.read?.type === 'owner' ||
+      fp.write?.type === 'custom' ||
+      fp.write?.type === 'owner'
+  )
+
+  // If custom field permissions exist, we need RLS for the custom read policy
+  // but we still need table-level policies for UPDATE/DELETE/CREATE
+  // Return false to NOT skip RLS generation
+  if (hasCustomFieldPermissions) {
+    return false
+  }
+
+  // Only role-based field permissions - column-level GRANTs handle access
+  return true
 }
 
 /**
@@ -152,6 +183,15 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
 }
 
 /**
+ * Check if table has custom/owner field read permissions
+ * These require special handling - the custom field read RLS policy handles SELECT
+ */
+const hasCustomFieldReadPermissions = (table: Table): boolean =>
+  table.permissions?.fields?.some(
+    (fp) => fp.read?.type === 'custom' || fp.read?.type === 'owner'
+  ) ?? false
+
+/**
  * Generate RLS policy statements for authenticated permissions
  *
  * When a table has authenticated permissions (e.g., read: { type: 'authenticated' }),
@@ -170,13 +210,13 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
   const enableRLS = generateEnableRLS(tableName)
   const authenticatedChecks = generateAuthenticatedChecks(table.permissions)
 
-  // Generate policies for each CRUD operation
-  const selectPolicies = generateAuthenticatedPolicyStatements(
-    tableName,
-    'read',
-    'SELECT',
-    authenticatedChecks.read
-  )
+  // Skip SELECT policy if custom field read permissions exist
+  // The custom field read RLS policy (from generateCustomReadRLSPolicies) handles SELECT
+  // Otherwise, PostgreSQL would OR the policies, allowing access when authenticated_read passes
+  const selectPolicies = hasCustomFieldReadPermissions(table)
+    ? []
+    : generateAuthenticatedPolicyStatements(tableName, 'read', 'SELECT', authenticatedChecks.read)
+
   const insertPolicies = generateAuthenticatedPolicyStatements(
     tableName,
     'create',
