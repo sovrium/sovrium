@@ -206,7 +206,7 @@ test.describe('Modify Field Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-CONSTRAINTS-004: should alter table drop constraint removes validation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
