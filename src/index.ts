@@ -189,11 +189,6 @@ export const build = async (
 }
 
 /**
- * @deprecated Use `build` instead. This alias will be removed in v1.0.0.
- */
-export const generateStatic = build
-
-/**
  * Re-export types for convenience
  */
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
