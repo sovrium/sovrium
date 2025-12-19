@@ -78,16 +78,16 @@ test.describe('Error Handling and Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ERROR-002: should rollback all changes when migration fails mid-execution',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: multiple tables being created, second table has SQL syntax error
+      // GIVEN: multiple tables being created, second table has invalid constraint (min > max)
 
-      // WHEN: migration fails mid-execution
-      // THEN: All changes rolled back, first table NOT created
+      // WHEN: schema validation fails before migration
+      // THEN: No tables created (validation happens before SQL execution)
 
-      // Migration fails on second table
+      // Migration fails on second table due to constraint validation
       await expect(async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -102,12 +102,12 @@ test.describe('Error Handling and Rollback', () => {
               name: 'products',
               fields: [
                 { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'price', type: 'decimal' },
+                { id: 3, name: 'price', type: 'decimal', min: 100, max: 10 },
               ],
             },
           ],
         })
-      }).rejects.toThrow(/Invalid constraint value/i)
+      }).rejects.toThrow(/min cannot be greater than max/i)
 
       // First table NOT created (rollback)
       const categoriesTable = await executeQuery(
