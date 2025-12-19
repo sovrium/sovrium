@@ -140,6 +140,40 @@ async function ensureImageAvailable(dockerPath: string, image: string): Promise<
 }
 
 /**
+ * Get Docker container logs for debugging
+ * Returns the last N lines of container logs, or an error message if logs cannot be retrieved
+ */
+function getContainerLogs(containerName: string, tailLines: number = 20): string {
+  const dockerPath = findDockerPath()
+  try {
+    const logs = execSync(`${dockerPath} logs ${containerName} --tail ${tailLines} 2>&1`, {
+      encoding: 'utf-8',
+      timeout: 5000, // 5 second timeout for log retrieval
+    })
+    return logs.trim() || '(no logs available)'
+  } catch (error) {
+    return `(could not retrieve logs: ${error instanceof Error ? error.message : String(error)})`
+  }
+}
+
+/**
+ * Get Docker container state for debugging
+ * Returns container status information or error message
+ */
+function getContainerState(containerName: string): string {
+  const dockerPath = findDockerPath()
+  try {
+    const state = execSync(
+      `${dockerPath} inspect ${containerName} --format '{{.State.Status}} (Running: {{.State.Running}}, ExitCode: {{.State.ExitCode}})'`,
+      { encoding: 'utf-8', timeout: 5000 }
+    )
+    return state.trim()
+  } catch {
+    return '(container not found or inspect failed)'
+  }
+}
+
+/**
  * Check if Mailpit container is running
  */
 export function isMailpitRunning(): boolean {
@@ -212,12 +246,22 @@ export async function startGlobalMailpit(): Promise<void> {
         : null
     const errorMessage = dockerError || String(error)
 
+    // Capture container diagnostics for debugging CI issues
+    console.log('❌ Mailpit startup failed - gathering diagnostics...')
+    const containerState = getContainerState(globalContainerName)
+    const containerLogs = getContainerLogs(globalContainerName)
+
+    console.log(`📋 Container State: ${containerState}`)
+    console.log(`📋 Container Logs (last 20 lines):\n${containerLogs}`)
+
     throw new Error(
       `Failed to start Mailpit container: ${errorMessage}\n` +
         `  Container: ${globalContainerName}\n` +
         `  Image: ${mailpitImage}\n` +
         `  Ports: SMTP=${globalSmtpPort}, Web=${globalWebPort}\n` +
-        `  Tip: Run 'docker ps -a' to check container status`
+        `  State: ${containerState}\n` +
+        `  Logs: ${containerLogs.split('\n')[0]}...\n` +
+        `  Tip: Full logs printed above. Run 'docker ps -a' to check container status`
     )
   }
 }
@@ -244,18 +288,30 @@ export async function stopGlobalMailpit(): Promise<void> {
  * Uses longer timeouts on CI where Docker startup can be slower.
  * - Local: 30 attempts × 100ms = 3 seconds
  * - CI: 60 attempts × 200ms = 12 seconds
+ *
+ * Includes progress logging every 10 attempts (every 2s on CI) to aid debugging
+ * of container startup issues that can cause 10+ minute hangs in CI.
  */
 async function waitForMailpitReady(): Promise<void> {
   const isCI = !!process.env.CI
   const maxAttempts = isCI ? 60 : 30
   const delayMs = isCI ? 200 : 100
   const baseUrl = `http://localhost:${globalWebPort}`
+  const progressInterval = 10 // Log every 10 attempts
 
   console.log(
     `⏳ Waiting for Mailpit to be ready (max ${maxAttempts} attempts, ${delayMs}ms interval)...`
   )
 
   for (let i = 0; i < maxAttempts; i++) {
+    // Progress logging every 10 attempts (every 2s on CI, 1s locally)
+    if (i > 0 && i % progressInterval === 0) {
+      const elapsedMs = i * delayMs
+      console.log(
+        `   Still waiting for Mailpit... (attempt ${i}/${maxAttempts}, ${elapsedMs}ms elapsed)`
+      )
+    }
+
     try {
       const response = await fetch(`${baseUrl}/api/v1/messages`)
       if (response.ok) {
