@@ -52,6 +52,9 @@
 - `@docs/infrastructure/email/nodemailer.md` - Nodemailer SMTP email client (transporter, Effect service, Better Auth integration)
 - `@docs/infrastructure/email/mailpit.md` - Local email testing with web UI (local SMTP server)
 
+### Parsing
+- `@docs/infrastructure/parsing/js-yaml.md` - YAML parser for CLI configuration files
+
 ### Utilities
 (No utilities currently documented - use Effect.DateTime for date handling)
 
@@ -143,4 +146,9 @@ Import: @docs/architecture/patterns/config-driven-schema-generation.md
 ```
 Import: @docs/infrastructure/framework/effect.md
 Import: @docs/specifications/schema-architecture.md
+```
+
+### Working with CLI Configuration
+```
+Import: @docs/infrastructure/parsing/js-yaml.md
 ```

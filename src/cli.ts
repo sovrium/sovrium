@@ -50,10 +50,42 @@
  * - `SOVRIUM_BUNDLE_OPTIMIZATION` (optional) - Bundle optimization strategy
  */
 
+import { watch } from 'fs'
 import { Effect, Console } from 'effect'
 import { load as parseYaml } from 'js-yaml'
 import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
 import type { AppEncoded } from '@/domain/models/app'
+
+// Server instance type (returned by start())
+type ServerInstance = Awaited<ReturnType<typeof start>>
+
+/**
+ * TODO(human): Implement the reload logic for watch mode
+ *
+ * This function is called when the config file changes during --watch mode.
+ * It should gracefully reload the server with the new configuration.
+ *
+ * @param filePath - Path to the config file that changed
+ * @param currentServer - The currently running server instance
+ * @param options - Server options (port, hostname)
+ * @returns Promise with the new server instance
+ *
+ * Considerations:
+ * - Should you stop the old server before starting the new one?
+ * - How do you handle parse errors in the new config? (don't crash, keep old server)
+ * - Should you debounce rapid file changes? (editors often save multiple times)
+ */
+const reloadServer = async (
+  _filePath: string,
+  _currentServer: ServerInstance,
+  _options: StartOptions
+): Promise<ServerInstance> => {
+  // TODO(human): Implement reload logic
+  // Hint: Use loadSchemaFromFile() to parse the new config
+  // Hint: The server has a stop() method
+  // Hint: Consider wrapping in try/catch to handle config errors gracefully
+  throw new Error('Not implemented - implement reloadServer()')
+}
 
 /**
  * Show CLI help text
@@ -67,6 +99,9 @@ const showHelp = (): void => {
     '  sovrium static [config]       Generate static site files',
     '  sovrium --help                Show this help message',
     '',
+    'Options:',
+    '  --watch, -w                   Watch config file for changes and hot reload',
+    '',
     'Supported config formats: .json, .yaml, .yml',
     '',
     'Examples:',
@@ -75,6 +110,9 @@ const showHelp = (): void => {
     '',
     '  # Start with YAML file',
     '  sovrium start app.yaml',
+    '',
+    '  # Start with watch mode (hot reload on config changes)',
+    '  sovrium start app.yaml --watch',
     '',
     '  # Start with environment variable',
     '  SOVRIUM_APP_JSON=\'{"name":"My App"}\' sovrium start',
@@ -255,7 +293,7 @@ const parseStartOptions = (): StartOptions => {
 /**
  * Handle the 'start' command
  */
-const handleStartCommand = async (filePath?: string): Promise<void> => {
+const handleStartCommand = async (filePath?: string, watchMode = false): Promise<void> => {
   const app = await parseAppSchema('start', filePath)
   const options = parseStartOptions()
 
@@ -266,18 +304,47 @@ const handleStartCommand = async (filePath?: string): Promise<void> => {
       if (filePath) yield* Console.log(`Config: ${filePath}`)
       if (options.port) yield* Console.log(`Port: ${options.port}`)
       if (options.hostname) yield* Console.log(`Hostname: ${options.hostname}`)
+      if (watchMode) yield* Console.log(`Watch mode: enabled`)
       yield* Console.log('')
     })
   )
 
   // Start the server
   // eslint-disable-next-line functional/no-expression-statements
-  await start(app, options).catch((error) => {
+  const server = await start(app, options).catch((error) => {
     Effect.runSync(Console.error('Failed to start server:', error))
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   })
+
+  // If watch mode enabled, set up file watcher
+  if (watchMode && filePath) {
+    Effect.runSync(Console.log(`\n👀 Watching ${filePath} for changes...\n`))
+
+    // Track current server instance (mutable for watch mode)
+    // eslint-disable-next-line functional/no-let
+    let currentServer = server
+
+    // Set up file watcher using Node.js fs.watch (stable in Bun)
+    // eslint-disable-next-line functional/no-expression-statements
+    watch(filePath, async (eventType) => {
+      if (eventType === 'change') {
+        Effect.runSync(Console.log(`\n🔄 Config changed, reloading...`))
+
+        try {
+          // eslint-disable-next-line functional/no-expression-statements
+          currentServer = await reloadServer(filePath, currentServer, options)
+          Effect.runSync(Console.log(`✅ Server reloaded successfully\n`))
+        } catch (error) {
+          Effect.runSync(
+            Console.error(`❌ Reload failed: ${error instanceof Error ? error.message : error}\n`)
+          )
+          // Keep the old server running on error
+        }
+      }
+    })
+  }
 }
 
 /**
@@ -359,8 +426,7 @@ const handleStaticCommand = async (filePath?: string): Promise<void> => {
 }
 
 // Main CLI entry point
-const command = Bun.argv[2] || 'start'
-const configArg = Bun.argv[3]
+const args = Bun.argv.slice(2)
 
 /**
  * Check if argument is a config file path (JSON, YAML, or YML)
@@ -375,17 +441,39 @@ const isConfigFile = (arg: string | undefined): boolean =>
     arg.endsWith('.YML') ||
     arg.includes('/'))
 
+/**
+ * Parse CLI arguments into command, config file, and flags
+ */
+const parseArgs = (
+  argv: readonly string[]
+): { command: string; configFile?: string; watchMode: boolean } => {
+  const watchMode = argv.includes('--watch') || argv.includes('-w')
+  const nonFlagArgs = argv.filter((arg) => !arg.startsWith('-'))
+
+  const command = nonFlagArgs[0] || 'start'
+  const configFile = nonFlagArgs[1]
+
+  // Handle case where first arg is a config file (implicit 'start' command)
+  if (isConfigFile(command)) {
+    return { command: 'start', configFile: command, watchMode }
+  }
+
+  return { command, configFile, watchMode }
+}
+
+const { command, configFile, watchMode } = parseArgs(args)
+
 // Execute command - side effects required for CLI operation
 ;(async () => {
   switch (command) {
     case 'start':
       // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-      await handleStartCommand(configArg)
+      await handleStartCommand(configFile, watchMode)
       break
     case 'static':
     case 'build': // Alias for static
       // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-      await handleStaticCommand(configArg)
+      await handleStaticCommand(configFile)
       break
     case '--help':
     case '-h':
@@ -396,14 +484,10 @@ const isConfigFile = (arg: string | undefined): boolean =>
       process.exit(0)
       break
     default:
-      // If the command looks like a config file path, treat it as config for 'start'
-      if (isConfigFile(command)) {
-        // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-        await handleStartCommand(command)
-      } else if (!command.startsWith('-')) {
+      if (!command.startsWith('-')) {
         // Unknown command without dash - try as start command
         // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-        await handleStartCommand()
+        await handleStartCommand(undefined, watchMode)
       } else {
         Effect.runSync(
           Effect.gen(function* () {
