@@ -1041,10 +1041,10 @@ export const test = base.extend<ServerFixtures>({
       // This prevents "2" (string) vs 2 (number) type mismatches in tests
       types.setTypeParser(types.builtins.INT8, (val: string) => parseInt(val, 10))
 
-      // Parse NUMERIC/DECIMAL as number (price, currency, percentage fields return numeric)
+      // Parse NUMERIC/DECIMAL as string (price, currency, percentage fields return numeric)
       // PostgreSQL NUMERIC type (OID 1700) returns strings by default to preserve precision
-      // Convert to number for test assertions while accepting precision loss for test simplicity
-      types.setTypeParser(types.builtins.NUMERIC, (val: string) => parseFloat(val))
+      // Keep as string for test assertions to avoid precision loss and match expected format
+      types.setTypeParser(types.builtins.NUMERIC, (val: string) => val)
 
       // Parse DATE as string (keep ISO format YYYY-MM-DD)
       // PostgreSQL DATE type (OID 1082) returns Date objects by default

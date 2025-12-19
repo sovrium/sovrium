@@ -734,7 +734,7 @@ test.describe('Lookup Field', () => {
         const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
 
         expect(order.product_name).toBe('Widget Pro')
-        expect(order.product_price).toBe(99.99)
+        expect(order.product_price).toBe('99.99')
         expect(order.product_release_date).toBe('2024-03-15')
         expect(order.product_in_stock).toBe(true)
       })
@@ -761,7 +761,7 @@ test.describe('Lookup Field', () => {
         const order = await executeQuery('SELECT * FROM orders WHERE id = 2')
 
         expect(order.product_name).toBe('Gadget Plus')
-        expect(order.product_price).toBe(149.99)
+        expect(order.product_price).toBe('149.99')
         expect(order.product_in_stock).toBe(false)
       })
 

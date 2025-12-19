@@ -4629,15 +4629,15 @@ test.describe('Formula Field', () => {
         const computed = await executeQuery(
           'SELECT base_price, tax_rate, total_price FROM data WHERE id = 1'
         )
-        expect(computed.base_price).toBe(100)
-        expect(computed.tax_rate).toBe(0.1)
-        expect(computed.total_price).toBe(110)
+        expect(computed.base_price).toBe('100.00')
+        expect(computed.tax_rate).toBe('0.10')
+        expect(computed.total_price).toBe('110.0000')
       })
 
       await test.step('Update value and verify formula recalculation', async () => {
         await executeQuery('UPDATE data SET tax_rate = 0.20 WHERE id = 1')
         const recomputed = await executeQuery('SELECT total_price FROM data WHERE id = 1')
-        expect(recomputed.total_price).toBe(120)
+        expect(recomputed.total_price).toBe('120.0000')
       })
     }
   )
