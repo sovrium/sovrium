@@ -82,7 +82,7 @@ test.describe('Modify Field Unique Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-002: should migration fails with unique violation error, transaction rolled back',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
