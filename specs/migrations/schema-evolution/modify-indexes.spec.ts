@@ -226,7 +226,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-005: should drop regular index and create unique index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
