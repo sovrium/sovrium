@@ -140,14 +140,14 @@ test.describe('Primary Key', () => {
         `SELECT COUNT(*) as count FROM sessions WHERE id IS NOT NULL`
       )
       // THEN: assertion
-      expect(count.rows[0]).toMatchObject({ count: 3 })
+      expect(count.rows[0]).toMatchObject({ count: '3' })
 
       // UUID values are unique
       const uniqueCount = await executeQuery(
         `SELECT COUNT(DISTINCT id) as unique_count FROM sessions`
       )
       // THEN: assertion
-      expect(uniqueCount.rows[0]).toMatchObject({ unique_count: 3 })
+      expect(uniqueCount.rows[0]).toMatchObject({ unique_count: '3' })
     }
   )
 
@@ -208,14 +208,14 @@ test.describe('Primary Key', () => {
         `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='tenant_users' AND constraint_name='tenant_users_pkey'`
       )
       // THEN: assertion
-      expect(keyCount.rows[0]).toMatchObject({ count: 2 })
+      expect(keyCount.rows[0]).toMatchObject({ count: '2' })
 
       // Same user_id allowed in different tenants
       const sameUser = await executeQuery(
         `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
       )
       // THEN: assertion
-      expect(sameUser.rows[0]).toMatchObject({ count: 2 })
+      expect(sameUser.rows[0]).toMatchObject({ count: '2' })
 
       // Duplicate composite key rejected
       // THEN: assertion
@@ -393,7 +393,7 @@ test.describe('Primary Key', () => {
       // Original ID no longer exists after update
       const oldId = await executeQuery(`SELECT COUNT(*) as count FROM items WHERE id = 1`)
       // THEN: assertion
-      expect(oldId.rows[0]).toMatchObject({ count: 0 })
+      expect(oldId.rows[0]).toMatchObject({ count: '0' })
     }
   )
 
@@ -442,7 +442,7 @@ test.describe('Primary Key', () => {
       // BIGSERIAL generates sequential values
       const ids = await executeQuery(`SELECT id FROM logs ORDER BY id`)
       // THEN: assertion
-      expect(ids.rows).toEqual([{ id: 1 }, { id: 2 }])
+      expect(ids.rows).toEqual([{ id: '1' }, { id: '2' }])
 
       // Primary key constraint exists
       const constraint = await executeQuery(
@@ -516,14 +516,14 @@ test.describe('Primary Key', () => {
         `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='audit_log' AND constraint_name='audit_log_pkey'`
       )
       // THEN: assertion
-      expect(keyCount.rows[0]).toMatchObject({ count: 3 })
+      expect(keyCount.rows[0]).toMatchObject({ count: '3' })
 
       // Same tenant and user allowed at different timestamps
       const sameUserTenant = await executeQuery(
         `SELECT COUNT(*) as count FROM audit_log WHERE tenant_id = 1 AND user_id = 1`
       )
       // THEN: assertion
-      expect(sameUserTenant.rows[0]).toMatchObject({ count: 2 })
+      expect(sameUserTenant.rows[0]).toMatchObject({ count: '2' })
 
       // Duplicate composite key rejected (same timestamp 1000 as first row)
       // THEN: assertion

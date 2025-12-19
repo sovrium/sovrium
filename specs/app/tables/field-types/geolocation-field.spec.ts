@@ -50,7 +50,7 @@ test.describe('Geolocation Field', () => {
         'INSERT INTO locations (coordinates) VALUES (POINT(40.7128, -74.0060)) RETURNING coordinates'
       )
       // THEN: assertion
-      expect(pointInsert.coordinates).toBe('(40.7128,-74.006)')
+      expect(pointInsert.coordinates).toMatchObject({ x: 40.7128, y: -74.006 })
 
       const coordinateExtract = await executeQuery(
         'INSERT INTO locations (coordinates) VALUES (POINT(51.5074, -0.1278)) RETURNING coordinates[0] as latitude, coordinates[1] as longitude'

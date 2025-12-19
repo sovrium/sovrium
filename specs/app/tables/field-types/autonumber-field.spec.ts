@@ -174,7 +174,7 @@ test.describe('Autonumber Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='items' AND constraint_type='UNIQUE' AND constraint_name LIKE '%item_number%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBeGreaterThanOrEqual(0)
+      expect(Number(uniqueConstraint.count)).toBeGreaterThanOrEqual(0)
     }
   )
 

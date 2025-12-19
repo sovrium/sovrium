@@ -542,7 +542,7 @@ test.describe('Lookup Field', () => {
       expect(order.product_name).toBe('Widget Pro') // text
       expect(parseFloat(order.product_price)).toBe(99.99) // decimal (returned as string by pg)
       expect(order.product_release_date instanceof Date).toBe(true) // date (returned as Date object by pg)
-      expect(order.product_release_date.toISOString().split('T')[0]).toBe('2024-03-15')
+      expect(order.product_release_date.toLocaleDateString('en-CA')).toBe('2024-03-15')
       expect(order.product_in_stock).toBe(true) // boolean
     }
   )

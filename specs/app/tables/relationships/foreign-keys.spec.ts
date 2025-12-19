@@ -233,7 +233,7 @@ test.describe('Foreign Key Relationships', () => {
       // Child orders automatically deleted
       const remainingOrders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
       // THEN: assertion
-      expect(remainingOrders.rows[0]).toMatchObject({ count: 0 })
+      expect(remainingOrders.rows[0]).toMatchObject({ count: '0' })
     }
   )
 

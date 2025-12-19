@@ -60,9 +60,7 @@ test.describe('Date Field', () => {
         "INSERT INTO users (birth_date) VALUES ('1990-05-15') RETURNING birth_date"
       )
       // THEN: assertion
-      expect(validInsert).toMatchObject({
-        birth_date: '1990-05-15',
-      })
+      expect(validInsert.birth_date.toLocaleDateString('en-CA')).toBe('1990-05-15')
     }
   )
 
@@ -93,9 +91,9 @@ test.describe('Date Field', () => {
       const results = await executeQuery('SELECT event_date FROM events ORDER BY event_date')
       // THEN: assertion - dates are returned as Date objects
       expect(results.rows[0].event_date instanceof Date).toBe(true)
-      expect(results.rows[0].event_date.toISOString().split('T')[0]).toBe('2024-01-01')
+      expect(results.rows[0].event_date.toLocaleDateString('en-CA')).toBe('2024-01-01')
       expect(results.rows[1].event_date instanceof Date).toBe(true)
-      expect(results.rows[1].event_date.toISOString().split('T')[0]).toBe('2024-12-31')
+      expect(results.rows[1].event_date.toLocaleDateString('en-CA')).toBe('2024-12-31')
     }
   )
 
@@ -132,7 +130,7 @@ test.describe('Date Field', () => {
       )
       // THEN: assertion - date is returned as Date object
       expect(validInsert.due_date instanceof Date).toBe(true)
-      expect(validInsert.due_date.toISOString().split('T')[0]).toBe('2024-06-30')
+      expect(validInsert.due_date.toLocaleDateString('en-CA')).toBe('2024-06-30')
 
       // THEN: assertion
       await expect(executeQuery('INSERT INTO tasks (due_date) VALUES (NULL)')).rejects.toThrow(
@@ -174,7 +172,7 @@ test.describe('Date Field', () => {
       )
       // THEN: assertion - date is returned as Date object
       expect(explicitInsert.start_date instanceof Date).toBe(true)
-      expect(explicitInsert.start_date.toISOString().split('T')[0]).toBe('2024-01-01')
+      expect(explicitInsert.start_date.toLocaleDateString('en-CA')).toBe('2024-01-01')
     }
   )
 

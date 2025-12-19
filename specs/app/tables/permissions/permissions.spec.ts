@@ -107,7 +107,7 @@ test.describe('Table Permissions', () => {
         "SELECT COUNT(*) as field_policies FROM pg_policies WHERE tablename='admin_data' AND policyname LIKE '%field%'"
       )
       // THEN: assertion
-      expect(fieldPolicies.field_policies).toBe(0)
+      expect(fieldPolicies.field_policies).toBe('0')
     }
   )
 

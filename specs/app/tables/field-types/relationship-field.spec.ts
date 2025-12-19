@@ -526,7 +526,7 @@ test.describe('Relationship Field', () => {
         WHERE p.id = 1
         GROUP BY p.name
       `)
-      expect(projectTasks.task_count).toBe(2)
+      expect(projectTasks.task_count).toBe('2')
 
       // THEN: can query from task to project (many-to-one direction)
       const taskProject = await executeQuery(`

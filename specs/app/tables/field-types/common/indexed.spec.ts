@@ -211,8 +211,8 @@ test.describe('Indexed Field Property', () => {
       )
       // THEN: assertion
       expect(groupedQuery.rows).toEqual([
-        { customer_id: 1, order_count: 2 },
-        { customer_id: 2, order_count: 1 },
+        { customer_id: 1, order_count: '2' },
+        { customer_id: 2, order_count: '1' },
       ])
     }
   )

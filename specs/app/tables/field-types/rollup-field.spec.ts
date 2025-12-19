@@ -531,7 +531,7 @@ test.describe('Rollup Field', () => {
 
       // THEN: COUNTALL counts all linked records regardless of field values
       const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
-      expect(project.total_tasks).toBe(4) // All 4 tasks counted
+      expect(project.total_tasks).toBe('4') // All 4 tasks counted
     }
   )
 
@@ -604,8 +604,8 @@ test.describe('Rollup Field', () => {
 
       // THEN: MIN/MAX date rollups are directly accessible
       const project = await executeQuery('SELECT * FROM projects WHERE id = 1')
-      expect(project.earliest_task_date).toBe('2024-01-15')
-      expect(project.latest_task_date).toBe('2024-03-31')
+      expect(project.earliest_task_date.toLocaleDateString('en-CA')).toBe('2024-01-15')
+      expect(project.latest_task_date.toLocaleDateString('en-CA')).toBe('2024-03-31')
     }
   )
 

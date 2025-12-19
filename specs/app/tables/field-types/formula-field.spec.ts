@@ -309,7 +309,7 @@ test.describe('Formula Field', () => {
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 1'
       )
       // THEN: assertion
-      expect(pastDueUnpaid.due_date).toBe('2024-01-15')
+      expect(pastDueUnpaid.due_date.toLocaleDateString('en-CA')).toBe('2024-01-15')
       // THEN: assertion
       expect(pastDueUnpaid.paid).toBe(false)
       // THEN: assertion
@@ -2416,7 +2416,7 @@ test.describe('Formula Field', () => {
       const result = await executeQuery(
         'SELECT plus_week::date as plus_week FROM dates WHERE id = 1'
       )
-      expect(result.plus_week).toBe('2024-01-08')
+      expect(result.plus_week.toLocaleDateString('en-CA')).toBe('2024-01-08')
     }
   )
 

@@ -568,7 +568,7 @@ test.describe('Single Line Text Field', () => {
       const uniqueCount = await executeQuery(
         'SELECT COUNT(DISTINCT event_code) as unique_count FROM events'
       )
-      expect(uniqueCount.unique_count).toBe(1000)
+      expect(uniqueCount.unique_count).toBe('1000')
 
       const totalCount = await executeQuery('SELECT COUNT(*) as count FROM events')
       expect(totalCount.count).toBe('1000')
@@ -576,7 +576,7 @@ test.describe('Single Line Text Field', () => {
       const duplicateCount = await executeQuery(
         'SELECT COUNT(*) as duplicate_count FROM (SELECT event_code, COUNT(*) as cnt FROM events GROUP BY event_code HAVING COUNT(*) > 1) duplicates'
       )
-      expect(duplicateCount.duplicate_count).toBe(0)
+      expect(duplicateCount.duplicate_count).toBe('0')
     }
   )
 
@@ -611,12 +611,12 @@ test.describe('Single Line Text Field', () => {
       const emptyCount = await executeQuery(
         "SELECT COUNT(*) as empty_count FROM items WHERE description = ''"
       )
-      expect(emptyCount.empty_count).toBe(1)
+      expect(emptyCount.empty_count).toBe('1')
 
       const nullCount = await executeQuery(
         'SELECT COUNT(*) as null_count FROM items WHERE description IS NULL'
       )
-      expect(nullCount.null_count).toBe(1)
+      expect(nullCount.null_count).toBe('1')
     }
   )
 

@@ -506,7 +506,7 @@ test.describe('Row-Level Security Enforcement', () => {
 
       // Verify data exists in table
       const data = await executeQuery(`SELECT COUNT(*) as count FROM reports`)
-      expect(data.rows[0].count).toBe(3)
+      expect(data.rows[0].count).toBe('3')
     }
   )
 

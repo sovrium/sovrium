@@ -86,7 +86,7 @@ test.describe('Rename Field Migration', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
       // THEN: assertion
-      expect(constraints.count).toBeGreaterThanOrEqual(1)
+      expect(Number(constraints.count)).toBeGreaterThanOrEqual(1)
     }
   )
 

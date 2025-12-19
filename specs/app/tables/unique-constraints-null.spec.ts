@@ -66,7 +66,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         `SELECT COUNT(*) as count FROM contacts WHERE email IS NULL`
       )
       // THEN: assertion
-      expect(nullCount.rows[0]).toMatchObject({ count: 3 })
+      expect(nullCount.rows[0]).toMatchObject({ count: '3' })
 
       // Duplicate non-NULL email still rejected
       await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Dave', 'dave@example.com')`)
@@ -115,7 +115,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
       // Verify all inserted
       const totalCount = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(totalCount.rows[0]).toMatchObject({ count: 4 })
+      expect(totalCount.rows[0]).toMatchObject({ count: '4' })
 
       // Non-NULL combination still enforces uniqueness
       await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (1, 'test@example.com')`)
@@ -209,7 +209,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         `SELECT COUNT(*) as count FROM optional_unique WHERE email IS NULL`
       )
       // THEN: assertion
-      expect(nullCount.rows[0]).toMatchObject({ count: 2 })
+      expect(nullCount.rows[0]).toMatchObject({ count: '2' })
     }
   )
 
@@ -251,7 +251,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
         `SELECT COUNT(*) as count FROM accounts WHERE username IS NULL`
       )
       // THEN: assertion
-      expect(nullCount.rows[0]).toMatchObject({ count: 3 })
+      expect(nullCount.rows[0]).toMatchObject({ count: '3' })
 
       // Non-NULL usernames still unique
       await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Dave', 'alice')`)
@@ -302,7 +302,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
       const globalSettings = await executeQuery(
         `SELECT COUNT(*) as count FROM settings WHERE user_id IS NULL AND setting_key = 'theme'`
       )
-      expect(globalSettings.rows[0]).toMatchObject({ count: 2 })
+      expect(globalSettings.rows[0]).toMatchObject({ count: '2' })
 
       // NOTE: Application should validate "only one global setting per key" before INSERT
       // Or use partial unique index: UNIQUE (setting_key) WHERE user_id IS NULL

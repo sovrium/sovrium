@@ -103,7 +103,7 @@ test.describe('Table Fields', () => {
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'products' AND column_name IN ('id', 'title', 'price', 'is_active')`
       )
       // THEN: assertion
-      expect(productColumns.rows[0]).toMatchObject({ count: 4 }) // 3 fields + auto id
+      expect(productColumns.rows[0]).toMatchObject({ count: '4' }) // 3 fields + auto id
     }
   )
 
