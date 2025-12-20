@@ -368,7 +368,7 @@ export const test = base.extend<ServerFixtures>({
         // Build environment variables from config
         const env: Record<string, string> = {
           ...process.env,
-          SOVRIUM_APP_JSON: JSON.stringify(appSchema),
+          SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
           SOVRIUM_OUTPUT_DIR: outputDir,
         } as Record<string, string>
 

@@ -258,7 +258,7 @@ export async function startCliServer(
   const serverProcess = spawn('bun', ['run', 'src/cli.ts'], {
     env: {
       ...process.env,
-      SOVRIUM_APP_JSON: JSON.stringify(appSchema),
+      SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
       PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit

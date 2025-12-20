@@ -245,42 +245,23 @@ export const loadSchemaFromFile = async (
 }
 
 /**
- * Parse legacy SOVRIUM_APP_JSON environment variable
+ * Show error message when no configuration is provided
  */
-export const parseLegacyAppJson = (command: string): AppEncoded => {
-  const appSchemaString = Bun.env.SOVRIUM_APP_JSON
-
-  if (!appSchemaString) {
-    Effect.runSync(
-      Effect.gen(function* () {
-        yield* Console.error('Error: No configuration provided')
-        yield* Console.error('')
-        yield* Console.error('Usage:')
-        yield* Console.error(`  sovrium ${command} <config.json>`)
-        yield* Console.error('')
-        yield* Console.error('Or with environment variable:')
-        yield* Console.error(`  SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
-      })
-    )
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
-
-  try {
-    return JSON.parse(appSchemaString) as AppEncoded
-  } catch {
-    Effect.runSync(
-      Effect.gen(function* () {
-        yield* Console.error('Error: SOVRIUM_APP_JSON must be valid JSON')
-        yield* Console.error('')
-        yield* Console.error('Received:', appSchemaString)
-      })
-    )
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
+const showNoConfigError = (command: string): never => {
+  Effect.runSync(
+    Effect.gen(function* () {
+      yield* Console.error('Error: No configuration provided')
+      yield* Console.error('')
+      yield* Console.error('Usage:')
+      yield* Console.error(`  sovrium ${command} <config.json>`)
+      yield* Console.error('')
+      yield* Console.error('Or with environment variable:')
+      yield* Console.error(`  SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
+    })
+  )
+  // Terminate process - imperative statement required for CLI
+  // eslint-disable-next-line functional/no-expression-statements
+  process.exit(1)
 }
 
 /**
@@ -292,7 +273,7 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
     return loadSchemaFromFile(filePath, command)
   }
 
-  // Try SOVRIUM_APP_SCHEMA first (new multi-format env var)
+  // Try SOVRIUM_APP_SCHEMA environment variable
   const appSchemaEnv = Bun.env.SOVRIUM_APP_SCHEMA
 
   if (appSchemaEnv) {
@@ -310,6 +291,6 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
     }
   }
 
-  // Fallback to SOVRIUM_APP_JSON for backward compatibility
-  return parseLegacyAppJson(command)
+  // No configuration provided
+  return showNoConfigError(command)
 }

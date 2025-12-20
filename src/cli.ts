@@ -13,14 +13,17 @@
  *
  * ## Commands
  *
- * ### sovrium start [config.json]
+ * ### sovrium start [config]
  * Start a development server
  * ```bash
- * sovrium start app.json                           # Load from JSON file
- * SOVRIUM_APP_JSON='{"name":"My App"}' sovrium   # Or use env variable
+ * sovrium start app.json                              # Load from JSON file
+ * sovrium start app.yaml                              # Load from YAML file
+ * SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium      # Inline JSON
+ * SOVRIUM_APP_SCHEMA='name: My App' sovrium           # Inline YAML
+ * SOVRIUM_APP_SCHEMA='https://example.com/app.yaml'   # Remote URL
  * ```
  *
- * ### sovrium build [config.json]
+ * ### sovrium build [config]
  * Build static site files
  * ```bash
  * sovrium build app.json                           # Load from JSON file
@@ -28,15 +31,15 @@
  * ```
  *
  * ## Arguments
- * - `config.json` (optional) - Path to JSON file containing app configuration
+ * - `config` (optional) - Path to config file (JSON or YAML)
  *
  * ## Environment Variables (start command)
- * - `SOVRIUM_APP_JSON` (optional if file provided) - JSON string containing app configuration
+ * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
  * - `PORT` (optional) - Server port (default: 3000)
  * - `HOSTNAME` (optional) - Server hostname (default: localhost)
  *
  * ## Environment Variables (build command)
- * - `SOVRIUM_APP_JSON` (optional if file provided) - JSON string containing app configuration
+ * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
  * - `SOVRIUM_OUTPUT_DIR` (optional) - Output directory (default: ./dist)
  * - `SOVRIUM_BASE_URL` (optional) - Base URL for sitemap
  * - `SOVRIUM_BASE_PATH` (optional) - Base path for deployments
@@ -115,8 +118,8 @@ const showHelp = (): void => {
     '  # Start with watch mode (hot reload on config changes)',
     '  sovrium start app.yaml --watch',
     '',
-    '  # Start with environment variable',
-    '  SOVRIUM_APP_JSON=\'{"name":"My App"}\' sovrium start',
+    '  # Start with environment variable (JSON, YAML, or URL)',
+    '  SOVRIUM_APP_SCHEMA=\'{"name":"My App"}\' sovrium start',
     '',
     '  # Build static site',
     '  sovrium build app.json',

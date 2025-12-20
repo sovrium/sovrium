@@ -168,66 +168,58 @@ version: 1.0.0
     }
   )
 
-  test(
-    'CLI-START-ENV-003: should load schema from remote JSON URL',
-    { tag: '@spec' },
-    async () => {
-      // GIVEN: HTTP server serving JSON schema
-      const jsonSchema = JSON.stringify({
-        name: 'remote-json-app',
-        description: 'App loaded from remote JSON URL',
+  test('CLI-START-ENV-003: should load schema from remote JSON URL', { tag: '@spec' }, async () => {
+    // GIVEN: HTTP server serving JSON schema
+    const jsonSchema = JSON.stringify({
+      name: 'remote-json-app',
+      description: 'App loaded from remote JSON URL',
+    })
+
+    const mockServer = await createMockHttpServer(jsonSchema, 'application/json')
+
+    try {
+      // WHEN: Starting server with URL in SOVRIUM_APP_SCHEMA
+      const result = await captureCliOutputWithEnv({
+        SOVRIUM_APP_SCHEMA: mockServer.url,
+        PORT: '0',
       })
 
-      const mockServer = await createMockHttpServer(jsonSchema, 'application/json')
-
-      try {
-        // WHEN: Starting server with URL in SOVRIUM_APP_SCHEMA
-        const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: mockServer.url,
-          PORT: '0',
-        })
-
-        // THEN: Server fetches and loads schema from URL
-        expect(result.output).toContain('Starting Sovrium server')
-        expect(result.output).toContain('remote-json-app')
-        expect(result.output).toContain('App loaded from remote JSON URL')
-        expect(result.output).toContain('Homepage: http://localhost:')
-      } finally {
-        await mockServer.cleanup()
-      }
+      // THEN: Server fetches and loads schema from URL
+      expect(result.output).toContain('Starting Sovrium server')
+      expect(result.output).toContain('remote-json-app')
+      expect(result.output).toContain('App loaded from remote JSON URL')
+      expect(result.output).toContain('Homepage: http://localhost:')
+    } finally {
+      await mockServer.cleanup()
     }
-  )
+  })
 
-  test(
-    'CLI-START-ENV-004: should load schema from remote YAML URL',
-    { tag: '@spec' },
-    async () => {
-      // GIVEN: HTTP server serving YAML schema
-      const yamlSchema = `
+  test('CLI-START-ENV-004: should load schema from remote YAML URL', { tag: '@spec' }, async () => {
+    // GIVEN: HTTP server serving YAML schema
+    const yamlSchema = `
 name: remote-yaml-app
 description: App loaded from remote YAML URL
 version: 2.0.0
 `
 
-      const mockServer = await createMockHttpServer(yamlSchema, 'application/x-yaml')
+    const mockServer = await createMockHttpServer(yamlSchema, 'application/x-yaml')
 
-      try {
-        // WHEN: Starting server with URL in SOVRIUM_APP_SCHEMA
-        const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: mockServer.url,
-          PORT: '0',
-        })
+    try {
+      // WHEN: Starting server with URL in SOVRIUM_APP_SCHEMA
+      const result = await captureCliOutputWithEnv({
+        SOVRIUM_APP_SCHEMA: mockServer.url,
+        PORT: '0',
+      })
 
-        // THEN: Server fetches and loads schema from URL
-        expect(result.output).toContain('Starting Sovrium server')
-        expect(result.output).toContain('remote-yaml-app')
-        expect(result.output).toContain('App loaded from remote YAML URL')
-        expect(result.output).toContain('Homepage: http://localhost:')
-      } finally {
-        await mockServer.cleanup()
-      }
+      // THEN: Server fetches and loads schema from URL
+      expect(result.output).toContain('Starting Sovrium server')
+      expect(result.output).toContain('remote-yaml-app')
+      expect(result.output).toContain('App loaded from remote YAML URL')
+      expect(result.output).toContain('Homepage: http://localhost:')
+    } finally {
+      await mockServer.cleanup()
     }
-  )
+  })
 
   test(
     'CLI-START-ENV-005: should prioritize file path argument over environment variable',
