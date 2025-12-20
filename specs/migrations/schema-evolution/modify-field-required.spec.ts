@@ -24,7 +24,7 @@ test.describe('Modify Field Required Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-REQUIRED-001: should alter table alter column set not null',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
