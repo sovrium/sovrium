@@ -363,7 +363,7 @@ version: 2.0.0
 
             if (!watchMessageSeen && text.includes('👀 Watching')) {
               watchMessageSeen = true
-              // Trigger config change
+              // WHEN: Config file is modified with new content
               setTimeout(async () => {
                 await writeFile(
                   configPath,

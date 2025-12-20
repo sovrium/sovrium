@@ -160,9 +160,7 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
       return await parseSchemaFromEnv(appSchemaEnv)
     } catch (error) {
       Effect.runSync(
-        Effect.gen(function* () {
-          yield* Console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
-        })
+        Console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
       )
       // eslint-disable-next-line functional/no-expression-statements
       process.exit(1)
