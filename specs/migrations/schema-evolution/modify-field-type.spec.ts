@@ -206,7 +206,7 @@ test.describe('Modify Field Type Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-004: should alter table alter column type integer using count::integer',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -253,12 +253,12 @@ test.describe('Modify Field Type Migration', () => {
 
       // Text values converted to integers
       const existingData = await executeQuery(`SELECT count FROM metrics WHERE name = 'page_views'`)
-      expect(existingData.count).toBe('1500')
+      expect(existingData.count).toBe(1500)
 
       // Can perform arithmetic operations
       await executeQuery(`UPDATE metrics SET count = count + 100 WHERE name = 'clicks'`)
       const updatedData = await executeQuery(`SELECT count FROM metrics WHERE name = 'clicks'`)
-      expect(updatedData.count).toBe('350')
+      expect(updatedData.count).toBe(350)
     }
   )
 
