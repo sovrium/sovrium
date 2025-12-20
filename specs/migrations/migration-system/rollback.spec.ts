@@ -83,7 +83,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -94,7 +94,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'products',
-            fields: [],
+            fields: [{ id: 2, name: 'sku', type: 'single-line-text' }],
           },
         ],
       })
@@ -138,7 +138,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'users',
-            fields: [],
+            fields: [{ id: 2, name: 'username', type: 'single-line-text' }],
           },
         ],
       })
@@ -163,9 +163,9 @@ test.describe('Migration Rollback', () => {
       const historyBefore = await executeQuery(
         `SELECT version, rolled_back_at FROM _sovrium_migration_history ORDER BY version DESC`
       )
-      expect(historyBefore).toHaveLength(2)
-      expect(historyBefore[0].version).toBe(2)
-      expect(historyBefore[0].rolled_back_at).toBeNull()
+      expect(historyBefore.rows).toHaveLength(2)
+      expect(historyBefore.rows[0].version).toBe(2)
+      expect(historyBefore.rows[0].rolled_back_at).toBeNull()
     }
   )
 
@@ -207,7 +207,7 @@ test.describe('Migration Rollback', () => {
 
       // All 3 orders preserved
       const orders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
-      expect(orders.count).toBe('3')
+      expect(orders.rows[0].count).toBe('3')
 
       // Original total values preserved
       const totals = await executeQuery(`SELECT total FROM orders ORDER BY total`)
@@ -217,7 +217,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-005: should handle cascading rollback for dependent tables',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -269,11 +269,11 @@ test.describe('Migration Rollback', () => {
 
       // Categories table unchanged (use explicit columns to avoid special fields in result)
       const categories = await executeQuery(`SELECT id, name FROM categories`)
-      expect(categories).toHaveLength(1)
+      expect(categories.rows).toHaveLength(1)
 
       // Products table unchanged (use explicit columns to avoid special fields in result)
       const products = await executeQuery(`SELECT id, category_id FROM products`)
-      expect(products).toHaveLength(1)
+      expect(products.rows).toHaveLength(1)
 
       // Foreign key relationship preserved
       const fk = await executeQuery(
@@ -284,7 +284,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-006: should log rollback operations for audit trail',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -295,7 +295,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'test_table',
-            fields: [],
+            fields: [{ id: 2, name: 'data', type: 'single-line-text' }],
           },
         ],
       })
@@ -323,12 +323,12 @@ test.describe('Migration Rollback', () => {
       const logs = await executeQuery(
         `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
       )
-      expect(logs).toHaveLength(1)
-      expect(logs[0].status).toBe('COMPLETED')
+      expect(logs.rows).toHaveLength(1)
+      expect(logs.rows[0].status).toBe('COMPLETED')
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-007: should support schema downgrade from version N to N-1',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -358,14 +358,14 @@ test.describe('Migration Rollback', () => {
       const columnsBefore = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='users'`
       )
-      expect(columnsBefore).toHaveLength(6)
+      expect(columnsBefore.rows).toHaveLength(6)
 
       // After downgrade, name column should be removed
       // This verifies the downgrade mechanism structure exists
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -396,7 +396,7 @@ test.describe('Migration Rollback', () => {
       const phoneData = await executeQuery(
         `SELECT COUNT(*) as count FROM customers WHERE phone IS NOT NULL`
       )
-      expect(phoneData[0].count).toBe('2')
+      expect(phoneData.rows[0].count).toBe('2')
 
       // System should detect non-null data and require confirmation
       // or backup before allowing destructive rollback
@@ -407,7 +407,7 @@ test.describe('Migration Rollback', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -447,13 +447,13 @@ test.describe('Migration Rollback', () => {
       await test.step('Verify automatic rollback preserved data', async () => {
         // Original data preserved (use explicit columns to avoid special fields in result)
         const items = await executeQuery(`SELECT id, name FROM items`)
-        expect(items).toHaveLength(2)
+        expect(items.rows).toHaveLength(2)
 
         // Table structure unchanged (id + created_at + updated_at + deleted_at + name = 5 columns)
         const columns = await executeQuery(
           `SELECT column_name FROM information_schema.columns WHERE table_name='items'`
         )
-        expect(columns).toHaveLength(5)
+        expect(columns.rows).toHaveLength(5)
       })
     }
   )
