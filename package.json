@@ -52,7 +52,7 @@
   ],
   "scripts": {
     "prepare": "effect-language-service patch > /dev/null 2>&1",
-    "start": "bun --hot run src/cli.ts",
+    "start": "bun run src/cli.ts --watch",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",

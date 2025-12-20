@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for CLI Start Command with Environment Variable Schema
@@ -92,7 +92,7 @@ async function createMockHttpServer(
 
   const server = serve({
     port: 0, // Auto-select available port
-    fetch(req) {
+    fetch(_req) {
       return new Response(content, {
         headers: {
           'Content-Type': contentType,

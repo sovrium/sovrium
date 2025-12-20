@@ -109,9 +109,11 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
     // Start the server (dependencies injected via AppLayer)
     const server = yield* startServer(app, options)
 
-    // Setup graceful shutdown (keeps process alive)
-    // Use return yield* to signal this never returns (Effect.never in withGracefulShutdown)
-    return yield* withGracefulShutdown(server)
+    // Setup graceful shutdown in background (forked so it doesn't block)
+    yield* Effect.fork(withGracefulShutdown(server))
+
+    // Return the server instance immediately (don't wait for shutdown)
+    return server
   }).pipe(
     // Provide dependencies (ServerFactory + PageRenderer)
     Effect.provide(AppLayer)

@@ -225,7 +225,15 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
-      await createAuthenticatedViewer()
+      const viewer = await createAuthenticatedViewer()
+
+      // Set viewer role directly in database (admin API not available yet)
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'viewer'
+        WHERE id = '${viewer.user.id}'
+      `)
+
       await executeQuery(`
         INSERT INTO projects (id, name, deleted_at) VALUES
           (1, 'Project 1', NOW()),
@@ -234,16 +242,15 @@ test.describe('Batch Restore records', () => {
 
       // WHEN: Viewer attempts to batch restore records
       const response = await request.post('/api/tables/1/records/batch/restore', {
-        data: { ids: [1, 2] },
+        data: { ids: ['1', '2'] },
       })
 
-      // THEN: Returns 400 Bad Request (API validates request before checking permissions)
-      // Note: Ideally this should return 403, but current implementation validates first
-      expect(response.status()).toBe(400)
+      // THEN: Returns 403 Forbidden (authorization checked before validation)
+      expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toBeTruthy()
-      // Note: Message may vary depending on validation failure
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('You do not have permission to restore records in this table')
     }
   )
 
