@@ -138,7 +138,7 @@ test.describe('Modify Unique Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-UNIQUE-003: should alter table add constraint unique (col1, col2) enforces multi-column uniqueness',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
