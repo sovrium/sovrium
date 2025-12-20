@@ -260,7 +260,7 @@ test.describe('Modify Field Required Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
