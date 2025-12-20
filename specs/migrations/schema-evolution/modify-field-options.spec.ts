@@ -228,7 +228,7 @@ test.describe('Modify Field Options Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-004: should add check constraint with jsonb validation expression',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -252,7 +252,7 @@ test.describe('Modify Field Options Migration', () => {
         ],
       })
       await executeQuery([
-        `INSERT INTO preferences (user_id, tags) VALUES (1, '["work", "personal"]')`,
+        `INSERT INTO preferences (user_id, tags) VALUES (1, ARRAY['work', 'personal'])`,
       ])
 
       // WHEN: validation rule added requiring each tag to match pattern ^[a-z]+$
@@ -279,14 +279,14 @@ test.describe('Modify Field Options Migration', () => {
 
       // Valid tags accepted
       const validTags = await executeQuery(
-        `UPDATE preferences SET tags = '["work", "urgent"]' WHERE user_id = 1 RETURNING tags`
+        `UPDATE preferences SET tags = ARRAY['work', 'urgent'] WHERE user_id = 1 RETURNING tags`
       )
       expect(validTags.tags).toEqual(['work', 'urgent'])
 
       // Invalid tag format rejected (uppercase, special chars)
       await expect(async () => {
         await executeQuery(
-          `INSERT INTO preferences (user_id, tags) VALUES (2, '["Work", "URGENT"]')`
+          `INSERT INTO preferences (user_id, tags) VALUES (2, ARRAY['Work', 'URGENT'])`
         )
       }).rejects.toThrow(/violates check constraint/i)
     }
@@ -296,7 +296,7 @@ test.describe('Modify Field Options Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-005: user can complete full modify-field-options workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

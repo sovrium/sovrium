@@ -208,6 +208,29 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
     })
 
 /**
+ * Generate CHECK constraints for multi-select fields with options
+ * Validates that all selected values are from the predefined options list
+ * Uses PostgreSQL <@ (contained by) operator for array validation
+ *
+ * @example
+ * Field: { type: 'multi-select', options: ['work', 'personal'] }
+ * Constraint: CHECK (tags <@ ARRAY['work', 'personal']::text[])
+ */
+export const generateMultiSelectConstraints = (
+  fields: readonly Fields[number][]
+): readonly string[] =>
+  fields
+    .filter(
+      (field): field is Fields[number] & { type: 'multi-select'; options: readonly string[] } =>
+        field.type === 'multi-select' && 'options' in field && Array.isArray(field.options)
+    )
+    .map((field) => {
+      const escapedOptions = field.options.map((opt) => `'${escapeSqlString(opt)}'`).join(', ')
+      const constraintName = `check_${field.name}_options`
+      return `CONSTRAINT ${constraintName} CHECK (${field.name} <@ ARRAY[${escapedOptions}]::text[])`
+    })
+
+/**
  * Generate custom CHECK constraints defined at table level
  *
  * Used for complex business rules that involve multiple fields or
