@@ -169,7 +169,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-004: should restore data integrity after failed migration rollback',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -207,13 +207,13 @@ test.describe('Migration Rollback', () => {
 
       // All 3 orders preserved
       const orders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
-      expect(orders[0].count).toBe('3')
+      expect(orders.count).toBe('3')
 
       // Original total values preserved
       const totals = await executeQuery(`SELECT total FROM orders ORDER BY total`)
-      expect(totals[0].total).toBe('99.99')
-      expect(totals[1].total).toBe('149.50')
-      expect(totals[2].total).toBe('299.00')
+      expect(totals.rows[0].total).toBe('99.99')
+      expect(totals.rows[1].total).toBe('149.50')
+      expect(totals.rows[2].total).toBe('299.00')
     }
   )
 
