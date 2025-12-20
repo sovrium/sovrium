@@ -262,7 +262,7 @@ test.describe('Modify Field Type Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-005: should alter table alter column type timestamptz using occurred_at::timestamptz',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
