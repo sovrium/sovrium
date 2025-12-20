@@ -153,6 +153,12 @@ const generateAlterColumnTypeStatement = (
       return ` USING ${field.name}::TIMESTAMPTZ`
     }
 
+    // INTEGER → NUMERIC conversion (automatic, no USING clause needed)
+    // PostgreSQL can implicitly convert INTEGER to NUMERIC
+    if (normalizedExisting === 'integer' && normalizedTarget === 'numeric') {
+      return ''
+    }
+
     return ''
   })()
 

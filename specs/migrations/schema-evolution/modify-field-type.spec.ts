@@ -136,7 +136,7 @@ test.describe('Modify Field Type Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-003: should alter table alter column type numeric(10,2)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
