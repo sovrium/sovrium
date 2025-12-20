@@ -682,10 +682,46 @@ export const syncForeignKeyConstraints = (
   })
 
 /**
+ * Validate existing data against new CHECK constraint before applying
+ * Returns validation query that will throw error if data violates constraint
+ */
+const generateConstraintValidationQuery = (
+  tableName: string,
+  constraint: string
+): string | undefined => {
+  // Extract constraint condition from the constraint SQL
+  // Format: "CONSTRAINT {constraintName} CHECK ({condition})"
+  const match = constraint.match(/CHECK\s*\((.+)\)$/)
+  if (!match) return undefined
+
+  const condition = match[1]
+
+  // Generate query that will fail if any row violates the new constraint
+  // Using NOT ({condition}) to find rows that violate the constraint
+  return `
+    DO $$
+    DECLARE
+      violation_count INTEGER;
+    BEGIN
+      SELECT COUNT(*) INTO violation_count
+      FROM ${tableName}
+      WHERE NOT (${condition});
+
+      IF violation_count > 0 THEN
+        RAISE EXCEPTION 'Migration failed: existing data violates check constraint. % row(s) in table "${tableName}" violate the new constraint condition.', violation_count;
+      END IF;
+    END$$;
+  `
+}
+
+/**
  * Sync CHECK constraints for existing table
  * Adds CHECK constraints for fields with validation requirements (enum values, ranges, formats, etc.)
  * Drops and recreates constraints when they are modified (e.g., min/max value changes)
  * This is needed when fields are added via ALTER TABLE and need their CHECK constraints
+ *
+ * CRITICAL: Validates existing data before applying new constraints
+ * Migration will FAIL if any existing data violates the new constraint
  */
 export const syncCheckConstraints = (
   tx: TransactionLike,
@@ -715,7 +751,10 @@ export const syncCheckConstraints = (
 
       const constraintName = match[1]
 
-      // Drop existing constraint if it exists, then add the new constraint
+      // Generate validation query to check if existing data violates new constraint
+      const validationQuery = generateConstraintValidationQuery(table.name, constraint)
+
+      // Drop existing constraint if it exists, validate data, then add the new constraint
       // This handles both new constraints and modified constraints
       return [
         `
@@ -731,11 +770,12 @@ export const syncCheckConstraints = (
             END IF;
           END$$;
         `,
+        ...(validationQuery ? [validationQuery] : []),
         `ALTER TABLE ${table.name} ADD ${constraint}`,
       ]
     })
 
-    // Execute all statements sequentially (drop then add for each constraint)
+    // Execute all statements sequentially (drop, validate, then add for each constraint)
     yield* executeSQLStatements(tx, statements)
   })
 
