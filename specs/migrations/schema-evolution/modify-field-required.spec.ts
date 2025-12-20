@@ -79,7 +79,7 @@ test.describe('Modify Field Required Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-REQUIRED-002: should migration fails with error (cannot add not null without default when data exists)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
