@@ -200,7 +200,7 @@ test.describe('Modify Field Required Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-REQUIRED-004: should alter table alter column drop not null',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
