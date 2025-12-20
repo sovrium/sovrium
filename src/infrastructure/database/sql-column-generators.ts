@@ -17,7 +17,7 @@ import type { Fields } from '@/domain/models/app/table/fields'
 
 /**
  * Format default value for SQL
- * Numbers and booleans are unquoted, strings are quoted
+ * Numbers and booleans are unquoted, strings are quoted and escaped
  */
 const formatDefaultValue = (defaultValue: unknown): string => {
   if (typeof defaultValue === 'boolean') {
@@ -26,7 +26,7 @@ const formatDefaultValue = (defaultValue: unknown): string => {
   if (typeof defaultValue === 'number') {
     return String(defaultValue)
   }
-  return `'${defaultValue}'`
+  return `'${escapeSqlString(String(defaultValue))}'`
 }
 
 /**

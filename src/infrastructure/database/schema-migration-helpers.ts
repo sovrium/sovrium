@@ -283,7 +283,8 @@ const generateNotNullValidationQuery = (tableName: string, fieldName: string): s
 const generateBackfillQuery = (table: Table, field: Fields[number]): string => {
   const columnDef = generateColumnDefinition(field, false, table.fields)
   // Extract DEFAULT clause from column definition
-  const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
+  // Handle quoted strings (DEFAULT 'value'), unquoted values (DEFAULT 42), and functions (DEFAULT NOW())
+  const defaultMatch = columnDef.match(/DEFAULT\s+('(?:[^']|'')*'|[^\s]+)/)
   if (!defaultMatch) {
     // This shouldn't happen if hasDefault is true, but handle gracefully
     return ''
@@ -391,7 +392,8 @@ const findDefaultValueChanges = (
     if (currentDefault !== undefined) {
       const columnDef = generateColumnDefinition(field, false, table.fields)
       // Extract DEFAULT clause from column definition
-      const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
+      // Handle quoted strings (DEFAULT 'value'), unquoted values (DEFAULT 42), and functions (DEFAULT NOW())
+      const defaultMatch = columnDef.match(/DEFAULT\s+('(?:[^']|'')*'|[^\s]+)/)
       if (defaultMatch) {
         const defaultClause = defaultMatch[1]
         return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET DEFAULT ${defaultClause}`]
