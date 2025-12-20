@@ -7,6 +7,7 @@
 
 import { constants } from 'node:fs'
 import { readFile, readdir, access, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, test, expect } from 'bun:test'
 import { start, build } from '.'
@@ -301,7 +302,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const outputDir = join(process.cwd(), 'test-minimal-static')
+    const outputDir = join(tmpdir(), 'sovrium-test-minimal-static')
 
     // WHEN: Generating static site programmatically
     const result = await build(app, { outputDir })
@@ -340,7 +341,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const customOutputDir = join(process.cwd(), 'test-custom-output')
+    const customOutputDir = join(tmpdir(), 'sovrium-test-custom-output')
 
     // WHEN: Generating with custom outputDir option
     const result = await build(app, { outputDir: customOutputDir })
@@ -399,7 +400,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const outputDir = join(process.cwd(), 'test-multi-page-static')
+    const outputDir = join(tmpdir(), 'sovrium-test-multi-page-static')
 
     // WHEN: Generating static site
     const result = await build(app, { outputDir })
@@ -441,7 +442,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const outputDir = join(process.cwd(), 'test-options-static')
+    const outputDir = join(tmpdir(), 'sovrium-test-options-static')
 
     // WHEN: Generating with options
     const result = await build(app, {
@@ -504,7 +505,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const outputDir = join(process.cwd(), 'test-comprehensive-static')
+    const outputDir = join(tmpdir(), 'sovrium-test-comprehensive-static')
 
     // WHEN: Generating static site with comprehensive config
     const result = await build(app, { outputDir })
@@ -542,7 +543,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const outputDir = join(process.cwd(), 'test-default-options-static')
+    const outputDir = join(tmpdir(), 'sovrium-test-default-options-static')
 
     // WHEN: Generating with minimal options
     const result = await build(app, { outputDir })
@@ -586,7 +587,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const outputDir = join(process.cwd(), 'test-deployment-static')
+    const outputDir = join(tmpdir(), 'sovrium-test-deployment-static')
 
     // WHEN: Generating with deployment options
     const result = await build(app, {
@@ -667,7 +668,7 @@ describe('Programmatic API - build()', () => {
       ],
     }
 
-    const buildOutputDir = join(process.cwd(), 'test-build-output')
+    const buildOutputDir = join(tmpdir(), 'sovrium-test-build-output')
 
     // WHEN: Generating with full build options
     const result = await build(app, {
