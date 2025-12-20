@@ -74,7 +74,7 @@ test.describe('Rename Field Migration', () => {
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='email'`
       )
       // THEN: assertion
-      expect(oldColumn.count).toBe(0)
+      expect(oldColumn.count).toBe('0')
 
       // Data preserved after rename
       const data = await executeQuery(`SELECT email_address FROM users LIMIT 1`)
@@ -86,7 +86,7 @@ test.describe('Rename Field Migration', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
       // THEN: assertion
-      expect(constraints.count).toBeGreaterThanOrEqual(1)
+      expect(Number(constraints.count)).toBeGreaterThanOrEqual(1)
     }
   )
 
@@ -228,7 +228,7 @@ test.describe('Rename Field Migration', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='FOREIGN KEY'`
       )
       // THEN: assertion
-      expect(fk.count).toBe(1)
+      expect(fk.count).toBe('1')
 
       // Foreign key still enforced after rename
       // THEN: assertion
@@ -363,7 +363,7 @@ test.describe('Rename Field Migration', () => {
         const oldColumn = await executeQuery(
           `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='old_name'`
         )
-        expect(oldColumn.count).toBe(0)
+        expect(oldColumn.count).toBe('0')
 
         // Verify data preserved
         const data = await executeQuery(`SELECT new_name FROM data LIMIT 1`)

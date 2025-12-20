@@ -148,7 +148,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='customers' AND constraint_type='UNIQUE'`
       )
       // THEN: assertion
-      expect(uniqueConstraint.rows[0]).toMatchObject({ count: 1 })
+      expect(uniqueConstraint.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -238,7 +238,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%sku%'`
       )
       // THEN: assertion
-      expect(uniqueConstraint.rows[0]).toMatchObject({ count: 1 })
+      expect(uniqueConstraint.rows[0]).toMatchObject({ count: '1' })
 
       const notNull = await executeQuery(
         `SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name IN ('sku', 'title', 'price') ORDER BY column_name`
@@ -254,7 +254,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%price%'`
       )
       // THEN: assertion
-      expect(checkConstraint.rows[0]).toMatchObject({ count: 1 })
+      expect(checkConstraint.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -402,7 +402,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
       // THEN: assertion
-      expect(uniqueConstraint.rows[0]).toMatchObject({ count: 1 })
+      expect(uniqueConstraint.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -445,7 +445,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%quantity%'`
       )
       // THEN: assertion
-      expect(checkConstraint.rows[0]).toMatchObject({ count: 1 })
+      expect(checkConstraint.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -555,7 +555,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM users WHERE email = 'john@example.com'`
       )
       // THEN: assertion
-      expect(firstInsertion.rows[0]).toMatchObject({ count: 1 })
+      expect(firstInsertion.rows[0]).toMatchObject({ count: '1' })
 
       // THEN: assertion
       await expect(
@@ -564,7 +564,7 @@ test.describe('Data Tables', () => {
 
       const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(finalCount.rows[0]).toMatchObject({ count: 1 })
+      expect(finalCount.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -765,7 +765,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
       )
       // THEN: assertion (id + created_at + updated_at + deleted_at + name + phone = 6)
-      expect(columnCount.rows[0]).toMatchObject({ count: 6 })
+      expect(columnCount.rows[0]).toMatchObject({ count: '6' })
     }
   )
 
@@ -820,13 +820,13 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data' AND column_name = 'status'`
       )
       // THEN: assertion
-      expect(statusColumn.rows[0]).toMatchObject({ count: 0 })
+      expect(statusColumn.rows[0]).toMatchObject({ count: '0' })
 
       const remainingColumns = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data'`
       )
       // THEN: assertion (id + created_at + updated_at + deleted_at + data = 5)
-      expect(remainingColumns.rows[0]).toMatchObject({ count: 5 })
+      expect(remainingColumns.rows[0]).toMatchObject({ count: '5' })
     }
   )
 
@@ -873,7 +873,7 @@ test.describe('Data Tables', () => {
 
       const rowCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
       // THEN: assertion
-      expect(rowCount.rows[0]).toMatchObject({ count: 1 })
+      expect(rowCount.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -951,7 +951,7 @@ test.describe('Data Tables', () => {
       // WHEN: DELETE statement removes 1 row
       // THEN: PostgreSQL removes row, row count decreases to 2
       const initialCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
-      expect(initialCount.rows[0]).toMatchObject({ count: 3 })
+      expect(initialCount.rows[0]).toMatchObject({ count: '3' })
 
       const deletion = await executeQuery(
         `DELETE FROM customers WHERE email = 'john@example.com' RETURNING email`
@@ -961,7 +961,7 @@ test.describe('Data Tables', () => {
 
       const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
       // THEN: assertion
-      expect(finalCount.rows[0]).toMatchObject({ count: 2 })
+      expect(finalCount.rows[0]).toMatchObject({ count: '2' })
     }
   )
 
@@ -1044,7 +1044,7 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'`
       )
       // THEN: assertion
-      expect(checkConstraint.rows[0]).toMatchObject({ count: 1 })
+      expect(checkConstraint.rows[0]).toMatchObject({ count: '1' })
     }
   )
 
@@ -1132,13 +1132,13 @@ test.describe('Data Tables', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='user_tenants' AND constraint_type='PRIMARY KEY'`
       )
       // THEN: assertion
-      expect(primaryKeyCount.rows[0]).toMatchObject({ count: 1 })
+      expect(primaryKeyCount.rows[0]).toMatchObject({ count: '1' })
 
       const columnCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='user_tenants' AND constraint_name LIKE '%_pkey'`
       )
       // THEN: assertion
-      expect(columnCount.rows[0]).toMatchObject({ count: 2 })
+      expect(columnCount.rows[0]).toMatchObject({ count: '2' })
     }
   )
 
@@ -1799,7 +1799,7 @@ test.describe('Data Tables', () => {
         expect(update.rows[0]).toMatchObject({ price: '24.99' })
 
         const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-        expect(select.rows[0]).toMatchObject({ count: 1 })
+        expect(select.rows[0]).toMatchObject({ count: '1' })
       })
 
       await test.step('Verify constraints enforce data integrity', async () => {
@@ -1816,7 +1816,7 @@ test.describe('Data Tables', () => {
 
       await test.step('Verify final data state', async () => {
         const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-        expect(finalCount.rows[0]).toMatchObject({ count: 1 })
+        expect(finalCount.rows[0]).toMatchObject({ count: '1' })
       })
     }
   )

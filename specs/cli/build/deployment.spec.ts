@@ -14,7 +14,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Static Site Generation - Deployment Features
  *
  * Source: src/infrastructure/static-generation/deployment.ts
- * Domain: static
+ * Domain: cli/build
  * Spec Count: 6
  *
  * Deployment Behavior:
@@ -29,7 +29,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Static Site Generation - Deployment Features', () => {
   test(
-    'STATIC-DEPLOY-001: should generate .nojekyll for GitHub Pages',
+    'CLI-BUILD-DEPLOY-001: should generate .nojekyll for GitHub Pages',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app configured for GitHub Pages deployment
@@ -91,7 +91,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-002: should generate sitemap.xml',
+    'CLI-BUILD-DEPLOY-002: should generate sitemap.xml',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with sitemap generation enabled
@@ -219,7 +219,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-003: should generate robots.txt',
+    'CLI-BUILD-DEPLOY-003: should generate robots.txt',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with robots.txt generation
@@ -305,7 +305,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-004: should handle base path configuration',
+    'CLI-BUILD-DEPLOY-004: should handle base path configuration',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with base path for subdirectory deployment
@@ -406,7 +406,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-005: should generate CNAME for custom domains',
+    'CLI-BUILD-DEPLOY-005: should generate CNAME for custom domains',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app configured for GitHub Pages with custom domain
@@ -450,7 +450,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-006: should NOT generate CNAME for github.io URLs',
+    'CLI-BUILD-DEPLOY-006: should NOT generate CNAME for github.io URLs',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app configured for GitHub Pages with github.io URL
@@ -485,7 +485,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-007: complete deployment workflow',
+    'CLI-BUILD-DEPLOY-007: complete deployment workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

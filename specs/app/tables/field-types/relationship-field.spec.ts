@@ -155,7 +155,7 @@ test.describe('Relationship Field', () => {
 
       // THEN: child records are deleted
       const count = await executeQuery('SELECT COUNT(*) as count FROM comments')
-      expect(count.count).toBe(0)
+      expect(count.count).toBe('0')
     }
   )
 
@@ -336,7 +336,7 @@ test.describe('Relationship Field', () => {
 
       // THEN: auto-generated junction table contains correct records
       const count = await executeQuery('SELECT COUNT(*) as count FROM students_courses')
-      expect(count.count).toBe(2)
+      expect(count.count).toBe('2')
     }
   )
 
@@ -373,7 +373,7 @@ test.describe('Relationship Field', () => {
       const subordinates = await executeQuery(
         'SELECT COUNT(*) as count FROM employees WHERE manager_id = 1'
       )
-      expect(subordinates.count).toBe(2)
+      expect(subordinates.count).toBe('2')
     }
   )
 
@@ -526,7 +526,7 @@ test.describe('Relationship Field', () => {
         WHERE p.id = 1
         GROUP BY p.name
       `)
-      expect(projectTasks.task_count).toBe(2)
+      expect(projectTasks.task_count).toBe('2')
 
       // THEN: can query from task to project (many-to-one direction)
       const taskProject = await executeQuery(`
@@ -651,7 +651,7 @@ test.describe('Relationship Field', () => {
 
       // THEN: view only shows active developers
       const activeDevelopers = await executeQuery('SELECT COUNT(*) as count FROM active_developers')
-      expect(activeDevelopers.count).toBe(2) // Alice and Diana
+      expect(activeDevelopers.count).toBe('2') // Alice and Diana
 
       // THEN: can link to users in the view
       await executeQuery("INSERT INTO projects (name, lead_developer) VALUES ('Website', 1)")
@@ -795,7 +795,7 @@ test.describe('Relationship Field', () => {
         const subordinates = await executeQuery(`
           SELECT COUNT(*) as count FROM employees WHERE manager_id = 1
         `)
-        expect(subordinates.count).toBe(2) // Bob and Charlie report to Alice
+        expect(subordinates.count).toBe('2') // Bob and Charlie report to Alice
       })
 
       await test.step('Verify many-to-many via auto-generated junction table', async () => {
@@ -847,8 +847,8 @@ test.describe('Relationship Field', () => {
           ORDER BY d.name
         `)
         expect(deptCounts.rows).toEqual([
-          { name: 'Engineering', employee_count: 2 },
-          { name: 'Sales', employee_count: 2 },
+          { name: 'Engineering', employee_count: '2' },
+          { name: 'Sales', employee_count: '2' },
         ])
       })
 

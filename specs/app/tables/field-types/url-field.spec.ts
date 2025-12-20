@@ -101,7 +101,7 @@ test.describe('URL Field', () => {
         "SELECT COUNT(*) as count FROM products WHERE product_url LIKE 'http%://%'"
       )
       // THEN: assertion
-      expect(bothStored.count).toBe(2)
+      expect(bothStored.count).toBe('2')
     }
   )
 
@@ -134,7 +134,7 @@ test.describe('URL Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='links' AND constraint_type='UNIQUE' AND constraint_name LIKE '%url%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      expect(uniqueConstraint.count).toBe('1')
 
       // THEN: assertion
       await expect(
@@ -143,7 +143,7 @@ test.describe('URL Field', () => {
 
       const rowCount = await executeQuery('SELECT COUNT(*) as count FROM links')
       // THEN: assertion
-      expect(rowCount.count).toBe(1)
+      expect(rowCount.count).toBe('1')
     }
   )
 

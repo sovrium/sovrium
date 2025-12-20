@@ -566,4 +566,4 @@ For GDPR "right to be forgotten" requests, permanent delete can be triggered by:
 - [ADR 003: Runtime SQL Migrations](../decisions/003-runtime-sql-migrations.md) - Migration system for user tables
 - `specs/app/table/soft-delete.spec.ts` - E2E test specifications
 - `src/domain/models/app/table/field-types/deleted-at-field.ts` - Field schema
-- `@docs/specifications/vision.md` - Product vision alignment
+- `VISION.md` - Product vision alignment

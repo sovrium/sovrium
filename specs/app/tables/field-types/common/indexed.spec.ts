@@ -67,7 +67,7 @@ test.describe('Indexed Field Property', () => {
         "SELECT COUNT(*) as count FROM users WHERE email = 'alice@example.com'"
       )
       // THEN: assertion
-      expect(lookup.count).toBe(1)
+      expect(lookup.count).toBe('1')
     }
   )
 
@@ -102,7 +102,7 @@ test.describe('Indexed Field Property', () => {
         "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='products' AND indexname LIKE '%description%'"
       )
       // THEN: assertion
-      expect(noIndex.count).toBe(0)
+      expect(noIndex.count).toBe('0')
 
       // Primary key index exists (there's also an automatic deleted_at index for soft-delete queries)
       const primaryKeyIndex = await executeQuery(
@@ -156,7 +156,7 @@ test.describe('Indexed Field Property', () => {
         "SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'"
       )
       // THEN: assertion
-      expect(rangeQuery.count).toBe(3)
+      expect(rangeQuery.count).toBe('3')
 
       const orderBy = await executeQuery(
         'SELECT name FROM events ORDER BY occurred_at DESC LIMIT 1'
@@ -204,15 +204,15 @@ test.describe('Indexed Field Property', () => {
         'SELECT COUNT(*) as count FROM orders WHERE customer_id = 1'
       )
       // THEN: assertion
-      expect(filterQuery.count).toBe(2)
+      expect(filterQuery.count).toBe('2')
 
       const groupedQuery = await executeQuery(
         'SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id ORDER BY customer_id'
       )
       // THEN: assertion
       expect(groupedQuery.rows).toEqual([
-        { customer_id: 1, order_count: 2 },
-        { customer_id: 2, order_count: 1 },
+        { customer_id: 1, order_count: '2' },
+        { customer_id: 2, order_count: '1' },
       ])
     }
   )
@@ -253,7 +253,7 @@ test.describe('Indexed Field Property', () => {
         "SELECT COUNT(*) as count FROM companies WHERE name LIKE 'Acme%'"
       )
       // THEN: assertion
-      expect(prefixSearch.count).toBe(2)
+      expect(prefixSearch.count).toBe('2')
 
       const exactMatch = await executeQuery("SELECT name FROM companies WHERE name = 'Beta LLC'")
       // THEN: assertion
@@ -302,21 +302,21 @@ test.describe('Indexed Field Property', () => {
         const emailIndex = await executeQuery(
           "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%email%'"
         )
-        expect(emailIndex.count).toBeGreaterThan(0)
+        expect(Number(emailIndex.count)).toBeGreaterThan(0)
       })
 
       await test.step('Verify created_at field index exists', async () => {
         const timestampIndex = await executeQuery(
           "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%created_at%'"
         )
-        expect(timestampIndex.count).toBeGreaterThan(0)
+        expect(Number(timestampIndex.count)).toBeGreaterThan(0)
       })
 
       await test.step('Verify non-indexed field has no index', async () => {
         const noNotesIndex = await executeQuery(
           "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%notes%'"
         )
-        expect(noNotesIndex.count).toBe(0)
+        expect(noNotesIndex.count).toBe('0')
       })
     }
   )

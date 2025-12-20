@@ -50,7 +50,7 @@ test.describe('Geolocation Field', () => {
         'INSERT INTO locations (coordinates) VALUES (POINT(40.7128, -74.0060)) RETURNING coordinates'
       )
       // THEN: assertion
-      expect(pointInsert.coordinates).toBe('(40.7128,-74.006)')
+      expect(pointInsert.coordinates).toMatchObject({ x: 40.7128, y: -74.006 })
 
       const coordinateExtract = await executeQuery(
         'INSERT INTO locations (coordinates) VALUES (POINT(51.5074, -0.1278)) RETURNING coordinates[0] as latitude, coordinates[1] as longitude'
@@ -99,7 +99,7 @@ test.describe('Geolocation Field', () => {
         'SELECT COUNT(*) as count FROM stores WHERE location <-> POINT(40.7128, -74.0060) < 1'
       )
       // THEN: assertion
-      expect(withinDistance.count).toBe(2)
+      expect(withinDistance.count).toBe('2')
 
       const orderedByProximity = await executeQuery(
         'SELECT name FROM stores ORDER BY location <-> POINT(40.7128, -74.0060) LIMIT 2'
@@ -174,7 +174,7 @@ test.describe('Geolocation Field', () => {
         'SELECT COUNT(*) as count FROM venues WHERE box(POINT(40.0, -75.0), POINT(41.0, -73.0)) @> coords'
       )
       // THEN: assertion
-      expect(withinBoundingBox.count).toBe(2)
+      expect(withinBoundingBox.count).toBe('2')
 
       const outsideBoundingBox = await executeQuery(
         'SELECT name FROM venues WHERE NOT box(POINT(40.0, -75.0), POINT(41.0, -73.0)) @> coords'
@@ -222,7 +222,7 @@ test.describe('Geolocation Field', () => {
         "SELECT COUNT(*) as count FROM pg_constraint WHERE conname LIKE '%location%' AND contype = 'x'"
       )
       // THEN: assertion
-      expect(uniqueCount.count).toBe(1)
+      expect(uniqueCount.count).toBe('1')
 
       // THEN: assertion
       await expect(
@@ -255,7 +255,7 @@ test.describe('Geolocation Field', () => {
       await test.step('Insert and verify geolocation value', async () => {
         await executeQuery('INSERT INTO data (position) VALUES (POINT(48.8566, 2.3522))')
         const stored = await executeQuery('SELECT position FROM data WHERE id = 1')
-        expect(stored.position).toBe('(48.8566,2.3522)')
+        expect(stored.position).toEqual({ x: 48.8566, y: 2.3522 })
       })
 
       await test.step('Test distance calculation', async () => {

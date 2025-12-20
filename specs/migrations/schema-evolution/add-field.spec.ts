@@ -81,7 +81,7 @@ test.describe('Add Field Migration', () => {
         `SELECT COUNT(*) as count FROM users WHERE email = 'user@example.com'`
       )
       // THEN: assertion
-      expect(dataCheck.count).toBe(1)
+      expect(dataCheck.count).toBe('1')
     }
   )
 
@@ -424,7 +424,7 @@ test.describe('Add Field Migration', () => {
         const dataCheck = await executeQuery(
           `SELECT COUNT(*) as count FROM data WHERE title = 'Initial record'`
         )
-        expect(dataCheck.count).toBe(1)
+        expect(dataCheck.count).toBe('1')
       })
     }
   )

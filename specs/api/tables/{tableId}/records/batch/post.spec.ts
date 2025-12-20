@@ -81,7 +81,7 @@ test.describe('Batch create records', () => {
       // Verify database contains all 3 records
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(result.rows[0].count).toBe(3)
+      expect(result.rows[0].count).toBe('3')
     }
   )
 
@@ -183,7 +183,7 @@ test.describe('Batch create records', () => {
       // Verify no records created due to transaction rollback
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      expect(result.rows[0].count).toBe('0')
     }
   )
 
@@ -671,7 +671,7 @@ test.describe('Batch create records', () => {
       // Verify no records created due to rollback
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      expect(result.rows[0].count).toBe('0')
     }
   )
 
@@ -805,7 +805,7 @@ test.describe('Batch create records', () => {
 
       await test.step('Verify records in database', async () => {
         const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        expect(verifyRecords.rows[0].count).toBe(3)
+        expect(verifyRecords.rows[0].count).toBe('3')
       })
 
       await test.step('Verify validation error triggers rollback', async () => {
@@ -824,7 +824,7 @@ test.describe('Batch create records', () => {
         expect(validationResponse.status()).toBe(400)
 
         const verifyRollback = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        expect(verifyRollback.rows[0].count).toBe(3)
+        expect(verifyRollback.rows[0].count).toBe('3')
       })
 
       await test.step('Verify unauthorized batch create fails', async () => {

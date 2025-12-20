@@ -168,7 +168,7 @@ test.describe('Modify Indexes Migration', () => {
       const indexCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'users' AND indexname = 'idx_users_email'`
       )
-      expect(indexCheck.count).toBe(0)
+      expect(indexCheck.count).toBe('0')
     }
   )
 
@@ -216,7 +216,7 @@ test.describe('Modify Indexes Migration', () => {
       const oldIndexCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer_id'`
       )
-      expect(oldIndexCheck.count).toBe(0)
+      expect(oldIndexCheck.count).toBe('0')
 
       // New composite index exists
       const newIndexCheck = await executeQuery(
@@ -375,17 +375,17 @@ test.describe('Modify Indexes Migration', () => {
         const categoryIndex = await executeQuery(
           `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%category%'`
         )
-        expect(categoryIndex.count).toBeGreaterThan(0)
+        expect(Number(categoryIndex.count)).toBeGreaterThan(0)
 
         // Index on sku exists
         const skuIndex = await executeQuery(
           `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%sku%'`
         )
-        expect(skuIndex.count).toBeGreaterThan(0)
+        expect(Number(skuIndex.count)).toBeGreaterThan(0)
 
         // Data preserved
         const itemCount = await executeQuery(`SELECT COUNT(*) as count FROM items`)
-        expect(itemCount.count).toBe(2)
+        expect(itemCount.count).toBe('2')
       })
     }
   )

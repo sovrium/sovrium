@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import { assertEmailReceived } from '../../../email-utils'
+import { assertEmailReceived } from '../../../fixtures/email'
 
 /**
  * E2E Tests for Request password reset

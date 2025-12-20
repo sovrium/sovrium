@@ -160,7 +160,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM contacts WHERE last_name = 'Smith'`
       )
       // THEN: assertion
-      expect(lastNameLookup.rows[0]).toMatchObject({ count: 2 })
+      expect(lastNameLookup.rows[0]).toMatchObject({ count: '2' })
 
       // Lookup by both columns uses index
       const bothColumnsLookup = await executeQuery(
@@ -286,7 +286,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'`
       )
       // THEN: assertion (pkey + deleted_at index for soft-delete filtering)
-      expect(count.rows[0]).toMatchObject({ count: 2 })
+      expect(count.rows[0]).toMatchObject({ count: '2' })
 
       // Primary key index is on id column
       const pkeyIndex = await executeQuery(
@@ -300,7 +300,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey' AND indexname NOT LIKE '%deleted_at%'`
       )
       // THEN: assertion
-      expect(customIndexes.rows[0]).toMatchObject({ count: 0 })
+      expect(customIndexes.rows[0]).toMatchObject({ count: '0' })
     }
   )
 
@@ -367,7 +367,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%' AND indexname NOT LIKE '%deleted_at%'`
       )
       // THEN: assertion
-      expect(count.rows[0]).toMatchObject({ count: 3 })
+      expect(count.rows[0]).toMatchObject({ count: '3' })
 
       // SKU index exists
       const skuIndex = await executeQuery(
@@ -444,7 +444,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'`
       )
       // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 3 })
+      expect(rangeQuery.rows[0]).toMatchObject({ count: '3' })
 
       // ORDER BY uses index for sorting
       const orderBy = await executeQuery(`SELECT name FROM events ORDER BY created_at DESC LIMIT 1`)
@@ -522,7 +522,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM tenant_users WHERE username = 'alice'`
       )
       // THEN: assertion
-      expect(sameUsername.rows[0]).toMatchObject({ count: 2 })
+      expect(sameUsername.rows[0]).toMatchObject({ count: '2' })
 
       // Duplicate username in same tenant rejected
       // THEN: assertion
@@ -599,7 +599,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'programming | database')`
       )
       // THEN: assertion
-      expect(multiWordSearch.rows[0]).toMatchObject({ count: 2 })
+      expect(multiWordSearch.rows[0]).toMatchObject({ count: '2' })
     }
   )
 
@@ -736,7 +736,7 @@ test.describe('Database Indexes', () => {
         const rangeQuery = await executeQuery(
           `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
         )
-        expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
+        expect(rangeQuery.rows[0]).toMatchObject({ count: '2' })
       })
 
       await test.step('Verify all indexes are retrievable', async () => {

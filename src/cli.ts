@@ -9,35 +9,38 @@
 /**
  * Sovrium CLI - Command-line interface for Sovrium operations
  *
- * This script provides commands for running an Sovrium server or generating static sites.
+ * This script provides commands for running a Sovrium server or building static sites.
  *
  * ## Commands
  *
- * ### sovrium start [config.json]
+ * ### sovrium start [config]
  * Start a development server
  * ```bash
- * sovrium start app.json                           # Load from JSON file
- * SOVRIUM_APP_JSON='{"name":"My App"}' sovrium   # Or use env variable
+ * sovrium start app.json                              # Load from JSON file
+ * sovrium start app.yaml                              # Load from YAML file
+ * SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium      # Inline JSON
+ * SOVRIUM_APP_SCHEMA='name: My App' sovrium           # Inline YAML
+ * SOVRIUM_APP_SCHEMA='https://example.com/app.yaml'   # Remote URL
  * ```
  *
- * ### sovrium static [config.json]
- * Generate static site files
+ * ### sovrium build [config]
+ * Build static site files
  * ```bash
- * sovrium static app.json                          # Load from JSON file
- * SOVRIUM_OUTPUT_DIR=./build sovrium static        # Or use env variable
+ * sovrium build app.json                           # Load from JSON file
+ * SOVRIUM_OUTPUT_DIR=./dist sovrium build          # Or use env variable
  * ```
  *
  * ## Arguments
- * - `config.json` (optional) - Path to JSON file containing app configuration
+ * - `config` (optional) - Path to config file (JSON or YAML)
  *
  * ## Environment Variables (start command)
- * - `SOVRIUM_APP_JSON` (optional if file provided) - JSON string containing app configuration
+ * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
  * - `PORT` (optional) - Server port (default: 3000)
  * - `HOSTNAME` (optional) - Server hostname (default: localhost)
  *
- * ## Environment Variables (static command)
- * - `SOVRIUM_APP_JSON` (optional if file provided) - JSON string containing app configuration
- * - `SOVRIUM_OUTPUT_DIR` (optional) - Output directory (default: ./static)
+ * ## Environment Variables (build command)
+ * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
+ * - `SOVRIUM_OUTPUT_DIR` (optional) - Output directory (default: ./dist)
  * - `SOVRIUM_BASE_URL` (optional) - Base URL for sitemap
  * - `SOVRIUM_BASE_PATH` (optional) - Base path for deployments
  * - `SOVRIUM_DEPLOYMENT` (optional) - Deployment type (github-pages | generic)
@@ -50,126 +53,81 @@
  * - `SOVRIUM_BUNDLE_OPTIMIZATION` (optional) - Bundle optimization strategy
  */
 
+import { watch } from 'node:fs'
 import { Effect, Console } from 'effect'
-import { start, generateStatic, type StartOptions, type GenerateStaticOptions } from '@/index'
-import type { AppEncoded } from '@/domain/models/app'
+import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
+import { parseAppSchema, loadSchemaFromFileForReload } from '@/presentation/cli'
+
+// Server instance type (returned by start())
+type ServerInstance = Awaited<ReturnType<typeof start>>
+
+/**
+ * Reload server with new configuration from changed config file
+ *
+ * This function is called when the config file changes during --watch mode.
+ * It gracefully reloads the server with the new configuration.
+ *
+ * @param filePath - Path to the config file that changed
+ * @param currentServer - The currently running server instance
+ * @param options - Server options (port, hostname)
+ * @returns Promise with the new server instance
+ * @throws Error if config file cannot be parsed or new server fails to start
+ */
+const reloadServer = async (
+  filePath: string,
+  currentServer: ServerInstance,
+  options: StartOptions
+): Promise<ServerInstance> => {
+  // Parse the new config file (throws on invalid JSON/YAML, doesn't exit process)
+  const newApp = await loadSchemaFromFileForReload(filePath)
+
+  // Stop the current server before starting the new one
+  // eslint-disable-next-line functional/no-expression-statements
+  await currentServer.stop()
+
+  // Start new server with the updated config
+  const newServer = await start(newApp, options)
+
+  return newServer
+}
 
 /**
  * Show CLI help text
  */
 const showHelp = (): void => {
-  Effect.runSync(
-    Effect.gen(function* () {
-      yield* Console.log('Sovrium CLI')
-      yield* Console.log('')
-      yield* Console.log('Commands:')
-      yield* Console.log('  sovrium start [config.json]   Start a development server (default)')
-      yield* Console.log('  sovrium static [config.json]  Generate static site files')
-      yield* Console.log('  sovrium --help                Show this help message')
-      yield* Console.log('')
-      yield* Console.log('Examples:')
-      yield* Console.log('  # Start development server with JSON file')
-      yield* Console.log('  sovrium start app.json')
-      yield* Console.log('')
-      yield* Console.log('  # Start with environment variable')
-      yield* Console.log('  SOVRIUM_APP_JSON=\'{"name":"My App"}\' sovrium start')
-      yield* Console.log('')
-      yield* Console.log('  # Generate static site')
-      yield* Console.log('  sovrium static app.json')
-      yield* Console.log('')
-      yield* Console.log(
-        'For more information, see the documentation at https://sovrium.com/docs/cli'
-      )
-    })
-  )
-}
+  const helpText = [
+    'Sovrium CLI',
+    '',
+    'Commands:',
+    '  sovrium start [config]        Start a development server (default)',
+    '  sovrium build [config]        Build static site files',
+    '  sovrium --help                Show this help message',
+    '',
+    'Options:',
+    '  --watch, -w                   Watch config file for changes and hot reload',
+    '',
+    'Supported config formats: .json, .yaml, .yml',
+    '',
+    'Examples:',
+    '  # Start development server with JSON file',
+    '  sovrium start app.json',
+    '',
+    '  # Start with YAML file',
+    '  sovrium start app.yaml',
+    '',
+    '  # Start with watch mode (hot reload on config changes)',
+    '  sovrium start app.yaml --watch',
+    '',
+    '  # Start with environment variable (JSON, YAML, or URL)',
+    '  SOVRIUM_APP_SCHEMA=\'{"name":"My App"}\' sovrium start',
+    '',
+    '  # Build static site',
+    '  sovrium build app.json',
+    '',
+    'For more information, see the documentation at https://sovrium.com/docs/cli',
+  ]
 
-/**
- * Load app schema from a JSON file
- */
-const loadSchemaFromFile = async (filePath: string, command: string): Promise<AppEncoded> => {
-  const file = Bun.file(filePath)
-  const exists = await file.exists()
-
-  if (!exists) {
-    Effect.runSync(
-      Effect.gen(function* () {
-        yield* Console.error(`Error: File not found: ${filePath}`)
-        yield* Console.error('')
-        yield* Console.error('Usage:')
-        yield* Console.error(`  sovrium ${command} <config.json>`)
-      })
-    )
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
-
-  try {
-    const content = await file.text()
-    return JSON.parse(content) as AppEncoded
-  } catch (error) {
-    Effect.runSync(
-      Effect.gen(function* () {
-        yield* Console.error(`Error: Failed to parse JSON file: ${filePath}`)
-        yield* Console.error('')
-        yield* Console.error('Details:', error instanceof Error ? error.message : String(error))
-      })
-    )
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
-}
-
-/**
- * Parse and validate app schema from file path or environment variable
- */
-const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> => {
-  // If a file path is provided, load from file
-  if (filePath) {
-    return loadSchemaFromFile(filePath, command)
-  }
-
-  // Otherwise, try environment variable
-  const appSchemaString = Bun.env.SOVRIUM_APP_JSON
-
-  if (!appSchemaString) {
-    Effect.runSync(
-      Effect.gen(function* () {
-        yield* Console.error('Error: No configuration provided')
-        yield* Console.error('')
-        yield* Console.error('Usage:')
-        yield* Console.error(`  sovrium ${command} <config.json>`)
-        yield* Console.error('')
-        yield* Console.error('Or with environment variable:')
-        yield* Console.error(`  SOVRIUM_APP_JSON='{"name":"My App"}' sovrium ${command}`)
-      })
-    )
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
-
-  try {
-    return JSON.parse(appSchemaString) as AppEncoded
-  } catch {
-    Effect.runSync(
-      Effect.gen(function* () {
-        yield* Console.error('Error: SOVRIUM_APP_JSON must be valid JSON')
-        yield* Console.error('')
-        yield* Console.error('Received:', appSchemaString)
-        yield* Console.error('')
-        yield* Console.error('Example:')
-        yield* Console.error(
-          `  SOVRIUM_APP_JSON='{"name":"My App","description":"My Description"}' sovrium ${command}`
-        )
-      })
-    )
-    // Terminate process - imperative statement required for CLI
-    // eslint-disable-next-line functional/no-expression-statements
-    process.exit(1)
-  }
+  Effect.runSync(Console.log(helpText.join('\n')))
 }
 
 /**
@@ -204,7 +162,7 @@ const parseStartOptions = (): StartOptions => {
 /**
  * Handle the 'start' command
  */
-const handleStartCommand = async (filePath?: string): Promise<void> => {
+const handleStartCommand = async (filePath?: string, watchMode = false): Promise<void> => {
   const app = await parseAppSchema('start', filePath)
   const options = parseStartOptions()
 
@@ -215,18 +173,45 @@ const handleStartCommand = async (filePath?: string): Promise<void> => {
       if (filePath) yield* Console.log(`Config: ${filePath}`)
       if (options.port) yield* Console.log(`Port: ${options.port}`)
       if (options.hostname) yield* Console.log(`Hostname: ${options.hostname}`)
+      if (watchMode) yield* Console.log(`Watch mode: enabled`)
       yield* Console.log('')
     })
   )
 
   // Start the server
-  // eslint-disable-next-line functional/no-expression-statements
-  await start(app, options).catch((error) => {
+  const server = await start(app, options).catch((error) => {
     Effect.runSync(Console.error('Failed to start server:', error))
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   })
+
+  // If watch mode enabled, set up file watcher
+  if (watchMode && filePath) {
+    console.log(`\n👀 Watching ${filePath} for changes...\n`)
+
+    // Track current server instance (mutable for watch mode)
+    // eslint-disable-next-line functional/no-let
+    let currentServer = server
+
+    // Set up file watcher using Node.js fs.watch (stable in Bun)
+
+    watch(filePath, async (eventType) => {
+      if (eventType === 'change') {
+        console.log(`\n🔄 Config changed, reloading...`)
+
+        try {
+          // eslint-disable-next-line functional/no-expression-statements
+          currentServer = await reloadServer(filePath, currentServer, options)
+
+          console.log(`✅ Server reloaded successfully\n`)
+        } catch (error) {
+          console.error(`❌ Reload failed: ${error instanceof Error ? error.message : error}\n`)
+          // Keep the old server running on error
+        }
+      }
+    })
+  }
 }
 
 /**
@@ -236,9 +221,9 @@ const parseBooleanEnv = (value: string | undefined): boolean | undefined =>
   value === 'true' ? true : value === 'false' ? false : undefined
 
 /**
- * Parse static generation options from environment variables
+ * Parse build options from environment variables
  */
-const parseStaticOptions = (): GenerateStaticOptions => {
+const parseBuildOptions = (): GenerateStaticOptions => {
   // Parse environment variables
   const envVars = {
     outputDir: Bun.env.SOVRIUM_OUTPUT_DIR,
@@ -279,15 +264,15 @@ const parseStaticOptions = (): GenerateStaticOptions => {
 }
 
 /**
- * Handle the 'static' command
+ * Handle the 'build' command
  */
-const handleStaticCommand = async (filePath?: string): Promise<void> => {
-  const app = await parseAppSchema('static', filePath)
-  const options = parseStaticOptions()
+const handleBuildCommand = async (filePath?: string): Promise<void> => {
+  const app = await parseAppSchema('build', filePath)
+  const options = parseBuildOptions()
 
   Effect.runSync(
     Effect.gen(function* () {
-      yield* Console.log('Generating static site from CLI...')
+      yield* Console.log('Building static site from CLI...')
       yield* Console.log(`App: ${app.name}${app.description ? ` - ${app.description}` : ''}`)
       if (filePath) yield* Console.log(`Config: ${filePath}`)
       if (options.outputDir) yield* Console.log(`Output directory: ${options.outputDir}`)
@@ -297,10 +282,10 @@ const handleStaticCommand = async (filePath?: string): Promise<void> => {
     })
   )
 
-  // Generate static site
+  // Build static site
   // eslint-disable-next-line functional/no-expression-statements
-  await generateStatic(app, options).catch((error) => {
-    Effect.runSync(Console.error('Failed to generate static site:', error))
+  await build(app, options).catch((error) => {
+    Effect.runSync(Console.error('Failed to build static site:', error))
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
@@ -308,25 +293,53 @@ const handleStaticCommand = async (filePath?: string): Promise<void> => {
 }
 
 // Main CLI entry point
-const command = Bun.argv[2] || 'start'
-const configArg = Bun.argv[3]
+const args = Bun.argv.slice(2)
 
 /**
- * Check if argument is a JSON file path
+ * Check if argument is a config file path (JSON, YAML, or YML)
  */
-const isJsonFile = (arg: string | undefined): boolean =>
-  arg !== undefined && (arg.endsWith('.json') || arg.includes('/'))
+const isConfigFile = (arg: string | undefined): boolean =>
+  arg !== undefined &&
+  (arg.endsWith('.json') ||
+    arg.endsWith('.yaml') ||
+    arg.endsWith('.yml') ||
+    arg.endsWith('.JSON') ||
+    arg.endsWith('.YAML') ||
+    arg.endsWith('.YML') ||
+    arg.includes('/'))
+
+/**
+ * Parse CLI arguments into command, config file, and flags
+ */
+const parseArgs = (
+  argv: readonly string[]
+): { readonly command: string; readonly configFile?: string; readonly watchMode: boolean } => {
+  const watchMode = argv.includes('--watch') || argv.includes('-w')
+  const nonFlagArgs = argv.filter((arg) => !arg.startsWith('-'))
+
+  const command = nonFlagArgs[0] || 'start'
+  const configFile = nonFlagArgs[1]
+
+  // Handle case where first arg is a config file (implicit 'start' command)
+  if (isConfigFile(command)) {
+    return { command: 'start', configFile: command, watchMode }
+  }
+
+  return { command, configFile, watchMode }
+}
+
+const { command, configFile, watchMode } = parseArgs(args)
 
 // Execute command - side effects required for CLI operation
 ;(async () => {
   switch (command) {
     case 'start':
       // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-      await handleStartCommand(configArg)
+      await handleStartCommand(configFile, watchMode)
       break
-    case 'static':
+    case 'build':
       // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-      await handleStaticCommand(configArg)
+      await handleBuildCommand(configFile)
       break
     case '--help':
     case '-h':
@@ -337,14 +350,10 @@ const isJsonFile = (arg: string | undefined): boolean =>
       process.exit(0)
       break
     default:
-      // If the command looks like a JSON file path, treat it as config for 'start'
-      if (isJsonFile(command)) {
-        // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-        await handleStartCommand(command)
-      } else if (!command.startsWith('-')) {
+      if (!command.startsWith('-')) {
         // Unknown command without dash - try as start command
         // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
-        await handleStartCommand()
+        await handleStartCommand(undefined, watchMode)
       } else {
         Effect.runSync(
           Effect.gen(function* () {

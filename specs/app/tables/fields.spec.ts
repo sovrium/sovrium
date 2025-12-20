@@ -103,7 +103,7 @@ test.describe('Table Fields', () => {
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'products' AND column_name IN ('id', 'title', 'price', 'is_active')`
       )
       // THEN: assertion
-      expect(productColumns.rows[0]).toMatchObject({ count: 4 }) // 3 fields + auto id
+      expect(productColumns.rows[0]).toMatchObject({ count: '4' }) // 3 fields + auto id
     }
   )
 
@@ -588,7 +588,7 @@ test.describe('Table Fields', () => {
         const fieldCount = await executeQuery(
           `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
         )
-        expect(fieldCount.rows[0].count).toBeGreaterThanOrEqual(6) // At least 6 fields (+ auto id)
+        expect(Number(fieldCount.rows[0].count)).toBeGreaterThanOrEqual(6) // At least 6 fields (+ auto id)
       })
 
       await test.step('Field types are correctly mapped to PostgreSQL types', async () => {

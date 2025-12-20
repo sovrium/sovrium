@@ -62,7 +62,7 @@ test.describe('Status Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%workflow_status%'"
       )
       // THEN: assertion
-      expect(checkCount.count).toBe(1)
+      expect(checkCount.count).toBe('1')
 
       // WHEN: executing query
       const validInsert = await executeQuery(
@@ -167,7 +167,7 @@ test.describe('Status Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='tasks' AND constraint_type='UNIQUE' AND constraint_name LIKE '%task_status%'"
       )
       // THEN: assertion
-      expect(uniqueCount.count).toBe(1)
+      expect(uniqueCount.count).toBe('1')
 
       // WHEN: executing query
       await expect(executeQuery("INSERT INTO tasks (task_status) VALUES ('Todo')")).rejects.toThrow(
@@ -423,8 +423,8 @@ test.describe('Status Field', () => {
         const statusCounts = await executeQuery(
           'SELECT status, COUNT(*) as count FROM data GROUP BY status ORDER BY status'
         )
-        expect(statusCounts.rows).toContainEqual({ status: 'Draft', count: 1 })
-        expect(statusCounts.rows).toContainEqual({ status: 'Published', count: 1 })
+        expect(statusCounts.rows).toContainEqual({ status: 'Draft', count: '1' })
+        expect(statusCounts.rows).toContainEqual({ status: 'Published', count: '1' })
       })
 
       await test.step('Error handling: empty options array is rejected', async () => {

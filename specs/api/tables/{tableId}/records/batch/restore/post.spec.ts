@@ -60,7 +60,7 @@ test.describe('Batch Restore records', () => {
       const beforeRestore = await executeQuery(
         `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL`
       )
-      expect(parseInt(beforeRestore.count)).toBe(3)
+      expect(beforeRestore.count).toBe('3')
 
       // WHEN: User batch restores the soft-deleted records
       const response = await request.post('/api/tables/1/records/batch/restore', {
@@ -78,7 +78,7 @@ test.describe('Batch Restore records', () => {
       const afterRestore = await executeQuery(
         `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL`
       )
-      expect(parseInt(afterRestore.count)).toBe(3)
+      expect(afterRestore.count).toBe('3')
     }
   )
 
@@ -122,7 +122,7 @@ test.describe('Batch Restore records', () => {
       const result = await executeQuery(
         `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL`
       )
-      expect(parseInt(result.count)).toBe(2)
+      expect(result.count).toBe('2')
     }
   )
 
@@ -225,7 +225,15 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
-      await createAuthenticatedViewer()
+      const viewer = await createAuthenticatedViewer()
+
+      // Set viewer role directly in database (admin API not available yet)
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'viewer'
+        WHERE id = '${viewer.user.id}'
+      `)
+
       await executeQuery(`
         INSERT INTO projects (id, name, deleted_at) VALUES
           (1, 'Project 1', NOW()),
@@ -234,10 +242,10 @@ test.describe('Batch Restore records', () => {
 
       // WHEN: Viewer attempts to batch restore records
       const response = await request.post('/api/tables/1/records/batch/restore', {
-        data: { ids: [1, 2] },
+        data: { ids: ['1', '2'] },
       })
 
-      // THEN: Returns 403 Forbidden
+      // THEN: Returns 403 Forbidden (authorization checked before validation)
       expect(response.status()).toBe(403)
 
       const data = await response.json()
@@ -296,7 +304,7 @@ test.describe('Batch Restore records', () => {
         const activeCount = await executeQuery(
           `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL`
         )
-        expect(parseInt(activeCount.count)).toBe(4)
+        expect(activeCount.count).toBe('4')
       })
 
       await test.step('Verify batch restoring active records fails', async () => {

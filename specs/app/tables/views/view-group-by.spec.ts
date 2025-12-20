@@ -65,7 +65,7 @@ test.describe('View Group By', () => {
       const viewExists = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'by_status'"
       )
-      expect(viewExists.count).toBe(1)
+      expect(viewExists.count).toBe('1')
 
       // Records are ordered by groupBy field (grouping puts same values together)
       const viewRecords = await executeQuery('SELECT title, status FROM by_status')
@@ -76,12 +76,12 @@ test.describe('View Group By', () => {
       const activeCount = await executeQuery(
         "SELECT COUNT(*) as count FROM by_status WHERE status = 'active'"
       )
-      expect(activeCount.count).toBe(2)
+      expect(activeCount.count).toBe('2')
 
       const completedCount = await executeQuery(
         "SELECT COUNT(*) as count FROM by_status WHERE status = 'completed'"
       )
-      expect(completedCount.count).toBe(1)
+      expect(completedCount.count).toBe('1')
     }
   )
 
@@ -266,7 +266,7 @@ test.describe('View Group By', () => {
         const viewExists = await executeQuery(
           "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'grouped_view'"
         )
-        expect(viewExists.count).toBe(1)
+        expect(viewExists.count).toBe('1')
       })
 
       await test.step('Verify view returns records ordered by category', async () => {
@@ -282,12 +282,12 @@ test.describe('View Group By', () => {
         const categoryACounts = await executeQuery(
           "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'A'"
         )
-        expect(categoryACounts.count).toBe(2)
+        expect(categoryACounts.count).toBe('2')
 
         const categoryBCounts = await executeQuery(
           "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'B'"
         )
-        expect(categoryBCounts.count).toBe(1)
+        expect(categoryBCounts.count).toBe('1')
       })
 
       await test.step('Error handling: groupBy references non-existent field', async () => {

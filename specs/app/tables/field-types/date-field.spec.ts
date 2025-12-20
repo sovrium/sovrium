@@ -60,9 +60,7 @@ test.describe('Date Field', () => {
         "INSERT INTO users (birth_date) VALUES ('1990-05-15') RETURNING birth_date"
       )
       // THEN: assertion
-      expect(validInsert).toMatchObject({
-        birth_date: '1990-05-15',
-      })
+      expect(validInsert.birth_date.toLocaleDateString('en-CA')).toBe('1990-05-15')
     }
   )
 
@@ -91,8 +89,11 @@ test.describe('Date Field', () => {
       await executeQuery(["INSERT INTO events (event_date) VALUES ('2024-01-01'), ('2024-12-31')"])
 
       const results = await executeQuery('SELECT event_date FROM events ORDER BY event_date')
-      // THEN: assertion
-      expect(results.rows).toEqual([{ event_date: '2024-01-01' }, { event_date: '2024-12-31' }])
+      // THEN: assertion - dates are returned as Date objects
+      expect(results.rows[0].event_date instanceof Date).toBe(true)
+      expect(results.rows[0].event_date.toLocaleDateString('en-CA')).toBe('2024-01-01')
+      expect(results.rows[1].event_date instanceof Date).toBe(true)
+      expect(results.rows[1].event_date.toLocaleDateString('en-CA')).toBe('2024-12-31')
     }
   )
 
@@ -127,8 +128,9 @@ test.describe('Date Field', () => {
       const validInsert = await executeQuery(
         "INSERT INTO tasks (due_date) VALUES ('2024-06-30') RETURNING due_date"
       )
-      // THEN: assertion
-      expect(validInsert.due_date).toBe('2024-06-30')
+      // THEN: assertion - date is returned as Date object
+      expect(validInsert.due_date instanceof Date).toBe(true)
+      expect(validInsert.due_date.toLocaleDateString('en-CA')).toBe('2024-06-30')
 
       // THEN: assertion
       await expect(executeQuery('INSERT INTO tasks (due_date) VALUES (NULL)')).rejects.toThrow(
@@ -168,8 +170,9 @@ test.describe('Date Field', () => {
       const explicitInsert = await executeQuery(
         "INSERT INTO subscriptions (start_date) VALUES ('2024-01-01') RETURNING start_date"
       )
-      // THEN: assertion
-      expect(explicitInsert.start_date).toBe('2024-01-01')
+      // THEN: assertion - date is returned as Date object
+      expect(explicitInsert.start_date instanceof Date).toBe(true)
+      expect(explicitInsert.start_date.toLocaleDateString('en-CA')).toBe('2024-01-01')
     }
   )
 
@@ -259,7 +262,9 @@ test.describe('Date Field', () => {
       await test.step('Test date storage', async () => {
         await executeQuery("INSERT INTO data (date_field) VALUES ('2024-06-15')")
         const stored = await executeQuery('SELECT date_field FROM data WHERE id = 1')
-        expect(stored.date_field).toBe('2024-06-15')
+        expect(stored.date_field instanceof Date).toBe(true)
+        const dateStr = stored.date_field.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+        expect(dateStr).toBe('2024-06-15')
       })
 
       await test.step('Test date range queries', async () => {
@@ -267,7 +272,7 @@ test.describe('Date Field', () => {
         const rangeQuery = await executeQuery(
           "SELECT COUNT(*) as count FROM data WHERE date_field >= '2024-06-01' AND date_field <= '2024-12-31'"
         )
-        expect(rangeQuery.count).toBeGreaterThan(0)
+        expect(Number(rangeQuery.count)).toBeGreaterThan(0)
       })
 
       await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {

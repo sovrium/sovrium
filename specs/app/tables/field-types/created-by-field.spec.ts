@@ -61,7 +61,7 @@ test.describe('Created By Field', () => {
       // const fkCount = await executeQuery(
       //   "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='posts' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%created_by%'"
       // )
-      // expect(fkCount.count).toBe(1)
+      // expect(fkCount.count).toBe('1')
       //
       // const referencedTable = await executeQuery(
       //   "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='posts' AND tc.constraint_type='FOREIGN KEY' AND tc.constraint_name LIKE '%created_by%'"

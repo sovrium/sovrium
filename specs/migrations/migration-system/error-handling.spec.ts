@@ -60,21 +60,21 @@ test.describe('Error Handling and Rollback', () => {
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='customers'`
       )
       // THEN: assertion
-      expect(customersTable.count).toBe(0)
+      expect(customersTable.count).toBe('0')
 
       // Transaction rolled back - products table NOT created
       const productsTable = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='products'`
       )
       // THEN: assertion
-      expect(productsTable.count).toBe(0)
+      expect(productsTable.count).toBe('0')
 
       // Checksum NOT saved on failure
       const checksumCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
-      expect(checksumCheck.count).toBe(0)
+      expect(checksumCheck.count).toBe('0')
     }
   )
 
@@ -114,14 +114,14 @@ test.describe('Error Handling and Rollback', () => {
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='categories'`
       )
       // THEN: assertion
-      expect(categoriesTable.count).toBe(0)
+      expect(categoriesTable.count).toBe('0')
 
       // Second table NOT created
       const productsTable = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='products'`
       )
       // THEN: assertion
-      expect(productsTable.count).toBe(0)
+      expect(productsTable.count).toBe('0')
     }
   )
 
@@ -173,21 +173,21 @@ test.describe('Error Handling and Rollback', () => {
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='name'`
       )
       // THEN: assertion
-      expect(columnCheck.count).toBe(0)
+      expect(columnCheck.count).toBe('0')
 
       // Existing data preserved
       const dataCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'`
       )
       // THEN: assertion
-      expect(dataCheck.count).toBe(1)
+      expect(dataCheck.count).toBe('1')
 
       // Table still has only 5 columns (id + created_at + updated_at + deleted_at + email)
       const columnCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'`
       )
       // THEN: assertion
-      expect(columnCount.count).toBe(5)
+      expect(columnCount.count).toBe('5')
     }
   )
 
@@ -229,7 +229,7 @@ test.describe('Error Handling and Rollback', () => {
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='posts'`
       )
       // THEN: assertion
-      expect(postsTable.count).toBe(0)
+      expect(postsTable.count).toBe('0')
     }
   )
 
@@ -399,7 +399,7 @@ test.describe('Error Handling and Rollback', () => {
 
       // Verify data still exists (operation was blocked)
       const dataCheck = await executeQuery(`SELECT COUNT(*) as count FROM legacy_data`)
-      expect(dataCheck.count).toBe(1)
+      expect(dataCheck.count).toBe('1')
     }
   )
 
@@ -448,7 +448,7 @@ test.describe('Error Handling and Rollback', () => {
         const tableCheck = await executeQuery(
           `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='test'`
         )
-        expect(tableCheck.count).toBe(0)
+        expect(tableCheck.count).toBe('0')
       })
 
       await test.step('Setup: Create table with existing data', async () => {
@@ -491,7 +491,7 @@ test.describe('Error Handling and Rollback', () => {
         const dataCheck = await executeQuery(
           `SELECT COUNT(*) as count FROM data WHERE value = 'existing'`
         )
-        expect(dataCheck.count).toBe(1)
+        expect(dataCheck.count).toBe('1')
       })
     }
   )

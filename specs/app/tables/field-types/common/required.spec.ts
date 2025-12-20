@@ -152,7 +152,7 @@ test.describe('Required Field Property', () => {
         'SELECT COUNT(*) as count FROM items WHERE title IS NULL'
       )
       // THEN: assertion
-      expect(nullsExist.count).toBe(1)
+      expect(nullsExist.count).toBe('1')
 
       // THEN: PostgreSQL migration fails if existing NULLs present
       await expect(

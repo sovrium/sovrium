@@ -86,7 +86,7 @@ test.describe('Upsert records (create or update)', () => {
       // Verify database contains both records with correct data
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(result.rows[0].count).toBe(2)
+      expect(result.rows[0].count).toBe('2')
     }
   )
 
@@ -142,7 +142,7 @@ test.describe('Upsert records (create or update)', () => {
       // Verify database contains both new records
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(result.rows[0].count).toBe(2)
+      expect(result.rows[0].count).toBe('2')
     }
   )
 
@@ -195,7 +195,7 @@ test.describe('Upsert records (create or update)', () => {
       // Verify no records created due to transaction rollback
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
       // THEN: assertion
-      expect(result.rows[0].count).toBe(0)
+      expect(result.rows[0].count).toBe('0')
     }
   )
 
@@ -817,7 +817,7 @@ test.describe('Upsert records (create or update)', () => {
 
       await test.step('Verify records in database', async () => {
         const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        expect(verifyRecords.rows[0].count).toBe(2)
+        expect(verifyRecords.rows[0].count).toBe('2')
       })
 
       await test.step('Verify validation error with rollback', async () => {

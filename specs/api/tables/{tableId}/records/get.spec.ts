@@ -394,7 +394,7 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('aggregations')
-      expect(data.aggregations.count).toBe(3)
+      expect(data.aggregations.count).toBe('3')
       expect(data.aggregations.sum.budget).toBe(45_000)
       expect(data.aggregations.avg.priority).toBeCloseTo(4, 1)
     }
@@ -1032,7 +1032,7 @@ test.describe('List records in table', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.aggregations.count).toBe(3)
+      expect(data.aggregations.count).toBe('3')
       expect(data.aggregations.avg.priority).toBe(4)
       expect(data.aggregations.avg).not.toHaveProperty('budget')
     }

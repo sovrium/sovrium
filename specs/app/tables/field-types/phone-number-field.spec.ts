@@ -107,7 +107,7 @@ test.describe('Phone Number Field', () => {
         "SELECT COUNT(*) as count FROM customers WHERE mobile LIKE '+%'"
       )
       // THEN: assertion
-      expect(allStored.count).toBe(3)
+      expect(allStored.count).toBe('3')
     }
   )
 
@@ -146,7 +146,7 @@ test.describe('Phone Number Field', () => {
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%phone%'"
       )
       // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      expect(uniqueConstraint.count).toBe('1')
 
       // THEN: assertion
       await expect(
@@ -155,7 +155,7 @@ test.describe('Phone Number Field', () => {
 
       const rowCount = await executeQuery('SELECT COUNT(*) as count FROM users')
       // THEN: assertion
-      expect(rowCount.count).toBe(1)
+      expect(rowCount.count).toBe('1')
     }
   )
 

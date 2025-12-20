@@ -5,13 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { parse as parseYaml } from 'yaml'
 import { test, expect } from '@/specs/fixtures'
-// eslint-disable-next-line import/extensions -- JSON imports require extension
-import landingPageJson from '../../templates/landing-page.json' with { type: 'json' }
 import type { App } from '@/domain/models/app'
 
-// Cast JSON import to App type (JSON imports lose literal type information)
-const landingPageSchema = landingPageJson as unknown as App
+// Load YAML template at runtime (dynamic import)
+async function loadLandingPageSchema(): Promise<App> {
+  const yamlContent = await readFile(join(process.cwd(), 'templates/landing-page.yaml'), 'utf-8')
+  return parseYaml(yamlContent) as App
+}
 
 /**
  * E2E Test for Landing Page Template
@@ -50,6 +54,7 @@ test.describe('Landing Page Template', () => {
       // ========================================================================
       // SETUP: Start server with landing page schema
       // ========================================================================
+      const landingPageSchema = await loadLandingPageSchema()
       await startServerWithSchema(landingPageSchema)
 
       // ========================================================================

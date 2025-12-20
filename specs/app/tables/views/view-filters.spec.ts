@@ -290,7 +290,7 @@ test.describe('View Filters', () => {
 
       // THEN: Active records are excluded from trash view
       const allViewRecords = await executeQuery('SELECT COUNT(*) as count FROM trash_view')
-      expect(allViewRecords.count).toBe(1)
+      expect(allViewRecords.count).toBe('1')
     }
   )
 

@@ -96,12 +96,12 @@ specs/
 │   ├── startServerWithSchema  # Start server with isolated database
 │   ├── executeQuery           # Run raw SQL queries
 │   └── generateStaticSite     # Static generation (no database)
-├── database-utils.ts          # Database template management
+├── database.ts                # Database template & RLS testing utilities
 │   ├── DatabaseTemplateManager
 │   ├── createTemplate()       # Create template with migrations
 │   ├── duplicateTemplate()    # Clone database for test
 │   └── dropTestDatabase()     # Cleanup after test
-└── docker-utils.ts            # Docker runtime detection
+└── docker.ts                  # Docker runtime detection
     ├── ensureDockerRunning()  # Auto-install/start Docker
     └── Colima integration     # macOS Docker alternative
 ```
@@ -188,12 +188,12 @@ export const test = base.extend<ServerFixtures>({
 - Free and open source (vs Docker Desktop licensing)
 - Lightweight (uses minimal resources)
 - Zero configuration required
-- Auto-installed by specs/docker-utils.ts
+- Auto-installed by specs/fixtures/docker.ts
 
 **Auto-Installation Flow**:
 
 ```bash
-# specs/docker-utils.ts automatically:
+# specs/fixtures/docker.ts automatically:
 1. Detects if Docker is running
 2. If not found on macOS: Installs Colima via Homebrew
 3. Starts Colima with PostgreSQL-compatible config

@@ -6,9 +6,9 @@
  */
 
 import { execSync } from 'node:child_process'
-import { DatabaseTemplateManager } from './database-utils'
-import { ensureDockerRunning } from './docker-utils'
-import { startGlobalMailpit, stopGlobalMailpit } from './email-utils'
+import { DatabaseTemplateManager } from './fixtures/database'
+import { ensureDockerRunning } from './fixtures/docker'
+import { startGlobalMailpit, stopGlobalMailpit } from './fixtures/email'
 
 /**
  * Retry configuration for infrastructure setup
@@ -44,8 +44,7 @@ async function withRetry<T>(
       if (attempt < maxRetries) {
         // Exponential backoff: delay * 2^(attempt-1)
         const actualDelay = delayMs * Math.pow(2, attempt - 1)
-        console.log(`⚠️ ${name} failed (attempt ${attempt}/${maxRetries}): ${lastError.message}`)
-        console.log(`⏳ Retrying in ${actualDelay / 1000}s...`)
+        console.warn(`⚠️ ${name} failed (attempt ${attempt}/${maxRetries}), retrying...`)
         await new Promise((resolve) => setTimeout(resolve, actualDelay))
       }
     }
@@ -76,7 +75,7 @@ async function withRetry<T>(
  * This runs once per test run, not per worker.
  */
 export default async function globalSetup() {
-  console.log('🚀 Initializing global test database...')
+  console.log('Starting test environment...')
 
   // Ensure Docker daemon is running (auto-install/start if needed)
   // On macOS: auto-installs Colima if no Docker found
@@ -105,7 +104,6 @@ export default async function globalSetup() {
     process.env.DOCKER_HOST = `unix://${process.env.HOME}/.colima/docker.sock`
     // But tell testcontainers to mount the VM's socket path
     process.env.TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = '/var/run/docker.sock'
-    console.log(`🔗 Using Colima with Docker socket mapping`)
   }
 
   // Dynamic import of testcontainers AFTER Docker config is fixed
@@ -126,14 +124,13 @@ export default async function globalSetup() {
   const templateManager = new DatabaseTemplateManager(connectionUrl)
   await withRetry(() => templateManager.createTemplate(), 'Database template creation')
 
-  console.log('✅ Global test database ready')
+  console.log('Test environment ready')
 
   // Return teardown function
   return async () => {
-    console.log('🧹 Cleaning up global test resources...')
+    console.log('Cleaning up environment...')
     await templateManager.cleanup()
     await container.stop()
     await stopGlobalMailpit()
-    console.log('✅ Global test resources cleaned up')
   }
 }

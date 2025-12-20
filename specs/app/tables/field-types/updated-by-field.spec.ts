@@ -61,7 +61,7 @@ test.describe('Updated By Field', () => {
       // const fkCount = await executeQuery(
       //   "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%updated_by%'"
       // )
-      // expect(fkCount.count).toBe(1)
+      // expect(fkCount.count).toBe('1')
 
       const triggerCount = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='products' AND trigger_name='set_updated_by'"

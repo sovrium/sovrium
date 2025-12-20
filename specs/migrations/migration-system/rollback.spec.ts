@@ -122,7 +122,7 @@ test.describe('Migration Rollback', () => {
       const tableExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name='products'`
       )
-      expect(tableExists[0].count).toBe(1)
+      expect(tableExists[0].count).toBe('1')
     }
   )
 
@@ -206,7 +206,7 @@ test.describe('Migration Rollback', () => {
 
       // All 3 orders preserved
       const orders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
-      expect(orders[0].count).toBe(3)
+      expect(orders[0].count).toBe('3')
 
       // Original total values preserved
       const totals = await executeQuery(`SELECT total FROM orders ORDER BY total`)
@@ -279,7 +279,7 @@ test.describe('Migration Rollback', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints
          WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'products'`
       )
-      expect(fk[0].count).toBe(1)
+      expect(fk[0].count).toBe('1')
     }
   )
 
@@ -395,7 +395,7 @@ test.describe('Migration Rollback', () => {
       const phoneData = await executeQuery(
         `SELECT COUNT(*) as count FROM customers WHERE phone IS NOT NULL`
       )
-      expect(phoneData[0].count).toBe(2)
+      expect(phoneData[0].count).toBe('2')
 
       // System should detect non-null data and require confirmation
       // or backup before allowing destructive rollback

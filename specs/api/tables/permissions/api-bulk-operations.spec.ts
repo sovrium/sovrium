@@ -90,7 +90,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       // Verify in database
       const dbResult = await executeQuery('SELECT COUNT(*) as count FROM tasks')
-      expect(dbResult.rows[0].count).toBe(3)
+      expect(dbResult.rows[0].count).toBe('3')
     }
   )
 
@@ -160,7 +160,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       // Verify no records were created
       const dbResult = await executeQuery('SELECT COUNT(*) as count FROM restricted_items')
-      expect(dbResult.rows[0].count).toBe(0)
+      expect(dbResult.rows[0].count).toBe('0')
     }
   )
 

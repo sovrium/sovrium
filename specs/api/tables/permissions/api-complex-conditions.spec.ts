@@ -480,9 +480,10 @@ test.describe('API Complex Permission Conditions', () => {
       const org = await createOrganization({ name: 'Test Org' })
 
       // Insert events with different dates
-      const today = new Date().toISOString().split('T')[0]
-      const tomorrow = new Date(Date.now() + 86_400_000).toISOString().split('T')[0]
-      const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0]
+      // Use toLocaleDateString('en-CA') for timezone-safe YYYY-MM-DD format
+      const today = new Date().toLocaleDateString('en-CA')
+      const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA')
+      const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA')
 
       await executeQuery(`
         INSERT INTO events (id, name, event_date, organization_id) VALUES

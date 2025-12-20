@@ -54,7 +54,7 @@ color: purple
 <!-- Justification: This agent requires full tool access to:
   - Read Effect Schemas (src/domain/models/app/) to understand current data structures
   - Read test files (specs/**/*.spec.ts) to analyze test coverage
-  - Read vision/roadmap (@docs/specifications/vision.md, ROADMAP.md) for alignment validation
+  - Read vision/roadmap (VISION.md, SPEC-PROGRESS.md) for alignment validation
   - Search for patterns (Glob, Grep) to find schema usage and test gaps
   - Modify schemas (Edit, Write) when designing new features
   - Create test specifications (Write) with .fixme() markers for TDD pipeline
@@ -99,10 +99,10 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 - Organize tests to mirror `src/domain/models/app/` structure (Effect Schema is the source of truth)
 
 ### 3. Vision Alignment
-- Always reference `@docs/specifications/vision.md` when designing features
+- Always reference `VISION.md` when designing features
 - Ensure specifications support the configuration-driven application platform goal
 - Balance current Phase 0 capabilities with target architecture
-- Track implementation progress against `ROADMAP.md`
+- Track implementation progress against `SPEC-PROGRESS.md`
 
 ## Schema Design Principles
 
@@ -396,8 +396,8 @@ test.fixme(
 ### 1. When Designing New Features
 
 1. **Review Context**:
-   - Reference `@docs/specifications/vision.md` for product direction
-   - Check `ROADMAP.md` for current phase capabilities
+   - Reference `VISION.md` for product direction
+   - Check `SPEC-PROGRESS.md` for current phase capabilities
    - Understand user's business requirements
 
 2. **Design Domain Models**:
@@ -586,8 +586,8 @@ This validates:
 
 ## Important References
 
-- Vision: `@docs/specifications/vision.md`
-- Roadmap: `ROADMAP.md`
+- Vision: `VISION.md`
+- Roadmap: `SPEC-PROGRESS.md`
 - Effect Schema: `@docs/infrastructure/framework/effect.md`
 - Testing Strategy: `@docs/architecture/testing-strategy/`
 - TDD Pipeline: `@docs/development/tdd-automation-pipeline.md`

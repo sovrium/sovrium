@@ -109,9 +109,11 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
     // Start the server (dependencies injected via AppLayer)
     const server = yield* startServer(app, options)
 
-    // Setup graceful shutdown (keeps process alive)
-    // Use return yield* to signal this never returns (Effect.never in withGracefulShutdown)
-    return yield* withGracefulShutdown(server)
+    // Setup graceful shutdown in background (forked so it doesn't block)
+    yield* Effect.fork(withGracefulShutdown(server))
+
+    // Return the server instance immediately (don't wait for shutdown)
+    return server
   }).pipe(
     // Provide dependencies (ServerFactory + PageRenderer)
     Effect.provide(AppLayer)
@@ -123,7 +125,7 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
 }
 
 /**
- * Generate static site files from an Sovrium application
+ * Build static site files from a Sovrium application
  *
  * This function generates static HTML files and supporting assets that can be
  * deployed to any static hosting provider (GitHub Pages, Netlify, Vercel, etc.).
@@ -135,7 +137,7 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  * @example
  * Basic usage:
  * ```typescript
- * import { generateStatic } from 'sovrium'
+ * import { build } from 'sovrium'
  *
  * const myApp = {
  *   name: 'My App',
@@ -149,15 +151,15 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  *   ]
  * }
  *
- * const result = await generateStatic(myApp)
+ * const result = await build(myApp)
  * console.log(`Generated ${result.files.length} files to ${result.outputDir}`)
  * ```
  *
  * @example
  * With options:
  * ```typescript
- * const result = await generateStatic(myApp, {
- *   outputDir: './build',
+ * const result = await build(myApp, {
+ *   outputDir: './dist',
  *   baseUrl: 'https://example.com',
  *   generateSitemap: true,
  *   generateRobotsTxt: true,
@@ -165,7 +167,7 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  * })
  * ```
  */
-export const generateStatic = async (
+export const build = async (
   app: AppEncoded,
   options: GenerateStaticOptions = {}
 ): Promise<GenerateStaticResult> => {

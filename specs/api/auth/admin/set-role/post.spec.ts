@@ -37,7 +37,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-001: should return 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -47,21 +47,36 @@ test.describe('Admin: Set user role', () => {
         },
       })
 
-      await signUp({
+      // Create admin user
+      const admin = await signUp({
         email: 'admin@example.com',
         password: 'AdminPass123!',
         name: 'Admin User',
       })
-      await signUp({
+
+      // Promote first user to admin via database (bootstrap the first admin)
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'admin'
+        WHERE id = '${admin.user.id}'
+      `)
+
+      // Create target user
+      const target = await signUp({
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
       })
 
+      // Re-sign in as admin to refresh session with admin role
+      await page.request.post('/api/auth/sign-in/email', {
+        data: { email: 'admin@example.com', password: 'AdminPass123!' },
+      })
+
       // WHEN: Admin updates user role to member
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
-          userId: '2',
+          userId: target.user.id,
           role: 'member',
         },
       })

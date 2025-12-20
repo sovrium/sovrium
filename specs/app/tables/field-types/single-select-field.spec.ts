@@ -315,7 +315,7 @@ test.describe('Single Select Field', () => {
         const grouped = await executeQuery(
           'SELECT select_field, COUNT(*) as count FROM data GROUP BY select_field ORDER BY select_field'
         )
-        expect(grouped.rows).toContainEqual({ select_field: 'option2', count: 2 })
+        expect(grouped.rows).toContainEqual({ select_field: 'option2', count: '2' })
       })
 
       await test.step('Error handling: empty options array is rejected', async () => {

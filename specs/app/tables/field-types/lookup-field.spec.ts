@@ -228,7 +228,7 @@ test.describe('Lookup Field', () => {
       const viewExists = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.views WHERE table_schema = 'public' AND table_name LIKE '%products%'"
       )
-      expect(viewExists.count).toBeGreaterThan(0)
+      expect(Number(viewExists.count)).toBeGreaterThan(0)
 
       // THEN: Lookup value is directly accessible
       const laptop = await executeQuery("SELECT * FROM products WHERE title = 'Laptop'")
@@ -296,7 +296,7 @@ test.describe('Lookup Field', () => {
 
       // THEN: Can query all invoices including those with NULL lookup
       const allInvoices = await executeQuery('SELECT COUNT(*) as count FROM invoices')
-      expect(allInvoices.count).toBe(2)
+      expect(allInvoices.count).toBe('2')
     }
   )
 
@@ -541,7 +541,8 @@ test.describe('Lookup Field', () => {
       const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
       expect(order.product_name).toBe('Widget Pro') // text
       expect(parseFloat(order.product_price)).toBe(99.99) // decimal (returned as string by pg)
-      expect(order.product_release_date).toBe('2024-03-15') // date (returned as ISO string by pg fixtures)
+      expect(order.product_release_date instanceof Date).toBe(true) // date (returned as Date object by pg)
+      expect(order.product_release_date.toLocaleDateString('en-CA')).toBe('2024-03-15')
       expect(order.product_in_stock).toBe(true) // boolean
     }
   )
@@ -735,7 +736,9 @@ test.describe('Lookup Field', () => {
 
         expect(order.product_name).toBe('Widget Pro')
         expect(order.product_price).toBe('99.99')
-        expect(order.product_release_date).toBe('2024-03-15')
+        expect(order.product_release_date instanceof Date).toBe(true)
+        const dateStr = order.product_release_date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+        expect(dateStr).toBe('2024-03-15')
         expect(order.product_in_stock).toBe(true)
       })
 

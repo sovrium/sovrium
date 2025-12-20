@@ -296,20 +296,33 @@ const drizzleSchema = {
  * This prevents the apiKey plugin from merging its schema with the provided custom table name.
  * TODO: Re-enable apiKey plugin when Better Auth fixes the schema merging issue
  */
-const buildAuthPlugins = (handlers: Readonly<ReturnType<typeof createEmailHandlers>>) => [
-  openAPI({ disableDefaultReference: true }),
-  admin(),
-  organization({
-    sendInvitationEmail: handlers.organizationInvitation,
-    schema: {
-      organization: { modelName: AUTH_TABLE_NAMES.organization },
-      member: { modelName: AUTH_TABLE_NAMES.member },
-      invitation: { modelName: AUTH_TABLE_NAMES.invitation },
-    },
-  }),
-  // apiKey plugin disabled - see comment above
-  twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
-]
+const buildAuthPlugins = (
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
+  authConfig?: Auth
+) => {
+  // When admin plugin is enabled, make first user an admin automatically
+  const adminPluginConfig = authConfig?.plugins?.admin
+    ? {
+        defaultRole: 'user',
+        makeFirstUserAdmin: true, // First user gets admin role automatically
+      }
+    : undefined
+
+  return [
+    openAPI({ disableDefaultReference: true }),
+    admin(adminPluginConfig),
+    organization({
+      sendInvitationEmail: handlers.organizationInvitation,
+      schema: {
+        organization: { modelName: AUTH_TABLE_NAMES.organization },
+        member: { modelName: AUTH_TABLE_NAMES.member },
+        invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+      },
+    }),
+    // apiKey plugin disabled - see comment above
+    twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
+  ]
+}
 
 /**
  * Create Better Auth instance with dynamic configuration
@@ -353,7 +366,7 @@ export function createAuthInstance(authConfig?: Auth) {
       changeEmail: { enabled: true, sendChangeEmailVerification: handlers.verification },
     },
     socialProviders: buildSocialProviders(authConfig),
-    plugins: buildAuthPlugins(handlers),
+    plugins: buildAuthPlugins(handlers, authConfig),
   })
 }
 

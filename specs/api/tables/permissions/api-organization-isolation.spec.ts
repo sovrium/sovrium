@@ -451,7 +451,7 @@ test.describe('API Organization Isolation', () => {
 
       // Verify record still exists in database
       const dbResult = await executeQuery('SELECT COUNT(*) as count FROM projects WHERE id = 1')
-      expect(dbResult.rows[0].count).toBe(1)
+      expect(dbResult.rows[0].count).toBe('1')
     }
   )
 
@@ -593,7 +593,7 @@ test.describe('API Organization Isolation', () => {
         const data = await response.json()
 
         // Only count/sum Org A data
-        expect(data.aggregations.count).toBe(1)
+        expect(data.aggregations.count).toBe('1')
         expect(data.aggregations.sum.budget).toBe(100_000) // Not 150,000 (combined)
       })
     }

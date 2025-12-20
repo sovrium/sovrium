@@ -405,7 +405,7 @@ test.describe('Table Views', () => {
         "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'published_posts'"
       )
       // THEN: assertion
-      expect(viewExists.count).toBe(1)
+      expect(viewExists.count).toBe('1')
     }
   )
 
@@ -556,7 +556,7 @@ test.describe('Table Views', () => {
         const viewExists = await executeQuery(
           "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_view'"
         )
-        expect(viewExists.count).toBe(1)
+        expect(viewExists.count).toBe('1')
       })
 
       await test.step('Error handling: multiple default views rejected', async () => {

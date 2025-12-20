@@ -57,7 +57,7 @@ test.describe('Table View', () => {
       const viewExists = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'example_view'"
       )
-      expect(viewExists.count).toBe(1)
+      expect(viewExists.count).toBe('1')
 
       // View is queryable
       const viewRecords = await executeQuery('SELECT * FROM example_view')
