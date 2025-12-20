@@ -29,7 +29,7 @@ test.describe('Migration Rollback', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-001: should detect checksum mismatch and prevent migration',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -70,9 +70,10 @@ test.describe('Migration Rollback', () => {
       }).rejects.toThrow(/checksum mismatch|schema drift detected/i)
 
       // Original table structure preserved (id + created_at + updated_at + deleted_at + email = 5 columns)
-      const columns = await executeQuery(
+      const columnsResult = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position`
       )
+      const columns = columnsResult.rows
       expect(columns).toHaveLength(5)
       expect(columns[0].column_name).toBe('id')
       expect(columns[1].column_name).toBe('created_at')

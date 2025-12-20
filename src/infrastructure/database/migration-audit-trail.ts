@@ -41,7 +41,7 @@ import {
   sovriumMigrationLog,
   sovriumSchemaChecksum,
 } from './drizzle/schema'
-import { executeSQL, type TransactionLike, type SQLExecutionError } from './sql-execution'
+import { executeSQL, SQLExecutionError, type TransactionLike } from './sql-execution'
 import { escapeSqlString } from './sql-utils'
 import type { App } from '@/domain/models/app'
 
@@ -69,13 +69,21 @@ const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } 
 })
 
 /**
+ * Calculate SHA-256 checksum from schema tables
+ * Used by both generation and validation
+ */
+const calculateChecksum = (tables: readonly object[]): string => {
+  const schemaJson = JSON.stringify(tables, undefined, 2)
+  return createHash('sha256').update(schemaJson).digest('hex')
+}
+
+/**
  * Generate checksum for the current schema state
  * Uses SHA-256 hash of the JSON-serialized schema
  */
 export const generateSchemaChecksum = (app: App): string => {
   const schemaSnapshot = createSchemaSnapshot(app)
-  const schemaJson = JSON.stringify(schemaSnapshot.tables, undefined, 2)
-  return createHash('sha256').update(schemaJson).digest('hex')
+  return calculateChecksum(schemaSnapshot.tables)
 }
 
 /**
@@ -223,4 +231,70 @@ export const getStoredChecksum = (
     const storedChecksum = (result[0] as { checksum: string } | undefined)?.checksum
     logInfo(`[getStoredChecksum] Retrieved checksum: ${storedChecksum}`)
     return storedChecksum
+  })
+
+/**
+ * Validate stored checksum against recalculated checksum from stored schema
+ * Detects schema drift or checksum tampering
+ * Throws error if mismatch detected
+ */
+export const validateStoredChecksum = (
+  tx: TransactionLike
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    logInfo('[validateStoredChecksum] Validating stored checksum...')
+
+    // Check if the checksum table exists first
+    const tableExistsSQL = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
+      ) as exists
+    `
+    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
+    const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
+
+    if (!tableExists) {
+      logInfo('[validateStoredChecksum] Checksum table does not exist - skipping validation')
+      return
+    }
+
+    // Retrieve stored checksum and schema
+    const selectSQL = `SELECT checksum, schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    const result = yield* executeSQL(tx, selectSQL)
+
+    if (!result || result.length === 0) {
+      logInfo('[validateStoredChecksum] No stored checksum found - skipping validation')
+      return
+    }
+
+    const row = result[0] as { checksum: string; schema: { tables: readonly object[] } } | undefined
+    if (!row) {
+      return
+    }
+
+    const storedChecksum = row.checksum
+    const storedSchema = row.schema
+
+    // Recalculate checksum from stored schema
+    const recalculatedChecksum = calculateChecksum(storedSchema.tables)
+
+    logInfo(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
+    logInfo(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
+
+    // Detect mismatch (indicates tampering or corruption)
+    if (storedChecksum !== recalculatedChecksum) {
+      const errorMsg =
+        'Schema drift detected: checksum mismatch. The stored checksum does not match the recalculated checksum from the stored schema. This indicates database tampering or corruption.'
+      logInfo(`[validateStoredChecksum] ${errorMsg}`)
+      return yield* Effect.fail(
+        new SQLExecutionError({
+          message: errorMsg,
+          sql: 'validateStoredChecksum',
+          cause: new Error(errorMsg),
+        })
+      )
+    }
+
+    logInfo('[validateStoredChecksum] Checksum validation passed')
   })

@@ -104,7 +104,7 @@ const executeSchemaInit = (
             await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
                 // Migration process - tables are created by Drizzle migrations
-                // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
+                // Step 1: Verify Better Auth users table exists if any table needs it for foreign keys
                 logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
                 const needs = needsUsersTable(tables)
                 logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
@@ -117,18 +117,18 @@ const executeSchemaInit = (
                   logInfo('[executeSchemaInit] Better Auth users table not needed')
                 }
 
-                // Step 0.1: Ensure updated-by trigger function exists if any table needs it
+                // Step 2: Ensure updated-by trigger function exists if any table needs it
                 if (needsUpdatedByTrigger(tables)) {
                   yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
                 }
 
-                // Step 0.2: Load previous schema for field rename detection
+                // Step 3: Load previous schema for field rename detection
                 const previousSchema = yield* getPreviousSchema(tx)
 
-                // Step 1: Drop tables that exist in database but not in schema
+                // Step 4: Drop tables that exist in database but not in schema
                 yield* dropObsoleteTables(tx, tables)
 
-                // Step 2: Build map of which tables use VIEWs (have lookup fields)
+                // Step 5: Build map of which tables use VIEWs (have lookup fields)
                 // This is needed for foreign key generation to reference base tables correctly
                 const lookupViewModule = yield* Effect.promise(
                   () => import('./lookup-view-generators')
@@ -152,7 +152,7 @@ const executeSchemaInit = (
                 // Debug: log table creation order
                 logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
 
-                // Step 3: Create or migrate tables defined in schema (base tables only, defer VIEWs)
+                // Step 6: Create or migrate tables defined in schema (base tables only, defer VIEWs)
                 /* eslint-disable functional/no-loop-statements */
                 for (const table of sortedTables) {
                   // Check if the physical table exists (base table for tables with lookup fields)
@@ -173,7 +173,7 @@ const executeSchemaInit = (
                 }
                 /* eslint-enable functional/no-loop-statements */
 
-                // Step 3.5: Add foreign key constraints for circular dependencies
+                // Step 7: Add foreign key constraints for circular dependencies
                 // These were skipped during CREATE TABLE to avoid "relation does not exist" errors
                 if (circularTables.size > 0) {
                   logInfo(`[Adding FK constraints for circular dependencies]`)
@@ -185,7 +185,7 @@ const executeSchemaInit = (
                   /* eslint-enable functional/no-loop-statements */
                 }
 
-                // Step 4: Create junction tables for many-to-many relationships (after all base tables exist)
+                // Step 8: Create junction tables for many-to-many relationships (after all base tables exist)
                 // Junction tables must be created after both source and related tables exist
                 // Collect unique junction table DDLs first, then execute in parallel
                 const junctionTableSpecs = new Map<string, { name: string; ddl: string }>()
@@ -224,7 +224,7 @@ const executeSchemaInit = (
                   )
                 }
 
-                // Step 5: Create VIEWs for tables with lookup fields (after all base tables exist)
+                // Step 9: Create VIEWs for tables with lookup fields (after all base tables exist)
                 // This ensures lookup VIEWs can reference other tables without dependency issues
                 // Execute in parallel - each table's lookup VIEW is independent
                 yield* Effect.all(
@@ -232,7 +232,7 @@ const executeSchemaInit = (
                   { concurrency: 'unbounded' }
                 )
 
-                // Step 6: Create user-defined VIEWs from table.views configuration
+                // Step 10: Create user-defined VIEWs from table.views configuration
                 // This is done after lookup views to ensure all base tables and lookup views exist
                 // Execute in parallel - each table's user-defined VIEWs are independent
                 yield* Effect.all(
@@ -240,11 +240,11 @@ const executeSchemaInit = (
                   { concurrency: 'unbounded' }
                 )
 
-                // Step 7: Record migration in history table
+                // Step 11: Record migration in history table
                 // Tables are created by Drizzle migrations (drizzle/0006_*.sql)
                 yield* recordMigration(tx, app)
 
-                // Step 8: Store schema checksum
+                // Step 12: Store schema checksum
                 yield* storeSchemaChecksum(tx, app)
               })
             )
