@@ -19,6 +19,7 @@ export const sovriumMigrationHistory = pgTable('_sovrium_migration_history', {
   checksum: text('checksum').notNull(),
   schema: jsonb('schema'),
   appliedAt: timestamp('applied_at').defaultNow(),
+  rolledBackAt: timestamp('rolled_back_at'),
 })
 
 /**

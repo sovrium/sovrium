@@ -234,6 +234,41 @@ export const getStoredChecksum = (
   })
 
 /**
+ * Check if checksum table exists in database
+ */
+const checksumTableExists = (tx: TransactionLike): Effect.Effect<boolean, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const tableExistsSQL = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
+      ) as exists
+    `
+    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
+    return (tableExistsResult[0] as { exists: boolean } | undefined)?.exists ?? false
+  })
+
+/**
+ * Retrieve stored checksum and schema from database
+ */
+const getStoredChecksumData = (
+  tx: TransactionLike
+): Effect.Effect<
+  { checksum: string; schema: { tables: readonly object[] } } | undefined,
+  SQLExecutionError
+> =>
+  Effect.gen(function* () {
+    const selectSQL = `SELECT checksum, schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    const result = yield* executeSQL(tx, selectSQL)
+
+    if (!result || result.length === 0) {
+      return undefined
+    }
+
+    return result[0] as { checksum: string; schema: { tables: readonly object[] } } | undefined
+  })
+
+/**
  * Validate stored checksum against recalculated checksum from stored schema
  * Detects schema drift or checksum tampering
  * Throws error if mismatch detected
@@ -244,45 +279,25 @@ export const validateStoredChecksum = (
   Effect.gen(function* () {
     logInfo('[validateStoredChecksum] Validating stored checksum...')
 
-    // Check if the checksum table exists first
-    const tableExistsSQL = `
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables
-        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
-      ) as exists
-    `
-    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
-    const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
-
+    const tableExists = yield* checksumTableExists(tx)
     if (!tableExists) {
       logInfo('[validateStoredChecksum] Checksum table does not exist - skipping validation')
       return
     }
 
-    // Retrieve stored checksum and schema
-    const selectSQL = `SELECT checksum, schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
-    const result = yield* executeSQL(tx, selectSQL)
-
-    if (!result || result.length === 0) {
-      logInfo('[validateStoredChecksum] No stored checksum found - skipping validation')
-      return
-    }
-
-    const row = result[0] as { checksum: string; schema: { tables: readonly object[] } } | undefined
+    const row = yield* getStoredChecksumData(tx)
     if (!row) {
+      logInfo('[validateStoredChecksum] No stored checksum found - skipping validation')
       return
     }
 
     const storedChecksum = row.checksum
     const storedSchema = row.schema
-
-    // Recalculate checksum from stored schema
     const recalculatedChecksum = calculateChecksum(storedSchema.tables)
 
     logInfo(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
     logInfo(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
 
-    // Detect mismatch (indicates tampering or corruption)
     if (storedChecksum !== recalculatedChecksum) {
       const errorMsg =
         'Schema drift detected: checksum mismatch. The stored checksum does not match the recalculated checksum from the stored schema. This indicates database tampering or corruption.'

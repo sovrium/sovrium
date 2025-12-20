@@ -8,6 +8,13 @@
       "when": 1765925263976,
       "tag": "0000_lumpy_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766232738126,
+      "tag": "0001_oval_xavin",
+      "breakpoints": true
     }
   ]
 }
