@@ -41,7 +41,7 @@ import {
   sovriumMigrationLog,
   sovriumSchemaChecksum,
 } from './drizzle/schema'
-import { executeSQL, type TransactionLike, type SQLExecutionError } from './sql-execution'
+import { executeSQL, SQLExecutionError, type TransactionLike } from './sql-execution'
 import { escapeSqlString } from './sql-utils'
 import type { App } from '@/domain/models/app'
 
@@ -69,13 +69,21 @@ const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } 
 })
 
 /**
+ * Calculate SHA-256 checksum from schema tables
+ * Used by both generation and validation
+ */
+const calculateChecksum = (tables: readonly object[]): string => {
+  const schemaJson = JSON.stringify(tables, undefined, 2)
+  return createHash('sha256').update(schemaJson).digest('hex')
+}
+
+/**
  * Generate checksum for the current schema state
  * Uses SHA-256 hash of the JSON-serialized schema
  */
 export const generateSchemaChecksum = (app: App): string => {
   const schemaSnapshot = createSchemaSnapshot(app)
-  const schemaJson = JSON.stringify(schemaSnapshot.tables, undefined, 2)
-  return createHash('sha256').update(schemaJson).digest('hex')
+  return calculateChecksum(schemaSnapshot.tables)
 }
 
 /**
@@ -254,8 +262,7 @@ export const validateStoredChecksum = (
     const storedSchema = row.schema
 
     // Recalculate checksum from stored schema
-    const schemaJson = JSON.stringify(storedSchema.tables, undefined, 2)
-    const recalculatedChecksum = createHash('sha256').update(schemaJson).digest('hex')
+    const recalculatedChecksum = calculateChecksum(storedSchema.tables)
 
     logInfo(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
     logInfo(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
@@ -265,12 +272,13 @@ export const validateStoredChecksum = (
       const errorMsg =
         'Schema drift detected: checksum mismatch. The stored checksum does not match the recalculated checksum from the stored schema. This indicates database tampering or corruption.'
       logInfo(`[validateStoredChecksum] ${errorMsg}`)
-      return yield* Effect.fail({
-        _tag: 'SQLExecutionError' as const,
-        message: errorMsg,
-        query: 'validateStoredChecksum',
-        cause: new Error(errorMsg),
-      })
+      return yield* Effect.fail(
+        new SQLExecutionError({
+          message: errorMsg,
+          sql: 'validateStoredChecksum',
+          cause: new Error(errorMsg),
+        })
+      )
     }
 
     logInfo('[validateStoredChecksum] Checksum validation passed')
