@@ -125,7 +125,7 @@ test.describe('Modify Field Required Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-REQUIRED-003: should alter table set default, backfill null values, then set not null',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

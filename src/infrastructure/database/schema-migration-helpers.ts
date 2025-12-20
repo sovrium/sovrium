@@ -277,10 +277,32 @@ const generateNotNullValidationQuery = (tableName: string, fieldName: string): s
 `
 
 /**
+ * Generate backfill query to update NULL values with the default
+ * Returns UPDATE statement that sets NULL values to the default value
+ */
+const generateBackfillQuery = (table: Table, field: Fields[number]): string => {
+  const columnDef = generateColumnDefinition(field, false, table.fields)
+  // Extract DEFAULT clause from column definition
+  const defaultMatch = columnDef.match(/DEFAULT (.+?)(?:\s|$)/)
+  if (!defaultMatch) {
+    // This shouldn't happen if hasDefault is true, but handle gracefully
+    return ''
+  }
+
+  const defaultClause = defaultMatch[1]
+  return `UPDATE ${table.name} SET ${field.name} = ${defaultClause} WHERE ${field.name} IS NULL`
+}
+
+/**
  * Find columns that need nullability changes
  * Returns ALTER COLUMN statements for SET NOT NULL / DROP NOT NULL
  * CRITICAL: Validates existing data before applying NOT NULL constraint
  * Migration will FAIL if any existing data contains NULL values without a default
+ *
+ * When a default value is provided:
+ * 1. Set the default value on the column (handled by findDefaultValueChanges)
+ * 2. Backfill existing NULL values with the default
+ * 3. Then set NOT NULL
  */
 const findNullabilityChanges = (
   table: Table,
@@ -302,12 +324,19 @@ const findNullabilityChanges = (
       // Check if field has a default value
       const hasDefault = 'default' in field && field.default !== undefined
 
+      if (hasDefault) {
+        // If has default: backfill NULL values, then set NOT NULL
+        const backfillQuery = generateBackfillQuery(table, field)
+        return [
+          ...(backfillQuery ? [backfillQuery] : []),
+          `ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`,
+        ]
+      }
+
       // If no default value, validate that existing data doesn't contain NULL
       // This prevents migration from failing with PostgreSQL's "column contains null values" error
-      const validationQuery = hasDefault ? [] : [generateNotNullValidationQuery(table.name, field.name)]
-
       return [
-        ...validationQuery,
+        generateNotNullValidationQuery(table.name, field.name),
         `ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`,
       ]
     }
@@ -525,6 +554,11 @@ export const generateAlterTableStatements = (
   })
 
   // Add automatic special fields if not present (APP-TABLES-SPECIAL-FIELDS-007)
+  // CRITICAL ORDER: Default value changes MUST come before nullability changes
+  // When making a field required with a default:
+  // 1. SET DEFAULT (defaultValueChanges)
+  // 2. Backfill NULL values (part of nullabilityChanges)
+  // 3. SET NOT NULL (part of nullabilityChanges)
   return [
     ...renameStatements,
     ...dropStatements,
@@ -532,8 +566,8 @@ export const generateAlterTableStatements = (
     ...generateCreatedAtStatement(table, existingColumns),
     ...generateUpdatedAtStatement(table, existingColumns),
     ...generateDeletedAtStatement(table, existingColumns),
-    ...nullabilityChanges,
     ...defaultValueChanges,
+    ...nullabilityChanges,
   ]
 }
 
