@@ -282,7 +282,10 @@ version: 2.0.0
 
       try {
         const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
-        const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+        const serverProcess = spawn('bun', args, {
+          stdio: 'pipe',
+          env: { ...process.env, PORT: '0' }, // Let Bun auto-select available port
+        })
 
         const errorOutput = await new Promise<string>((resolve) => {
           const outputBuffer: string[] = []
@@ -351,7 +354,10 @@ version: 2.0.0
 
       try {
         const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
-        const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+        const serverProcess = spawn('bun', args, {
+          stdio: 'pipe',
+          env: { ...process.env, PORT: '0' }, // Let Bun auto-select available port
+        })
 
         const output = await new Promise<string>((resolve) => {
           const outputBuffer: string[] = []
