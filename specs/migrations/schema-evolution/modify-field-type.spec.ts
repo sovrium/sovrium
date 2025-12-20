@@ -377,7 +377,7 @@ test.describe('Modify Field Type Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
