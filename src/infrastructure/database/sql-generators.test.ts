@@ -179,7 +179,7 @@ describe('sql-generators', () => {
       expect(result).toBe('INTEGER')
     })
 
-    test('maps single-line-text to VARCHAR(255)', () => {
+    test('maps single-line-text to VARCHAR(50)', () => {
       // Given
 
       const field = {
@@ -191,7 +191,7 @@ describe('sql-generators', () => {
       const result = mapFieldTypeToPostgres(field as any)
 
       // Then
-      expect(result).toBe('VARCHAR(255)')
+      expect(result).toBe('VARCHAR(50)')
     })
 
     test('maps long-text to TEXT', () => {
@@ -484,7 +484,7 @@ describe('sql-generators', () => {
       const result = generateColumnDefinition(field as any, false)
 
       // Then
-      expect(result).toBe('title VARCHAR(255)')
+      expect(result).toBe('title VARCHAR(50)')
     })
 
     test('generates definition for required field with NOT NULL', () => {
@@ -500,7 +500,7 @@ describe('sql-generators', () => {
       const result = generateColumnDefinition(field as any, false)
 
       // Then
-      expect(result).toBe('title VARCHAR(255) NOT NULL')
+      expect(result).toBe('title VARCHAR(50) NOT NULL')
     })
 
     test('generates definition for field with default value', () => {
@@ -516,7 +516,7 @@ describe('sql-generators', () => {
       const result = generateColumnDefinition(field as any, false)
 
       // Then
-      expect(result).toBe("status VARCHAR(255) DEFAULT 'draft'")
+      expect(result).toBe("status VARCHAR(50) DEFAULT 'draft'")
     })
 
     test('generates definition for checkbox field with boolean default', () => {
