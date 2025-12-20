@@ -81,7 +81,7 @@ test.describe('Modify Field Type Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-002: should alter table alter column type varchar(50) using left(sku, 50)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
