@@ -814,7 +814,7 @@ test.describe('Single Line Text Field', () => {
           "SELECT data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name='data' AND column_name='text_field'"
         )
         expect(columnInfo.data_type).toBe('character varying')
-        expect(columnInfo.character_maximum_length).toBe(255)
+        expect(columnInfo.character_maximum_length).toBe(50)
         expect(columnInfo.is_nullable).toBe('NO')
         expect(columnInfo.column_default).toBe("'Default Value'::character varying")
       })
