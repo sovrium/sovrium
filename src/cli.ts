@@ -52,7 +52,7 @@
 
 import { watch } from 'node:fs'
 import { Effect, Console } from 'effect'
-import { load as parseYaml } from 'js-yaml'
+import { parseAppSchema, loadSchemaFromFileForReload } from '@/cli/schema-parser'
 import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
 import type { AppEncoded } from '@/domain/models/app'
 
@@ -628,7 +628,6 @@ const { command, configFile, watchMode } = parseArgs(args)
       await handleStartCommand(configFile, watchMode)
       break
     case 'build':
-    case 'static': // Alias for build (backward compatibility)
       // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
       await handleBuildCommand(configFile)
       break
