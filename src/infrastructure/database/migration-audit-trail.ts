@@ -244,6 +244,21 @@ export const validateStoredChecksum = (
   Effect.gen(function* () {
     logInfo('[validateStoredChecksum] Validating stored checksum...')
 
+    // Check if the checksum table exists first
+    const tableExistsSQL = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
+      ) as exists
+    `
+    const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
+    const tableExists = (tableExistsResult[0] as { exists: boolean } | undefined)?.exists
+
+    if (!tableExists) {
+      logInfo('[validateStoredChecksum] Checksum table does not exist - skipping validation')
+      return
+    }
+
     // Retrieve stored checksum and schema
     const selectSQL = `SELECT checksum, schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
     const result = yield* executeSQL(tx, selectSQL)
