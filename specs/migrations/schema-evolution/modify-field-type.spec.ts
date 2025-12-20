@@ -24,7 +24,7 @@ test.describe('Modify Field Type Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-001: should alter table alter column type text',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
