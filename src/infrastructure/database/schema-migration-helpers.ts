@@ -688,11 +688,11 @@ export const syncForeignKeyConstraints = (
 const generateConstraintValidationQuery = (
   tableName: string,
   constraint: string
-): string | null => {
+): string | undefined => {
   // Extract constraint condition from the constraint SQL
   // Format: "CONSTRAINT {constraintName} CHECK ({condition})"
   const match = constraint.match(/CHECK\s*\((.+)\)$/)
-  if (!match) return null
+  if (!match) return undefined
 
   const condition = match[1]
 
