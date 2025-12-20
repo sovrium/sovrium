@@ -24,7 +24,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-UNIQUE-001: should alter table add constraint unique creates constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -68,7 +68,7 @@ test.describe('Modify Unique Constraints Migration', () => {
       const constraintCheck = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
-      expect(constraintCheck.constraint_name).toMatch(/unique.*email/i)
+      expect(constraintCheck.constraint_name).toBe('users_email_key')
 
       // Duplicate email rejected
       await expect(async () => {
