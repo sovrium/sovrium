@@ -321,7 +321,7 @@ test.describe('Modify Field Type Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-006: should migration fails with data conversion error, transaction rolled back',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
