@@ -251,7 +251,7 @@ test.describe('Modify Unique Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-UNIQUE-005: should drop old constraint and add new composite constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
