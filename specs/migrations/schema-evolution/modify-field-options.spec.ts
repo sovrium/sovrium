@@ -296,7 +296,7 @@ test.describe('Modify Field Options Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-005: user can complete full modify-field-options workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
