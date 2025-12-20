@@ -24,7 +24,7 @@ test.describe('Modify Field Unique Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-001: should alter table add constraint unique_users_username unique (username)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -67,7 +67,7 @@ test.describe('Modify Field Unique Migration', () => {
       const constraintCheck = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
-      expect(constraintCheck.constraint_name).toMatch(/unique.*username/i)
+      expect(constraintCheck.constraint_name).toBe('users_username_key')
 
       // Duplicate username rejected
       await expect(async () => {
@@ -82,7 +82,7 @@ test.describe('Modify Field Unique Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-002: should migration fails with unique violation error, transaction rolled back',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -136,7 +136,7 @@ test.describe('Modify Field Unique Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-003: should alter table drop constraint unique_orders_order_number',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -201,7 +201,7 @@ test.describe('Modify Field Unique Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-FIELD-UNIQUE-004: user can complete full modify-field-unique workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

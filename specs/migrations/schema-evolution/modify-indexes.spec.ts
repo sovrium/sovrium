@@ -24,7 +24,7 @@ test.describe('Modify Indexes Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-001: should create index creates btree index on specified field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -77,7 +77,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-002: should create index creates multi-column btree index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -127,7 +127,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-003: should drop index removes index from table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -172,7 +172,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-004: should drop old index and create new composite index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -214,7 +214,7 @@ test.describe('Modify Indexes Migration', () => {
 
       // Old single-column index removed
       const oldIndexCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer'`
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer_id'`
       )
       expect(oldIndexCheck.count).toBe('0')
 
@@ -226,7 +226,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-005: should drop regular index and create unique index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -274,7 +274,7 @@ test.describe('Modify Indexes Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-006: should create index concurrently allows reads/writes during creation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -329,7 +329,7 @@ test.describe('Modify Indexes Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

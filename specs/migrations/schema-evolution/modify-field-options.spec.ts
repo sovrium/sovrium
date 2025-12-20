@@ -24,7 +24,7 @@ test.describe('Modify Field Options Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-001: should drop check constraint, add new check with additional value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -92,7 +92,7 @@ test.describe('Modify Field Options Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-002: should drop check constraint, add new check without removed value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -160,7 +160,7 @@ test.describe('Modify Field Options Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-003: should migration fails with data validation error (existing data uses removed option)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
