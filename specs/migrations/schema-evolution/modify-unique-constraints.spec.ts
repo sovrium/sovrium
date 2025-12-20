@@ -196,7 +196,7 @@ test.describe('Modify Unique Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-UNIQUE-004: should migration fails with data validation error and rolls back',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
