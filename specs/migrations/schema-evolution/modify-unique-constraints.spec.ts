@@ -329,7 +329,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-UNIQUE-006: user can complete full modify-unique-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
