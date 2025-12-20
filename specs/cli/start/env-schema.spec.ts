@@ -6,7 +6,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
@@ -88,23 +88,28 @@ async function createMockHttpServer(
   content: string,
   contentType: string
 ): Promise<{ url: string; cleanup: () => Promise<void> }> {
-  const { serve } = await import('bun')
+  const http = await import('node:http')
 
-  const server = serve({
-    port: 0, // Auto-select available port
-    fetch(_req) {
-      return new Response(content, {
-        headers: {
-          'Content-Type': contentType,
-        },
-      })
-    },
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': contentType })
+    res.end(content)
   })
 
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => resolve())
+  })
+
+  const address = server.address()
+  if (!address || typeof address === 'string') {
+    throw new Error('Failed to get server address')
+  }
+
   return {
-    url: `http://localhost:${server.port}/schema`,
+    url: `http://localhost:${address.port}/schema`,
     cleanup: async () => {
-      server.stop()
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()))
+      })
     },
   }
 }
@@ -114,7 +119,7 @@ test.describe('CLI Start Command - Environment Variable Schema', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-ENV-001: should load inline JSON from SOVRIUM_APP_SCHEMA environment variable',
     { tag: '@spec' },
     async () => {
@@ -138,7 +143,7 @@ test.describe('CLI Start Command - Environment Variable Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-002: should load inline YAML from SOVRIUM_APP_SCHEMA environment variable',
     { tag: '@spec' },
     async () => {
@@ -163,7 +168,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-003: should load schema from remote JSON URL',
     { tag: '@spec' },
     async () => {
@@ -193,7 +198,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-004: should load schema from remote YAML URL',
     { tag: '@spec' },
     async () => {
@@ -224,7 +229,7 @@ version: 2.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-005: should prioritize file path argument over environment variable',
     { tag: '@spec' },
     async () => {
@@ -242,7 +247,7 @@ version: 2.0.0
         description: 'App from environment variable (should be ignored)',
       })
 
-      await Bun.write(configPath, JSON.stringify(fileSchema))
+      await writeFile(configPath, JSON.stringify(fileSchema))
 
       try {
         // WHEN: Starting server with both file path AND environment variable
@@ -264,7 +269,7 @@ version: 2.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-006: should handle invalid JSON in environment variable with clear error',
     { tag: '@spec' },
     async () => {
@@ -283,7 +288,7 @@ version: 2.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-007: should handle invalid YAML in environment variable with clear error',
     { tag: '@spec' },
     async () => {
@@ -306,7 +311,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-008: should handle unreachable URL with clear error message',
     { tag: '@spec' },
     async () => {
@@ -326,7 +331,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-009: should handle URL returning non-schema content with clear error',
     { tag: '@spec' },
     async () => {
@@ -350,7 +355,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-010: should auto-detect JSON format from Content-Type header',
     { tag: '@spec' },
     async () => {
@@ -379,7 +384,7 @@ version: 1.0.0
     }
   )
 
-  test.fixme(
+  test(
     'CLI-START-ENV-011: should auto-detect YAML format from file extension in URL',
     { tag: '@spec' },
     async () => {
@@ -390,23 +395,28 @@ description: Format detected from .yaml file extension in URL
 version: 3.0.0
 `
 
-      const { serve } = await import('bun')
-      const server = serve({
-        port: 0,
-        fetch(req) {
-          const url = new URL(req.url)
-          if (url.pathname.endsWith('.yaml')) {
-            return new Response(yamlSchema, {
-              headers: {
-                'Content-Type': 'text/plain', // Generic content type
-              },
-            })
-          }
-          return new Response('Not found', { status: 404 })
-        },
+      const http = await import('node:http')
+      const server = http.createServer((req, res) => {
+        const url = new URL(req.url || '', `http://${req.headers.host}`)
+        if (url.pathname.endsWith('.yaml')) {
+          res.writeHead(200, { 'Content-Type': 'text/plain' })
+          res.end(yamlSchema)
+        } else {
+          res.writeHead(404)
+          res.end('Not found')
+        }
       })
 
-      const yamlUrl = `http://localhost:${server.port}/config.yaml`
+      await new Promise<void>((resolve) => {
+        server.listen(0, () => resolve())
+      })
+
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        throw new Error('Failed to get server address')
+      }
+
+      const yamlUrl = `http://localhost:${address.port}/config.yaml`
 
       try {
         // WHEN: Starting server with .yaml URL (format detected from extension)
@@ -420,7 +430,9 @@ version: 3.0.0
         expect(result.output).toContain('extension-yaml-app')
         expect(result.output).toContain('Format detected from .yaml file extension in URL')
       } finally {
-        server.stop()
+        await new Promise<void>((resolve, reject) => {
+          server.close((err) => (err ? reject(err) : resolve()))
+        })
       }
     }
   )
@@ -429,7 +441,7 @@ version: 3.0.0
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-START-ENV-012: user can start server with environment variable in production workflow',
     { tag: '@regression' },
     async () => {
@@ -482,7 +494,7 @@ version: 3.0.0
         const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-regression-'))
         const configPath = join(tempDir, 'priority-test.json')
 
-        await Bun.write(
+        await writeFile(
           configPath,
           JSON.stringify({
             name: 'file-priority-app',

@@ -34,7 +34,7 @@ test.describe('Admin: Set user role', () => {
   // require proper admin user setup which isn't available via public API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-001: should return 200 OK with updated user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
