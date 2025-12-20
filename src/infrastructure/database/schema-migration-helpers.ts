@@ -258,8 +258,29 @@ const filterModifiableFields = (
   })
 
 /**
+ * Generate validation query to check if existing data contains NULL values
+ * Returns validation query that will throw error if NULL values exist
+ */
+const generateNotNullValidationQuery = (tableName: string, fieldName: string): string => `
+  DO $$
+  DECLARE
+    null_count INTEGER;
+  BEGIN
+    SELECT COUNT(*) INTO null_count
+    FROM ${tableName}
+    WHERE ${fieldName} IS NULL;
+
+    IF null_count > 0 THEN
+      RAISE EXCEPTION 'Migration failed: cannot add NOT NULL constraint to column "${fieldName}" in table "${tableName}" because % existing row(s) contain null values. Either provide a default value or update existing rows first.', null_count;
+    END IF;
+  END$$;
+`
+
+/**
  * Find columns that need nullability changes
  * Returns ALTER COLUMN statements for SET NOT NULL / DROP NOT NULL
+ * CRITICAL: Validates existing data before applying NOT NULL constraint
+ * Migration will FAIL if any existing data contains NULL values without a default
  */
 const findNullabilityChanges = (
   table: Table,
@@ -278,7 +299,17 @@ const findNullabilityChanges = (
 
     // If nullability differs, generate ALTER COLUMN statement
     if (shouldBeNotNull && !currentlyNotNull) {
-      return [`ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`]
+      // Check if field has a default value
+      const hasDefault = 'default' in field && field.default !== undefined
+
+      // If no default value, validate that existing data doesn't contain NULL
+      // This prevents migration from failing with PostgreSQL's "column contains null values" error
+      const validationQuery = hasDefault ? [] : [generateNotNullValidationQuery(table.name, field.name)]
+
+      return [
+        ...validationQuery,
+        `ALTER TABLE ${table.name} ALTER COLUMN ${field.name} SET NOT NULL`,
+      ]
     }
     if (!shouldBeNotNull && currentlyNotNull && !isPrimaryKey) {
       // Only DROP NOT NULL if it's not a primary key or auto-managed field
