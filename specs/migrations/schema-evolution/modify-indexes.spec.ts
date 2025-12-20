@@ -321,7 +321,7 @@ test.describe('Modify Indexes Migration', () => {
 
       // Data intact
       const eventCount = await executeQuery(`SELECT COUNT(*) as count FROM events`)
-      expect(eventCount.count).toBeGreaterThanOrEqual(100)
+      expect(Number(eventCount.count)).toBeGreaterThanOrEqual(100)
     }
   )
 

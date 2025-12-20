@@ -260,7 +260,7 @@ test.describe('Request password reset', () => {
       await new Promise((resolve) => setTimeout(resolve, 500))
 
       // Verify new email was sent (wait for 2nd email)
-      const emails = await mailpit.getEmails()
+      const emails = await mailpit.getAllEmails() // Use getAllEmails to get all emails, then filter
       const resetEmails = emails.filter(
         (e) =>
           e.To[0]?.Address === userEmail &&
