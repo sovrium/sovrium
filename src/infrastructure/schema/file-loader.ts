@@ -11,12 +11,7 @@
  * File system I/O operations for loading schema files.
  */
 
-import {
-  detectFormat,
-  getFileExtension,
-  parseJsonContent,
-  parseYamlContent,
-} from '@/domain/schema'
+import { detectFormat, getFileExtension, parseJsonContent, parseYamlContent } from '@/domain/schema'
 import type { AppEncoded } from '@/domain/models/app'
 
 /**
@@ -49,8 +44,7 @@ export const loadSchemaFromFile = async (filePath: string): Promise<AppEncoded> 
 /**
  * Check if a file exists
  */
-export const fileExists = async (filePath: string): Promise<boolean> =>
-  Bun.file(filePath).exists()
+export const fileExists = async (filePath: string): Promise<boolean> => Bun.file(filePath).exists()
 
 /**
  * Read file content as text
