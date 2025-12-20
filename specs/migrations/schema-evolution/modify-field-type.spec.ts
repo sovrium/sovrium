@@ -206,7 +206,7 @@ test.describe('Modify Field Type Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-TYPE-004: should alter table alter column type integer using count::integer',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
