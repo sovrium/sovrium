@@ -224,3 +224,54 @@ export const getStoredChecksum = (
     logInfo(`[getStoredChecksum] Retrieved checksum: ${storedChecksum}`)
     return storedChecksum
   })
+
+/**
+ * Validate stored checksum against recalculated checksum from stored schema
+ * Detects schema drift or checksum tampering
+ * Throws error if mismatch detected
+ */
+export const validateStoredChecksum = (
+  tx: TransactionLike
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    logInfo('[validateStoredChecksum] Validating stored checksum...')
+
+    // Retrieve stored checksum and schema
+    const selectSQL = `SELECT checksum, schema FROM ${SCHEMA_CHECKSUM_TABLE} WHERE id = 'singleton'`
+    const result = yield* executeSQL(tx, selectSQL)
+
+    if (!result || result.length === 0) {
+      logInfo('[validateStoredChecksum] No stored checksum found - skipping validation')
+      return
+    }
+
+    const row = result[0] as { checksum: string; schema: { tables: readonly object[] } } | undefined
+    if (!row) {
+      return
+    }
+
+    const storedChecksum = row.checksum
+    const storedSchema = row.schema
+
+    // Recalculate checksum from stored schema
+    const schemaJson = JSON.stringify(storedSchema.tables, undefined, 2)
+    const recalculatedChecksum = createHash('sha256').update(schemaJson).digest('hex')
+
+    logInfo(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
+    logInfo(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
+
+    // Detect mismatch (indicates tampering or corruption)
+    if (storedChecksum !== recalculatedChecksum) {
+      const errorMsg =
+        'Schema drift detected: checksum mismatch. The stored checksum does not match the recalculated checksum from the stored schema. This indicates database tampering or corruption.'
+      logInfo(`[validateStoredChecksum] ${errorMsg}`)
+      return yield* Effect.fail({
+        _tag: 'SQLExecutionError' as const,
+        message: errorMsg,
+        query: 'validateStoredChecksum',
+        cause: new Error(errorMsg),
+      })
+    }
+
+    logInfo('[validateStoredChecksum] Checksum validation passed')
+  })
