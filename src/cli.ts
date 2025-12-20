@@ -55,8 +55,8 @@
 
 import { watch } from 'node:fs'
 import { Effect, Console } from 'effect'
-import { parseAppSchema, loadSchemaFromFileForReload } from '@/cli/schema-parser'
 import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
+import { parseAppSchema, loadSchemaFromFileForReload } from '@/presentation/cli'
 
 // Server instance type (returned by start())
 type ServerInstance = Awaited<ReturnType<typeof start>>
