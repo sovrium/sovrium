@@ -160,7 +160,7 @@ test.describe('Modify Field Options Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-OPTIONS-003: should migration fails with data validation error (existing data uses removed option)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
