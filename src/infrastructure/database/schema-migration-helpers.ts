@@ -122,6 +122,64 @@ const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): b
 }
 
 /**
+ * Generate ALTER COLUMN TYPE statement with USING clause if needed
+ * Handles type conversions that require explicit casting or transformation
+ */
+const generateAlterColumnTypeStatement = (
+  tableName: string,
+  field: Fields[number],
+  existingDataType: string
+): string => {
+  const targetType = mapFieldTypeToPostgres(field)
+  const normalizedTarget = normalizeDataType(targetType)
+  const normalizedExisting = normalizeDataType(existingDataType)
+
+  // Determine if USING clause is needed for type conversion
+  const usingClause = (() => {
+    // TEXT → VARCHAR requires LEFT() to truncate
+    if (normalizedExisting === 'text' && normalizedTarget === 'varchar') {
+      const lengthMatch = targetType.match(/VARCHAR\((\d+)\)/)
+      const length = lengthMatch ? lengthMatch[1] : '255'
+      return ` USING LEFT(${field.name}, ${length})`
+    }
+
+    // TEXT → INTEGER requires explicit cast
+    if (normalizedExisting === 'text' && normalizedTarget === 'integer') {
+      return ` USING ${field.name}::INTEGER`
+    }
+
+    // TEXT → TIMESTAMP requires explicit cast
+    if (normalizedExisting === 'text' && normalizedTarget === 'timestamp') {
+      return ` USING ${field.name}::TIMESTAMPTZ`
+    }
+
+    return ''
+  })()
+
+  return `ALTER TABLE ${tableName} ALTER COLUMN ${field.name} TYPE ${targetType}${usingClause}`
+}
+
+/**
+ * Find columns that need type changes
+ * Returns ALTER COLUMN TYPE statements for type mismatches
+ */
+const findTypeChanges = (
+  table: Table,
+  existingColumns: ReadonlyMap<
+    string,
+    { dataType: string; isNullable: string; columnDefault: string | null }
+  >,
+  renamedNewNames: ReadonlySet<string>
+): readonly string[] =>
+  filterModifiableFields(table.fields, existingColumns, renamedNewNames).flatMap((field) => {
+    const existing = existingColumns.get(field.name)!
+    if (doesColumnTypeMatch(field, existing.dataType)) return []
+
+    // Type mismatch detected - generate ALTER COLUMN TYPE statement
+    return [generateAlterColumnTypeStatement(table.name, field, existing.dataType)]
+  })
+
+/**
  * Detect field renames by comparing field IDs between previous and current schema
  * Returns a map of old field name to new field name for renamed fields
  */
@@ -182,6 +240,7 @@ const needsIdColumnRecreation = (
 
 /**
  * Find columns that should be added to the table
+ * Excludes columns that exist but have type mismatches (those will be altered, not dropped/added)
  */
 const findColumnsToAdd = (
   table: Table,
@@ -194,13 +253,14 @@ const findColumnsToAdd = (
   table.fields.filter((field) => {
     if (!shouldCreateDatabaseColumn(field)) return false // Skip UI-only fields
     if (renamedNewNames.has(field.name)) return false // Skip renamed fields
-    if (!existingColumns.has(field.name)) return true // New column
-    const existing = existingColumns.get(field.name)!
-    return !doesColumnTypeMatch(field, existing.dataType) // Type mismatch
+    if (!existingColumns.has(field.name)) return true // New column (needs ADD COLUMN)
+    // Existing columns with type mismatches will be handled by ALTER COLUMN TYPE
+    return false
   })
 
 /**
  * Find columns that should be dropped from the table
+ * Excludes columns with type mismatches (those will be altered, not dropped)
  */
 const findColumnsToDrop = (
   existingColumns: ReadonlyMap<
@@ -232,9 +292,8 @@ const findColumnsToDrop = (
     // If this is a UI-only field that shouldn't have a column, drop it
     if (!shouldCreateDatabaseColumn(field)) return true
 
-    // Drop if type doesn't match (will be recreated with correct type)
-    const existing = existingColumns.get(columnName)!
-    return !doesColumnTypeMatch(field, existing.dataType)
+    // Existing columns with type mismatches will be handled by ALTER COLUMN TYPE (not dropped)
+    return false
   })
 
 /**
@@ -546,6 +605,9 @@ export const generateAlterTableStatements = (
     previousSchema
   )
 
+  // Find columns that need type changes (ALTER COLUMN TYPE)
+  const typeChanges = findTypeChanges(table, existingColumns, renamedNewNames)
+
   // Build column modification statements
   const { dropStatements, addStatements } = buildColumnStatements({
     tableName: table.name,
@@ -556,11 +618,14 @@ export const generateAlterTableStatements = (
   })
 
   // Add automatic special fields if not present (APP-TABLES-SPECIAL-FIELDS-007)
-  // CRITICAL ORDER: Default value changes MUST come before nullability changes
-  // When making a field required with a default:
-  // 1. SET DEFAULT (defaultValueChanges)
-  // 2. Backfill NULL values (part of nullabilityChanges)
-  // 3. SET NOT NULL (part of nullabilityChanges)
+  // CRITICAL ORDER:
+  // 1. Rename columns (renameStatements)
+  // 2. Drop obsolete columns (dropStatements)
+  // 3. Add new columns (addStatements)
+  // 4. Add special fields if missing (created_at, updated_at, deleted_at)
+  // 5. Alter column types (typeChanges) - BEFORE default/nullability changes
+  // 6. Set/drop default values (defaultValueChanges)
+  // 7. Set/drop NOT NULL constraints (nullabilityChanges)
   return [
     ...renameStatements,
     ...dropStatements,
@@ -568,6 +633,7 @@ export const generateAlterTableStatements = (
     ...generateCreatedAtStatement(table, existingColumns),
     ...generateUpdatedAtStatement(table, existingColumns),
     ...generateDeletedAtStatement(table, existingColumns),
+    ...typeChanges,
     ...defaultValueChanges,
     ...nullabilityChanges,
   ]
