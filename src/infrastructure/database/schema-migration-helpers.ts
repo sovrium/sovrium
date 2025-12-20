@@ -89,6 +89,10 @@ const normalizeDataType = (dataType: string): string => {
   if (normalized.startsWith('timestamp')) return 'timestamp'
   if (normalized.startsWith('numeric') || normalized.startsWith('decimal')) return 'numeric'
 
+  // Map PostgreSQL ARRAY type to text[] for comparison with field type mappings
+  // information_schema.columns returns 'ARRAY' for all array columns
+  if (normalized === 'array') return 'text[]'
+
   // Strip length specifiers for varchar, char, etc.
   // varchar(255) → varchar, char(10) → char, numeric(10,2) → numeric
   const withoutLength = normalized.replace(/\([^)]*\)/, '')
