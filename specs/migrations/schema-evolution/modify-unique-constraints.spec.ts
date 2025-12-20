@@ -85,7 +85,7 @@ test.describe('Modify Unique Constraints Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-MODIFY-UNIQUE-002: should alter table drop constraint removes constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
