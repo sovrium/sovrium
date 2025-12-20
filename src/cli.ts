@@ -247,15 +247,113 @@ const loadSchemaFromFile = async (filePath: string, command: string): Promise<Ap
 }
 
 /**
- * Parse and validate app schema from file path or environment variable
+ * Detect format from Content-Type header
  */
-const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> => {
-  // If a file path is provided, load from file
-  if (filePath) {
-    return loadSchemaFromFile(filePath, command)
+const detectFormatFromContentType = (contentType: string): 'json' | 'yaml' | undefined => {
+  if (contentType.includes('application/json')) return 'json'
+  if (contentType.includes('application/x-yaml') || contentType.includes('text/yaml')) return 'yaml'
+  return undefined
+}
+
+/**
+ * Detect format from URL file extension
+ */
+const detectFormatFromUrl = (url: string): 'json' | 'yaml' | undefined => {
+  const urlLower = url.toLowerCase()
+  if (urlLower.endsWith('.json')) return 'json'
+  if (urlLower.endsWith('.yaml') || urlLower.endsWith('.yml')) return 'yaml'
+  return undefined
+}
+
+/**
+ * Parse schema content based on detected format
+ */
+const parseSchemaContent = (content: string, format: 'json' | 'yaml' | undefined): AppEncoded => {
+  if (format === 'json') {
+    return JSON.parse(content) as AppEncoded
+  }
+  if (format === 'yaml') {
+    const parsed = parseYaml(content)
+    return parsed as AppEncoded
+  }
+  // Last fallback: try JSON first, then YAML
+  try {
+    return JSON.parse(content) as AppEncoded
+  } catch {
+    const parsed = parseYaml(content)
+    return parsed as AppEncoded
+  }
+}
+
+/**
+ * Fetch and parse schema from remote URL
+ */
+const fetchRemoteSchema = async (url: string): Promise<AppEncoded> => {
+  try {
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      // eslint-disable-next-line functional/no-throw-statements
+      throw new Error(`Failed to fetch schema from ${url}: HTTP ${response.status}`)
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    const content = await response.text()
+
+    // Try to detect format from Content-Type header, then URL extension
+    const format = detectFormatFromContentType(contentType) || detectFormatFromUrl(url)
+
+    return parseSchemaContent(content, format)
+  } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements
+    throw new Error(
+      `Failed to fetch or parse schema from ${url}: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+}
+
+/**
+ * Parse schema from environment variable (SOVRIUM_APP_SCHEMA)
+ * Supports:
+ * - Inline JSON (starts with '{')
+ * - Remote URL (starts with 'http://' or 'https://')
+ * - Inline YAML (default)
+ */
+const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> => {
+  // Detect if value is inline JSON
+  const trimmedValue = envValue.trim()
+  if (trimmedValue.startsWith('{')) {
+    try {
+      return JSON.parse(trimmedValue) as AppEncoded
+    } catch (error) {
+      // eslint-disable-next-line functional/no-throw-statements
+      throw new Error(
+        `Invalid JSON in SOVRIUM_APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
   }
 
-  // Otherwise, try environment variable
+  // Detect if value is a URL
+  if (trimmedValue.startsWith('http://') || trimmedValue.startsWith('https://')) {
+    return fetchRemoteSchema(trimmedValue)
+  }
+
+  // Otherwise, treat as YAML
+  try {
+    const parsed = parseYaml(trimmedValue)
+    return parsed as AppEncoded
+  } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements
+    throw new Error(
+      `Invalid YAML in SOVRIUM_APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+}
+
+/**
+ * Parse legacy SOVRIUM_APP_JSON environment variable
+ */
+const parseLegacyAppJson = (command: string): AppEncoded => {
   const appSchemaString = Bun.env.SOVRIUM_APP_JSON
 
   if (!appSchemaString) {
@@ -267,7 +365,7 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppEn
         yield* Console.error(`  sovrium ${command} <config.json>`)
         yield* Console.error('')
         yield* Console.error('Or with environment variable:')
-        yield* Console.error(`  SOVRIUM_APP_JSON='{"name":"My App"}' sovrium ${command}`)
+        yield* Console.error(`  SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
       })
     )
     // Terminate process - imperative statement required for CLI
@@ -283,17 +381,43 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppEn
         yield* Console.error('Error: SOVRIUM_APP_JSON must be valid JSON')
         yield* Console.error('')
         yield* Console.error('Received:', appSchemaString)
-        yield* Console.error('')
-        yield* Console.error('Example:')
-        yield* Console.error(
-          `  SOVRIUM_APP_JSON='{"name":"My App","description":"My Description"}' sovrium ${command}`
-        )
       })
     )
     // Terminate process - imperative statement required for CLI
     // eslint-disable-next-line functional/no-expression-statements
     process.exit(1)
   }
+}
+
+/**
+ * Parse and validate app schema from file path or environment variable
+ */
+const parseAppSchema = async (command: string, filePath?: string): Promise<AppEncoded> => {
+  // If a file path is provided, load from file (takes precedence over env)
+  if (filePath) {
+    return loadSchemaFromFile(filePath, command)
+  }
+
+  // Try SOVRIUM_APP_SCHEMA first (new multi-format env var)
+  const appSchemaEnv = Bun.env.SOVRIUM_APP_SCHEMA
+
+  if (appSchemaEnv) {
+    try {
+      return await parseSchemaFromEnv(appSchemaEnv)
+    } catch (error) {
+      Effect.runSync(
+        Effect.gen(function* () {
+          yield* Console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+        })
+      )
+      // Terminate process - imperative statement required for CLI
+      // eslint-disable-next-line functional/no-expression-statements
+      process.exit(1)
+    }
+  }
+
+  // Fallback to SOVRIUM_APP_JSON for backward compatibility
+  return parseLegacyAppJson(command)
 }
 
 /**
