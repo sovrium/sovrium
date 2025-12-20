@@ -94,7 +94,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'products',
-            fields: [],
+            fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
           },
         ],
       })
@@ -138,7 +138,7 @@ test.describe('Migration Rollback', () => {
           {
             id: 1,
             name: 'users',
-            fields: [],
+            fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
           },
         ],
       })
@@ -163,9 +163,9 @@ test.describe('Migration Rollback', () => {
       const historyBefore = await executeQuery(
         `SELECT version, rolled_back_at FROM _sovrium_migration_history ORDER BY version DESC`
       )
-      expect(historyBefore).toHaveLength(2)
-      expect(historyBefore[0].version).toBe(2)
-      expect(historyBefore[0].rolled_back_at).toBeNull()
+      expect(historyBefore.rows).toHaveLength(2)
+      expect(historyBefore.rows[0].version).toBe(2)
+      expect(historyBefore.rows[0].rolled_back_at).toBeNull()
     }
   )
 
