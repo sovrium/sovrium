@@ -25,7 +25,7 @@ test.describe('Single Line Text Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-001: should create PostgreSQL VARCHAR(50) column',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-001: should create PostgreSQL VARCHAR(255) column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table configuration with single-line-text field 'title'
@@ -40,14 +40,14 @@ test.describe('Single Line Text Field', () => {
         ],
       })
 
-      // THEN: PostgreSQL VARCHAR(50) column is created
+      // THEN: PostgreSQL VARCHAR(255) column is created
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='title'"
       )
       expect(columnInfo).toMatchObject({
         column_name: 'title',
         data_type: 'character varying',
-        character_maximum_length: 50,
+        character_maximum_length: 255,
         is_nullable: 'YES',
       })
 
@@ -255,10 +255,10 @@ test.describe('Single Line Text Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-007: should reject text exceeding VARCHAR(50) limit',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-007: should reject text exceeding VARCHAR(255) limit',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN/WHEN: table with single-line-text field with VARCHAR(50) limit
+      // GIVEN/WHEN: table with single-line-text field with VARCHAR(255) limit
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -272,14 +272,14 @@ test.describe('Single Line Text Field', () => {
 
       // THEN: PostgreSQL rejects or truncates the text
       const atLimit = await executeQuery(
-        "INSERT INTO notes (short_note) VALUES (REPEAT('a', 50)) RETURNING LENGTH(short_note) as len"
+        "INSERT INTO notes (short_note) VALUES (REPEAT('a', 255)) RETURNING LENGTH(short_note) as len"
       )
-      expect(atLimit.len).toBe(50)
+      expect(atLimit.len).toBe(255)
 
       // WHEN/THEN: executing query and asserting error
       await expect(
-        executeQuery("INSERT INTO notes (short_note) VALUES (REPEAT('b', 100))")
-      ).rejects.toThrow(/value too long for type character varying\(50\)/)
+        executeQuery("INSERT INTO notes (short_note) VALUES (REPEAT('b', 256))")
+      ).rejects.toThrow(/value too long for type character varying\(255\)/)
     }
   )
 
@@ -814,7 +814,7 @@ test.describe('Single Line Text Field', () => {
           "SELECT data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name='data' AND column_name='text_field'"
         )
         expect(columnInfo.data_type).toBe('character varying')
-        expect(columnInfo.character_maximum_length).toBe(50)
+        expect(columnInfo.character_maximum_length).toBe(255)
         expect(columnInfo.is_nullable).toBe('NO')
         expect(columnInfo.column_default).toBe("'Default Value'::character varying")
       })
@@ -832,10 +832,10 @@ test.describe('Single Line Text Field', () => {
         )
       })
 
-      await test.step('Error handling: VARCHAR(50) limit rejects text exceeding limit', async () => {
+      await test.step('Error handling: VARCHAR(255) limit rejects text exceeding limit', async () => {
         await expect(
-          executeQuery("INSERT INTO data (text_field) VALUES (REPEAT('x', 51))")
-        ).rejects.toThrow(/value too long for type character varying\(50\)/)
+          executeQuery("INSERT INTO data (text_field) VALUES (REPEAT('x', 256))")
+        ).rejects.toThrow(/value too long for type character varying\(255\)/)
       })
 
       await test.step('Test unicode handling', async () => {
