@@ -132,7 +132,7 @@
   },
   "dependencies": {
     "@effect/experimental": "^0.57.11",
-    "@hono/zod-openapi": "^1.1.6",
+    "@hono/zod-openapi": "^1.2.0",
     "@hookform/resolvers": "^5.2.2",
     "@scalar/hono-api-reference": "^0.9.30",
     "@tailwindcss/postcss": "^4.1.18",
