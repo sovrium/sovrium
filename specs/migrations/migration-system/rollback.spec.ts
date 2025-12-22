@@ -111,19 +111,27 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'products',
               fields: [
+                { id: 2, name: 'sku', type: 'single-line-text' },
                 // Invalid field type (runtime validation)
-                { id: 2, name: 'bad', type: 'INVALID' },
+                { id: 3, name: 'bad', type: 'INVALID' },
               ],
             },
           ],
         })
       }).rejects.toThrow()
 
-      // Products table preserved from last good state
+      // Products table preserved from last good state (id + created_at + updated_at + deleted_at + sku = 5 columns)
       const tableExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name='products'`
       )
-      expect(tableExists[0].count).toBe('1')
+      expect(tableExists.count).toBe('1')
+
+      // Verify SKU field exists from last good state
+      const columns = await executeQuery(
+        `SELECT column_name FROM information_schema.columns WHERE table_name='products' ORDER BY ordinal_position`
+      )
+      expect(columns.rows).toHaveLength(5)
+      expect(columns.rows[4].column_name).toBe('sku')
     }
   )
 
