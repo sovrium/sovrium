@@ -69,11 +69,43 @@ const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } 
 })
 
 /**
+ * Recursively sort object keys to ensure consistent serialization
+ * PostgreSQL JSONB reorders object properties, so we must normalize before hashing
+ */
+const sortObjectKeys = (obj: unknown): unknown => {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(sortObjectKeys)
+
+  // Sort object keys alphabetically and recursively sort nested objects
+  const objRecord = obj as Record<string, unknown>
+  const keys = Object.keys(objRecord).toSorted()
+
+  return keys.reduce(
+    (sorted, key) => ({
+      ...sorted,
+      [key]: sortObjectKeys(objRecord[key]),
+    }),
+    {} as Record<string, unknown>
+  )
+}
+
+/**
  * Calculate SHA-256 checksum from schema tables
  * Used by both generation and validation
+ *
+ * CRITICAL: Properties are sorted before hashing to ensure consistent checksums
+ * regardless of property insertion order (JavaScript objects) or JSONB normalization.
  */
-const calculateChecksum = (tables: readonly object[]): string => {
-  const schemaJson = JSON.stringify(tables, undefined, 2)
+const calculateChecksum = (tables: readonly object[], context: string = ''): string => {
+  // Sort object keys recursively to normalize property order
+  const normalizedTables = sortObjectKeys(tables)
+  const schemaJson = JSON.stringify(normalizedTables, undefined, 2)
+
+  if (context) {
+    logInfo(`[calculateChecksum] DEBUG ${context} - JSON string: ${schemaJson.substring(0, 300)}`)
+    logInfo(`[calculateChecksum] DEBUG ${context} - JSON length: ${schemaJson.length}`)
+  }
   return createHash('sha256').update(schemaJson).digest('hex')
 }
 
@@ -83,7 +115,7 @@ const calculateChecksum = (tables: readonly object[]): string => {
  */
 export const generateSchemaChecksum = (app: App): string => {
   const schemaSnapshot = createSchemaSnapshot(app)
-  return calculateChecksum(schemaSnapshot.tables)
+  return calculateChecksum(schemaSnapshot.tables, 'GENERATION')
 }
 
 /**
@@ -157,8 +189,20 @@ export const storeSchemaChecksum = (
     const checksum = generateSchemaChecksum(app)
     const schemaSnapshot = createSchemaSnapshot(app)
 
+    // DEBUG: Log what we're hashing AND storing
+    const tablesJson = JSON.stringify(schemaSnapshot.tables, undefined, 2)
+    const fullSchemaJson = JSON.stringify(schemaSnapshot, undefined, 2)
+    logInfo(
+      `[storeSchemaChecksum] DEBUG - Tables JSON being hashed: ${tablesJson.substring(0, 500)}`
+    )
+    logInfo(
+      `[storeSchemaChecksum] DEBUG - Full schema JSON being stored: ${fullSchemaJson.substring(0, 500)}`
+    )
+    logInfo(`[storeSchemaChecksum] DEBUG - Generated checksum: ${checksum}`)
+
     // Use INSERT ... ON CONFLICT to update existing singleton row or create new one
-    const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
+    // IMPORTANT: Use same JSON formatting (2-space indent) as calculateChecksum for consistency
+    const escapedSchema = escapeSqlString(fullSchemaJson)
     const upsertSQL = `
       INSERT INTO ${SCHEMA_CHECKSUM_TABLE} (id, checksum, schema, updated_at)
       VALUES ('singleton', '${checksum}', '${escapedSchema}', NOW())
@@ -293,10 +337,15 @@ export const validateStoredChecksum = (
 
     const storedChecksum = row.checksum
     const storedSchema = row.schema
-    const recalculatedChecksum = calculateChecksum(storedSchema.tables)
+    const recalculatedChecksum = calculateChecksum(storedSchema.tables, 'VALIDATION')
 
     logInfo(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
     logInfo(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
+
+    // DEBUG: Log the actual JSON being hashed
+    logInfo(
+      `[validateStoredChecksum] DEBUG - Stored tables JSON: ${JSON.stringify(storedSchema.tables, undefined, 2).substring(0, 500)}`
+    )
 
     if (storedChecksum !== recalculatedChecksum) {
       const errorMsg =

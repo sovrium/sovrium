@@ -29,7 +29,7 @@ test.describe('Migration Rollback', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-001: should detect checksum mismatch and prevent migration',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -83,7 +83,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -135,7 +135,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -177,7 +177,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-004: should restore data integrity after failed migration rollback',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -225,7 +225,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-005: should handle cascading rollback for dependent tables',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -308,7 +308,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-006: should log rollback operations for audit trail',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -335,8 +335,9 @@ test.describe('Migration Rollback', () => {
               id: 1,
               name: 'test_table',
               fields: [
+                { id: 2, name: 'data', type: 'single-line-text' },
                 // Invalid type (runtime validation)
-                { id: 2, name: 'bad', type: 'INVALID' },
+                { id: 3, name: 'bad', type: 'INVALID' },
               ],
             },
           ],
@@ -389,7 +390,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -444,7 +445,7 @@ test.describe('Migration Rollback', () => {
       const phoneDataAfter = await executeQuery(
         `SELECT COUNT(*) as count FROM customers WHERE phone IS NOT NULL`
       )
-      expect(phoneDataAfter[0].count).toBe('2')
+      expect(phoneDataAfter.rows[0].count).toBe('2')
     }
   )
 
@@ -452,7 +453,7 @@ test.describe('Migration Rollback', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

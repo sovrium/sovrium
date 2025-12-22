@@ -24,6 +24,7 @@ import {
   recordMigration,
   storeSchemaChecksum,
   generateSchemaChecksum,
+  validateStoredChecksum,
 } from './migration-audit-trail'
 import {
   detectCircularDependenciesWithOptionalFK,
@@ -104,6 +105,9 @@ const executeSchemaInit = (
             await Runtime.runPromise(runtime)(
               Effect.gen(function* () {
                 // Migration process - tables are created by Drizzle migrations
+                // Step 0: Validate stored checksum to detect tampering (MIGRATION-ROLLBACK-001)
+                yield* validateStoredChecksum(tx)
+
                 // Step 1: Verify Better Auth users table exists if any table needs it for foreign keys
                 logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
                 const needs = needsUsersTable(tables)

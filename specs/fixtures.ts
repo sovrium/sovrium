@@ -178,6 +178,12 @@ export const test = base.extend<ServerFixtures>({
           }
         }
 
+        // Stop previous server if it exists (for tests that call startServerWithSchema multiple times)
+        if (serverProcess) {
+          await stopServer(serverProcess)
+          serverProcess = null
+        }
+
         // SMTP is automatically configured via environment variables from mailpit
         // (configured in startCliServer - no need to pass email config in schema)
         const server = await startCliServer(appSchema, databaseUrl)

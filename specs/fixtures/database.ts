@@ -174,6 +174,11 @@ export class DatabaseTemplateManager {
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO admin_user, member_user, authenticated_user, guest_user;
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO admin_user, member_user, authenticated_user, guest_user;
       `)
+
+      // Clear checksum table to ensure tests start with clean state
+      // Migration audit trail tables are created by Drizzle migrations, but may have
+      // residual data from previous test runs if template was reused.
+      await templatePool.query(`DELETE FROM _sovrium_schema_checksum`)
     } finally {
       await templatePool.end()
     }
