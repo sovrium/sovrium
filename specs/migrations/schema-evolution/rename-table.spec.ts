@@ -24,7 +24,7 @@ test.describe('Rename Table Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-RENAME-TABLE-001: should alter table rename preserves data, indexes, and constraints',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

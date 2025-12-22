@@ -30,7 +30,11 @@ import {
   detectCircularDependenciesWithOptionalFK,
   sortTablesByDependencies,
 } from './schema-dependency-sorting'
-import { dropObsoleteTables, syncForeignKeyConstraints } from './schema-migration-helpers'
+import {
+  dropObsoleteTables,
+  renameTablesIfNeeded,
+  syncForeignKeyConstraints,
+} from './schema-migration-helpers'
 import { tableExists, executeSQL } from './sql-execution'
 import { generateJunctionTableDDL, generateJunctionTableName } from './sql-generators'
 import {
@@ -128,6 +132,9 @@ const executeSchemaInit = (
 
                 // Step 3: Load previous schema for field rename detection
                 const previousSchema = yield* getPreviousSchema(tx)
+
+                // Step 3.5: Rename tables that have changed names (same ID, different name)
+                yield* renameTablesIfNeeded(tx, tables, previousSchema)
 
                 // Step 4: Drop tables that exist in database but not in schema
                 yield* dropObsoleteTables(tx, tables)
