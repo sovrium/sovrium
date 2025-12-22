@@ -352,7 +352,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-007: should support schema downgrade from version N to N-1',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -389,7 +389,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
