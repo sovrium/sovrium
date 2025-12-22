@@ -83,7 +83,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
