@@ -51,6 +51,28 @@ const PROTECTED_SYSTEM_TABLES = new Set([
 ])
 
 /**
+ * Rename tables that have changed names (same table ID, different name)
+ * Uses ALTER TABLE RENAME TO to preserve data, indexes, and constraints
+ */
+export const renameTablesIfNeeded = (
+  tx: BunSQLTransaction,
+  tables: readonly Table[],
+  previousSchema?: { readonly tables: readonly object[] }
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const tableRenames = detectTableRenames(tables, previousSchema)
+
+    if (tableRenames.size === 0) return
+
+    // Generate ALTER TABLE RENAME TO statements
+    const renameStatements = Array.from(tableRenames.entries()).map(
+      ([oldName, newName]) => `ALTER TABLE ${oldName} RENAME TO ${newName}`
+    )
+
+    yield* executeSQLStatements(tx, renameStatements)
+  })
+
+/**
  * Drop tables that exist in database but are not defined in schema
  *
  * SECURITY NOTE: Table names are validated before reaching this function.
@@ -218,6 +240,42 @@ export const detectFieldRenames = (
   const renames = new Map<string, string>()
   currentFieldsById.forEach((newName, fieldId) => {
     const oldName = previousFieldsById.get(fieldId)
+    if (oldName && oldName !== newName) {
+      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+      renames.set(oldName, newName)
+    }
+  })
+
+  return renames
+}
+
+/**
+ * Detect table renames by comparing table IDs between previous and current schema
+ * Returns a map of old table name to new table name for renamed tables
+ */
+export const detectTableRenames = (
+  currentTables: readonly Table[],
+  previousSchema?: { readonly tables: readonly object[] }
+): ReadonlyMap<string, string> => {
+  if (!previousSchema) return new Map()
+
+  // Build map of table ID to table name for both schemas
+  const previousTablesById = new Map(
+    previousSchema.tables
+      .filter((t: object) => 'id' in t && 'name' in t && t.id !== undefined && t.name !== undefined)
+      .map((t: object) => [(t as { id: number }).id, (t as { name: string }).name])
+  )
+
+  const currentTablesById = new Map(
+    currentTables
+      .filter((t): t is Table & { id: number } => t.id !== undefined)
+      .map((t) => [t.id, t.name])
+  )
+
+  // Detect renames: same ID, different name
+  const renames = new Map<string, string>()
+  currentTablesById.forEach((newName, tableId) => {
+    const oldName = previousTablesById.get(tableId)
     if (oldName && oldName !== newName) {
       // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
       renames.set(oldName, newName)
