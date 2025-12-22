@@ -422,8 +422,29 @@ test.describe('Migration Rollback', () => {
       )
       expect(phoneData.rows[0].count).toBe('2')
 
-      // System should detect non-null data and require confirmation
-      // or backup before allowing destructive rollback
+      // Attempt rollback (remove phone column) without allowDestructive flag
+      // This should fail to prevent data loss
+      await expect(async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [
+                { id: 2, name: 'email', type: 'email', required: true },
+                // phone field removed - this would drop the column with data
+              ],
+            },
+          ],
+        })
+      }).rejects.toThrow(/destructive operation|dropping column|data loss|allowDestructive/i)
+
+      // Verify data is still intact after failed rollback attempt
+      const phoneDataAfter = await executeQuery(
+        `SELECT COUNT(*) as count FROM customers WHERE phone IS NOT NULL`
+      )
+      expect(phoneDataAfter[0].count).toBe('2')
     }
   )
 
