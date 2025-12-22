@@ -267,7 +267,9 @@ export const detectTableRenames = (
   )
 
   const currentTablesById = new Map(
-    currentTables.filter((t) => t.id !== undefined).map((t) => [t.id, t.name])
+    currentTables
+      .filter((t): t is Table & { id: number } => t.id !== undefined)
+      .map((t) => [t.id, t.name])
   )
 
   // Detect renames: same ID, different name
