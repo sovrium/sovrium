@@ -256,11 +256,22 @@ test.describe('Request password reset', () => {
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
 
-      // Wait a moment for the second email to be sent
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      // Wait for second email to arrive (filtered by testId namespace)
+      await mailpit.waitForEmail(
+        (e) => {
+          // Check if this is a reset email to our user, AND it's different from the first one
+          const isResetEmail =
+            e.To[0]?.Address === userEmail &&
+            (e.Subject.toLowerCase().includes('password') ||
+              e.Subject.toLowerCase().includes('reset'))
+          const isDifferentEmail = e.ID !== firstEmail.ID
+          return isResetEmail && isDifferentEmail
+        },
+        { timeout: 5000 }
+      )
 
-      // Verify new email was sent (wait for 2nd email)
-      const emails = await mailpit.getAllEmails() // Use getAllEmails to get all emails, then filter
+      // Verify we have at least 2 reset emails
+      const emails = await mailpit.getEmails() // Use getEmails() for namespace filtering
       const resetEmails = emails.filter(
         (e) =>
           e.To[0]?.Address === userEmail &&
