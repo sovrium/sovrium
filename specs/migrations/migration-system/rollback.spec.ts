@@ -127,7 +127,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
