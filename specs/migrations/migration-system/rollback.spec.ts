@@ -299,6 +299,7 @@ test.describe('Migration Rollback', () => {
           },
         ],
       })
+      await executeQuery([`INSERT INTO test_table (data) VALUES ('test value')`])
 
       // WHEN: Migration fails and rolls back
       // THEN: Rollback operation logged with details
