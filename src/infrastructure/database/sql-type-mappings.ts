@@ -15,7 +15,7 @@ export const fieldTypeToPostgresMap: Record<string, string> = {
   integer: 'INTEGER',
   autonumber: 'INTEGER',
   decimal: 'DECIMAL',
-  'single-line-text': 'VARCHAR(50)',
+  'single-line-text': 'VARCHAR(255)',
   'long-text': 'TEXT',
   email: 'VARCHAR(255)',
   url: 'VARCHAR(255)',
