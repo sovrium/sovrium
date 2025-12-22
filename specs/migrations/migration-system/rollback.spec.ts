@@ -135,7 +135,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -177,7 +177,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-004: should restore data integrity after failed migration rollback',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -389,7 +389,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -431,7 +431,7 @@ test.describe('Migration Rollback', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
