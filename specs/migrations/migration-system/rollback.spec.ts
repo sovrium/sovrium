@@ -284,7 +284,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-ROLLBACK-006: should log rollback operations for audit trail',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
