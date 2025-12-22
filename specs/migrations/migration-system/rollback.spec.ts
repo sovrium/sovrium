@@ -241,13 +241,21 @@ test.describe('Migration Rollback', () => {
           {
             id: 2,
             name: 'products',
-            fields: [{ id: 2, name: 'category_id', type: 'integer' }],
+            fields: [
+              {
+                id: 2,
+                name: 'category',
+                type: 'relationship',
+                relatedTable: 'categories',
+                relationType: 'many-to-one',
+              },
+            ],
           },
         ],
       })
       await executeQuery([
         `INSERT INTO categories (name) VALUES ('Electronics')`,
-        `INSERT INTO products (category_id) VALUES ((SELECT id FROM categories LIMIT 1))`,
+        `INSERT INTO products (category) VALUES ((SELECT id FROM categories LIMIT 1))`,
       ])
 
       // WHEN: Migration modifying parent table fails
@@ -269,7 +277,15 @@ test.describe('Migration Rollback', () => {
             {
               id: 2,
               name: 'products',
-              fields: [{ id: 2, name: 'category_id', type: 'integer' }],
+              fields: [
+                {
+                  id: 2,
+                  name: 'category',
+                  type: 'relationship',
+                  relatedTable: 'categories',
+                  relationType: 'many-to-one',
+                },
+              ],
             },
           ],
         })
@@ -280,7 +296,7 @@ test.describe('Migration Rollback', () => {
       expect(categories.rows).toHaveLength(1)
 
       // Products table unchanged (use explicit columns to avoid special fields in result)
-      const products = await executeQuery(`SELECT id, category_id FROM products`)
+      const products = await executeQuery(`SELECT id, category FROM products`)
       expect(products.rows).toHaveLength(1)
 
       // Foreign key relationship preserved
@@ -288,7 +304,7 @@ test.describe('Migration Rollback', () => {
         `SELECT COUNT(*) as count FROM information_schema.table_constraints
          WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'products'`
       )
-      expect(fk[0].count).toBe('1')
+      expect(fk.count).toBe('1')
     }
   )
 
