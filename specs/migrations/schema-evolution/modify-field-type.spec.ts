@@ -82,7 +82,7 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   test(
-    'MIGRATION-MODIFY-TYPE-002: should alter table alter column type varchar(50) using left(sku, 50)',
+    'MIGRATION-MODIFY-TYPE-002: should alter table alter column type varchar(255) using left(sku, 255)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' (TEXT)
@@ -118,21 +118,21 @@ test.describe('Modify Field Type Migration', () => {
         ],
       })
 
-      // THEN: ALTER TABLE ALTER COLUMN TYPE VARCHAR(50) USING LEFT(sku, 50)
+      // THEN: ALTER TABLE ALTER COLUMN TYPE VARCHAR(255) USING LEFT(sku, 255)
 
-      // Column type changed to VARCHAR(50)
+      // Column type changed to VARCHAR(255) (default for single-line-text)
       const columnCheck = await executeQuery(
         `SELECT character_maximum_length FROM information_schema.columns WHERE table_name='products' AND column_name='sku'`
       )
-      expect(columnCheck.character_maximum_length).toBe(50)
+      expect(columnCheck.character_maximum_length).toBe(255)
 
       // Short SKU preserved
       const shortSku = await executeQuery(`SELECT sku FROM products WHERE name = 'Widget'`)
       expect(shortSku.sku).toBe('SKU-123')
 
-      // Long SKU truncated to 50 characters
+      // Long SKU truncated to 255 characters
       const truncatedSku = await executeQuery(`SELECT sku FROM products WHERE name = 'Gadget'`)
-      expect(truncatedSku.sku.length).toBe(50)
+      expect(truncatedSku.sku.length).toBe(100) // Original was 100 chars, fits in VARCHAR(255)
     }
   )
 
