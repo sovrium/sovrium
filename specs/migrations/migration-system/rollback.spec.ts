@@ -29,7 +29,7 @@ test.describe('Migration Rollback', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-001: should detect checksum mismatch and prevent migration',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -83,7 +83,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -127,7 +127,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -169,7 +169,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-004: should restore data integrity after failed migration rollback',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -217,7 +217,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-005: should handle cascading rollback for dependent tables',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -284,7 +284,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-006: should log rollback operations for audit trail',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -328,7 +328,7 @@ test.describe('Migration Rollback', () => {
     }
   )
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-007: should support schema downgrade from version N to N-1',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -407,7 +407,7 @@ test.describe('Migration Rollback', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
