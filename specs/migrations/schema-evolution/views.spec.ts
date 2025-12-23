@@ -384,7 +384,7 @@ test.describe('Database Views Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-006: should drop view cascade',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
