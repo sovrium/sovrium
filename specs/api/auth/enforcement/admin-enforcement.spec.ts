@@ -155,7 +155,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-005: should reject expired session tokens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
