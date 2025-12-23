@@ -74,7 +74,7 @@ test.describe('Disabled Auth Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-003: should return 404 for session endpoints when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
