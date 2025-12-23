@@ -293,7 +293,7 @@ test.describe('Rename Table Migration', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-RENAME-TABLE-005: user can complete full rename-table workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
