@@ -624,7 +624,6 @@ export const createTableViewsEffect = (
         }
       }
     }
-    /* eslint-enable functional/no-loop-statements */
   })
 
 /**
