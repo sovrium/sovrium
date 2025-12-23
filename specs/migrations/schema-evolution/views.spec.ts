@@ -238,7 +238,7 @@ test.describe('Database Views Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-004: should create materialized view',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
