@@ -227,7 +227,7 @@ test.describe('Rename Table Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-RENAME-TABLE-004: should migration fails with error and transaction rolls back',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -270,7 +270,7 @@ test.describe('Rename Table Migration', () => {
             },
           ],
         })
-      }).rejects.toThrow(/already exists|duplicate|relation.*exists/i)
+      }).rejects.toThrow(/Table names must be unique|already exists|duplicate|relation.*exists/i)
 
       // Original tables unchanged (migration rolled back)
       const usersExist = await executeQuery(
