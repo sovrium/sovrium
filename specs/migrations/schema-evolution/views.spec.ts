@@ -298,7 +298,7 @@ test.describe('Database Views Migration', () => {
 
       // Materialized view contains aggregated data
       const stats = await executeQuery(`SELECT * FROM order_stats WHERE customer_id = 1`)
-      expect(stats.order_count).toBe(2)
+      expect(parseInt(stats.order_count)).toBe(2)
       expect(parseFloat(stats.total_amount)).toBe(250.0)
     }
   )
