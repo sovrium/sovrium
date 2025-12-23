@@ -32,7 +32,7 @@ test.describe('Change email address', () => {
   test(
     'API-AUTH-CHANGE-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: An authenticated user with valid new email and custom email templates
       await startServerWithSchema({
         name: 'test-app',

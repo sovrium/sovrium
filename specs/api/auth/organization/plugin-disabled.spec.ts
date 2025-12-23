@@ -31,7 +31,7 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ORG-PLUGIN-001: create organization returns 404 without organization plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT organization plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -64,7 +64,7 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ORG-PLUGIN-002: list organizations returns 404 without organization plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT organization plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -91,7 +91,7 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ORG-PLUGIN-003: invite member returns 404 without organization plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT organization plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ORG-PLUGIN-004: get organization returns 404 without organization plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT organization plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -155,7 +155,7 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ORG-PLUGIN-005: all organization endpoints return 404 without organization plugin',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server without organization plugin', async () => {
         await startServerWithSchema({
           name: 'test-app',

@@ -31,7 +31,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ADMIN-PLUGIN-001: list users endpoint returns 404 without admin plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -59,7 +59,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ADMIN-PLUGIN-002: get user endpoint returns 404 without admin plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -86,7 +86,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ADMIN-PLUGIN-003: ban user endpoint returns 404 without admin plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -118,7 +118,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ADMIN-PLUGIN-004: set role endpoint returns 404 without admin plugin',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -154,7 +154,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   test(
     'API-AUTH-ADMIN-PLUGIN-005: all admin endpoints return 404 without admin plugin',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server without admin plugin', async () => {
         await startServerWithSchema({
           name: 'test-app',

@@ -32,7 +32,7 @@ test.describe('Invite member to organization', () => {
   test(
     'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email with custom template',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: An authenticated organization owner with custom email templates
       await startServerWithSchema({
         name: 'test-app',

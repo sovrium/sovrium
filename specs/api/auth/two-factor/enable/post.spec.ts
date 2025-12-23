@@ -27,7 +27,7 @@ test.describe('Enable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-ENABLE-001: should return TOTP secret and QR code URL',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with 2FA plugin enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -63,7 +63,7 @@ test.describe('Enable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-ENABLE-002: should include backup codes when configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with 2FA and backup codes enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -174,7 +174,7 @@ test.describe('Enable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-ENABLE-005: should return 400 when 2FA plugin not enabled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user but 2FA plugin disabled
       await startServerWithSchema({
         name: 'test-app',
@@ -205,7 +205,7 @@ test.describe('Enable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-ENABLE-006: user can complete full 2FA enable workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with two-factor plugin', async () => {
         await startServerWithSchema({
           name: 'test-app',

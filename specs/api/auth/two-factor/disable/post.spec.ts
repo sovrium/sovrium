@@ -27,7 +27,7 @@ test.describe('Disable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-DISABLE-001: should disable 2FA with valid password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with 2FA enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -67,7 +67,7 @@ test.describe('Disable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-DISABLE-002: should return 401 with incorrect password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with 2FA enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -136,7 +136,7 @@ test.describe('Disable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-DISABLE-004: should return 400 when 2FA not enabled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user without 2FA enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +173,7 @@ test.describe('Disable Two-Factor Authentication', () => {
   test(
     'API-AUTH-TWO-FACTOR-DISABLE-005: should return 404 when twoFactor plugin is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT twoFactor plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Disable Two-Factor Authentication', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-DISABLE-006: user can complete full 2FA disable workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with two-factor plugin', async () => {
         await startServerWithSchema({
           name: 'test-app',

@@ -27,7 +27,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-VERIFY-001: should verify valid TOTP code successfully',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: User with 2FA enabled and valid TOTP code
       await startServerWithSchema({
         name: 'test-app',
@@ -75,7 +75,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-VERIFY-002: should reject invalid TOTP code',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: User with 2FA enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -114,7 +114,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-VERIFY-003: should accept backup code when enabled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: User with 2FA and backup codes enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -190,7 +190,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-VERIFY-005: should return 400 when code is missing',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with 2FA enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -224,7 +224,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   test(
     'API-AUTH-TWO-FACTOR-VERIFY-006: should return 404 when twoFactor plugin is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT twoFactor plugin configured
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   test.fixme(
     'API-AUTH-TWO-FACTOR-VERIFY-007: user can complete full 2FA verification workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with two-factor plugin', async () => {
         await startServerWithSchema({
           name: 'test-app',
