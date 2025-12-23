@@ -294,7 +294,7 @@ const buildAdminPlugin = (authConfig?: Auth) =>
     ? [
         admin({
           defaultRole: 'user',
-          makeFirstUserAdmin: true, // First user gets admin role automatically
+          makeFirstUserAdmin: false, // First user does NOT get admin role automatically (tests can create admins explicitly)
         }),
       ]
     : []
