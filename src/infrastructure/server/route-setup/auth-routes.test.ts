@@ -162,7 +162,9 @@ describe('Auth Routes - setupAuthMiddleware', () => {
 
   describe('Given middleware only applies to auth routes', () => {
     test('When non-auth route accessed Then no CORS headers added', async () => {
-      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth).get('/api/other', (c) => c.text('OK'))
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth).get('/api/other', (c) =>
+        c.text('OK')
+      )
 
       const res = await app.request('/api/other', {
         headers: {

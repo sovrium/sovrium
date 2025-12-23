@@ -481,7 +481,11 @@ const initializeSchemaInternal = (
 
     // Fast path: Check if schema checksum matches (before opening transaction)
     const currentChecksum = generateSchemaChecksum(app)
-    const shouldSkipMigration = yield* checkShouldSkipMigration(databaseUrlConfig, currentChecksum, tables)
+    const shouldSkipMigration = yield* checkShouldSkipMigration(
+      databaseUrlConfig,
+      currentChecksum,
+      tables
+    )
 
     // Even if migration is skipped, we need to clean up obsolete views
     // Views might be created manually via SQL and need cleanup
