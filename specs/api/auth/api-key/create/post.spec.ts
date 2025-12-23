@@ -63,7 +63,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-002: should create API key with custom expiresIn',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
