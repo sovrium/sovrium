@@ -8,7 +8,6 @@
 import { Effect } from 'effect'
 import {
   type ActivityLogOutput,
-  ForbiddenError,
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
@@ -66,22 +65,27 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
     const program = ListActivityLogs({
       userId: session.userId,
       organizationId: session.activeOrganizationId ?? undefined,
-    }).pipe(Effect.provide(ListActivityLogsLayer))
+    }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
-    try {
-      const logs = await Effect.runPromise(program)
-      return c.json(logs.map(mapToApiResponse), 200)
-    } catch (error) {
-      if (error instanceof ForbiddenError) {
+    const result = await Effect.runPromise(program)
+
+    if (result._tag === 'Left') {
+      const error = result.left
+      if (error._tag === 'ForbiddenError') {
         return c.json({ error: 'Forbidden', message: error.message }, 403)
       }
+      // Log error for debugging
+      console.error('[Activity API Error]:', error)
       return c.json(
         {
           error: 'Internal server error',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: 'cause' in error ? String(error.cause) : 'Unknown error',
         },
         500
       )
     }
+
+    const logs = result.right
+    return c.json(logs.map(mapToApiResponse), 200)
   }) as T
 }
