@@ -90,8 +90,24 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app.auth)
 
+  // Add authentication guard for admin endpoints
+  // Better Auth returns 404 for unauthenticated admin requests, but tests expect 401
+  const appWithAdminGuard = app.auth.plugins?.admin
+    ? honoApp.use('/api/auth/admin/*', async (c, next) => {
+        // Check if request has valid session
+        const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+        if (!session) {
+          return c.json({ error: 'Unauthorized' }, 401)
+        }
+
+        // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+        await next()
+      })
+    : honoApp
+
   // Wrap verify-email to enforce single-use tokens
-  const wrappedApp = honoApp.get('/api/auth/verify-email', async (c) => {
+  const wrappedApp = appWithAdminGuard.get('/api/auth/verify-email', async (c) => {
     const token = c.req.query('token')
 
     if (!token) {
