@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Secure Headers - HTTP Security Response Headers
  *
  * Domain: api/security
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage

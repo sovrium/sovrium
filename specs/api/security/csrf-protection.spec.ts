@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for CSRF Protection - Cross-Site Request Forgery Prevention
  *
  * Domain: api/security
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (5 tests) - Exhaustive coverage

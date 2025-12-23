@@ -72,7 +72,7 @@ test.describe('SQL Injection Prevention', () => {
       const sqlInjectionPayloads = [
         "' OR '1'='1",
         "'; DROP TABLE users_data; --",
-        "1; SELECT * FROM users_data --",
+        '1; SELECT * FROM users_data --',
         "' UNION SELECT * FROM users_data --",
         "1' OR '1'='1' --",
         "admin'--",
@@ -290,7 +290,7 @@ test.describe('SQL Injection Prevention', () => {
       const likeInjections = [
         "%' OR '1'='1",
         "%'; DELETE FROM articles; --",
-        "% UNION SELECT * FROM users --",
+        '% UNION SELECT * FROM users --',
         '_) OR (1=1',
       ]
 

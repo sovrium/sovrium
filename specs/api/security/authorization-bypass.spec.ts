@@ -415,7 +415,13 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   test.fixme(
     'API-SECURITY-AUTH-BYPASS-009: authorization controls prevent privilege escalation and data leakage',
     { tag: '@regression' },
-    async ({ page, request, startServerWithSchema, createAuthenticatedUser, createAuthenticatedAdmin }) => {
+    async ({
+      page,
+      request,
+      startServerWithSchema,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+    }) => {
       let userAId: string
       let privateNoteId: number
 

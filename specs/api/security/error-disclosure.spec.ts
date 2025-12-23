@@ -62,7 +62,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
       expect(body).not.toContain('.ts:')
       expect(body).not.toContain('.js:')
       expect(body).not.toContain('Error:')
-      expect(body).not.toMatch(/at \w+\s+\(/)  // Function call pattern in stack trace
+      expect(body).not.toMatch(/at \w+\s+\(/) // Function call pattern in stack trace
     }
   )
 
@@ -175,9 +175,9 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
       // Should use generic message
       expect(
         errorMessage.includes('invalid') ||
-        errorMessage.includes('incorrect') ||
-        errorMessage.includes('failed') ||
-        errorMessage.includes('unauthorized')
+          errorMessage.includes('incorrect') ||
+          errorMessage.includes('failed') ||
+          errorMessage.includes('unauthorized')
       ).toBe(true)
     }
   )
@@ -193,11 +193,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
       })
 
       // WHEN: Making various requests that might expose internal info
-      const endpoints = [
-        '/api/health',
-        '/api/nonexistent',
-        '/api/tables/999999/records',
-      ]
+      const endpoints = ['/api/health', '/api/nonexistent', '/api/tables/999999/records']
 
       for (const endpoint of endpoints) {
         const response = await request.get(endpoint)
@@ -234,9 +230,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
           {
             id: 1,
             name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-            ],
+            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
           },
         ],
       })
@@ -276,7 +270,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-ERROR-007: error responses are secure and don\'t leak information',
+    "API-SECURITY-ERROR-007: error responses are secure and don't leak information",
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with auth and tables', async () => {
@@ -316,7 +310,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
         expect(errorText).not.toContain('.ts')
       })
 
-      await test.step('Verify: Auth errors don\'t reveal user existence', async () => {
+      await test.step("Verify: Auth errors don't reveal user existence", async () => {
         const response = await request.post('/api/auth/sign-in/email', {
           data: {
             email: 'doesnotexist@example.com',
@@ -362,11 +356,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
       })
 
       await test.step('Verify: No stack traces in any error', async () => {
-        const endpoints = [
-          '/api/nonexistent',
-          '/api/tables/999',
-          '/api/auth/invalid-endpoint',
-        ]
+        const endpoints = ['/api/nonexistent', '/api/tables/999', '/api/auth/invalid-endpoint']
 
         for (const endpoint of endpoints) {
           const response = await request.get(endpoint)
