@@ -47,11 +47,7 @@ import {
   generateUpdatedByTriggers,
   generateUpdatedAtTriggers,
 } from './trigger-generators'
-import {
-  generateTableViewStatements,
-  generateDropObsoleteViewsSQL,
-  generateReadOnlyViewTrigger,
-} from './view-generators'
+import { generateTableViewStatements, generateReadOnlyViewTrigger } from './view-generators'
 import type { Table } from '@/domain/models/app/table'
 
 /**

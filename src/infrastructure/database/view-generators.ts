@@ -11,7 +11,6 @@ import {
   getExistingViews,
   getExistingMaterializedViews,
   executeSQLStatements,
-  executeSQLStatementsParallel,
   type TransactionLike,
 } from './sql-execution'
 import type { Table } from '@/domain/models/app/table'
@@ -161,49 +160,6 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
 }
 
 /**
- * Check if a view name belongs to a table
- * Flexible heuristic: view name contains table name, starts with table name, or contains part of table name
- * Examples:
- * - "user_orders" belongs to "users" (contains "user")
- * - "active_orders" belongs to "orders" (contains "orders")
- * - "user_summary" belongs to "users" (contains "user")
- */
-const viewBelongsToTable = (viewName: string, tableName: string): boolean => {
-  // Check if view name contains the full table name
-  if (viewName.includes(tableName)) return true
-
-  // Check if view name starts with the table name
-  const normalizedTableName = tableName.replace(/_/g, '')
-  if (viewName.startsWith(normalizedTableName)) return true
-
-  // Check if view name starts with singular form (remove trailing 's')
-  // e.g., "users" → "user", so "user_orders" matches "users"
-  // ONLY match at the start to avoid ambiguous matches
-  // e.g., "user_orders" matches "users" but "employee_orders" does NOT match "orders"
-  if (tableName.endsWith('s')) {
-    const singular = tableName.slice(0, -1)
-    if (viewName.startsWith(singular)) return true
-  }
-
-  return false
-}
-
-/**
- * Filter views that should be dropped (exist in DB but not in schema)
- */
-const findObsoleteViews = (
-  existingViews: ReadonlySet<string>,
-  schemaViews: ReadonlySet<string>,
-  tableName: string
-): readonly string[] => {
-  return Array.from(existingViews).filter((viewName) => {
-    const belongs = viewBelongsToTable(viewName, tableName)
-    const inSchema = schemaViews.has(viewName)
-    return belongs && !inSchema
-  })
-}
-
-/**
  * Drop views that no longer exist in the schema
  * Called once for all tables to ensure clean state before creating views
  */
@@ -224,14 +180,11 @@ export const generateDropObsoleteViewsSQL = async (
     const existingMatViews = new Set(existingMatViewNames)
 
     // Collect ALL view IDs from schema (across all tables)
-    const allSchemaViewIds = new Set<string>()
-    for (const table of tables) {
-      if (table.views && table.views.length > 0) {
-        for (const view of table.views) {
-          allSchemaViewIds.add(String(view.id))
-        }
-      }
-    }
+    const allSchemaViewIds = new Set<string>(
+      tables.flatMap((table) =>
+        table.views && table.views.length > 0 ? table.views.map((view) => String(view.id)) : []
+      )
+    )
 
     // Find views to drop: exist in DB but not in schema
     const viewsToDrop = Array.from(existingViews).filter((viewName) => !allSchemaViewIds.has(viewName))
