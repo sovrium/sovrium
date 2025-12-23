@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
+import { test } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin: Ban user
@@ -223,6 +223,9 @@ test.describe('Admin: Ban user', () => {
     'API-AUTH-ADMIN-BAN-USER-007: should return 200 OK for already banned user (idempotent)',
     { tag: '@spec' },
     async ({
+      // GIVEN: TODO: Describe preconditions
+      // WHEN: TODO: Describe action
+      // THEN: TODO: Describe expected outcome
       page,
       startServerWithSchema,
       createAuthenticatedAdmin,
