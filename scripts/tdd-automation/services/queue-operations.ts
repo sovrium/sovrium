@@ -428,12 +428,6 @@ export const specHasIssue = (specId: string): Effect.Effect<boolean, never, Comm
   })
 
 /**
- * @deprecated Use specHasIssue() instead - this function only checks OPEN issues
- * Kept for backwards compatibility
- */
-export const specHasOpenIssue = specHasIssue
-
-/**
  * Mark a spec as in-progress
  */
 export const markInProgress = (

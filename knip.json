@@ -1,8 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/**/*.ts", "src/**/*.tsx", "eslint/**/*.ts"],
-  "project": ["src/**/*.ts", "src/**/*.tsx", "eslint/**/*.ts"],
-  "ignore": ["**/*.test.ts", "**/*.spec.ts", "scripts/**", "tests/**"],
+  "entry": ["src/**/*.ts", "src/**/*.tsx", "eslint/**/*.ts", "scripts/**/*.ts"],
+  "project": ["src/**/*.ts", "src/**/*.tsx", "eslint/**/*.ts", "scripts/**/*.ts"],
+  "ignore": ["**/*.test.ts", "**/*.spec.ts", "tests/**"],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
