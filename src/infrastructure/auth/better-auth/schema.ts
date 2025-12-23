@@ -41,6 +41,8 @@ export const sessions = pgTable('_sovrium_auth_sessions', {
   impersonatedBy: text('impersonated_by'),
   // Organization plugin fields
   activeOrganizationId: text('active_organization_id'),
+  // Teams feature fields
+  activeTeamId: text('active_team_id'),
 })
 
 export const accounts = pgTable('_sovrium_auth_accounts', {
@@ -105,6 +107,42 @@ export const invitations = pgTable('_sovrium_auth_invitations', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // Teams feature field (optional - for team-specific invitations)
+  teamId: text('team_id'),
+})
+
+// Teams feature tables
+export const teams = pgTable('_sovrium_auth_teams', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+})
+
+export const teamMembers = pgTable('_sovrium_auth_team_members', {
+  id: text('id').primaryKey(),
+  teamId: text('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Dynamic access control table (custom roles per organization)
+export const organizationRoles = pgTable('_sovrium_auth_organization_roles', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(),
+  permissions: text('permissions'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
 })
 
 // API Key plugin table
@@ -156,6 +194,12 @@ export type Member = typeof members.$inferSelect
 export type NewMember = typeof members.$inferInsert
 export type Invitation = typeof invitations.$inferSelect
 export type NewInvitation = typeof invitations.$inferInsert
+export type Team = typeof teams.$inferSelect
+export type NewTeam = typeof teams.$inferInsert
+export type TeamMember = typeof teamMembers.$inferSelect
+export type NewTeamMember = typeof teamMembers.$inferInsert
+export type OrganizationRole = typeof organizationRoles.$inferSelect
+export type NewOrganizationRole = typeof organizationRoles.$inferInsert
 export type ApiKey = typeof apiKeys.$inferSelect
 export type NewApiKey = typeof apiKeys.$inferInsert
 export type TwoFactor = typeof twoFactors.$inferSelect

@@ -20,6 +20,9 @@ import {
   organizations,
   members,
   invitations,
+  teams,
+  teamMembers,
+  organizationRoles,
   twoFactors,
   apiKeys,
 } from './schema'
@@ -260,6 +263,9 @@ const AUTH_TABLE_NAMES = {
   organization: '_sovrium_auth_organizations',
   member: '_sovrium_auth_members',
   invitation: '_sovrium_auth_invitations',
+  team: '_sovrium_auth_teams',
+  teamMember: '_sovrium_auth_team_members',
+  organizationRole: '_sovrium_auth_organization_roles',
   apiKey: '_sovrium_auth_api_keys',
   twoFactor: '_sovrium_auth_two_factors',
 } as const
@@ -282,6 +288,9 @@ const drizzleSchema = {
   [AUTH_TABLE_NAMES.organization]: organizations,
   [AUTH_TABLE_NAMES.member]: members,
   [AUTH_TABLE_NAMES.invitation]: invitations,
+  [AUTH_TABLE_NAMES.team]: teams,
+  [AUTH_TABLE_NAMES.teamMember]: teamMembers,
+  [AUTH_TABLE_NAMES.organizationRole]: organizationRoles,
   [AUTH_TABLE_NAMES.twoFactor]: twoFactors,
   [AUTH_TABLE_NAMES.apiKey]: apiKeys,
 }
@@ -301,6 +310,11 @@ const buildAdminPlugin = (authConfig?: Auth) =>
 
 /**
  * Build organization plugin if enabled in auth configuration
+ *
+ * Includes support for:
+ * - Organizations and members
+ * - Teams (sub-groups within organizations)
+ * - Dynamic access control (custom roles per organization)
  */
 const buildOrganizationPlugin = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
@@ -310,10 +324,15 @@ const buildOrganizationPlugin = (
     ? [
         organization({
           sendInvitationEmail: handlers.organizationInvitation,
+          teams: {
+            enabled: true,
+          },
           schema: {
             organization: { modelName: AUTH_TABLE_NAMES.organization },
             member: { modelName: AUTH_TABLE_NAMES.member },
             invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+            team: { modelName: AUTH_TABLE_NAMES.team },
+            teamMember: { modelName: AUTH_TABLE_NAMES.teamMember },
           },
         }),
       ]
