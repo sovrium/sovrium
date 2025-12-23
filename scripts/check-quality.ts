@@ -615,20 +615,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 6. Spec count validation
-    const specCountResult = yield* runCheck(
-      'Spec Counts',
-      ['bun', 'run', 'validate:spec-counts'],
-      30_000
-    )
-    results.push(specCountResult)
-    if (!specCountResult.success) {
-      yield* logError('\n⚠️  Stopping checks due to Spec Counts failure (fail-fast mode)')
-      yield* Effect.log('  Run `bun run validate:spec-counts --fix` to auto-fix')
-      return results
-    }
-
-    // 7. Coverage check (optional)
+    // 6. Coverage check (optional)
     if (!options.skipCoverage) {
       const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
       results.push(coverageResult)
@@ -645,7 +632,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 8. Smart E2E detection
+    // 7. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({

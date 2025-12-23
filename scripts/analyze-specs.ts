@@ -352,7 +352,7 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
   return tests.sort((a, b) => a.lineNumber - b.lineNumber)
 }
 
-function analyzeQuality(file: SpecFile): QualityIssue[] {
+function analyzeQuality(file: SpecFile, content: string): QualityIssue[] {
   const issues: QualityIssue[] = []
 
   for (const test of file.tests) {
@@ -451,6 +451,22 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
   const specTests = file.tests.filter((t) => t.tag === '@spec')
   const regressionTests = file.tests.filter((t) => t.tag === '@regression')
 
+  // Check header "Spec Count: X" matches actual @spec count
+  const headerLines = content.split('\n').slice(0, 50).join('\n')
+  const specCountMatch = headerLines.match(/\*\s*Spec Count:\s*(\d+)/)
+  if (specCountMatch?.[1]) {
+    const headerCount = parseInt(specCountMatch[1], 10)
+    const actualCount = specTests.length
+
+    if (headerCount !== actualCount) {
+      issues.push({
+        type: 'error',
+        code: 'HEADER_COUNT_MISMATCH',
+        message: `Header "Spec Count: ${headerCount}" does not match actual @spec count: ${actualCount}`,
+      })
+    }
+  }
+
   if (specTests.length > 0 && regressionTests.length === 0) {
     issues.push({
       type: 'suggestion',
@@ -528,7 +544,7 @@ async function analyzeFile(filePath: string): Promise<SpecFile> {
     },
   }
 
-  file.issues = analyzeQuality(file)
+  file.issues = analyzeQuality(file, content)
 
   return file
 }
