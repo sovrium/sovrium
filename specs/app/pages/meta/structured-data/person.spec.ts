@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Person Schema
  *
  * Source: src/domain/models/app/page/meta.ts
- * Spec Count: 9
+ * Spec Count: 12
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (12 tests) - Exhaustive acceptance criteria

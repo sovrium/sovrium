@@ -19,6 +19,7 @@
  * - GIVEN/WHEN/THEN structure in comments
  * - Test organization (@spec vs @regression tags)
  * - Coverage gaps and missing behaviors
+ * - Header "Spec Count: X" matches actual @spec count
  *
  * Usage:
  *   bun run scripts/analyze-specs.ts [options]
@@ -26,6 +27,7 @@
  * Options:
  *   --filter=pattern   Filter files by regex pattern (e.g., --filter=version)
  *   --fixme            Show list of fixme tests for prioritization
+ *   --fix              Auto-fix header count mismatches
  *   --no-error         Don't exit with error code on quality issues
  *   --verify-progress  Cross-reference with GitHub PRs/issues to detect discrepancies
  *
@@ -37,6 +39,7 @@
  *   bun run analyze:specs                    # Full analysis
  *   bun run analyze:specs --filter=version   # Analyze only version specs
  *   bun run analyze:specs --fixme            # Show fixme tests to implement next
+ *   bun run analyze:specs --fix              # Auto-fix header count mismatches
  */
 
 import { readdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
@@ -1446,6 +1449,29 @@ function generateMarkdown(state: SpecState): string {
 }
 
 // =============================================================================
+// Auto-fix helpers
+// =============================================================================
+
+/**
+ * Fix header "Spec Count: X" to match actual spec count
+ * @param filePath - Path to the spec file
+ * @param actualCount - Correct spec count
+ * @returns true if file was modified, false otherwise
+ */
+async function fixHeaderCount(filePath: string, actualCount: number): Promise<boolean> {
+  const content = await readFile(filePath, 'utf-8')
+
+  // Replace the spec count in the header
+  const updatedContent = content.replace(/(\*\s*Spec Count:\s*)\d+/, `$1${actualCount}`)
+
+  if (updatedContent !== content) {
+    await writeFile(filePath, updatedContent)
+    return true
+  }
+  return false
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -1455,6 +1481,7 @@ async function main() {
   const showFixmeOnly = args.includes('--fixme')
   const noErrorExit = args.includes('--no-error') || !!filterPattern
   const verifyProgress = args.includes('--verify-progress')
+  const shouldFix = args.includes('--fix')
 
   console.log('🔍 Analyzing spec files...')
   console.log('')
@@ -1542,6 +1569,35 @@ async function main() {
     coverageGaps,
     duplicateSpecIds,
     tddAutomation,
+  }
+
+  // Auto-fix header count mismatches if --fix flag is present
+  if (shouldFix) {
+    console.log('')
+    console.log('🔧 Auto-fixing header count mismatches...')
+
+    const filesToFix = analyzedFiles.filter((file) =>
+      file.issues.some((issue) => issue.code === 'HEADER_COUNT_MISMATCH')
+    )
+
+    if (filesToFix.length === 0) {
+      console.log('✅ No header count mismatches to fix')
+    } else {
+      let fixedCount = 0
+
+      for (const file of filesToFix) {
+        const actualCount = file.metadata.specTests
+
+        const wasFixed = await fixHeaderCount(file.path, actualCount)
+        if (wasFixed) {
+          fixedCount++
+          console.log(`  ✅ Fixed: ${file.relativePath} (updated to ${actualCount})`)
+        }
+      }
+
+      console.log('')
+      console.log(`✅ Fixed header count in ${fixedCount} file(s)`)
+    }
   }
 
   // Generate markdown

@@ -27,7 +27,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Organization context must propagate from auth → session → RLS
  *
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 7
  */
 
 test.describe('API Organization Isolation', () => {
