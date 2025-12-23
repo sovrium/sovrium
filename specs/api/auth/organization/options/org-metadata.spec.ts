@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Metadata
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Organization Metadata', () => {
@@ -20,7 +20,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with custom metadata
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -55,7 +61,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with existing metadata
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -98,7 +110,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with metadata
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -134,7 +152,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with nested metadata structure
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -174,7 +198,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: System with metadata schema validation enabled
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -207,7 +237,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Multiple organizations with different metadata
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
 
       const org1 = await createAuthenticatedUser({
         email: 'org1@example.com',
@@ -253,7 +289,13 @@ test.describe('Organization Metadata', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with initial metadata
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',

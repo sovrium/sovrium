@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Invitation Expiry
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Organization Invitation Expiry', () => {
@@ -20,7 +20,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with invitation expiry configured to 1 hour
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -69,7 +75,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Organization with expired invitation
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -129,7 +141,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with expired invitation
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -181,7 +199,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Two organizations with different expiry settings
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
 
       const org1Owner = await createAuthenticatedUser({
         email: 'org1@example.com',
@@ -243,7 +267,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with multiple expired invitations
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -319,7 +349,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with invitation expiry configured
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -362,7 +398,13 @@ test.describe('Organization Invitation Expiry', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Organization with invitation expiry configured
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',

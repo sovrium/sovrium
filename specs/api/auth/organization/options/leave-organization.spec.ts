@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Leave Organization
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Leave Organization', () => {
@@ -20,7 +20,13 @@ test.describe('Leave Organization', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with a member
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -68,7 +74,13 @@ test.describe('Leave Organization', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with teams and member assigned to teams
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -149,7 +161,13 @@ test.describe('Leave Organization', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization owner
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -175,7 +193,13 @@ test.describe('Leave Organization', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with owner and admin
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -224,7 +248,13 @@ test.describe('Leave Organization', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with single non-owner member
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -257,7 +287,13 @@ test.describe('Leave Organization', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: Server without authentication
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
 
       // WHEN: Unauthenticated request to leave organization
       const response = await request.post('/api/auth/organization/leave', {
@@ -276,7 +312,13 @@ test.describe('Leave Organization', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with members and teams
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',

@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Creator Role
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Organization Creator Role', () => {
@@ -20,7 +20,13 @@ test.describe('Organization Creator Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: User creates a new organization
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const creator = await createAuthenticatedUser({
         email: 'creator@example.com',
         password: 'Password123!',
@@ -47,7 +53,13 @@ test.describe('Organization Creator Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: System configured with custom creator role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
 
       // Configure default creator role to admin instead of owner
       await request.patch('/api/auth/system/update-settings', {
@@ -87,7 +99,13 @@ test.describe('Organization Creator Role', () => {
       addMember: _addMember,
     }) => {
       // GIVEN: Organization with creator as owner
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const creator = await createAuthenticatedUser({
         email: 'creator@example.com',
         password: 'Password123!',
@@ -123,7 +141,13 @@ test.describe('Organization Creator Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, adminSetRole, request }) => {
       // GIVEN: Organization with creator and a super admin user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const creator = await createAuthenticatedUser({
         email: 'creator@example.com',
         password: 'Password123!',
@@ -171,7 +195,13 @@ test.describe('Organization Creator Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: User creates organization
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const creator = await createAuthenticatedUser({
         email: 'creator@example.com',
         password: 'Password123!',
@@ -196,7 +226,13 @@ test.describe('Organization Creator Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with creator
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const creator = await createAuthenticatedUser({
         email: 'creator@example.com',
         password: 'Password123!',
@@ -241,7 +277,13 @@ test.describe('Organization Creator Role', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with creator and multiple members
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const creator = await createAuthenticatedUser({
         email: 'creator@example.com',
         password: 'Password123!',

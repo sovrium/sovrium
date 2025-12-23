@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Slug Handling
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Organization Slug Handling', () => {
@@ -20,7 +20,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: User creates organization with name
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -52,7 +58,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: User creates organization with custom slug
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -80,7 +92,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with existing slug
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner1 = await createAuthenticatedUser({
         email: 'owner1@example.com',
         password: 'Password123!',
@@ -120,7 +138,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Authenticated organization owner
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -168,7 +192,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with initial slug
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -202,7 +232,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with owner and admin
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -262,7 +298,13 @@ test.describe('Organization Slug Handling', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Multiple organizations
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
 
       const org1 = await createAuthenticatedUser({
         email: 'org1@example.com',

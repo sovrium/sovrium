@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Allowed Email Domains
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Organization Allowed Email Domains', () => {
@@ -20,7 +20,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with allowed email domains configured
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -53,7 +59,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with restricted email domains
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -88,7 +100,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with wildcard domain configuration
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@company.com',
         password: 'Password123!',
@@ -130,7 +148,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with multiple allowed domains
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@company1.com',
         password: 'Password123!',
@@ -181,7 +205,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Authenticated organization owner
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -208,7 +238,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with no domain restrictions
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
         password: 'Password123!',
@@ -251,7 +287,13 @@ test.describe('Organization Allowed Email Domains', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with specific domain restrictions
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@company.com',
         password: 'Password123!',
