@@ -26,7 +26,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
   // @spec tests - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-AUTH-001: should return 200 OK for admin with valid Bearer token',
     { tag: '@spec' },
     async ({
@@ -64,7 +64,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
 
       // Create activity log entry
       await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('create', 'tasks', '${admin.organizationId}')`
+        `INSERT INTO _sovrium_activity_logs (id, action, table_name, table_id, record_id, organization_id) VALUES ('${crypto.randomUUID()}', 'create', 'tasks', '1', '1', '${admin.organizationId}')`
       )
 
       const authHeaders = await createApiKeyAuth({ name: 'admin-key' })

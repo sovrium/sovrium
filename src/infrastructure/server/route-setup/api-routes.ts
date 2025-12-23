@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { authMiddleware } from '@/presentation/api/middleware/auth'
-import { chainTableRoutes, chainAuthRoutes } from '@/presentation/api/routes'
+import { chainTableRoutes, chainAuthRoutes, chainActivityRoutes } from '@/presentation/api/routes'
 import {
   healthResponseSchema,
   type HealthResponse,
@@ -93,18 +93,20 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // Apply auth middleware to protected routes
   // This extracts session from Better Auth and attaches to context
   // Type cast to satisfy TypeScript (Better Auth's session type has optional fields vs our required fields)
-  const honoWithAuth = honoWithHealth.use(
-    '/api/tables/*',
-    authMiddleware(auth as Parameters<typeof authMiddleware>[0])
-  )
+  const honoWithAuth = honoWithHealth
+    .use('/api/tables/*', authMiddleware(auth as Parameters<typeof authMiddleware>[0]))
+    .use('/api/activity', authMiddleware(auth as Parameters<typeof authMiddleware>[0]))
 
   // Chain table routes (tables, records, views, permissions)
   // Routes now have access to session via c.var.session
   // Pass app configuration for table metadata lookup (tableId → table name mapping)
   const honoWithTables = chainTableRoutes(honoWithAuth, app)
 
+  // Chain activity routes (activity log access)
+  const honoWithActivity = chainActivityRoutes(honoWithTables)
+
   // Chain auth routes (organization member management)
-  return chainAuthRoutes(honoWithTables)
+  return chainAuthRoutes(honoWithActivity)
 }
 
 /**
