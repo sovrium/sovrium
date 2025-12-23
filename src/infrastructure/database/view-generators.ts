@@ -115,6 +115,51 @@ export const generateTableViewStatements = (table: Table): readonly string[] => 
 }
 
 /**
+ * Generate trigger to make a view read-only
+ * PostgreSQL views can be automatically updatable if they meet certain criteria
+ * To ensure views are truly read-only, we create INSTEAD OF triggers that reject modifications
+ */
+export const generateReadOnlyViewTrigger = (viewId: string | number): readonly string[] => {
+  const viewIdStr = String(viewId)
+  const triggerBaseName = `${viewIdStr}_readonly`
+
+  return [
+    // INSTEAD OF INSERT trigger
+    `CREATE OR REPLACE FUNCTION ${triggerBaseName}_insert_fn()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      RAISE EXCEPTION 'cannot insert into view "%"', TG_TABLE_NAME;
+    END;
+    $$ LANGUAGE plpgsql`,
+    `CREATE TRIGGER ${triggerBaseName}_insert
+    INSTEAD OF INSERT ON ${viewIdStr}
+    FOR EACH ROW EXECUTE FUNCTION ${triggerBaseName}_insert_fn()`,
+
+    // INSTEAD OF UPDATE trigger
+    `CREATE OR REPLACE FUNCTION ${triggerBaseName}_update_fn()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      RAISE EXCEPTION 'cannot update view "%"', TG_TABLE_NAME;
+    END;
+    $$ LANGUAGE plpgsql`,
+    `CREATE TRIGGER ${triggerBaseName}_update
+    INSTEAD OF UPDATE ON ${viewIdStr}
+    FOR EACH ROW EXECUTE FUNCTION ${triggerBaseName}_update_fn()`,
+
+    // INSTEAD OF DELETE trigger
+    `CREATE OR REPLACE FUNCTION ${triggerBaseName}_delete_fn()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      RAISE EXCEPTION 'cannot delete from view "%"', TG_TABLE_NAME;
+    END;
+    $$ LANGUAGE plpgsql`,
+    `CREATE TRIGGER ${triggerBaseName}_delete
+    INSTEAD OF DELETE ON ${viewIdStr}
+    FOR EACH ROW EXECUTE FUNCTION ${triggerBaseName}_delete_fn()`,
+  ]
+}
+
+/**
  * Check if a view name belongs to a table
  * Simple heuristic: view name contains table name or starts with table name
  */

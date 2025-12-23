@@ -47,7 +47,11 @@ import {
   generateUpdatedByTriggers,
   generateUpdatedAtTriggers,
 } from './trigger-generators'
-import { generateTableViewStatements, generateDropObsoleteViewsSQL } from './view-generators'
+import {
+  generateTableViewStatements,
+  generateDropObsoleteViewsSQL,
+  generateReadOnlyViewTrigger,
+} from './view-generators'
 import type { Table } from '@/domain/models/app/table'
 
 /**
@@ -603,13 +607,23 @@ export const createTableViewsEffect = (
       if (createSQL) {
         yield* executeSQL(tx, createSQL)
 
+        // For regular (non-materialized) views, add read-only triggers
+        // PostgreSQL views can be automatically updatable, so we need triggers to prevent modifications
+        if (!view.materialized) {
+          const readOnlyTriggerSQL = generateReadOnlyViewTrigger(view.id)
+          /* eslint-disable functional/no-loop-statements */
+          for (const triggerSQL of readOnlyTriggerSQL) {
+            yield* executeSQL(tx, triggerSQL)
+          }
+          /* eslint-enable functional/no-loop-statements */
+        }
+
         // Refresh materialized view if requested
         if (view.materialized && view.refreshOnMigration) {
           yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${viewIdStr}`)
         }
       }
     }
-    /* eslint-enable functional/no-loop-statements */
   })
 
 /**

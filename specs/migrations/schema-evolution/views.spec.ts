@@ -24,7 +24,7 @@ test.describe('Database Views Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-001: should create view for read-only access',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -80,14 +80,20 @@ test.describe('Database Views Migration', () => {
 
       // View contains correct data
       const names = await executeQuery(`SELECT name FROM active_users ORDER BY name`)
-      expect(names).toEqual([{ name: 'Alice' }, { name: 'Bob' }])
+      expect(names.rows).toEqual([{ name: 'Alice' }, { name: 'Bob' }])
 
       // View is read-only (INSERT should fail)
-      await expect(async () => {
+      let insertFailed = false
+      try {
         await executeQuery(
           `INSERT INTO active_users (name, email, active) VALUES ('Dave', 'dave@example.com', true)`
         )
-      }).rejects.toThrow(/cannot insert|not updatable/i)
+      } catch (error) {
+        insertFailed = true
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        expect(errorMessage).toMatch(/cannot insert|not updatable/i)
+      }
+      expect(insertFailed).toBe(true)
     }
   )
 
