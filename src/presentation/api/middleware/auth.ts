@@ -50,9 +50,19 @@ export function authMiddleware(auth: {
 }) {
   return async (c: Context, next: Next) => {
     try {
+      const authHeader = c.req.header('Authorization')
+
+      // If Authorization header with Bearer token is present, create new headers WITHOUT cookies
+      // This ensures Better Auth validates ONLY the Bearer token, not cookie-based sessions
+      let headers = c.req.raw.headers
+      if (authHeader?.startsWith('Bearer ')) {
+        headers = new Headers()
+        headers.set('Authorization', authHeader)
+      }
+
       // Extract session from Better Auth
       const result = await auth.api.getSession({
-        headers: c.req.raw.headers,
+        headers,
       })
 
       // Attach session to context (may be null for unauthenticated requests)
