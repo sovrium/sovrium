@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for CORS Configuration - Cross-Origin Resource Sharing
  *
  * Domain: api/security
- * Spec Count: 6
+ * Spec Count: 7
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests CORS headers that control cross-origin access to API resources:
@@ -28,6 +28,9 @@ import { test, expect } from '@/specs/fixtures'
  * Hono provides built-in CORS middleware (hono/cors) for comprehensive configuration.
  * Proper CORS configuration is essential for API security while enabling legitimate
  * cross-origin requests from frontend applications.
+ *
+ * See also:
+ * - API-SECURITY-CORS-007 tests CORS with credentials for auth endpoints
  */
 
 test.describe('CORS Configuration - Cross-Origin Resource Sharing', () => {
@@ -219,12 +222,78 @@ test.describe('CORS Configuration - Cross-Origin Resource Sharing', () => {
     }
   )
 
+  test.fixme(
+    'API-SECURITY-CORS-007: should include Access-Control-Allow-Credentials for auth endpoints',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, signUp }) => {
+      // GIVEN: Application with authentication enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [],
+      })
+
+      await signUp({
+        email: 'user@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+
+      // WHEN: Making authenticated requests to auth endpoints
+      const authEndpoints = [
+        '/api/auth/sign-in/email',
+        '/api/auth/get-session',
+        '/api/auth/sign-out',
+        '/api/auth/update-user',
+      ]
+
+      for (const endpoint of authEndpoints) {
+        // Test actual request (not just preflight)
+        const response = await request.get(endpoint, {
+          headers: {
+            Origin: 'https://app.example.com',
+          },
+        })
+
+        // THEN: Should include Access-Control-Allow-Credentials: true
+        const allowCredentials = response.headers()['access-control-allow-credentials']
+        expect(allowCredentials).toBe('true')
+
+        // THEN: When credentials are allowed, origin must be specific (not *)
+        const allowOrigin = response.headers()['access-control-allow-origin']
+        if (allowCredentials === 'true') {
+          expect(allowOrigin).toBeDefined()
+          expect(allowOrigin).not.toBe('*')
+          // Should match the request origin or be from allowed list
+          expect(['https://app.example.com', 'https://localhost:3000']).toContain(allowOrigin)
+        }
+      }
+
+      // WHEN: Testing preflight for sign-in endpoint
+      const preflightResponse = await request.fetch('/api/auth/sign-in/email', {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://app.example.com',
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'Content-Type',
+        },
+      })
+
+      // THEN: Preflight should also include credentials header
+      expect([200, 204]).toContain(preflightResponse.status())
+      expect(preflightResponse.headers()['access-control-allow-credentials']).toBe('true')
+      expect(preflightResponse.headers()['access-control-allow-origin']).not.toBe('*')
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-CORS-007: CORS configuration protects API while allowing legitimate requests',
+    'API-SECURITY-CORS-008: CORS configuration protects API while allowing legitimate requests',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

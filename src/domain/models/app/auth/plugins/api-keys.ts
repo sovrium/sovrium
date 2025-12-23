@@ -6,6 +6,10 @@
  */
 
 import { Schema } from 'effect'
+import {
+  ResourceActionPermissionsSchema,
+  type ResourceActionPermissions,
+} from '@/domain/models/app/permissions'
 
 /**
  * Auto-Rotation Configuration
@@ -117,17 +121,25 @@ export const RateLimitConfigSchema = Schema.Union(
       )
     ),
     slidingWindow: Schema.optional(SlidingWindowSchema),
-    scopes: Schema.optional(
+    /**
+     * Per-action rate limits.
+     *
+     * Allows setting different rate limits for specific actions (e.g., read vs write).
+     * More descriptive than the previous "scopes" name.
+     */
+    actionLimits: Schema.optional(
       Schema.Record({
         key: Schema.String.pipe(
           Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-          Schema.annotations({ description: 'Scope name (e.g., "read", "write")' })
+          Schema.annotations({ description: 'Action name (e.g., "read", "write", "delete")' })
         ),
         value: Schema.Number.pipe(
           Schema.positive(),
-          Schema.annotations({ description: 'Max requests per minute for this scope' })
+          Schema.annotations({ description: 'Max requests per minute for this action' })
         ),
-      }).pipe(Schema.annotations({ description: 'Per-scope rate limits' }))
+      }).pipe(
+        Schema.annotations({ description: 'Per-action rate limits (e.g., read: 1000, write: 100)' })
+      )
     ),
   })
 ).pipe(
@@ -146,50 +158,14 @@ export type RateLimitConfig = Schema.Schema.Type<typeof RateLimitConfigSchema>
 /**
  * Resource Permissions Schema
  *
- * Defines granular API key permissions using resource:action pattern.
- * Each resource maps to an array of allowed actions.
+ * Re-exports the shared ResourceActionPermissionsSchema for backward compatibility.
+ * See `@/domain/models/app/permissions/resource-action.ts` for the canonical definition.
  *
- * @example
- * ```typescript
- * {
- *   users: ['read', 'list'],
- *   posts: ['create', 'read', 'update', 'delete'],
- *   analytics: ['*']  // Wildcard for all actions
- * }
- * ```
+ * @deprecated Use ResourceActionPermissionsSchema from '@/domain/models/app/permissions' directly
  */
-export const ResourcePermissionsSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-    Schema.annotations({ description: 'Resource name (e.g., "users", "posts")' })
-  ),
-  value: Schema.Array(
-    Schema.Union(
-      Schema.Literal('*'),
-      Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-        Schema.annotations({ description: 'Action name (e.g., "read", "write")' })
-      )
-    )
-  ).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Allowed actions for this resource' })
-  ),
-}).pipe(
-  Schema.annotations({
-    title: 'Resource Permissions',
-    description: 'Resource:action permission definitions for API keys',
-    examples: [
-      {
-        users: ['read', 'list'],
-        posts: ['create', 'read', 'update', 'delete'],
-        analytics: ['*'],
-      },
-    ],
-  })
-)
+export const ResourcePermissionsSchema = ResourceActionPermissionsSchema
 
-export type ResourcePermissions = Schema.Schema.Type<typeof ResourcePermissionsSchema>
+export type ResourcePermissions = ResourceActionPermissions
 
 /**
  * API Keys Plugin Configuration

@@ -272,7 +272,7 @@ test.describe('API Key Rate Limit Headers', () => {
             apiKeys: {
               rateLimit: {
                 requestsPerMinute: 100,
-                scopes: {
+                actionLimits: {
                   read: 100,
                   write: 20,
                 },

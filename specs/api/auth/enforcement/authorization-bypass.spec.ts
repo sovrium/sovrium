@@ -8,24 +8,27 @@
 import { test, expect } from '@/specs/fixtures'
 
 /**
- * E2E Tests for Authorization Bypass - Access Control Vulnerabilities
+ * E2E Tests for Authorization Enforcement - Access Control Vulnerabilities
  *
- * Domain: api/security
- * Spec Count: 8
+ * Domain: api/auth
+ * Spec Count: 7
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (8 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests authorization bypass vulnerabilities that could allow:
  * - Horizontal privilege escalation (accessing other users' data)
- * - Vertical privilege escalation (performing admin actions as regular user)
  * - IDOR (Insecure Direct Object Reference) attacks
  * - Organization/tenant isolation bypass
  * - Role-based access control bypass
  *
  * These tests ensure that authorization checks are enforced at all API endpoints
  * and that users cannot access resources beyond their permission level.
+ *
+ * See also:
+ * - admin-enforcement.spec.ts (vertical privilege escalation, admin-only endpoints)
+ * - session-enforcement.spec.ts (session isolation, revocation)
  */
 
 test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
@@ -34,7 +37,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-001: should prevent horizontal privilege escalation on user records',
+    'API-AUTH-ENFORCE-AUTHZ-001: should prevent horizontal privilege escalation on user records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Two authenticated users with their own data
@@ -90,38 +93,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   )
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-002: should prevent vertical privilege escalation to admin actions',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: A regular authenticated user (non-admin)
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { admin: true },
-        },
-        tables: [],
-      })
-
-      await createAuthenticatedUser({
-        email: 'regular@example.com',
-        name: 'Regular User',
-      })
-
-      // WHEN: Regular user attempts to access admin endpoint
-      const response = await page.request.get('/api/auth/admin/list-users')
-
-      // THEN: Should return 403 Forbidden
-      expect([400, 403]).toContain(response.status())
-
-      const data = await response.json()
-      // Should not return user list
-      expect(data).not.toHaveProperty('users')
-    }
-  )
-
-  test.fixme(
-    'API-SECURITY-AUTH-BYPASS-003: should prevent IDOR attacks via predictable IDs',
+    'API-AUTH-ENFORCE-AUTHZ-002: should prevent IDOR attacks via predictable IDs',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with sequential record IDs
@@ -178,7 +150,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   )
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-004: should enforce organization isolation',
+    'API-AUTH-ENFORCE-AUTHZ-003: should enforce organization isolation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Two organizations with separate data
@@ -223,7 +195,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   )
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-005: should prevent role manipulation attacks',
+    'API-AUTH-ENFORCE-AUTHZ-004: should prevent role manipulation attacks',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A regular user attempting to escalate their own role
@@ -260,7 +232,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   )
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-006: should prevent parameter tampering in bulk operations',
+    'API-AUTH-ENFORCE-AUTHZ-005: should prevent parameter tampering in bulk operations',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with bulk delete endpoint
@@ -318,9 +290,9 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   )
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-007: should prevent access via modified JWT claims',
+    'API-AUTH-ENFORCE-AUTHZ-006: should prevent access via modified JWT claims',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, signUp, signIn }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with JWT-based authentication
       await startServerWithSchema({
         name: 'test-app',
@@ -331,12 +303,10 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         tables: [],
       })
 
-      await signUp({
+      await createAuthenticatedUser({
         email: 'user@example.com',
-        password: 'TestPassword123!',
         name: 'Test User',
       })
-      await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
 
       // WHEN: Attempting to access admin endpoint with tampered Authorization header
       const response = await request.get('/api/auth/admin/list-users', {
@@ -353,7 +323,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   )
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-008: should return 404 instead of 403 to prevent enumeration',
+    'API-AUTH-ENFORCE-AUTHZ-007: should return 404 instead of 403 to prevent enumeration',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: User attempting to probe for resources they don't own
@@ -413,7 +383,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-AUTH-BYPASS-009: authorization controls prevent privilege escalation and data leakage',
+    'API-AUTH-ENFORCE-AUTHZ-008: authorization controls prevent privilege escalation and data leakage',
     { tag: '@regression' },
     async ({
       page,

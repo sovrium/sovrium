@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for XSS (Cross-Site Scripting) Protection
  *
  * Domain: api/security
- * Spec Count: 7
+ * Spec Count: 9
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (9 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests XSS prevention across attack vectors:
@@ -390,12 +390,129 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
     }
   )
 
+  test.fixme(
+    'API-SECURITY-XSS-008: should prevent XSS in user profile name field during sign-up',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: Application with user registration
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [],
+      })
+
+      // WHEN: Attempting to register with XSS payloads in name field
+      const xssNamePayloads = [
+        '<script>alert("XSS")</script>',
+        '<img src=x onerror="alert(\'XSS\')">',
+        '<svg onload="alert(\'XSS\')">',
+        '"><script>alert(String.fromCharCode(88,83,83))</script>',
+        '<iframe src="javascript:alert(\'XSS\')">',
+      ]
+
+      for (const payload of xssNamePayloads) {
+        const response = await request.post('/api/auth/sign-up/email', {
+          data: {
+            email: `test${Math.random()}@example.com`,
+            password: 'TestPassword123!',
+            name: payload,
+          },
+          headers: { 'Content-Type': 'application/json' },
+        })
+
+        // THEN: Should either accept (store as text) or reject (validate name format)
+        if (response.status() === 200 || response.status() === 201) {
+          // If accepted, verify it's stored safely as JSON
+          const data = await response.json()
+          expect(data.user).toBeDefined()
+
+          // Get user profile to verify storage
+          const sessionResponse = await request.get('/api/auth/get-session')
+          expect(sessionResponse.headers()['content-type']).toContain('application/json')
+
+          // User data should be JSON-encoded (not HTML-rendered by API)
+          const session = await sessionResponse.json()
+          if (session.user) {
+            expect(session.user.name).toBeDefined()
+          }
+        } else if (response.status() === 400) {
+          // Validation rejected malicious input (preferred approach)
+          const error = await response.json()
+          expect(error).toHaveProperty('error')
+        }
+
+        // Response must always be JSON
+        expect(response.headers()['content-type']).toContain('application/json')
+      }
+    }
+  )
+
+  test.fixme(
+    'API-SECURITY-XSS-009: should prevent XSS in update-user endpoint',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: Authenticated user
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [],
+      })
+
+      await signUp({
+        email: 'user@example.com',
+        password: 'TestPassword123!',
+        name: 'Original Name',
+      })
+      await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
+
+      // WHEN: Attempting to update user profile with XSS payloads
+      const xssUpdatePayloads = [
+        { name: '<script>alert("XSS")</script>' },
+        { name: '<img src=x onerror="alert(\'XSS\')">' },
+        { email: 'test@example.com<script>alert("XSS")</script>' },
+        { image: 'javascript:alert("XSS")' },
+        { image: 'data:text/html,<script>alert("XSS")</script>' },
+      ]
+
+      for (const payload of xssUpdatePayloads) {
+        const response = await request.patch('/api/auth/update-user', {
+          data: payload,
+          headers: { 'Content-Type': 'application/json' },
+        })
+
+        // THEN: Should handle XSS payloads safely
+        if (response.status() === 200) {
+          // If update succeeds, verify data is JSON-safe
+          const data = await response.json()
+          expect(data.user).toBeDefined()
+
+          // Verify Content-Type is JSON
+          expect(response.headers()['content-type']).toContain('application/json')
+        } else if (response.status() === 400) {
+          // Validation rejected malicious input (preferred)
+          const error = await response.json()
+          expect(error).toHaveProperty('error')
+        } else {
+          // Other error codes are acceptable (403, 401, etc.)
+          expect([200, 400, 401, 403]).toContain(response.status())
+        }
+
+        // All responses must be JSON
+        expect(response.headers()['content-type']).toContain('application/json')
+      }
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-XSS-008: XSS protection is enforced across all content types',
+    'API-SECURITY-XSS-010: XSS protection is enforced across all content types',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with user-generated content tables', async () => {

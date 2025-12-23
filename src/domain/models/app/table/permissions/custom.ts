@@ -29,7 +29,7 @@ export const CustomPermissionSchema = Schema.Struct({
   /**
    * PostgreSQL RLS condition expression.
    *
-   * Supports variable substitution:
+   * Supports variable substitution (see `@/domain/models/app/permissions/rls-variables.ts`):
    * - `{userId}`: Current authenticated user's ID
    * - `{organizationId}`: Current user's organization ID
    * - `{roles}`: Array of user's roles

@@ -28,6 +28,9 @@ import { test, expect } from '@/specs/fixtures'
  * Proper error handling prevents information disclosure that attackers
  * could use to understand system architecture and find vulnerabilities.
  * Hono's error handling middleware can be configured for secure responses.
+ *
+ * See also:
+ * - API-SECURITY-ERROR-004 tests generic auth error messages (prevents user enumeration)
  */
 
 test.describe('Error Disclosure - Secure Error Responses', () => {

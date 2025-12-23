@@ -201,7 +201,7 @@ test.fixme(
               id: 'view_admin',
               name: 'admin_view',
               permissions: {
-                allowedRoles: ['admin'],
+                read: ['admin'],
               },
             },
           ],

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { StandardRoleSchema, AdminLevelRoleSchema } from '@/domain/models/app/permissions'
 
 /**
  * Member Limits Configuration
@@ -93,13 +94,13 @@ export const DynamicRolesSchema = Schema.Union(
       )
     ),
     allowRoleCreation: Schema.optional(
-      Schema.Array(Schema.Literal('owner', 'admin')).pipe(
-        Schema.annotations({ description: 'Roles that can create custom roles' })
+      Schema.Array(AdminLevelRoleSchema).pipe(
+        Schema.annotations({ description: 'Roles that can create custom roles (owner or admin)' })
       )
     ),
     allowRoleAssignment: Schema.optional(
-      Schema.Array(Schema.Literal('owner', 'admin')).pipe(
-        Schema.annotations({ description: 'Roles that can assign custom roles' })
+      Schema.Array(AdminLevelRoleSchema).pipe(
+        Schema.annotations({ description: 'Roles that can assign custom roles (owner or admin)' })
       )
     ),
   })
@@ -198,8 +199,10 @@ export const OrganizationConfigSchema = Schema.Union(
       )
     ),
     defaultRole: Schema.optional(
-      Schema.Literal('owner', 'admin', 'member', 'viewer').pipe(
-        Schema.annotations({ description: 'Default role for new members' })
+      StandardRoleSchema.pipe(
+        Schema.annotations({
+          description: 'Default role for new members (owner, admin, member, or viewer)',
+        })
       )
     ),
 
@@ -213,8 +216,10 @@ export const OrganizationConfigSchema = Schema.Union(
       )
     ),
     creatorRole: Schema.optional(
-      Schema.Literal('owner', 'admin').pipe(
-        Schema.annotations({ description: 'Role assigned to organization creator' })
+      AdminLevelRoleSchema.pipe(
+        Schema.annotations({
+          description: 'Role assigned to organization creator (owner or admin)',
+        })
       )
     ),
     invitationExpiry: Schema.optional(

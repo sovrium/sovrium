@@ -7,13 +7,17 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { ViewPermissionsSchema } from './permissions'
+import {
+  ViewPermissionsSchema,
+  RoleBasedViewPermissionsSchema,
+  PublicViewPermissionsSchema,
+} from './permissions'
 
 describe('ViewPermissionsSchema', () => {
-  describe('Valid Permissions (Unknown accepts any value)', () => {
-    test('should accept object with read/write arrays', () => {
+  describe('Role-Based Permissions', () => {
+    test('should accept object with read and write arrays', () => {
       // GIVEN: Permissions with read/write arrays
-      const permissions = { read: ['admin', 'user'], write: ['admin'] }
+      const permissions = { read: ['admin', 'member'], write: ['admin'] }
 
       // WHEN: The permissions are validated against the schema
       const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
@@ -22,9 +26,9 @@ describe('ViewPermissionsSchema', () => {
       expect(result).toEqual(permissions)
     })
 
-    test('should accept public flag', () => {
-      // GIVEN: Public permissions
-      const permissions = { public: true }
+    test('should accept read-only permissions', () => {
+      // GIVEN: Permissions with only read array
+      const permissions = { read: ['admin', 'member', 'viewer'] }
 
       // WHEN: The permissions are validated against the schema
       const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
@@ -33,53 +37,9 @@ describe('ViewPermissionsSchema', () => {
       expect(result).toEqual(permissions)
     })
 
-    test('should accept null', () => {
-      // GIVEN: Null permissions
-      const permissions = null
-
-      // WHEN: The permissions are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
-
-      // THEN: The permissions should be accepted
-      expect(result).toBeNull()
-    })
-
-    test('should accept undefined', () => {
-      // GIVEN: Undefined permissions
-      const permissions = undefined
-
-      // WHEN: The permissions are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
-
-      // THEN: The permissions should be accepted
-      expect(result).toBeUndefined()
-    })
-
-    test('should accept string', () => {
-      // GIVEN: String permissions
-      const permissions = 'admin-only'
-
-      // WHEN: The permissions are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
-
-      // THEN: The permissions should be accepted
-      expect(result).toBe('admin-only')
-    })
-
-    test('should accept number', () => {
-      // GIVEN: Number permissions (e.g., permission level)
-      const permissions = 5
-
-      // WHEN: The permissions are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
-
-      // THEN: The permissions should be accepted
-      expect(result).toBe(5)
-    })
-
-    test('should accept array', () => {
-      // GIVEN: Array permissions
-      const permissions = ['read', 'write', 'delete']
+    test('should accept write-only permissions', () => {
+      // GIVEN: Permissions with only write array
+      const permissions = { write: ['admin'] }
 
       // WHEN: The permissions are validated against the schema
       const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
@@ -88,36 +48,8 @@ describe('ViewPermissionsSchema', () => {
       expect(result).toEqual(permissions)
     })
 
-    test('should accept complex nested object', () => {
-      // GIVEN: Complex nested permissions
-      const permissions = {
-        roles: {
-          admin: { read: true, write: true, delete: true },
-          user: { read: true, write: false, delete: false },
-        },
-        users: ['user-123', 'user-456'],
-      }
-
-      // WHEN: The permissions are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
-
-      // THEN: The permissions should be accepted
-      expect(result).toEqual(permissions)
-    })
-
-    test('should accept boolean', () => {
-      // GIVEN: Boolean permissions
-      const permissions = true
-
-      // WHEN: The permissions are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
-
-      // THEN: The permissions should be accepted
-      expect(result).toBe(true)
-    })
-
-    test('should accept empty object', () => {
-      // GIVEN: Empty object permissions
+    test('should accept empty object (no restrictions)', () => {
+      // GIVEN: Empty permissions object
       const permissions = {}
 
       // WHEN: The permissions are validated against the schema
@@ -126,30 +58,173 @@ describe('ViewPermissionsSchema', () => {
       // THEN: The permissions should be accepted
       expect(result).toEqual({})
     })
+
+    test('should accept single role in array', () => {
+      // GIVEN: Single role in read array
+      const permissions = { read: ['admin'] }
+
+      // WHEN: The permissions are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
+
+      // THEN: The permissions should be accepted
+      expect(result).toEqual(permissions)
+    })
   })
 
-  describe('Type Behavior', () => {
-    test('should preserve original type for objects', () => {
-      // GIVEN: An object
-      const permissions = { role: 'admin' }
+  describe('Public Permissions', () => {
+    test('should accept public: true', () => {
+      // GIVEN: Public permissions
+      const permissions = { public: true } as const
 
       // WHEN: The permissions are validated against the schema
       const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
 
-      // THEN: The type should be preserved
-      expect(typeof result).toBe('object')
-      expect(result).not.toBeNull()
+      // THEN: The permissions should be accepted
+      expect(result).toEqual(permissions)
     })
 
-    test('should preserve original type for primitives', () => {
-      // GIVEN: A string
-      const permissions = 'public'
+    test('should strip public: false and return empty object', () => {
+      // GIVEN: Public set to false (not a valid PublicViewPermissions)
+      const permissions = { public: false }
 
       // WHEN: The permissions are validated against the schema
       const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
 
-      // THEN: The type should be preserved
-      expect(typeof result).toBe('string')
+      // THEN: Effect Schema strips unknown/invalid properties, returning {}
+      // which matches RoleBasedViewPermissionsSchema (no restrictions)
+      expect(result).toEqual({})
+    })
+  })
+
+  describe('Invalid Permissions (Rejected)', () => {
+    test('should reject null', () => {
+      // GIVEN: Null permissions
+      const permissions = null
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+
+    test('should reject string values', () => {
+      // GIVEN: String permissions
+      const permissions = 'admin-only'
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+
+    test('should reject number values', () => {
+      // GIVEN: Number permissions
+      const permissions = 5
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+
+    test('should reject array values', () => {
+      // GIVEN: Array permissions
+      const permissions = ['read', 'write', 'delete']
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+
+    test('should reject boolean true at root', () => {
+      // GIVEN: Boolean true (not in public property)
+      const permissions = true
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+
+    test('should strip old allowedRoles format and return empty object', () => {
+      // GIVEN: Old allowedRoles format (unknown property)
+      const permissions = { allowedRoles: ['admin'] }
+
+      // WHEN: The permissions are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
+
+      // THEN: Effect Schema strips unknown properties, returning {}
+      // which matches RoleBasedViewPermissionsSchema (no restrictions)
+      expect(result).toEqual({})
+    })
+
+    test('should strip complex nested objects and return empty object', () => {
+      // GIVEN: Complex nested permissions structure (unknown properties)
+      const permissions = {
+        roles: {
+          admin: { read: true, write: true },
+        },
+      }
+
+      // WHEN: The permissions are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)
+
+      // THEN: Effect Schema strips unknown properties, returning {}
+      // which matches RoleBasedViewPermissionsSchema (no restrictions)
+      expect(result).toEqual({})
+    })
+
+    test('should reject non-string array elements in read', () => {
+      // GIVEN: Non-string elements in read array
+      const permissions = { read: [1, 2, 3] }
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+
+    test('should reject non-array read value', () => {
+      // GIVEN: Non-array read value
+      const permissions = { read: 'admin' }
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(ViewPermissionsSchema)(permissions)).toThrow()
+    })
+  })
+
+  describe('RoleBasedViewPermissionsSchema', () => {
+    test('should accept valid role-based permissions', () => {
+      // GIVEN: Valid role-based permissions
+      const permissions = { read: ['admin', 'member'], write: ['admin'] }
+
+      // WHEN: The permissions are validated against the schema
+      const result = Schema.decodeUnknownSync(RoleBasedViewPermissionsSchema)(permissions)
+
+      // THEN: The permissions should be accepted
+      expect(result).toEqual(permissions)
+    })
+
+    test('should strip public property and return empty object', () => {
+      // GIVEN: Public permissions (unknown property for this schema)
+      const permissions = { public: true }
+
+      // WHEN: The permissions are validated against the schema
+      const result = Schema.decodeUnknownSync(RoleBasedViewPermissionsSchema)(permissions)
+
+      // THEN: Effect Schema strips unknown properties, returning {}
+      // which is valid (no read/write restrictions)
+      expect(result).toEqual({})
+    })
+  })
+
+  describe('PublicViewPermissionsSchema', () => {
+    test('should accept public: true', () => {
+      // GIVEN: Public permissions
+      const permissions = { public: true } as const
+
+      // WHEN: The permissions are validated against the schema
+      const result = Schema.decodeUnknownSync(PublicViewPermissionsSchema)(permissions)
+
+      // THEN: The permissions should be accepted
+      expect(result).toEqual(permissions)
+    })
+
+    test('should reject role-based permissions', () => {
+      // GIVEN: Role-based permissions
+      const permissions = { read: ['admin'] }
+
+      // WHEN/THEN: It should throw a ParseError
+      expect(() => Schema.decodeUnknownSync(PublicViewPermissionsSchema)(permissions)).toThrow()
     })
   })
 })

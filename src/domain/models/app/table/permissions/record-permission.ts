@@ -13,7 +13,7 @@ import { Schema } from 'effect'
  * Defines row-level security (RLS) conditions for record access.
  * Uses PostgreSQL RLS policy syntax with variable substitution.
  *
- * Variables available:
+ * Available RLS variables (see `@/domain/models/app/permissions/rls-variables.ts`):
  * - `{userId}`: Current authenticated user's ID
  * - `{organizationId}`: Current user's organization ID
  * - `{roles}`: Array of user's roles

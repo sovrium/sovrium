@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for SQL Injection Prevention
  *
  * Domain: api/security
- * Spec Count: 6
+ * Spec Count: 8
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (8 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests SQL injection prevention across all attack vectors:
@@ -23,6 +23,8 @@ import { test, expect } from '@/specs/fixtures'
  * - Request body JSON fields
  * - ORDER BY clause injection
  * - LIKE pattern injection
+ * - Authentication endpoints (email parameter)
+ * - Admin endpoints with filter/search params
  *
  * Drizzle ORM uses parameterized queries by default, which should prevent
  * most SQL injection attacks. These tests verify this protection works
@@ -377,12 +379,94 @@ test.describe('SQL Injection Prevention', () => {
     }
   )
 
+  test.fixme(
+    'API-SECURITY-SQLI-007: should prevent SQL injection in authentication email parameter',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, signUp }) => {
+      // GIVEN: Application with email/password authentication
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [],
+      })
+
+      // Create a legitimate user
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
+
+      // WHEN: Attempting SQL injection via email parameter in sign-in
+      const sqlInjectionEmails = [
+        "admin@example.com' OR '1'='1",
+        "admin@example.com'; DROP TABLE users; --",
+        "' UNION SELECT * FROM users WHERE '1'='1",
+        "admin@example.com' --",
+      ]
+
+      for (const payload of sqlInjectionEmails) {
+        const response = await request.post('/api/auth/sign-in/email', {
+          data: {
+            email: payload,
+            password: 'anypassword',
+          },
+        })
+
+        // THEN: Should not bypass authentication or execute SQL
+        expect([400, 401]).toContain(response.status())
+
+        // Should not return user data or session
+        const data = await response.json()
+        expect(data).not.toHaveProperty('session')
+        expect(data).not.toHaveProperty('user')
+      }
+    }
+  )
+
+  test.fixme(
+    'API-SECURITY-SQLI-008: should prevent SQL injection in admin list-users endpoint',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, createAuthenticatedAdmin }) => {
+      // GIVEN: Application with admin plugin and filter/search params
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { admin: true },
+        },
+        tables: [],
+      })
+
+      await createAuthenticatedAdmin()
+
+      // WHEN: Attempting SQL injection via filter/search parameters
+      const sqlInjectionParams = [
+        "?filter[email]=' OR '1'='1",
+        "?search=' UNION SELECT * FROM users --",
+        "?filter[role]=admin'; DROP TABLE users; --",
+      ]
+
+      for (const params of sqlInjectionParams) {
+        const response = await page.request.get(`/api/auth/admin/list-users${params}`)
+
+        // THEN: Should either reject invalid params or safely escape them
+        expect([200, 400]).toContain(response.status())
+
+        if (response.status() === 200) {
+          const data = await response.json()
+          // Should not leak all users or execute injection
+          // Result should be normal filtered list
+          expect(data).toBeDefined()
+        }
+      }
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-SQLI-007: SQL injection protection across all attack vectors',
+    'API-SECURITY-SQLI-009: SQL injection protection across all attack vectors',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with tables', async () => {

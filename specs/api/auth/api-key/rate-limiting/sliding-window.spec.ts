@@ -178,7 +178,7 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
             apiKeys: {
               rateLimit: {
                 requestsPerMinute: 60,
-                scopes: {
+                actionLimits: {
                   read: 60,
                   write: 18,
                 },

@@ -6,54 +6,23 @@
  */
 
 import { Schema } from 'effect'
+import {
+  ResourceActionPermissionsSchema,
+  type ResourceActionPermissions,
+  UserLevelRoleSchema,
+} from '@/domain/models/app/permissions'
 
 /**
  * Custom Permissions Schema (resource:action format)
  *
- * Defines granular permissions using resource:action pattern.
- * Each resource maps to an array of allowed actions.
+ * Re-exports the shared ResourceActionPermissionsSchema for backward compatibility.
+ * See `@/domain/models/app/permissions/resource-action.ts` for the canonical definition.
  *
- * @example
- * ```typescript
- * {
- *   posts: ['create', 'read', 'update', 'delete'],
- *   analytics: ['read'],
- *   media: ['*']  // Wildcard for all actions
- * }
- * ```
+ * @deprecated Use ResourceActionPermissionsSchema from '@/domain/models/app/permissions' directly
  */
-export const CustomPermissionsSchema = Schema.Record({
-  key: Schema.String.pipe(
-    Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-    Schema.annotations({ description: 'Resource name (e.g., "posts", "comments")' })
-  ),
-  value: Schema.Array(
-    Schema.Union(
-      Schema.Literal('*'),
-      Schema.String.pipe(
-        Schema.pattern(/^[a-z][a-z0-9_-]*$/i),
-        Schema.annotations({ description: 'Action name (e.g., "create", "read")' })
-      )
-    )
-  ).pipe(
-    Schema.minItems(1),
-    Schema.annotations({ description: 'Allowed actions for this resource' })
-  ),
-}).pipe(
-  Schema.annotations({
-    title: 'Custom Permissions',
-    description: 'Resource:action permission definitions',
-    examples: [
-      {
-        posts: ['create', 'read', 'update', 'delete'],
-        comments: ['create', 'read', 'delete'],
-        media: ['*'],
-      },
-    ],
-  })
-)
+export const CustomPermissionsSchema = ResourceActionPermissionsSchema
 
-export type CustomPermissions = Schema.Schema.Type<typeof CustomPermissionsSchema>
+export type CustomPermissions = ResourceActionPermissions
 
 /**
  * Role Management Configuration
@@ -143,7 +112,7 @@ export const AdminConfigSchema = Schema.Union(
       )
     ),
     defaultRole: Schema.optional(
-      Schema.Literal('admin', 'user', 'viewer').pipe(
+      UserLevelRoleSchema.pipe(
         Schema.annotations({ description: 'Default role assigned to new users' })
       )
     ),
