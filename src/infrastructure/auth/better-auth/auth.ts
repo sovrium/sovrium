@@ -334,6 +334,8 @@ const buildApiKeyPlugin = (authConfig?: Auth) =>
   authConfig?.plugins?.apiKeys
     ? [
         apiKey({
+          enableSessionForAPIKeys: true,
+          apiKeyHeaders: ['x-api-key', 'authorization'], // Accept both x-api-key and Authorization headers
           schema: {
             apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
           },

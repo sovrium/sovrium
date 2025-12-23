@@ -31,13 +31,13 @@
 |-----------|---------|---------|------|
 | **Bun** | 1.3.5 | Runtime & package manager | @docs/infrastructure/runtime/bun.md |
 | **TypeScript** | ^5.9.3 | Type-safe language | @docs/infrastructure/language/typescript.md |
-| **Effect** | ^3.19.12 | Functional programming, DI, error handling | @docs/infrastructure/framework/effect.md |
-| **Effect Schema** | ^3.19.12 | Server validation (domain/application/infrastructure) | @docs/infrastructure/framework/effect.md |
+| **Effect** | ^3.19.13 | Functional programming, DI, error handling | @docs/infrastructure/framework/effect.md |
+| **Effect Schema** | ^3.19.13 | Server validation (domain/application/infrastructure) | @docs/infrastructure/framework/effect.md |
 | **Hono** | ^4.11.1 | Web framework (API routes, RPC client, OpenAPI) | @docs/infrastructure/framework/hono.md |
 | **Zod** | ^4.2.1 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
 | **js-yaml** | ^4.1.1 | YAML parser (CLI config files only) | @docs/infrastructure/parsing/js-yaml.md |
 | **Better Auth** | ^1.4.7 | Authentication | @docs/infrastructure/framework/better-auth.md |
-| **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) | @docs/infrastructure/database/drizzle.md |
+| **Drizzle ORM** | ^0.45.1 | Database (PostgreSQL via bun:sql) | @docs/infrastructure/database/drizzle.md |
 | **React** | ^19.2.3 | UI library | @docs/infrastructure/ui/react.md |
 | **Tailwind CSS** | ^4.1.18 | Styling (programmatic CSS compiler) | @docs/infrastructure/ui/tailwind.md |
 | **TanStack Query** | ^5.90.12 | Server state management | @docs/infrastructure/ui/tanstack-query.md |
