@@ -538,7 +538,11 @@ const runFullChecks = (options: QualityOptions) =>
 
     // 1. Prettier format check (fast, fail-fast)
     if (!options.skipFormat) {
-      const formatResult = yield* runCheck('Prettier', ['bunx', 'prettier', '--check', '.'], 30_000)
+      const formatResult = yield* runCheck(
+        'Prettier',
+        ['bunx', 'prettier', '--check', '.', '--cache', '--cache-location', '.prettiercache'],
+        30_000
+      )
       results.push(formatResult)
       if (!formatResult.success) {
         yield* logError('\n⚠️  Stopping checks due to Prettier failure (fail-fast mode)')
