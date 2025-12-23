@@ -97,7 +97,7 @@ test.describe('Database Views Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-002: should drop view when removed',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
