@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Update Custom Role
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Update Custom Role', () => {
@@ -49,41 +49,26 @@ test.describe('Update Custom Role', () => {
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-002: should allow adding/removing individual permissions',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-003: should return 403 when non-owner tries to update',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-004: should return 409 when name conflicts',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-005: should return 404 when role not found',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-007: owner can update role permissions and verify changes',

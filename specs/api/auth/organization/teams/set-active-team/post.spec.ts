@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Set Active Team
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Set Active Team', () => {
@@ -46,41 +46,26 @@ test.describe('Set Active Team', () => {
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-002: should update user session with active team context',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-003: should return 400 when user not team member',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-004: should return 404 when team does not exist',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-005: should return 400 when teamId missing',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-007: user can switch between teams and verify context updates',

@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Update Team
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
@@ -139,9 +139,6 @@ test.describe('Update Team', () => {
     'API-AUTH-ORG-TEAMS-UPDATE-003: should return 403 Forbidden when non-owner tries to update team',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,

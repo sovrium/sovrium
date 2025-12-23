@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Admin Ban User
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Admin Ban User', () => {
@@ -19,49 +19,31 @@ test.describe('Admin Ban User', () => {
     'API-AUTH-ADMIN-OPT-BAN-001: should return 200 OK when admin bans user',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-002: should prevent banned user from signing in',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-003: should invalidate all banned user sessions',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-004: should store ban reason in user record',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-005: should return 403 when non-admin tries to ban',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-006: should prevent admin from banning self',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-007: admin can ban user and verify access blocked',

@@ -11,6 +11,7 @@ All 60 Better Auth specification files have been reviewed and standardized. The 
 ## Files Reviewed
 
 ### Organization Teams (10 files)
+
 - ✅ specs/api/auth/organization/teams/add-team-member/post.spec.ts
 - ✅ specs/api/auth/organization/teams/create-team/post.spec.ts
 - ✅ specs/api/auth/organization/teams/delete-team/delete.spec.ts
@@ -23,6 +24,7 @@ All 60 Better Auth specification files have been reviewed and standardized. The 
 - ✅ specs/api/auth/organization/teams/update-team/patch.spec.ts
 
 ### Organization Dynamic Roles (6 files)
+
 - ✅ specs/api/auth/organization/dynamic-roles/assign-role/post.spec.ts
 - ✅ specs/api/auth/organization/dynamic-roles/check-permission/post.spec.ts
 - ✅ specs/api/auth/organization/dynamic-roles/create-role/post.spec.ts
@@ -31,6 +33,7 @@ All 60 Better Auth specification files have been reviewed and standardized. The 
 - ✅ specs/api/auth/organization/dynamic-roles/update-role/patch.spec.ts
 
 ### Organization Options (7 files)
+
 - ✅ specs/api/auth/organization/options/allowed-domains.spec.ts
 - ✅ specs/api/auth/organization/options/creator-role.spec.ts
 - ✅ specs/api/auth/organization/options/invitation-expiry.spec.ts
@@ -40,6 +43,7 @@ All 60 Better Auth specification files have been reviewed and standardized. The 
 - ✅ specs/api/auth/organization/options/org-slug.spec.ts
 
 ### API Key (10 files)
+
 - ✅ specs/api/auth/api-key/create/post.spec.ts
 - ✅ specs/api/auth/api-key/delete-expired/delete.spec.ts
 - ✅ specs/api/auth/api-key/delete/post.spec.ts
@@ -55,6 +59,7 @@ All 60 Better Auth specification files have been reviewed and standardized. The 
 - ✅ specs/api/auth/api-key/verify/post.spec.ts
 
 ### Admin Plugin (27 files)
+
 - ✅ specs/api/auth/admin/ban-user/post.spec.ts
 - ✅ specs/api/auth/admin/create-user/post.spec.ts
 - ✅ specs/api/auth/admin/custom-permissions/resource-action.spec.ts
@@ -124,6 +129,7 @@ These are NOT issues - this is the EXPECTED state for specs entering the TDD pip
 These files intentionally deviate from the 6 @spec tests standard due to complexity:
 
 ### Fewer Tests (4-5 @spec tests)
+
 - `specs/api/auth/admin/plugin-disabled.spec.ts` (4 tests)
 - `specs/api/auth/api-key/delete/post.spec.ts` (4 tests)
 - `specs/api/auth/api-key/get/get.spec.ts` (4 tests)
@@ -131,6 +137,7 @@ These files intentionally deviate from the 6 @spec tests standard due to complex
 - `specs/api/auth/api-key/delete-expired/delete.spec.ts` (5 tests)
 
 ### More Tests (7-10 @spec tests)
+
 - `specs/api/auth/admin/ban-user/post.spec.ts` (7 tests)
 - `specs/api/auth/admin/impersonate-user/post.spec.ts` (7 tests)
 - `specs/api/auth/admin/list-users/get.spec.ts` (7 tests)
@@ -146,12 +153,15 @@ These files intentionally deviate from the 6 @spec tests standard due to complex
 ## Next Steps for TDD Pipeline
 
 ### For Queue Manager
+
 1. Scan all 60 spec files
 2. Create GitHub issues for each individual test
 3. Priority order: Follow standard queue priority (API specs)
 
 ### For e2e-test-fixer Agent
+
 When implementing these specs:
+
 1. Tests are already marked with `test.fixme()`
 2. GIVEN-WHEN-THEN structure provides implementation guidance
 3. Replace TODO placeholders with actual test logic:
@@ -173,6 +183,7 @@ When implementing these specs:
 ✅ **All 60 Better Auth spec files are production-ready for the TDD automation pipeline.**
 
 The files follow all required conventions:
+
 - Correct copyright headers
 - Proper imports
 - Sequential spec IDs
@@ -185,11 +196,13 @@ The variation in test counts is intentional and based on endpoint complexity. Al
 ---
 
 **Review Tools Created**:
+
 - `scripts/review-auth-specs.ts` - Automated quality checker
 - `scripts/fix-auth-specs.ts` - Automated fix script
 - This summary report
 
 **Commands**:
+
 ```bash
 # Review all specs
 bun run scripts/review-auth-specs.ts

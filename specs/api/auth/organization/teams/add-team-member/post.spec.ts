@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Add Member to Team
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
@@ -27,9 +27,6 @@ test.describe('Add Team Member', () => {
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-001: should return 200 OK when owner adds organization member to team',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,
@@ -104,9 +101,6 @@ test.describe('Add Team Member', () => {
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-002: should return 403 Forbidden when non-owner tries to add team member',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,
@@ -258,9 +252,6 @@ test.describe('Add Team Member', () => {
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-004: should return 409 Conflict when user is already team member',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,
@@ -342,9 +333,6 @@ test.describe('Add Team Member', () => {
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-005: should return 404 Not Found when team does not exist',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,

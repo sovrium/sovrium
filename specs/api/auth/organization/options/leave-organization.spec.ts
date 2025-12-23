@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Leave Organization
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Leave Organization', () => {
@@ -19,49 +19,31 @@ test.describe('Leave Organization', () => {
     'API-AUTH-ORG-OPT-LEAVE-001: should return 200 OK when member leaves organization',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-002: should remove member from all teams on leave',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-003: should return 400 when owner tries to leave',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-004: should require ownership transfer before owner leave',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-005: should delete organization if last member leaves',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-007: member can leave organization and verify cleanup',

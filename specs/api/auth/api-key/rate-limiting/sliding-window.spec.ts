@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for API Key Sliding Window Rate Limiting
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('API Key Sliding Window Rate Limiting', () => {
@@ -19,49 +19,31 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
     'API-AUTH-API-KEY-RATE-LIMIT-001: should allow requests within rate limit window',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-API-KEY-RATE-LIMIT-002: should return 429 when rate limit exceeded',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-API-KEY-RATE-LIMIT-003: should reset rate limit after time window',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-API-KEY-RATE-LIMIT-004: should apply different limits per key scope',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-API-KEY-RATE-LIMIT-005: should track sliding window correctly',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-API-KEY-RATE-LIMIT-006: should handle concurrent requests accurately',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-API-KEY-RATE-LIMIT-007: system can enforce rate limits across multiple keys',

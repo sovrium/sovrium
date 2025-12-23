@@ -223,9 +223,6 @@ test.describe('Admin: Ban user', () => {
     'API-AUTH-ADMIN-BAN-USER-007: should return 200 OK for already banned user (idempotent)',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       page,
       startServerWithSchema,
       createAuthenticatedAdmin,

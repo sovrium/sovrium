@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Get Team Details
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
@@ -79,9 +79,6 @@ test.describe('Get Team', () => {
     'API-AUTH-ORG-TEAMS-GET-002: should return 200 OK with team including member count',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,

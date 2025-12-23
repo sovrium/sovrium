@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Admin Has Permission Check
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Admin Has Permission', () => {
@@ -19,49 +19,31 @@ test.describe('Admin Has Permission', () => {
     'API-AUTH-ADMIN-HAS-PERM-001: should return true when admin has permission',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-002: should return false when admin lacks permission',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-003: should support wildcard permissions',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-004: should check resource:action format permissions',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-005: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-006: should validate permission string format',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-007: system can verify permissions across admin hierarchy',

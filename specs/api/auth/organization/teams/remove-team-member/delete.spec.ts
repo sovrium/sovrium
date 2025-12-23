@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Remove Member from Team
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Remove Team Member', () => {
@@ -19,9 +19,6 @@ test.describe('Remove Team Member', () => {
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-001: should return 200 OK when owner removes member from team',
     { tag: '@spec' },
     async ({
-      // GIVEN: TODO: Describe preconditions
-      // WHEN: TODO: Describe action
-      // THEN: TODO: Describe expected outcome
       startServerWithSchema,
       signUp,
       createOrganization,
@@ -72,41 +69,26 @@ test.describe('Remove Team Member', () => {
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-002: should return 403 when non-owner tries to remove member',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-003: should return 400 when user is not team member',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-004: should return 404 when team does not exist',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-005: should return 400 when userId or teamId missing',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-007: owner can remove multiple members and verify removal',

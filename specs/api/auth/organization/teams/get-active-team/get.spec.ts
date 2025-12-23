@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Get Active Team
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Get Active Team', () => {
@@ -50,31 +50,19 @@ test.describe('Get Active Team', () => {
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-002: should return null when no active team set',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-003: should include team metadata in response',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-004: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme('API-AUTH-ORG-TEAMS-GET-ACTIVE-005: placeholder', { tag: '@spec' }, async () => {})
   test.fixme('API-AUTH-ORG-TEAMS-GET-ACTIVE-006: placeholder', { tag: '@spec' }, async () => {})
-  // GIVEN: TODO: Describe preconditions
-  // WHEN: TODO: Describe action
-  // THEN: TODO: Describe expected outcome
   test.fixme(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-007: user can verify active team context persists across requests',
     { tag: '@regression' },

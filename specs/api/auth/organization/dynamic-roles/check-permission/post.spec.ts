@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for Check User Permission
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  */
 
 test.describe('Check Permission', () => {
@@ -19,49 +19,31 @@ test.describe('Check Permission', () => {
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-001: should return true when user has permission',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-002: should return false when user lacks permission',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-003: should support resource:action format',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-004: should include role hierarchy in check',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-005: should return 400 when permission format invalid',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async () => {}
-    // GIVEN: TODO: Describe preconditions
-    // WHEN: TODO: Describe action
-    // THEN: TODO: Describe expected outcome
   )
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-007: system can verify permissions across multiple roles',

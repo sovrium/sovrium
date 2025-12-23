@@ -11,7 +11,7 @@ import { test } from '@/specs/fixtures'
  * E2E Tests for List Teams in Organization
  *
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
