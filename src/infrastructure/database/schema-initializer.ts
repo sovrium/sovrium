@@ -235,7 +235,15 @@ const executeSchemaInit = (
                   )
                 }
 
-                // Step 9: Create VIEWs for tables with lookup fields (after all base tables exist)
+                // Step 9: Drop all obsolete views (CASCADE)
+                // This must happen before creating new views to ensure clean state
+                // Drops views that exist in DB but not in any table's schema
+                const viewGeneratorsModule = yield* Effect.promise(
+                  () => import('./view-generators')
+                )
+                yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
+
+                // Step 10: Create VIEWs for tables with lookup fields (after all base tables exist)
                 // This ensures lookup VIEWs can reference other tables without dependency issues
                 // Execute in parallel - each table's lookup VIEW is independent
                 yield* Effect.all(
@@ -243,7 +251,7 @@ const executeSchemaInit = (
                   { concurrency: 'unbounded' }
                 )
 
-                // Step 10: Create user-defined VIEWs from table.views configuration
+                // Step 11: Create user-defined VIEWs from table.views configuration
                 // This is done after lookup views to ensure all base tables and lookup views exist
                 // Execute in parallel - each table's user-defined VIEWs are independent
                 yield* Effect.all(
@@ -251,11 +259,11 @@ const executeSchemaInit = (
                   { concurrency: 'unbounded' }
                 )
 
-                // Step 11: Record migration in history table
+                // Step 12: Record migration in history table
                 // Tables are created by Drizzle migrations (drizzle/0006_*.sql)
                 yield* recordMigration(tx, app)
 
-                // Step 12: Store schema checksum
+                // Step 13: Store schema checksum
                 yield* storeSchemaChecksum(tx, app)
               })
             )
@@ -433,9 +441,33 @@ const initializeSchemaInternal = (
     const currentChecksum = generateSchemaChecksum(app)
     const shouldSkipMigration = yield* checkShouldSkipMigration(databaseUrlConfig, currentChecksum)
 
-    // Skip migration if checksum matches
+    // Even if migration is skipped, we need to clean up obsolete views
+    // Views might be created manually via SQL and need cleanup
     if (shouldSkipMigration) {
-      yield* Console.log('✓ Schema unchanged, skipping migration')
+      yield* Console.log('✓ Schema unchanged, cleaning up obsolete views...')
+      // Quick cleanup of views not in schema (separate transaction)
+      const db = new SQL({ url: databaseUrlConfig, max: 1 })
+      try {
+        yield* Effect.tryPromise({
+          try: async () => {
+            // Side effect: Drop obsolete views in database transaction
+            /* eslint-disable functional/no-expression-statements */
+            await db.begin(async (tx) => {
+              const viewGeneratorsModule = await import('./view-generators')
+              await viewGeneratorsModule.dropAllObsoleteViews(tx, tables)
+            })
+            /* eslint-enable functional/no-expression-statements */
+          },
+          catch: (error) =>
+            new SchemaInitializationError({
+              message: `View cleanup failed: ${String(error)}`,
+              cause: error,
+            }),
+        })
+      } finally {
+        yield* Effect.promise(() => db.close())
+      }
+      yield* Console.log('✓ Schema unchanged, view cleanup complete')
       return
     }
 

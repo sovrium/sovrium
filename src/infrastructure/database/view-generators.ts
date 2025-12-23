@@ -221,3 +221,54 @@ export const generateDropObsoleteViewsSQL = async (
   await Effect.runPromise(program)
 }
 /* eslint-enable functional/no-expression-statements */
+
+/**
+ * Drop all views that are not defined in any table's schema
+ * This ensures orphaned views (manually created or from previous schemas) are cleaned up
+ */
+/* eslint-disable functional/no-expression-statements */
+export const dropAllObsoleteViews = async (
+  tx: TransactionLike,
+  tables: readonly Table[]
+): Promise<void> => {
+  const program = Effect.gen(function* () {
+    // Query both view types in parallel
+    const [existingViewNames, existingMatViewNames] = yield* Effect.all(
+      [getExistingViews(tx), getExistingMaterializedViews(tx)],
+      { concurrency: 2 }
+    )
+
+    // Collect all view IDs from all tables
+    const allSchemaViews = new Set<string>()
+    tables.forEach((table) => {
+      if (table.views) {
+        table.views.forEach((view) => {
+          // eslint-disable-next-line functional/immutable-data
+          allSchemaViews.add(String(view.id))
+        })
+      }
+    })
+
+    // Find views to drop - any view in DB that's not in schema
+    const viewsToDrop = existingViewNames.filter((viewName) => !allSchemaViews.has(viewName))
+    const matViewsToDrop = existingMatViewNames.filter(
+      (viewName) => !allSchemaViews.has(viewName)
+    )
+
+    // Generate DROP statements with CASCADE
+    const dropViewStatements = viewsToDrop.map(
+      (viewName) => `DROP VIEW IF EXISTS ${viewName} CASCADE`
+    )
+    const dropMatViewStatements = matViewsToDrop.map(
+      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`
+    )
+
+    // Execute all DROP statements in parallel
+    if (dropViewStatements.length > 0 || dropMatViewStatements.length > 0) {
+      yield* executeSQLStatementsParallel(tx, [...dropViewStatements, ...dropMatViewStatements])
+    }
+  })
+
+  await Effect.runPromise(program)
+}
+/* eslint-enable functional/no-expression-statements */
