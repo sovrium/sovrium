@@ -161,10 +161,28 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
 
 /**
  * Check if a view name belongs to a table
- * Simple heuristic: view name contains table name or starts with table name
+ * Flexible heuristic: view name contains table name, starts with table name, or contains part of table name
+ * Examples:
+ * - "user_orders" belongs to "users" (contains "user")
+ * - "active_orders" belongs to "orders" (contains "orders")
+ * - "user_summary" belongs to "users" (contains "user")
  */
 const viewBelongsToTable = (viewName: string, tableName: string): boolean => {
-  return viewName.includes(tableName) || viewName.startsWith(tableName.replace(/_/g, ''))
+  // Check if view name contains the full table name
+  if (viewName.includes(tableName)) return true
+
+  // Check if view name starts with the table name
+  const normalizedTableName = tableName.replace(/_/g, '')
+  if (viewName.startsWith(normalizedTableName)) return true
+
+  // Check if view name contains singular form (remove trailing 's')
+  // e.g., "users" → "user", so "user_orders" matches "users"
+  if (tableName.endsWith('s')) {
+    const singular = tableName.slice(0, -1)
+    if (viewName.includes(singular)) return true
+  }
+
+  return false
 }
 
 /**
@@ -175,9 +193,11 @@ const findObsoleteViews = (
   schemaViews: ReadonlySet<string>,
   tableName: string
 ): readonly string[] => {
-  return Array.from(existingViews).filter(
-    (viewName) => viewBelongsToTable(viewName, tableName) && !schemaViews.has(viewName)
-  )
+  return Array.from(existingViews).filter((viewName) => {
+    const belongs = viewBelongsToTable(viewName, tableName)
+    const inSchema = schemaViews.has(viewName)
+    return belongs && !inSchema
+  })
 }
 
 /**
