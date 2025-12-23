@@ -24,7 +24,7 @@ test.describe('Database Views Migration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-001: should create view for read-only access',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
