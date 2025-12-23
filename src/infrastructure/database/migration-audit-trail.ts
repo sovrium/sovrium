@@ -62,7 +62,12 @@ const SCHEMA_CHECKSUM_TABLE = getTableName(sovriumSchemaChecksum)
 
 /**
  * Create schema snapshot object from app configuration
- * Extracts tables array for consistent serialization
+ * Extracts tables array (including views) for consistent serialization
+ *
+ * IMPORTANT: Views are part of table definitions (table.views property).
+ * Including tables in the snapshot automatically includes views, since views
+ * are nested within table objects. This ensures that view changes trigger
+ * schema migrations correctly.
  */
 const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } => ({
   tables: app.tables ?? [],
