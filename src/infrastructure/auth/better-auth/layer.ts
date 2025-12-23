@@ -8,7 +8,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { AuthService, type AddMemberParams } from '@/application/ports/auth-service'
 import { AuthError } from '../../errors/auth-error'
-import { auth, getDefaultAuthInstance } from './auth'
+import { auth } from './auth'
 
 // Re-export AuthError for convenience
 export { AuthError }
@@ -98,16 +98,26 @@ export const AuthServiceLive = Layer.succeed(
     addMember: (params: AddMemberParams) =>
       Effect.tryPromise({
         try: async () => {
-          const authInstance = getDefaultAuthInstance()
-          const data = await authInstance.api.addMember({
-            body: {
+          // Import Drizzle and schema for direct database access
+          const { db } = await import('@/infrastructure/database')
+          const { members } = await import('./schema')
+
+          // Generate member ID (Better Auth pattern: nanoid)
+          const { nanoid } = await import('nanoid')
+          const memberId = nanoid()
+
+          // Insert member directly into database
+          const [newMember] = await db
+            .insert(members)
+            .values({
+              id: memberId,
               userId: params.userId,
               organizationId: params.organizationId,
               role: params.role ?? 'member',
-            },
-            headers: params.headers,
-          })
-          return { member: data }
+            })
+            .returning()
+
+          return { member: newMember }
         },
         catch: (error) => ({
           message: error instanceof Error ? error.message : 'Failed to add member',

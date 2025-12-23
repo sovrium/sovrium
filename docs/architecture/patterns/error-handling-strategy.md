@@ -71,10 +71,18 @@ export class StaticGenerationError {
 
 ### Domain Errors (Business Rule Violations)
 
-Located in `src/domain/errors/` (create as needed):
+**Current Practice**: Sovrium does **NOT** have a dedicated `src/domain/errors/` directory.
+
+**Rationale**: Domain layer in Sovrium is currently **pure validation functions** using Effect Schema. Business rule violations are expressed through:
+
+1. **Effect Schema validation failures** - Built-in error types from Schema.decode
+2. **Application layer errors** - Use case-specific failures (see Application Errors section)
+3. **Inline error creation** - Domain functions return typed errors directly
+
+**If domain errors become necessary** (e.g., complex business rules beyond validation), create `src/domain/errors/` directory with this pattern:
 
 ```typescript
-// Example domain errors
+// Example domain errors (NOT currently used)
 export class InvalidEmailError {
   readonly _tag = 'InvalidEmailError'
   constructor(readonly email: string) {}
@@ -93,6 +101,13 @@ export class InsufficientPermissionsError {
   ) {}
 }
 ```
+
+**Current Error Locations by Layer**:
+
+- **Domain**: Effect Schema validation errors (no dedicated directory)
+- **Application**: `src/application/errors/` (AppValidationError, StaticGenerationError)
+- **Infrastructure**: `src/infrastructure/errors/` (ServerCreationError, CSSCompilationError, AuthError, etc.)
+- **Presentation**: `src/presentation/api/schemas/error-schemas.ts` (Zod schemas for API responses)
 
 ### API Error Schemas (Response Formatting)
 

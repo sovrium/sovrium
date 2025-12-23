@@ -4,7 +4,7 @@
 
 ## Overview
 
-Sovrium uses **Scalar API Reference** (`@scalar/hono-api-reference` v0.9.25) to provide a modern, interactive API documentation interface. It aggregates multiple OpenAPI schemas into a single, user-friendly documentation portal.
+Sovrium uses **Scalar API Reference** (`@scalar/hono-api-reference` ^0.9.30) to provide a modern, interactive API documentation interface. It aggregates multiple OpenAPI schemas into a single, user-friendly documentation portal.
 
 ### Why Scalar?
 

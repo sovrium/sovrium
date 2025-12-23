@@ -57,9 +57,9 @@
     "noUncheckedIndexedAccess": true, // Array/object access returns T | undefined
     "noImplicitOverride": true, // Explicit override keyword required
 
-    // Optional Strictness (disabled for flexibility)
-    "noUnusedLocals": false, // Allow unused local variables
-    "noUnusedParameters": false, // Allow unused function parameters
+    // Additional Strictness (enabled for code quality)
+    "noUnusedLocals": true, // Detect unused local variables for code cleanliness
+    "noUnusedParameters": false, // Allow unused parameters (disabled for incomplete test stubs)
     "noPropertyAccessFromIndexSignature": false // Allow obj['prop'] syntax
   }
 }

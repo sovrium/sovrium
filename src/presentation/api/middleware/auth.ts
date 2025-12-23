@@ -47,30 +47,38 @@ export type ContextWithSession = Context & {
  */
 export function authMiddleware(auth: {
   api: { getSession: (options: { headers: Headers }) => Promise<{ session: Session | null }> }
+  handler: (request: Request) => Promise<Response>
 }) {
   return async (c: Context, next: Next) => {
     try {
       const authHeader = c.req.header('Authorization')
 
-      // If Authorization header with Bearer token is present, create new headers WITHOUT cookies
-      // This ensures Better Auth validates ONLY the Bearer token, not cookie-based sessions
-      const headers = authHeader?.startsWith('Bearer ')
-        ? (() => {
-            const newHeaders = new Headers()
-            newHeaders.set('Authorization', authHeader)
-            return newHeaders
-          })()
-        : c.req.raw.headers
+      // For Bearer tokens (API keys), extract the key and pass it as the authorization header
+      // Better Auth's API key plugin expects the raw API key, not "Bearer {key}"
+      if (authHeader?.startsWith('Bearer ')) {
+        const apiKey = authHeader.slice(7) // Remove "Bearer " prefix
 
-      // Extract session from Better Auth
-      const result = await auth.api.getSession({
-        headers,
-      })
+        // Call getSession with the API key in the authorization header
+        const result = await auth.api.getSession({
+          headers: new Headers({
+            authorization: apiKey, // Pass raw API key
+          }),
+        })
 
-      // Attach session to context (may be null for unauthenticated requests)
-      const { session } = result
-      if (session) {
-        c.set('session', session)
+        const { session } = result
+        if (session) {
+          c.set('session', session)
+        }
+      } else {
+        // For cookie-based sessions, use original headers
+        const result = await auth.api.getSession({
+          headers: c.req.raw.headers,
+        })
+
+        const { session } = result
+        if (session) {
+          c.set('session', session)
+        }
       }
     } catch {
       // Session extraction failed - continue without session

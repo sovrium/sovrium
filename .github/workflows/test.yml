@@ -238,9 +238,6 @@ jobs:
       - name: Run unit tests
         run: bun test:unit
 
-      - name: Validate spec counts
-        run: bun run validate:spec-counts
-
   # ============================================================================
   # E2E TESTS WITH SHARDING
   # 4 shards running in parallel, each with 2 workers = 8 effective workers

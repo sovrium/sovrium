@@ -561,6 +561,303 @@ Layer-based architecture is fully implemented with active ESLint enforcement:
 | **Type Safety**          | TypeScript enforces layer boundaries via interfaces      |
 | **Dependency Injection** | Effect Context makes dependencies explicit at boundaries |
 
+## Effect.gen vs async/await: Layer-Specific Usage Patterns
+
+### Overview
+
+Sovrium uses **two distinct patterns** for asynchronous code execution:
+
+- **Effect.gen** - For business logic, use cases, and infrastructure services (Application/Infrastructure layers)
+- **async/await** - For UI interactions and HTTP routes (Presentation layer)
+
+This separation reflects the architectural boundary between **business logic** (Effect programs) and **presentation logic** (async/await for running programs).
+
+### When to Use Effect.gen ✅
+
+**Use Effect.gen for:**
+
+| Layer              | Use Cases                                                                      |
+| ------------------ | ------------------------------------------------------------------------------ |
+| **Application**    | Use case orchestration, workflow coordination, business logic composition      |
+| **Infrastructure** | Repository implementations, service wrappers, I/O operations with typed errors |
+| **Domain** (⚠️ No) | **NOT ALLOWED** - Domain layer is pure (no Effect runtime, only Effect.Schema) |
+
+**Benefits of Effect.gen**:
+
+- **Type-safe errors**: Error types tracked at compile-time (`Effect.Effect<A, E, R>`)
+- **Dependency injection**: Explicit dependencies via Effect Context
+- **Composability**: Easily combine programs with operators (`pipe`, `flatMap`, `catchAll`)
+- **Testability**: Mock dependencies via Layer substitution
+- **Functional**: Pure programs (descriptions of work, not execution)
+
+**Application Layer Example** (Use Case):
+
+```typescript
+// src/application/use-cases/RegisterUser.ts
+import { Effect } from 'effect'
+import { UserRepository } from '@/application/ports/UserRepository'
+import { EmailService } from '@/application/ports/EmailService'
+
+export const RegisterUser = (input: {
+  name: string
+  email: string
+}): Effect.Effect<
+  { userId: number },
+  InvalidEmailError | UserAlreadyExistsError,
+  UserRepository | EmailService
+> =>
+  Effect.gen(function* () {
+    const userRepo = yield* UserRepository
+    const emailService = yield* EmailService
+
+    // Validate email
+    const emailValidation = validateEmail(input.email)
+    if (!emailValidation.isValid) {
+      return yield* Effect.fail(new InvalidEmailError({ message: emailValidation.error }))
+    }
+
+    // Check if user exists
+    const existingUser = yield* userRepo.findByEmail(input.email).pipe(Effect.option)
+    if (existingUser._tag === 'Some') {
+      return yield* Effect.fail(new UserAlreadyExistsError({ email: input.email }))
+    }
+
+    // Create and save user
+    const newUser = createUser({ name: input.name, email: input.email })
+    yield* userRepo.save(newUser)
+
+    // Send welcome email
+    yield* emailService.sendWelcomeEmail({ to: newUser.email, name: newUser.name })
+
+    return { userId: newUser.id }
+  })
+```
+
+**Infrastructure Layer Example** (Repository):
+
+```typescript
+// src/infrastructure/repositories/UserRepositoryImpl.ts
+import { Effect, Layer } from 'effect'
+import { UserRepository } from '@/application/ports/UserRepository'
+
+export const UserRepositoryLive = Layer.succeed(UserRepository, {
+  findById: (id: number) =>
+    Effect.gen(function* () {
+      const rows = yield* Effect.tryPromise({
+        try: () => database.query('SELECT * FROM users WHERE id = ?', [id]),
+        catch: (error) => new DatabaseError({ cause: error }),
+      })
+
+      if (rows.length === 0) {
+        return yield* Effect.fail(new UserNotFoundError({ userId: id }))
+      }
+
+      return rows[0] as User
+    }),
+
+  save: (user: User) =>
+    Effect.gen(function* () {
+      yield* Effect.tryPromise({
+        try: () =>
+          database.execute('INSERT INTO users (name, email) VALUES (?, ?)', [
+            user.name,
+            user.email,
+          ]),
+        catch: (error) => new DatabaseError({ cause: error }),
+      })
+    }),
+})
+```
+
+### When to Use async/await ✅
+
+**Use async/await for:**
+
+| Layer            | Use Cases                                                                   |
+| ---------------- | --------------------------------------------------------------------------- |
+| **Presentation** | HTTP routes (Hono), React component effects, UI interactions, form handlers |
+
+**Why async/await in Presentation?**
+
+- **Running Effect programs**: Convert Effect to Promise with `Effect.runPromise`
+- **Simple async operations**: When Effect's features (typed errors, DI) aren't needed
+- **External integrations**: Interfacing with non-Effect libraries
+- **UI event handlers**: React component lifecycle, form submissions
+
+**Hono Route Example** (Presentation Layer):
+
+```typescript
+// src/presentation/api/routes/users.ts
+import { Hono } from 'hono'
+import { Effect } from 'effect'
+import { RegisterUser } from '@/application/use-cases/RegisterUser'
+import { AppLayer } from '@/infrastructure/layers/AppLayer'
+
+const app = new Hono()
+
+app.post('/users', async (c) => {
+  const body = await c.req.json()
+
+  // Run Effect program from Application Layer
+  const program = RegisterUser({
+    name: body.name,
+    email: body.email,
+  }).pipe(Effect.provide(AppLayer))
+
+  // Convert Effect to Promise and handle result
+  const result = await Effect.runPromise(program.pipe(Effect.either))
+
+  // Map errors to HTTP responses (Presentation concern)
+  if (result._tag === 'Left') {
+    const error = result.left
+    if (error._tag === 'InvalidEmailError') {
+      return c.json({ error: error.message }, 400)
+    }
+    if (error._tag === 'UserAlreadyExistsError') {
+      return c.json({ error: 'User already exists' }, 409)
+    }
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+
+  const user = result.right
+  return c.json({ userId: user.userId }, 201)
+})
+
+export default app
+```
+
+**React Component Example** (Presentation Layer):
+
+```typescript
+// src/presentation/components/UserProfile.tsx
+import { useState, useEffect } from 'react'
+import { Effect } from 'effect'
+import { GetUserProfile } from '@/application/use-cases/GetUserProfile'
+import { AppLayer } from '@/infrastructure/layers/AppLayer'
+
+function UserProfile({ userId }: { userId: number }) {
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const program = GetUserProfile({ userId }).pipe(Effect.provide(AppLayer))
+
+    Effect.runPromise(program)
+      .then((data) => {
+        setProfile(data)
+        setError(null)
+      })
+      .catch((err) => {
+        setError('Failed to load profile')
+        console.error(err)
+      })
+      .finally(() => setLoading(false))
+  }, [userId])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div className="text-red-600">{error}</div>
+  if (!profile) return null
+
+  return (
+    <div>
+      <h1>{profile.name}</h1>
+      <p>{profile.email}</p>
+    </div>
+  )
+}
+```
+
+### Pattern Comparison
+
+| Aspect                | Effect.gen                                                    | async/await                                      |
+| --------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
+| **Layer**             | Application, Infrastructure                                   | Presentation                                     |
+| **Purpose**           | Business logic, use cases, repositories                       | HTTP routes, React effects, UI interactions      |
+| **Error Types**       | Tracked in type system (`Effect.Effect<A, E, R>`)             | Thrown exceptions (untracked)                    |
+| **Dependencies**      | Injected via Effect Context (`yield* ServiceName`)            | Manual DI or global imports                      |
+| **Testability**       | Pure programs, easy to mock via Layer substitution            | Requires mocking external APIs/services          |
+| **Composability**     | Highly composable (`pipe`, `flatMap`, `catchAll`)             | Less composable (requires manual error handling) |
+| **Type Inference**    | Full type inference for data, errors, and dependencies        | No error type inference                          |
+| **Runtime Execution** | Deferred (description of work), runs with `Effect.runPromise` | Immediate execution (runs when called)           |
+| **Functional Purity** | Pure (immutable, referentially transparent)                   | Impure (side effects execute immediately)        |
+
+### Anti-Patterns to Avoid
+
+❌ **DON'T use Effect.gen in Domain Layer**:
+
+```typescript
+// ❌ WRONG: Domain layer using Effect runtime
+// src/domain/validators/emailValidator.ts
+import { Effect } from 'effect'
+
+export const validateEmail = (email: string): Effect.Effect<boolean, ValidationError> =>
+  Effect.gen(function* () {
+    // ESLint error: Domain layer cannot use Effect runtime
+    return email.includes('@')
+  })
+
+// ✅ CORRECT: Domain layer is pure
+export interface EmailValidationResult {
+  readonly isValid: boolean
+  readonly error?: string
+}
+
+export function validateEmail(email: string): EmailValidationResult {
+  if (!email.includes('@')) {
+    return { isValid: false, error: 'Invalid email format' }
+  }
+  return { isValid: true }
+}
+```
+
+❌ **DON'T use Effect.gen for simple Presentation tasks**:
+
+```typescript
+// ❌ WRONG: Effect.gen for simple UI state update
+const handleClick = () => {
+  const program = Effect.gen(function* () {
+    setCount(count + 1)
+  })
+  Effect.runPromise(program)
+}
+
+// ✅ CORRECT: Direct async/await for simple operations
+const handleClick = () => {
+  setCount(count + 1)
+}
+```
+
+❌ **DON'T mix async/await in Application/Infrastructure layers**:
+
+```typescript
+// ❌ WRONG: async/await in Application Layer
+// src/application/use-cases/RegisterUser.ts
+export const RegisterUser = async (input: { name: string; email: string }) => {
+  const userRepo = await getUserRepository() // Manual DI
+  const user = await userRepo.findByEmail(input.email) // No type-safe errors
+  // ...
+}
+
+// ✅ CORRECT: Effect.gen with Context DI and typed errors
+export const RegisterUser = (input: { name: string; email: string }) =>
+  Effect.gen(function* () {
+    const userRepo = yield* UserRepository // Automatic DI
+    const user = yield* userRepo.findByEmail(input.email) // Typed errors
+    // ...
+  })
+```
+
+### Key Takeaways
+
+1. **Layer Separation**: Effect.gen for Application/Infrastructure, async/await for Presentation
+2. **Domain Stays Pure**: No Effect runtime in Domain layer (only Effect.Schema for validation)
+3. **Type Safety**: Use Effect.gen when error types and dependencies matter
+4. **Conversion**: Always use `Effect.runPromise` to convert Effect to Promise in Presentation layer
+5. **Testability**: Effect.gen programs are pure and testable, async/await requires mocking
+
+**Best Practice**: Write business logic with Effect.gen, consume it with async/await in routes and components.
+
 ## Testing Strategy
 
 ### Domain Layer (Pure Functions)

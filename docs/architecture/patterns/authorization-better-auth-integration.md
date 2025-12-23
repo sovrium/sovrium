@@ -6,23 +6,176 @@ Better Auth (v1.3.34) provides authentication and user session management. This 
 
 ## Better Auth Setup
 
+### Organization Plugin Configuration
+
+Sovrium uses Better Auth's organization plugin for multi-tenancy. The plugin is **conditionally enabled** based on app schema configuration.
+
+**File**: `src/infrastructure/auth/better-auth/auth.ts`
+
 ```typescript
-// src/infrastructure/auth/better-auth.ts
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
 
+// Organization plugin builder (conditionally enabled)
+const buildOrganizationPlugin = (
+  handlers: ReturnType<typeof createEmailHandlers>,
+  authConfig?: Auth
+) =>
+  authConfig?.plugins?.organization
+    ? [
+        organization({
+          sendInvitationEmail: handlers.organizationInvitation,
+          schema: {
+            organization: { modelName: '_sovrium_auth_organizations' },
+            member: { modelName: '_sovrium_auth_members' },
+            invitation: { modelName: '_sovrium_auth_invitations' },
+          },
+        }),
+      ]
+    : []
+
+// Better Auth instance with conditional organization plugin
 export const auth = betterAuth({
-  database: {
-    // Drizzle adapter configuration
-  },
+  database: drizzleAdapter(db, {
+    provider: 'pg',
+    schema: drizzleSchema, // Custom table names with _sovrium_auth_ prefix
+  }),
   plugins: [
-    organization({
-      // Organization plugin configuration
-      allowUserToCreateOrganization: true,
-      organizationLimit: 1, // Users can belong to one org
-    }),
+    openAPI(), // Always enabled (provides /api/auth/openapi endpoint)
+    ...buildAdminPlugin(authConfig),
+    ...buildOrganizationPlugin(handlers, authConfig),
+    ...buildTwoFactorPlugin(authConfig),
+    ...buildApiKeyPlugin(authConfig),
   ],
 })
+```
+
+**Organization Plugin Features**:
+
+- **Namespace Isolation**: Tables prefixed with `_sovrium_auth_` to prevent conflicts
+- **Email Invitations**: Custom email handler with variable substitution
+- **Multi-tenancy**: Organization-based data isolation
+- **Role Management**: Per-organization roles (owner, admin, member, viewer)
+
+### Database Schema
+
+**Organization Tables** (Drizzle ORM):
+
+```typescript
+// File: src/infrastructure/auth/better-auth/schema.ts
+
+export const organizations = pgTable('_sovrium_auth_organizations', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  logo: text('logo'),
+  metadata: text('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const members = pgTable('_sovrium_auth_members', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').notNull(), // 'owner', 'admin', 'member', 'viewer'
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const invitations = pgTable('_sovrium_auth_invitations', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: text('role').notNull(),
+  status: text('status').notNull(), // 'pending', 'accepted', 'rejected'
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  inviterId: text('inviter_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+```
+
+**Key Design Decisions**:
+
+1. **Table Prefix**: `_sovrium_auth_` prevents conflicts with user-defined tables
+2. **Cascade Deletion**: Organization deletion removes all members and invitations
+3. **Text IDs**: UUIDs for better security (not sequential integers)
+4. **Metadata Field**: JSON storage for extensibility (organization settings, branding)
+
+### Organization Invitation Email
+
+**Email Template Variables**:
+
+- `$organizationName` - Organization name
+- `$inviterName` - Inviter's display name
+- `$email` - Recipient email
+- `$url` - Invitation acceptance URL
+
+**Default Template**:
+
+```
+Subject: You have been invited to join {organizationName}
+
+Hi,
+
+{inviterName} has invited you to join {organizationName}.
+
+Click here to accept the invitation: {url}
+```
+
+**Custom Template Example** (app schema):
+
+```json
+{
+  "auth": {
+    "emailTemplates": {
+      "organizationInvitation": {
+        "subject": "Join $organizationName on Sovrium",
+        "html": "<p>Hi,</p><p>$inviterName invited you to $organizationName.</p><p><a href=\"$url\">Accept Invitation</a></p>",
+        "text": "Hi,\n\n$inviterName invited you to $organizationName.\n\nAccept: $url"
+      }
+    }
+  }
+}
+```
+
+### Conditional Plugin Behavior
+
+**When Organization Plugin is Disabled**:
+
+- ❌ No `/api/auth/organization/*` endpoints
+- ❌ No organization tables created
+- ❌ No organization invitation emails
+- ✅ User authentication still works (email/password, OAuth)
+- ✅ Users exist without organization affiliation
+
+**When Organization Plugin is Enabled**:
+
+- ✅ Users can create organizations
+- ✅ Users can invite members to organizations
+- ✅ Session includes `activeOrganizationId`
+- ✅ Multi-tenant data isolation possible
+- ✅ Organization-based RBAC
+
+**Configuration in App Schema**:
+
+```json
+{
+  "auth": {
+    "plugins": {
+      "organization": true, // Enable organization plugin
+      "admin": true, // Enable admin plugin (user roles, banning)
+      "twoFactor": false, // Disable 2FA plugin
+      "apiKeys": false // Disable API key plugin
+    }
+  }
+}
 ```
 
 ## User Context Structure
