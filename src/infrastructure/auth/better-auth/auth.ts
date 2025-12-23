@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
+import { openAPI, admin, organization, twoFactor, apiKey } from 'better-auth/plugins'
 import { db } from '@/infrastructure/database'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -21,6 +21,7 @@ import {
   members,
   invitations,
   twoFactors,
+  apiKeys,
 } from './schema'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
@@ -282,19 +283,13 @@ const drizzleSchema = {
   [AUTH_TABLE_NAMES.member]: members,
   [AUTH_TABLE_NAMES.invitation]: invitations,
   [AUTH_TABLE_NAMES.twoFactor]: twoFactors,
+  [AUTH_TABLE_NAMES.apiKey]: apiKeys,
 }
 
 /**
  * Build Better Auth plugins array with custom table names
  *
- * ⚠️ CRITICAL: apiKey plugin is DISABLED due to Better Auth bug
- *
- * Issue: Better Auth organization plugin breaks when apiKey plugin is also present.
- * Error: "undefined is not an object (evaluating 'schema[table].modelName = newModelName')"
- * Root cause: Better Auth's schema merging logic fails when multiple plugins define custom table names.
- *
- * This prevents the apiKey plugin from merging its schema with the provided custom table name.
- * TODO: Re-enable apiKey plugin when Better Auth fixes the schema merging issue
+ * Conditionally includes apiKey plugin when enabled in auth configuration.
  */
 const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
@@ -308,7 +303,7 @@ const buildAuthPlugins = (
       }
     : undefined
 
-  return [
+  const plugins = [
     openAPI({ disableDefaultReference: true }),
     admin(adminPluginConfig),
     organization({
@@ -319,9 +314,22 @@ const buildAuthPlugins = (
         invitation: { modelName: AUTH_TABLE_NAMES.invitation },
       },
     }),
-    // apiKey plugin disabled - see comment above
     twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
   ]
+
+  // Conditionally add apiKey plugin when enabled
+  if (authConfig?.plugins?.apiKeys) {
+    return [
+      ...plugins,
+      apiKey({
+        schema: {
+          apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
+        },
+      }),
+    ]
+  }
+
+  return plugins
 }
 
 /**
