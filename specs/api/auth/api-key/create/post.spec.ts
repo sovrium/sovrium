@@ -170,7 +170,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-005: should create API key with metadata',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -214,7 +214,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-006: should return 404 when API keys plugin not enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
