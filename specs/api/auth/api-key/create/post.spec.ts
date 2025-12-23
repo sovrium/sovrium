@@ -24,7 +24,7 @@ test.describe('Create API Key', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-001: should create API key with name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
