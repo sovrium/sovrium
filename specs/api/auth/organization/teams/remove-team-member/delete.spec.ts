@@ -68,31 +68,263 @@ test.describe('Remove Team Member', () => {
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-002: should return 403 when non-owner tries to remove member',
     { tag: '@spec' },
-    async () => {}
+    async ({ startServerWithSchema, signUp, createOrganization, addMember, page }) => {
+      // GIVEN: Organization with team and members, non-owner trying to remove
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, plugins: { organization: true } },
+      })
+      await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
+      const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
+
+      const teamResponse = await page.request.post('/api/auth/organization/create-team', {
+        data: { organizationId: organization.id, name: 'Engineering' },
+      })
+      const { id: teamId } = await teamResponse.json()
+
+      const member1Response = await signUp({
+        email: 'member1@example.com',
+        password: 'Pass123!',
+        name: 'Member 1',
+      })
+      const { member: m1 } = await addMember({
+        organizationId: organization.id,
+        userId: member1Response.user.id,
+        role: 'member',
+      })
+
+      const member2Response = await signUp({
+        email: 'member2@example.com',
+        password: 'Pass123!',
+        name: 'Member 2',
+      })
+      const { member: m2 } = await addMember({
+        organizationId: organization.id,
+        userId: member2Response.user.id,
+        role: 'member',
+      })
+
+      await page.request.post('/api/auth/organization/add-team-member', {
+        data: { teamId, userId: m2.userId },
+      })
+
+      // WHEN: Non-owner (member1) tries to remove member2 from team
+      await page.goto('/login')
+      await page.fill('input[name="email"]', 'member1@example.com')
+      await page.fill('input[name="password"]', 'Pass123!')
+      await page.click('button[type="submit"]')
+
+      const response = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId, userId: m2.userId },
+      })
+
+      // THEN: Should return 403 Forbidden
+      expect(response.status()).toBe(403)
+    }
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-003: should return 400 when user is not team member',
     { tag: '@spec' },
-    async () => {}
+    async ({ startServerWithSchema, signUp, createOrganization, addMember, page }) => {
+      // GIVEN: Team with no members
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, plugins: { organization: true } },
+      })
+      await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
+      const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
+
+      const teamResponse = await page.request.post('/api/auth/organization/create-team', {
+        data: { organizationId: organization.id, name: 'Team' },
+      })
+      const { id: teamId } = await teamResponse.json()
+
+      const memberResponse = await signUp({
+        email: 'member@example.com',
+        password: 'Pass123!',
+        name: 'Member',
+      })
+      const { member } = await addMember({
+        organizationId: organization.id,
+        userId: memberResponse.user.id,
+        role: 'member',
+      })
+
+      // WHEN: Owner tries to remove member that's not in team
+      const response = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId, userId: member.userId },
+      })
+
+      // THEN: Should return 400 Bad Request
+      expect(response.status()).toBe(400)
+      const error = await response.json()
+      expect(error.message).toContain('member')
+    }
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-004: should return 404 when team does not exist',
     { tag: '@spec' },
-    async () => {}
+    async ({ startServerWithSchema, signUp, createOrganization, page }) => {
+      // GIVEN: User with organization but non-existent team
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, plugins: { organization: true } },
+      })
+      await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
+      await createOrganization({ name: 'Company', slug: 'company' })
+
+      // WHEN: User tries to remove member from non-existent team
+      const response = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId: 'non-existent-team-id', userId: 'some-user-id' },
+      })
+
+      // THEN: Should return 404 Not Found
+      expect(response.status()).toBe(404)
+    }
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-005: should return 400 when userId or teamId missing',
     { tag: '@spec' },
-    async () => {}
+    async ({ startServerWithSchema, signUp, createOrganization, page }) => {
+      // GIVEN: User with team
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, plugins: { organization: true } },
+      })
+      await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
+      const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
+
+      const teamResponse = await page.request.post('/api/auth/organization/create-team', {
+        data: { organizationId: organization.id, name: 'Team' },
+      })
+      const { id: teamId } = await teamResponse.json()
+
+      // WHEN: User tries to remove member without providing userId
+      const response1 = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId },
+      })
+
+      // THEN: Should return 400 Bad Request
+      expect(response1.status()).toBe(400)
+      const error1 = await response1.json()
+      expect(error1.message).toContain('userId')
+
+      // WHEN: User tries to remove member without providing teamId
+      const response2 = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { userId: 'some-user-id' },
+      })
+
+      // THEN: Should return 400 Bad Request
+      expect(response2.status()).toBe(400)
+      const error2 = await response2.json()
+      expect(error2.message).toContain('teamId')
+    }
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-006: should return 401 when not authenticated',
     { tag: '@spec' },
-    async () => {}
+    async ({ startServerWithSchema, request }) => {
+      // GIVEN: Server without authentication
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, plugins: { organization: true } },
+      })
+
+      // WHEN: Unauthenticated request to remove team member
+      const response = await request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId: 'some-team-id', userId: 'some-user-id' },
+      })
+
+      // THEN: Should return 401 Unauthorized
+      expect(response.status()).toBe(401)
+    }
   )
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-007: owner can remove multiple members and verify removal',
     { tag: '@regression' },
-    async () => {}
+    async ({ startServerWithSchema, signUp, createOrganization, addMember, page }) => {
+      // GIVEN: Organization with team and multiple members
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, plugins: { organization: true } },
+      })
+      await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
+      const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
+
+      const teamResponse = await page.request.post('/api/auth/organization/create-team', {
+        data: { organizationId: organization.id, name: 'Engineering' },
+      })
+      const { id: teamId } = await teamResponse.json()
+
+      const member1Response = await signUp({
+        email: 'member1@example.com',
+        password: 'Pass123!',
+        name: 'Member 1',
+      })
+      const { member: m1 } = await addMember({
+        organizationId: organization.id,
+        userId: member1Response.user.id,
+        role: 'member',
+      })
+
+      const member2Response = await signUp({
+        email: 'member2@example.com',
+        password: 'Pass123!',
+        name: 'Member 2',
+      })
+      const { member: m2 } = await addMember({
+        organizationId: organization.id,
+        userId: member2Response.user.id,
+        role: 'member',
+      })
+
+      // WHEN/THEN: Add members to team
+      const add1 = await page.request.post('/api/auth/organization/add-team-member', {
+        data: { teamId, userId: m1.userId },
+      })
+      expect(add1.status()).toBe(200)
+
+      const add2 = await page.request.post('/api/auth/organization/add-team-member', {
+        data: { teamId, userId: m2.userId },
+      })
+      expect(add2.status()).toBe(200)
+
+      // WHEN/THEN: Verify members in team
+      const listAfterAdd = await page.request.get('/api/auth/organization/list-team-members', {
+        params: { teamId },
+      })
+      expect(listAfterAdd.status()).toBe(200)
+      const membersAfterAdd = await listAfterAdd.json()
+      expect(membersAfterAdd.length).toBe(2)
+
+      // WHEN/THEN: Remove one member
+      const remove1 = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId, userId: m1.userId },
+      })
+      expect(remove1.status()).toBe(200)
+
+      // WHEN/THEN: Verify member removed
+      const listAfterRemove = await page.request.get('/api/auth/organization/list-team-members', {
+        params: { teamId },
+      })
+      expect(listAfterRemove.status()).toBe(200)
+      const membersAfterRemove = await listAfterRemove.json()
+      expect(membersAfterRemove.length).toBe(1)
+      expect(membersAfterRemove[0].userId).toBe(m2.userId)
+
+      // WHEN/THEN: Remove remaining member
+      const remove2 = await page.request.delete('/api/auth/organization/remove-team-member', {
+        data: { teamId, userId: m2.userId },
+      })
+      expect(remove2.status()).toBe(200)
+
+      // WHEN/THEN: Verify team is empty
+      const listFinal = await page.request.get('/api/auth/organization/list-team-members', {
+        params: { teamId },
+      })
+      expect(listFinal.status()).toBe(200)
+      const membersFinal = await listFinal.json()
+      expect(membersFinal.length).toBe(0)
+    }
   )
 })
