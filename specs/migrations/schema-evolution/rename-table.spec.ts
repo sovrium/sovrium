@@ -89,7 +89,7 @@ test.describe('Rename Table Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-RENAME-TABLE-002: should automatically updates foreign key references',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -106,7 +106,13 @@ test.describe('Rename Table Migration', () => {
             id: 2,
             name: 'comments',
             fields: [
-              { id: 2, name: 'post_id', type: 'integer' },
+              {
+                id: 2,
+                name: 'post_id',
+                type: 'relationship',
+                relatedTable: 'posts',
+                relationType: 'many-to-one',
+              },
               { id: 3, name: 'content', type: 'long-text', required: true },
             ],
           },
@@ -130,7 +136,13 @@ test.describe('Rename Table Migration', () => {
             id: 2,
             name: 'comments',
             fields: [
-              { id: 2, name: 'post_id', type: 'integer' }, // FK reference updates automatically
+              {
+                id: 2,
+                name: 'post_id',
+                type: 'relationship',
+                relatedTable: 'articles',
+                relationType: 'many-to-one',
+              }, // FK reference updates automatically
               { id: 3, name: 'content', type: 'long-text', required: true },
             ],
           },
