@@ -53,8 +53,8 @@
   "scripts": {
     "prepare": "effect-language-service patch > /dev/null 2>&1",
     "start": "bun run src/cli.ts --watch",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write . --cache --cache-location .prettiercache",
+    "format:check": "prettier --check . --cache --cache-location .prettiercache",
     "typecheck": "tsc --noEmit",
     "clean": "knip",
     "clean:fix": "knip --fix",
