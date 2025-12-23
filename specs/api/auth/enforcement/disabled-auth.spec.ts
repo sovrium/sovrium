@@ -92,7 +92,7 @@ test.describe('Disabled Auth Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-004: should return 404 for admin endpoints when auth features do not include admin',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
