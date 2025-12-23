@@ -158,9 +158,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin)
-      )
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -184,9 +182,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceMember)
-      )
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceMember))
     )
     const result = await Effect.runPromise(program)
 
@@ -206,9 +202,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceViewer)
-      ),
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceViewer)),
       Effect.either
     )
     const result = await Effect.runPromise(program)
@@ -232,9 +226,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceNoRole)
-      ),
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceNoRole)),
       Effect.either
     )
     const result = await Effect.runPromise(program)
@@ -258,9 +250,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceEmpty, MockUserRoleServiceAdmin)
-      )
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceEmpty, MockUserRoleServiceAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -280,9 +270,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin)
-      )
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -305,9 +293,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin)
-      )
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -338,9 +324,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(
-        Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin)
-      )
+      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
     )
     const result = await Effect.runPromise(program)
 

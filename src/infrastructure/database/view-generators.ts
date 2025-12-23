@@ -273,9 +273,7 @@ export const dropAllObsoleteViews = async (
 
     // Find views to drop - any view in DB that's not in schema
     const viewsToDrop = existingViewNames.filter((viewName) => !allSchemaViews.has(viewName))
-    const matViewsToDrop = existingMatViewNames.filter(
-      (viewName) => !allSchemaViews.has(viewName)
-    )
+    const matViewsToDrop = existingMatViewNames.filter((viewName) => !allSchemaViews.has(viewName))
 
     // Generate DROP statements with CASCADE
     const dropViewStatements = viewsToDrop.map(
