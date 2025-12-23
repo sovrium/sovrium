@@ -186,32 +186,8 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : wrappedApp
 
-  // Mount Better Auth handler for all other /api/auth/* routes
-  // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
-  // IMPORTANT: Better Auth routes are defined without /api/auth prefix (e.g., /admin/list-users)
-  // but Hono mounts the handler at /api/auth/*. We need to strip the /api/auth prefix
-  // from the request URL before passing to Better Auth.
-  return finalApp.on(['POST', 'GET'], '/api/auth/*', (c) => {
-    const originalUrl = new URL(c.req.url)
-    // Strip /api/auth prefix from pathname: /api/auth/admin/list-users -> /admin/list-users
-    const strippedPathname = originalUrl.pathname.replace(/^\/api\/auth/, '')
-    // Create new URL with stripped path and preserved query parameters
-    const newUrl = new URL(`${strippedPathname}${originalUrl.search}`, originalUrl.origin)
-
-    console.log('[DEBUG] Auth route handler:')
-    console.log('  Original URL:', originalUrl.toString())
-    console.log('  Stripped path:', strippedPathname)
-    console.log('  New URL:', newUrl.toString())
-
-    // Create new Request with modified URL
-    const modifiedRequest = new Request(newUrl.toString(), {
-      method: c.req.raw.method,
-      headers: c.req.raw.headers,
-      body: c.req.raw.body,
-      // @ts-expect-error - duplex is needed for streaming body but not in TS types
-      duplex: 'half',
-    })
-
-    return authInstance.handler(modifiedRequest)
-  })
+  // Mount Better Auth handler for all /api/auth/* routes
+  // Better Auth expects the full path including /api/auth prefix
+  // See: https://www.better-auth.com/docs/integrations/hono
+  return finalApp.on(['POST', 'GET'], '/api/auth/*', (c) => authInstance.handler(c.req.raw))
 }

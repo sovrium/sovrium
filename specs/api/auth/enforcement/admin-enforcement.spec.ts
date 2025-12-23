@@ -126,7 +126,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-004: should prevent regular users from elevating their own role',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
