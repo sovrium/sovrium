@@ -180,7 +180,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-AUTH-004: should return 401 without Authorization header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
