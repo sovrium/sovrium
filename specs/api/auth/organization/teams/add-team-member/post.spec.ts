@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Add Member to Team
@@ -39,7 +39,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -62,7 +66,7 @@ test.describe('Add Team Member', () => {
       })
       const team = await teamResponse.json()
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -74,10 +78,7 @@ test.describe('Add Team Member', () => {
         name: 'Member User',
       })
 
-      const memberAccept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      const memberAccept = await acceptInvitation(invitation.id)
 
       // WHEN: Owner adds member to team
       const response = await page.request.post('/api/auth/organization/add-team-member', {
@@ -113,7 +114,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -137,7 +142,7 @@ test.describe('Add Team Member', () => {
       const team = await teamResponse.json()
 
       // Member 1
-      await inviteMember({
+      const { invitation: invitation1 } = await inviteMember({
         organizationId: organization.id,
         email: 'member1@example.com',
         role: 'member',
@@ -149,13 +154,10 @@ test.describe('Add Team Member', () => {
         name: 'Member One',
       })
 
-      await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member1@example.com',
-      })
+      await acceptInvitation(invitation1.id)
 
       // Member 2
-      await inviteMember({
+      const { invitation: invitation2 } = await inviteMember({
         organizationId: organization.id,
         email: 'member2@example.com',
         role: 'member',
@@ -167,10 +169,7 @@ test.describe('Add Team Member', () => {
         name: 'Member Two',
       })
 
-      const member2Accept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member2@example.com',
-      })
+      const member2Accept = await acceptInvitation(invitation2.id)
 
       // WHEN: Member 1 tries to add Member 2 to team
       const response = await page.request.post('/api/auth/organization/add-team-member', {
@@ -198,7 +197,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -264,7 +267,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -287,7 +294,7 @@ test.describe('Add Team Member', () => {
       })
       const team = await teamResponse.json()
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -299,10 +306,7 @@ test.describe('Add Team Member', () => {
         name: 'Member User',
       })
 
-      const memberAccept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      const memberAccept = await acceptInvitation(invitation.id)
 
       // Add member to team first time
       await page.request.post('/api/auth/organization/add-team-member', {
@@ -345,7 +349,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -360,7 +368,7 @@ test.describe('Add Team Member', () => {
         slug: 'test-company',
       })
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -372,10 +380,7 @@ test.describe('Add Team Member', () => {
         name: 'Member User',
       })
 
-      const memberAccept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      const memberAccept = await acceptInvitation(invitation.id)
 
       // WHEN: Owner tries to add member to non-existent team
       const response = await page.request.post('/api/auth/organization/add-team-member', {
@@ -403,7 +408,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -444,7 +453,11 @@ test.describe('Add Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -472,7 +485,7 @@ test.describe('Add Team Member', () => {
       const memberIds = []
 
       for (const email of memberEmails) {
-        await inviteMember({
+        const { invitation } = await inviteMember({
           organizationId: organization.id,
           email,
           role: 'member',
@@ -484,10 +497,7 @@ test.describe('Add Team Member', () => {
           name: `Member ${email}`,
         })
 
-        const memberAccept = await acceptInvitation({
-          organizationId: organization.id,
-          email,
-        })
+        const memberAccept = await acceptInvitation(invitation.id)
 
         memberIds.push(memberAccept.member.userId)
 

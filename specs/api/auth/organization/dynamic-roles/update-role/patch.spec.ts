@@ -20,7 +20,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with custom role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -30,7 +40,7 @@ test.describe('Update Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles'],
           },
@@ -40,7 +50,7 @@ test.describe('Update Custom Role', () => {
       // WHEN: Owner updates role
       const response = await request.patch('/api/auth/organization/update-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
           name: 'content-editor',
           permissions: ['read:articles', 'write:articles'],
@@ -60,7 +70,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with custom role having multiple permissions
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -70,7 +90,7 @@ test.describe('Update Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles', 'write:articles', 'delete:drafts'],
           },
@@ -80,7 +100,7 @@ test.describe('Update Custom Role', () => {
       // WHEN: Owner updates role removing one permission and adding another
       const response = await request.patch('/api/auth/organization/update-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
           permissions: ['read:articles', 'write:articles', 'publish:articles'], // Removed delete:drafts, added publish:articles
         },
@@ -99,7 +119,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with custom role and an admin member
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -109,7 +139,7 @@ test.describe('Update Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles'],
           },
@@ -131,12 +161,12 @@ test.describe('Update Custom Role', () => {
       // WHEN: Admin tries to update role (not owner)
       const response = await request.patch('/api/auth/organization/update-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
           name: 'new-name',
         },
         headers: {
-          Authorization: `Bearer ${adminUser.session.token}`,
+          Authorization: `Bearer ${adminUser.session!.token}`,
         },
       })
 
@@ -150,7 +180,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with two custom roles
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -160,7 +200,7 @@ test.describe('Update Custom Role', () => {
       const role1 = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles'],
           },
@@ -169,7 +209,7 @@ test.describe('Update Custom Role', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'viewer',
           permissions: ['read:articles'],
         },
@@ -178,7 +218,7 @@ test.describe('Update Custom Role', () => {
       // WHEN: Try to rename role1 to existing 'viewer' name
       const response = await request.patch('/api/auth/organization/update-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role1.id,
           name: 'viewer',
         },
@@ -196,7 +236,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization without the specified role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -206,7 +256,7 @@ test.describe('Update Custom Role', () => {
       // WHEN: Try to update non-existent role
       const response = await request.patch('/api/auth/organization/update-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: 'non-existent-role-id',
           name: 'new-name',
         },
@@ -222,7 +272,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: Server without authentication
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       // WHEN: Unauthenticated request to update role
       const response = await request.patch('/api/auth/organization/update-role', {
@@ -243,7 +303,17 @@ test.describe('Update Custom Role', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with custom role and members assigned to it
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -253,7 +323,7 @@ test.describe('Update Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'content-manager',
             permissions: ['read:articles', 'write:drafts'],
           },
@@ -273,7 +343,7 @@ test.describe('Update Custom Role', () => {
 
       await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: m1.id,
           roleId: role.id,
         },
@@ -291,7 +361,7 @@ test.describe('Update Custom Role', () => {
 
       await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: m2.id,
           roleId: role.id,
         },
@@ -300,7 +370,7 @@ test.describe('Update Custom Role', () => {
       // WHEN: Owner updates role name and permissions
       const updateResponse = await request.patch('/api/auth/organization/update-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
           name: 'senior-content-manager',
           permissions: ['read:articles', 'write:drafts', 'publish:articles', 'delete:articles'],
@@ -321,7 +391,7 @@ test.describe('Update Custom Role', () => {
       // THEN: Role should appear in roles list with new data
       const roles = await request
         .get('/api/auth/organization/list-roles', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -337,7 +407,7 @@ test.describe('Update Custom Role', () => {
       // THEN: Members should still have the role (with new name)
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -351,7 +421,7 @@ test.describe('Update Custom Role', () => {
       const checkPermission = await request
         .post('/api/auth/organization/check-permission', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             memberId: m1.id,
             permission: 'publish:articles',
           },

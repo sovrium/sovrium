@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for First User Admin Configuration
@@ -32,7 +32,7 @@ test.describe('First User Admin Configuration', () => {
       const user = await signUp({ email: 'first@example.com', password: 'Pass123!', name: 'First' })
 
       // THEN: User is assigned admin role
-      expect(user.user.role).toBe('admin')
+      expect((user.user as { role?: string }).role).toBe('admin')
     }
   )
   test.fixme(
@@ -54,7 +54,7 @@ test.describe('First User Admin Configuration', () => {
         password: 'Pass123!',
         name: 'First',
       })
-      expect(firstUser.user.role).toBe('admin')
+      expect((firstUser.user as { role?: string }).role).toBe('admin')
 
       // WHEN: Second user signs up
       const secondUser = await signUp({
@@ -64,7 +64,7 @@ test.describe('First User Admin Configuration', () => {
       })
 
       // THEN: Second user gets default role
-      expect(secondUser.user.role).toBe('user')
+      expect((secondUser.user as { role?: string }).role).toBe('user')
     }
   )
   test.fixme(
@@ -84,7 +84,7 @@ test.describe('First User Admin Configuration', () => {
       const user = await signUp({ email: 'first@example.com', password: 'Pass123!', name: 'First' })
 
       // THEN: User is not assigned admin role
-      expect(user.user.role).toBe('user')
+      expect((user.user as { role?: string }).role).toBe('user')
     }
   )
   test.fixme(
@@ -110,7 +110,7 @@ test.describe('First User Admin Configuration', () => {
       const user = await signUp({ email: 'first@example.com', password: 'Pass123!', name: 'First' })
 
       // THEN: User is admin
-      expect(user.user.role).toBe('admin')
+      expect((user.user as { role?: string }).role).toBe('admin')
 
       // WHEN: Check user count after signup
       const countAfter = await page.request.get('/api/auth/admin/user-count')
@@ -183,7 +183,7 @@ test.describe('First User Admin Configuration', () => {
         password: 'Pass123!',
         name: 'Admin',
       })
-      expect(admin.user.role).toBe('admin')
+      expect((admin.user as { role?: string }).role).toBe('admin')
 
       // WHEN/THEN: Admin can manage users
       const listUsers = await page.request.get('/api/auth/admin/list-users')
@@ -191,7 +191,7 @@ test.describe('First User Admin Configuration', () => {
 
       // WHEN/THEN: Subsequent users get default role
       const user = await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
-      expect(user.user.role).toBe('user')
+      expect((user.user as { role?: string }).role).toBe('user')
 
       // WHEN/THEN: Only first user is admin
       const allUsers = await page.request.get('/api/auth/admin/list-users')

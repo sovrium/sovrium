@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin Default User Role
@@ -24,7 +24,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'member' } },
+          plugins: { admin: { defaultRole: 'user' } },
         },
       })
 
@@ -32,7 +32,7 @@ test.describe('Admin Default User Role', () => {
       const user = await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
 
       // THEN: User has default role assigned
-      expect(user.user.role).toBe('member')
+      expect((user.user as { role?: string }).role).toBe('user')
     }
   )
   test.fixme(
@@ -52,7 +52,7 @@ test.describe('Admin Default User Role', () => {
       const user = await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
 
       // THEN: User has custom default role
-      expect(user.user.role).toBe('viewer')
+      expect((user.user as { role?: string }).role).toBe('viewer')
     }
   )
   test.fixme(
@@ -64,7 +64,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'member' } },
+          plugins: { admin: { defaultRole: 'user' } },
         },
       })
 
@@ -72,7 +72,7 @@ test.describe('Admin Default User Role', () => {
       const user = await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
 
       // THEN: Default role is applied immediately
-      expect(user.user.role).toBe('member')
+      expect((user.user as { role?: string }).role).toBe('user')
     }
   )
   test.fixme(
@@ -89,7 +89,7 @@ test.describe('Admin Default User Role', () => {
       const user = await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
 
       // THEN: Falls back to user role
-      expect(user.user.role).toBe('user')
+      expect((user.user as { role?: string }).role).toBe('user')
     }
   )
   test.fixme(
@@ -104,7 +104,7 @@ test.describe('Admin Default User Role', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: { defaultRole: 'non-existent-role' } },
+            plugins: { admin: { defaultRole: 'non-existent-role' as 'user' } }, // intentional invalid value for testing
           },
         })
       ).rejects.toThrow(/invalid.*role/i)
@@ -113,13 +113,13 @@ test.describe('Admin Default User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-006: should allow changing default role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Server with default role configured
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'member' } },
+          plugins: { admin: { defaultRole: 'user' } },
         },
       })
       await createAdmin({
@@ -140,7 +140,7 @@ test.describe('Admin Default User Role', () => {
       const user = await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
 
       // THEN: User gets new default role
-      expect(user.user.role).toBe('viewer')
+      expect((user.user as { role?: string }).role).toBe('viewer')
     }
   )
   test.fixme(
@@ -152,7 +152,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'member' } },
+          plugins: { admin: { defaultRole: 'user' } },
         },
       })
 
@@ -162,17 +162,17 @@ test.describe('Admin Default User Role', () => {
         password: 'Pass123!',
         name: 'User 1',
       })
-      expect(user1.user.role).toBe('member')
+      expect((user1.user as { role?: string }).role).toBe('user')
 
       const user2 = await signUp({
         email: 'user2@example.com',
         password: 'Pass123!',
         name: 'User 2',
       })
-      expect(user2.user.role).toBe('member')
+      expect((user2.user as { role?: string }).role).toBe('user')
 
       // WHEN/THEN: All users have consistent default role
-      expect(user1.user.role).toBe(user2.user.role)
+      expect((user1.user as { role?: string }).role).toBe((user2.user as { role?: string }).role)
     }
   )
 })

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin Ban User
@@ -18,13 +18,13 @@ test.describe('Admin Ban User', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-001: should return 200 OK when admin bans user',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin user and regular user
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true, plugins: { admin: true } },
       })
-      const admin = await createAdmin({
+      await createAdmin({
         email: 'admin@example.com',
         password: 'Pass123!',
         name: 'Admin',
@@ -43,7 +43,7 @@ test.describe('Admin Ban User', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-002: should prevent banned user from signing in',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Banned user
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +73,7 @@ test.describe('Admin Ban User', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-003: should invalidate all banned user sessions',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: User with active session
       await startServerWithSchema({
         name: 'test-app',
@@ -103,7 +103,7 @@ test.describe('Admin Ban User', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-004: should store ban reason in user record',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
@@ -157,7 +157,7 @@ test.describe('Admin Ban User', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-006: should prevent admin from banning self',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -183,7 +183,7 @@ test.describe('Admin Ban User', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-BAN-007: admin can ban user and verify access blocked',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',

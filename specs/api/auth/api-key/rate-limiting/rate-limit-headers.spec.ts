@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for API Key Rate Limit Headers
@@ -25,10 +25,9 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 10,
-                windowMs: 60 * 1000, // 1 minute
+                requestsPerMinute: 10,
               },
             },
           },
@@ -71,10 +70,9 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 5,
-                windowMs: 60 * 1000,
+                requestsPerMinute: 5,
               },
             },
           },
@@ -124,10 +122,9 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 10,
-                windowMs: 60 * 1000, // 1 minute
+                requestsPerMinute: 10,
               },
             },
           },
@@ -158,7 +155,7 @@ test.describe('API Key Rate Limit Headers', () => {
       const resetHeader = response.headers()['x-ratelimit-reset']
       expect(resetHeader).toBeDefined()
 
-      const resetTimestamp = parseInt(resetHeader)
+      const resetTimestamp = parseInt(resetHeader!)
       const now = Date.now()
       expect(resetTimestamp).toBeGreaterThan(now)
       expect(resetTimestamp).toBeLessThanOrEqual(now + 60 * 1000) // Within 1 minute
@@ -174,10 +171,9 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 2,
-                windowMs: 60 * 1000,
+                requestsPerMinute: 2,
               },
             },
           },
@@ -211,7 +207,7 @@ test.describe('API Key Rate Limit Headers', () => {
       expect(response.status()).toBe(429)
       const retryAfter = response.headers()['retry-after']
       expect(retryAfter).toBeDefined()
-      expect(parseInt(retryAfter)).toBeGreaterThan(0)
+      expect(parseInt(retryAfter!)).toBeGreaterThan(0)
     }
   )
   test.fixme(
@@ -224,10 +220,9 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 5,
-                windowMs: 60 * 1000,
+                requestsPerMinute: 5,
               },
             },
           },
@@ -258,10 +253,10 @@ test.describe('API Key Rate Limit Headers', () => {
       }
 
       // THEN: Remaining count decreases with each request
-      expect(responses[0].headers()['x-ratelimit-remaining']).toBe('4') // 5 - 1
-      expect(responses[1].headers()['x-ratelimit-remaining']).toBe('3') // 5 - 2
-      expect(responses[2].headers()['x-ratelimit-remaining']).toBe('2') // 5 - 3
-      expect(responses[3].headers()['x-ratelimit-remaining']).toBe('1') // 5 - 4
+      expect(responses[0]!.headers()['x-ratelimit-remaining']).toBe('4') // 5 - 1
+      expect(responses[1]!.headers()['x-ratelimit-remaining']).toBe('3') // 5 - 2
+      expect(responses[2]!.headers()['x-ratelimit-remaining']).toBe('2') // 5 - 3
+      expect(responses[3]!.headers()['x-ratelimit-remaining']).toBe('1') // 5 - 4
     }
   )
   test.fixme(
@@ -274,12 +269,13 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                tiers: [
-                  { scope: 'read', max: 100, windowMs: 60 * 1000 },
-                  { scope: 'write', max: 20, windowMs: 60 * 1000 },
-                ],
+                requestsPerMinute: 100,
+                scopes: {
+                  read: 100,
+                  write: 20,
+                },
               },
             },
           },
@@ -340,10 +336,9 @@ test.describe('API Key Rate Limit Headers', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 5,
-                windowMs: 60 * 1000,
+                requestsPerMinute: 5,
               },
             },
           },

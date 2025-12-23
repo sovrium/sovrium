@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Get Team Details
@@ -32,7 +32,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -91,7 +95,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -116,7 +124,7 @@ test.describe('Get Team', () => {
       const { id: teamId } = await createResponse.json()
 
       // Add members to organization
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member1@example.com',
         role: 'member',
@@ -128,10 +136,7 @@ test.describe('Get Team', () => {
         name: 'Member One',
       })
 
-      const member1Accept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member1@example.com',
-      })
+      const member1Accept = await acceptInvitation(invitation.id)
 
       // Add member to team
       await page.request.post('/api/auth/organization/add-team-member', {
@@ -161,7 +166,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -219,7 +228,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -257,7 +270,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -293,7 +310,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -329,7 +350,11 @@ test.describe('Get Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -364,7 +389,7 @@ test.describe('Get Team', () => {
       const memberEmails = ['dev1@example.com', 'dev2@example.com', 'dev3@example.com']
 
       for (const email of memberEmails) {
-        await inviteMember({
+        const { invitation } = await inviteMember({
           organizationId: organization.id,
           email,
           role: 'member',
@@ -376,10 +401,7 @@ test.describe('Get Team', () => {
           name: `Developer ${email}`,
         })
 
-        const memberAccept = await acceptInvitation({
-          organizationId: organization.id,
-          email,
-        })
+        const memberAccept = await acceptInvitation(invitation.id)
 
         await page.request.post('/api/auth/organization/add-team-member', {
           data: {

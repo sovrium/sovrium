@@ -20,8 +20,18 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: An admin and a regular user to impersonate
-      await startServerWithSchema({ name: 'test-app' })
-      const admin = await createAuthenticatedUser({
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
+      await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
       })
@@ -47,7 +57,17 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: An admin and target user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
       await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
@@ -78,7 +98,17 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: An admin and target user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
       const admin = await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
@@ -107,7 +137,17 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, request }) => {
       // GIVEN: A regular user trying to impersonate
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
       await signUp({
         email: 'regular@example.com',
         password: 'Password123!',
@@ -136,7 +176,17 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: An admin user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
       await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
@@ -157,7 +207,17 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, request }) => {
       // GIVEN: An unauthenticated request
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
       const targetUser = await signUp({
         email: 'target@example.com',
         password: 'Password123!',
@@ -179,7 +239,17 @@ test.describe('Admin Start Impersonation', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Admin and regular user with organization membership
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
+        },
+      })
       const admin = await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',

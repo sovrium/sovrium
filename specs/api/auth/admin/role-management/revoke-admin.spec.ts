@@ -20,8 +20,18 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: An admin and another user with admin role
-      await startServerWithSchema({ name: 'test-app' })
-      const admin = await createAuthenticatedUser({
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
+      await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
       })
@@ -52,8 +62,18 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: A user with admin role
-      await startServerWithSchema({ name: 'test-app' })
-      const admin = await createAuthenticatedUser({
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
+      await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
       })
@@ -87,8 +107,18 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, request }) => {
       // GIVEN: A regular user trying to revoke admin role
-      await startServerWithSchema({ name: 'test-app' })
-      const regularUser = await signUp({
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
+      await signUp({
         email: 'regular@example.com',
         password: 'Password123!',
         name: 'Regular User',
@@ -116,7 +146,17 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: An admin user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
       await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
@@ -137,7 +177,17 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: An admin user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
       const admin = await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
@@ -160,7 +210,17 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, request }) => {
       // GIVEN: An unauthenticated request
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
       const targetUser = await signUp({
         email: 'target@example.com',
         password: 'Password123!',
@@ -182,8 +242,18 @@ test.describe('Revoke Admin Role', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
       // GIVEN: Admin assigns admin role to another user
-      await startServerWithSchema({ name: 'test-app' })
-      const admin = await createAuthenticatedUser({
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
+        },
+      })
+      await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
       })

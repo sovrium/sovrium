@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin Set User Role
@@ -18,7 +18,7 @@ test.describe('Admin Set User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-SET-ROLE-001: should return 200 OK when admin sets user role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and regular user
       await startServerWithSchema({
         name: 'test-app',
@@ -43,7 +43,7 @@ test.describe('Admin Set User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-SET-ROLE-002: should apply new role permissions immediately',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: User with default role
       await startServerWithSchema({
         name: 'test-app',
@@ -71,7 +71,7 @@ test.describe('Admin Set User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-SET-ROLE-003: should return 400 when setting role higher than admin own role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Moderator admin and regular user
       await startServerWithSchema({
         name: 'test-app',
@@ -103,7 +103,7 @@ test.describe('Admin Set User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-SET-ROLE-004: should validate role exists before assignment',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
@@ -130,7 +130,7 @@ test.describe('Admin Set User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-SET-ROLE-005: should log role change event with before/after roles',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user with initial role
       await startServerWithSchema({
         name: 'test-app',
@@ -188,7 +188,7 @@ test.describe('Admin Set User Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-OPT-SET-ROLE-007: admin can manage user roles across hierarchy',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and users
       await startServerWithSchema({
         name: 'test-app',

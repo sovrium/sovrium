@@ -73,6 +73,7 @@ function checkImports(content: string, file: string): void {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (line === undefined) continue
     if (line.includes('import') && line.includes('test')) {
       if (line === "import { test } from '@/specs/fixtures'") {
         foundCorrectImport = true
@@ -102,6 +103,7 @@ function checkSpecIDs(content: string, file: string): void {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (line === undefined) continue
     if (
       line.includes('test.fixme(') ||
       (line.trim().startsWith('test(') && !line.includes('test.step('))
@@ -162,6 +164,7 @@ function checkGivenWhenThen(content: string, file: string): void {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (line === undefined) continue
 
     if (line.includes("tag: '@spec'")) {
       inSpecTest = true
@@ -198,6 +201,7 @@ function checkPlaceholders(content: string, file: string): void {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (line === undefined) continue
     for (const pattern of placeholderPatterns) {
       if (pattern.test(line) && !line.includes('test.fixme')) {
         issues.push({

@@ -42,10 +42,10 @@ test.describe('Leave Organization', () => {
       // WHEN: Member leaves the organization
       const response = await request.post('/api/auth/organization/leave', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
         },
         headers: {
-          Authorization: `Bearer ${member.session.token}`,
+          Authorization: `Bearer ${member.session!.token}`,
         },
       })
 
@@ -55,7 +55,7 @@ test.describe('Leave Organization', () => {
       // THEN: Member should no longer be in organization
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -91,7 +91,7 @@ test.describe('Leave Organization', () => {
       const team1 = await request
         .post('/api/auth/organization/create-team', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'Engineering',
           },
         })
@@ -100,7 +100,7 @@ test.describe('Leave Organization', () => {
       const team2 = await request
         .post('/api/auth/organization/create-team', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'Design',
           },
         })
@@ -122,8 +122,8 @@ test.describe('Leave Organization', () => {
 
       // WHEN: Member leaves organization
       await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId },
-        headers: { Authorization: `Bearer ${member.session.token}` },
+        data: { organizationId: owner.organizationId! },
+        headers: { Authorization: `Bearer ${member.session!.token}` },
       })
 
       // THEN: Member should be removed from all teams
@@ -159,7 +159,7 @@ test.describe('Leave Organization', () => {
       // WHEN: Owner tries to leave organization
       const response = await request.post('/api/auth/organization/leave', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
         },
       })
 
@@ -197,7 +197,7 @@ test.describe('Leave Organization', () => {
       // WHEN: Owner transfers ownership and then leaves
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -205,14 +205,14 @@ test.describe('Leave Organization', () => {
 
       await request.patch('/api/auth/organization/transfer-ownership', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           newOwnerId: adminMember.id,
         },
       })
 
       // THEN: Original owner can now leave
       const leaveResponse = await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId },
+        data: { organizationId: owner.organizationId! },
       })
 
       expect(leaveResponse.status()).toBe(200)
@@ -237,7 +237,7 @@ test.describe('Leave Organization', () => {
       // WHEN: Last member leaves (after ownership transfer or deletion policy)
       const response = await request.delete('/api/auth/organization/delete', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
         },
       })
 
@@ -245,7 +245,7 @@ test.describe('Leave Organization', () => {
 
       // THEN: Organization should no longer exist
       const getOrgResponse = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: owner.organizationId },
+        params: { organizationId: owner.organizationId! },
       })
 
       expect(getOrgResponse.status()).toBe(404)
@@ -311,7 +311,7 @@ test.describe('Leave Organization', () => {
       const team = await request
         .post('/api/auth/organization/create-team', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'Engineering',
           },
         })
@@ -326,15 +326,15 @@ test.describe('Leave Organization', () => {
 
       // WHEN/THEN: Member leaves organization
       const leaveResponse = await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId },
-        headers: { Authorization: `Bearer ${member1.session.token}` },
+        data: { organizationId: owner.organizationId! },
+        headers: { Authorization: `Bearer ${member1.session!.token}` },
       })
       expect(leaveResponse.status()).toBe(200)
 
       // THEN: Member removed from organization
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -352,28 +352,28 @@ test.describe('Leave Organization', () => {
 
       // WHEN/THEN: Owner cannot leave without transfer
       const ownerLeaveResponse = await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId },
+        data: { organizationId: owner.organizationId! },
       })
       expect(ownerLeaveResponse.status()).toBe(400)
 
       // WHEN/THEN: Transfer ownership and then leave
       const transferResponse = await request.patch('/api/auth/organization/transfer-ownership', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           newOwnerId: m2.id,
         },
       })
       expect(transferResponse.status()).toBe(200)
 
       const ownerLeaveAfterTransfer = await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId },
+        data: { organizationId: owner.organizationId! },
       })
       expect(ownerLeaveAfterTransfer.status()).toBe(200)
 
       // THEN: Organization still exists with new owner
       const finalMembers = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 

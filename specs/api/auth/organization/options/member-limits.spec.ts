@@ -29,7 +29,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberLimit: 3,
         },
       })
@@ -37,7 +37,7 @@ test.describe('Organization Member Limits', () => {
       // WHEN: Invite within limit
       const invite1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user1@example.com',
           role: 'member',
         },
@@ -45,7 +45,7 @@ test.describe('Organization Member Limits', () => {
 
       const invite2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user2@example.com',
           role: 'member',
         },
@@ -71,7 +71,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberLimit: 2,
         },
       })
@@ -79,7 +79,7 @@ test.describe('Organization Member Limits', () => {
       // Invite first member (owner + 1 invite = 2 total)
       await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user1@example.com',
           role: 'member',
         },
@@ -88,7 +88,7 @@ test.describe('Organization Member Limits', () => {
       // WHEN: Try to invite beyond capacity
       const response = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user2@example.com',
           role: 'member',
         },
@@ -115,7 +115,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberLimit: 2,
         },
       })
@@ -135,14 +135,14 @@ test.describe('Organization Member Limits', () => {
       // WHEN: Remove member and invite new one
       await request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: memberRecord.id,
         },
       })
 
       const response = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'newuser@example.com',
           role: 'member',
         },
@@ -168,7 +168,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: basicOrg.organizationId,
+          organizationId: basicOrg.organizationId!,
           planTier: 'basic',
           memberLimit: 5,
         },
@@ -182,7 +182,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: proOrg.organizationId,
+          organizationId: proOrg.organizationId!,
           planTier: 'pro',
           memberLimit: 50,
         },
@@ -191,13 +191,13 @@ test.describe('Organization Member Limits', () => {
       // WHEN: Check settings
       const basicSettings = await request
         .get('/api/auth/organization/get-settings', {
-          params: { organizationId: basicOrg.organizationId },
+          params: { organizationId: basicOrg.organizationId! },
         })
         .then((r) => r.json())
 
       const proSettings = await request
         .get('/api/auth/organization/get-settings', {
-          params: { organizationId: proOrg.organizationId },
+          params: { organizationId: proOrg.organizationId! },
         })
         .then((r) => r.json())
 
@@ -221,7 +221,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberLimit: 3,
         },
       })
@@ -229,7 +229,7 @@ test.describe('Organization Member Limits', () => {
       // Create pending invitations
       await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user1@example.com',
           role: 'member',
         },
@@ -237,7 +237,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user2@example.com',
           role: 'member',
         },
@@ -246,7 +246,7 @@ test.describe('Organization Member Limits', () => {
       // WHEN: Try to invite beyond capacity (owner + 2 pending = 3)
       const response = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user3@example.com',
           role: 'member',
         },
@@ -273,14 +273,14 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberLimit: 10,
         },
       })
 
       // WHEN: Get organization details
       const response = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: owner.organizationId },
+        params: { organizationId: owner.organizationId! },
       })
 
       // THEN: Response should include seat information
@@ -306,7 +306,7 @@ test.describe('Organization Member Limits', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberLimit: 3,
         },
       })
@@ -314,7 +314,7 @@ test.describe('Organization Member Limits', () => {
       // WHEN/THEN: Invite members within limit
       const invite1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user1@example.com',
           role: 'member',
         },
@@ -323,7 +323,7 @@ test.describe('Organization Member Limits', () => {
 
       const invite2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user2@example.com',
           role: 'member',
         },
@@ -333,7 +333,7 @@ test.describe('Organization Member Limits', () => {
       // WHEN/THEN: Reject invitation at capacity
       const invite3 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user3@example.com',
           role: 'member',
         },
@@ -343,7 +343,7 @@ test.describe('Organization Member Limits', () => {
       // WHEN/THEN: Cancel invitation frees up seat
       const invitations = await request
         .get('/api/auth/organization/list-invitations', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -355,7 +355,7 @@ test.describe('Organization Member Limits', () => {
 
       const invite4 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user4@example.com',
           role: 'member',
         },
@@ -377,7 +377,7 @@ test.describe('Organization Member Limits', () => {
 
       const orgDetails = await request
         .get('/api/auth/organization/get-details', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -387,14 +387,14 @@ test.describe('Organization Member Limits', () => {
       // WHEN/THEN: Remove member frees seat
       await request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: m2.id,
         },
       })
 
       const finalDetails = await request
         .get('/api/auth/organization/get-details', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 

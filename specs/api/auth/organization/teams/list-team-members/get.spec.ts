@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for List Team Members
@@ -22,7 +22,14 @@ test.describe('List Team Members', () => {
       // GIVEN: Team with members
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
@@ -51,7 +58,14 @@ test.describe('List Team Members', () => {
       // GIVEN: Team with no members
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
@@ -80,7 +94,14 @@ test.describe('List Team Members', () => {
       // GIVEN: Two separate users with different organizations
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'owner1@example.com', password: 'Pass123!', name: 'Owner 1' })
       const { organization: org1 } = await createOrganization({
@@ -113,7 +134,14 @@ test.describe('List Team Members', () => {
       // GIVEN: User with organization but non-existent team
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
       await createOrganization({ name: 'Company', slug: 'company' })
@@ -134,7 +162,14 @@ test.describe('List Team Members', () => {
       // GIVEN: User with organization
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
       await createOrganization({ name: 'Company', slug: 'company' })
@@ -155,7 +190,14 @@ test.describe('List Team Members', () => {
       // GIVEN: Server without authentication
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
 
       // WHEN: Unauthenticated request to list team members
@@ -174,7 +216,14 @@ test.describe('List Team Members', () => {
       // GIVEN: Organization with team and multiple members
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })

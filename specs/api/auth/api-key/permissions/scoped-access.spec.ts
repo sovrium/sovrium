@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for API Key Permission Scopes (read, write, admin)
@@ -32,7 +32,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 
@@ -72,7 +79,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 
@@ -121,7 +135,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 
@@ -177,7 +198,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 
@@ -226,7 +254,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 
@@ -289,7 +324,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 
@@ -322,7 +364,14 @@ test.describe('API Key Scoped Access', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                users: ['read', 'write'],
+                admin: ['users'],
+              },
+            },
+          },
         },
       })
 

@@ -30,7 +30,7 @@ test.describe('Organization Creator Role', () => {
       // WHEN: Check creator's role in the organization
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId },
+          params: { organizationId: creator.organizationId! },
         })
         .then((r) => r.json())
 
@@ -65,7 +65,7 @@ test.describe('Organization Creator Role', () => {
       // WHEN: Check creator's role
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId },
+          params: { organizationId: creator.organizationId! },
         })
         .then((r) => r.json())
 
@@ -79,7 +79,13 @@ test.describe('Organization Creator Role', () => {
   test.fixme(
     'API-AUTH-ORG-OPT-CREATOR-003: should return 400 when demoting creator below owner',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
+    async ({
+      startServerWithSchema,
+      createAuthenticatedUser,
+      signUp: _signUp,
+      request,
+      addMember: _addMember,
+    }) => {
       // GIVEN: Organization with creator as owner
       await startServerWithSchema({ name: 'test-app' })
       const creator = await createAuthenticatedUser({
@@ -90,7 +96,7 @@ test.describe('Organization Creator Role', () => {
 
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId },
+          params: { organizationId: creator.organizationId! },
         })
         .then((r) => r.json())
 
@@ -99,7 +105,7 @@ test.describe('Organization Creator Role', () => {
       // WHEN: Try to demote creator to member
       const response = await request.patch('/api/auth/organization/update-member-role', {
         data: {
-          organizationId: creator.organizationId,
+          organizationId: creator.organizationId!,
           memberId: creatorMember.id,
           role: 'member',
         },
@@ -131,11 +137,11 @@ test.describe('Organization Creator Role', () => {
       })
 
       // Grant super admin privileges
-      await adminSetRole({ userId: superAdmin.user.id, role: 'superadmin' })
+      await adminSetRole(superAdmin.user.id, 'superadmin')
 
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId },
+          params: { organizationId: creator.organizationId! },
         })
         .then((r) => r.json())
 
@@ -144,12 +150,12 @@ test.describe('Organization Creator Role', () => {
       // WHEN: Super admin changes creator role
       const response = await request.patch('/api/auth/organization/update-member-role', {
         data: {
-          organizationId: creator.organizationId,
+          organizationId: creator.organizationId!,
           memberId: creatorMember.id,
           role: 'admin',
         },
         headers: {
-          Authorization: `Bearer ${superAdmin.session.token}`,
+          Authorization: `Bearer ${superAdmin.session!.token}`,
         },
       })
 
@@ -174,7 +180,7 @@ test.describe('Organization Creator Role', () => {
 
       // WHEN: Fetch organization details
       const response = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: creator.organizationId },
+        params: { organizationId: creator.organizationId! },
       })
 
       // THEN: Organization should have creator metadata
@@ -198,15 +204,13 @@ test.describe('Organization Creator Role', () => {
       })
 
       // Create a custom role
-      const customRole = await request
-        .post('/api/auth/organization/create-role', {
-          data: {
-            organizationId: creator.organizationId,
-            name: 'custom-admin',
-            permissions: ['read:all', 'write:all', 'manage:members'],
-          },
-        })
-        .then((r) => r.json())
+      await request.post('/api/auth/organization/create-role', {
+        data: {
+          organizationId: creator.organizationId!,
+          name: 'custom-admin',
+          permissions: ['read:all', 'write:all', 'manage:members'],
+        },
+      })
 
       // WHEN: Check creator has owner permissions (superset of all roles)
       const ownerPermissions = ['read:all', 'write:all', 'manage:members', 'manage:organization']
@@ -216,7 +220,7 @@ test.describe('Organization Creator Role', () => {
           request
             .post('/api/auth/organization/check-permission', {
               data: {
-                organizationId: creator.organizationId,
+                organizationId: creator.organizationId!,
                 memberId: creator.user.id,
                 permission,
               },
@@ -269,7 +273,7 @@ test.describe('Organization Creator Role', () => {
       // WHEN/THEN: Verify creator is owner
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId },
+          params: { organizationId: creator.organizationId! },
         })
         .then((r) => r.json())
 
@@ -279,7 +283,7 @@ test.describe('Organization Creator Role', () => {
       // WHEN/THEN: Creator can manage organization
       const updateResponse = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: creator.organizationId,
+          organizationId: creator.organizationId!,
           name: 'Updated Company Name',
         },
       })
@@ -288,7 +292,7 @@ test.describe('Organization Creator Role', () => {
       // WHEN/THEN: Creator can create custom roles
       const createRoleResponse = await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: creator.organizationId,
+          organizationId: creator.organizationId!,
           name: 'editor',
           permissions: ['read:content', 'write:content'],
         },
@@ -297,13 +301,13 @@ test.describe('Organization Creator Role', () => {
 
       // WHEN/THEN: Creator can delete organization
       const deleteResponse = await request.delete('/api/auth/organization/delete', {
-        data: { organizationId: creator.organizationId },
+        data: { organizationId: creator.organizationId! },
       })
       expect(deleteResponse.status()).toBe(200)
 
       // WHEN/THEN: Organization should no longer exist
       const getOrgResponse = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: creator.organizationId },
+        params: { organizationId: creator.organizationId! },
       })
       expect(getOrgResponse.status()).toBe(404)
     }

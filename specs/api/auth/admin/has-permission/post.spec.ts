@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin Has Permission Check
@@ -18,7 +18,12 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-001: should return true when admin has permission',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({
+      startServerWithSchema,
+      signUp: _signUp,
+      createAuthenticatedAdmin: createAdmin,
+      page,
+    }) => {
       // GIVEN: Admin with specific permission granted
       await startServerWithSchema({
         name: 'test-app',
@@ -56,7 +61,7 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-002: should return false when admin lacks permission',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin without specific permission
       await startServerWithSchema({
         name: 'test-app',
@@ -91,7 +96,7 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-003: should support wildcard permissions',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: User with wildcard permission
       await startServerWithSchema({
         name: 'test-app',
@@ -134,7 +139,7 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-004: should check resource:action format permissions',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: User with specific resource:action permission
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +201,7 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-006: should validate permission string format',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Authenticated admin
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +227,7 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-007: system can verify permissions across admin hierarchy',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and users with varied permissions
       await startServerWithSchema({
         name: 'test-app',

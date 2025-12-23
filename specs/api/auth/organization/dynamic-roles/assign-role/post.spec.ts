@@ -20,7 +20,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: An organization owner with a custom role created and a member in the organization
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -31,7 +41,7 @@ test.describe('Assign Custom Role', () => {
       // Create a custom role
       const roleResponse = await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'custom-role',
           permissions: ['read:projects', 'write:projects'],
         },
@@ -46,7 +56,7 @@ test.describe('Assign Custom Role', () => {
       })
       const inviteResponse = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'member@test.com',
           role: 'member',
         },
@@ -54,7 +64,7 @@ test.describe('Assign Custom Role', () => {
       const invitation = await inviteResponse.json()
 
       // Accept invitation as member (switch context)
-      const memberSignIn = await request.post('/api/auth/sign-in/email', {
+      await request.post('/api/auth/sign-in/email', {
         data: { email: 'member@test.com', password: 'Password123!' },
       })
       await request.post('/api/auth/organization/accept-invitation', {
@@ -63,7 +73,7 @@ test.describe('Assign Custom Role', () => {
 
       // Get member details
       const membersResponse = await request.get('/api/auth/organization/list-members', {
-        params: { organizationId: owner.organizationId },
+        params: { organizationId: owner.organizationId! },
       })
       const members = await membersResponse.json()
       const member = members.find((m: any) => m.userId === memberUser.user.id)
@@ -71,7 +81,7 @@ test.describe('Assign Custom Role', () => {
       // WHEN: Owner assigns the custom role to the member
       const response = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member.id,
           roleId: role.id,
         },
@@ -90,7 +100,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: An organization with a member having a custom role already assigned
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -100,7 +120,7 @@ test.describe('Assign Custom Role', () => {
       // Create two custom roles
       const role1Response = await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'developer',
           permissions: ['read:code'],
         },
@@ -109,7 +129,7 @@ test.describe('Assign Custom Role', () => {
 
       const role2Response = await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'senior-developer',
           permissions: ['read:code', 'write:code', 'deploy:production'],
         },
@@ -129,7 +149,7 @@ test.describe('Assign Custom Role', () => {
 
       await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member.id,
           roleId: role1.id,
         },
@@ -138,7 +158,7 @@ test.describe('Assign Custom Role', () => {
       // WHEN: Owner assigns a different custom role to the same member
       const response = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member.id,
           roleId: role2.id,
         },
@@ -157,7 +177,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: An organization owner with a member but no custom role with the given ID
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -177,7 +207,7 @@ test.describe('Assign Custom Role', () => {
       // WHEN: Owner tries to assign a non-existent role ID
       const response = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member.id,
           roleId: 'nonexistent-role-id',
         },
@@ -195,7 +225,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: An organization with a member (not owner) and a custom role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -204,7 +244,7 @@ test.describe('Assign Custom Role', () => {
 
       const roleResponse = await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'custom-role',
           permissions: ['read:projects'],
         },
@@ -217,7 +257,7 @@ test.describe('Assign Custom Role', () => {
         password: 'Password123!',
         name: 'Member 1',
       })
-      const { member: member1 } = await addMember({
+      const { member: _member1 } = await addMember({
         organizationId: owner.organizationId!,
         userId: member1User.user.id,
       })
@@ -240,7 +280,7 @@ test.describe('Assign Custom Role', () => {
       // WHEN: Member1 tries to assign a role to Member2
       const response = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member2.id,
           roleId: role.id,
         },
@@ -256,7 +296,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: An organization owner with a custom role, and a user NOT in the organization
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -265,7 +315,7 @@ test.describe('Assign Custom Role', () => {
 
       const roleResponse = await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'custom-role',
           permissions: ['read:projects'],
         },
@@ -273,7 +323,7 @@ test.describe('Assign Custom Role', () => {
       const role = await roleResponse.json()
 
       // Create another user NOT in the organization
-      const outsider = await signUp({
+      await signUp({
         email: 'outsider@test.com',
         password: 'Password123!',
         name: 'Outsider',
@@ -282,7 +332,7 @@ test.describe('Assign Custom Role', () => {
       // WHEN: Owner tries to assign role to a user not in the organization
       const response = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: 'fake-member-id',
           roleId: role.id,
         },
@@ -300,7 +350,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: A server without authentication
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       // WHEN: Unauthenticated request to assign role
       const response = await request.post('/api/auth/organization/assign-role', {
@@ -321,7 +381,17 @@ test.describe('Assign Custom Role', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: An organization with custom roles and members
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -332,7 +402,7 @@ test.describe('Assign Custom Role', () => {
       const developerRole = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'developer',
             permissions: ['read:code', 'write:code'],
           },
@@ -342,7 +412,7 @@ test.describe('Assign Custom Role', () => {
       const qaRole = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'qa',
             permissions: ['read:code', 'test:code'],
           },
@@ -365,7 +435,7 @@ test.describe('Assign Custom Role', () => {
       // WHEN: Owner assigns different roles to members
       const assignDev = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member1.id,
           roleId: developerRole.id,
         },
@@ -373,7 +443,7 @@ test.describe('Assign Custom Role', () => {
 
       const assignQA = await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member2.id,
           roleId: qaRole.id,
         },
@@ -393,7 +463,7 @@ test.describe('Assign Custom Role', () => {
       // Verify permissions can be checked
       const checkDevPermission = await request.post('/api/auth/organization/check-permission', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member1.id,
           permission: 'write:code',
         },
@@ -404,7 +474,7 @@ test.describe('Assign Custom Role', () => {
 
       const checkQAPermission = await request.post('/api/auth/organization/check-permission', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member2.id,
           permission: 'test:code',
         },

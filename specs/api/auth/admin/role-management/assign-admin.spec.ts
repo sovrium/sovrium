@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Assign Admin Role
@@ -18,13 +18,17 @@ test.describe('Assign Admin Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-ASSIGN-001: should return 200 OK when assigning admin role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, signUp, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
       // GIVEN: Server with admin plugin and admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
       await createAdmin({
@@ -46,19 +50,23 @@ test.describe('Assign Admin Role', () => {
       // THEN: Returns 200 OK
       expect(response.status()).toBe(200)
       const data = await response.json()
-      expect(data.user.role).toBe('admin')
+      expect((data.user as { role?: string }).role).toBe('admin')
     }
   )
   test.fixme(
     'API-AUTH-ADMIN-ASSIGN-002: should grant admin permissions to user',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, signUp, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
       // GIVEN: Server with admin plugin and users
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
       await createAdmin({
@@ -91,7 +99,11 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
       await signUp({
@@ -117,13 +129,17 @@ test.describe('Assign Admin Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-ASSIGN-004: should return 404 when user not found',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Server with admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
       await createAdmin({
@@ -150,7 +166,11 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
       const user = await signUp({
@@ -177,7 +197,11 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
 
@@ -193,13 +217,17 @@ test.describe('Assign Admin Role', () => {
   test.fixme(
     'API-AUTH-ADMIN-ASSIGN-007: admin can assign role and verify permissions apply',
     { tag: '@regression' },
-    async ({ startServerWithSchema, createAdmin, signUp, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
       // GIVEN: Server with admin plugin, admin user, and regular user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              roleManagement: {},
+            },
+          },
         },
       })
       await createAdmin({

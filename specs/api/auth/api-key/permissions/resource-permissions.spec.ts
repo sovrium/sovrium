@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for API Key Resource-Specific Permissions
@@ -24,7 +24,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 
@@ -63,7 +71,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 
@@ -106,7 +122,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 
@@ -149,7 +173,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 
@@ -198,7 +230,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 
@@ -240,7 +280,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 
@@ -275,7 +323,15 @@ test.describe('API Key Resource Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: {
+            apiKeys: {
+              resourcePermissions: {
+                posts: ['read', 'write', 'delete'],
+                comments: ['read', 'write'],
+                users: ['read', 'write'],
+              },
+            },
+          },
         },
       })
 

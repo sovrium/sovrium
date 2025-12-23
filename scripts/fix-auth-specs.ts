@@ -72,6 +72,7 @@ function addSpecIDs(content: string, filePath: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (line === undefined) continue
 
     if (line.includes('test.fixme(')) {
       // Check if it already has a spec ID
@@ -99,6 +100,10 @@ function addGivenWhenThen(content: string): string {
 
   while (i < lines.length) {
     const line = lines[i]
+    if (line === undefined) {
+      i++
+      continue
+    }
 
     // Check if this is a @spec test
     if (line.includes("tag: '@spec'")) {
@@ -106,23 +111,30 @@ function addGivenWhenThen(content: string): string {
       i++
 
       // Find the async function
-      while (i < lines.length && !lines[i].includes('async')) {
-        result.push(lines[i])
+      while (i < lines.length) {
+        const currentLine = lines[i]
+        if (currentLine === undefined) break
+        if (currentLine.includes('async')) break
+        result.push(currentLine)
         i++
       }
 
       if (i < lines.length) {
-        result.push(lines[i]) // async line
-        i++
+        const asyncLine = lines[i]
+        if (asyncLine !== undefined) {
+          result.push(asyncLine) // async line
+          i++
 
-        // Check if GIVEN comment already exists
-        const nextFewLines = lines.slice(i, i + 5).join('\n')
-        if (!nextFewLines.includes('// GIVEN:')) {
-          // Add GIVEN-WHEN-THEN structure
-          const indent = lines[i].match(/^\s*/)?.[0] || '    '
-          result.push(`${indent}// GIVEN: TODO: Describe preconditions`)
-          result.push(`${indent}// WHEN: TODO: Describe action`)
-          result.push(`${indent}// THEN: TODO: Describe expected outcome`)
+          // Check if GIVEN comment already exists
+          const nextFewLines = lines.slice(i, i + 5).join('\n')
+          if (!nextFewLines.includes('// GIVEN:')) {
+            // Add GIVEN-WHEN-THEN structure
+            const nextLine = lines[i]
+            const indent = nextLine?.match(/^\s*/)?.[0] ?? '    '
+            result.push(`${indent}// GIVEN: TODO: Describe preconditions`)
+            result.push(`${indent}// WHEN: TODO: Describe action`)
+            result.push(`${indent}// THEN: TODO: Describe expected outcome`)
+          }
         }
       }
     } else {

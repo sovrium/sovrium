@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Remove Member from Team
@@ -29,7 +29,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: Team with a member
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
 
       await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
@@ -40,16 +47,13 @@ test.describe('Remove Team Member', () => {
       })
       const { id: teamId } = await teamResponse.json()
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
       })
       await signUp({ email: 'member@example.com', password: 'Pass123!', name: 'Member' })
-      const memberAccept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      const memberAccept = await acceptInvitation(invitation.id)
 
       await page.request.post('/api/auth/organization/add-team-member', {
         data: { teamId, userId: memberAccept.member.userId },
@@ -72,7 +76,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: Organization with team and members, non-owner trying to remove
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
@@ -87,7 +98,7 @@ test.describe('Remove Team Member', () => {
         password: 'Pass123!',
         name: 'Member 1',
       })
-      const { member: m1 } = await addMember({
+      await addMember({
         organizationId: organization.id,
         userId: member1Response.user.id,
         role: 'member',
@@ -129,7 +140,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: Team with no members
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
@@ -168,7 +186,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: User with organization but non-existent team
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
       await createOrganization({ name: 'Company', slug: 'company' })
@@ -189,7 +214,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: User with team
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
@@ -227,7 +259,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: Server without authentication
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
 
       // WHEN: Unauthenticated request to remove team member
@@ -246,7 +285,14 @@ test.describe('Remove Team Member', () => {
       // GIVEN: Organization with team and multiple members
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { organization: true } },
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
+        },
       })
       await signUp({ email: 'owner@example.com', password: 'Pass123!', name: 'Owner' })
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })

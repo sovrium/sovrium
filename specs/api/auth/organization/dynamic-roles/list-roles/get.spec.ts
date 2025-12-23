@@ -20,7 +20,17 @@ test.describe('List Roles', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with custom roles created
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -29,7 +39,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'editor',
           permissions: ['read:articles', 'write:articles'],
         },
@@ -37,7 +47,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'viewer',
           permissions: ['read:articles'],
         },
@@ -46,7 +56,7 @@ test.describe('List Roles', () => {
       // WHEN: Request list of roles
       const response = await request.get('/api/auth/organization/list-roles', {
         params: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
         },
       })
 
@@ -70,7 +80,17 @@ test.describe('List Roles', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with custom role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -79,7 +99,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'editor',
           permissions: ['read:articles', 'write:articles', 'delete:drafts'],
         },
@@ -88,7 +108,7 @@ test.describe('List Roles', () => {
       // WHEN: Request list of roles
       const response = await request.get('/api/auth/organization/list-roles', {
         params: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
         },
       })
 
@@ -107,7 +127,17 @@ test.describe('List Roles', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Two organizations with different custom roles
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       const org1Owner = await createAuthenticatedUser({
         email: 'org1-owner@test.com',
@@ -117,7 +147,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: org1Owner.organizationId,
+          organizationId: org1Owner.organizationId!,
           name: 'org1-editor',
           permissions: ['read:articles'],
         },
@@ -131,7 +161,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: org2Owner.organizationId,
+          organizationId: org2Owner.organizationId!,
           name: 'org2-editor',
           permissions: ['read:docs'],
         },
@@ -140,7 +170,7 @@ test.describe('List Roles', () => {
       // WHEN: Request roles for org1
       const response = await request.get('/api/auth/organization/list-roles', {
         params: {
-          organizationId: org1Owner.organizationId,
+          organizationId: org1Owner.organizationId!,
         },
       })
 
@@ -159,7 +189,17 @@ test.describe('List Roles', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Two separate organizations
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       const org1Owner = await createAuthenticatedUser({
         email: 'org1-owner@test.com',
@@ -176,10 +216,10 @@ test.describe('List Roles', () => {
       // WHEN: org2User tries to list roles from org1
       const response = await request.get('/api/auth/organization/list-roles', {
         params: {
-          organizationId: org1Owner.organizationId,
+          organizationId: org1Owner.organizationId!,
         },
         headers: {
-          Authorization: `Bearer ${org2User.session.token}`,
+          Authorization: `Bearer ${org2User.session!.token}`,
         },
       })
 
@@ -193,7 +233,17 @@ test.describe('List Roles', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Authenticated user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -213,7 +263,17 @@ test.describe('List Roles', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: Server without authentication
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       // WHEN: Unauthenticated request to list roles
       const response = await request.get('/api/auth/organization/list-roles', {
@@ -232,7 +292,17 @@ test.describe('List Roles', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with multiple custom roles and a member user
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -242,7 +312,7 @@ test.describe('List Roles', () => {
       // Create multiple custom roles
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'admin-editor',
           permissions: ['read:all', 'write:all', 'delete:all'],
         },
@@ -250,7 +320,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'content-editor',
           permissions: ['read:articles', 'write:articles', 'read:media', 'upload:media'],
         },
@@ -258,7 +328,7 @@ test.describe('List Roles', () => {
 
       await request.post('/api/auth/organization/create-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'viewer',
           permissions: ['read:articles', 'read:media'],
         },
@@ -279,10 +349,10 @@ test.describe('List Roles', () => {
       // WHEN: Member requests list of all roles
       const response = await request.get('/api/auth/organization/list-roles', {
         params: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
         },
         headers: {
-          Authorization: `Bearer ${memberUser.session.token}`,
+          Authorization: `Bearer ${memberUser.session!.token}`,
         },
       })
 

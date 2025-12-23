@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Delete Team
@@ -32,7 +32,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -91,7 +95,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -116,7 +124,7 @@ test.describe('Delete Team', () => {
       const { id: teamId } = await createResponse.json()
 
       // Add member to team
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -128,10 +136,7 @@ test.describe('Delete Team', () => {
         name: 'Member User',
       })
 
-      const memberAccept = await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      const memberAccept = await acceptInvitation(invitation.id)
 
       await page.request.post('/api/auth/organization/add-team-member', {
         data: {
@@ -173,7 +178,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -197,7 +206,7 @@ test.describe('Delete Team', () => {
 
       const { id: teamId } = await createResponse.json()
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -209,10 +218,7 @@ test.describe('Delete Team', () => {
         name: 'Member User',
       })
 
-      await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      await acceptInvitation(invitation.id)
 
       // WHEN: Member tries to delete team
       const response = await page.request.delete('/api/auth/organization/delete-team', {
@@ -239,7 +245,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -279,7 +289,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -317,7 +331,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -357,7 +375,11 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -397,7 +419,7 @@ test.describe('Delete Team', () => {
       for (let i = 1; i <= 2; i++) {
         const email = `member${i}@example.com`
 
-        await inviteMember({
+        const { invitation } = await inviteMember({
           organizationId: organization.id,
           email,
           role: 'member',
@@ -409,10 +431,7 @@ test.describe('Delete Team', () => {
           name: `Member ${i}`,
         })
 
-        const memberAccept = await acceptInvitation({
-          organizationId: organization.id,
-          email,
-        })
+        const memberAccept = await acceptInvitation(invitation.id)
 
         await page.request.post('/api/auth/organization/add-team-member', {
           data: {

@@ -29,7 +29,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: ['example.com', 'company.org'],
         },
       })
@@ -37,7 +37,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN: Owner invites user with allowed domain
       const response = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'newuser@example.com',
           role: 'member',
         },
@@ -62,7 +62,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: ['example.com'],
         },
       })
@@ -70,7 +70,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN: Owner tries to invite user from disallowed domain
       const response = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'outsider@unauthorized.com',
           role: 'member',
         },
@@ -97,7 +97,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: ['*.company.com'],
         },
       })
@@ -105,7 +105,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN: Owner invites users from subdomain
       const response1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user@engineering.company.com',
           role: 'member',
         },
@@ -113,7 +113,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const response2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user@sales.company.com',
           role: 'member',
         },
@@ -139,7 +139,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: ['company1.com', 'company2.com', 'partner.org'],
         },
       })
@@ -147,7 +147,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN: Owner invites users from different allowed domains
       const response1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user1@company1.com',
           role: 'member',
         },
@@ -155,7 +155,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const response2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user2@company2.com',
           role: 'member',
         },
@@ -163,7 +163,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const response3 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user3@partner.org',
           role: 'member',
         },
@@ -191,7 +191,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN: Owner tries to configure invalid domain formats
       const response = await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: ['invalid domain', '@example.com', 'http://example.com'],
         },
       })
@@ -218,7 +218,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // Ensure allowedDomains is empty or null
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: [],
         },
       })
@@ -226,7 +226,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN: Owner invites users from any domain
       const response1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user@anydomain1.com',
           role: 'member',
         },
@@ -234,7 +234,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const response2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user@anydomain2.org',
           role: 'member',
         },
@@ -260,7 +260,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           allowedDomains: ['company.com', '*.subsidiary.com'],
         },
       })
@@ -268,7 +268,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN/THEN: Invite users from allowed domains
       const allowedInvite1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user1@company.com',
           role: 'member',
         },
@@ -277,7 +277,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const allowedInvite2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user2@engineering.subsidiary.com',
           role: 'member',
         },
@@ -286,7 +286,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const allowedInvite3 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'user3@hr.subsidiary.com',
           role: 'admin',
         },
@@ -296,7 +296,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // WHEN/THEN: Reject users from disallowed domains
       const disallowedInvite1 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'outsider@competitor.com',
           role: 'member',
         },
@@ -305,7 +305,7 @@ test.describe('Organization Allowed Email Domains', () => {
 
       const disallowedInvite2 = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'external@partner.org',
           role: 'member',
         },
@@ -315,7 +315,7 @@ test.describe('Organization Allowed Email Domains', () => {
       // THEN: Verify domain restrictions are enforced consistently
       const invitations = await request
         .get('/api/auth/organization/list-invitations', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 

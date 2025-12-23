@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin Custom Resource:Action Permissions
@@ -18,7 +18,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-001: should define custom resource permissions',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Server with custom resource permissions configured
       await startServerWithSchema({
         name: 'test-app',
@@ -55,7 +55,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-002: should support multiple actions per resource',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user with multiple custom permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +99,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-003: should enforce resource:action format',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +138,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-004: should allow wildcard actions',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user with wildcard permission
       await startServerWithSchema({
         name: 'test-app',
@@ -185,7 +185,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-005: should deny access without explicit permission',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: User without specific permission
       await startServerWithSchema({
         name: 'test-app',
@@ -221,7 +221,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-006: should validate action against allowed actions',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
   test.fixme(
     'API-AUTH-ADMIN-CUSTOM-PERM-007: system can manage custom permissions across resources',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createAdmin, page }) => {
+    async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin and multiple users with varied permissions
       await startServerWithSchema({
         name: 'test-app',

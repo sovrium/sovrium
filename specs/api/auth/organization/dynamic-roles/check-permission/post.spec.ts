@@ -20,7 +20,17 @@ test.describe('Check Permission', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with custom role and member assigned that role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -76,7 +86,17 @@ test.describe('Check Permission', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with custom role and member assigned that role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -132,7 +152,17 @@ test.describe('Check Permission', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with custom role using resource:action permission format
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -188,7 +218,17 @@ test.describe('Check Permission', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with hierarchical roles (admin inherits member permissions)
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -255,7 +295,17 @@ test.describe('Check Permission', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with a member
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -293,7 +343,17 @@ test.describe('Check Permission', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: Server without authentication
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       // WHEN: Unauthenticated request to check permission
       const response = await request.post('/api/auth/organization/check-permission', {
@@ -314,7 +374,17 @@ test.describe('Check Permission', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with multiple roles and members
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',

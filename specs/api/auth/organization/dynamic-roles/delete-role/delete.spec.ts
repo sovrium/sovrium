@@ -20,7 +20,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with a custom role created
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -30,7 +40,7 @@ test.describe('Delete Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles', 'write:articles'],
           },
@@ -40,7 +50,7 @@ test.describe('Delete Custom Role', () => {
       // WHEN: Owner deletes the custom role
       const response = await request.delete('/api/auth/organization/delete-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
         },
       })
@@ -55,7 +65,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with default roles
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -65,7 +85,7 @@ test.describe('Delete Custom Role', () => {
       // Get default roles
       const roles = await request
         .get('/api/auth/organization/list-roles', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -74,7 +94,7 @@ test.describe('Delete Custom Role', () => {
       // WHEN: Try to delete a default role
       const response = await request.delete('/api/auth/organization/delete-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: ownerRole.id,
         },
       })
@@ -91,7 +111,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with custom role assigned to a member
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -101,7 +131,7 @@ test.describe('Delete Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles', 'write:articles'],
           },
@@ -121,7 +151,7 @@ test.describe('Delete Custom Role', () => {
 
       await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: member.id,
           roleId: role.id,
         },
@@ -130,7 +160,7 @@ test.describe('Delete Custom Role', () => {
       // WHEN: Owner deletes the role
       await request.delete('/api/auth/organization/delete-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
         },
       })
@@ -138,7 +168,7 @@ test.describe('Delete Custom Role', () => {
       // THEN: Member should be reverted to default 'member' role
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -152,7 +182,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with custom role and an admin member
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -162,7 +202,7 @@ test.describe('Delete Custom Role', () => {
       const role = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles'],
           },
@@ -184,11 +224,11 @@ test.describe('Delete Custom Role', () => {
       // WHEN: Admin tries to delete role (not owner)
       const response = await request.delete('/api/auth/organization/delete-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: role.id,
         },
         headers: {
-          Authorization: `Bearer ${adminUser.session.token}`,
+          Authorization: `Bearer ${adminUser.session!.token}`,
         },
       })
 
@@ -202,7 +242,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization without the specified role
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -212,7 +262,7 @@ test.describe('Delete Custom Role', () => {
       // WHEN: Try to delete non-existent role
       const response = await request.delete('/api/auth/organization/delete-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: 'non-existent-role-id',
         },
       })
@@ -227,7 +277,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: Server without authentication
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
 
       // WHEN: Unauthenticated request to delete role
       const response = await request.delete('/api/auth/organization/delete-role', {
@@ -247,7 +307,17 @@ test.describe('Delete Custom Role', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with multiple custom roles and members
-      await startServerWithSchema({ name: 'test-app' })
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
+        },
+      })
       const owner = await createAuthenticatedUser({
         email: 'owner@test.com',
         password: 'Password123!',
@@ -258,7 +328,7 @@ test.describe('Delete Custom Role', () => {
       const editorRole = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'editor',
             permissions: ['read:articles', 'write:articles'],
           },
@@ -268,7 +338,7 @@ test.describe('Delete Custom Role', () => {
       const viewerRole = await request
         .post('/api/auth/organization/create-role', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             name: 'viewer',
             permissions: ['read:articles'],
           },
@@ -288,7 +358,7 @@ test.describe('Delete Custom Role', () => {
 
       await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: editorMember.id,
           roleId: editorRole.id,
         },
@@ -306,7 +376,7 @@ test.describe('Delete Custom Role', () => {
 
       await request.post('/api/auth/organization/assign-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           memberId: viewerMember.id,
           roleId: viewerRole.id,
         },
@@ -315,7 +385,7 @@ test.describe('Delete Custom Role', () => {
       // WHEN: Owner deletes the editor role
       const deleteResponse = await request.delete('/api/auth/organization/delete-role', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           roleId: editorRole.id,
         },
       })
@@ -326,7 +396,7 @@ test.describe('Delete Custom Role', () => {
       // THEN: Editor member should be reverted to default 'member' role
       const members = await request
         .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -340,7 +410,7 @@ test.describe('Delete Custom Role', () => {
       // THEN: Role should no longer exist in roles list
       const roles = await request
         .get('/api/auth/organization/list-roles', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 

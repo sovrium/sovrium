@@ -30,7 +30,7 @@ test.describe('Organization Metadata', () => {
       // WHEN: Update organization with metadata
       const response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             industry: 'technology',
             companySize: '50-100',
@@ -64,7 +64,7 @@ test.describe('Organization Metadata', () => {
 
       await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             industry: 'technology',
             companySize: '10-50',
@@ -75,7 +75,7 @@ test.describe('Organization Metadata', () => {
       // WHEN: Update metadata with new values
       const response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             industry: 'finance',
             companySize: '50-100',
@@ -107,7 +107,7 @@ test.describe('Organization Metadata', () => {
 
       await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             industry: 'healthcare',
             tier: 'premium',
@@ -117,7 +117,7 @@ test.describe('Organization Metadata', () => {
 
       // WHEN: Fetch organization details
       const response = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: owner.organizationId },
+        params: { organizationId: owner.organizationId! },
       })
 
       // THEN: Response should include metadata
@@ -144,7 +144,7 @@ test.describe('Organization Metadata', () => {
       // WHEN: Update with nested metadata
       const response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             company: {
               name: 'Acme Corp',
@@ -184,7 +184,7 @@ test.describe('Organization Metadata', () => {
       // WHEN: Update with invalid metadata (assuming required fields)
       const response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             invalidField: 'should not be allowed',
           },
@@ -263,7 +263,7 @@ test.describe('Organization Metadata', () => {
       // WHEN/THEN: Set initial metadata
       const createResponse = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             industry: 'technology',
             companySize: '10-50',
@@ -276,7 +276,7 @@ test.describe('Organization Metadata', () => {
       // WHEN/THEN: Update metadata
       const updateResponse = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             industry: 'technology',
             companySize: '50-100',
@@ -289,7 +289,7 @@ test.describe('Organization Metadata', () => {
 
       // WHEN/THEN: Retrieve and verify metadata
       const getResponse = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: owner.organizationId },
+        params: { organizationId: owner.organizationId! },
       })
       expect(getResponse.status()).toBe(200)
       const org = await getResponse.json()
@@ -300,7 +300,7 @@ test.describe('Organization Metadata', () => {
       // WHEN/THEN: Partial metadata update
       const partialUpdate = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           metadata: {
             ...org.metadata,
             tier: 'enterprise',
@@ -311,7 +311,7 @@ test.describe('Organization Metadata', () => {
 
       const finalOrg = await request
         .get('/api/auth/organization/get-details', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 

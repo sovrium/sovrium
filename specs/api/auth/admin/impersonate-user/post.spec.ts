@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin: Impersonate user
@@ -43,7 +43,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -83,7 +87,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -111,7 +119,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -136,7 +148,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -172,7 +188,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -205,7 +225,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -232,7 +256,11 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          plugins: {
+            admin: {
+              impersonation: true,
+            },
+          },
         },
       })
 
@@ -268,7 +296,11 @@ test.describe('Admin: Impersonate user', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: true },
+            plugins: {
+              admin: {
+                impersonation: true,
+              },
+            },
           },
         })
       })

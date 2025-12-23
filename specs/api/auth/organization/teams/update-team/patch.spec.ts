@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Update Team
@@ -32,7 +32,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -93,7 +97,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -151,7 +159,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -175,7 +187,7 @@ test.describe('Update Team', () => {
 
       const { id: teamId } = await createResponse.json()
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -187,10 +199,7 @@ test.describe('Update Team', () => {
         name: 'Member User',
       })
 
-      await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      await acceptInvitation(invitation.id)
 
       // WHEN: Member tries to update team
       const response = await page.request.patch('/api/auth/organization/update-team', {
@@ -218,7 +227,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -277,7 +290,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -318,7 +335,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -352,7 +373,11 @@ test.describe('Update Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for API Key Sliding Window Rate Limiting
@@ -25,10 +25,9 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 5,
-                windowMs: 10 * 1000, // 10 seconds
+                requestsPerMinute: 30, // 5 per 10 seconds = 30 per minute
               },
             },
           },
@@ -72,10 +71,9 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 3,
-                windowMs: 10 * 1000,
+                requestsPerMinute: 18, // 3 per 10 seconds = 18 per minute
               },
             },
           },
@@ -122,10 +120,9 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 2,
-                windowMs: 2000, // 2 seconds
+                requestsPerMinute: 60, // 2 per 2 seconds = 60 per minute
               },
             },
           },
@@ -178,11 +175,12 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
+                requestsPerMinute: 60,
                 scopes: {
-                  read: { max: 10, windowMs: 10 * 1000 },
-                  write: { max: 3, windowMs: 10 * 1000 },
+                  read: 60,
+                  write: 18,
                 },
               },
             },
@@ -259,10 +257,9 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 3,
-                windowMs: 5000, // 5 seconds sliding window
+                requestsPerMinute: 36, // 3 per 5 seconds = 36 per minute
               },
             },
           },
@@ -333,10 +330,9 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 5,
-                windowMs: 10 * 1000,
+                requestsPerMinute: 30, // 5 per 10 seconds = 30 per minute
               },
             },
           },
@@ -387,10 +383,9 @@ test.describe('API Key Sliding Window Rate Limiting', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
+            apiKeys: {
               rateLimit: {
-                max: 3,
-                windowMs: 10 * 1000,
+                requestsPerMinute: 18, // 3 per 10 seconds = 18 per minute
               },
             },
           },

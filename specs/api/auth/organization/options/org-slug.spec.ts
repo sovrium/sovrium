@@ -29,14 +29,14 @@ test.describe('Organization Slug Handling', () => {
 
       await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'Acme Corporation',
         },
       })
 
       // WHEN: Fetch organization details
       const response = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: owner.organizationId },
+        params: { organizationId: owner.organizationId! },
       })
 
       // THEN: Slug should be auto-generated from name
@@ -62,7 +62,7 @@ test.describe('Organization Slug Handling', () => {
       // WHEN: Update organization with custom slug
       const response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           name: 'Acme Corporation',
           slug: 'acme-corp',
         },
@@ -139,7 +139,7 @@ test.describe('Organization Slug Handling', () => {
       for (const invalidSlug of invalidSlugs) {
         const response = await request.patch('/api/auth/organization/update', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             slug: invalidSlug,
           },
         })
@@ -153,7 +153,7 @@ test.describe('Organization Slug Handling', () => {
       // WHEN: Set valid slug
       const validResponse = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           slug: 'valid-slug-123',
         },
       })
@@ -177,7 +177,7 @@ test.describe('Organization Slug Handling', () => {
 
       await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           slug: 'initial-slug',
         },
       })
@@ -185,7 +185,7 @@ test.describe('Organization Slug Handling', () => {
       // WHEN: Try to update slug
       const response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           slug: 'new-slug',
         },
       })
@@ -211,7 +211,7 @@ test.describe('Organization Slug Handling', () => {
 
       await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           slug: 'initial-slug',
         },
       })
@@ -231,11 +231,11 @@ test.describe('Organization Slug Handling', () => {
       // WHEN: Admin tries to update slug
       const adminResponse = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           slug: 'admin-new-slug',
         },
         headers: {
-          Authorization: `Bearer ${admin.session.token}`,
+          Authorization: `Bearer ${admin.session!.token}`,
         },
       })
 
@@ -245,7 +245,7 @@ test.describe('Organization Slug Handling', () => {
       // WHEN: Owner updates slug
       const ownerResponse = await request.patch('/api/auth/organization/update-slug', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           slug: 'owner-new-slug',
         },
       })
@@ -279,7 +279,7 @@ test.describe('Organization Slug Handling', () => {
       // WHEN/THEN: Set unique slugs
       const slug1Response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: org1.organizationId,
+          organizationId: org1.organizationId!,
           slug: 'company-one',
         },
       })
@@ -287,7 +287,7 @@ test.describe('Organization Slug Handling', () => {
 
       const slug2Response = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: org2.organizationId,
+          organizationId: org2.organizationId!,
           slug: 'company-two',
         },
       })
@@ -296,7 +296,7 @@ test.describe('Organization Slug Handling', () => {
       // WHEN/THEN: Attempt duplicate slug
       const duplicateResponse = await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: org2.organizationId,
+          organizationId: org2.organizationId!,
           slug: 'company-one',
         },
       })
@@ -311,14 +311,14 @@ test.describe('Organization Slug Handling', () => {
 
       await request.patch('/api/auth/organization/update', {
         data: {
-          organizationId: org3.organizationId,
+          organizationId: org3.organizationId!,
           name: 'Company One', // Same name as org1
         },
       })
 
       const org3Details = await request
         .get('/api/auth/organization/get-details', {
-          params: { organizationId: org3.organizationId },
+          params: { organizationId: org3.organizationId! },
         })
         .then((r) => r.json())
 

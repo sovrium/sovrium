@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for List Teams in Organization
@@ -32,7 +32,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -96,7 +100,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -134,7 +142,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -185,7 +197,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -231,7 +247,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -262,7 +282,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -300,7 +324,11 @@ test.describe('List Teams', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              teams: true,
+            },
+          },
         },
       })
 
@@ -332,7 +360,7 @@ test.describe('List Teams', () => {
       })
 
       // Invite and accept member
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -344,10 +372,7 @@ test.describe('List Teams', () => {
         name: 'Member User',
       })
 
-      await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      await acceptInvitation(invitation.id)
 
       // WHEN: Member lists teams
       const response = await page.request.get(

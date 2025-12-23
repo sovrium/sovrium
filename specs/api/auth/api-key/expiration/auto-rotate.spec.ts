@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for API Key Auto-Rotation
@@ -25,9 +25,10 @@ test.describe('API Key Auto-Rotation', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
-              autoRotate: true,
-              rotationWindow: 24 * 60 * 60 * 1000, // 24 hours before expiration
+            apiKeys: {
+              autoRotate: {
+                rotationWindow: 24 * 60 * 60 * 1000, // 24 hours before expiration
+              },
             },
           },
         },
@@ -73,9 +74,10 @@ test.describe('API Key Auto-Rotation', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
-              autoRotate: true,
-              gracePeriod: 7 * 24 * 60 * 60 * 1000, // 7 days
+            apiKeys: {
+              autoRotate: {
+                gracePeriod: 7 * 24 * 60 * 60 * 1000, // 7 days
+              },
             },
           },
         },
@@ -127,9 +129,10 @@ test.describe('API Key Auto-Rotation', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
-              autoRotate: true,
-              notifyOnRotation: true,
+            apiKeys: {
+              autoRotate: {
+                notifyOnRotation: true,
+              },
             },
           },
         },
@@ -172,9 +175,10 @@ test.describe('API Key Auto-Rotation', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
-              autoRotate: true,
-              gracePeriod: 0, // No grace period
+            apiKeys: {
+              autoRotate: {
+                gracePeriod: 1, // Minimal grace period (1ms, can't be 0 due to positive() constraint)
+              },
             },
           },
         },
@@ -226,7 +230,7 @@ test.describe('API Key Auto-Rotation', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: { autoRotate: true },
+            apiKeys: { autoRotate: true },
           },
         },
       })
@@ -281,7 +285,7 @@ test.describe('API Key Auto-Rotation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { apiKey: true },
+          plugins: { apiKeys: true },
         },
       })
 
@@ -328,9 +332,10 @@ test.describe('API Key Auto-Rotation', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKey: {
-              autoRotate: true,
-              gracePeriod: 7 * 24 * 60 * 60 * 1000,
+            apiKeys: {
+              autoRotate: {
+                gracePeriod: 7 * 24 * 60 * 60 * 1000,
+              },
             },
           },
         },

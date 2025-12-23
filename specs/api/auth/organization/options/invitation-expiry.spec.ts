@@ -29,7 +29,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           invitationExpiryHours: 1,
         },
       })
@@ -38,7 +38,7 @@ test.describe('Organization Invitation Expiry', () => {
       const invitation = await request
         .post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             email: 'newuser@example.com',
             role: 'member',
           },
@@ -78,7 +78,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           invitationExpiryHours: 1,
         },
       })
@@ -86,7 +86,7 @@ test.describe('Organization Invitation Expiry', () => {
       const invitation = await request
         .post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             email: 'newuser@example.com',
             role: 'member',
           },
@@ -113,7 +113,7 @@ test.describe('Organization Invitation Expiry', () => {
           invitationId: invitation.id,
         },
         headers: {
-          Authorization: `Bearer ${newUser.session.token}`,
+          Authorization: `Bearer ${newUser.session!.token}`,
         },
       })
 
@@ -138,7 +138,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           invitationExpiryHours: 24,
         },
       })
@@ -146,7 +146,7 @@ test.describe('Organization Invitation Expiry', () => {
       const invitation = await request
         .post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             email: 'newuser@example.com',
             role: 'member',
           },
@@ -252,7 +252,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           invitationExpiryHours: 1,
         },
       })
@@ -261,7 +261,7 @@ test.describe('Organization Invitation Expiry', () => {
       const invite1 = await request
         .post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             email: 'user1@example.com',
             role: 'member',
           },
@@ -271,7 +271,7 @@ test.describe('Organization Invitation Expiry', () => {
       const invite2 = await request
         .post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             email: 'user2@example.com',
             role: 'member',
           },
@@ -295,7 +295,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       // WHEN: Cleanup job runs
       const response = await request.post('/api/auth/organization/cleanup-expired-invitations', {
-        data: { organizationId: owner.organizationId },
+        data: { organizationId: owner.organizationId! },
       })
 
       // THEN: Expired invitations should be removed
@@ -306,7 +306,7 @@ test.describe('Organization Invitation Expiry', () => {
       // THEN: Invitations should no longer exist
       const invitations = await request
         .get('/api/auth/organization/list-invitations', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 
@@ -328,7 +328,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           invitationExpiryHours: 72, // 3 days
         },
       })
@@ -336,7 +336,7 @@ test.describe('Organization Invitation Expiry', () => {
       // WHEN: Owner creates an invitation
       const response = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'newuser@example.com',
           role: 'member',
         },
@@ -371,7 +371,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       await request.patch('/api/auth/organization/update-settings', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           invitationExpiryHours: 24,
         },
       })
@@ -379,7 +379,7 @@ test.describe('Organization Invitation Expiry', () => {
       // WHEN/THEN: Create invitation with expiry
       const createResponse = await request.post('/api/auth/organization/invite-member', {
         data: {
-          organizationId: owner.organizationId,
+          organizationId: owner.organizationId!,
           email: 'newuser@example.com',
           role: 'member',
         },
@@ -397,7 +397,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       const acceptResponse = await request.post('/api/auth/organization/accept-invitation', {
         data: { invitationId: invitation.id },
-        headers: { Authorization: `Bearer ${newUser.session.token}` },
+        headers: { Authorization: `Bearer ${newUser.session!.token}` },
       })
       expect(acceptResponse.status()).toBe(200)
 
@@ -405,7 +405,7 @@ test.describe('Organization Invitation Expiry', () => {
       const invite2 = await request
         .post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: owner.organizationId,
+            organizationId: owner.organizationId!,
             email: 'user2@example.com',
             role: 'admin',
           },
@@ -429,7 +429,7 @@ test.describe('Organization Invitation Expiry', () => {
 
       const expiredAccept = await request.post('/api/auth/organization/accept-invitation', {
         data: { invitationId: invite2.id },
-        headers: { Authorization: `Bearer ${user2.session.token}` },
+        headers: { Authorization: `Bearer ${user2.session!.token}` },
       })
       expect(expiredAccept.status()).toBe(400)
 
@@ -452,14 +452,14 @@ test.describe('Organization Invitation Expiry', () => {
       const cleanupResponse = await request.post(
         '/api/auth/organization/cleanup-expired-invitations',
         {
-          data: { organizationId: owner.organizationId },
+          data: { organizationId: owner.organizationId! },
         }
       )
       expect(cleanupResponse.status()).toBe(200)
 
       const invitations = await request
         .get('/api/auth/organization/list-invitations', {
-          params: { organizationId: owner.organizationId },
+          params: { organizationId: owner.organizationId! },
         })
         .then((r) => r.json())
 

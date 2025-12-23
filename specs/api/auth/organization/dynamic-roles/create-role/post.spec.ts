@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Create Custom Role at Runtime
@@ -32,7 +32,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
@@ -80,7 +84,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
@@ -137,7 +145,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
@@ -152,7 +164,7 @@ test.describe('Create Custom Role', () => {
         slug: 'test-company',
       })
 
-      await inviteMember({
+      const { invitation } = await inviteMember({
         organizationId: organization.id,
         email: 'member@example.com',
         role: 'member',
@@ -164,10 +176,7 @@ test.describe('Create Custom Role', () => {
         name: 'Member User',
       })
 
-      await acceptInvitation({
-        organizationId: organization.id,
-        email: 'member@example.com',
-      })
+      await acceptInvitation(invitation.id)
 
       // WHEN: Member tries to create a custom role
       const response = await page.request.post('/api/auth/organization/create-role', {
@@ -196,7 +205,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
@@ -237,7 +250,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
@@ -287,7 +304,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
@@ -322,7 +343,11 @@ test.describe('Create Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          plugins: {
+            organization: {
+              dynamicRoles: true,
+            },
+          },
         },
       })
 
