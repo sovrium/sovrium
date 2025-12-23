@@ -56,7 +56,7 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  * @returns Hono app with activity routes chained
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
-  honoApp.get('/api/activity', async (c) => {
+  return honoApp.get('/api/activity', async (c) => {
     const { session } = (c as ContextWithSession).var
 
     if (!session) {
@@ -83,7 +83,5 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
         500
       )
     }
-  })
-
-  return honoApp
+  }) as T
 }
