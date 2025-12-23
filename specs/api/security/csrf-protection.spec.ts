@@ -27,6 +27,11 @@ import { test, expect } from '@/specs/fixtures'
  * CSRF protection is critical for session-based authentication to prevent
  * attackers from performing unauthorized actions on behalf of authenticated users.
  *
+ * Error Response Structure:
+ * - CSRF errors: `{ error: string, message?: string }` - Generic API error format
+ * - Better Auth errors: `{ message: string }` - Authentication-specific format
+ * - See docs/architecture/testing-strategy/status-code-guidelines.md for details
+ *
  * Note: API key authentication is exempt from CSRF checks because:
  * 1. API keys are transmitted via header, not cookies (no ambient authority)
  * 2. API keys are for programmatic access, not browser-based sessions

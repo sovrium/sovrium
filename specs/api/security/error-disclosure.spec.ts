@@ -29,6 +29,12 @@ import { test, expect } from '@/specs/fixtures'
  * could use to understand system architecture and find vulnerabilities.
  * Hono's error handling middleware can be configured for secure responses.
  *
+ * Error Response Structure:
+ * - Generic API errors: `{ error: string }` - Used for security, system, and infrastructure errors
+ * - Better Auth errors: `{ message: string }` - Used for authentication/authorization errors
+ * - Both formats are valid depending on the endpoint and error type
+ * - See docs/architecture/testing-strategy/status-code-guidelines.md for details
+ *
  * See also:
  * - API-SECURITY-ERROR-004 tests generic auth error messages (prevents user enumeration)
  */
