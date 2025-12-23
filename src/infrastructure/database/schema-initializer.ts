@@ -241,7 +241,9 @@ const executeSchemaInit = (
                 const viewGeneratorsModule = yield* Effect.promise(
                   () => import('./view-generators')
                 )
-                yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
+                yield* Effect.promise(() =>
+                  viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables)
+                )
 
                 // Step 10: Create VIEWs for tables with lookup fields (after all base tables exist)
                 // This ensures lookup VIEWs can reference other tables without dependency issues
@@ -337,10 +339,14 @@ const executeSchemaInit = (
 /**
  * Check if schema checksum matches saved checksum (fast path optimization)
  * Returns true if migration should be skipped, false otherwise
+ *
+ * IMPORTANT: Also verifies that expected tables actually exist.
+ * This prevents skipping migration when template databases have checksum but no tables.
  */
 const checkShouldSkipMigration = (
   databaseUrl: string,
-  currentChecksum: string
+  currentChecksum: string,
+  tables: readonly Table[]
 ): Effect.Effect<boolean, SchemaInitializationError> =>
   Effect.tryPromise({
     try: async () => {
@@ -351,16 +357,52 @@ const checkShouldSkipMigration = (
           `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
         )) as readonly { checksum: string }[]
 
-        if (result.length > 0 && result[0]?.checksum === currentChecksum) {
+        // Early return if checksum doesn't match
+        if (result.length === 0 || result[0]?.checksum !== currentChecksum) {
           logInfo(
-            '[checkShouldSkipMigration] Schema checksum matches - skipping migration (fast path)'
+            '[checkShouldSkipMigration] Schema checksum differs or missing - running full migration'
+          )
+          return false
+        }
+
+        // Checksum matches, but verify tables actually exist
+        // This prevents skipping migration when template DBs have checksum but no tables
+        if (tables.length === 0) {
+          logInfo(
+            '[checkShouldSkipMigration] Schema checksum matches and no tables expected - skipping migration (fast path)'
           )
           return true
         }
+
+        // Check if the first table exists (as a sanity check)
+        // Note: Table names come from validated schema, not user input (see SECURITY NOTE above)
+        const firstTableName = tables[0]?.name
+        if (!firstTableName) {
+          logInfo(
+            '[checkShouldSkipMigration] Schema checksum matches and tables verified - skipping migration (fast path)'
+          )
+          return true
+        }
+
+        const tableCheck = (await quickDb.unsafe(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name = '${firstTableName}'
+          )
+        `)) as readonly { exists: boolean }[]
+
+        if (!tableCheck[0]?.exists) {
+          logInfo(
+            `[checkShouldSkipMigration] Checksum matches but table '${firstTableName}' does not exist - running full migration (template DB detected)`
+          )
+          return false
+        }
+
         logInfo(
-          '[checkShouldSkipMigration] Schema checksum differs or missing - running full migration'
+          '[checkShouldSkipMigration] Schema checksum matches and tables verified - skipping migration (fast path)'
         )
-        return false
+        return true
       } catch {
         // Table might not exist yet (first run) - proceed with full migration
         logInfo('[checkShouldSkipMigration] Checksum table not found - running full migration')
@@ -439,7 +481,7 @@ const initializeSchemaInternal = (
 
     // Fast path: Check if schema checksum matches (before opening transaction)
     const currentChecksum = generateSchemaChecksum(app)
-    const shouldSkipMigration = yield* checkShouldSkipMigration(databaseUrlConfig, currentChecksum)
+    const shouldSkipMigration = yield* checkShouldSkipMigration(databaseUrlConfig, currentChecksum, tables)
 
     // Even if migration is skipped, we need to clean up obsolete views
     // Views might be created manually via SQL and need cleanup

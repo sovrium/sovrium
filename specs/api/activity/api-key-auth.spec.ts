@@ -130,7 +130,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-AUTH-003: should return 403 for viewer with valid Bearer token',
     { tag: '@spec' },
     async ({

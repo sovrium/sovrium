@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
 import { members } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
@@ -30,7 +30,8 @@ export class UserRoleService extends Context.Tag('UserRoleService')<
   UserRoleService,
   {
     readonly getUserRole: (
-      userId: string
+      userId: string,
+      organizationId?: string
     ) => Effect.Effect<string | undefined, UserRoleDatabaseError>
   }
 >() {}
@@ -45,13 +46,27 @@ export const UserRoleServiceLive = Layer.succeed(UserRoleService, {
    * Get user role from members table
    *
    * @param userId - User ID to look up
+   * @param organizationId - Optional organization ID to filter by
    * @returns Effect resolving to user role or undefined if not found
    */
-  getUserRole: (userId: string) =>
+  getUserRole: (userId: string, organizationId?: string) =>
     Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
-        try: () =>
-          db.select({ role: members.role }).from(members).where(eq(members.userId, userId)).limit(1),
+        try: async () => {
+          // Build query with optional organization filter
+          if (organizationId) {
+            return await db
+              .select({ role: members.role })
+              .from(members)
+              .where(and(eq(members.userId, userId), eq(members.organizationId, organizationId)))
+              .limit(1)
+          }
+          return await db
+            .select({ role: members.role })
+            .from(members)
+            .where(eq(members.userId, userId))
+            .limit(1)
+        },
         catch: (error) => new UserRoleDatabaseError({ cause: error }),
       })
 
