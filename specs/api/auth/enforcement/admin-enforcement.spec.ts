@@ -34,7 +34,7 @@ test.describe('Admin Permission Enforcement', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-001: should deny access to all admin endpoints for unauthenticated users',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
