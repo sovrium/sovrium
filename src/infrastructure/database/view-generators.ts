@@ -175,11 +175,13 @@ const viewBelongsToTable = (viewName: string, tableName: string): boolean => {
   const normalizedTableName = tableName.replace(/_/g, '')
   if (viewName.startsWith(normalizedTableName)) return true
 
-  // Check if view name contains singular form (remove trailing 's')
+  // Check if view name starts with singular form (remove trailing 's')
   // e.g., "users" → "user", so "user_orders" matches "users"
+  // ONLY match at the start to avoid ambiguous matches
+  // e.g., "user_orders" matches "users" but "employee_orders" does NOT match "orders"
   if (tableName.endsWith('s')) {
     const singular = tableName.slice(0, -1)
-    if (viewName.includes(singular)) return true
+    if (viewName.startsWith(singular)) return true
   }
 
   return false
