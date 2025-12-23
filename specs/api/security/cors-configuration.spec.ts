@@ -215,7 +215,7 @@ test.describe('CORS Configuration - Cross-Origin Resource Sharing', () => {
 
       // Reasonable max age (e.g., at least 1 hour, up to 24 hours)
       expect(maxAgeSeconds).toBeGreaterThanOrEqual(3600)
-      expect(maxAgeSeconds).toBeLessThanOrEqual(86400)
+      expect(maxAgeSeconds).toBeLessThanOrEqual(86_400)
     }
   )
 

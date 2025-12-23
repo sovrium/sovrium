@@ -447,8 +447,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
       })
 
       await test.step('Setup: Create admin and regular users', async () => {
-        const admin = await createAuthenticatedAdmin()
-        adminId = admin.user.id
+        await createAuthenticatedAdmin()
 
         const userA = await createAuthenticatedUser({
           email: 'userA@example.com',

@@ -330,7 +330,7 @@ test.describe('Error Disclosure - Secure Error Responses', () => {
 
       await test.step('Verify: Validation errors are helpful but safe', async () => {
         const response = await request.post('/api/tables/1/records', {
-          data: { value: 12345 }, // Wrong type
+          data: { value: 12_345 }, // Wrong type
         })
 
         // Should return validation error without internal details
