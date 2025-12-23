@@ -51,7 +51,7 @@ test.describe('Disabled Auth Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-002: should return 404 for sign-in endpoint when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
