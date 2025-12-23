@@ -105,7 +105,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-003: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
