@@ -303,7 +303,7 @@ test.describe('Database Views Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-005: should refresh materialized view',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -336,6 +336,9 @@ test.describe('Database Views Migration', () => {
         `INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00)`,
       ])
 
+      // Refresh materialized view to populate it with initial data
+      await executeQuery(`REFRESH MATERIALIZED VIEW order_stats`)
+
       // Add new order (stale data in materialized view)
       await executeQuery(`INSERT INTO orders (customer_id, amount) VALUES (1, 200.00)`)
 
@@ -343,7 +346,7 @@ test.describe('Database Views Migration', () => {
       const staleStats = await executeQuery(
         `SELECT order_count FROM order_stats WHERE customer_id = 1`
       )
-      expect(staleStats.order_count).toBe(2) // Still 2, not 3
+      expect(staleStats.order_count).toBe('2') // Still 2, not 3
 
       // WHEN: refresh triggered via schema metadata or manual command
       await startServerWithSchema({
@@ -376,7 +379,7 @@ test.describe('Database Views Migration', () => {
       const freshStats = await executeQuery(
         `SELECT order_count, total_amount FROM order_stats WHERE customer_id = 1`
       )
-      expect(freshStats.order_count).toBe(3)
+      expect(freshStats.order_count).toBe('3')
       expect(parseFloat(freshStats.total_amount)).toBe(450.0)
     }
   )
