@@ -27,10 +27,18 @@ const usedVerificationTokens = new Set<string>()
  * - Credentials for cookie-based authentication
  * - Common headers and methods
  *
+ * If no auth configuration is provided in the app, middleware is not applied.
+ *
  * @param honoApp - Hono application instance
- * @returns Hono app with CORS middleware configured
+ * @param app - Application configuration with auth settings
+ * @returns Hono app with CORS middleware configured (or unchanged if auth is disabled)
  */
-export function setupAuthMiddleware(honoApp: Readonly<Hono>): Readonly<Hono> {
+export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
+  // If no auth config is provided, don't apply CORS middleware
+  if (!app?.auth) {
+    return honoApp
+  }
+
   return honoApp.use(
     '/api/auth/*',
     cors({
@@ -63,14 +71,23 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>): Readonly<Hono> {
  * IMPORTANT: Better Auth instance is created once per app configuration and reused
  * across all requests to maintain internal state consistency.
  *
+ * If no auth configuration is provided, no auth routes are registered and all
+ * /api/auth/* requests will return 404 Not Found.
+ *
  * @param honoApp - Hono application instance
  * @param app - Application configuration with auth settings
- * @returns Hono app with auth routes configured
+ * @returns Hono app with auth routes configured (or unchanged if auth is disabled)
  */
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
+  // If no auth config is provided, don't register any auth routes
+  // This causes all /api/auth/* requests to return 404 (not found)
+  if (!app?.auth) {
+    return honoApp
+  }
+
   // Create Better Auth instance with app-specific configuration (once per app startup)
   // This instance is reused across all requests to maintain internal state
-  const authInstance = createAuthInstance(app?.auth)
+  const authInstance = createAuthInstance(app.auth)
 
   // Wrap verify-email to enforce single-use tokens
   const wrappedApp = honoApp.get('/api/auth/verify-email', async (c) => {
