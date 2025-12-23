@@ -10,6 +10,7 @@ import { generateSqlCondition } from './filter-operators'
 import {
   getExistingViews,
   getExistingMaterializedViews,
+  executeSQLStatements,
   executeSQLStatementsParallel,
   type TransactionLike,
 } from './sql-execution'
@@ -204,12 +205,12 @@ const findObsoleteViews = (
 
 /**
  * Drop views that no longer exist in the schema
- * This is called before creating views to ensure clean state
+ * Called once for all tables to ensure clean state before creating views
  */
 /* eslint-disable functional/no-expression-statements */
 export const generateDropObsoleteViewsSQL = async (
   tx: TransactionLike,
-  table: Table
+  tables: readonly Table[]
 ): Promise<void> => {
   // Get existing views using Effect-based queries
   const program = Effect.gen(function* () {
@@ -221,12 +222,20 @@ export const generateDropObsoleteViewsSQL = async (
 
     const existingViews = new Set(existingViewNames)
     const existingMatViews = new Set(existingMatViewNames)
-    // Convert view IDs to strings (ViewId can be number or string)
-    const schemaViews = new Set((table.views || []).map((v) => String(v.id)))
 
-    // Find views to drop using shared logic
-    const viewsToDrop = findObsoleteViews(existingViews, schemaViews, table.name)
-    const matViewsToDrop = findObsoleteViews(existingMatViews, schemaViews, table.name)
+    // Collect ALL view IDs from schema (across all tables)
+    const allSchemaViewIds = new Set<string>()
+    for (const table of tables) {
+      if (table.views && table.views.length > 0) {
+        for (const view of table.views) {
+          allSchemaViewIds.add(String(view.id))
+        }
+      }
+    }
+
+    // Find views to drop: exist in DB but not in schema
+    const viewsToDrop = Array.from(existingViews).filter((viewName) => !allSchemaViewIds.has(viewName))
+    const matViewsToDrop = Array.from(existingMatViews).filter((viewName) => !allSchemaViewIds.has(viewName))
 
     // Generate DROP statements
     const dropViewStatements = viewsToDrop.map(
@@ -236,8 +245,11 @@ export const generateDropObsoleteViewsSQL = async (
       (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`
     )
 
-    // Execute all DROP statements in parallel
-    yield* executeSQLStatementsParallel(tx, [...dropViewStatements, ...dropMatViewStatements])
+    // Execute all DROP statements sequentially (not in parallel)
+    // Sequential execution ensures CASCADE dependencies are handled correctly
+    // When dropping view A that view B depends on, CASCADE will drop B automatically
+    // If we then try to drop B, IF EXISTS makes it a no-op
+    yield* executeSQLStatements(tx, [...dropViewStatements, ...dropMatViewStatements])
   })
 
   await Effect.runPromise(program)
