@@ -241,7 +241,9 @@ const executeSchemaInit = (
                 const viewGeneratorsModule = yield* Effect.promise(
                   () => import('./view-generators')
                 )
-                yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
+                yield* Effect.promise(() =>
+                  viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables)
+                )
 
                 // Step 10: Create VIEWs for tables with lookup fields (after all base tables exist)
                 // This ensures lookup VIEWs can reference other tables without dependency issues

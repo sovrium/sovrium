@@ -19,7 +19,8 @@
  * - ADMIN specs: 4,000,000-4,999,999 (lowest priority, runs last)
  *
  * Within each domain:
- * - Features are grouped alphabetically
+ * - Features are grouped alphabetically (default)
+ * - API domain uses custom ordering: health → auth → tables → activity
  * - Individual tests: base + test number (001 → 1, 002 → 2, etc.)
  * - Regression tests: base + 900 (ensures they run last in their group)
  *
@@ -27,7 +28,10 @@
  * - APP-VERSION-001 → app/version
  * - APP-THEME-COLORS-001 → app/theme/colors
  * - MIG-ERROR-001 → mig/error
- * - API-PATHS-HEALTH-001 → api/paths/health
+ * - API-HEALTH-001 → api/health (runs first in API)
+ * - API-AUTH-SIGN-UP-POST-001 → api/auth/sign/up/post (runs after health)
+ * - API-TABLES-001 → api/tables (runs after auth)
+ * - API-ACTIVITY-001 → api/activity (runs after tables)
  * - ADMIN-TABLES-001 → admin/tables
  */
 
@@ -45,6 +49,26 @@ const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
   static: 2_000_000, // Runs after MIG specs (2,000,000-2,999,999)
   api: 3_000_000, // Runs after STATIC specs (3,000,000-3,999,999)
   admin: 4_000_000, // Runs after API specs (4,000,000-4,999,999)
+}
+
+/**
+ * Custom priority mapping for API domain features (overrides alphabetical ordering)
+ *
+ * API features should run in this specific order:
+ * 1. health (api/health/*) - Health checks run first
+ * 2. auth (api/auth/*) - Authentication before all other features
+ * 3. tables (api/tables) - Core data operations
+ * 4. activity (api/activity) - Activity tracking last
+ *
+ * Priority spacing accounts for maximum sub-path contribution (~56,000):
+ * - Level 2-5 max: 25*1000 + 25*100 + 25*1100 + 25*40 = 56,000
+ * - Each feature base must be > previous max (base + 56,000)
+ */
+const API_FEATURE_PRIORITIES: Record<string, number> = {
+  health: 0, // api/health/* (max: 56,000)
+  auth: 60_000, // api/auth/* (max: 116,000)
+  tables: 120_000, // api/tables (max: 176,000)
+  activity: 180_000, // api/activity (max: 236,000)
 }
 
 /**
@@ -139,15 +163,37 @@ function getAlphabeticalIndex(name: string): number {
  * - Level 5 multiplier (40) > test offset max (999/26) ensures all tests within
  *   a feature complete before the next feature starts
  *
+ * Special handling for API domain:
+ * - API features use custom priority mapping (health → auth → tables → activity)
+ * - Overrides alphabetical ordering for consistent API test execution order
+ *
  * Example: UPDATED-AT-006 runs before UPDATED-BY-001
  */
 function calculateFeaturePriority(featurePath: string): number {
   const pathParts = featurePath.split('/')
   let priority = 0
 
-  // Multipliers for each level (ensure total < 1 million)
-  // Level 4 (1100) > Level 5 max (25*40=1000) to prevent L4/L5 collisions
-  // Level 5 (40) ensures separation > max test offset per letter
+  // Check if this is an API domain path with custom priority
+  const isApiDomain = pathParts[0] === 'api'
+  const apiFeature = pathParts[1]
+
+  if (isApiDomain && apiFeature && apiFeature in API_FEATURE_PRIORITIES) {
+    // Use custom priority for API features (paths, auth, tables, activity)
+    priority = API_FEATURE_PRIORITIES[apiFeature]!
+
+    // Add remaining path segments (level 2+) with standard multipliers
+    const multipliers: number[] = [1000, 100, 1100, 40]
+    for (let i = 2; i < pathParts.length && i <= 5; i++) {
+      const part = pathParts[i] || ''
+      const partValue = getAlphabeticalIndex(part)
+      const multiplier = multipliers[i - 2] ?? 1
+      priority += partValue * multiplier
+    }
+
+    return priority
+  }
+
+  // Standard alphabetical ordering for non-API or unmapped API features
   const multipliers = [30_000, 1000, 100, 1100, 40]
 
   // Skip domain prefix (first part)
