@@ -163,7 +163,7 @@ test.describe('Database Views Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-VIEW-003: should alter view via drop and create',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -224,7 +224,7 @@ test.describe('Database Views Migration', () => {
       const viewColumns = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'user_summary' ORDER BY ordinal_position`
       )
-      expect(viewColumns.map((c: { column_name: string }) => c.column_name)).toEqual([
+      expect(viewColumns.rows.map((c: { column_name: string }) => c.column_name)).toEqual([
         'id',
         'name',
         'email',
