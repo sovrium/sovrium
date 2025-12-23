@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Authorization Enforcement - Access Control Vulnerabilities
  *
  * Domain: api/auth
- * Spec Count: 7
+ * Spec Count: 10
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (10 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests authorization bypass vulnerabilities that could allow:
@@ -22,9 +22,16 @@ import { test, expect } from '@/specs/fixtures'
  * - IDOR (Insecure Direct Object Reference) attacks
  * - Organization/tenant isolation bypass
  * - Role-based access control bypass
+ * - Field-level permission bypass
  *
  * These tests ensure that authorization checks are enforced at all API endpoints
  * and that users cannot access resources beyond their permission level.
+ *
+ * Related Tests:
+ * - specs/app/tables/permissions/organization-isolation.spec.ts (App Layer - RLS policy generation)
+ * - specs/app/tables/permissions/rls-enforcement.spec.ts (App Layer - database-level enforcement)
+ * - specs/api/auth/enforcement/admin-enforcement.spec.ts (API Layer - admin role enforcement)
+ * - specs/api/auth/enforcement/session-enforcement.spec.ts (API Layer - session isolation)
  *
  * See also:
  * - admin-enforcement.spec.ts (vertical privilege escalation, admin-only endpoints)
@@ -152,7 +159,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   test.fixme(
     'API-AUTH-ENFORCE-AUTHZ-003: should enforce organization isolation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Two organizations with separate data
       await startServerWithSchema({
         name: 'test-app',
@@ -160,8 +167,28 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
           emailAndPassword: true,
           plugins: { organization: true },
         },
-        tables: [],
+        tables: [
+          {
+            id: 1,
+            name: 'org_data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'data', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
+            ],
+            permissions: {
+              organizationScoped: true,
+            },
+          },
+        ],
       })
+
+      // Verify RLS policy exists as precondition
+      const rlsCheck = await executeQuery(
+        `SELECT COUNT(*) as count FROM pg_policies
+         WHERE tablename = 'org_data' AND cmd = 'SELECT'`
+      )
+      expect(Number(rlsCheck.rows[0].count)).toBeGreaterThan(0)
 
       // Create user in Org A
       await createAuthenticatedUser({
@@ -197,7 +224,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   test.fixme(
     'API-AUTH-ENFORCE-AUTHZ-004: should prevent role manipulation attacks',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: A regular user attempting to escalate their own role
       await startServerWithSchema({
         name: 'test-app',
@@ -205,8 +232,27 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
           emailAndPassword: true,
           plugins: { admin: true },
         },
-        tables: [],
+        tables: [
+          {
+            id: 1,
+            name: 'admin_data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'sensitive', type: 'single-line-text' },
+            ],
+            permissions: {
+              read: { type: 'roles', roles: ['admin'] },
+            },
+          },
+        ],
       })
+
+      // Verify RLS policy exists as precondition for role-based access
+      const rlsCheck = await executeQuery(
+        `SELECT COUNT(*) as count FROM pg_policies
+         WHERE tablename = 'admin_data' AND cmd = 'SELECT'`
+      )
+      expect(Number(rlsCheck.rows[0].count)).toBeGreaterThan(0)
 
       const regularUser = await createAuthenticatedUser({
         email: 'regular@example.com',
@@ -378,12 +424,156 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
+  test.fixme(
+    'API-AUTH-ENFORCE-AUTHZ-008: should filter sensitive fields from API responses based on permissions',
+    { tag: '@spec' },
+    async ({
+      request,
+      startServerWithSchema,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+    }) => {
+      // GIVEN: A table with field-level read restrictions (e.g., 'salary' field restricted to admin only)
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { admin: true },
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'email', type: 'email', required: true },
+              { id: 4, name: 'salary', type: 'number' },
+              { id: 5, name: 'ssn', type: 'single-line-text' },
+              { id: 6, name: 'owner_id', type: 'user' },
+            ],
+            permissions: {
+              fields: [
+                { field: 'salary', read: { type: 'roles', roles: ['admin'] } },
+                { field: 'ssn', read: { type: 'roles', roles: ['admin'] } },
+                { field: 'owner_id', read: { type: 'roles', roles: ['admin'] } },
+              ],
+            },
+          },
+        ],
+      })
+
+      // Create admin user and employee record
+      const adminUser = await createAuthenticatedAdmin()
+      const employeeResponse = await request.post('/api/tables/1/records', {
+        data: {
+          name: 'John Doe',
+          email: 'john@example.com',
+          salary: 85_000,
+          ssn: '123-45-6789',
+          owner_id: adminUser.user.id,
+        },
+      })
+      const employee = await employeeResponse.json()
+
+      // WHEN: Regular user requests the employee record
+      await createAuthenticatedUser({
+        email: 'regular@example.com',
+        name: 'Regular User',
+      })
+
+      const response = await request.get(`/api/tables/1/records/${employee.id}`)
+
+      // THEN: Response should exclude restricted fields (salary, ssn) OR return 403
+      if (response.status() === 200) {
+        const data = await response.json()
+        // Should include public fields
+        expect(data.name).toBe('John Doe')
+        expect(data.email).toBe('john@example.com')
+
+        // Should NOT include restricted fields
+        expect(data).not.toHaveProperty('salary')
+        expect(data).not.toHaveProperty('ssn')
+        expect(data).not.toHaveProperty('owner_id')
+      } else {
+        // Alternative: Return 403 for any field access denial
+        expect(response.status()).toBe(403)
+      }
+
+      // Verify admin can see all fields including owner_id
+      await createAuthenticatedAdmin()
+      const adminResponse = await request.get(`/api/tables/1/records/${employee.id}`)
+      expect(adminResponse.status()).toBe(200)
+      const adminData = await adminResponse.json()
+      expect(adminData.salary).toBe(85_000)
+      expect(adminData.ssn).toBe('123-45-6789')
+      expect(adminData.owner_id).toBe(adminUser.user.id)
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-ENFORCE-AUTHZ-009: should prevent cross-organization access to table records',
+    { tag: '@spec' },
+    async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
+      // GIVEN: User A in Organization A with a record in a table
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: { organization: true },
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'organization_id', type: 'single-line-text', required: true },
+            ],
+            permissions: {
+              organizationScoped: true,
+            },
+          },
+        ],
+      })
+
+      // Create User A in Organization A
+      await createAuthenticatedUser({ email: 'userA@example.com', name: 'User A' })
+      const orgA = await createOrganization({ name: 'Organization A' })
+
+      // Create project in Organization A
+      const projectResponse = await request.post('/api/tables/1/records', {
+        data: {
+          title: 'Organization A Project',
+          organization_id: orgA.organization.id,
+        },
+      })
+      const project = await projectResponse.json()
+
+      // AND: User B in Organization B authenticated
+      await createAuthenticatedUser({ email: 'userB@example.com', name: 'User B' })
+      await createOrganization({ name: 'Organization B' })
+
+      // WHEN: User B attempts to access User A's record via API
+      const response = await request.get(`/api/tables/1/records/${project.id}`)
+
+      // THEN: Should return 403 or 404 (not reveal record exists)
+      expect([403, 404]).toContain(response.status())
+
+      // Should not leak data in error response
+      const data = await response.json()
+      expect(data).not.toHaveProperty('title')
+      expect(JSON.stringify(data)).not.toContain('Organization A Project')
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ENFORCE-AUTHZ-008: authorization controls prevent privilege escalation and data leakage',
+    'API-AUTH-ENFORCE-AUTHZ-010: authorization controls prevent privilege escalation and data leakage',
     { tag: '@regression' },
     async ({
       page,

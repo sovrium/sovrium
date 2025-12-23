@@ -27,6 +27,10 @@ import { test, expect } from '@/specs/fixtures'
  * - Cross-user session isolation
  * - Session revocation enforcement
  * - Token refresh security
+ *
+ * Related Tests:
+ * - specs/app/tables/permissions/session-context.spec.ts (App Layer - PostgreSQL session variables)
+ * - specs/api/auth/get-session/ (API Layer - session retrieval API)
  */
 
 test.describe('Session Permission Enforcement', () => {
@@ -278,6 +282,8 @@ test.describe('Session Permission Enforcement', () => {
 
       // THEN: Session may be invalidated or flagged (depends on config)
       // At minimum, the session metadata should be logged for security
+      // 200 = session still valid (strict mode not implemented yet)
+      // 401 = strict binding enforced
       expect([200, 401]).toContain(response.status())
     }
   )

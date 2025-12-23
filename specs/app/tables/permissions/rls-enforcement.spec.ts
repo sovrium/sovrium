@@ -14,7 +14,7 @@ import { test, expect } from '@/specs/fixtures'
  * Spec Count: 11
  *
  * Test Organization:
- * 1. @spec tests - One per spec (8 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (11 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Enforcement Scenarios:
@@ -22,6 +22,9 @@ import { test, expect } from '@/specs/fixtures'
  * - Role-based access control (roles permission type)
  * - Field-level read restrictions
  * - Field-level write restrictions
+ *
+ * Related Tests:
+ * - specs/api/auth/enforcement/authorization-bypass.spec.ts (API-level enforcement)
  */
 
 test.describe('Row-Level Security Enforcement', () => {

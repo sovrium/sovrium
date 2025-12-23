@@ -14,7 +14,7 @@ import { test, expect } from '@/specs/fixtures'
  * Spec Count: 9
  *
  * Test Organization:
- * 1. @spec tests - One per spec (7 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (9 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Organization Isolation Scenarios:
@@ -22,6 +22,10 @@ import { test, expect } from '@/specs/fixtures'
  * - Organization-scoped queries
  * - Organization member permissions
  * - Multi-tenant data isolation
+ *
+ * Related Tests:
+ * - specs/api/auth/organization/ (API Layer - API endpoint functionality)
+ * - specs/api/auth/enforcement/authorization-bypass.spec.ts (API Layer - API security)
  */
 
 test.describe('Organization Data Isolation', () => {

@@ -443,7 +443,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
           expect(error).toHaveProperty('error')
         }
 
-        // Response must always be JSON
+        // THEN: Response must always be JSON (prevent HTML rendering)
         expect(response.headers()['content-type']).toContain('application/json')
       }
     }
@@ -501,7 +501,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
           expect([200, 400, 401, 403]).toContain(response.status())
         }
 
-        // All responses must be JSON
+        // THEN: All responses must be JSON (prevent HTML rendering)
         expect(response.headers()['content-type']).toContain('application/json')
       }
     }

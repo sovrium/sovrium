@@ -511,6 +511,8 @@ test.describe('SQL Injection Prevention', () => {
         const response = await request.get(
           `/api/tables/1/records?filter[name]=${encodeURIComponent("' OR '1'='1")}`
         )
+
+        // THEN: Should reject injection OR safely handle it
         expect([200, 400]).toContain(response.status())
 
         if (response.status() === 200) {

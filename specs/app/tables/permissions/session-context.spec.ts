@@ -23,6 +23,10 @@ import { test, expect } from '@/specs/fixtures'
  * - Organization isolation enforced via session context
  * - Role-based permissions work via session context
  * - Session context cleared after transaction
+ *
+ * Related Tests:
+ * - specs/api/auth/get-session/ (API Layer - API session retrieval)
+ * - specs/api/auth/enforcement/session-enforcement.spec.ts (API Layer - session security)
  */
 
 test.describe('Database Session Context Integration', () => {
