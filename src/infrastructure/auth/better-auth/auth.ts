@@ -289,47 +289,53 @@ const drizzleSchema = {
 /**
  * Build Better Auth plugins array with custom table names
  *
- * Conditionally includes apiKey plugin when enabled in auth configuration.
+ * Conditionally includes plugins when enabled in auth configuration.
+ * If a plugin is not enabled, its endpoints will not be available (404).
  */
 const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth
 ) => {
-  // When admin plugin is enabled, make first user an admin automatically
-  const adminPluginConfig = authConfig?.plugins?.admin
-    ? {
-        defaultRole: 'user',
-        makeFirstUserAdmin: true, // First user gets admin role automatically
-      }
-    : undefined
+  const basePlugins = [openAPI({ disableDefaultReference: true })]
 
-  const plugins = [
-    openAPI({ disableDefaultReference: true }),
-    admin(adminPluginConfig),
-    organization({
-      sendInvitationEmail: handlers.organizationInvitation,
-      schema: {
-        organization: { modelName: AUTH_TABLE_NAMES.organization },
-        member: { modelName: AUTH_TABLE_NAMES.member },
-        invitation: { modelName: AUTH_TABLE_NAMES.invitation },
-      },
-    }),
-    twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
-  ]
+  // Build list of conditional plugins using immutable functional pattern
+  const adminPlugin = authConfig?.plugins?.admin
+    ? [
+        admin({
+          defaultRole: 'user',
+          makeFirstUserAdmin: true, // First user gets admin role automatically
+        }),
+      ]
+    : []
 
-  // Conditionally add apiKey plugin when enabled
-  if (authConfig?.plugins?.apiKeys) {
-    return [
-      ...plugins,
-      apiKey({
-        schema: {
-          apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
-        },
-      }),
-    ]
-  }
+  const organizationPlugin = authConfig?.plugins?.organization
+    ? [
+        organization({
+          sendInvitationEmail: handlers.organizationInvitation,
+          schema: {
+            organization: { modelName: AUTH_TABLE_NAMES.organization },
+            member: { modelName: AUTH_TABLE_NAMES.member },
+            invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+          },
+        }),
+      ]
+    : []
 
-  return plugins
+  const twoFactorPlugin = authConfig?.plugins?.twoFactor
+    ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })]
+    : []
+
+  const apiKeyPlugin = authConfig?.plugins?.apiKeys
+    ? [
+        apiKey({
+          schema: {
+            apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
+          },
+        }),
+      ]
+    : []
+
+  return [...basePlugins, ...adminPlugin, ...organizationPlugin, ...twoFactorPlugin, ...apiKeyPlugin]
 }
 
 /**
