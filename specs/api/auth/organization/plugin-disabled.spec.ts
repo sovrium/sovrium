@@ -41,16 +41,11 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
         },
       })
 
-      // Create and authenticate a user (auth endpoints still work)
+      // Create and authenticate a user (signUp auto-authenticates)
       await signUp({
         email: 'user@example.com',
         password: 'ValidPassword123!',
         name: 'Test User',
-      })
-
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
       })
 
       // WHEN: User attempts to create an organization
@@ -85,11 +80,6 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
         name: 'Test User',
       })
 
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User attempts to list organizations
       const response = await page.request.get('/api/auth/organization/list')
 
@@ -115,11 +105,6 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
         email: 'user@example.com',
         password: 'ValidPassword123!',
         name: 'Test User',
-      })
-
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
       })
 
       // WHEN: User attempts to invite a member to an organization
@@ -155,11 +140,6 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
         name: 'Test User',
       })
 
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User attempts to get organization details
       const response = await page.request.get('/api/auth/organization/org-123')
 
@@ -191,11 +171,6 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
           email: 'user@example.com',
           password: 'ValidPassword123!',
           name: 'Test User',
-        })
-
-        await signIn({
-          email: 'user@example.com',
-          password: 'ValidPassword123!',
         })
       })
 

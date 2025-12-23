@@ -50,15 +50,11 @@ test.describe('Change email address', () => {
       const oldEmail = mailpit.email('old')
       const newEmail = mailpit.email('new')
 
-      // Create user and sign in via API
+      // Create and authenticate user via API
       await signUp({
         email: oldEmail,
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: oldEmail,
-        password: 'TestPassword123!',
       })
 
       // WHEN: User requests to change email to unused address

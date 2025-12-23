@@ -41,16 +41,11 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         },
       })
 
-      // Create and authenticate a user (auth endpoints still work)
+      // Create and authenticate a user (signUp auto-authenticates)
       await signUp({
         email: 'user@example.com',
         password: 'ValidPassword123!',
         name: 'Test User',
-      })
-
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
       })
 
       // WHEN: User attempts to access list users endpoint
@@ -80,11 +75,6 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         name: 'Test User',
       })
 
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User attempts to access get user endpoint with any user ID
       const response = await page.request.get('/api/auth/admin/user/123')
 
@@ -110,11 +100,6 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         email: 'user@example.com',
         password: 'ValidPassword123!',
         name: 'Test User',
-      })
-
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
       })
 
       // WHEN: User attempts to ban a user via admin endpoint
@@ -147,11 +132,6 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         email: 'user@example.com',
         password: 'ValidPassword123!',
         name: 'Test User',
-      })
-
-      await signIn({
-        email: 'user@example.com',
-        password: 'ValidPassword123!',
       })
 
       // WHEN: User attempts to set user role via admin endpoint
@@ -190,11 +170,6 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
           email: 'user@example.com',
           password: 'ValidPassword123!',
           name: 'Test User',
-        })
-
-        await signIn({
-          email: 'user@example.com',
-          password: 'ValidPassword123!',
         })
       })
 

@@ -47,11 +47,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Enable 2FA and get secret
       const enableResponse = await page.request.post('/api/auth/two-factor/enable')
 
@@ -98,11 +93,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // Enable 2FA
       await page.request.post('/api/auth/two-factor/enable')
 
@@ -141,11 +131,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -223,11 +208,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User submits verification request without code
       const response = await page.request.post('/api/auth/two-factor/verify', {
         data: {},
@@ -257,11 +237,6 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       // Create and authenticate a user (auth endpoints still work)
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -301,18 +276,11 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         })
       })
 
-      await test.step('Setup: Sign up user', async () => {
-        await signUp({
-          name: 'Test User',
-          email: 'test@example.com',
-          password: 'ValidPassword123!',
-        })
-      })
-
       let backupCodes: string[]
 
-      await test.step('Sign in user', async () => {
-        await signIn({
+      await test.step('Setup: Sign up and authenticate user', async () => {
+        await signUp({
+          name: 'Test User',
           email: 'test@example.com',
           password: 'ValidPassword123!',
         })

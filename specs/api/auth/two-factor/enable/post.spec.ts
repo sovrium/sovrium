@@ -47,11 +47,6 @@ test.describe('Enable Two-Factor Authentication', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User initiates 2FA setup
       const response = await page.request.post('/api/auth/two-factor/enable')
 
@@ -85,11 +80,6 @@ test.describe('Enable Two-Factor Authentication', () => {
 
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -200,11 +190,6 @@ test.describe('Enable Two-Factor Authentication', () => {
         password: 'ValidPassword123!',
       })
 
-      await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
       // WHEN: User attempts to enable 2FA
       const response = await page.request.post('/api/auth/two-factor/enable')
 
@@ -238,16 +223,9 @@ test.describe('Enable Two-Factor Authentication', () => {
         })
       })
 
-      await test.step('Setup: Sign up user', async () => {
+      await test.step('Setup: Sign up and authenticate user', async () => {
         await signUp({
           name: 'Test User',
-          email: 'test@example.com',
-          password: 'ValidPassword123!',
-        })
-      })
-
-      await test.step('Sign in user', async () => {
-        await signIn({
           email: 'test@example.com',
           password: 'ValidPassword123!',
         })

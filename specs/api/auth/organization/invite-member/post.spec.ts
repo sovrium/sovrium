@@ -56,10 +56,6 @@ test.describe('Invite member to organization', () => {
         password: 'OwnerPass123!',
         name: 'Owner User',
       })
-      await signIn({
-        email: ownerEmail,
-        password: 'OwnerPass123!',
-      })
 
       // Create organization
       const createResponse = await page.request.post('/api/auth/organization/create', {
