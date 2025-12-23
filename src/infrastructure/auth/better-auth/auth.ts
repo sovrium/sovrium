@@ -287,19 +287,10 @@ const drizzleSchema = {
 }
 
 /**
- * Build Better Auth plugins array with custom table names
- *
- * Conditionally includes plugins when enabled in auth configuration.
- * If a plugin is not enabled, its endpoints will not be available (404).
+ * Build admin plugin if enabled in auth configuration
  */
-const buildAuthPlugins = (
-  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
-  authConfig?: Auth
-) => {
-  const basePlugins = [openAPI({ disableDefaultReference: true })]
-
-  // Build list of conditional plugins using immutable functional pattern
-  const adminPlugin = authConfig?.plugins?.admin
+const buildAdminPlugin = (authConfig?: Auth) =>
+  authConfig?.plugins?.admin
     ? [
         admin({
           defaultRole: 'user',
@@ -308,7 +299,14 @@ const buildAuthPlugins = (
       ]
     : []
 
-  const organizationPlugin = authConfig?.plugins?.organization
+/**
+ * Build organization plugin if enabled in auth configuration
+ */
+const buildOrganizationPlugin = (
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
+  authConfig?: Auth
+) =>
+  authConfig?.plugins?.organization
     ? [
         organization({
           sendInvitationEmail: handlers.organizationInvitation,
@@ -321,11 +319,19 @@ const buildAuthPlugins = (
       ]
     : []
 
-  const twoFactorPlugin = authConfig?.plugins?.twoFactor
+/**
+ * Build two-factor plugin if enabled in auth configuration
+ */
+const buildTwoFactorPlugin = (authConfig?: Auth) =>
+  authConfig?.plugins?.twoFactor
     ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })]
     : []
 
-  const apiKeyPlugin = authConfig?.plugins?.apiKeys
+/**
+ * Build API key plugin if enabled in auth configuration
+ */
+const buildApiKeyPlugin = (authConfig?: Auth) =>
+  authConfig?.plugins?.apiKeys
     ? [
         apiKey({
           schema: {
@@ -335,8 +341,22 @@ const buildAuthPlugins = (
       ]
     : []
 
-  return [...basePlugins, ...adminPlugin, ...organizationPlugin, ...twoFactorPlugin, ...apiKeyPlugin]
-}
+/**
+ * Build Better Auth plugins array with custom table names
+ *
+ * Conditionally includes plugins when enabled in auth configuration.
+ * If a plugin is not enabled, its endpoints will not be available (404).
+ */
+const buildAuthPlugins = (
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
+  authConfig?: Auth
+) => [
+  openAPI({ disableDefaultReference: true }),
+  ...buildAdminPlugin(authConfig),
+  ...buildOrganizationPlugin(handlers, authConfig),
+  ...buildTwoFactorPlugin(authConfig),
+  ...buildApiKeyPlugin(authConfig),
+]
 
 /**
  * Create Better Auth instance with dynamic configuration
