@@ -165,7 +165,7 @@ test.describe('Rename Table Migration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'MIGRATION-RENAME-TABLE-003: should all indexes and constraints remain functional',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -179,7 +179,7 @@ test.describe('Rename Table Migration', () => {
             fields: [
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'single-line-text', unique: true },
-              { id: 4, name: 'price', type: 'decimal' },
+              { id: 4, name: 'price', type: 'decimal', min: 0 },
             ],
           },
         ],
@@ -199,7 +199,7 @@ test.describe('Rename Table Migration', () => {
             fields: [
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'sku', type: 'single-line-text', unique: true },
-              { id: 4, name: 'price', type: 'decimal' },
+              { id: 4, name: 'price', type: 'decimal', min: 0 },
             ],
           },
         ],
