@@ -287,10 +287,10 @@ const drizzleSchema = {
 }
 
 /**
- * Create admin plugin configuration when enabled
+ * Build admin plugin if enabled in auth configuration
  */
-const createAdminPlugin = (config?: unknown) =>
-  config
+const buildAdminPlugin = (authConfig?: Auth) =>
+  authConfig?.plugins?.admin
     ? [
         admin({
           defaultRole: 'user',
@@ -300,13 +300,13 @@ const createAdminPlugin = (config?: unknown) =>
     : []
 
 /**
- * Create organization plugin configuration when enabled
+ * Build organization plugin if enabled in auth configuration
  */
-const createOrganizationPlugin = (
-  config: unknown | undefined,
-  handlers: Readonly<ReturnType<typeof createEmailHandlers>>
+const buildOrganizationPlugin = (
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
+  authConfig?: Auth
 ) =>
-  config
+  authConfig?.plugins?.organization
     ? [
         organization({
           sendInvitationEmail: handlers.organizationInvitation,
@@ -320,16 +320,18 @@ const createOrganizationPlugin = (
     : []
 
 /**
- * Create twoFactor plugin configuration when enabled
+ * Build two-factor plugin if enabled in auth configuration
  */
-const createTwoFactorPlugin = (config?: unknown) =>
-  config ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })] : []
+const buildTwoFactorPlugin = (authConfig?: Auth) =>
+  authConfig?.plugins?.twoFactor
+    ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })]
+    : []
 
 /**
- * Create apiKey plugin configuration when enabled
+ * Build API key plugin if enabled in auth configuration
  */
-const createApiKeyPlugin = (config?: unknown) =>
-  config
+const buildApiKeyPlugin = (authConfig?: Auth) =>
+  authConfig?.plugins?.apiKeys
     ? [
         apiKey({
           schema: {
@@ -342,21 +344,19 @@ const createApiKeyPlugin = (config?: unknown) =>
 /**
  * Build Better Auth plugins array with custom table names
  *
- * Conditionally includes plugins based on auth configuration.
- * Each plugin is only registered if explicitly enabled in authConfig.plugins.
+ * Conditionally includes plugins when enabled in auth configuration.
+ * If a plugin is not enabled, its endpoints will not be available (404).
  */
 const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth
-) => {
-  return [
-    openAPI({ disableDefaultReference: true }),
-    ...createAdminPlugin(authConfig?.plugins?.admin),
-    ...createOrganizationPlugin(authConfig?.plugins?.organization, handlers),
-    ...createTwoFactorPlugin(authConfig?.plugins?.twoFactor),
-    ...createApiKeyPlugin(authConfig?.plugins?.apiKeys),
-  ]
-}
+) => [
+  openAPI({ disableDefaultReference: true }),
+  ...buildAdminPlugin(authConfig),
+  ...buildOrganizationPlugin(handlers, authConfig),
+  ...buildTwoFactorPlugin(authConfig),
+  ...buildApiKeyPlugin(authConfig),
+]
 
 /**
  * Create Better Auth instance with dynamic configuration

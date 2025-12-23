@@ -47,11 +47,7 @@ import {
   generateUpdatedByTriggers,
   generateUpdatedAtTriggers,
 } from './trigger-generators'
-import {
-  generateTableViewStatements,
-  generateDropObsoleteViewsSQL,
-  generateReadOnlyViewTrigger,
-} from './view-generators'
+import { generateTableViewStatements, generateReadOnlyViewTrigger } from './view-generators'
 import type { Table } from '@/domain/models/app/table'
 
 /**
@@ -577,13 +573,13 @@ export const createTableViewsEffect = (
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // Only process tables that have views defined
+    // Views are dropped globally in schema-initializer.ts before this function is called
+    // This ensures all obsolete views are removed before creating new ones
+
+    // Only create views if table has views defined
     if (!table.views || table.views.length === 0) {
       return
     }
-
-    // Drop obsolete views first
-    yield* Effect.promise(() => generateDropObsoleteViewsSQL(tx, table))
 
     // Drop and recreate each view (PostgreSQL doesn't support IF NOT EXISTS for views)
     const viewSQL = generateTableViewStatements(table)

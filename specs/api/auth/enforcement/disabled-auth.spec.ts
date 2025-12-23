@@ -27,7 +27,7 @@ test.describe('Disabled Auth Endpoints', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-001: should return 404 for sign-up endpoint when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -51,7 +51,7 @@ test.describe('Disabled Auth Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-002: should return 404 for sign-in endpoint when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -74,7 +74,7 @@ test.describe('Disabled Auth Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-003: should return 404 for session endpoints when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -92,7 +92,7 @@ test.describe('Disabled Auth Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-004: should return 404 for admin endpoints when auth features do not include admin',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -117,7 +117,7 @@ test.describe('Disabled Auth Endpoints', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-005: all auth endpoints should be disabled when no auth config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

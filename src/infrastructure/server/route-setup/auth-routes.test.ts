@@ -8,11 +8,22 @@
 import { describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { setupAuthMiddleware, setupAuthRoutes } from './auth-routes'
+import type { App } from '@/domain/models/app'
+
+// Minimal app config with auth enabled for testing
+const mockAppWithAuth: App = {
+  name: 'Test App',
+  version: '1.0.0',
+  auth: {
+    emailAndPassword: true,
+  },
+  pages: [],
+}
 
 describe('Auth Routes - setupAuthMiddleware', () => {
   describe('Given CORS middleware configured', () => {
     test('When middleware mounted Then CORS headers set for auth routes', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       // OPTIONS request to auth endpoint (CORS preflight)
       const res = await app.request('/api/auth/test', {
@@ -29,7 +40,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When origin is localhost Then allow origin', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -43,7 +54,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When origin is 127.0.0.1 Then allow origin', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -57,7 +68,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When credentials included Then allow credentials header set', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -71,7 +82,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When POST method requested Then allow POST', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -86,7 +97,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When GET method requested Then allow GET', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -101,7 +112,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When Content-Type header requested Then allow header', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -117,7 +128,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
     })
 
     test('When Authorization header requested Then allow header', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -135,7 +146,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
 
   describe('Given CORS max-age configured', () => {
     test('When preflight request made Then max-age header set', async () => {
-      const app = setupAuthMiddleware(new Hono())
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/test', {
         method: 'OPTIONS',
@@ -151,7 +162,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
 
   describe('Given middleware only applies to auth routes', () => {
     test('When non-auth route accessed Then no CORS headers added', async () => {
-      const app = setupAuthMiddleware(new Hono()).get('/api/other', (c) => c.text('OK'))
+      const app = setupAuthMiddleware(new Hono(), mockAppWithAuth).get('/api/other', (c) => c.text('OK'))
 
       const res = await app.request('/api/other', {
         headers: {
@@ -168,7 +179,7 @@ describe('Auth Routes - setupAuthMiddleware', () => {
 describe('Auth Routes - setupAuthRoutes', () => {
   describe('Given Better Auth routes mounted', () => {
     test('When POST to /api/auth/* Then route to Better Auth handler', async () => {
-      const app = setupAuthRoutes(new Hono())
+      const app = setupAuthRoutes(new Hono(), mockAppWithAuth)
 
       // Better Auth handles this route, but we're testing that it's mounted
       const res = await app.request('/api/auth/signin', {
@@ -189,7 +200,7 @@ describe('Auth Routes - setupAuthRoutes', () => {
     })
 
     test('When GET to /api/auth/* Then route to Better Auth handler', async () => {
-      const app = setupAuthRoutes(new Hono())
+      const app = setupAuthRoutes(new Hono(), mockAppWithAuth)
 
       const res = await app.request('/api/auth/session', {
         method: 'GET',
@@ -201,7 +212,7 @@ describe('Auth Routes - setupAuthRoutes', () => {
     })
 
     test('When auth route accessed Then Better Auth processes request', async () => {
-      const app = setupAuthRoutes(new Hono())
+      const app = setupAuthRoutes(new Hono(), mockAppWithAuth)
 
       // Test a known Better Auth endpoint structure
       const res = await app.request('/api/auth/session', {
@@ -217,7 +228,7 @@ describe('Auth Routes - setupAuthRoutes', () => {
 
   describe('Given multiple auth endpoints', () => {
     test('When accessing different auth paths Then all routed correctly', async () => {
-      const app = setupAuthRoutes(new Hono())
+      const app = setupAuthRoutes(new Hono(), mockAppWithAuth)
 
       const signinRes = await app.request('/api/auth/signin', { method: 'POST' })
       const sessionRes = await app.request('/api/auth/session', { method: 'GET' })
@@ -237,7 +248,7 @@ describe('Auth Routes - setupAuthRoutes', () => {
 describe('Auth Routes - Integration', () => {
   describe('Given both middleware and routes mounted', () => {
     test('When auth request made Then CORS and routing work together', async () => {
-      const app = setupAuthRoutes(setupAuthMiddleware(new Hono()))
+      const app = setupAuthRoutes(setupAuthMiddleware(new Hono(), mockAppWithAuth), mockAppWithAuth)
 
       const res = await app.request('/api/auth/session', {
         method: 'GET',
@@ -253,7 +264,7 @@ describe('Auth Routes - Integration', () => {
     })
 
     test('When preflight request made Then CORS responds before auth handler', async () => {
-      const app = setupAuthRoutes(setupAuthMiddleware(new Hono()))
+      const app = setupAuthRoutes(setupAuthMiddleware(new Hono(), mockAppWithAuth), mockAppWithAuth)
 
       const res = await app.request('/api/auth/signin', {
         method: 'OPTIONS',
@@ -268,7 +279,7 @@ describe('Auth Routes - Integration', () => {
     })
 
     test('When actual auth request follows preflight Then both work', async () => {
-      const app = setupAuthRoutes(setupAuthMiddleware(new Hono()))
+      const app = setupAuthRoutes(setupAuthMiddleware(new Hono(), mockAppWithAuth), mockAppWithAuth)
 
       // Preflight
       const preflightRes = await app.request('/api/auth/signin', {

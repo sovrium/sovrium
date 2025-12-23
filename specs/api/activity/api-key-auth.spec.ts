@@ -211,7 +211,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-AUTH-005: should return 401 with invalid Bearer token',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

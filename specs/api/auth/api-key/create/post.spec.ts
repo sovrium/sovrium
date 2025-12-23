@@ -24,7 +24,7 @@ test.describe('Create API Key', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-001: should create API key with name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -63,7 +63,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-002: should create API key with custom expiresIn',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -105,7 +105,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-003: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -135,7 +135,7 @@ test.describe('Create API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-CREATE-004: should create API key without name (name is optional)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
