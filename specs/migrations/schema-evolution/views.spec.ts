@@ -388,7 +388,7 @@ test.describe('Database Views Migration', () => {
     'MIGRATION-VIEW-006: should drop view cascade',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: view 'user_orders' exists, view 'active_orders' depends on it
+      // GIVEN: view 'user_orders' exists in schema (which creates 'active_orders' as dependent view)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -404,15 +404,21 @@ test.describe('Database Views Migration', () => {
               { id: 2, name: 'user_id', type: 'integer' },
               { id: 3, name: 'status', type: 'single-line-text' },
             ],
+            views: [
+              {
+                id: 'user_orders',
+                name: 'User Orders',
+                query: 'SELECT u.name, o.status FROM users u JOIN orders o ON u.id = o.user_id',
+              },
+            ],
           },
         ],
       })
 
-      // Insert data and create views after tables created
+      // Insert data and create dependent view manually (simulates cascading dependency)
       await executeQuery([
         `INSERT INTO users (name) VALUES ('Alice')`,
         `INSERT INTO orders (user_id, status) VALUES (1, 'active'), (1, 'completed')`,
-        `CREATE VIEW user_orders AS SELECT u.name, o.status FROM users u JOIN orders o ON u.id = o.user_id`,
         `CREATE VIEW active_orders AS SELECT * FROM user_orders WHERE status = 'active'`,
       ])
 
@@ -439,7 +445,7 @@ test.describe('Database Views Migration', () => {
 
       // THEN: DROP VIEW CASCADE
 
-      // Both views removed
+      // Both views removed (CASCADE drops dependent view too)
       const userOrdersExists = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'user_orders'`
       )
