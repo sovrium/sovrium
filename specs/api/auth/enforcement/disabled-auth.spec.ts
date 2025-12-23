@@ -117,7 +117,7 @@ test.describe('Disabled Auth Endpoints', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-DISABLED-005: all auth endpoints should be disabled when no auth config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
