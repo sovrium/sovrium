@@ -11,6 +11,7 @@ import {
   getExistingViews,
   getExistingMaterializedViews,
   executeSQLStatements,
+  executeSQLStatementsParallel,
   type TransactionLike,
 } from './sql-execution'
 import type { Table } from '@/domain/models/app/table'
