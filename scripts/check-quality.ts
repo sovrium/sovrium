@@ -7,11 +7,12 @@
  */
 
 /**
- * Quality check script - runs linting, type checking, Effect diagnostics, unit tests, Knip (unused code), spec count validation, coverage check, and smart E2E regression tests
+ * Quality check script - runs formatting, linting, type checking, Effect diagnostics, unit tests, Knip (unused code), spec count validation, coverage check, and smart E2E regression tests
  *
  * Usage:
  *   bun run quality                   # Run all checks (Effect diagnostics skipped by default)
  *   bun run quality <file>            # Run checks on specific file (ESLint, TypeScript, unit tests only)
+ *   bun run quality --skip-format     # Skip Prettier formatting check
  *   bun run quality --skip-e2e        # Skip E2E tests entirely
  *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
  *   bun run quality --include-effect  # Include Effect diagnostics (slow, ~60-120s)
@@ -111,6 +112,7 @@ interface QualityOptions {
   readonly skipCoverage: boolean
   readonly includeEffect: boolean
   readonly skipKnip: boolean
+  readonly skipFormat: boolean
 }
 
 /**
@@ -124,6 +126,7 @@ const parseArgs = (): QualityOptions => {
     skipCoverage: args.includes('--skip-coverage'),
     includeEffect: args.includes('--include-effect'),
     skipKnip: args.includes('--skip-knip'),
+    skipFormat: args.includes('--skip-format'),
   }
 }
 
@@ -533,7 +536,25 @@ const runFullChecks = (options: QualityOptions) =>
 
     const results: CheckResult[] = []
 
-    // 1. ESLint check
+    // 1. Prettier format check (fast, fail-fast)
+    if (!options.skipFormat) {
+      const formatResult = yield* runCheck('Prettier', ['bunx', 'prettier', '--check', '.'], 30_000)
+      results.push(formatResult)
+      if (!formatResult.success) {
+        yield* logError('\n⚠️  Stopping checks due to Prettier failure (fail-fast mode)')
+        yield* Effect.log('  Run `bun format` to auto-fix formatting issues')
+        return results
+      }
+    } else {
+      yield* skip('Prettier skipped (--skip-format flag)')
+      results.push({
+        name: 'Prettier',
+        success: true,
+        duration: 0,
+      })
+    }
+
+    // 2. ESLint check
     const eslintResult = yield* runCheck(
       'ESLint',
       [
@@ -556,7 +577,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 2. TypeScript check
+    // 3. TypeScript check
     const tscResult = yield* runCheck(
       'TypeScript',
       ['bunx', 'tsc', '--noEmit', '--incremental'],
@@ -568,7 +589,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 3. Effect diagnostics (optional)
+    // 4. Effect diagnostics (optional)
     if (options.includeEffect) {
       const effectResult = yield* runEffectDiagnostics
       results.push(effectResult)
@@ -585,7 +606,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 4. Unit tests
+    // 5. Unit tests
     const unitResult = yield* runCheck(
       'Unit Tests',
       ['bun', 'test', '--concurrent', '.test.ts', '.test.tsx'],
@@ -597,7 +618,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 5. Knip (unused code detection)
+    // 6. Knip (unused code detection)
     if (!options.skipKnip) {
       const knipResult = yield* runCheck('Knip', ['bunx', 'knip'], 30_000)
       results.push(knipResult)
@@ -615,7 +636,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 6. Coverage check (optional)
+    // 7. Coverage check (optional)
     if (!options.skipCoverage) {
       const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
       results.push(coverageResult)
@@ -632,7 +653,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 7. Smart E2E detection
+    // 8. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({
@@ -709,6 +730,7 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
       yield* Effect.log('Run individual commands to see detailed errors:')
 
       const failedNames = new Set(results.filter((r) => !r.success).map((r) => r.name))
+      if (failedNames.has('Prettier')) yield* Effect.log('  bun format')
       if (failedNames.has('ESLint')) yield* Effect.log('  bun run lint')
       if (failedNames.has('TypeScript')) yield* Effect.log('  bun run typecheck')
       if (failedNames.has('Effect Diagnostics')) {
