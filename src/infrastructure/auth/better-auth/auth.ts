@@ -287,49 +287,75 @@ const drizzleSchema = {
 }
 
 /**
+ * Create admin plugin configuration when enabled
+ */
+const createAdminPlugin = (config?: unknown) =>
+  config
+    ? [
+        admin({
+          defaultRole: 'user',
+          makeFirstUserAdmin: true, // First user gets admin role automatically
+        }),
+      ]
+    : []
+
+/**
+ * Create organization plugin configuration when enabled
+ */
+const createOrganizationPlugin = (
+  config: unknown | undefined,
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>
+) =>
+  config
+    ? [
+        organization({
+          sendInvitationEmail: handlers.organizationInvitation,
+          schema: {
+            organization: { modelName: AUTH_TABLE_NAMES.organization },
+            member: { modelName: AUTH_TABLE_NAMES.member },
+            invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+          },
+        }),
+      ]
+    : []
+
+/**
+ * Create twoFactor plugin configuration when enabled
+ */
+const createTwoFactorPlugin = (config?: unknown) =>
+  config ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })] : []
+
+/**
+ * Create apiKey plugin configuration when enabled
+ */
+const createApiKeyPlugin = (config?: unknown) =>
+  config
+    ? [
+        apiKey({
+          schema: {
+            apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
+          },
+        }),
+      ]
+    : []
+
+/**
  * Build Better Auth plugins array with custom table names
  *
- * Conditionally includes apiKey plugin when enabled in auth configuration.
+ * Conditionally includes plugins based on auth configuration.
+ * Each plugin is only registered if explicitly enabled in authConfig.plugins.
  */
 const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth
 ) => {
-  // When admin plugin is enabled, make first user an admin automatically
-  const adminPluginConfig = authConfig?.plugins?.admin
-    ? {
-        defaultRole: 'user',
-        makeFirstUserAdmin: true, // First user gets admin role automatically
-      }
-    : undefined
-
-  const plugins = [
+  return [
     openAPI({ disableDefaultReference: true }),
-    admin(adminPluginConfig),
-    organization({
-      sendInvitationEmail: handlers.organizationInvitation,
-      schema: {
-        organization: { modelName: AUTH_TABLE_NAMES.organization },
-        member: { modelName: AUTH_TABLE_NAMES.member },
-        invitation: { modelName: AUTH_TABLE_NAMES.invitation },
-      },
-    }),
-    twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } }),
+    ...createAdminPlugin(authConfig?.plugins?.admin),
+    ...createOrganizationPlugin(authConfig?.plugins?.organization, handlers),
+    ...createTwoFactorPlugin(authConfig?.plugins?.twoFactor),
+    ...createApiKeyPlugin(authConfig?.plugins?.apiKeys),
   ]
-
-  // Conditionally add apiKey plugin when enabled
-  if (authConfig?.plugins?.apiKeys) {
-    return [
-      ...plugins,
-      apiKey({
-        schema: {
-          apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
-        },
-      }),
-    ]
-  }
-
-  return plugins
 }
 
 /**

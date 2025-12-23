@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/auth/plugins/two-factor.ts
  * Domain: api
- * Spec Count: 4
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (4 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (5 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -185,12 +185,49 @@ test.describe('Disable Two-Factor Authentication', () => {
     }
   )
 
+  test(
+    'API-AUTH-TWO-FACTOR-DISABLE-005: should return 404 when twoFactor plugin is not configured',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: Server with auth but WITHOUT twoFactor plugin configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          // No twoFactor plugin - 2FA endpoints should not exist
+        },
+      })
+
+      // Create and authenticate a user (auth endpoints still work)
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      await signIn({
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      // WHEN: User attempts to disable 2FA
+      const response = await page.request.post('/api/auth/two-factor/disable', {
+        data: {
+          password: 'ValidPassword123!',
+        },
+      })
+
+      // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
+      expect(response.status()).toBe(404)
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-TWO-FACTOR-DISABLE-005: user can complete full 2FA disable workflow',
+    'API-AUTH-TWO-FACTOR-DISABLE-006: user can complete full 2FA disable workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with two-factor plugin', async () => {
