@@ -88,8 +88,17 @@ export const ListActivityLogs = (
     const userRoleService = yield* UserRoleService
     const activityLogService = yield* ActivityLogService
 
-    // Get user role to enforce permissions
-    const role = yield* userRoleService.getUserRole(input.userId)
+    // Get user role to enforce permissions (with organization context if available)
+    const role = yield* userRoleService.getUserRole(input.userId, input.organizationId)
+
+    // If user has no role, deny access
+    if (!role) {
+      return yield* Effect.fail(
+        new ForbiddenError({
+          message: 'You do not have permission to access activity logs',
+        })
+      )
+    }
 
     // Domain rule: Viewers cannot access activity logs
     if (role === 'viewer') {
