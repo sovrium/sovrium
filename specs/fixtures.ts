@@ -889,35 +889,64 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  addMember: async ({ page }, use, testInfo) => {
+  addMember: async ({ inviteMember, acceptInvitation }, use, testInfo) => {
     await use(
       async (data: {
         organizationId: string
         userId: string
         role?: 'admin' | 'member'
       }): Promise<MembershipResult> => {
-        const serverUrl = (testInfo as any)._serverUrl
-        if (!serverUrl) {
+        // Get database URL from test context to fetch user email
+        const testDbName = (testInfo as any)._testDatabaseName
+        if (!testDbName) {
           throw new Error('Server not started. Call startServerWithSchema first.')
         }
 
-        const response = await page.request.post('/api/auth/organization/add-member', {
-          data: {
-            organizationId: data.organizationId,
-            userId: data.userId,
-            role: data.role || 'member',
-          },
-        })
-
-        if (!response.ok()) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(
-            `Add member failed with status ${response.status()}: ${JSON.stringify(errorData)}`
-          )
+        const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
+        if (!connectionUrl) {
+          throw new Error('Database container not initialized')
         }
 
-        const result = await response.json()
-        return { member: result }
+        // Construct database URL
+        const url = new URL(connectionUrl)
+        const pathParts = url.pathname.split('/')
+        pathParts[1] = testDbName
+        url.pathname = pathParts.join('/')
+        const databaseUrl = url.toString()
+
+        // Fetch user email from database
+        const pg = await import('pg')
+        const client = new pg.default.Client({ connectionString: databaseUrl })
+        await client.connect()
+
+        let userEmail: string
+        try {
+          const userResult = await client.query(
+            `SELECT email FROM _sovrium_auth_users WHERE id = $1`,
+            [data.userId]
+          )
+
+          if (userResult.rows.length === 0) {
+            throw new Error(`User with id ${data.userId} not found`)
+          }
+
+          userEmail = userResult.rows[0].email
+        } finally {
+          await client.end()
+        }
+
+        // Use Better Auth's invitation flow
+        // 1. Send invitation (triggers email via Better Auth)
+        const { invitation } = await inviteMember({
+          organizationId: data.organizationId,
+          email: userEmail,
+          role: data.role || 'member',
+        })
+
+        // 2. Accept invitation (simulates user clicking invitation link)
+        const membership = await acceptInvitation(invitation.id)
+
+        return membership
       }
     )
   },

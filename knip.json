@@ -26,7 +26,8 @@
     "@eslint/compat",
     "@apidevtools/json-schema-ref-parser",
     "@types/dompurify",
-    "@hono/zod-validator"
+    "@hono/zod-validator",
+    "nanoid"
   ],
   "ignoreBinaries": ["pull_with_retry", "actionlint"],
   "ignoreExportsUsedInFile": true

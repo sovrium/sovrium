@@ -1529,47 +1529,6 @@ API-AUTH-ORG-ACCEPT-INVITATION-009: user can complete full acceptInvitation work
 
 </details>
 
-#### 🚧 auth > organization > add-member > post (0%)
-
-📁 `api/auth/organization/add-member/post.spec.ts`
-
-**Add member to organization**
-
-**0/7** passing | 7 fixme | 6 @spec | 1 @regression
-
-<details>
-<summary>Tests</summary>
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-001** `@spec`
-API-AUTH-ORG-ADD-MEMBER-001: should return 201 Created with member data
-`G/W/T` Line 34
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-002** `@spec`
-API-AUTH-ORG-ADD-MEMBER-002: should return 400 Bad Request with validation errors
-`G/W/T` Line 89
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-003** `@spec`
-API-AUTH-ORG-ADD-MEMBER-003: should return 401 Unauthorized
-`G/W/T` Line 125
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-004** `@spec`
-API-AUTH-ORG-ADD-MEMBER-004: should return 403 Forbidden
-`G/W/T` Line 152
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-005** `@spec`
-API-AUTH-ORG-ADD-MEMBER-005: should return 404 Not Found
-`G/W/T` Line 222
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-006** `@spec`
-API-AUTH-ORG-ADD-MEMBER-006: should return 409 Conflict error
-`G/W/T` Line 263
-
-⏸️ **API-AUTH-ORG-ADD-MEMBER-007** `@regression`
-API-AUTH-ORG-ADD-MEMBER-007: user can complete full addMember workflow
-`~G~/~W~/~T~` Line 329
-
-</details>
-
 #### 🚧 auth > organization > cancel-invitation > delete (0%)
 
 📁 `api/auth/organization/cancel-invitation/delete.spec.ts`

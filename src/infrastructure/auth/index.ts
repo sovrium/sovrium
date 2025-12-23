@@ -24,4 +24,4 @@
  */
 
 export { auth } from './better-auth/auth'
-export { Auth, AuthLive, AuthError, AuthServiceLive } from './better-auth/layer'
+export { Auth, AuthLive, AuthError } from './better-auth/layer'
