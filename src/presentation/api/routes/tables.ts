@@ -25,7 +25,6 @@ import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
   createRecordResponseSchema,
-  updateRecordResponseSchema,
   batchCreateRecordsResponseSchema,
   batchUpdateRecordsResponseSchema,
   batchDeleteRecordsResponseSchema,
@@ -472,7 +471,6 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
       }
 
-      // Validate field write permissions (Better Auth layer)
       // Query user role from database
       const { db } = await import('@/infrastructure/database')
       const userResult = (await db.execute(
@@ -480,6 +478,24 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       )) as Array<{ role: string | null }>
       const userRole = userResult[0]?.role || 'member'
 
+      // Check table-level update permissions (Better Auth layer)
+      const table = app.tables?.find((t) => t.name === tableName)
+      const updatePermission = table?.permissions?.update
+
+      if (updatePermission?.type === 'roles') {
+        const allowedRoles = updatePermission.roles || []
+        if (!allowedRoles.includes(userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to update records in this table',
+            },
+            403
+          )
+        }
+      }
+
+      // Validate field write permissions (Better Auth layer)
       const forbiddenFields = validateFieldWritePermissions(
         app,
         tableName,
@@ -496,11 +512,27 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
       }
 
-      return runEffect(
-        c,
-        updateRecordProgram(session, tableName, c.req.param('recordId'), result.data.fields),
-        updateRecordResponseSchema
-      )
+      // Execute update with RLS enforcement
+      try {
+        const updateResult = await Effect.runPromise(
+          updateRecordProgram(session, tableName, c.req.param('recordId'), result.data.fields)
+        )
+
+        // Check if update affected any rows (RLS may have blocked it)
+        if (!updateResult.record || Object.keys(updateResult.record).length === 0) {
+          return c.json({ error: 'Record not found' }, 404)
+        }
+
+        return c.json(updateResult, 200)
+      } catch (error) {
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+          500
+        )
+      }
     })
     .delete('/api/tables/:tableId/records/:recordId', async (c) => {
       const { session } = (c as ContextWithSession).var
