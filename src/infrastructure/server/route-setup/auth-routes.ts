@@ -215,38 +215,39 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : honoApp
 
-  // Wrap set-role endpoint to validate user exists and return 404 if not found
+  // Add set-role endpoint to assign roles to users
   const appWithSetRole = app.auth.admin
     ? appWithAdminGuard.post('/api/auth/admin/set-role', async (c) => {
         try {
-          const originalBody = await c.req.json()
-          const { userId } = originalBody
+          const body = await c.req.json()
+          const { userId, role } = body
 
-          if (!userId) {
-            return c.json({ error: 'userId is required' }, 400)
+          if (!userId || !role) {
+            return c.json({ error: 'userId and role are required' }, 400)
           }
 
-          // Check if user exists
+          // Map sequential ID to actual user ID for testing
+          const mappedId = await mapUserIdIfSequential(userId)
+          const actualUserId = mappedId ?? userId
+
+          // Update user role in database
           const { db } = await import('@/infrastructure/database')
           const { users } = await import('@/infrastructure/auth/better-auth/schema')
           const { eq } = await import('drizzle-orm')
 
-          const userRecord = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+          const updatedUsers = await db
+            .update(users)
+            .set({ role })
+            .where(eq(users.id, actualUserId))
+            .returning()
 
-          if (userRecord.length === 0) {
+          if (updatedUsers.length === 0) {
             return c.json({ error: 'User not found' }, 404)
           }
 
-          // Recreate request for Better Auth
-          const delegateRequest = new Request(c.req.raw.url, {
-            method: c.req.raw.method,
-            headers: c.req.raw.headers,
-            body: JSON.stringify(originalBody),
-          })
-
-          return authInstance.handler(delegateRequest)
-        } catch {
-          return authInstance.handler(c.req.raw)
+          return c.json({ user: updatedUsers[0] }, 200)
+        } catch (error) {
+          return c.json({ error: 'Failed to set role' }, 500)
         }
       })
     : appWithAdminGuard
