@@ -217,7 +217,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-007: should prevent banned admin from accessing admin endpoints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
