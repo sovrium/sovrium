@@ -262,10 +262,10 @@ test.describe('Revoke/Delete API Key', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-006: user can complete full API key revocation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signOut }) => {
       let key1Id: string
 
       await test.step('Setup: Start server with API keys plugin', async () => {
@@ -327,6 +327,8 @@ test.describe('Revoke/Delete API Key', () => {
       })
 
       await test.step('Verify delete API key fails without auth', async () => {
+        await signOut()
+
         const unauthResponse = await page.request.post('/api/auth/api-key/delete', {
           data: {
             keyId: key1Id,
