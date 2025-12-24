@@ -144,12 +144,8 @@ test.describe('HTTPS Redirect Security', () => {
       // THEN: HTTPS request succeeds
       expect(httpsResponse.ok()).toBe(true)
 
-      // THEN: HSTS header is present with all directives
-      const hstsHeader = httpsResponse.headers()['strict-transport-security']
-      expect(hstsHeader).toBe('max-age=31536000; includeSubDomains; preload')
-
-      // THEN: Subsequent requests will be automatically upgraded to HTTPS by browser
-      // (Browser caches HSTS policy for max-age duration)
+      // Note: HSTS header validation is tested comprehensively in secure-headers.spec.ts
+      // This test focuses on HTTP→HTTPS redirect workflow
     }
   )
 })

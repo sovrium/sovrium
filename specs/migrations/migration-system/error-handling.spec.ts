@@ -406,7 +406,7 @@ test.describe('Error Handling and Rollback', () => {
   test(
     'MIGRATION-ERROR-010: should reject empty migration with no schema changes',
     { tag: '@spec' },
-    async ({ startServerWithSchema }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Migration configuration with no tables or operations
       // WHEN: Attempting to start server with empty migration
       // THEN: Should throw validation error

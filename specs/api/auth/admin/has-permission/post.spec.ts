@@ -18,12 +18,7 @@ test.describe('Admin Has Permission', () => {
   test.fixme(
     'API-AUTH-ADMIN-HAS-PERM-001: should return true when admin has permission',
     { tag: '@spec' },
-    async ({
-      startServerWithSchema,
-      signUp: _signUp,
-      createAuthenticatedAdmin: createAdmin,
-      page,
-    }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
       // GIVEN: Admin with specific permission granted
       await startServerWithSchema({
         name: 'test-app',

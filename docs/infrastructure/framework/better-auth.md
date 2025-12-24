@@ -2,10 +2,19 @@
 
 ## Overview
 
-**Version**: ^1.4.7 (minimum 1.4.7, allows patch/minor updates)
+**Version**: ^1.4.9 (minimum 1.4.9, allows patch/minor updates)
 **Purpose**: Framework-agnostic authentication and authorization library for TypeScript providing type-safe auth flows with built-in support for email/password, social providers, 2FA, passkeys, and extensible plugin ecosystem
 
 Better Auth is a comprehensive authentication library designed to work seamlessly with any TypeScript framework. It provides production-ready auth features out of the box while remaining flexible and extensible through a powerful plugin system.
+
+**Recent Updates (v1.4.7-1.4.9)**:
+
+- Enhanced admin plugin with role-based permissions for user modifications
+- Background tasks configuration for deferred email sending
+- SAML assertion timestamp validation with per-provider clock skew
+- OAuth 2.1 compliant provider plugin
+- Additional fields support for verification table schema
+- Improved SSO/OAuth account linking unification across all sign-in flows
 
 ## Why Better Auth for Sovrium
 
@@ -60,8 +69,19 @@ export const auth = betterAuth({
 
   // Session configuration
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // Update session every 24 hours
+    expiresIn: 60 * 60 * 24 * 7, // 7 days - total session lifetime
+    updateAge: 60 * 60 * 24, // 1 day - threshold for automatic expiration refresh
+    freshAge: 60 * 60 * 24, // 1 day - required "fresh" session age for sensitive operations
+    disableSessionRefresh: false, // Set to true to disable automatic session extension
+  },
+
+  // Background tasks (v1.4.8+) - Defer email sending and updates post-response
+  backgroundTasks: {
+    enabled: true, // Improves response times for auth operations
+    // Custom task runner (optional, defaults to setImmediate)
+    taskRunner: async (task) => {
+      await task()
+    },
   },
 
   // Plugins
@@ -176,7 +196,45 @@ await authClient.signOut({
 
 ### 3. Session Management
 
-Access user session data from client and server.
+Better Auth uses traditional cookie-based session management where sessions are stored server-side in the database and verified on each request.
+
+#### How Session Expiration Works (Server-Side)
+
+**IMPORTANT**: Session expiration is managed **server-side** via database timestamps, NOT client-side cookie expiration.
+
+**Core Mechanism**:
+1. When a session is created, Better Auth stores an `expiresAt` timestamp in the database session table
+2. On each request, the server checks the current time against the stored `expiresAt` timestamp
+3. If the current time is past `expiresAt`, the session is invalid (even if the cookie is still present)
+4. The session cookie itself may have a different expiration, but the authoritative expiration is in the database
+
+**Configuration Parameters**:
+
+```typescript
+session: {
+  expiresIn: 60 * 60 * 24 * 7,      // 7 days - Total session lifetime
+  updateAge: 60 * 60 * 24,           // 1 day - Automatic extension threshold
+  freshAge: 60 * 60 * 24,            // 1 day - "Fresh" session requirement
+  disableSessionRefresh: false,      // Disable automatic extension
+}
+```
+
+**How `updateAge` Works**:
+- When a session is actively used and has existed for at least `updateAge` duration, Better Auth automatically extends the `expiresAt` timestamp by the `expiresIn` duration
+- Example: With `updateAge: 1 day` and `expiresIn: 7 days`, a session that's been active for 24 hours will have its expiration extended by another 7 days
+- Set `disableSessionRefresh: true` to disable this behavior (sessions expire after exactly `expiresIn` regardless of activity)
+
+**Fresh Sessions** (v1.4.7+):
+- Certain sensitive endpoints (password changes, account deletion) require "fresh" sessions
+- A fresh session is one created within the `freshAge` window (default: 1 day)
+- Set `freshAge: 0` to disable freshness validation entirely
+- Users must re-authenticate if their session is too old for sensitive operations
+
+**Cookie Cache for Performance** (Optional):
+- Better Auth can store session data in signed/encrypted cookies to reduce database queries
+- Configure via `session.cookieCache` with strategies: `compact`, `jwt`, or `jwe` (encrypted)
+- The cookie cache has its own `maxAge` separate from session expiration
+- The database `expiresAt` timestamp remains the source of truth even with cookie caching enabled
 
 > **For managing authentication state with TanStack Query**, including caching, optimistic updates, and React integration patterns, see [TanStack Query Authentication Patterns](../../ui/tanstack-query.md#authentication-with-better-auth).
 
@@ -511,13 +569,39 @@ await authClient.emailOTP.verifyOTP({
 
 #### Organization (Multi-Tenancy)
 
+The organization plugin provides comprehensive multi-tenancy with role-based access control, dynamic roles, and team management.
+
+**Features** (v1.4.7+):
+- Three default roles: `owner`, `admin`, `member` (with customizable permissions)
+- Dynamic role creation at runtime (stored in database)
+- Permission framework for organization, member, and invitation resources
+- Teams feature for grouping members within organizations
+- Configurable organization limits, membership limits, and invitation expiry
+
 ```typescript
 import { organization } from 'better-auth/plugins'
 import { organizationClient } from 'better-auth/client/plugins'
 
-// Server
+// Server - Basic configuration
 export const auth = betterAuth({
-  plugins: [organization()],
+  plugins: [
+    organization({
+      // Allow users to create organizations
+      allowUserToCreateOrganization: true,
+
+      // Limit organizations per user
+      organizationLimit: 10,
+
+      // Member limits per organization
+      membershipLimit: 100,
+
+      // Invitation expiry (default: 7 days)
+      invitationExpiresIn: 60 * 60 * 24 * 7,
+
+      // Require email verification before accepting invitations
+      requireEmailVerificationOnInvitation: true,
+    })
+  ],
 })
 
 // Client - Create organization
@@ -533,9 +617,146 @@ await authClient.organization.inviteMember({
   role: 'member',
 })
 
+// Client - Dynamic role management (v1.4.7+)
+await authClient.organization.createRole({
+  organizationId: 'org-123',
+  name: 'developer',
+  permissions: ['member:create', 'member:update'],
+})
+
+await authClient.organization.updateRole({
+  organizationId: 'org-123',
+  roleId: 'role-456',
+  permissions: ['member:read'],
+})
+
+await authClient.organization.deleteRole({
+  organizationId: 'org-123',
+  roleId: 'role-456',
+})
+
 // Client - List organizations
 const orgs = await authClient.organization.list()
 ```
+
+**Dynamic Roles** (v1.4.7+):
+- Create organization-specific custom roles at runtime
+- Assign granular permissions per role
+- Permissions are enforced based on the creator's existing role access
+- Stored in database table for persistence
+
+#### Admin Plugin
+
+The admin plugin enables comprehensive user management, including user creation, role assignment, session control, account restrictions, and impersonation.
+
+**Features** (v1.4.7+):
+- User creation with role and custom field assignment
+- Ban users (temporary or permanent) with automatic session revocation
+- User impersonation for troubleshooting (1-hour sessions by default)
+- Session management (list, revoke individual, or revoke all sessions)
+- Role-based permissions for user modifications
+- Configurable admin roles and user IDs
+
+**Configuration**:
+
+```typescript
+import { admin } from 'better-auth/plugins'
+
+export const auth = betterAuth({
+  plugins: [
+    admin({
+      // Default role for new users
+      defaultRole: 'user',
+
+      // Roles that have admin privileges
+      adminRoles: ['admin', 'super-admin'],
+
+      // Specific user IDs with admin access
+      adminUserIds: ['user-123', 'user-456'],
+
+      // Allow admins to impersonate other admins (v1.4.6: disabled by default)
+      allowImpersonatingAdmins: false,
+
+      // Impersonation session duration (default: 1 hour)
+      impersonationSessionDuration: 60 * 60,
+
+      // Custom message for banned users
+      bannedUserMessage: 'Your account has been suspended. Contact support for details.',
+    }),
+  ],
+})
+```
+
+**Server API** (admin endpoints):
+
+```typescript
+// Create user with admin privileges
+await auth.api.createUser({
+  body: {
+    email: 'newuser@example.com',
+    name: 'New User',
+    role: 'user',
+    emailVerified: true,
+  },
+  headers: adminHeaders,
+})
+
+// Ban user (v1.4.7+: supports role-based permissions)
+await auth.api.banUser({
+  body: {
+    userId: 'user-789',
+    banReason: 'Violated terms of service',
+    banExpiresIn: 60 * 60 * 24 * 7, // 7 days (optional, omit for permanent)
+  },
+  headers: adminHeaders,
+})
+
+// Unban user
+await auth.api.unbanUser({
+  body: { userId: 'user-789' },
+  headers: adminHeaders,
+})
+
+// Impersonate user (creates temporary session)
+await auth.api.impersonateUser({
+  body: { userId: 'user-789' },
+  headers: adminHeaders,
+})
+
+// Stop impersonation
+await auth.api.stopImpersonation({
+  headers: impersonationHeaders,
+})
+
+// List user sessions
+const sessions = await auth.api.listUserSessions({
+  query: { userId: 'user-789' },
+  headers: adminHeaders,
+})
+
+// Revoke specific session
+await auth.api.revokeUserSession({
+  body: { sessionId: 'session-123' },
+  headers: adminHeaders,
+})
+
+// Revoke all user sessions
+await auth.api.revokeUserSessions({
+  body: { userId: 'user-789' },
+  headers: adminHeaders,
+})
+```
+
+**Role-Based Permissions** (v1.4.7+):
+- Admins can only modify users with permissions they have access to
+- Role validation enforced during user updates and role changes
+- Prevents privilege escalation attacks
+- Supports custom access control via `createAccessControl` function
+
+**Database Schema**:
+- Adds `role`, `banned`, `banReason`, `banExpires` to users table
+- Adds `impersonatedBy` to sessions table
+- Requires database migration after plugin installation
 
 ### 7. Integration with Hono
 
