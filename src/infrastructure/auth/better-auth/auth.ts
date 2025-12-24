@@ -362,6 +362,23 @@ const buildAuthPlugins = (
 ]
 
 /**
+ * Build rate limiting configuration for Better Auth
+ */
+function buildRateLimitConfig() {
+  return {
+    enabled: true,
+    window: 60,
+    max: 10,
+    customRules: {
+      '/admin/*': {
+        window: 1,
+        max: 2,
+      },
+    },
+  }
+}
+
+/**
  * Create Better Auth instance with dynamic configuration
  */
 export function createAuthInstance(authConfig?: Auth) {
@@ -404,6 +421,7 @@ export function createAuthInstance(authConfig?: Auth) {
     },
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),
+    rateLimit: buildRateLimitConfig(),
   })
 }
 
