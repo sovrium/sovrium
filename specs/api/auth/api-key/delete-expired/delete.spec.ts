@@ -132,7 +132,7 @@ test.describe('Delete Expired API Keys', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-003: should delete keys with no expiration set',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
