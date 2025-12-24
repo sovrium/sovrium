@@ -41,6 +41,7 @@ import {
   type BatchRestoreRecordsResponse,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
+import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { transformRecord, transformRecords } from '@/presentation/api/utils/record-transformer'
 import {
   listRecords,
@@ -448,6 +449,30 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       const tableName = getTableNameFromId(app, tableId)
       if (!tableName) {
         return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      }
+
+      // Validate field write permissions (Better Auth layer)
+      // Query user role from database
+      const { db } = await import('@/infrastructure/database')
+      const userResult = (await db.execute(
+        `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+      )) as Array<{ role: string | null }>
+      const userRole = userResult[0]?.role || 'member'
+
+      const forbiddenFields = validateFieldWritePermissions(
+        app,
+        tableName,
+        userRole,
+        result.data.fields
+      )
+      if (forbiddenFields.length > 0) {
+        return c.json(
+          {
+            error: 'Forbidden',
+            message: `You do not have permission to modify field(s): ${forbiddenFields.join(', ')}`,
+          },
+          403
+        )
       }
 
       return runEffect(
