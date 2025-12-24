@@ -173,7 +173,7 @@ test.describe('Revoke/Delete API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-004: should return error for non-existent API key',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
