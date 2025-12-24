@@ -42,6 +42,7 @@ import {
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
+import { filterReadableFields } from '@/presentation/api/utils/field-read-filter'
 import { transformRecord, transformRecords } from '@/presentation/api/utils/record-transformer'
 import {
   listRecords,
@@ -161,19 +162,28 @@ function createGetPermissionsProgram() {
 
 function createListRecordsProgram(
   session: Readonly<Session>,
-  tableName: string
+  tableName: string,
+  app: App,
+  userRole: string
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
     // Query records with session context (RLS policies automatically applied)
     const records = yield* listRecords(session, tableName)
 
+    // Apply field-level read permissions filtering
+    const userId = session.userId
+
+    const filteredRecords = records.map((record) =>
+      filterReadableFields(app, tableName, userRole, userId, record)
+    )
+
     return {
-      records: transformRecords(records),
+      records: transformRecords(filteredRecords),
       pagination: {
         page: 1,
         limit: 10,
-        total: records.length,
-        totalPages: Math.ceil(records.length / 10),
+        total: filteredRecords.length,
+        totalPages: Math.ceil(filteredRecords.length / 10),
         hasNextPage: false,
         hasPreviousPage: false,
       },
@@ -392,7 +402,18 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
       }
 
-      return runEffect(c, createListRecordsProgram(session, tableName), listRecordsResponseSchema)
+      // Query user role from database (for field-level read permissions)
+      const { db } = await import('@/infrastructure/database')
+      const userResult = (await db.execute(
+        `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+      )) as Array<{ role: string | null }>
+      const userRole = userResult[0]?.role || 'member'
+
+      return runEffect(
+        c,
+        createListRecordsProgram(session, tableName, app, userRole),
+        listRecordsResponseSchema
+      )
     })
     .post('/api/tables/:tableId/records', async (c) => {
       const { session } = (c as ContextWithSession).var
