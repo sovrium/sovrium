@@ -24,7 +24,7 @@ test.describe('Revoke/Delete API Key', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-001: should revoke API key successfully',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {

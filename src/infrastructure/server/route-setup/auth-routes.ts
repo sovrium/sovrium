@@ -27,6 +27,80 @@ const usedVerificationTokens = new Set<string>()
 const adminRateLimitState = new Map<string, number[]>()
 
 /**
+ * Process metadata value for API key
+ * Converts unknown metadata to JSON string for database storage
+ */
+const processMetadata = (metadata: unknown): string => {
+  return typeof metadata === 'object' && metadata !== null
+    ? JSON.stringify(metadata)
+    : String(metadata ?? '')
+}
+
+/**
+ * Check if API key creation should use metadata path
+ * Returns true if metadata field is present in request body
+ */
+const shouldHandleMetadata = (body: { metadata?: unknown }): body is { metadata: unknown } => {
+  return body.metadata !== undefined
+}
+
+/**
+ * Map sequential user ID to actual database user ID
+ * Used for testing convenience - allows using sequential IDs (1, 2, 3) instead of UUIDs
+ */
+const mapUserIdIfSequential = async (userId: string): Promise<string | undefined> => {
+  if (!/^\d+$/.test(userId)) {
+    return undefined
+  }
+
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { asc } = await import('drizzle-orm')
+
+  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+  const userIndex = Number.parseInt(userId, 10) - 1
+
+  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
+    ? allUsers[userIndex].id
+    : undefined
+}
+
+/**
+ * Check if email should trigger admin auto-promotion
+ * Returns true if email contains "admin" (case-insensitive)
+ */
+const shouldPromoteToAdmin = (email: string): boolean => {
+  return email.toLowerCase().includes('admin')
+}
+
+/**
+ * Promote user to admin role by email
+ * Used for testing convenience - auto-promotes users with "admin" in email
+ */
+const promoteUserToAdmin = async (email: string): Promise<void> => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
+  await db.update(users).set({ role: 'admin' }).where(eq(users.email, email))
+}
+
+/**
+ * Check if user is banned by email
+ * Returns true if user exists and is banned
+ */
+const isUserBanned = async (email: string): Promise<boolean> => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const userRecord = await db.select().from(users).where(eq(users.email, email)).limit(1)
+
+  return userRecord.length > 0 && userRecord[0]?.banned === true
+}
+
+/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
@@ -85,7 +159,7 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
  * @param app - Application configuration with auth settings
  * @returns Hono app with auth routes configured (or unchanged if auth is disabled)
  */
-// eslint-disable-next-line max-lines-per-function -- Minimal implementation requires route wrappers and handlers
+// eslint-disable-next-line max-lines-per-function, complexity -- Route setup requires conditional plugin handling
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
   // If no auth config is provided, don't register any auth routes
   // This causes all /api/auth/* requests to return 404 (not found)
@@ -166,21 +240,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const originalBody = await c.req.json()
 
           // Map sequential ID to actual user ID for testing
-          const requestBody =
-            originalBody.userId && /^\d+$/.test(originalBody.userId)
-              ? await (async () => {
-                  const { db } = await import('@/infrastructure/database')
-                  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-                  const { asc } = await import('drizzle-orm')
+          const mappedId = originalBody.userId
+            ? await mapUserIdIfSequential(originalBody.userId)
+            : undefined
 
-                  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-                  const userIndex = Number.parseInt(originalBody.userId, 10) - 1
-
-                  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
-                    ? { ...originalBody, userId: allUsers[userIndex].id }
-                    : originalBody
-                })()
-              : originalBody
+          const requestBody = mappedId ? { ...originalBody, userId: mappedId } : originalBody
 
           // Recreate request with mapped user ID
           const delegateRequest = new Request(c.req.raw.url, {
@@ -212,13 +276,9 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       const response = await authInstance.handler(delegateRequest)
 
       // Auto-promote users with "admin" in email to admin role (for testing)
-      if (response.ok && body.email && body.email.toLowerCase().includes('admin')) {
-        const { db } = await import('@/infrastructure/database')
-        const { users } = await import('@/infrastructure/auth/better-auth/schema')
-        const { eq } = await import('drizzle-orm')
-
+      if (response.ok && body.email && shouldPromoteToAdmin(body.email)) {
         // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
-        await db.update(users).set({ role: 'admin' }).where(eq(users.email, body.email))
+        await promoteUserToAdmin(body.email)
       }
 
       return response
@@ -234,17 +294,8 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       const body = await c.req.json()
       const { email } = body
 
-      if (email) {
-        // Check if user is banned before allowing sign-in
-        const { db } = await import('@/infrastructure/database')
-        const { users } = await import('@/infrastructure/auth/better-auth/schema')
-        const { eq } = await import('drizzle-orm')
-
-        const userRecord = await db.select().from(users).where(eq(users.email, email)).limit(1)
-
-        if (userRecord.length > 0 && userRecord[0]?.banned) {
-          return c.json({ error: 'User is banned' }, 403)
-        }
+      if (email && (await isUserBanned(email))) {
+        return c.json({ error: 'User is banned' }, 403)
       }
 
       // Recreate request with body for Better Auth (body was consumed by c.req.json())
@@ -308,10 +359,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
     const { eq } = await import('drizzle-orm')
 
-    const metadataString =
-      typeof metadata === 'object' && metadata !== null
-        ? JSON.stringify(metadata)
-        : String(metadata ?? '')
+    const metadataString = processMetadata(metadata)
 
     // eslint-disable-next-line functional/no-expression-statements -- Database update is required side effect
     await db.update(apiKeys).set({ metadata: metadataString }).where(eq(apiKeys.id, createData.id))
@@ -337,7 +385,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const body = await c.req.json()
 
           // If metadata is provided, handle it separately
-          if (body.metadata) {
+          if (shouldHandleMetadata(body)) {
             const { metadata, ...bodyWithoutMetadata } = body
             const result = await handleApiKeyWithMetadata(metadata, bodyWithoutMetadata, c.req.raw)
             return c.json(result.data, result.status as 200 | 400 | 401 | 404 | 500)
