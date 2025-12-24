@@ -638,7 +638,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-009: should apply complementary field permissions (Better Auth guards API → RLS enforces row filtering)',
     { tag: '@spec' },
     async ({
@@ -695,7 +695,7 @@ test.describe('Field-Level Permissions', () => {
       // Sign in as user1
       await signIn({
         email: 'user1@example.com',
-        password: 'UserPass123!',
+        password: 'TestPassword123!',
       })
 
       // WHEN: User1 attempts to read notes
