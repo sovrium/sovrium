@@ -889,7 +889,7 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  addMember: async ({ inviteMember, acceptInvitation }, use, testInfo) => {
+  addMember: async ({ inviteMember, acceptInvitation, page, signIn }, use, testInfo) => {
     await use(
       async (data: {
         organizationId: string
@@ -914,13 +914,15 @@ export const test = base.extend<ServerFixtures>({
         url.pathname = pathParts.join('/')
         const databaseUrl = url.toString()
 
-        // Fetch user email from database
+        // Fetch user email AND organization owner email from database
         const pg = await import('pg')
         const client = new pg.default.Client({ connectionString: databaseUrl })
         await client.connect()
 
         let userEmail: string
+        let ownerEmail: string
         try {
+          // Fetch user to invite
           const userResult = await client.query(
             `SELECT email FROM _sovrium_auth_users WHERE id = $1`,
             [data.userId]
@@ -931,9 +933,28 @@ export const test = base.extend<ServerFixtures>({
           }
 
           userEmail = userResult.rows[0].email
+
+          // Fetch organization owner (creator) to sign in as them
+          const ownerResult = await client.query(
+            `SELECT u.email, u.id
+             FROM _sovrium_auth_users u
+             INNER JOIN _sovrium_auth_members m ON u.id = m.user_id
+             WHERE m.organization_id = $1 AND m.role = 'owner'
+             LIMIT 1`,
+            [data.organizationId]
+          )
+
+          if (ownerResult.rows.length === 0) {
+            throw new Error(`Organization ${data.organizationId} has no owner`)
+          }
+
+          ownerEmail = ownerResult.rows[0].email
         } finally {
           await client.end()
         }
+
+        // Sign in as organization owner to have permission to invite
+        await signIn({ email: ownerEmail, password: 'TestPassword123!' })
 
         // Use Better Auth's invitation flow
         // 1. Send invitation (triggers email via Better Auth)
@@ -943,7 +964,10 @@ export const test = base.extend<ServerFixtures>({
           role: data.role || 'member',
         })
 
-        // 2. Accept invitation (simulates user clicking invitation link)
+        // 2. Sign in as the invited user to accept invitation
+        await signIn({ email: userEmail, password: 'TestPassword123!' })
+
+        // 3. Accept invitation (simulates user clicking invitation link)
         const membership = await acceptInvitation(invitation.id)
 
         return membership
