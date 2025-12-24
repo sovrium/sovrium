@@ -11,19 +11,25 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Activity Listing
  *
  * Domain: api/activity
- * Spec Count: 7
+ * Spec Count: 4
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
- * 2. @regression test - ONE optimized integration test - Critical workflow validation
+ * 1. @spec tests - Endpoint-specific authentication behaviors (4 tests)
+ * 2. @regression test - ONE optimized integration test - Activity listing workflow
  *
- * Tests API key authentication for activity log access.
- * Only users with 'admin' or 'member' roles can access activity logs (viewers excluded).
+ * NOTE: Core authentication error scenarios (401 without auth, invalid token,
+ * malformed token, expired key, disabled key, non-Bearer scheme) are tested
+ * in specs/api/auth/api-key/core-authentication.spec.ts to avoid redundancy.
+ *
+ * This file focuses on:
+ * - Valid API key returns activity logs (endpoint-specific response)
+ * - Role-based access (admin/member can access, viewer cannot)
+ * - Organization isolation (RLS layer enforcement)
  */
 
 test.describe('API Key Authentication - Activity Listing', () => {
   // ============================================================================
-  // @spec tests - EXHAUSTIVE coverage
+  // @spec tests - ENDPOINT-SPECIFIC authentication behaviors
   // ============================================================================
 
   test(
@@ -180,74 +186,8 @@ test.describe('API Key Authentication - Activity Listing', () => {
     }
   )
 
-  test(
-    'API-ACTIVITY-AUTH-004: should return 401 without Authorization header',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with activity logs
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Request without Authorization header
-      const response = await request.get('/api/activity')
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-    }
-  )
-
-  test(
-    'API-ACTIVITY-AUTH-005: should return 401 with invalid Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Application with activity logs
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: Request with invalid token
-      const response = await request.get('/api/activity', {
-        headers: { Authorization: 'Bearer invalid-token' },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-    }
-  )
-
   test.fixme(
-    'API-ACTIVITY-AUTH-006: should enforce organization isolation on activity logs',
+    'API-ACTIVITY-AUTH-004: should enforce organization isolation on activity logs',
     { tag: '@spec' },
     async ({
       request,
@@ -305,51 +245,12 @@ test.describe('API Key Authentication - Activity Listing', () => {
     }
   )
 
-  test.fixme(
-    'API-ACTIVITY-AUTH-007: should return empty array when no activity logs exist',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
-      // GIVEN: Application with no activity logs
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true, apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({
-        email: 'admin@example.com',
-        createOrganization: true,
-      })
-
-      const authHeaders = await createApiKeyAuth()
-
-      // WHEN: Request activity logs
-      const response = await request.get('/api/activity', authHeaders)
-
-      // THEN: Returns empty array
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(Array.isArray(data)).toBe(true)
-      expect(data.length).toBe(0)
-    }
-  )
-
   // ============================================================================
   // @regression test - OPTIMIZED integration
   // ============================================================================
 
   test.fixme(
-    'API-ACTIVITY-AUTH-008: user can access activity logs via API key workflow',
+    'API-ACTIVITY-AUTH-005: user can access activity logs via API key workflow',
     { tag: '@regression' },
     async ({
       request,
@@ -402,11 +303,6 @@ test.describe('API Key Authentication - Activity Listing', () => {
 
         const logs = await adminResponse.json()
         expect(logs.length).toBe(3)
-      })
-
-      await test.step('Verify: Unauthorized access rejected', async () => {
-        const unauthorizedResponse = await request.get('/api/activity')
-        expect(unauthorizedResponse.status()).toBe(401)
       })
     }
   )

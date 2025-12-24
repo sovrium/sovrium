@@ -11,13 +11,21 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Record CRUD
  *
  * Domain: api/tables/{tableId}/records
- * Spec Count: 12
+ * Spec Count: 10
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (12 tests) - Exhaustive coverage
- * 2. @regression test - ONE optimized integration test - Critical workflow validation
+ * 1. @spec tests - Endpoint-specific authentication behaviors (9 tests)
+ * 2. @regression test - ONE optimized integration test - Record CRUD workflow
  *
- * Tests API key authentication for record CREATE, READ operations.
+ * NOTE: Core authentication error scenarios (401 without auth, invalid token,
+ * malformed token, expired key, disabled key, non-Bearer scheme) are tested
+ * in specs/api/auth/api-key/core-authentication.spec.ts to avoid redundancy.
+ *
+ * This file focuses on:
+ * - Valid API key returns records (list/create)
+ * - Organization isolation on record list/create
+ * - Field-level read/write permissions
+ * - Required fields and unique constraints validation
  */
 
 test.describe('API Key Authentication - Record CRUD', () => {
@@ -116,100 +124,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-003: should return 401 when listing records without auth',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Table with records
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Request without Authorization header
-      const response = await request.get('/api/tables/1/records')
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-AUTH-004: should return 401 when creating record without auth',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Table configured
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // WHEN: Create record without auth
-      const response = await request.post('/api/tables/1/records', {
-        data: { title: 'Unauthorized Task' },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-AUTH-005: should return 401 with invalid Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Table configured
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: Request with invalid token
-      const response = await request.get('/api/tables/1/records', {
-        headers: { Authorization: 'Bearer invalid-token' },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-AUTH-006: should enforce organization isolation on record list',
+    'API-TABLES-RECORDS-AUTH-003: should enforce organization isolation on record list',
     { tag: '@spec' },
     async ({
       request,
@@ -274,7 +189,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-007: should enforce organization isolation on record create',
+    'API-TABLES-RECORDS-AUTH-004: should enforce organization isolation on record create',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       // GIVEN: Multi-tenant application
@@ -318,7 +233,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-008: should respect field-level read permissions',
+    'API-TABLES-RECORDS-AUTH-005: should respect field-level read permissions',
     { tag: '@spec' },
     async ({
       request,
@@ -376,7 +291,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-009: should respect field-level write permissions',
+    'API-TABLES-RECORDS-AUTH-006: should respect field-level write permissions',
     { tag: '@spec' },
     async ({
       request,
@@ -438,7 +353,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-010: should validate required fields on create',
+    'API-TABLES-RECORDS-AUTH-007: should validate required fields on create',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       // GIVEN: Table with required field
@@ -479,7 +394,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-011: should enforce unique constraints on create',
+    'API-TABLES-RECORDS-AUTH-008: should enforce unique constraints on create',
     { tag: '@spec' },
     async ({
       request,
@@ -528,7 +443,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-012: should return empty array for empty table',
+    'API-TABLES-RECORDS-AUTH-009: should return empty array for empty table',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       // GIVEN: Empty table
@@ -567,7 +482,7 @@ test.describe('API Key Authentication - Record CRUD', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-AUTH-013: user can perform complete record CRUD via API key',
+    'API-TABLES-RECORDS-AUTH-010: user can perform complete record CRUD via API key',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       await test.step('Setup: Start server with table configuration', async () => {

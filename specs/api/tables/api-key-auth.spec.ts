@@ -11,19 +11,24 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Table Listing
  *
  * Domain: api/tables
- * Spec Count: 8
+ * Spec Count: 2
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (8 tests) - Exhaustive coverage
- * 2. @regression test - ONE optimized integration test - Critical workflow validation
+ * 1. @spec tests - Endpoint-specific authentication behaviors (2 tests)
+ * 2. @regression test - ONE optimized integration test - Table listing workflow
  *
- * Tests API key authentication using "Authorization: Bearer <key>" header format
- * following industry standards (Airtable, Notion, GitHub).
+ * NOTE: Core authentication error scenarios (401 without auth, invalid token,
+ * malformed token, expired key, disabled key, non-Bearer scheme) are tested
+ * in specs/api/auth/api-key/core-authentication.spec.ts to avoid redundancy.
+ *
+ * This file focuses on:
+ * - Valid API key returns table data (endpoint-specific response)
+ * - Organization isolation (RLS layer enforcement)
  */
 
 test.describe('API Key Authentication - Table Listing', () => {
   // ============================================================================
-  // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
+  // @spec tests - ENDPOINT-SPECIFIC authentication behaviors
   // ============================================================================
 
   test.fixme(
@@ -66,204 +71,7 @@ test.describe('API Key Authentication - Table Listing', () => {
   )
 
   test.fixme(
-    'API-TABLES-AUTH-002: should return 401 with missing Authorization header',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Request without Authorization header
-      const response = await request.get('/api/tables')
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('Unauthorized')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-AUTH-003: should return 401 with invalid Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Application with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: Request with invalid/fake Bearer token
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: 'Bearer invalid-fake-token-12345',
-        },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('Invalid API key')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-AUTH-004: should return 401 with malformed Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Request with malformed Bearer token (missing key part)
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: 'Bearer',
-        },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-AUTH-005: should return 401 with expired API key',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKey }) => {
-      // GIVEN: Application with expired API key
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // Create API key with 1 second expiration
-      const apiKey = await createApiKey({ name: 'expired-key', expiresIn: 1 })
-
-      // Wait for key to expire
-      await new Promise((resolve) => setTimeout(resolve, 1100))
-
-      // WHEN: Request with expired Bearer token
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: `Bearer ${apiKey.key}`,
-        },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('expired')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-AUTH-006: should return 401 with disabled API key',
-    { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createApiKey,
-      deleteApiKey,
-    }) => {
-      // GIVEN: Application with disabled/deleted API key
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-      const apiKey = await createApiKey({ name: 'to-be-deleted' })
-
-      // Delete/disable the API key
-      await deleteApiKey(apiKey.id)
-
-      // WHEN: Request with deleted Bearer token
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: `Bearer ${apiKey.key}`,
-        },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('Invalid API key')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-AUTH-007: should enforce organization isolation with API key',
+    'API-TABLES-AUTH-002: should enforce organization isolation with API key',
     { tag: '@spec' },
     async ({
       request,
@@ -320,47 +128,12 @@ test.describe('API Key Authentication - Table Listing', () => {
     }
   )
 
-  test.fixme(
-    'API-TABLES-AUTH-008: should reject non-Bearer Authorization schemes',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Request with non-Bearer auth scheme (e.g., Basic auth)
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
-        },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-    }
-  )
-
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-AUTH-009: user can authenticate and list tables via API key workflow',
+    'API-TABLES-AUTH-003: user can authenticate and list tables via API key workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       await test.step('Setup: Start server with multi-tenant tables', async () => {
@@ -410,18 +183,6 @@ test.describe('API Key Authentication - Table Listing', () => {
         const tables = await response.json()
         expect(Array.isArray(tables)).toBe(true)
         expect(tables.length).toBe(2)
-      })
-
-      await test.step('Verify: Invalid token returns 401', async () => {
-        const invalidResponse = await request.get('/api/tables', {
-          headers: { Authorization: 'Bearer invalid-token' },
-        })
-        expect(invalidResponse.status()).toBe(401)
-      })
-
-      await test.step('Verify: Missing token returns 401', async () => {
-        const missingResponse = await request.get('/api/tables')
-        expect(missingResponse.status()).toBe(401)
       })
     }
   )

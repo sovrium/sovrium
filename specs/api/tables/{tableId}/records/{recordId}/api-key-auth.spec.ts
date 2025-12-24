@@ -11,13 +11,20 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Single Record Operations
  *
  * Domain: api/tables/{tableId}/records/{recordId}
- * Spec Count: 8
+ * Spec Count: 7
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (8 tests) - Exhaustive coverage
- * 2. @regression test - ONE optimized integration test - Critical workflow validation
+ * 1. @spec tests - Endpoint-specific authentication behaviors (6 tests)
+ * 2. @regression test - ONE optimized integration test - Single record operations workflow
  *
- * Tests API key authentication for single record GET, PATCH, DELETE operations.
+ * NOTE: Core authentication error scenarios (401 without auth, invalid token,
+ * malformed token, expired key, disabled key, non-Bearer scheme) are tested
+ * in specs/api/auth/api-key/core-authentication.spec.ts to avoid redundancy.
+ *
+ * This file focuses on:
+ * - Valid API key performs get/update/delete
+ * - Cross-organization access returns 404 (prevents enumeration)
+ * - Field-level read/write permissions on single record
  */
 
 test.describe('API Key Authentication - Single Record Operations', () => {
@@ -154,64 +161,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORD-AUTH-004: should return 401 without Authorization header',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with record
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { apiKeys: true } },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await executeQuery(`INSERT INTO tasks (id) VALUES (1)`)
-
-      // WHEN: Request without auth
-      const response = await request.get('/api/tables/1/records/1')
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORD-AUTH-005: should return 401 with invalid Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      // GIVEN: Table with record
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { apiKeys: true } },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-      await executeQuery(`INSERT INTO tasks (id) VALUES (1)`)
-
-      // WHEN: Request with invalid token
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: { Authorization: 'Bearer invalid-token' },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORD-AUTH-006: should return 404 for cross-organization record access',
+    'API-TABLES-RECORD-AUTH-004: should return 404 for cross-organization record access',
     { tag: '@spec' },
     async ({
       request,
@@ -267,7 +217,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORD-AUTH-007: should respect field-level write permissions on update',
+    'API-TABLES-RECORD-AUTH-005: should respect field-level write permissions on update',
     { tag: '@spec' },
     async ({
       request,
@@ -328,7 +278,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORD-AUTH-008: should respect field-level read permissions on get',
+    'API-TABLES-RECORD-AUTH-006: should respect field-level read permissions on get',
     { tag: '@spec' },
     async ({
       request,
@@ -390,7 +340,7 @@ test.describe('API Key Authentication - Single Record Operations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORD-AUTH-009: user can perform single record operations via API key',
+    'API-TABLES-RECORD-AUTH-007: user can perform single record operations via API key',
     { tag: '@regression' },
     async ({
       request,

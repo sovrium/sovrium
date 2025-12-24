@@ -11,13 +11,21 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Single Table
  *
  * Domain: api/tables/{tableId}
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
- * 2. @regression test - ONE optimized integration test - Critical workflow validation
+ * 1. @spec tests - Endpoint-specific authentication behaviors (4 tests)
+ * 2. @regression test - ONE optimized integration test - Single table access workflow
  *
- * Tests API key authentication for single table operations.
+ * NOTE: Core authentication error scenarios (401 without auth, invalid token,
+ * malformed token, expired key, disabled key, non-Bearer scheme) are tested
+ * in specs/api/auth/api-key/core-authentication.spec.ts to avoid redundancy.
+ *
+ * This file focuses on:
+ * - Valid API key returns table metadata (endpoint-specific response)
+ * - Non-existent table returns 404
+ * - Cross-organization isolation (404 to prevent enumeration)
+ * - Field-level permissions with API key
  */
 
 test.describe('API Key Authentication - Single Table', () => {
@@ -67,77 +75,7 @@ test.describe('API Key Authentication - Single Table', () => {
   )
 
   test.fixme(
-    'API-TABLES-GET-AUTH-002: should return 401 with missing Authorization header',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Request without Authorization header
-      const response = await request.get('/api/tables/1')
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('Unauthorized')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-GET-AUTH-003: should return 401 with invalid Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Application with table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: Request with invalid Bearer token
-      const response = await request.get('/api/tables/1', {
-        headers: {
-          Authorization: 'Bearer invalid-token-xyz',
-        },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('Invalid API key')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-GET-AUTH-004: should return 404 for non-existent table with valid API key',
+    'API-TABLES-GET-AUTH-002: should return 404 for non-existent table with valid API key',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       // GIVEN: Application with API key but no table with ID 9999
@@ -172,7 +110,7 @@ test.describe('API Key Authentication - Single Table', () => {
   )
 
   test.fixme(
-    'API-TABLES-GET-AUTH-005: should return 404 for cross-organization table access',
+    'API-TABLES-GET-AUTH-003: should return 404 for cross-organization table access',
     { tag: '@spec' },
     async ({
       request,
@@ -240,7 +178,7 @@ test.describe('API Key Authentication - Single Table', () => {
   )
 
   test.fixme(
-    'API-TABLES-GET-AUTH-006: should respect field-level permissions with API key',
+    'API-TABLES-GET-AUTH-004: should respect field-level permissions with API key',
     { tag: '@spec' },
     async ({
       request,
@@ -312,7 +250,7 @@ test.describe('API Key Authentication - Single Table', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-GET-AUTH-007: user can access table metadata via API key workflow',
+    'API-TABLES-GET-AUTH-005: user can access table metadata via API key workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       await test.step('Setup: Start server with table configuration', async () => {

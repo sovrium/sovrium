@@ -11,13 +11,19 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Batch Operations
  *
  * Domain: api/tables/{tableId}/records/batch
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
- * 2. @regression test - ONE optimized integration test - Critical workflow validation
+ * 1. @spec tests - Endpoint-specific authentication behaviors (4 tests)
+ * 2. @regression test - ONE optimized integration test - Batch operations workflow
  *
- * Tests API key authentication for batch record operations (create, update, delete, restore).
+ * NOTE: Core authentication error scenarios (401 without auth, invalid token,
+ * malformed token, expired key, disabled key, non-Bearer scheme) are tested
+ * in specs/api/auth/api-key/core-authentication.spec.ts to avoid redundancy.
+ *
+ * This file focuses on:
+ * - Valid API key performs batch create/update/delete
+ * - Organization isolation on batch operations
  */
 
 test.describe('API Key Authentication - Batch Operations', () => {
@@ -165,64 +171,7 @@ test.describe('API Key Authentication - Batch Operations', () => {
   )
 
   test.fixme(
-    'API-TABLES-BATCH-AUTH-004: should return 401 without Authorization header',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: Table configured
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { apiKeys: true } },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN: Batch create without auth
-      const response = await request.post('/api/tables/1/records/batch', {
-        data: { records: [{}] },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-BATCH-AUTH-005: should return 401 with invalid Bearer token',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Table configured
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { apiKeys: true } },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: Request with invalid token
-      const response = await request.post('/api/tables/1/records/batch', {
-        headers: { Authorization: 'Bearer invalid-token' },
-        data: { records: [{}] },
-      })
-
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-BATCH-AUTH-006: should enforce organization isolation on batch operations',
+    'API-TABLES-BATCH-AUTH-004: should enforce organization isolation on batch operations',
     { tag: '@spec' },
     async ({
       request,
@@ -290,7 +239,7 @@ test.describe('API Key Authentication - Batch Operations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-BATCH-AUTH-007: user can perform batch operations via API key',
+    'API-TABLES-BATCH-AUTH-005: user can perform batch operations via API key',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createApiKeyAuth }) => {
       await test.step('Setup: Start server with table configuration', async () => {
