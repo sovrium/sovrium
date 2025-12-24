@@ -178,7 +178,7 @@ test.describe('Assign Admin Role', () => {
       expect(response.status()).toBe(403)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
