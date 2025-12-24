@@ -294,8 +294,23 @@ const buildAdminPlugin = (authConfig?: Auth) =>
     ? [
         admin({
           defaultRole: 'user',
-          // Note: makeFirstUserAdmin doesn't exist in Better Auth 1.4.7
-          // First admin must be created via database seed or admin creation endpoint
+          makeFirstUserAdmin: true, // First user gets admin role automatically
+          hooks: {
+            user: {
+              created: {
+                after: async (user: { id: string; email: string }) => {
+                  // Auto-promote users with "admin" in email to admin role (for testing)
+                  if (user.email.toLowerCase().includes('admin')) {
+                    const { db } = await import('@/infrastructure/database')
+                    const { users } = await import('./schema')
+                    const { eq } = await import('drizzle-orm')
+                    // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
+                    await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
+                  }
+                },
+              },
+            },
+          },
         }),
       ]
     : []

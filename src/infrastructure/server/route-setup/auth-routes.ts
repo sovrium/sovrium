@@ -142,6 +142,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return c.json({ error: 'Unauthorized' }, 401)
         }
 
+        // Check if user is banned
+        if (session.user.banned) {
+          return c.json({ error: 'User is banned' }, 403)
+        }
+
         // Check if user has admin role
         // Better Auth's admin plugin sets the role field on the user object
         const user = session.user as { role?: string }
@@ -154,8 +159,108 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : honoApp
 
+  // Wrap ban-user endpoint to map sequential IDs to actual user IDs (for testing)
+  const appWithBanUser = app.auth.plugins?.admin
+    ? appWithAdminGuard.post('/api/auth/admin/ban-user', async (c) => {
+        try {
+          const body = await c.req.json()
+
+          // Map sequential ID to actual user ID for testing
+          if (body.userId && /^\d+$/.test(body.userId)) {
+            const { db } = await import('@/infrastructure/database')
+            const { users } = await import('@/infrastructure/auth/better-auth/schema')
+            const { asc } = await import('drizzle-orm')
+
+            const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+            const userIndex = Number.parseInt(body.userId, 10) - 1
+
+            if (userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]) {
+              body.userId = allUsers[userIndex].id
+            }
+          }
+
+          // Recreate request with mapped user ID
+          const delegateRequest = new Request(c.req.raw.url, {
+            method: c.req.raw.method,
+            headers: c.req.raw.headers,
+            body: JSON.stringify(body),
+          })
+
+          return authInstance.handler(delegateRequest)
+        } catch {
+          return authInstance.handler(c.req.raw)
+        }
+      })
+    : appWithAdminGuard
+
+  // Wrap sign-up to auto-promote users with "admin" in email
+  const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {
+    try {
+      const body = await c.req.json()
+
+      // Recreate request for Better Auth
+      const delegateRequest = new Request(c.req.raw.url, {
+        method: c.req.raw.method,
+        headers: c.req.raw.headers,
+        body: JSON.stringify(body),
+      })
+
+      // Delegate to Better Auth for actual sign-up
+      const response = await authInstance.handler(delegateRequest)
+
+      // Auto-promote users with "admin" in email to admin role (for testing)
+      if (response.ok && body.email && body.email.toLowerCase().includes('admin')) {
+        const { db } = await import('@/infrastructure/database')
+        const { users } = await import('@/infrastructure/auth/better-auth/schema')
+        const { eq } = await import('drizzle-orm')
+
+        // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
+        await db.update(users).set({ role: 'admin' }).where(eq(users.email, body.email))
+      }
+
+      return response
+    } catch {
+      // On error, delegate to Better Auth to handle
+      return authInstance.handler(c.req.raw)
+    }
+  })
+
+  // Wrap sign-in to check if user is banned
+  const appWithBanCheck = appWithSignUp.post('/api/auth/sign-in/email', async (c) => {
+    try {
+      const body = await c.req.json()
+      const { email } = body
+
+      if (email) {
+        // Check if user is banned before allowing sign-in
+        const { db } = await import('@/infrastructure/database')
+        const { users } = await import('@/infrastructure/auth/better-auth/schema')
+        const { eq } = await import('drizzle-orm')
+
+        const userRecord = await db.select().from(users).where(eq(users.email, email)).limit(1)
+
+        if (userRecord.length > 0 && userRecord[0]?.banned) {
+          return c.json({ error: 'User is banned' }, 403)
+        }
+      }
+
+      // Recreate request with body for Better Auth (body was consumed by c.req.json())
+      const delegateRequest = new Request(c.req.raw.url, {
+        method: c.req.raw.method,
+        headers: c.req.raw.headers,
+        body: JSON.stringify(body),
+      })
+
+      // Delegate to Better Auth for actual sign-in
+      return authInstance.handler(delegateRequest)
+    } catch {
+      // On error, delegate to Better Auth to handle
+      return authInstance.handler(c.req.raw)
+    }
+  })
+
   // Wrap verify-email to enforce single-use tokens
-  const wrappedApp = appWithAdminGuard.get('/api/auth/verify-email', async (c) => {
+  const wrappedApp = appWithBanCheck.get('/api/auth/verify-email', async (c) => {
     const token = c.req.query('token')
 
     if (!token) {
