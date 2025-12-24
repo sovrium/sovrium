@@ -386,228 +386,231 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
 
 // eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
 function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
-  return honoApp
-    .get('/api/tables/:tableId/records', async (c) => {
-      // Extract session from context (set by auth middleware)
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
+  return (
+    honoApp
+      .get('/api/tables/:tableId/records', async (c) => {
+        // Extract session from context (set by auth middleware)
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
 
-      // Get table name from route parameter
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
 
-      // Query user role from database (for field-level read permissions)
-      const { db } = await import('@/infrastructure/database')
-      const userResult = (await db.execute(
-        `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-      )) as Array<{ role: string | null }>
-      const userRole = userResult[0]?.role || 'member'
+        // Query user role from database (for field-level read permissions)
+        const { db } = await import('@/infrastructure/database')
+        const userResult = (await db.execute(
+          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+        )) as Array<{ role: string | null }>
+        const userRole = userResult[0]?.role || 'member'
 
-      return runEffect(
-        c,
-        createListRecordsProgram(session, tableName, app, userRole),
-        listRecordsResponseSchema
-      )
-    })
-    .post('/api/tables/:tableId/records', async (c) => {
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
+        return runEffect(
+          c,
+          createListRecordsProgram(session, tableName, app, userRole),
+          listRecordsResponseSchema
+        )
+      })
+      .post('/api/tables/:tableId/records', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
 
-      const result = await validateRequest(c, createRecordRequestSchema)
-      if (!result.success) return result.response
+        const result = await validateRequest(c, createRecordRequestSchema)
+        if (!result.success) return result.response
 
-      // Get table name from route parameter
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
 
-      return runEffect(
-        c,
-        createRecordProgram(session, tableName, result.data.fields),
-        createRecordResponseSchema
-      )
-    })
-    .get('/api/tables/:tableId/records/:recordId', async (c) => {
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
+        return runEffect(
+          c,
+          createRecordProgram(session, tableName, result.data.fields),
+          createRecordResponseSchema
+        )
+      })
+      .get('/api/tables/:tableId/records/:recordId', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
 
-      // Get table name from route parameter
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
 
-      return runEffect(
-        c,
-        createGetRecordProgram(session, tableName, c.req.param('recordId')),
-        getRecordResponseSchema
-      )
-    })
-    .patch('/api/tables/:tableId/records/:recordId', async (c) => {
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
+        return runEffect(
+          c,
+          createGetRecordProgram(session, tableName, c.req.param('recordId')),
+          getRecordResponseSchema
+        )
+      })
+      // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions
+      .patch('/api/tables/:tableId/records/:recordId', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
 
-      const result = await validateRequest(c, updateRecordRequestSchema)
-      if (!result.success) return result.response
+        const result = await validateRequest(c, updateRecordRequestSchema)
+        if (!result.success) return result.response
 
-      // Get table name from route parameter
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
 
-      // Query user role from database
-      const { db } = await import('@/infrastructure/database')
-      const userResult = (await db.execute(
-        `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-      )) as Array<{ role: string | null }>
-      const userRole = userResult[0]?.role || 'member'
+        // Query user role from database
+        const { db } = await import('@/infrastructure/database')
+        const userResult = (await db.execute(
+          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+        )) as Array<{ role: string | null }>
+        const userRole = userResult[0]?.role || 'member'
 
-      // Check table-level update permissions (Better Auth layer)
-      const table = app.tables?.find((t) => t.name === tableName)
-      const updatePermission = table?.permissions?.update
+        // Check table-level update permissions (Better Auth layer)
+        const table = app.tables?.find((t) => t.name === tableName)
+        const updatePermission = table?.permissions?.update
 
-      if (updatePermission?.type === 'roles') {
-        const allowedRoles = updatePermission.roles || []
-        if (!allowedRoles.includes(userRole)) {
+        if (updatePermission?.type === 'roles') {
+          const allowedRoles = updatePermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to update records in this table',
+              },
+              403
+            )
+          }
+        }
+
+        // Validate field write permissions (Better Auth layer)
+        const forbiddenFields = validateFieldWritePermissions(
+          app,
+          tableName,
+          userRole,
+          result.data.fields
+        )
+        if (forbiddenFields.length > 0) {
           return c.json(
             {
               error: 'Forbidden',
-              message: 'You do not have permission to update records in this table',
+              message: `You do not have permission to modify field(s): ${forbiddenFields.join(', ')}`,
             },
             403
           )
         }
-      }
 
-      // Validate field write permissions (Better Auth layer)
-      const forbiddenFields = validateFieldWritePermissions(
-        app,
-        tableName,
-        userRole,
-        result.data.fields
-      )
-      if (forbiddenFields.length > 0) {
-        return c.json(
-          {
-            error: 'Forbidden',
-            message: `You do not have permission to modify field(s): ${forbiddenFields.join(', ')}`,
-          },
-          403
-        )
-      }
+        // Execute update with RLS enforcement
+        try {
+          const updateResult = await Effect.runPromise(
+            updateRecordProgram(session, tableName, c.req.param('recordId'), result.data.fields)
+          )
 
-      // Execute update with RLS enforcement
-      try {
-        const updateResult = await Effect.runPromise(
-          updateRecordProgram(session, tableName, c.req.param('recordId'), result.data.fields)
-        )
+          // Check if update affected any rows (RLS may have blocked it)
+          if (!updateResult.record || Object.keys(updateResult.record).length === 0) {
+            return c.json({ error: 'Record not found' }, 404)
+          }
 
-        // Check if update affected any rows (RLS may have blocked it)
-        if (!updateResult.record || Object.keys(updateResult.record).length === 0) {
-          return c.json({ error: 'Record not found' }, 404)
+          return c.json(updateResult, 200)
+        } catch (error) {
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: error instanceof Error ? error.message : 'Unknown error',
+            },
+            500
+          )
+        }
+      })
+      .delete('/api/tables/:tableId/records/:recordId', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
 
-        return c.json(updateResult, 200)
-      } catch (error) {
-        return c.json(
-          {
-            error: 'Internal server error',
-            message: error instanceof Error ? error.message : 'Unknown error',
-          },
-          500
-        )
-      }
-    })
-    .delete('/api/tables/:tableId/records/:recordId', async (c) => {
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
-
-      // Get table name from route parameter
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
-
-      try {
-        const deleted = await Effect.runPromise(
-          deleteRecord(session, tableName, c.req.param('recordId'))
-        )
-
-        if (!deleted) {
-          return c.json({ error: 'Record not found' }, 404)
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
-        // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for empty responses
-        return c.body(null, 204) // 204 No Content
-      } catch (error) {
-        return c.json(
-          {
-            error: 'Internal server error',
-            message: error instanceof Error ? error.message : 'Unknown error',
-          },
-          500
-        )
-      }
-    })
-    .post('/api/tables/:tableId/records/:recordId/restore', async (c) => {
-      const { session } = (c as ContextWithSession).var
-      if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-      }
+        try {
+          const deleted = await Effect.runPromise(
+            deleteRecord(session, tableName, c.req.param('recordId'))
+          )
 
-      // Get table name from route parameter
-      const tableId = c.req.param('tableId')
-      const tableName = getTableNameFromId(app, tableId)
-      if (!tableName) {
-        return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-      }
+          if (!deleted) {
+            return c.json({ error: 'Record not found' }, 404)
+          }
 
-      try {
-        const result = await Effect.runPromise(
-          restoreRecordProgram(session, tableName, c.req.param('recordId'))
-        )
-
-        return c.json(result, 200)
-      } catch (error) {
-        // Handle specific error messages
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-        if (errorMessage === 'Record not found') {
-          return c.json({ error: 'Record not found' }, 404)
+          // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for empty responses
+          return c.body(null, 204) // 204 No Content
+        } catch (error) {
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: error instanceof Error ? error.message : 'Unknown error',
+            },
+            500
+          )
+        }
+      })
+      .post('/api/tables/:tableId/records/:recordId/restore', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
 
-        if (errorMessage === 'Record is not deleted') {
-          return c.json({ error: 'Bad Request', message: 'Record is not deleted' }, 400)
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
-        return c.json(
-          {
-            error: 'Internal server error',
-            message: errorMessage,
-          },
-          500
-        )
-      }
-    })
+        try {
+          const result = await Effect.runPromise(
+            restoreRecordProgram(session, tableName, c.req.param('recordId'))
+          )
+
+          return c.json(result, 200)
+        } catch (error) {
+          // Handle specific error messages
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+          if (errorMessage === 'Record not found') {
+            return c.json({ error: 'Record not found' }, 404)
+          }
+
+          if (errorMessage === 'Record is not deleted') {
+            return c.json({ error: 'Bad Request', message: 'Record is not deleted' }, 400)
+          }
+
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: errorMessage,
+            },
+            500
+          )
+        }
+      })
+  )
 }
 
 // eslint-disable-next-line max-lines-per-function -- Batch routes with authorization checks require multiple steps
