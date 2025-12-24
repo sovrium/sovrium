@@ -51,7 +51,7 @@ test.describe('Assign Admin Role', () => {
       expect((data.user as { role?: string }).role).toBe('admin')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-002: should grant admin permissions to user',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
