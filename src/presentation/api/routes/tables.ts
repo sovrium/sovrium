@@ -25,7 +25,6 @@ import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
   createRecordResponseSchema,
-  updateRecordResponseSchema,
   batchCreateRecordsResponseSchema,
   batchUpdateRecordsResponseSchema,
   batchDeleteRecordsResponseSchema,
