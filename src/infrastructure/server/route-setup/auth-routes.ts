@@ -20,6 +20,13 @@ import type { App } from '@/domain/models/app'
 const usedVerificationTokens = new Set<string>()
 
 /**
+ * Rate limiting state for admin endpoints
+ * Maps IP addresses to request timestamps
+ * In production, this should use Redis or similar distributed storage
+ */
+const adminRateLimitState = new Map<string, number[]>()
+
+/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
@@ -90,10 +97,43 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app.auth)
 
+  // Add rate limiting for admin endpoints (before authentication check)
+  // Rate limit: 10 requests per second per IP address
+  const appWithRateLimit = app.auth.plugins?.admin
+    ? honoApp.use('/api/auth/admin/*', async (c, next) => {
+        // Extract IP address (use x-forwarded-for for proxied requests, fallback to connection IP)
+        const forwardedFor = c.req.header('x-forwarded-for')
+        const ip = forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
+
+        // Get current timestamp
+        const now = Date.now()
+        const windowMs = 1000 // 1 second window
+        const maxRequests = 10
+
+        // Get or create request history for this IP
+        const requestHistory = adminRateLimitState.get(ip) ?? []
+
+        // Filter out timestamps older than the window
+        const recentRequests = requestHistory.filter((timestamp) => now - timestamp < windowMs)
+
+        // Check if rate limit exceeded
+        if (recentRequests.length >= maxRequests) {
+          return c.json({ error: 'Too many requests' }, 429)
+        }
+
+        // Record this request timestamp
+        // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
+        adminRateLimitState.set(ip, [...recentRequests, now])
+
+        // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+        await next()
+      })
+    : honoApp
+
   // Add authentication guard for admin endpoints
   // Better Auth returns 404 for unauthenticated admin requests, but tests expect 401
   const appWithAdminGuard = app.auth.plugins?.admin
-    ? honoApp.use('/api/auth/admin/*', async (c, next) => {
+    ? appWithRateLimit.use('/api/auth/admin/*', async (c, next) => {
         // Check if request has valid session
         const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
 
