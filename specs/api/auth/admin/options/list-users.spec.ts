@@ -22,7 +22,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Admin and multiple users
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -51,7 +51,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Admin and users with different roles
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -85,7 +85,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Admin, active user, and banned user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -119,7 +119,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Admin and users with different email domains
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@company.com',
@@ -147,7 +147,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Admin and users with different names
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -175,7 +175,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Regular user (not admin)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'User' })
 
@@ -193,7 +193,7 @@ test.describe('Admin List Users', () => {
       // GIVEN: Admin and multiple users with varied attributes
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',

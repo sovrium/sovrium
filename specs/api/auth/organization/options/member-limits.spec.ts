@@ -24,7 +24,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -72,7 +72,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -122,7 +122,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -180,7 +180,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -240,7 +240,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -298,7 +298,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -337,7 +337,7 @@ test.describe('Organization Member Limits', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({

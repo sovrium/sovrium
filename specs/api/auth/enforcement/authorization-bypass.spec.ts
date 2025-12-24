@@ -165,7 +165,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -230,7 +230,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
         tables: [
           {
@@ -344,9 +344,8 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
-        tables: [],
       })
 
       await createAuthenticatedUser({
@@ -438,7 +437,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
         tables: [
           {
@@ -520,7 +519,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -590,7 +589,8 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: true, organization: true },
+            admin: true,
+            organization: true,
           },
           tables: [
             {

@@ -41,7 +41,7 @@ test.describe('API Session Context Integration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -135,7 +135,7 @@ test.describe('API Session Context Integration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -203,7 +203,7 @@ test.describe('API Session Context Integration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -283,7 +283,7 @@ test.describe('API Session Context Integration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -405,7 +405,7 @@ test.describe('API Session Context Integration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -475,7 +475,7 @@ test.describe('API Session Context Integration', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {

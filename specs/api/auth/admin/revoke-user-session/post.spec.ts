@@ -43,7 +43,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -92,7 +92,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -120,7 +120,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -146,7 +146,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -183,7 +183,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -211,7 +211,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -240,7 +240,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -273,7 +273,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -311,7 +311,7 @@ test.describe('Admin: Revoke user session', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: true },
+            admin: true,
           },
         })
       })

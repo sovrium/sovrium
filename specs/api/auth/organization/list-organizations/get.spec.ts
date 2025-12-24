@@ -38,7 +38,7 @@ test.describe('List user organizations', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -77,7 +77,7 @@ test.describe('List user organizations', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -108,7 +108,7 @@ test.describe('List user organizations', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -129,7 +129,7 @@ test.describe('List user organizations', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -180,7 +180,7 @@ test.describe('List user organizations', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -222,7 +222,7 @@ test.describe('List user organizations', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
         })
       })

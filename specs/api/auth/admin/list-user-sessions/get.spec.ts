@@ -43,7 +43,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -89,7 +89,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -115,7 +115,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -136,7 +136,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -168,7 +168,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -191,7 +191,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -223,7 +223,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -255,7 +255,7 @@ test.describe('Admin: List user sessions', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: true },
+            admin: true,
           },
         })
       })

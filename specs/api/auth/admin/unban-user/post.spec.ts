@@ -43,7 +43,7 @@ test.describe('Admin: Unban user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -88,7 +88,7 @@ test.describe('Admin: Unban user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -116,7 +116,7 @@ test.describe('Admin: Unban user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -141,7 +141,7 @@ test.describe('Admin: Unban user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -177,7 +177,7 @@ test.describe('Admin: Unban user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -204,7 +204,7 @@ test.describe('Admin: Unban user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -240,7 +240,7 @@ test.describe('Admin: Unban user', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: true },
+            admin: true,
           },
         })
       })

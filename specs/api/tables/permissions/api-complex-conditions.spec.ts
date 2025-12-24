@@ -47,7 +47,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -108,7 +108,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -172,7 +172,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -239,7 +239,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -303,7 +303,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -388,7 +388,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -454,7 +454,7 @@ test.describe('API Complex Permission Conditions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -526,7 +526,7 @@ test.describe('API Complex Permission Conditions', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {

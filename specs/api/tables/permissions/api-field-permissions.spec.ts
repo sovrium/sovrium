@@ -50,7 +50,7 @@ test.describe('API Field Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -119,7 +119,7 @@ test.describe('API Field Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -185,7 +185,7 @@ test.describe('API Field Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -262,7 +262,7 @@ test.describe('API Field Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -332,7 +332,7 @@ test.describe('API Field Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -403,7 +403,7 @@ test.describe('API Field Permission Enforcement', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {

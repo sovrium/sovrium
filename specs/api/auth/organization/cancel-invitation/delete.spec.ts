@@ -38,7 +38,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -87,7 +87,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -123,7 +123,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -148,7 +148,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -219,7 +219,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -257,7 +257,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -333,7 +333,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -385,7 +385,7 @@ test.describe('Cancel organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -455,7 +455,7 @@ test.describe('Cancel organization invitation', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
         })
       })

@@ -39,7 +39,6 @@ const PROTECTED_SYSTEM_TABLES = new Set([
   '_sovrium_auth_organizations',
   '_sovrium_auth_members',
   '_sovrium_auth_invitations',
-  '_sovrium_auth_api_keys',
   '_sovrium_auth_two_factors',
   // Migration system tables
   '_sovrium_migration_history',

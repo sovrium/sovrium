@@ -29,11 +29,9 @@ test.describe('Admin Has Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete'],
             },
           },
         },
@@ -67,11 +65,9 @@ test.describe('Admin Has Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete'],
             },
           },
         },
@@ -102,11 +98,9 @@ test.describe('Admin Has Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['*'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['*'],
             },
           },
         },
@@ -145,11 +139,9 @@ test.describe('Admin Has Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                comments: ['create', 'read', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              comments: ['create', 'read', 'delete'],
             },
           },
         },
@@ -186,7 +178,7 @@ test.describe('Admin Has Permission', () => {
       // GIVEN: Server with admin plugin
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       // WHEN: Unauthenticated user checks permission
@@ -205,7 +197,7 @@ test.describe('Admin Has Permission', () => {
       // GIVEN: Authenticated admin
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       const admin = await createAdmin({
         email: 'admin@example.com',
@@ -233,12 +225,10 @@ test.describe('Admin Has Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete'],
-                comments: ['create', 'read', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete'],
+              comments: ['create', 'read', 'delete'],
             },
           },
         },

@@ -48,7 +48,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -126,7 +126,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -200,7 +200,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -256,7 +256,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -333,7 +333,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -409,7 +409,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -503,7 +503,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -604,7 +604,7 @@ test.describe('Organization Data Isolation', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {
@@ -637,7 +637,7 @@ test.describe('Organization Data Isolation', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {
@@ -684,9 +684,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: true,
-          },
+          organization: true,
         },
         tables: [
           {
@@ -776,9 +774,7 @@ test.describe('Organization Data Isolation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: true,
-          },
+          organization: true,
         },
         tables: [
           {
@@ -888,7 +884,7 @@ test.describe('Organization Data Isolation', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {
@@ -974,7 +970,7 @@ test.describe('Organization Data Isolation', () => {
             name: 'test-app-error',
             auth: {
               emailAndPassword: true,
-              plugins: { organization: true },
+              organization: true,
             },
             tables: [
               {
@@ -1002,7 +998,7 @@ test.describe('Organization Data Isolation', () => {
             name: 'test-app-error2',
             auth: {
               emailAndPassword: true,
-              plugins: { organization: true },
+              organization: true,
             },
             tables: [
               {

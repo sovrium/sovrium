@@ -22,7 +22,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: Admin user and regular user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -47,7 +47,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: Banned user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -77,7 +77,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: User with active session
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -107,7 +107,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -136,7 +136,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: Two regular users
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       const user1 = await signUp({
         email: 'user1@example.com',
@@ -161,7 +161,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: Admin user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       const admin = await createAdmin({
         email: 'admin@example.com',
@@ -187,7 +187,7 @@ test.describe('Admin Ban User', () => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',

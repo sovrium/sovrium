@@ -38,7 +38,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
           emailTemplates: {
             organizationInvitation: {
               subject: 'You have been invited to join $organizationName',
@@ -99,7 +99,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -135,7 +135,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -175,7 +175,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -202,7 +202,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -265,7 +265,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -301,7 +301,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -363,7 +363,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -413,7 +413,7 @@ test.describe('Invite member to organization', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -478,7 +478,7 @@ test.describe('Invite member to organization', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
         })
       })

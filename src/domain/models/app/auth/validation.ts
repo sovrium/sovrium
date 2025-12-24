@@ -8,7 +8,9 @@
 import type { EmailAndPasswordConfig } from './methods/email-and-password'
 import type { MagicLinkConfig } from './methods/magic-link'
 import type { OAuthConfig } from './oauth'
-import type { PluginsConfig } from './plugins'
+import type { AdminConfig } from './plugins/admin'
+import type { OrganizationConfig } from './plugins/organization'
+import type { TwoFactorConfig } from './plugins/two-factor'
 
 /**
  * Auth Configuration for Validation
@@ -20,7 +22,9 @@ export interface AuthConfigForValidation {
   readonly emailAndPassword?: EmailAndPasswordConfig
   readonly magicLink?: MagicLinkConfig
   readonly oauth?: OAuthConfig
-  readonly plugins?: PluginsConfig
+  readonly admin?: AdminConfig
+  readonly organization?: OrganizationConfig
+  readonly twoFactor?: TwoFactorConfig
 }
 
 /**
@@ -60,7 +64,7 @@ export const isMethodEnabled = (
 export const validateTwoFactorRequiresPrimary = (
   config: AuthConfigForValidation
 ): ValidationResult => {
-  const hasTwoFactor = config.plugins?.twoFactor
+  const hasTwoFactor = config.twoFactor
 
   if (!hasTwoFactor) {
     return { success: true }

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { pgTable, text, boolean, timestamp, integer } from 'drizzle-orm/pg-core'
+import { pgTable, text, boolean, timestamp } from 'drizzle-orm/pg-core'
 
 // Better Auth Tables (with _sovrium_auth_ prefix for namespace isolation)
 // This prevents conflicts when users create their own tables (e.g., "users" for CRM contacts)
@@ -145,33 +145,6 @@ export const organizationRoles = pgTable('_sovrium_auth_organization_roles', {
   updatedAt: timestamp('updated_at', { withTimezone: true }),
 })
 
-// API Key plugin table
-export const apiKeys = pgTable('_sovrium_auth_api_keys', {
-  id: text('id').primaryKey(),
-  name: text('name'),
-  start: text('start'),
-  prefix: text('prefix'),
-  key: text('key').notNull(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  refillInterval: integer('refill_interval'),
-  refillAmount: integer('refill_amount'),
-  lastRefillAt: timestamp('last_refill_at', { withTimezone: true }),
-  enabled: boolean('enabled').notNull().default(true),
-  rateLimitEnabled: boolean('rate_limit_enabled').notNull().default(false),
-  rateLimitTimeWindow: integer('rate_limit_time_window'),
-  rateLimitMax: integer('rate_limit_max'),
-  requestCount: integer('request_count').notNull().default(0),
-  remaining: integer('remaining'),
-  lastRequest: timestamp('last_request', { withTimezone: true }),
-  expiresAt: timestamp('expires_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  permissions: text('permissions'),
-  metadata: text('metadata'),
-})
-
 // Two-factor plugin table
 export const twoFactors = pgTable('_sovrium_auth_two_factors', {
   id: text('id').primaryKey(),
@@ -200,7 +173,5 @@ export type TeamMember = typeof teamMembers.$inferSelect
 export type NewTeamMember = typeof teamMembers.$inferInsert
 export type OrganizationRole = typeof organizationRoles.$inferSelect
 export type NewOrganizationRole = typeof organizationRoles.$inferInsert
-export type ApiKey = typeof apiKeys.$inferSelect
-export type NewApiKey = typeof apiKeys.$inferInsert
 export type TwoFactor = typeof twoFactors.$inferSelect
 export type NewTwoFactor = typeof twoFactors.$inferInsert

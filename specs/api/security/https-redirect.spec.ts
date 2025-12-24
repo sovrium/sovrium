@@ -17,6 +17,12 @@ import { test, expect } from '@/specs/fixtures'
  * Validates that HTTP requests are redirected to HTTPS with proper status codes
  * and security headers (HSTS preload directive).
  *
+ * Implementation: Requires Hono middleware configuration. HTTPS redirect is not
+ * built-in but follows a standard Hono middleware pattern:
+ * - Use `hono/secure-headers` middleware for HSTS headers
+ * - Implement custom middleware for HTTP→HTTPS redirect in production
+ * - These tests validate the middleware is correctly configured
+ *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (2 tests)
  * 2. @regression test - ONE optimized integration test
@@ -31,15 +37,9 @@ test.describe('HTTPS Redirect Security', () => {
     'API-SECURITY-REDIRECT-001: should redirect HTTP to HTTPS with 301 status',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with HTTPS enforcement enabled
+      // GIVEN: Application with Hono secure-headers middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        security: {
-          https: {
-            enforced: true,
-            redirectStatus: 301, // Permanent redirect
-          },
-        },
       })
 
       // WHEN: User makes HTTP request to the application
@@ -82,20 +82,9 @@ test.describe('HTTPS Redirect Security', () => {
     'API-SECURITY-REDIRECT-002: should include HSTS preload directive in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with HTTPS enforcement and HSTS enabled
+      // GIVEN: Application with Hono secure-headers middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        security: {
-          https: {
-            enforced: true,
-            hsts: {
-              enabled: true,
-              maxAge: 31_536_000, // 1 year in seconds
-              includeSubDomains: true,
-              preload: true,
-            },
-          },
-        },
       })
 
       // WHEN: User makes HTTPS request to the application
@@ -135,21 +124,9 @@ test.describe('HTTPS Redirect Security', () => {
     'API-SECURITY-REDIRECT-003: user can complete full HTTPS redirect workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with HTTPS enforcement and HSTS enabled
+      // GIVEN: Application with Hono secure-headers middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        security: {
-          https: {
-            enforced: true,
-            redirectStatus: 301,
-            hsts: {
-              enabled: true,
-              maxAge: 31_536_000,
-              includeSubDomains: true,
-              preload: true,
-            },
-          },
-        },
       })
 
       // WHEN: User makes HTTP request

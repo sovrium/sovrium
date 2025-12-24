@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Rate Limiting - Security Critical Endpoints
  *
  * Domain: api/auth
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (6 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests rate limiting behavior on security-critical authentication endpoints
@@ -23,7 +23,7 @@ import { test, expect } from '@/specs/fixtures'
  * Rate limiting is enabled by default for all security-critical endpoints:
  * - Sign-in: Prevent credential stuffing and brute force attacks
  * - Password reset: Prevent email enumeration
- * - API key creation: Prevent key flooding
+ * - Sign-up: Prevent account creation abuse
  *
  * Note: These tests validate default rate limiting behavior. If default limits change,
  * test assertions may need adjustment.
@@ -44,7 +44,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       // Create a user to attempt sign-in against
@@ -87,7 +86,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
@@ -127,7 +125,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
@@ -163,7 +160,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       // WHEN: User exceeds default sign-up rate limit
@@ -196,44 +192,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   )
 
   test.fixme(
-    'API-AUTH-RATE-005: should return 429 after exceeding API key creation rate limit',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: Application with default API key creation rate limiting
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { apiKeys: true },
-        },
-        tables: [],
-      })
-
-      await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: User exceeds default API key creation rate limit
-      // Note: Test assumes default limit is 10 attempts per 60 seconds
-      for (let i = 0; i < 10; i++) {
-        await request.post('/api/auth/api-key/create', {
-          data: { name: `key-${i}` },
-        })
-      }
-
-      // THEN: 11th attempt returns 429 Too Many Requests
-      const response = await request.post('/api/auth/api-key/create', {
-        data: { name: 'key-11' },
-      })
-
-      expect(response.status()).toBe(429)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.message).toContain('Too many requests')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-RATE-006: should include Retry-After header in 429 response',
+    'API-AUTH-RATE-005: should include Retry-After header in 429 response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
       // GIVEN: Application with default rate limiting
@@ -242,7 +201,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
@@ -269,7 +227,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   )
 
   test.fixme(
-    'API-AUTH-RATE-007: should rate limit by IP address, not by user',
+    'API-AUTH-RATE-006: should rate limit by IP address, not by user',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
       // GIVEN: Application with default IP-based rate limiting
@@ -278,7 +236,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       await signUp({
@@ -321,7 +278,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-RATE-008: rate limiting protects security-critical endpoints',
+    'API-AUTH-RATE-007: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {
       // This test waits 60+ seconds for rate limit window to expire
@@ -333,7 +290,6 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
           auth: {
             emailAndPassword: true,
           },
-          tables: [],
         })
       })
 

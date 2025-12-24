@@ -24,10 +24,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })
@@ -62,10 +60,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })
@@ -99,10 +95,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })
@@ -135,10 +129,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })
@@ -166,10 +158,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })
@@ -197,10 +187,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })
@@ -223,10 +211,8 @@ test.describe('Assign Admin Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              roleManagement: {},
-            },
+          admin: {
+            roleManagement: {},
           },
         },
       })

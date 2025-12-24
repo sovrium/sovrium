@@ -31,10 +31,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -78,10 +76,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -142,10 +138,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -188,10 +182,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -216,10 +208,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -261,10 +251,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -287,10 +275,8 @@ test.describe('Remove Team Member', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })

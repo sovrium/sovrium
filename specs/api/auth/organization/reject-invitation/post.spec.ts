@@ -38,7 +38,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -106,7 +106,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -138,7 +138,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -163,7 +163,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -197,7 +197,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -231,7 +231,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -288,7 +288,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -362,7 +362,7 @@ test.describe('Reject organization invitation', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
         })
       })

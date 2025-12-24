@@ -24,7 +24,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -79,7 +79,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -145,7 +145,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -203,7 +203,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -271,7 +271,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -353,7 +353,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -402,7 +402,7 @@ test.describe('Organization Invitation Expiry', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({

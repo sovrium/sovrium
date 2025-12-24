@@ -32,10 +32,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -95,10 +93,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -178,10 +174,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -245,10 +239,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -289,10 +281,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -331,10 +321,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -375,10 +363,8 @@ test.describe('Delete Team', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })

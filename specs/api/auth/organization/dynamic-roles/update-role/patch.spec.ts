@@ -24,10 +24,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -74,10 +72,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -123,10 +119,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -184,10 +178,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -240,10 +232,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -276,10 +266,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -307,10 +295,8 @@ test.describe('Update Custom Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })

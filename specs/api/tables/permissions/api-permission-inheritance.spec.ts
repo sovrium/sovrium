@@ -52,7 +52,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -111,7 +111,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -177,7 +177,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -265,7 +265,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -356,7 +356,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -443,7 +443,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -513,7 +513,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {

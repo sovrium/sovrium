@@ -35,8 +35,7 @@ test.describe('Password Hashing Security', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          providers: ['email'],
+          emailAndPassword: true,
         },
       })
 
@@ -71,8 +70,7 @@ test.describe('Password Hashing Security', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          providers: ['email'],
+          emailAndPassword: true,
         },
       })
 
@@ -113,8 +111,7 @@ test.describe('Password Hashing Security', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          providers: ['email'],
+          emailAndPassword: true,
         },
       })
 
@@ -163,8 +160,7 @@ test.describe('Password Hashing Security', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          providers: ['email'],
+          emailAndPassword: true,
         },
       })
 

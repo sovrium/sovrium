@@ -25,7 +25,8 @@ import { test, expect } from '@/specs/fixtures'
  * - Referrer-Policy: Controls referrer information leakage
  * - Server header: Prevents server version disclosure
  *
- * Hono provides built-in secure headers middleware (hono/secure-headers).
+ * Implementation: Requires Hono `secureHeaders()` middleware from `hono/secure-headers`.
+ * This middleware must be explicitly configured in the Hono app setup.
  * These tests validate that secure headers are properly configured on all API responses.
  */
 
@@ -38,10 +39,9 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-001: should include Strict-Transport-Security header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with secure headers enabled
+      // GIVEN: Application with Hono secureHeaders() middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Making any API request
@@ -69,10 +69,9 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-002: should include Content-Security-Policy header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with secure headers enabled
+      // GIVEN: Application with Hono secureHeaders() middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Making any API request
@@ -97,10 +96,9 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-003: should include X-Frame-Options header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with secure headers enabled
+      // GIVEN: Application with Hono secureHeaders() middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Making any API request
@@ -119,10 +117,9 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-004: should include X-Content-Type-Options header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with secure headers enabled
+      // GIVEN: Application with Hono secureHeaders() middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Making any API request
@@ -139,10 +136,9 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-005: should include Referrer-Policy header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with secure headers enabled
+      // GIVEN: Application with Hono secureHeaders() middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Making any API request
@@ -170,10 +166,9 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-006: should not expose server version in headers',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with secure headers enabled
+      // GIVEN: Application with Hono secureHeaders() middleware configured
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Making any API request

@@ -24,7 +24,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -63,7 +63,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -104,7 +104,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -152,7 +152,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -209,7 +209,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -242,7 +242,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -291,7 +291,7 @@ test.describe('Organization Allowed Email Domains', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({

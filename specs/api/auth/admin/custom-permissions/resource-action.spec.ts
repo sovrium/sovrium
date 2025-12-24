@@ -24,12 +24,10 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete'],
-                comments: ['create', 'read', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete'],
+              comments: ['create', 'read', 'delete'],
             },
           },
         },
@@ -61,11 +59,9 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete', 'publish'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete', 'publish'],
             },
           },
         },
@@ -105,11 +101,9 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read'],
             },
           },
         },
@@ -144,11 +138,9 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['*'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['*'],
             },
           },
         },
@@ -191,11 +183,9 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete'],
             },
           },
         },
@@ -227,11 +217,9 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read'],
             },
           },
         },
@@ -266,13 +254,11 @@ test.describe('Admin Custom Resource:Action Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              customPermissions: {
-                posts: ['create', 'read', 'update', 'delete'],
-                comments: ['create', 'read', 'delete'],
-                media: ['upload', 'delete'],
-              },
+          admin: {
+            customPermissions: {
+              posts: ['create', 'read', 'update', 'delete'],
+              comments: ['create', 'read', 'delete'],
+              media: ['upload', 'delete'],
             },
           },
         },

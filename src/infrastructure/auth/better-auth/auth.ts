@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, twoFactor, apiKey } from 'better-auth/plugins'
+import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
 import { db } from '@/infrastructure/database'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -24,7 +24,6 @@ import {
   teamMembers,
   organizationRoles,
   twoFactors,
-  apiKeys,
 } from './schema'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
@@ -266,7 +265,6 @@ const AUTH_TABLE_NAMES = {
   team: '_sovrium_auth_teams',
   teamMember: '_sovrium_auth_team_members',
   organizationRole: '_sovrium_auth_organization_roles',
-  apiKey: '_sovrium_auth_api_keys',
   twoFactor: '_sovrium_auth_two_factors',
 } as const
 
@@ -292,14 +290,13 @@ const drizzleSchema = {
   [AUTH_TABLE_NAMES.teamMember]: teamMembers,
   [AUTH_TABLE_NAMES.organizationRole]: organizationRoles,
   [AUTH_TABLE_NAMES.twoFactor]: twoFactors,
-  [AUTH_TABLE_NAMES.apiKey]: apiKeys,
 }
 
 /**
  * Build admin plugin if enabled in auth configuration
  */
 const buildAdminPlugin = (authConfig?: Auth) =>
-  authConfig?.plugins?.admin
+  authConfig?.admin
     ? [
         admin({
           defaultRole: 'user',
@@ -320,7 +317,7 @@ const buildOrganizationPlugin = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth
 ) =>
-  authConfig?.plugins?.organization
+  authConfig?.organization
     ? [
         organization({
           sendInvitationEmail: handlers.organizationInvitation,
@@ -337,24 +334,8 @@ const buildOrganizationPlugin = (
  * Build two-factor plugin if enabled in auth configuration
  */
 const buildTwoFactorPlugin = (authConfig?: Auth) =>
-  authConfig?.plugins?.twoFactor
+  authConfig?.twoFactor
     ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })]
-    : []
-
-/**
- * Build API key plugin if enabled in auth configuration
- */
-const buildApiKeyPlugin = (authConfig?: Auth) =>
-  authConfig?.plugins?.apiKeys
-    ? [
-        apiKey({
-          enableSessionForAPIKeys: true,
-          apiKeyHeaders: ['x-api-key', 'authorization'], // Accept both x-api-key and Authorization headers
-          schema: {
-            apikey: { modelName: AUTH_TABLE_NAMES.apiKey },
-          },
-        }),
-      ]
     : []
 
 /**
@@ -371,7 +352,6 @@ const buildAuthPlugins = (
   ...buildAdminPlugin(authConfig),
   ...buildOrganizationPlugin(handlers, authConfig),
   ...buildTwoFactorPlugin(authConfig),
-  ...buildApiKeyPlugin(authConfig),
 ]
 
 /**

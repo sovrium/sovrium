@@ -43,10 +43,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -87,10 +85,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -119,10 +115,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -148,10 +142,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -188,10 +180,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -225,10 +215,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -256,10 +244,8 @@ test.describe('Admin: Impersonate user', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -296,10 +282,8 @@ test.describe('Admin: Impersonate user', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: {
-              admin: {
-                impersonation: true,
-              },
+            admin: {
+              impersonation: true,
             },
           },
         })

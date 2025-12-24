@@ -47,7 +47,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -111,7 +111,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -179,7 +179,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -251,7 +251,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -334,7 +334,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -411,7 +411,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -491,7 +491,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
         tables: [
           {
@@ -586,7 +586,7 @@ test.describe('API Bulk Operations with Permissions', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { organization: true },
+            organization: true,
           },
           tables: [
             {

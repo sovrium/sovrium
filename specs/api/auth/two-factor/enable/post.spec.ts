@@ -33,10 +33,8 @@ test.describe('Enable Two-Factor Authentication', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
-            },
+          twoFactor: {
+            issuer: 'Test App',
           },
         },
       })
@@ -69,11 +67,9 @@ test.describe('Enable Two-Factor Authentication', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
-              backupCodes: true,
-            },
+          twoFactor: {
+            issuer: 'Test App',
+            backupCodes: true,
           },
         },
       })
@@ -107,9 +103,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: true,
-          },
+          twoFactor: true,
         },
       })
 
@@ -133,9 +127,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: true,
-          },
+          twoFactor: true,
         },
       })
 
@@ -211,13 +203,11 @@ test.describe('Enable Two-Factor Authentication', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: {
-              twoFactor: {
-                issuer: 'Test App',
-                backupCodes: true,
-                digits: 6,
-                period: 30,
-              },
+            twoFactor: {
+              issuer: 'Test App',
+              backupCodes: true,
+              digits: 6,
+              period: 30,
             },
           },
         })

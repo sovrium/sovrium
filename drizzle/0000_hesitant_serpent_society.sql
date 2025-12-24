@@ -14,30 +14,6 @@ CREATE TABLE "_sovrium_auth_accounts" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "_sovrium_auth_api_keys" (
-	"id" text PRIMARY KEY NOT NULL,
-	"name" text,
-	"start" text,
-	"prefix" text,
-	"key" text NOT NULL,
-	"user_id" text NOT NULL,
-	"refill_interval" integer,
-	"refill_amount" integer,
-	"last_refill_at" timestamp with time zone,
-	"enabled" boolean DEFAULT true NOT NULL,
-	"rate_limit_enabled" boolean DEFAULT false NOT NULL,
-	"rate_limit_time_window" integer,
-	"rate_limit_max" integer,
-	"request_count" integer DEFAULT 0 NOT NULL,
-	"remaining" integer,
-	"last_request" timestamp with time zone,
-	"expires_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"permissions" text,
-	"metadata" text
-);
---> statement-breakpoint
 CREATE TABLE "_sovrium_auth_invitations" (
 	"id" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
@@ -193,7 +169,6 @@ CREATE TABLE "_sovrium_record_comments" (
 );
 --> statement-breakpoint
 ALTER TABLE "_sovrium_auth_accounts" ADD CONSTRAINT "_sovrium_auth_accounts_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "_sovrium_auth_api_keys" ADD CONSTRAINT "_sovrium_auth_api_keys_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_invitations" ADD CONSTRAINT "_sovrium_auth_invitations_organization_id__sovrium_auth_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."_sovrium_auth_organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_invitations" ADD CONSTRAINT "_sovrium_auth_invitations_inviter_id__sovrium_auth_users_id_fk" FOREIGN KEY ("inviter_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_members" ADD CONSTRAINT "_sovrium_auth_members_organization_id__sovrium_auth_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."_sovrium_auth_organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

@@ -43,7 +43,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -79,7 +79,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -108,7 +108,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -135,7 +135,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -164,7 +164,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -187,7 +187,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -222,7 +222,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -268,7 +268,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
       })
 
@@ -309,7 +309,7 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
         tables: [
           {
@@ -378,10 +378,8 @@ test.describe('Admin Permission Enforcement', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: true,
-            organization: true,
-          },
+          admin: true,
+          organization: true,
         },
         tables: [
           {
@@ -477,7 +475,7 @@ test.describe('Admin Permission Enforcement', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: true },
+            admin: true,
           },
         })
       })

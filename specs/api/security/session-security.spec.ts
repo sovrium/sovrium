@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Session Security - Session Fixation and Hijacking Prevention
  *
  * Domain: api/security
- * Spec Count: 5
+ * Spec Count: 4
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (5 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (4 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests session security mechanisms that prevent session fixation and hijacking:
@@ -22,7 +22,8 @@ import { test, expect } from '@/specs/fixtures'
  * - Secure flag on session cookies (HTTPS only)
  * - HttpOnly flag on session cookies (no JavaScript access)
  * - SameSite attribute on session cookies (CSRF protection)
- * - Session invalidation after password change
+ *
+ * Note: These are native Better Auth behaviors - no custom configuration required.
  *
  * Session security is critical to prevent attackers from:
  * 1. Session Fixation: Forcing a known session ID on a victim
@@ -209,69 +210,12 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
     }
   )
 
-  test.fixme(
-    'API-SECURITY-SESSION-005: should invalidate old session after password change',
-    { tag: '@spec' },
-    async ({ page, context, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Application with authenticated user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-      })
-
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'OldPassword123!',
-      })
-
-      await signIn({
-        email: 'test@example.com',
-        password: 'OldPassword123!',
-      })
-
-      // Save old session cookies
-      const oldCookies = await context.cookies()
-      const oldSessionCookie = oldCookies.find(
-        (c) => c.name.includes('session') || c.name.includes('auth')
-      )
-
-      expect(oldSessionCookie).toBeDefined()
-
-      // WHEN: User changes password
-      const changePasswordResponse = await page.request.post('/api/auth/change-password', {
-        data: {
-          currentPassword: 'OldPassword123!',
-          newPassword: 'NewPassword123!',
-        },
-      })
-
-      expect(changePasswordResponse.status()).toBe(200)
-
-      // THEN: Old session should be invalidated
-      const newCookies = await context.cookies()
-      const newSessionCookie = newCookies.find(
-        (c) => c.name.includes('session') || c.name.includes('auth')
-      )
-
-      // Session cookie should be different (old session invalidated)
-      expect(newSessionCookie).toBeDefined()
-      expect(newSessionCookie!.value).not.toBe(oldSessionCookie!.value)
-
-      // THEN: Accessing protected resource with old session should fail
-      // (This would require manual cookie manipulation in a real attack scenario)
-      // For now, verify that session has changed, which indicates invalidation
-    }
-  )
-
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-SESSION-006: session security workflow prevents attacks',
+    'API-SECURITY-SESSION-005: session security workflow prevents attacks',
     { tag: '@regression' },
     async ({ page, context, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with auth', async () => {
@@ -345,30 +289,6 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
 
         expect(sessionCookie).toBeDefined()
         expect(['Lax', 'Strict']).toContain(sessionCookie!.sameSite)
-      })
-
-      await test.step('Verify: Session invalidates after password change', async () => {
-        const oldCookies = await context.cookies()
-        const oldSession = oldCookies.find(
-          (c) => c.name.includes('session') || c.name.includes('auth')
-        )
-
-        const changePasswordResponse = await page.request.post('/api/auth/change-password', {
-          data: {
-            currentPassword: 'InitialPass123!',
-            newPassword: 'NewPass123!',
-          },
-        })
-
-        expect(changePasswordResponse.status()).toBe(200)
-
-        const newCookies = await context.cookies()
-        const newSession = newCookies.find(
-          (c) => c.name.includes('session') || c.name.includes('auth')
-        )
-
-        expect(newSession).toBeDefined()
-        expect(newSession!.value).not.toBe(oldSession!.value)
       })
     }
   )

@@ -7,7 +7,6 @@
 
 import { Schema } from 'effect'
 import { AdminConfigSchema } from './admin'
-import { ApiKeysConfigSchema } from './api-keys'
 import { OrganizationConfigSchema } from './organization'
 import { TwoFactorConfigSchema } from './two-factor'
 
@@ -15,7 +14,6 @@ import { TwoFactorConfigSchema } from './two-factor'
 export * from './admin'
 export * from './organization'
 export * from './two-factor'
-export * from './api-keys'
 
 /**
  * Unified Plugins Configuration Schema
@@ -27,7 +25,7 @@ export * from './api-keys'
  *
  * Plugin categories:
  * - Organization: admin, organization
- * - Security: twoFactor, apiKeys
+ * - Security: twoFactor
  *
  * @example
  * ```typescript
@@ -57,15 +55,11 @@ export const PluginsConfigSchema = Schema.Struct({
 
   // Security plugins
   twoFactor: Schema.optional(TwoFactorConfigSchema),
-  apiKeys: Schema.optional(ApiKeysConfigSchema),
 }).pipe(
   Schema.annotations({
     title: 'Plugins Configuration',
     description: 'All authentication plugins configuration',
-    examples: [
-      { admin: true, organization: true },
-      { twoFactor: { issuer: 'MyApp' }, apiKeys: { expirationDays: 90 } },
-    ],
+    examples: [{ admin: true, organization: true }, { twoFactor: { issuer: 'MyApp' } }],
   })
 )
 

@@ -24,10 +24,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -90,10 +88,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -156,10 +152,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -222,10 +216,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -299,10 +291,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -347,10 +337,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })
@@ -378,10 +366,8 @@ test.describe('Check Permission', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              dynamicRoles: true,
-            },
+          organization: {
+            dynamicRoles: true,
           },
         },
       })

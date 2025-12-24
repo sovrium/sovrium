@@ -22,7 +22,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: Admin and regular user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -47,7 +47,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: Admin and regular user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -76,7 +76,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: Admin and regular user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -102,7 +102,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: Admin user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       const admin = await createAdmin({
         email: 'admin@example.com',
@@ -128,7 +128,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: Moderator admin and super admin user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       const moderator = await createAdmin({
         email: 'moderator@example.com',
@@ -168,7 +168,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: User with active session
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',
@@ -198,7 +198,7 @@ test.describe('Admin Delete User', () => {
       // GIVEN: Admin and user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
       await createAdmin({
         email: 'admin@example.com',

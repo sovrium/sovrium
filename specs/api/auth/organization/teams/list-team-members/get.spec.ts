@@ -24,10 +24,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -60,10 +58,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -96,10 +92,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -136,10 +130,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -164,10 +156,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -192,10 +182,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })
@@ -218,10 +206,8 @@ test.describe('List Team Members', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            organization: {
-              teams: true,
-            },
+          organization: {
+            teams: true,
           },
         },
       })

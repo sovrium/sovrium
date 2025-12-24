@@ -24,7 +24,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: true } },
+          admin: { firstUserAdmin: true },
         },
       })
 
@@ -44,7 +44,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: true } },
+          admin: { firstUserAdmin: true },
         },
       })
 
@@ -76,7 +76,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: false } },
+          admin: { firstUserAdmin: false },
         },
       })
 
@@ -96,7 +96,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: true } },
+          admin: { firstUserAdmin: true },
         },
       })
 
@@ -127,7 +127,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: true } },
+          admin: { firstUserAdmin: true },
         },
       })
 
@@ -148,7 +148,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: true } },
+          admin: { firstUserAdmin: true },
         },
       })
 
@@ -173,7 +173,7 @@ test.describe('First User Admin Configuration', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { firstUserAdmin: true } },
+          admin: { firstUserAdmin: true },
         },
       })
 

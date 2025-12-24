@@ -24,10 +24,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -61,10 +59,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -102,10 +98,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -141,10 +135,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -180,10 +172,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -211,10 +201,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })
@@ -243,10 +231,8 @@ test.describe('Admin Start Impersonation', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            admin: {
-              impersonation: true,
-            },
+          admin: {
+            impersonation: true,
           },
         },
       })

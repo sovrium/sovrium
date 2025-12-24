@@ -24,7 +24,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -62,7 +62,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -96,7 +96,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner1 = await createAuthenticatedUser({
@@ -142,7 +142,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -196,7 +196,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -236,7 +236,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const owner = await createAuthenticatedUser({
@@ -302,7 +302,7 @@ test.describe('Organization Slug Handling', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 

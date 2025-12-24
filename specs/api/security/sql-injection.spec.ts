@@ -389,7 +389,6 @@ test.describe('SQL Injection Prevention', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       // Create a legitimate user
@@ -431,9 +430,8 @@ test.describe('SQL Injection Prevention', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: true },
+          admin: true,
         },
-        tables: [],
       })
 
       await createAuthenticatedAdmin()

@@ -78,7 +78,6 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
  * @param app - Application configuration with auth settings
  * @returns Hono app with auth routes configured (or unchanged if auth is disabled)
  */
-// eslint-disable-next-line max-lines-per-function -- Minimal implementation requires route wrappers and handlers
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
   // If no auth config is provided, don't register any auth routes
   // This causes all /api/auth/* requests to return 404 (not found)
@@ -111,86 +110,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     return authInstance.handler(c.req.raw)
   })
 
-  // Helper: Handle API key creation with metadata
-  const handleApiKeyWithMetadata = async (
-    metadata: unknown,
-    bodyWithoutMetadata: Record<string, unknown>,
-    request: Request
-  ): Promise<{ status: number; data: Record<string, unknown> }> => {
-    // Create API key via Better Auth (without metadata)
-    const createRequest = new Request(request.url, {
-      method: request.method,
-      headers: request.headers,
-      body: JSON.stringify(bodyWithoutMetadata),
-    })
-
-    const createResponse = await authInstance.handler(createRequest)
-    const createData = await createResponse.json()
-
-    if (createResponse.status !== 200) {
-      return { status: createResponse.status, data: createData as Record<string, unknown> }
-    }
-
-    // Update database with metadata (minimal code to pass test)
-    const { db } = await import('@/infrastructure/database')
-    const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
-    const { eq } = await import('drizzle-orm')
-
-    const metadataString =
-      typeof metadata === 'object' && metadata !== null
-        ? JSON.stringify(metadata)
-        : String(metadata ?? '')
-
-    // eslint-disable-next-line functional/no-expression-statements -- Database update is required side effect
-    await db.update(apiKeys).set({ metadata: metadataString }).where(eq(apiKeys.id, createData.id))
-
-    const metadataResponse =
-      typeof metadata === 'object' && metadata !== null ? metadata : JSON.parse(metadataString)
-
-    return {
-      status: 200,
-      data: {
-        ...createData,
-        metadata: metadataResponse,
-      } as Record<string, unknown>,
-    }
-  }
-
-  // Wrap api-key/create to support metadata field (only if API keys plugin is enabled)
-  // Better Auth v1.4.7's apiKey plugin doesn't accept metadata in the creation endpoint,
-  // so we handle it separately: create without metadata, then update with metadata
-  const finalApp = app.auth.plugins?.apiKeys
-    ? wrappedApp.post('/api/auth/api-key/create', async (c) => {
-        try {
-          const body = await c.req.json()
-
-          // If metadata is provided, handle it separately
-          if (body.metadata) {
-            const { metadata, ...bodyWithoutMetadata } = body
-            const result = await handleApiKeyWithMetadata(metadata, bodyWithoutMetadata, c.req.raw)
-            return c.json(result.data, result.status as 200 | 400 | 401 | 404 | 500)
-          }
-
-          // No metadata - recreate request and delegate to Better Auth
-          const delegateRequest = new Request(c.req.raw.url, {
-            method: c.req.raw.method,
-            headers: c.req.raw.headers,
-            body: JSON.stringify(body),
-          })
-
-          return authInstance.handler(delegateRequest)
-        } catch {
-          // JSON parsing failed or other error - delegate to Better Auth to handle
-          return authInstance.handler(c.req.raw)
-        }
-      })
-    : wrappedApp
-
   // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return finalApp.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return wrappedApp.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }

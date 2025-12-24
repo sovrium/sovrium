@@ -24,7 +24,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'user' } },
+          admin: { defaultRole: 'user' },
         },
       })
 
@@ -44,7 +44,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'viewer' } },
+          admin: { defaultRole: 'viewer' },
         },
       })
 
@@ -64,7 +64,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'user' } },
+          admin: { defaultRole: 'user' },
         },
       })
 
@@ -82,7 +82,7 @@ test.describe('Admin Default User Role', () => {
       // GIVEN: Server without default role configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, plugins: { admin: true } },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       // WHEN: New user signs up
@@ -104,7 +104,7 @@ test.describe('Admin Default User Role', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: { admin: { defaultRole: 'non-existent-role' as 'user' } }, // intentional invalid value for testing
+            admin: { defaultRole: 'non-existent-role' as 'user' }, // intentional invalid value for testing
           },
         })
       ).rejects.toThrow(/invalid.*role/i)
@@ -119,7 +119,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'user' } },
+          admin: { defaultRole: 'user' },
         },
       })
       await createAdmin({
@@ -152,7 +152,7 @@ test.describe('Admin Default User Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { admin: { defaultRole: 'user' } },
+          admin: { defaultRole: 'user' },
         },
       })
 

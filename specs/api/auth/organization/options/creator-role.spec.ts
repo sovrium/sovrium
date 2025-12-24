@@ -24,7 +24,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const creator = await createAuthenticatedUser({
@@ -57,7 +57,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
 
@@ -103,7 +103,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const creator = await createAuthenticatedUser({
@@ -145,7 +145,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const creator = await createAuthenticatedUser({
@@ -199,7 +199,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const creator = await createAuthenticatedUser({
@@ -230,7 +230,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const creator = await createAuthenticatedUser({
@@ -281,7 +281,7 @@ test.describe('Organization Creator Role', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: { organization: true },
+          organization: true,
         },
       })
       const creator = await createAuthenticatedUser({

@@ -33,10 +33,8 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
-            },
+          twoFactor: {
+            issuer: 'Test App',
           },
         },
       })
@@ -81,9 +79,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: true,
-          },
+          twoFactor: true,
         },
       })
 
@@ -120,11 +116,9 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
-              backupCodes: true,
-            },
+          twoFactor: {
+            issuer: 'Test App',
+            backupCodes: true,
           },
         },
       })
@@ -166,9 +160,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: true,
-          },
+          twoFactor: true,
         },
       })
 
@@ -196,9 +188,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          plugins: {
-            twoFactor: true,
-          },
+          twoFactor: true,
         },
       })
 
@@ -266,11 +256,9 @@ test.describe('Verify Two-Factor Authentication Code', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            plugins: {
-              twoFactor: {
-                issuer: 'Test App',
-                backupCodes: true,
-              },
+            twoFactor: {
+              issuer: 'Test App',
+              backupCodes: true,
             },
           },
         })

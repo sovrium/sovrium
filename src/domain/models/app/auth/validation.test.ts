@@ -27,7 +27,7 @@ describe('validateTwoFactorRequiresPrimary', () => {
   test('should pass when two-factor is enabled with emailAndPassword', () => {
     const config: AuthConfigForValidation = {
       emailAndPassword: true,
-      plugins: { twoFactor: true },
+      twoFactor: true,
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(true)
@@ -36,7 +36,7 @@ describe('validateTwoFactorRequiresPrimary', () => {
   test('should pass when two-factor is enabled with emailAndPassword as config object', () => {
     const config: AuthConfigForValidation = {
       emailAndPassword: { minPasswordLength: 12 },
-      plugins: { twoFactor: { issuer: 'MyApp' } },
+      twoFactor: { issuer: 'MyApp' },
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(true)
@@ -45,7 +45,7 @@ describe('validateTwoFactorRequiresPrimary', () => {
   test('should fail when two-factor is enabled without emailAndPassword', () => {
     const config: AuthConfigForValidation = {
       magicLink: true,
-      plugins: { twoFactor: true },
+      twoFactor: true,
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(false)
@@ -57,7 +57,7 @@ describe('validateTwoFactorRequiresPrimary', () => {
   test('should fail when two-factor is enabled with only oauth', () => {
     const config: AuthConfigForValidation = {
       oauth: { providers: ['google'] },
-      plugins: { twoFactor: true },
+      twoFactor: true,
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(false)
@@ -105,14 +105,12 @@ describe('validateAuthConfig', () => {
     expect(result.success).toBe(true)
   })
 
-  test('should pass for valid configuration with OAuth and plugins', () => {
+  test('should pass for valid configuration with OAuth and twoFactor', () => {
     const config: AuthConfigForValidation = {
       emailAndPassword: true,
       oauth: { providers: ['google', 'github'] },
-      plugins: {
-        twoFactor: true,
-        admin: true,
-      },
+      twoFactor: true,
+      admin: true,
     }
     const result = validateAuthConfig(config)
     expect(result.success).toBe(true)
@@ -129,7 +127,7 @@ describe('validateAuthConfig', () => {
   test('should fail on first validation error (2FA without emailAndPassword)', () => {
     const config: AuthConfigForValidation = {
       magicLink: true,
-      plugins: { twoFactor: true },
+      twoFactor: true,
     }
     const result = validateAuthConfig(config)
     expect(result.success).toBe(false)

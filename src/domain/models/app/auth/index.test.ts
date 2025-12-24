@@ -14,12 +14,14 @@ describe('AuthSchema', () => {
     test('should accept full auth configuration with all plugins', () => {
       const input = {
         emailAndPassword: true,
-        plugins: { admin: true, organization: true },
+        admin: true,
+        organization: true,
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
         emailAndPassword: true,
-        plugins: { admin: true, organization: true },
+        admin: true,
+        organization: true,
       })
     })
 
@@ -36,48 +38,46 @@ describe('AuthSchema', () => {
     test('should accept auth with admin plugin only', () => {
       const input = {
         emailAndPassword: true,
-        plugins: { admin: true },
+        admin: true,
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
         emailAndPassword: true,
-        plugins: { admin: true },
+        admin: true,
       })
     })
 
     test('should accept auth with organization plugin only', () => {
       const input = {
         emailAndPassword: true,
-        plugins: { organization: true },
+        organization: true,
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
         emailAndPassword: true,
-        plugins: { organization: true },
+        organization: true,
       })
     })
 
-    test('should accept auth with empty plugins object', () => {
+    test('should accept auth without plugins', () => {
       const input = {
         emailAndPassword: true,
-        plugins: {},
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
         emailAndPassword: true,
-        plugins: {},
       })
     })
 
     test('should accept plugin with config object', () => {
       const input = {
         emailAndPassword: true,
-        plugins: { admin: { impersonation: true } },
+        admin: { impersonation: true },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
         emailAndPassword: true,
-        plugins: { admin: { impersonation: true } },
+        admin: { impersonation: true },
       })
     })
 
@@ -218,7 +218,7 @@ describe('AuthSchema', () => {
     test('should reject two-factor without emailAndPassword', () => {
       const input = {
         magicLink: true,
-        plugins: { twoFactor: true },
+        twoFactor: true,
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
         'Two-factor authentication requires emailAndPassword authentication'
@@ -228,7 +228,7 @@ describe('AuthSchema', () => {
     test('should reject two-factor with only oauth', () => {
       const input = {
         oauth: { providers: ['google'] },
-        plugins: { twoFactor: true },
+        twoFactor: true,
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
         'Two-factor authentication requires emailAndPassword authentication'
@@ -238,10 +238,10 @@ describe('AuthSchema', () => {
     test('should accept two-factor with emailAndPassword', () => {
       const input = {
         emailAndPassword: true,
-        plugins: { twoFactor: true },
+        twoFactor: true,
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.plugins?.twoFactor).toBe(true)
+      expect(result.twoFactor).toBe(true)
     })
   })
 

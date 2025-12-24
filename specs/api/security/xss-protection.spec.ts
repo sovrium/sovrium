@@ -26,9 +26,13 @@ import { test, expect } from '@/specs/fixtures'
  * - JavaScript URL injection (javascript:alert())
  * - HTML entity encoding in API responses
  *
- * While API responses are typically JSON (not rendered as HTML), proper
- * encoding and sanitization is still critical when data is consumed by
- * frontend applications that render user-generated content.
+ * XSS Protection Responsibility:
+ * - API Layer: Returns JSON responses (not HTML), preventing script execution.
+ *   Uses Content-Type: application/json and X-Content-Type-Options: nosniff.
+ * - URL Field Type: Validates for http/https protocols, rejecting javascript: URLs.
+ * - Frontend (React): MUST sanitize user content when rendering as HTML using
+ *   libraries like DOMPurify. React's JSX escapes values by default, but
+ *   dangerouslySetInnerHTML requires explicit sanitization.
  */
 
 test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
@@ -261,7 +265,6 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
       // GIVEN: Application running
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
       })
 
       // WHEN: Sending requests with XSS payloads in query parameters
@@ -400,7 +403,6 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       // WHEN: Attempting to register with XSS payloads in name field
@@ -459,7 +461,6 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         auth: {
           emailAndPassword: true,
         },
-        tables: [],
       })
 
       await signUp({
