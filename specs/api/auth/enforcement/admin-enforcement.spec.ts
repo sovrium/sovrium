@@ -402,8 +402,6 @@ test.describe('Admin Permission Enforcement', () => {
       })
 
       // Create two organizations with admins
-      // TODO: When Access Control plugin is implemented, use role-based user creation:
-      // await createAuthenticatedUser({ email: 'admin1@example.com', role: 'admin' })
       await createAuthenticatedUser({ email: 'admin1@example.com' })
       await createAuthenticatedUser({ email: 'admin2@example.com' })
 

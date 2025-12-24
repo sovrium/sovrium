@@ -474,7 +474,6 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          // TODO: When Access Control plugin is implemented, add: plugins: { accessControl: true }
         },
         tables: [
           {
@@ -509,7 +508,6 @@ test.describe('Field-Level Permissions', () => {
       ])
 
       // Create member user
-      // TODO: When Access Control plugin is implemented, add role: 'member' to signUp
       await signUp({
         email: 'member@example.com',
         password: 'MemberPass123!',
@@ -534,7 +532,6 @@ test.describe('Field-Level Permissions', () => {
       expect(data.records[0]).not.toHaveProperty('ssn') // Filtered by RLS
 
       // WHEN: Admin user attempts to read employee records
-      // TODO: When Access Control plugin is implemented, add role: 'admin' to signUp
       await signUp({
         email: 'admin@example.com',
         password: 'AdminPass123!',
@@ -567,7 +564,6 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          // TODO: When Access Control plugin is implemented, add: plugins: { accessControl: true }
         },
         tables: [
           {
@@ -597,7 +593,6 @@ test.describe('Field-Level Permissions', () => {
       ])
 
       // Create member user
-      // TODO: When Access Control plugin is implemented, add role: 'member' to signUp
       await signUp({
         email: 'member@example.com',
         password: 'MemberPass123!',
@@ -621,7 +616,6 @@ test.describe('Field-Level Permissions', () => {
       expect(dbResult.rows[0].verified).toBe(false) // Unchanged
 
       // WHEN: Admin attempts to update verified field
-      // TODO: When Access Control plugin is implemented, add role: 'admin' to signUp
       await signUp({
         email: 'admin@example.com',
         password: 'AdminPass123!',
@@ -660,7 +654,6 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          // TODO: When Access Control plugin is implemented, add: plugins: { accessControl: true }
         },
         tables: [
           {

@@ -686,7 +686,6 @@ test.describe('Organization Data Isolation', () => {
           emailAndPassword: true,
           plugins: {
             organization: true,
-            // TODO: When Access Control plugin is implemented, add: accessControl: true
           },
         },
         tables: [
@@ -779,7 +778,6 @@ test.describe('Organization Data Isolation', () => {
           emailAndPassword: true,
           plugins: {
             organization: true,
-            // TODO: When Access Control plugin is implemented, add: accessControl: true
           },
         },
         tables: [
@@ -802,7 +800,6 @@ test.describe('Organization Data Isolation', () => {
       })
 
       // Create two organizations with data
-      // TODO: When Access Control plugin is implemented, add role: 'admin' to createAuthenticatedUser
       await createAuthenticatedUser({ email: 'admin1@example.com' })
       const org1 = await createOrganization({ name: 'Team A' })
 
@@ -848,7 +845,6 @@ test.describe('Organization Data Isolation', () => {
       expect(dbUpdate.rows[0].resource_name).toBe('Updated Team A Resource')
 
       // WHEN: Member (non-admin) attempts to update resource
-      // TODO: When Access Control plugin is implemented, add role: 'member' to createAuthenticatedUser
       await createAuthenticatedUser({ email: 'member1@example.com' })
 
       await signIn({ email: 'member1@example.com', password: 'MemberPass123!' })

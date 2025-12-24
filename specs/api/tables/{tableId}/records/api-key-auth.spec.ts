@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Key Authentication - Record CRUD
  *
  * Domain: api/tables/{tableId}/records
- * Spec Count: 10
+ * Spec Count: 9
  *
  * Test Organization:
  * 1. @spec tests - Endpoint-specific authentication behaviors (9 tests)
