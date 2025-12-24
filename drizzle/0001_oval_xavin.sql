@@ -1,1 +1,0 @@
-ALTER TABLE "_sovrium_migration_history" ADD COLUMN "rolled_back_at" timestamp;

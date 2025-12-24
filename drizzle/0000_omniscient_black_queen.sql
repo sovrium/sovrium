@@ -46,7 +46,8 @@ CREATE TABLE "_sovrium_auth_invitations" (
 	"status" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"inviter_id" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"team_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "_sovrium_auth_members" (
@@ -55,6 +56,15 @@ CREATE TABLE "_sovrium_auth_members" (
 	"user_id" text NOT NULL,
 	"role" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "_sovrium_auth_organization_roles" (
+	"id" text PRIMARY KEY NOT NULL,
+	"organization_id" text NOT NULL,
+	"role" text NOT NULL,
+	"permissions" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "_sovrium_auth_organizations" (
@@ -78,7 +88,23 @@ CREATE TABLE "_sovrium_auth_sessions" (
 	"user_id" text NOT NULL,
 	"impersonated_by" text,
 	"active_organization_id" text,
+	"active_team_id" text,
 	CONSTRAINT "_sovrium_auth_sessions_token_unique" UNIQUE("token")
+);
+--> statement-breakpoint
+CREATE TABLE "_sovrium_auth_team_members" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "_sovrium_auth_teams" (
+	"id" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"organization_id" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "_sovrium_auth_two_factors" (
@@ -118,7 +144,8 @@ CREATE TABLE "_sovrium_migration_history" (
 	"version" integer NOT NULL,
 	"checksum" text NOT NULL,
 	"schema" jsonb,
-	"applied_at" timestamp DEFAULT now()
+	"applied_at" timestamp DEFAULT now(),
+	"rolled_back_at" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "_sovrium_migration_log" (
@@ -171,7 +198,11 @@ ALTER TABLE "_sovrium_auth_invitations" ADD CONSTRAINT "_sovrium_auth_invitation
 ALTER TABLE "_sovrium_auth_invitations" ADD CONSTRAINT "_sovrium_auth_invitations_inviter_id__sovrium_auth_users_id_fk" FOREIGN KEY ("inviter_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_members" ADD CONSTRAINT "_sovrium_auth_members_organization_id__sovrium_auth_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."_sovrium_auth_organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_members" ADD CONSTRAINT "_sovrium_auth_members_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "_sovrium_auth_organization_roles" ADD CONSTRAINT "_sovrium_auth_organization_roles_organization_id__sovrium_auth_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."_sovrium_auth_organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_sessions" ADD CONSTRAINT "_sovrium_auth_sessions_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "_sovrium_auth_team_members" ADD CONSTRAINT "_sovrium_auth_team_members_team_id__sovrium_auth_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."_sovrium_auth_teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "_sovrium_auth_team_members" ADD CONSTRAINT "_sovrium_auth_team_members_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "_sovrium_auth_teams" ADD CONSTRAINT "_sovrium_auth_teams_organization_id__sovrium_auth_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."_sovrium_auth_organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_auth_two_factors" ADD CONSTRAINT "_sovrium_auth_two_factors_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_activity_logs" ADD CONSTRAINT "_sovrium_activity_logs_organization_id__sovrium_auth_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."_sovrium_auth_organizations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "_sovrium_activity_logs" ADD CONSTRAINT "_sovrium_activity_logs_user_id__sovrium_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."_sovrium_auth_users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
