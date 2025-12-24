@@ -97,13 +97,11 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-003: should allow admin access to all admin endpoints',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, executeQuery }) => {
       // GIVEN: Authenticated admin user
-      // Note: This test assumes first user can be promoted to admin via some mechanism
-      // or that admin features have a way to set up the first admin
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -112,11 +110,17 @@ test.describe('Admin Permission Enforcement', () => {
         },
       })
 
-      await signUp({
+      const result = await signUp({
         email: 'admin@example.com',
         password: 'AdminPass123!',
         name: 'Admin User',
       })
+
+      // Manually set user role to admin (Better Auth 1.4.7 doesn't have makeFirstUserAdmin)
+      // In production, first admin would be created via database seed or admin creation endpoint
+      await executeQuery("UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = $1", [
+        result.user!.id,
+      ])
 
       // WHEN: Admin accesses admin endpoints
       const response = await page.request.get('/api/auth/admin/list-users')
