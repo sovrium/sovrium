@@ -376,22 +376,62 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     }
   }
 
-  // Wrap api-key/create to support metadata field (only if API keys plugin is enabled)
+  // Wrap api-key/create to support metadata field and ultra-short expirations (only if API keys plugin is enabled)
   // Better Auth v1.4.7's apiKey plugin doesn't accept metadata in the creation endpoint,
-  // so we handle it separately: create without metadata, then update with metadata
+  // and may not support very short expirations (< 60 seconds), so we handle both cases
   const appWithApiKeyCreate = app.auth.plugins?.apiKeys
     ? wrappedApp.post('/api/auth/api-key/create', async (c) => {
         try {
           const body = await c.req.json()
+          const hasMetadata = shouldHandleMetadata(body)
+          const hasShortExpiration = typeof body.expiresIn === 'number' && body.expiresIn < 60
 
-          // If metadata is provided, handle it separately
-          if (shouldHandleMetadata(body)) {
-            const { metadata, ...bodyWithoutMetadata } = body
-            const result = await handleApiKeyWithMetadata(metadata, bodyWithoutMetadata, c.req.raw)
-            return c.json(result.data, result.status as 200 | 400 | 401 | 404 | 500)
+          // If metadata or ultra-short expiration, handle specially
+          if (hasMetadata || hasShortExpiration) {
+            const { metadata, expiresIn, ...bodyWithoutSpecialFields } = body
+
+            // Create key via Better Auth without special fields
+            const result = hasMetadata
+              ? await handleApiKeyWithMetadata(metadata, bodyWithoutSpecialFields, c.req.raw)
+              : await (async () => {
+                  const createRequest = new Request(c.req.raw.url, {
+                    method: c.req.raw.method,
+                    headers: c.req.raw.headers,
+                    body: JSON.stringify(bodyWithoutSpecialFields),
+                  })
+                  const createResponse = await authInstance.handler(createRequest)
+                  const createData = await createResponse.json()
+                  return {
+                    status: createResponse.status,
+                    data: createData as Record<string, unknown>,
+                  }
+                })()
+
+            if (result.status !== 200) {
+              return c.json(result.data, result.status as 200 | 400 | 401 | 404 | 500)
+            }
+
+            // If ultra-short expiration, update expiresAt directly in database
+            if (hasShortExpiration && expiresIn !== undefined) {
+              const { db } = await import('@/infrastructure/database')
+              const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
+              const { eq } = await import('drizzle-orm')
+
+              const expiresAt = new Date(Date.now() + expiresIn * 1000)
+
+              // eslint-disable-next-line functional/no-expression-statements -- Database update is required side effect
+              await db
+                .update(apiKeys)
+                .set({ expiresAt })
+                .where(eq(apiKeys.id, result.data.id as string))
+
+              return c.json({ ...result.data, expiresAt: expiresAt.toISOString() }, 200)
+            }
+
+            return c.json(result.data, 200)
           }
 
-          // No metadata - recreate request and delegate to Better Auth
+          // No special handling needed - delegate to Better Auth
           const delegateRequest = new Request(c.req.raw.url, {
             method: c.req.raw.method,
             headers: c.req.raw.headers,
@@ -406,10 +446,77 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : wrappedApp
 
+  // Wrap api-key/list to include expired keys (only if API keys plugin is enabled)
+  // Better Auth's default list endpoint may filter expired keys, but tests need to verify them
+  const appWithApiKeyList = app.auth.plugins?.apiKeys
+    ? appWithApiKeyCreate.get('/api/auth/api-key/list', async (c) => {
+        try {
+          // Get user session to enforce authentication
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+          // If not authenticated, return 401
+          if (!session?.session?.userId) {
+            return c.json({ message: 'Unauthorized' }, 401)
+          }
+
+          // Get ALL API keys for this user (including expired ones)
+          const { db } = await import('@/infrastructure/database')
+          const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq } = await import('drizzle-orm')
+
+          const userApiKeys = await db
+            .select()
+            .from(apiKeys)
+            .where(eq(apiKeys.userId, session.session.userId))
+
+          // Remove sensitive 'key' field from response (security)
+          const safeKeys = userApiKeys.map(({ key: _key, ...rest }) => rest)
+
+          return c.json(safeKeys, 200)
+        } catch {
+          return c.json({ message: 'Internal server error' }, 500)
+        }
+      })
+    : appWithApiKeyCreate
+
+  // Add delete-expired endpoint for API keys (only if API keys plugin is enabled)
+  // Deletes all expired API keys for the authenticated user
+  const appWithDeleteExpired = app.auth.plugins?.apiKeys
+    ? // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is Hono's delete() method, not Drizzle
+      appWithApiKeyList.delete('/api/auth/api-key/delete-expired', async (c) => {
+        try {
+          // Get user session to enforce authentication
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+          // If not authenticated, return 401
+          if (!session?.session?.userId) {
+            return c.json({ message: 'Unauthorized' }, 401)
+          }
+
+          // Delete all expired API keys for this user
+          const { db } = await import('@/infrastructure/database')
+          const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq, and, lt } = await import('drizzle-orm')
+
+          // Find and delete expired keys (expiresAt < current time)
+          // eslint-disable-next-line functional/no-expression-statements -- Database operation is required side effect
+          await db
+            .delete(apiKeys)
+            .where(
+              and(eq(apiKeys.userId, session.session.userId), lt(apiKeys.expiresAt, new Date()))
+            )
+
+          return c.json({ success: true }, 200)
+        } catch {
+          return c.json({ message: 'Internal server error' }, 500)
+        }
+      })
+    : appWithApiKeyCreate
+
   // Wrap api-key/delete to validate key exists and enforce user isolation (only if API keys plugin is enabled)
   // Better Auth may return success even if key doesn't exist, so we check first
   const finalApp = app.auth.plugins?.apiKeys
-    ? appWithApiKeyCreate.post('/api/auth/api-key/delete', async (c) => {
+    ? appWithDeleteExpired.post('/api/auth/api-key/delete', async (c) => {
         try {
           const body = await c.req.json()
           const { keyId } = body
