@@ -379,7 +379,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Wrap api-key/create to support metadata field (only if API keys plugin is enabled)
   // Better Auth v1.4.7's apiKey plugin doesn't accept metadata in the creation endpoint,
   // so we handle it separately: create without metadata, then update with metadata
-  const finalApp = app.auth.plugins?.apiKeys
+  const appWithApiKeyCreate = app.auth.plugins?.apiKeys
     ? wrappedApp.post('/api/auth/api-key/create', async (c) => {
         try {
           const body = await c.req.json()
@@ -405,6 +405,41 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
         }
       })
     : wrappedApp
+
+  // Wrap api-key/delete to validate key exists (only if API keys plugin is enabled)
+  // Better Auth may return success even if key doesn't exist, so we check first
+  const finalApp = app.auth.plugins?.apiKeys
+    ? appWithApiKeyCreate.post('/api/auth/api-key/delete', async (c) => {
+        try {
+          const body = await c.req.json()
+          const { keyId } = body
+
+          // Verify the API key exists before attempting to delete
+          const { db } = await import('@/infrastructure/database')
+          const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq } = await import('drizzle-orm')
+
+          const existingKey = await db.select().from(apiKeys).where(eq(apiKeys.id, keyId)).limit(1)
+
+          // If key doesn't exist, return 404 error
+          if (existingKey.length === 0) {
+            return c.json({ message: 'API key not found' }, 404)
+          }
+
+          // Key exists - delegate to Better Auth for actual deletion
+          const delegateRequest = new Request(c.req.raw.url, {
+            method: c.req.raw.method,
+            headers: c.req.raw.headers,
+            body: JSON.stringify(body),
+          })
+
+          return authInstance.handler(delegateRequest)
+        } catch {
+          // JSON parsing failed or other error - delegate to Better Auth to handle
+          return authInstance.handler(c.req.raw)
+        }
+      })
+    : appWithApiKeyCreate
 
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth expects the full path including /api/auth prefix
