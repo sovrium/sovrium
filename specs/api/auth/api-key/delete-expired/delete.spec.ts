@@ -185,7 +185,7 @@ test.describe('Delete Expired API Keys', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-004: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
