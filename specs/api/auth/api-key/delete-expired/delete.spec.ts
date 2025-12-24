@@ -24,7 +24,7 @@ test.describe('Delete Expired API Keys', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-001: should delete expired API keys',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
