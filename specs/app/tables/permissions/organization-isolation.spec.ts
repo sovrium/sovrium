@@ -757,7 +757,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-011: should prevent cross-organization data manipulation (both layers validate)',
     { tag: '@spec' },
     async ({
