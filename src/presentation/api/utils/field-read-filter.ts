@@ -14,20 +14,23 @@ import type { TablePermission } from '@/domain/models/app/table/permissions'
  * This implements Better Auth layer field read filtering.
  * Returns a record with only fields the user has permission to read.
  *
- * @param app - Application configuration
- * @param tableName - Name of the table
- * @param userRole - User's role
- * @param userId - User's ID (for custom conditions)
- * @param record - Record object to filter
+ * @param params - Configuration object
+ * @param params.app - Application configuration
+ * @param params.tableName - Name of the table
+ * @param params.userRole - User's role
+ * @param params.userId - User's ID (for custom conditions)
+ * @param params.record - Record object to filter
  * @returns Record with only readable fields
  */
-export function filterReadableFields<T extends Record<string, unknown>>(
-  app: App,
-  tableName: string,
-  userRole: string,
-  userId: string,
+export function filterReadableFields<T extends Record<string, unknown>>(params: {
+  app: App
+  tableName: string
+  userRole: string
+  userId: string
   record: T
-): Record<string, unknown> {
+}): Record<string, unknown> {
+  const { app, tableName, userRole, userId, record } = params
+
   // Find table definition
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table?.permissions?.fields) {
@@ -35,30 +38,27 @@ export function filterReadableFields<T extends Record<string, unknown>>(
   }
 
   // Filter fields based on read permissions
-  const filteredRecord = Object.keys(record).reduce<Record<string, unknown>>(
-    (acc, fieldName) => {
-      // Always preserve system fields required for API response
-      if (fieldName === 'id' || fieldName === 'created_at' || fieldName === 'updated_at') {
-        return { ...acc, [fieldName]: record[fieldName] }
-      }
+  const filteredRecord = Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
+    // Always preserve system fields required for API response
+    if (fieldName === 'id' || fieldName === 'created_at' || fieldName === 'updated_at') {
+      return { ...acc, [fieldName]: record[fieldName] }
+    }
 
-      const fieldPermission = table.permissions?.fields?.find((fp) => fp.field === fieldName)
+    const fieldPermission = table.permissions?.fields?.find((fp) => fp.field === fieldName)
 
-      // If no specific read permission for this field, include it (inherits table permission)
-      if (!fieldPermission?.read) {
-        return { ...acc, [fieldName]: record[fieldName] }
-      }
+    // If no specific read permission for this field, include it (inherits table permission)
+    if (!fieldPermission?.read) {
+      return { ...acc, [fieldName]: record[fieldName] }
+    }
 
-      // Check if user has read permission for this field
-      if (hasReadPermission(fieldPermission.read, userRole, userId, record)) {
-        return { ...acc, [fieldName]: record[fieldName] }
-      }
+    // Check if user has read permission for this field
+    if (hasReadPermission(fieldPermission.read, userRole, userId, record)) {
+      return { ...acc, [fieldName]: record[fieldName] }
+    }
 
-      // Otherwise, omit the field from the response
-      return acc
-    },
-    {}
-  )
+    // Otherwise, omit the field from the response
+    return acc
+  }, {})
 
   return filteredRecord
 }
