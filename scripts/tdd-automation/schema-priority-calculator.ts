@@ -20,7 +20,7 @@
  *
  * Within each domain:
  * - Features are grouped alphabetically (default)
- * - API domain uses custom ordering: health → auth → tables → activity
+ * - API domain uses custom ordering: health → auth → tables → activity → security
  * - Individual tests: base + test number (001 → 1, 002 → 2, etc.)
  * - Regression tests: base + 900 (ensures they run last in their group)
  *
@@ -32,6 +32,7 @@
  * - API-AUTH-SIGN-UP-POST-001 → api/auth/sign/up/post (runs after health)
  * - API-TABLES-001 → api/tables (runs after auth)
  * - API-ACTIVITY-001 → api/activity (runs after tables)
+ * - API-SECURITY-001 → api/security (runs last in API)
  * - ADMIN-TABLES-001 → admin/tables
  */
 
@@ -58,7 +59,8 @@ const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
  * 1. health (api/health/*) - Health checks run first
  * 2. auth (api/auth/*) - Authentication before all other features
  * 3. tables (api/tables) - Core data operations
- * 4. activity (api/activity) - Activity tracking last
+ * 4. activity (api/activity) - Activity tracking
+ * 5. security (api/security/*) - Security specs run last
  *
  * Priority spacing accounts for maximum sub-path contribution (~56,000):
  * - Level 2-5 max: 25*1000 + 25*100 + 25*1100 + 25*40 = 56,000
@@ -69,6 +71,7 @@ const API_FEATURE_PRIORITIES: Record<string, number> = {
   auth: 60_000, // api/auth/* (max: 116,000)
   tables: 120_000, // api/tables (max: 176,000)
   activity: 180_000, // api/activity (max: 236,000)
+  security: 240_000, // api/security/* (max: 296,000)
 }
 
 /**
@@ -164,7 +167,7 @@ function getAlphabeticalIndex(name: string): number {
  *   a feature complete before the next feature starts
  *
  * Special handling for API domain:
- * - API features use custom priority mapping (health → auth → tables → activity)
+ * - API features use custom priority mapping (health → auth → tables → activity → security)
  * - Overrides alphabetical ordering for consistent API test execution order
  *
  * Example: UPDATED-AT-006 runs before UPDATED-BY-001
@@ -178,7 +181,7 @@ function calculateFeaturePriority(featurePath: string): number {
   const apiFeature = pathParts[1]
 
   if (isApiDomain && apiFeature && apiFeature in API_FEATURE_PRIORITIES) {
-    // Use custom priority for API features (paths, auth, tables, activity)
+    // Use custom priority for API features (health, auth, security, tables, activity)
     priority = API_FEATURE_PRIORITIES[apiFeature]!
 
     // Add remaining path segments (level 2+) with standard multipliers

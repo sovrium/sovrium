@@ -6,10 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import {
-  ResourceActionPermissionsSchema,
-  type ResourceActionPermissions,
-} from '@/domain/models/app/permissions'
+import { ResourceActionPermissionsSchema } from '@/domain/models/app/permissions'
 
 /**
  * Auto-Rotation Configuration
@@ -156,18 +153,6 @@ export const RateLimitConfigSchema = Schema.Union(
 export type RateLimitConfig = Schema.Schema.Type<typeof RateLimitConfigSchema>
 
 /**
- * Resource Permissions Schema
- *
- * Re-exports the shared ResourceActionPermissionsSchema for backward compatibility.
- * See `@/domain/models/app/permissions/resource-action.ts` for the canonical definition.
- *
- * @deprecated Use ResourceActionPermissionsSchema from '@/domain/models/app/permissions' directly
- */
-export const ResourcePermissionsSchema = ResourceActionPermissionsSchema
-
-export type ResourcePermissions = ResourceActionPermissions
-
-/**
  * API Keys Plugin Configuration
  *
  * Enables programmatic API access with API keys.
@@ -231,7 +216,7 @@ export const ApiKeysConfigSchema = Schema.Union(
 
     // ========== Advanced Features ==========
     autoRotate: Schema.optional(AutoRotateSchema),
-    resourcePermissions: Schema.optional(ResourcePermissionsSchema),
+    resourcePermissions: Schema.optional(ResourceActionPermissionsSchema),
   })
 ).pipe(
   Schema.annotations({

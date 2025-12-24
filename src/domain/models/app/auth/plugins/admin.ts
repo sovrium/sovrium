@@ -8,21 +8,8 @@
 import { Schema } from 'effect'
 import {
   ResourceActionPermissionsSchema,
-  type ResourceActionPermissions,
   UserLevelRoleSchema,
 } from '@/domain/models/app/permissions'
-
-/**
- * Custom Permissions Schema (resource:action format)
- *
- * Re-exports the shared ResourceActionPermissionsSchema for backward compatibility.
- * See `@/domain/models/app/permissions/resource-action.ts` for the canonical definition.
- *
- * @deprecated Use ResourceActionPermissionsSchema from '@/domain/models/app/permissions' directly
- */
-export const CustomPermissionsSchema = ResourceActionPermissionsSchema
-
-export type CustomPermissions = ResourceActionPermissions
 
 /**
  * Role Management Configuration
@@ -139,7 +126,7 @@ export const AdminConfigSchema = Schema.Union(
     ),
 
     // ========== Advanced Features ==========
-    customPermissions: Schema.optional(CustomPermissionsSchema),
+    customPermissions: Schema.optional(ResourceActionPermissionsSchema),
     roleManagement: Schema.optional(RoleManagementSchema),
   })
 ).pipe(

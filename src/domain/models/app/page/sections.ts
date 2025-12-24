@@ -6,9 +6,9 @@
  */
 
 import { Schema } from 'effect'
+import { BlockPropsSchema } from '../block/common/block-props'
 import { BlockReferenceSchema } from '../block/common/block-reference'
 import { InteractionsSchema } from './common/interactions/interactions'
-import { PropsSchema } from './common/props'
 import { ResponsiveSchema } from './common/responsive'
 
 /**
@@ -138,7 +138,7 @@ export const ComponentTypeSchema = Schema.Literal(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
   type: ComponentTypeSchema,
-  props: Schema.optional(PropsSchema),
+  props: Schema.optional(BlockPropsSchema),
   children: Schema.optional(
     Schema.Array(
       Schema.Union(
@@ -180,7 +180,7 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
             description: 'Translated content text',
           })
         ),
-        props: Schema.optional(PropsSchema),
+        props: Schema.optional(BlockPropsSchema),
       }),
     }).annotations({
       description: 'Localized translations per language for this component',

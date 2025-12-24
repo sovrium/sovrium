@@ -169,4 +169,38 @@ describe('Spec ID Priority Calculator', () => {
       expect(test002).toBeLessThan(test003)
     })
   })
+
+  describe('API feature ordering', () => {
+    test('API features should run in order: health → auth → tables → activity → security', () => {
+      const healthPriority = calculateSpecPriority('API-HEALTH-001')
+      const authPriority = calculateSpecPriority('API-AUTH-SIGN-UP-001')
+      const tablesPriority = calculateSpecPriority('API-TABLES-001')
+      const activityPriority = calculateSpecPriority('API-ACTIVITY-001')
+      const securityPriority = calculateSpecPriority('API-SECURITY-001')
+
+      // health runs first
+      expect(healthPriority).toBeLessThan(authPriority)
+      // auth runs before tables
+      expect(authPriority).toBeLessThan(tablesPriority)
+      // tables runs before activity
+      expect(tablesPriority).toBeLessThan(activityPriority)
+      // activity runs before security
+      expect(activityPriority).toBeLessThan(securityPriority)
+    })
+
+    test('All API features should be within API domain range (3,000,000-3,999,999)', () => {
+      const apiFeaturePriorities = [
+        calculateSpecPriority('API-HEALTH-001'),
+        calculateSpecPriority('API-AUTH-SIGN-UP-001'),
+        calculateSpecPriority('API-SECURITY-001'),
+        calculateSpecPriority('API-TABLES-001'),
+        calculateSpecPriority('API-ACTIVITY-001'),
+      ]
+
+      for (const priority of apiFeaturePriorities) {
+        expect(priority).toBeGreaterThanOrEqual(3_000_000)
+        expect(priority).toBeLessThan(4_000_000)
+      }
+    })
+  })
 })

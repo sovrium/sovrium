@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Authorization Enforcement - Access Control Vulnerabilities
  *
  * Domain: api/auth
- * Spec Count: 10
+ * Spec Count: 9
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (10 tests) - Exhaustive coverage
