@@ -14,7 +14,8 @@ import { test, expect } from '@/specs/fixtures'
  * Spec Count: 4
  *
  * Test Organization:
- * - @spec tests - Security-specific attributes not covered by Better Auth specs
+ * 1. @spec tests - Security-specific attributes not covered by Better Auth specs (4 tests)
+ * 2. @regression test - ONE optimized integration test - Critical workflow validation
  *
  * Tests API key security mechanisms:
  * - API keys hashed in database (not stored in plaintext)
@@ -313,6 +314,107 @@ test.describe('API Key Security - Secure API Key Management', () => {
       // Demonstrates early rejection pattern:
       // - Invalid API key → Better Auth rejects immediately (no database access)
       // - Valid API key → Better Auth allows → RLS filters data (database layer)
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly ONE test)
+  // ============================================================================
+
+  test.fixme(
+    'API-SECURITY-APIKEY-005: user can complete full API key security workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema, createApiKey, signUp, signIn, executeQuery }) => {
+      await test.step('Setup application with API key security', async () => {
+        // GIVEN: Representative configuration with key security options
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { apiKeys: true },
+          },
+          tables: [
+            {
+              id: 1,
+              name: 'test_table',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'data', type: 'single-line-text' },
+              ],
+              permissions: {
+                read: { type: 'roles', roles: ['member'] },
+              },
+            },
+          ],
+        })
+
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'SecurePass123!',
+        })
+        await signIn({
+          email: 'test@example.com',
+          password: 'SecurePass123!',
+        })
+      })
+
+      await test.step('Verify API key is hashed in database', async () => {
+        // WHEN: Creating API key
+        const apiKey = await createApiKey({ name: 'Test Key' })
+
+        // THEN: Key is not stored in plaintext
+        const dbKeys = await executeQuery('SELECT * FROM api_keys')
+        const plaintextMatch = dbKeys.rows.some(
+          (row: Record<string, unknown>) => (row.key || row.api_key || row.value) === apiKey
+        )
+        expect(plaintextMatch).toBe(false)
+      })
+
+      await test.step('Use API key for authenticated request', async () => {
+        const apiKey = await createApiKey({ name: 'Active Key' })
+
+        // WHEN: Using valid API key
+        const validResponse = await page.request.get('/api/tables/test_table/records', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        })
+
+        // THEN: Request succeeds
+        expect(validResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify revoked key is immediately invalidated', async () => {
+        const apiKey = await createApiKey({ name: 'Revoke Key' })
+
+        // Verify key works
+        const beforeRevoke = await page.request.get('/api/tables/test_table/records', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        })
+        expect(beforeRevoke.status()).toBe(200)
+
+        // WHEN: Revoking key
+        await page.request.post('/api/auth/api-key/delete', {
+          data: { id: apiKey },
+        })
+
+        // THEN: Key is immediately invalid
+        const afterRevoke = await page.request.get('/api/tables/test_table/records', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        })
+        expect(afterRevoke.status()).toBe(401)
+      })
+
+      await test.step('Verify invalid API key rejected early (before RLS)', async () => {
+        // WHEN: Using invalid API key
+        const invalidResponse = await page.request.get('/api/tables/test_table/records', {
+          headers: { Authorization: 'Bearer invalid_key' },
+        })
+
+        // THEN: Better Auth rejects at API level (early rejection)
+        expect(invalidResponse.status()).toBe(401)
+        const errorData = await invalidResponse.json()
+        expect(errorData).toHaveProperty('error')
+      })
     }
   )
 })

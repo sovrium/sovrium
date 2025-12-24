@@ -466,7 +466,7 @@ test.describe('Field-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-PERMISSIONS-008: should demonstrate dual-layer field filtering (Better Auth allows → RLS filters fields)',
+    'APP-TABLES-FIELD-PERMISSIONS-007: should demonstrate dual-layer field filtering (Better Auth allows → RLS filters fields)',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {
       // GIVEN: Application with BOTH layers configured for field-level permissions
@@ -556,7 +556,7 @@ test.describe('Field-Level Permissions', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-PERMISSIONS-009: should prevent field modification at both layers (Better Auth blocks → RLS never executes)',
+    'APP-TABLES-FIELD-PERMISSIONS-008: should prevent field modification at both layers (Better Auth blocks → RLS never executes)',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {
       // GIVEN: Application with field write restrictions at both layers
@@ -639,7 +639,7 @@ test.describe('Field-Level Permissions', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-PERMISSIONS-010: should apply complementary field permissions (Better Auth guards API → RLS enforces row filtering)',
+    'APP-TABLES-FIELD-PERMISSIONS-009: should apply complementary field permissions (Better Auth guards API → RLS enforces row filtering)',
     { tag: '@spec' },
     async ({
       startServerWithSchema,
@@ -734,7 +734,7 @@ test.describe('Field-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-PERMISSIONS-007: user can complete full field-permissions workflow',
+    'APP-TABLES-FIELD-PERMISSIONS-010: user can complete full field-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any
