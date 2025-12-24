@@ -215,9 +215,45 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : honoApp
 
+  // Wrap set-role endpoint to validate user exists and return 404 if not found
+  const appWithSetRole = app.auth.admin
+    ? appWithAdminGuard.post('/api/auth/admin/set-role', async (c) => {
+        try {
+          const originalBody = await c.req.json()
+          const { userId } = originalBody
+
+          if (!userId) {
+            return c.json({ error: 'userId is required' }, 400)
+          }
+
+          // Check if user exists
+          const { db } = await import('@/infrastructure/database')
+          const { users } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq } = await import('drizzle-orm')
+
+          const userRecord = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+
+          if (userRecord.length === 0) {
+            return c.json({ error: 'User not found' }, 404)
+          }
+
+          // Recreate request for Better Auth
+          const delegateRequest = new Request(c.req.raw.url, {
+            method: c.req.raw.method,
+            headers: c.req.raw.headers,
+            body: JSON.stringify(originalBody),
+          })
+
+          return authInstance.handler(delegateRequest)
+        } catch {
+          return authInstance.handler(c.req.raw)
+        }
+      })
+    : appWithAdminGuard
+
   // Wrap ban-user endpoint to map sequential IDs to actual user IDs (for testing)
   const appWithBanUser = app.auth.admin
-    ? appWithAdminGuard.post('/api/auth/admin/ban-user', async (c) => {
+    ? appWithSetRole.post('/api/auth/admin/ban-user', async (c) => {
         try {
           const originalBody = await c.req.json()
 
@@ -240,7 +276,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return authInstance.handler(c.req.raw)
         }
       })
-    : appWithAdminGuard
+    : appWithSetRole
 
   // Wrap sign-up to auto-promote users with "admin" in email
   const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {

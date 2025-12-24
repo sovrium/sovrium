@@ -132,7 +132,7 @@ test.describe('Assign Admin Role', () => {
       expect(response.status()).toBe(403)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-004: should return 404 when user not found',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
