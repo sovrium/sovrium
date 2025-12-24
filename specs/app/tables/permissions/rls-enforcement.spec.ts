@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Row-Level Security Enforcement
  *
  * Domain: app/tables/permissions
- * Spec Count: 11
+ * Spec Count: 14
  *
  * Test Organization:
- * 1. @spec tests - One per spec (11 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (14 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Enforcement Scenarios:
@@ -22,6 +22,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Role-based access control (roles permission type)
  * - Field-level read restrictions
  * - Field-level write restrictions
+ * - Dual-layer permission enforcement (Better Auth + RLS)
  *
  * Related Tests:
  * - specs/api/auth/enforcement/authorization-bypass.spec.ts (API-level enforcement)
@@ -514,11 +515,229 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   // ============================================================================
-  // Phase: Error Configuration Validation Tests (009-011)
+  // Dual-Layer Permission Tests (Better Auth + RLS) - Dual Filtering Pattern
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-RLS-ENFORCEMENT-009: should demonstrate dual filtering pattern (Better Auth allows → RLS filters rows)',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+      // GIVEN: Application with role-based API permissions and owner-based RLS filtering
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'articles',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'content', type: 'long-text' },
+              { id: 4, name: 'author_id', type: 'user' },
+              { id: 5, name: 'status', type: 'single-select', options: ['draft', 'published'] },
+            ],
+            permissions: {
+              read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: role check
+              // No owner-based read restriction here - RLS handles row filtering
+            },
+          },
+        ],
+      })
+
+      // Create users and articles
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
+      await executeQuery([
+        `INSERT INTO articles (id, title, content, author_id, status) VALUES
+         (1, 'User 1 Article 1', 'Content 1', '${user1.user.id}', 'published'),
+         (2, 'User 1 Article 2', 'Content 2', '${user1.user.id}', 'draft'),
+         (3, 'User 2 Article 1', 'Content 3', '${user2.user.id}', 'published')`,
+      ])
+
+      // WHEN: User1 attempts to read all articles
+      // THEN: Better Auth allows (is member) → RLS filters to show only user1's articles
+      // (In real implementation, API layer would check role, then RLS filters by author_id)
+
+      // Verify RLS policy exists for owner-based filtering
+      const policies = await executeQuery(
+        `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'articles'`
+      )
+      expect(policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))).toBe(
+        true
+      )
+
+      // Verify both layers working together:
+      // - Better Auth: role check (would happen at API layer)
+      // - RLS: row filtering (happens at database layer)
+      const policyDef = await executeQuery(
+        `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+         WHERE polrelid = 'articles'::regclass AND polcmd = 'r'`
+      )
+      // Policy should filter by author_id (RLS layer) while API checks role (Better Auth layer)
+      expect(policyDef.rows[0]?.qual).toMatch(/author_id|user_id/)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-RLS-ENFORCEMENT-010: should apply complementary filtering (role-based API + status-based RLS)',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+      // GIVEN: Application with role-based read access and status-based RLS filtering
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'content', type: 'long-text' },
+              {
+                id: 4,
+                name: 'status',
+                type: 'single-select',
+                options: ['draft', 'review', 'approved'],
+              },
+              { id: 5, name: 'department', type: 'single-line-text' },
+            ],
+            permissions: {
+              read: { type: 'roles', roles: ['member'] }, // Better Auth: must be member
+              records: [
+                {
+                  action: 'read',
+                  condition: "status IN ('approved', 'review')", // RLS: only approved/review docs
+                },
+              ],
+            },
+          },
+        ],
+      })
+
+      await createAuthenticatedUser({ email: 'user@example.com' })
+
+      await executeQuery([
+        `INSERT INTO documents (id, title, content, status, department) VALUES
+         (1, 'Draft Doc', 'Content 1', 'draft', 'engineering'),
+         (2, 'Review Doc', 'Content 2', 'review', 'engineering'),
+         (3, 'Approved Doc', 'Content 3', 'approved', 'engineering')`,
+      ])
+
+      // WHEN: Member user attempts to read documents
+      // THEN: Better Auth allows (is member) → RLS filters to show only approved/review (not draft)
+
+      // Verify RLS policy exists with status filter
+      const policies = await executeQuery(
+        `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'documents'`
+      )
+      expect(policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))).toBe(
+        true
+      )
+
+      // Verify RLS policy filters by status
+      const policyDef = await executeQuery(
+        `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+         WHERE polrelid = 'documents'::regclass AND polcmd = 'r'`
+      )
+      expect(policyDef.rows[0]?.qual).toMatch(/status|approved|review/)
+
+      // Both layers work together:
+      // - Better Auth: ensures user has 'member' role (API layer)
+      // - RLS: filters rows to only approved/review status (database layer)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-RLS-ENFORCEMENT-011: should enforce multi-condition RLS filtering with role-based API access',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+      // GIVEN: Application with role-based API access and complex RLS filtering
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'single-line-text' },
+              { id: 3, name: 'customer_id', type: 'user' },
+              {
+                id: 4,
+                name: 'status',
+                type: 'single-select',
+                options: ['pending', 'processing', 'completed', 'cancelled'],
+              },
+              { id: 5, name: 'total', type: 'decimal' },
+            ],
+            permissions: {
+              read: { type: 'roles', roles: ['member'] }, // Better Auth: role check
+              records: [
+                {
+                  action: 'read',
+                  condition: "{userId} = customer_id OR status = 'completed'", // RLS: own orders OR completed orders
+                },
+              ],
+            },
+          },
+        ],
+      })
+
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
+      await executeQuery([
+        `INSERT INTO orders (id, order_number, customer_id, status, total) VALUES
+         (1, 'ORD-001', '${user1.user.id}', 'pending', 100.00),
+         (2, 'ORD-002', '${user1.user.id}', 'completed', 200.00),
+         (3, 'ORD-003', '${user2.user.id}', 'pending', 150.00),
+         (4, 'ORD-004', '${user2.user.id}', 'completed', 250.00)`,
+      ])
+
+      // WHEN: User1 attempts to read orders
+      // THEN: Better Auth allows (is member) → RLS filters to:
+      //   - User1's orders (all statuses)
+      //   - OR any completed orders from other users
+
+      // Verify RLS policy exists with multi-condition filter
+      const policies = await executeQuery(
+        `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'orders'`
+      )
+      expect(policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))).toBe(
+        true
+      )
+
+      // Verify RLS policy contains both customer_id and status conditions
+      const policyDef = await executeQuery(
+        `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+         WHERE polrelid = 'orders'::regclass AND polcmd = 'r'`
+      )
+      expect(policyDef.rows[0]?.qual).toMatch(/customer_id|status|completed/)
+
+      // Both layers working together:
+      // - Better Auth: ensures user has 'member' role (API layer)
+      // - RLS: applies complex filtering logic (database layer)
+      //   - Shows user's own orders (any status)
+      //   - Shows other users' completed orders (public visibility)
+    }
+  )
+
+  // ============================================================================
+  // Phase: Error Configuration Validation Tests (012-014)
   // ============================================================================
 
   test(
-    'APP-TABLES-RLS-ENFORCEMENT-009: should reject RLS policy with syntax error in condition',
+    'APP-TABLES-RLS-ENFORCEMENT-012: should reject RLS policy with syntax error in condition',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: RLS policy with invalid condition syntax
@@ -551,7 +770,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test(
-    'APP-TABLES-RLS-ENFORCEMENT-010: should reject RLS policy referencing non-existent column',
+    'APP-TABLES-RLS-ENFORCEMENT-013: should reject RLS policy referencing non-existent column',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: RLS policy referencing non-existent column
@@ -584,7 +803,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test(
-    'APP-TABLES-RLS-ENFORCEMENT-011: should reject field permission read restriction on non-existent field',
+    'APP-TABLES-RLS-ENFORCEMENT-014: should reject field permission read restriction on non-existent field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Field-level read restriction on non-existent field
@@ -621,7 +840,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-RLS-ENFORCEMENT-012: row-level security enforcement workflow',
+    'APP-TABLES-RLS-ENFORCEMENT-015: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any

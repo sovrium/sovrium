@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/permissions/index.ts
  * Domain: app
- * Spec Count: 6
+ * Spec Count: 9
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (9 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -454,6 +454,285 @@ test.describe('Field-Level Permissions', () => {
         title: 'Post 1',
         created_at: null,
       })
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
+  // ============================================================================
+  // Dual-Layer Permission Tests (Better Auth + RLS)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-FIELD-PERMISSIONS-008: should demonstrate dual-layer field filtering (Better Auth allows → RLS filters fields)',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {
+      // GIVEN: Application with BOTH layers configured for field-level permissions
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          // TODO: When Access Control plugin is implemented, add: plugins: { accessControl: true }
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 4, name: 'ssn', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
+                },
+                {
+                  field: 'ssn',
+                  read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
+                },
+              ],
+            },
+          },
+        ],
+      })
+
+      await executeQuery([
+        "INSERT INTO employees (name, salary, ssn) VALUES ('Alice', 75000.00, '123-45-6789'), ('Bob', 65000.00, '987-65-4321')",
+      ])
+
+      // Create member user
+      // TODO: When Access Control plugin is implemented, add role: 'member' to signUp
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
+
+      // WHEN: Member user attempts to read employee records
+      const response = await page.request.get('/api/tables/employees/records')
+
+      // THEN: Better Auth allows (member has read permission)
+      expect(response.status()).toBe(200)
+
+      // THEN: RLS filters out salary and ssn fields (member cannot read them)
+      const data = await response.json()
+      expect(data.records).toHaveLength(2)
+      expect(data.records[0]).toHaveProperty('name')
+      expect(data.records[0]).not.toHaveProperty('salary') // Filtered by RLS
+      expect(data.records[0]).not.toHaveProperty('ssn') // Filtered by RLS
+
+      // WHEN: Admin user attempts to read employee records
+      // TODO: When Access Control plugin is implemented, add role: 'admin' to signUp
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
+
+      const adminResponse = await page.request.get('/api/tables/employees/records')
+
+      // THEN: Better Auth allows (admin has read permission)
+      expect(adminResponse.status()).toBe(200)
+
+      // THEN: RLS includes all fields (admin can read salary and ssn)
+      const adminData = await adminResponse.json()
+      expect(adminData.records[0]).toHaveProperty('name')
+      expect(adminData.records[0]).toHaveProperty('salary') // Included by RLS
+      expect(adminData.records[0]).toHaveProperty('ssn') // Included by RLS
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-PERMISSIONS-009: should prevent field modification at both layers (Better Auth blocks → RLS never executes)',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {
+      // GIVEN: Application with field write restrictions at both layers
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          // TODO: When Access Control plugin is implemented, add: plugins: { accessControl: true }
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'profiles',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'display_name', type: 'single-line-text' },
+              { id: 3, name: 'verified', type: 'checkbox' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              update: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
+              fields: [
+                {
+                  field: 'verified',
+                  write: { type: 'roles', roles: ['admin'] }, // RLS: field-level write restriction
+                },
+              ],
+            },
+          },
+        ],
+      })
+
+      await executeQuery([
+        "INSERT INTO profiles (display_name, verified) VALUES ('User Profile', false)",
+      ])
+
+      // Create member user
+      // TODO: When Access Control plugin is implemented, add role: 'member' to signUp
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
+
+      // WHEN: Member attempts to update verified field
+      const response = await page.request.patch('/api/tables/profiles/records/1', {
+        data: { verified: true },
+      })
+
+      // THEN: Better Auth blocks at API level (hasPermission check fails)
+      expect([403, 401]).toContain(response.status())
+
+      // THEN: RLS never executes (early rejection prevents database access)
+      const dbResult = await executeQuery('SELECT verified FROM profiles WHERE id = 1')
+      expect(dbResult.rows[0].verified).toBe(false) // Unchanged
+
+      // WHEN: Admin attempts to update verified field
+      // TODO: When Access Control plugin is implemented, add role: 'admin' to signUp
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
+
+      const adminResponse = await page.request.patch('/api/tables/profiles/records/1', {
+        data: { verified: true },
+      })
+
+      // THEN: Better Auth allows → RLS allows (both layers grant permission)
+      expect(adminResponse.status()).toBe(200)
+
+      const adminDbResult = await executeQuery('SELECT verified FROM profiles WHERE id = 1')
+      expect(adminDbResult.rows[0].verified).toBe(true) // Updated successfully
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-PERMISSIONS-010: should apply complementary field permissions (Better Auth guards API → RLS enforces row filtering)',
+    { tag: '@spec' },
+    async ({
+      startServerWithSchema,
+      signUp: _signUp,
+      signIn,
+      page,
+      executeQuery,
+      createAuthenticatedUser,
+    }) => {
+      // GIVEN: Application with owner-based field permissions at both layers
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          // TODO: When Access Control plugin is implemented, add: plugins: { accessControl: true }
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'private_notes',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'secret_content', type: 'long-text' },
+              { id: 4, name: 'owner_id', type: 'user' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: { type: 'authenticated' }, // Better Auth: must be logged in
+              fields: [
+                {
+                  field: 'secret_content',
+                  read: {
+                    type: 'custom',
+                    condition: '{userId} = owner_id', // RLS: owner-only filtering
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
+      await executeQuery([
+        `INSERT INTO private_notes (title, secret_content, owner_id) VALUES
+         ('Note 1', 'User 1 Secret', '${user1.user.id}'),
+         ('Note 2', 'User 2 Secret', '${user2.user.id}')`,
+      ])
+
+      // Sign in as user1
+      await signIn({
+        email: 'user1@example.com',
+        password: 'UserPass123!',
+      })
+
+      // WHEN: User1 attempts to read notes
+      const response = await page.request.get('/api/tables/private_notes/records')
+
+      // THEN: Better Auth allows (authenticated)
+      expect(response.status()).toBe(200)
+
+      // THEN: RLS filters secret_content based on ownership
+      const data = await response.json()
+      const user1Note = data.records.find((r: any) => r.owner_id === user1.user.id)
+      const user2Note = data.records.find((r: any) => r.owner_id === user2.user.id)
+
+      // User1 sees their own secret content
+      expect(user1Note).toHaveProperty('secret_content')
+      expect(user1Note.secret_content).toBe('User 1 Secret')
+
+      // User1 does NOT see User2's secret content (RLS filtered it)
+      expect(user2Note).toHaveProperty('title') // Public field visible
+      expect(user2Note).not.toHaveProperty('secret_content') // RLS filtered
+
+      // WHEN: Unauthenticated user attempts to read notes
+      await signIn({ email: '', password: '' }) // Sign out
+
+      const unauthResponse = await page.request.get('/api/tables/private_notes/records')
+
+      // THEN: Better Auth blocks at API level (not authenticated)
+      expect(unauthResponse.status()).toBe(401)
+
+      // THEN: RLS never executes (early rejection by Better Auth)
     }
   )
 

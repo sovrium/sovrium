@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Data Isolation
  *
  * Domain: app/tables/permissions
- * Spec Count: 9
+ * Spec Count: 11
  *
  * Test Organization:
- * 1. @spec tests - One per spec (9 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (11 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Organization Isolation Scenarios:
@@ -22,6 +22,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Organization-scoped queries
  * - Organization member permissions
  * - Multi-tenant data isolation
+ * - Dual-layer permission enforcement (Better Auth + RLS)
  *
  * Related Tests:
  * - specs/api/auth/organization/ (API Layer - API endpoint functionality)
@@ -661,8 +662,221 @@ test.describe('Organization Data Isolation', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
+  // ============================================================================
+  // Dual-Layer Permission Tests (Better Auth + RLS)
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-ORG-ISOLATION-010: should enforce dual-layer organization isolation (Better Auth validates membership → RLS filters rows)',
+    { tag: '@spec' },
+    async ({
+      startServerWithSchema,
+      signUp: _signUp,
+      signIn,
+      page,
+      executeQuery,
+      createAuthenticatedUser,
+      createOrganization,
+      addMember: _addMember,
+    }) => {
+      // GIVEN: Application with organization plugin and organization-scoped data
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: true,
+            // TODO: When Access Control plugin is implemented, add: accessControl: true
+          },
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'company_data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'confidential', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
+            ],
+            permissions: {
+              read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: role check
+              organizationScoped: true, // RLS: organization filtering
+            },
+          },
+        ],
+      })
+
+      // Create two organizations
+      await createAuthenticatedUser({ email: 'user1@example.com' })
+      const org1 = await createOrganization({ name: 'Company A' })
+
+      await createAuthenticatedUser({ email: 'user2@example.com' })
+      const org2 = await createOrganization({ name: 'Company B' })
+
+      // Insert confidential data for each organization
+      await executeQuery([
+        `INSERT INTO company_data (confidential, organization_id) VALUES
+         ('Company A Secret', '${org1.organization.id}'),
+         ('Company B Secret', '${org2.organization.id}')`,
+      ])
+
+      // WHEN: User1 (member of Company A) attempts to access company data
+      await signIn({ email: 'user1@example.com', password: 'UserPass123!' })
+
+      const user1Response = await page.request.get('/api/tables/company_data/records')
+
+      // THEN: Better Auth validates organization membership (passes)
+      expect(user1Response.status()).toBe(200)
+
+      // THEN: RLS filters rows by organization_id (only Company A visible)
+      const user1Data = await user1Response.json()
+      expect(user1Data.records).toHaveLength(1)
+      expect(user1Data.records[0].confidential).toBe('Company A Secret')
+      expect(user1Data.records[0].organization_id).toBe(org1.organization.id)
+
+      // WHEN: User2 (member of Company B) attempts to access company data
+      await signIn({ email: 'user2@example.com', password: 'UserPass123!' })
+
+      const user2Response = await page.request.get('/api/tables/company_data/records')
+
+      // THEN: Better Auth validates organization membership (passes)
+      expect(user2Response.status()).toBe(200)
+
+      // THEN: RLS filters rows by organization_id (only Company B visible)
+      const user2Data = await user2Response.json()
+      expect(user2Data.records).toHaveLength(1)
+      expect(user2Data.records[0].confidential).toBe('Company B Secret')
+      expect(user2Data.records[0].organization_id).toBe(org2.organization.id)
+
+      // WHEN: Unauthenticated user attempts to access company data
+      await signIn({ email: '', password: '' }) // Sign out
+
+      const unauthResponse = await page.request.get('/api/tables/company_data/records')
+
+      // THEN: Better Auth blocks at API level (not authenticated)
+      expect(unauthResponse.status()).toBe(401)
+
+      // THEN: RLS never executes (early rejection by Better Auth)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-ORG-ISOLATION-011: should prevent cross-organization data manipulation (both layers validate)',
+    { tag: '@spec' },
+    async ({
+      startServerWithSchema,
+      signUp: _signUp,
+      signIn,
+      page,
+      executeQuery,
+      createAuthenticatedUser,
+      createOrganization,
+    }) => {
+      // GIVEN: Application with organization-scoped tables and write permissions
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            organization: true,
+            // TODO: When Access Control plugin is implemented, add: accessControl: true
+          },
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'team_resources',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'resource_name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
+            ],
+            permissions: {
+              read: { type: 'roles', roles: ['member', 'admin'] },
+              create: { type: 'roles', roles: ['member', 'admin'] },
+              update: { type: 'roles', roles: ['admin'] }, // Better Auth: only admins
+              organizationScoped: true, // RLS: organization isolation
+            },
+          },
+        ],
+      })
+
+      // Create two organizations with data
+      // TODO: When Access Control plugin is implemented, add role: 'admin' to createAuthenticatedUser
+      await createAuthenticatedUser({ email: 'admin1@example.com' })
+      const org1 = await createOrganization({ name: 'Team A' })
+
+      await createAuthenticatedUser({ email: 'admin2@example.com' })
+      const org2 = await createOrganization({ name: 'Team B' })
+
+      await executeQuery([
+        `INSERT INTO team_resources (id, resource_name, organization_id) VALUES
+         (1, 'Team A Resource', '${org1.organization.id}'),
+         (2, 'Team B Resource', '${org2.organization.id}')`,
+      ])
+
+      // WHEN: Admin1 attempts to update Team B's resource (cross-org manipulation)
+      await signIn({ email: 'admin1@example.com', password: 'AdminPass123!' })
+
+      const crossOrgUpdateResponse = await page.request.patch(
+        '/api/tables/team_resources/records/2',
+        {
+          data: { resource_name: 'Hacked Resource' },
+        }
+      )
+
+      // THEN: Better Auth allows (is admin) → RLS blocks (different organization)
+      expect([403, 404]).toContain(crossOrgUpdateResponse.status())
+
+      // THEN: Database unchanged (RLS prevented cross-org update)
+      const dbCheck = await executeQuery('SELECT resource_name FROM team_resources WHERE id = 2')
+      expect(dbCheck.rows[0].resource_name).toBe('Team B Resource') // Unchanged
+
+      // WHEN: Admin1 attempts to update their own resource (same org)
+      const sameOrgUpdateResponse = await page.request.patch(
+        '/api/tables/team_resources/records/1',
+        {
+          data: { resource_name: 'Updated Team A Resource' },
+        }
+      )
+
+      // THEN: Better Auth allows (is admin) → RLS allows (same organization)
+      expect(sameOrgUpdateResponse.status()).toBe(200)
+
+      // THEN: Database updated (both layers granted permission)
+      const dbUpdate = await executeQuery('SELECT resource_name FROM team_resources WHERE id = 1')
+      expect(dbUpdate.rows[0].resource_name).toBe('Updated Team A Resource')
+
+      // WHEN: Member (non-admin) attempts to update resource
+      // TODO: When Access Control plugin is implemented, add role: 'member' to createAuthenticatedUser
+      await createAuthenticatedUser({ email: 'member1@example.com' })
+
+      await signIn({ email: 'member1@example.com', password: 'MemberPass123!' })
+
+      const memberUpdateResponse = await page.request.patch(
+        '/api/tables/team_resources/records/1',
+        {
+          data: { resource_name: 'Member Attempt' },
+        }
+      )
+
+      // THEN: Better Auth blocks (not admin) → RLS never executes
+      expect([403, 401]).toContain(memberUpdateResponse.status())
+
+      // THEN: Database unchanged (early rejection by Better Auth)
+      const dbMemberCheck = await executeQuery(
+        'SELECT resource_name FROM team_resources WHERE id = 1'
+      )
+      expect(dbMemberCheck.rows[0].resource_name).toBe('Updated Team A Resource') // Unchanged
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
   test(
-    'APP-TABLES-ORG-ISOLATION-010: organization data isolation workflow',
+    'APP-TABLES-ORG-ISOLATION-012: organization data isolation workflow',
     { tag: '@regression' },
     async ({
       startServerWithSchema,
