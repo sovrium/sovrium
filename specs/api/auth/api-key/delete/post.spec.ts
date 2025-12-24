@@ -209,7 +209,7 @@ test.describe('Revoke/Delete API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-005: should prevent revoking another user API key (user isolation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
