@@ -219,7 +219,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
       })
 
       await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('create', 'org1_task', '${user1.organizationId}')`
+        `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES ('create', 'org1_task', '${user1.organizationId}')`
       )
 
       const user1ApiKey = await createApiKeyAuth()
@@ -231,7 +231,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
       })
 
       await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('create', 'org2_task', '${user2.organizationId}')`
+        `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES ('create', 'org2_task', '${user2.organizationId}')`
       )
 
       // WHEN: User1 requests activity logs
@@ -288,7 +288,7 @@ test.describe('API Key Authentication - Activity Listing', () => {
         })
 
         await executeQuery(
-          `INSERT INTO activity_logs (action, table_name, organization_id) VALUES
+          `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES
           ('create', 'tasks', '${admin.organizationId}'),
           ('update', 'tasks', '${admin.organizationId}'),
           ('delete', 'tasks', '${admin.organizationId}')`

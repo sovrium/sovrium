@@ -67,7 +67,7 @@ test.describe('API Key Authentication - Single Activity', () => {
       )
 
       const activityId = await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('create', 'tasks', '${admin.organizationId}') RETURNING id`
+        `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES ('create', 'tasks', '${admin.organizationId}') RETURNING id`
       )
 
       const authHeaders = await createApiKeyAuth()
@@ -116,7 +116,7 @@ test.describe('API Key Authentication - Single Activity', () => {
       })
 
       const activityId = await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('update', 'tasks', '${member.organizationId}') RETURNING id`
+        `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES ('update', 'tasks', '${member.organizationId}') RETURNING id`
       )
 
       const authHeaders = await createApiKeyAuth()
@@ -168,7 +168,7 @@ test.describe('API Key Authentication - Single Activity', () => {
       )
 
       const activityId = await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('delete', 'tasks', '${viewer.organizationId}') RETURNING id`
+        `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES ('delete', 'tasks', '${viewer.organizationId}') RETURNING id`
       )
 
       const authHeaders = await createApiKeyAuth()
@@ -227,7 +227,7 @@ test.describe('API Key Authentication - Single Activity', () => {
       })
 
       const org2ActivityId = await executeQuery(
-        `INSERT INTO activity_logs (action, table_name, organization_id) VALUES ('create', 'tasks', '${user2.organizationId}') RETURNING id`
+        `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id) VALUES ('create', 'tasks', '${user2.organizationId}') RETURNING id`
       )
 
       // WHEN: User1 tries to access org2's activity log
@@ -282,7 +282,7 @@ test.describe('API Key Authentication - Single Activity', () => {
         })
 
         const result = await executeQuery(
-          `INSERT INTO activity_logs (action, table_name, organization_id, changes) VALUES
+          `INSERT INTO _sovrium_activity_logs (action, table_name, organization_id, changes) VALUES
           ('create', 'tasks', '${admin.organizationId}', '{"title": "New Task"}') RETURNING id`
         )
         activityId = result.rows[0].id as string

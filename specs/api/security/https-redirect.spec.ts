@@ -90,7 +90,7 @@ test.describe('HTTPS Redirect Security', () => {
             enforced: true,
             hsts: {
               enabled: true,
-              maxAge: 31536000, // 1 year in seconds
+              maxAge: 31_536_000, // 1 year in seconds
               includeSubDomains: true,
               preload: true,
             },
@@ -144,7 +144,7 @@ test.describe('HTTPS Redirect Security', () => {
             redirectStatus: 301,
             hsts: {
               enabled: true,
-              maxAge: 31536000,
+              maxAge: 31_536_000,
               includeSubDomains: true,
               preload: true,
             },

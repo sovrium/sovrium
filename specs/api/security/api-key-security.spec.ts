@@ -59,7 +59,7 @@ test.describe('API Key Security - Secure API Key Management', () => {
       expect(apiKey).toMatch(/^[A-Za-z0-9_-]+$/) // API key format
 
       // THEN: API key should NOT be stored in plaintext in database
-      const dbKeys = await executeQuery('SELECT * FROM api_keys')
+      const dbKeys = await executeQuery('SELECT * FROM _sovrium_auth_api_keys')
 
       // Database should not contain plaintext key
       for (const row of dbKeys.rows) {
@@ -364,7 +364,7 @@ test.describe('API Key Security - Secure API Key Management', () => {
         const apiKey = await createApiKey({ name: 'Test Key' })
 
         // THEN: Key is not stored in plaintext
-        const dbKeys = await executeQuery('SELECT * FROM api_keys')
+        const dbKeys = await executeQuery('SELECT * FROM _sovrium_auth_api_keys')
         const plaintextMatch = dbKeys.rows.some(
           (row: Record<string, unknown>) => (row.key || row.api_key || row.value) === apiKey
         )
