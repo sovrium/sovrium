@@ -11,10 +11,10 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Admin Permission Enforcement
  *
  * Domain: api/auth
- * Spec Count: 10
+ * Spec Count: 8
  *
  * Test Organization:
- * 1. @spec tests - One per spec (10 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (8 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
