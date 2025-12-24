@@ -121,10 +121,10 @@ test.describe('Revoke/Delete API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-003: should return 401 when not authenticated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signOut }) => {
       // GIVEN: Application with API keys enabled and existing key
       await startServerWithSchema({
         name: 'test-app',
@@ -150,6 +150,9 @@ test.describe('Revoke/Delete API Key', () => {
       })
 
       const { id: keyId } = await createResponse.json()
+
+      // Sign out to make request unauthenticated
+      await signOut()
 
       // WHEN: Unauthenticated user attempts to revoke API key
       const response = await page.request.post('/api/auth/api-key/delete', {
