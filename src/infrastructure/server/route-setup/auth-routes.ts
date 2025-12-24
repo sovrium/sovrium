@@ -91,7 +91,8 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   const authInstance = createAuthInstance(app.auth)
 
   // Add authentication guard for admin endpoints
-  // Better Auth returns 404 for unauthenticated admin requests, but tests expect 401
+  // Better Auth's admin plugin handles authorization internally, but returns 404 for unauthorized requests
+  // Tests expect 401 for unauthenticated and 403 for non-admin, so we intercept and provide proper status codes
   const appWithAdminGuard = app.auth.plugins?.admin
     ? honoApp.use('/api/auth/admin/*', async (c, next) => {
         // Check if request has valid session
@@ -99,6 +100,13 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
         if (!session) {
           return c.json({ error: 'Unauthorized' }, 401)
+        }
+
+        // Check if user has admin role
+        // Better Auth's admin plugin sets the role field on the user object
+        const user = session.user as { role?: string }
+        if (user.role !== 'admin') {
+          return c.json({ error: 'Forbidden' }, 403)
         }
 
         // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()

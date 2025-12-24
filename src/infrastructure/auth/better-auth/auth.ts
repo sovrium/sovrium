@@ -294,7 +294,8 @@ const buildAdminPlugin = (authConfig?: Auth) =>
     ? [
         admin({
           defaultRole: 'user',
-          makeFirstUserAdmin: false, // Users must be explicitly granted admin role
+          // Note: makeFirstUserAdmin doesn't exist in Better Auth 1.4.7
+          // First admin must be created via database seed or admin creation endpoint
         }),
       ]
     : []
