@@ -203,6 +203,7 @@ Better Auth uses traditional cookie-based session management where sessions are 
 **IMPORTANT**: Session expiration is managed **server-side** via database timestamps, NOT client-side cookie expiration.
 
 **Core Mechanism**:
+
 1. When a session is created, Better Auth stores an `expiresAt` timestamp in the database session table
 2. On each request, the server checks the current time against the stored `expiresAt` timestamp
 3. If the current time is past `expiresAt`, the session is invalid (even if the cookie is still present)
@@ -220,17 +221,20 @@ session: {
 ```
 
 **How `updateAge` Works**:
+
 - When a session is actively used and has existed for at least `updateAge` duration, Better Auth automatically extends the `expiresAt` timestamp by the `expiresIn` duration
 - Example: With `updateAge: 1 day` and `expiresIn: 7 days`, a session that's been active for 24 hours will have its expiration extended by another 7 days
 - Set `disableSessionRefresh: true` to disable this behavior (sessions expire after exactly `expiresIn` regardless of activity)
 
 **Fresh Sessions** (v1.4.7+):
+
 - Certain sensitive endpoints (password changes, account deletion) require "fresh" sessions
 - A fresh session is one created within the `freshAge` window (default: 1 day)
 - Set `freshAge: 0` to disable freshness validation entirely
 - Users must re-authenticate if their session is too old for sensitive operations
 
 **Cookie Cache for Performance** (Optional):
+
 - Better Auth can store session data in signed/encrypted cookies to reduce database queries
 - Configure via `session.cookieCache` with strategies: `compact`, `jwt`, or `jwe` (encrypted)
 - The cookie cache has its own `maxAge` separate from session expiration
@@ -572,6 +576,7 @@ await authClient.emailOTP.verifyOTP({
 The organization plugin provides comprehensive multi-tenancy with role-based access control, dynamic roles, and team management.
 
 **Features** (v1.4.7+):
+
 - Three default roles: `owner`, `admin`, `member` (with customizable permissions)
 - Dynamic role creation at runtime (stored in database)
 - Permission framework for organization, member, and invitation resources
@@ -600,7 +605,7 @@ export const auth = betterAuth({
 
       // Require email verification before accepting invitations
       requireEmailVerificationOnInvitation: true,
-    })
+    }),
   ],
 })
 
@@ -640,6 +645,7 @@ const orgs = await authClient.organization.list()
 ```
 
 **Dynamic Roles** (v1.4.7+):
+
 - Create organization-specific custom roles at runtime
 - Assign granular permissions per role
 - Permissions are enforced based on the creator's existing role access
@@ -650,6 +656,7 @@ const orgs = await authClient.organization.list()
 The admin plugin enables comprehensive user management, including user creation, role assignment, session control, account restrictions, and impersonation.
 
 **Features** (v1.4.7+):
+
 - User creation with role and custom field assignment
 - Ban users (temporary or permanent) with automatic session revocation
 - User impersonation for troubleshooting (1-hour sessions by default)
@@ -748,12 +755,14 @@ await auth.api.revokeUserSessions({
 ```
 
 **Role-Based Permissions** (v1.4.7+):
+
 - Admins can only modify users with permissions they have access to
 - Role validation enforced during user updates and role changes
 - Prevents privilege escalation attacks
 - Supports custom access control via `createAccessControl` function
 
 **Database Schema**:
+
 - Adds `role`, `banned`, `banReason`, `banExpires` to users table
 - Adds `impersonatedBy` to sessions table
 - Requires database migration after plugin installation

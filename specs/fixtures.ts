@@ -889,7 +889,7 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  addMember: async ({ inviteMember, acceptInvitation, page, signIn }, use, testInfo) => {
+  addMember: async ({ inviteMember, acceptInvitation, signIn }, use, testInfo) => {
     await use(
       async (data: {
         organizationId: string
