@@ -406,7 +406,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : wrappedApp
 
-  // Wrap api-key/delete to validate key exists (only if API keys plugin is enabled)
+  // Wrap api-key/delete to validate key exists and enforce user isolation (only if API keys plugin is enabled)
   // Better Auth may return success even if key doesn't exist, so we check first
   const finalApp = app.auth.plugins?.apiKeys
     ? appWithApiKeyCreate.post('/api/auth/api-key/delete', async (c) => {
@@ -414,19 +414,31 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const body = await c.req.json()
           const { keyId } = body
 
-          // Verify the API key exists before attempting to delete
+          // Get user session to enforce user isolation
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+          // If not authenticated, return 401
+          if (!session?.session?.userId) {
+            return c.json({ message: 'Unauthorized' }, 401)
+          }
+
+          // Verify the API key exists AND belongs to the user
           const { db } = await import('@/infrastructure/database')
           const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
-          const { eq } = await import('drizzle-orm')
+          const { eq, and } = await import('drizzle-orm')
 
-          const existingKey = await db.select().from(apiKeys).where(eq(apiKeys.id, keyId)).limit(1)
+          const existingKey = await db
+            .select()
+            .from(apiKeys)
+            .where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, session.session.userId)))
+            .limit(1)
 
-          // If key doesn't exist, return 404 error
+          // If key doesn't exist or doesn't belong to user, return 404 error (prevent enumeration)
           if (existingKey.length === 0) {
             return c.json({ message: 'API key not found' }, 404)
           }
 
-          // Key exists - delegate to Better Auth for actual deletion
+          // Key exists and belongs to user - delegate to Better Auth for actual deletion
           const delegateRequest = new Request(c.req.raw.url, {
             method: c.req.raw.method,
             headers: c.req.raw.headers,

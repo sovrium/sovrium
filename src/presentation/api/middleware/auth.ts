@@ -131,3 +131,65 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
 export function requireAuth() {
   return requireAuthHandler
 }
+
+/**
+ * Middleware handler for API key user isolation on delete endpoint
+ *
+ * Validates that the user making the request owns the API key they're trying to delete.
+ * Returns 404 instead of 403 to prevent user enumeration.
+ */
+async function apiKeyOwnershipCheckHandler(c: ContextWithSession, next: Next) {
+  const { session } = c.var
+
+  // Auth middleware should have already validated session, but check again
+  if (!session) {
+    return c.json({ message: 'Unauthorized' }, 401)
+  }
+
+  // Get keyId from request body
+  const body = await c.req.json().catch(() => ({}))
+  const { keyId } = body
+
+  if (!keyId) {
+    return c.json({ message: 'Missing keyId' }, 400)
+  }
+
+  // Check if API key belongs to the user
+  const { db } = await import('@/infrastructure/database')
+  const { apiKeys } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq, and } = await import('drizzle-orm')
+
+  const [apiKey] = await db
+    .select()
+    .from(apiKeys)
+    .where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, session.userId)))
+    .limit(1)
+
+  if (!apiKey) {
+    // Return 404 instead of 403 to prevent user enumeration
+    // (don't reveal if key exists for another user)
+    return c.json({ message: 'API key not found' }, 404)
+  }
+
+  // User owns the key, continue to Better Auth's delete handler
+  // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler
+  await next()
+}
+
+/**
+ * Middleware for API key user isolation on delete endpoint
+ *
+ * Validates that the user making the request owns the API key they're trying to delete.
+ * Returns 404 instead of 403 to prevent user enumeration.
+ *
+ * **Usage**:
+ * ```typescript
+ * app.use('/api/auth/api-key/delete', authMiddleware(auth))
+ * app.use('/api/auth/api-key/delete', apiKeyOwnershipCheck())
+ * ```
+ *
+ * @returns Hono middleware function
+ */
+export function apiKeyOwnershipCheck() {
+  return apiKeyOwnershipCheckHandler
+}
