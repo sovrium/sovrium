@@ -86,7 +86,7 @@ test.describe('Assign Admin Role', () => {
       expect(testResponse.status()).toBe(200)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-003: should return 403 when non-admin tries to assign',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
