@@ -298,7 +298,7 @@ const buildAdminPlugin = (authConfig?: Auth) =>
           hooks: {
             user: {
               created: {
-                after: async (user: { id: string; email: string }) => {
+                after: async (user: { readonly id: string; readonly email: string }) => {
                   // Auto-promote users with "admin" in email to admin role (for testing)
                   if (user.email.toLowerCase().includes('admin')) {
                     const { db } = await import('@/infrastructure/database')

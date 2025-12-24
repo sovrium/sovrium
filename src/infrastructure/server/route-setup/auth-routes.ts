@@ -163,27 +163,30 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   const appWithBanUser = app.auth.plugins?.admin
     ? appWithAdminGuard.post('/api/auth/admin/ban-user', async (c) => {
         try {
-          const body = await c.req.json()
+          const originalBody = await c.req.json()
 
           // Map sequential ID to actual user ID for testing
-          if (body.userId && /^\d+$/.test(body.userId)) {
-            const { db } = await import('@/infrastructure/database')
-            const { users } = await import('@/infrastructure/auth/better-auth/schema')
-            const { asc } = await import('drizzle-orm')
+          const requestBody =
+            originalBody.userId && /^\d+$/.test(originalBody.userId)
+              ? await (async () => {
+                  const { db } = await import('@/infrastructure/database')
+                  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+                  const { asc } = await import('drizzle-orm')
 
-            const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-            const userIndex = Number.parseInt(body.userId, 10) - 1
+                  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+                  const userIndex = Number.parseInt(originalBody.userId, 10) - 1
 
-            if (userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]) {
-              body.userId = allUsers[userIndex].id
-            }
-          }
+                  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
+                    ? { ...originalBody, userId: allUsers[userIndex].id }
+                    : originalBody
+                })()
+              : originalBody
 
           // Recreate request with mapped user ID
           const delegateRequest = new Request(c.req.raw.url, {
             method: c.req.raw.method,
             headers: c.req.raw.headers,
-            body: JSON.stringify(body),
+            body: JSON.stringify(requestBody),
           })
 
           return authInstance.handler(delegateRequest)
