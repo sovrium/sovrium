@@ -70,7 +70,7 @@ test.describe('Revoke/Delete API Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-API-KEYS-DELETE-002: should remove revoked key from list',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
