@@ -170,10 +170,10 @@ function createListRecordsProgram(
     const records = yield* listRecords(session, tableName)
 
     // Apply field-level read permissions filtering
-    const userId = session.userId
+    const { userId } = session
 
     const filteredRecords = records.map((record) =>
-      filterReadableFields(app, tableName, userRole, userId, record)
+      filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
     return {
