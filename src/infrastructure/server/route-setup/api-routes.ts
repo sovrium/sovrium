@@ -92,10 +92,10 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   // Apply auth middleware to protected routes
   // This extracts session from Better Auth and attaches to context
-  // Type cast to satisfy TypeScript (Better Auth's session type has optional fields vs our required fields)
   const honoWithAuth = honoWithHealth
-    .use('/api/tables/*', authMiddleware(auth as Parameters<typeof authMiddleware>[0]))
-    .use('/api/activity', authMiddleware(auth as Parameters<typeof authMiddleware>[0]))
+    .use('/api/tables', authMiddleware(auth))
+    .use('/api/tables/*', authMiddleware(auth))
+    .use('/api/activity', authMiddleware(auth))
 
   // Chain table routes (tables, records, views, permissions)
   // Routes now have access to session via c.var.session

@@ -45,20 +45,18 @@ export type ContextWithSession = Context & {
  * @param auth - Better Auth instance with api.getSession method
  * @returns Hono middleware function
  */
-export function authMiddleware(auth: {
-  api: { getSession: (options: { headers: Headers }) => Promise<{ session: Session | null }> }
-  handler: (request: Request) => Promise<Response>
-}) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Better Auth instance type varies by configuration, using any avoids complex type assertions
+export function authMiddleware(auth: any) {
   return async (c: Context, next: Next) => {
     try {
-      const authHeader = c.req.header('Authorization')
+      const authHeader = c.req.header('authorization')
 
-      // For Bearer tokens (API keys), extract the key and pass it as the authorization header
-      // Better Auth's API key plugin expects the raw API key, not "Bearer {key}"
-      if (authHeader?.startsWith('Bearer ')) {
+      // For Bearer tokens (API keys), Better Auth API key plugin expects the raw key
+      // in the 'authorization' header (lowercase), not the full "Bearer {key}" string
+      if (authHeader?.toLowerCase().startsWith('bearer ')) {
         const apiKey = authHeader.slice(7) // Remove "Bearer " prefix
 
-        // Call getSession with the API key in the authorization header
+        // Call getSession with just the API key
         const result = await auth.api.getSession({
           headers: new Headers({
             authorization: apiKey, // Pass raw API key
@@ -67,7 +65,7 @@ export function authMiddleware(auth: {
 
         const { session } = result
         if (session) {
-          c.set('session', session)
+          c.set('session', session as Session)
         }
       } else {
         // For cookie-based sessions, use original headers
@@ -77,12 +75,13 @@ export function authMiddleware(auth: {
 
         const { session } = result
         if (session) {
-          c.set('session', session)
+          c.set('session', session as Session)
         }
       }
-    } catch {
-      // Session extraction failed - continue without session
+    } catch (error) {
+      // Session extraction failed - log error for debugging but continue without session
       // Routes will handle unauthorized access appropriately
+      console.error('[AUTH] Session extraction failed:', error)
     }
 
     // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler

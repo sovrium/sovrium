@@ -324,15 +324,10 @@ const buildOrganizationPlugin = (
     ? [
         organization({
           sendInvitationEmail: handlers.organizationInvitation,
-          teams: {
-            enabled: true,
-          },
           schema: {
             organization: { modelName: AUTH_TABLE_NAMES.organization },
             member: { modelName: AUTH_TABLE_NAMES.member },
             invitation: { modelName: AUTH_TABLE_NAMES.invitation },
-            team: { modelName: AUTH_TABLE_NAMES.team },
-            teamMember: { modelName: AUTH_TABLE_NAMES.teamMember },
           },
         }),
       ]

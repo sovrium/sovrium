@@ -8,6 +8,7 @@
 /* eslint-disable max-lines -- Routes file with many endpoints */
 
 import { Effect } from 'effect'
+import { z } from 'zod'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure for session context
 import { SessionContextError, type ForbiddenError } from '@/infrastructure/database/session-context'
 import {
@@ -20,7 +21,6 @@ import {
   upsertRecordsRequestSchema,
 } from '@/presentation/api/schemas/request-schemas'
 import {
-  listTablesResponseSchema,
   getTableResponseSchema,
   listRecordsResponseSchema,
   getRecordResponseSchema,
@@ -34,7 +34,6 @@ import {
   getViewResponseSchema,
   getViewRecordsResponseSchema,
   getTablePermissionsResponseSchema,
-  type ListTablesResponse,
   type GetTableResponse,
   type ListRecordsResponse,
   type GetRecordResponse,
@@ -126,18 +125,8 @@ const handleBatchRestoreError = (c: Context, error: unknown) => {
 // Table Route Handlers
 // ============================================================================
 
-function createListTablesProgram(): Effect.Effect<ListTablesResponse, never> {
-  return Effect.succeed({
-    tables: [],
-    pagination: {
-      page: 1,
-      limit: 10,
-      total: 0,
-      totalPages: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    },
-  })
+function createListTablesProgram(): Effect.Effect<unknown[], never> {
+  return Effect.succeed([])
 }
 
 function createGetTableProgram(tableId: string): Effect.Effect<GetTableResponse, never> {
@@ -362,15 +351,27 @@ function getViewRecordsProgram() {
 
 function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
   return honoApp
-    .get('/api/tables', async (c) =>
-      runEffect(c, createListTablesProgram(), listTablesResponseSchema)
-    )
-    .get('/api/tables/:tableId', async (c) =>
-      runEffect(c, createGetTableProgram(c.req.param('tableId')), getTableResponseSchema)
-    )
-    .get('/api/tables/:tableId/permissions', async (c) =>
-      runEffect(c, createGetPermissionsProgram(), getTablePermissionsResponseSchema)
-    )
+    .get('/api/tables', async (c) => {
+      const { session } = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+      return runEffect(c, createListTablesProgram(), z.array(z.unknown()))
+    })
+    .get('/api/tables/:tableId', async (c) => {
+      const { session } = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+      return runEffect(c, createGetTableProgram(c.req.param('tableId')), getTableResponseSchema)
+    })
+    .get('/api/tables/:tableId/permissions', async (c) => {
+      const { session } = (c as ContextWithSession).var
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+      return runEffect(c, createGetPermissionsProgram(), getTablePermissionsResponseSchema)
+    })
 }
 
 // eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
