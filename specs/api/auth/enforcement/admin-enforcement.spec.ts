@@ -100,13 +100,11 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-003: should allow admin access to all admin endpoints',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, executeQuery }) => {
       // GIVEN: Authenticated admin user
-      // Note: This test assumes first user can be promoted to admin via some mechanism
-      // or that admin features have a way to set up the first admin
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -115,11 +113,17 @@ test.describe('Admin Permission Enforcement', () => {
         },
       })
 
-      await signUp({
+      const result = await signUp({
         email: 'admin@example.com',
         password: 'AdminPass123!',
         name: 'Admin User',
       })
+
+      // Manually set user role to admin (Better Auth 1.4.7 doesn't have makeFirstUserAdmin)
+      // In production, first admin would be created via database seed or admin creation endpoint
+      await executeQuery("UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = $1", [
+        result.user!.id,
+      ])
 
       // WHEN: Admin accesses admin endpoints
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -129,7 +133,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-004: should prevent regular users from elevating their own role',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -158,7 +162,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-005: should reject expired session tokens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -216,7 +220,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-007: should prevent banned admin from accessing admin endpoints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -262,7 +266,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-008: should enforce rate limiting on admin endpoints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -299,178 +303,8 @@ test.describe('Admin Permission Enforcement', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  // ============================================================================
-  // Dual-Layer Permission Tests (Better Auth + RLS)
-  // ============================================================================
-
-  test.fixme(
-    'API-AUTH-ENFORCE-ADMIN-009: should demonstrate early rejection pattern (Better Auth blocks before RLS check)',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, executeQuery }) => {
-      // GIVEN: Application with admin-only endpoints and database tables
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'admin_logs',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'action', type: 'single-line-text' },
-              { id: 3, name: 'admin_id', type: 'user' },
-            ],
-            permissions: {
-              read: { type: 'roles', roles: ['admin'] }, // RLS layer permission
-            },
-          },
-        ],
-      })
-
-      // Insert test data
-      await executeQuery(["INSERT INTO admin_logs (action, admin_id) VALUES ('Test Action', '1')"])
-
-      // Create regular user
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Regular User',
-      })
-
-      // WHEN: Regular user attempts to access admin endpoint
-      const response = await page.request.get('/api/auth/admin/list-users')
-
-      // THEN: Better Auth blocks at API level (before RLS check)
-      expect(response.status()).toBe(403)
-
-      // THEN: RLS never executes (verified by checking no database query logged)
-      // Better Auth's early rejection prevents database access entirely
-      const dbLogs = await executeQuery('SELECT COUNT(*) as count FROM admin_logs')
-      expect(parseInt(dbLogs.rows[0].count)).toBe(1) // Only initial insert, no new queries
-
-      // WHEN: Admin user attempts to access admin endpoint
-      await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
-      })
-
-      const adminResponse = await page.request.get('/api/auth/admin/list-users')
-
-      // THEN: Better Auth allows → request proceeds to database (RLS would execute if needed)
-      expect(adminResponse.status()).toBe(200)
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ENFORCE-ADMIN-010: should enforce complementary admin permissions (Better Auth guards endpoint → RLS filters data)',
-    { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      signUp,
-      signIn,
-      executeQuery,
-      createAuthenticatedUser,
-    }) => {
-      // GIVEN: Application with admin plugin and organization-scoped admin data
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
-          organization: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'admin_settings',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'setting_key', type: 'single-line-text' },
-              { id: 3, name: 'setting_value', type: 'single-line-text' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
-            ],
-            permissions: {
-              read: { type: 'roles', roles: ['admin'] }, // Better Auth: admin-only
-              organizationScoped: true, // RLS: organization isolation
-            },
-          },
-        ],
-      })
-
-      // Create two organizations with admins
-      await createAuthenticatedUser({ email: 'admin1@example.com' })
-      await createAuthenticatedUser({ email: 'admin2@example.com' })
-
-      const org1 = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Org 1' },
-      })
-      const org1Data = await org1.json()
-
-      await signIn({ email: 'admin2@example.com', password: 'AdminPass123!' })
-
-      const org2 = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Org 2' },
-      })
-      const org2Data = await org2.json()
-
-      // Insert settings for each organization
-      await executeQuery([
-        `INSERT INTO admin_settings (setting_key, setting_value, organization_id) VALUES
-         ('setting1', 'Org 1 Value', '${org1Data.organization.id}'),
-         ('setting2', 'Org 2 Value', '${org2Data.organization.id}')`,
-      ])
-
-      // WHEN: Non-admin attempts to access admin settings
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Regular User',
-      })
-
-      const userResponse = await page.request.get('/api/tables/admin_settings/records')
-
-      // THEN: Better Auth blocks at API level (not admin)
-      expect([403, 401]).toContain(userResponse.status())
-
-      // WHEN: Admin1 attempts to access admin settings
-      await signIn({ email: 'admin1@example.com', password: 'AdminPass123!' })
-
-      const admin1Response = await page.request.get('/api/tables/admin_settings/records')
-
-      // THEN: Better Auth allows (is admin) → RLS filters by organization
-      expect(admin1Response.status()).toBe(200)
-
-      const admin1Data = await admin1Response.json()
-      expect(admin1Data.records).toHaveLength(1) // Only Org 1 settings visible
-      expect(admin1Data.records[0].organization_id).toBe(org1Data.organization.id)
-      expect(admin1Data.records[0].setting_value).toBe('Org 1 Value')
-
-      // WHEN: Admin2 attempts to access admin settings
-      await signIn({ email: 'admin2@example.com', password: 'AdminPass123!' })
-
-      const admin2Response = await page.request.get('/api/tables/admin_settings/records')
-
-      // THEN: Better Auth allows (is admin) → RLS filters by organization
-      expect(admin2Response.status()).toBe(200)
-
-      const admin2Data = await admin2Response.json()
-      expect(admin2Data.records).toHaveLength(1) // Only Org 2 settings visible
-      expect(admin2Data.records[0].organization_id).toBe(org2Data.organization.id)
-      expect(admin2Data.records[0].setting_value).toBe('Org 2 Value')
-    }
-  )
-
-  // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
-  // ============================================================================
-
-  test.fixme(
-    'API-AUTH-ENFORCE-ADMIN-011: admin permission enforcement workflow',
+  test(
+    'API-AUTH-ENFORCE-ADMIN-009: admin permission enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

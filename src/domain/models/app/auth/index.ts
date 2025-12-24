@@ -313,7 +313,7 @@ export const AuthSchema = Schema.Struct({
         magicLink: true,
         oauth: { providers: ['microsoft', 'google'] },
         admin: { impersonation: true },
-        organization: { maxMembersPerOrg: 50 },
+        organization: { allowMultipleOrgs: true },
         twoFactor: { issuer: 'MyCompany', backupCodes: true },
       },
     ],

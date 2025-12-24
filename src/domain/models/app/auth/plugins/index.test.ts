@@ -36,9 +36,9 @@ describe('PluginsConfigSchema', () => {
     })
 
     test('should accept organization plugin as config object', () => {
-      const input = { organization: { maxMembersPerOrg: 50 } }
+      const input = { organization: { allowMultipleOrgs: true } }
       const result = Schema.decodeUnknownSync(PluginsConfigSchema)(input)
-      expect(result.organization).toEqual({ maxMembersPerOrg: 50 })
+      expect(result.organization).toEqual({ allowMultipleOrgs: true })
     })
 
     test('should accept twoFactor plugin as boolean', () => {
@@ -66,12 +66,12 @@ describe('PluginsConfigSchema', () => {
     test('should accept all plugins configured together', () => {
       const input = {
         admin: { impersonation: true },
-        organization: { maxMembersPerOrg: 100 },
+        organization: { allowMultipleOrgs: true, creatorRole: 'owner' as const },
         twoFactor: true,
       }
       const result = Schema.decodeUnknownSync(PluginsConfigSchema)(input)
       expect(result.admin).toEqual({ impersonation: true })
-      expect(result.organization).toEqual({ maxMembersPerOrg: 100 })
+      expect(result.organization).toEqual({ allowMultipleOrgs: true, creatorRole: 'owner' })
       expect(result.twoFactor).toBe(true)
     })
   })
@@ -150,7 +150,9 @@ describe('isPluginEnabled', () => {
   test('should return true when plugin is a config object', () => {
     expect(isPluginEnabled({ admin: { impersonation: true } }, 'admin')).toBe(true)
     expect(isPluginEnabled({ twoFactor: { issuer: 'MyApp' } }, 'twoFactor')).toBe(true)
-    expect(isPluginEnabled({ organization: { maxMembersPerOrg: 50 } }, 'organization')).toBe(true)
+    expect(isPluginEnabled({ organization: { allowMultipleOrgs: true } }, 'organization')).toBe(
+      true
+    )
   })
 
   test('should return false for plugins not in config', () => {

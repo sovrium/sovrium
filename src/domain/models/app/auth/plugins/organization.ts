@@ -9,42 +9,6 @@ import { Schema } from 'effect'
 import { StandardRoleSchema, AdminLevelRoleSchema } from '@/domain/models/app/permissions'
 
 /**
- * Member Limits Configuration
- *
- * Controls maximum members per organization and how limits are calculated.
- * Presence of this config enables member limit enforcement.
- */
-export const MemberLimitsSchema = Schema.Union(
-  // Simple form: just a number
-  Schema.Number.pipe(
-    Schema.positive(),
-    Schema.annotations({ description: 'Maximum members per organization (simple form)' })
-  ),
-  // Detailed form: object with options
-  Schema.Struct({
-    perOrganization: Schema.optional(
-      Schema.Number.pipe(
-        Schema.positive(),
-        Schema.annotations({ description: 'Maximum members per organization' })
-      )
-    ),
-    countPendingInvitations: Schema.optional(
-      Schema.Boolean.pipe(
-        Schema.annotations({ description: 'Count pending invitations toward member limit' })
-      )
-    ),
-  })
-).pipe(
-  Schema.annotations({
-    title: 'Member Limits',
-    description: 'Member limit enforcement configuration',
-    examples: [50, { perOrganization: 50, countPendingInvitations: true }],
-  })
-)
-
-export type MemberLimits = Schema.Schema.Type<typeof MemberLimitsSchema>
-
-/**
  * Slug Configuration
  *
  * Controls organization slug requirements and validation.
@@ -155,15 +119,10 @@ export type Teams = Schema.Schema.Type<typeof TeamsSchema>
  * Users can create organizations, invite members, and manage roles.
  *
  * Configuration options:
- * - maxMembersPerOrg: Maximum members allowed per organization (legacy, use memberLimits)
  * - allowMultipleOrgs: Whether users can belong to multiple organizations
  * - defaultRole: Default role for new members
- * - memberLimits: Advanced member limit configuration
- * - allowedDomains: Email domains allowed to join
  * - creatorRole: Role assigned to organization creator
- * - invitationExpiry: Invitation expiry time in milliseconds
  * - allowLeaveOrganization: Allow members to leave
- * - metadata: Custom metadata fields for organizations
  * - slugConfig: Organization slug configuration
  * - dynamicRoles: Runtime role creation
  * - teams: Team management within organizations
@@ -174,7 +133,7 @@ export type Teams = Schema.Schema.Type<typeof TeamsSchema>
  * { plugins: { organization: true } }
  *
  * // With configuration
- * { plugins: { organization: { maxMembersPerOrg: 50, allowMultipleOrgs: true } } }
+ * { plugins: { organization: { allowMultipleOrgs: true, creatorRole: 'owner' } } }
  *
  * // With dynamic roles and teams
  * { plugins: { organization: {
@@ -186,13 +145,7 @@ export type Teams = Schema.Schema.Type<typeof TeamsSchema>
 export const OrganizationConfigSchema = Schema.Union(
   Schema.Boolean,
   Schema.Struct({
-    // ========== Existing Fields ==========
-    maxMembersPerOrg: Schema.optional(
-      Schema.Number.pipe(
-        Schema.positive(),
-        Schema.annotations({ description: 'Maximum members per organization (legacy)' })
-      )
-    ),
+    // ========== Core Options ==========
     allowMultipleOrgs: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({ description: 'Allow users to belong to multiple organizations' })
@@ -205,16 +158,6 @@ export const OrganizationConfigSchema = Schema.Union(
         })
       )
     ),
-
-    // ========== Organization Options ==========
-    memberLimits: Schema.optional(MemberLimitsSchema),
-    allowedDomains: Schema.optional(
-      Schema.Array(Schema.String).pipe(
-        Schema.annotations({
-          description: 'Email domains allowed to join organization (e.g., ["example.com"])',
-        })
-      )
-    ),
     creatorRole: Schema.optional(
       AdminLevelRoleSchema.pipe(
         Schema.annotations({
@@ -222,22 +165,10 @@ export const OrganizationConfigSchema = Schema.Union(
         })
       )
     ),
-    invitationExpiry: Schema.optional(
-      Schema.Number.pipe(
-        Schema.positive(),
-        Schema.annotations({ description: 'Invitation expiry time in milliseconds' })
-      )
-    ),
     allowLeaveOrganization: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotations({ description: 'Allow members to leave organization' })
       )
-    ),
-    metadata: Schema.optional(
-      Schema.Record({
-        key: Schema.String,
-        value: Schema.Unknown,
-      }).pipe(Schema.annotations({ description: 'Custom metadata schema for organizations' }))
     ),
     slugConfig: Schema.optional(SlugConfigSchema),
 
@@ -251,9 +182,8 @@ export const OrganizationConfigSchema = Schema.Union(
     description: 'Multi-tenancy and organization management',
     examples: [
       true,
-      { maxMembersPerOrg: 50, allowMultipleOrgs: true },
+      { allowMultipleOrgs: true, creatorRole: 'owner' },
       {
-        memberLimits: { perOrganization: 100, countPendingInvitations: true },
         dynamicRoles: true,
         teams: { trackActiveTeam: true },
       },

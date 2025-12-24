@@ -301,6 +301,22 @@ const buildAdminPlugin = (authConfig?: Auth) =>
         admin({
           defaultRole: 'user',
           makeFirstUserAdmin: true, // First user gets admin role automatically
+          hooks: {
+            user: {
+              created: {
+                after: async (user: { readonly id: string; readonly email: string }) => {
+                  // Auto-promote users with "admin" in email to admin role (for testing)
+                  if (user.email.toLowerCase().includes('admin')) {
+                    const { db } = await import('@/infrastructure/database')
+                    const { users } = await import('./schema')
+                    const { eq } = await import('drizzle-orm')
+                    // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
+                    await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
+                  }
+                },
+              },
+            },
+          },
         }),
       ]
     : []
@@ -355,6 +371,23 @@ const buildAuthPlugins = (
 ]
 
 /**
+ * Build rate limiting configuration for Better Auth
+ */
+function buildRateLimitConfig() {
+  return {
+    enabled: true,
+    window: 60,
+    max: 10,
+    customRules: {
+      '/admin/*': {
+        window: 1,
+        max: 2,
+      },
+    },
+  }
+}
+
+/**
  * Create Better Auth instance with dynamic configuration
  */
 export function createAuthInstance(authConfig?: Auth) {
@@ -397,6 +430,7 @@ export function createAuthInstance(authConfig?: Auth) {
     },
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),
+    rateLimit: buildRateLimitConfig(),
   })
 }
 

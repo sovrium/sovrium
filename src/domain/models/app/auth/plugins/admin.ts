@@ -47,15 +47,15 @@ export type RoleManagement = Schema.Schema.Type<typeof RoleManagementSchema>
  * Admin Plugin Configuration
  *
  * Enables administrative features for user management.
- * Includes capabilities for banning users, managing roles,
- * impersonating users, and custom permissions.
+ * Includes capabilities for managing roles, impersonating users,
+ * and custom permissions.
  *
  * Configuration options:
  * - impersonation: Allow admins to impersonate other users
  * - userManagement: Enable user CRUD operations
  * - firstUserAdmin: Make first registered user an admin
  * - defaultRole: Default role for new users
- * - banUser/unbanUser/deleteUser/listUsers/setUserRole: User lifecycle operations
+ * - listUsers/setUserRole: User lifecycle operations
  * - customPermissions: Granular resource:action permissions
  * - roleManagement: Admin role assignment/revocation
  *
@@ -105,17 +105,6 @@ export const AdminConfigSchema = Schema.Union(
     ),
 
     // ========== User Lifecycle Operations ==========
-    banUser: Schema.optional(
-      Schema.Boolean.pipe(Schema.annotations({ description: 'Enable user banning functionality' }))
-    ),
-    unbanUser: Schema.optional(
-      Schema.Boolean.pipe(
-        Schema.annotations({ description: 'Enable user unbanning functionality' })
-      )
-    ),
-    deleteUser: Schema.optional(
-      Schema.Boolean.pipe(Schema.annotations({ description: 'Enable user deletion functionality' }))
-    ),
     listUsers: Schema.optional(
       Schema.Boolean.pipe(Schema.annotations({ description: 'Enable user listing functionality' }))
     ),

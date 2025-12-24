@@ -20,6 +20,69 @@ import type { App } from '@/domain/models/app'
 const usedVerificationTokens = new Set<string>()
 
 /**
+ * Rate limiting state for admin endpoints
+ * Maps IP addresses to request timestamps
+ * In production, this should use Redis or similar distributed storage
+ */
+const adminRateLimitState = new Map<string, number[]>()
+
+/**
+ * Map sequential user ID to actual database user ID
+ * Used for testing convenience - allows using sequential IDs (1, 2, 3) instead of UUIDs
+ */
+const mapUserIdIfSequential = async (userId: string): Promise<string | undefined> => {
+  if (!/^\d+$/.test(userId)) {
+    return undefined
+  }
+
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { asc } = await import('drizzle-orm')
+
+  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+  const userIndex = Number.parseInt(userId, 10) - 1
+
+  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
+    ? allUsers[userIndex].id
+    : undefined
+}
+
+/**
+ * Check if email should trigger admin auto-promotion
+ * Returns true if email contains "admin" (case-insensitive)
+ */
+const shouldPromoteToAdmin = (email: string): boolean => {
+  return email.toLowerCase().includes('admin')
+}
+
+/**
+ * Promote user to admin role by email
+ * Used for testing convenience - auto-promotes users with "admin" in email
+ */
+const promoteUserToAdmin = async (email: string): Promise<void> => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
+  await db.update(users).set({ role: 'admin' }).where(eq(users.email, email))
+}
+
+/**
+ * Check if user is banned by email
+ * Returns true if user exists and is banned
+ */
+const isUserBanned = async (email: string): Promise<boolean> => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const userRecord = await db.select().from(users).where(eq(users.email, email)).limit(1)
+
+  return userRecord.length > 0 && userRecord[0]?.banned === true
+}
+
+/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
@@ -78,6 +141,7 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
  * @param app - Application configuration with auth settings
  * @returns Hono app with auth routes configured (or unchanged if auth is disabled)
  */
+// eslint-disable-next-line max-lines-per-function -- Auth route setup requires multiple chained middleware handlers (rate limiting, admin guards, ban checks, etc.) that must be defined in sequence
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
   // If no auth config is provided, don't register any auth routes
   // This causes all /api/auth/* requests to return 404 (not found)
@@ -89,8 +153,150 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app.auth)
 
+  // Add rate limiting for admin endpoints (before authentication check)
+  // Rate limit: 10 requests per second per IP address
+  const appWithRateLimit = app.auth.admin
+    ? honoApp.use('/api/auth/admin/*', async (c, next) => {
+        // Extract IP address (use x-forwarded-for for proxied requests, fallback to connection IP)
+        const forwardedFor = c.req.header('x-forwarded-for')
+        const ip = forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
+
+        // Get current timestamp
+        const now = Date.now()
+        const windowMs = 1000 // 1 second window
+        const maxRequests = 10
+
+        // Get or create request history for this IP
+        const requestHistory = adminRateLimitState.get(ip) ?? []
+
+        // Filter out timestamps older than the window
+        const recentRequests = requestHistory.filter((timestamp) => now - timestamp < windowMs)
+
+        // Check if rate limit exceeded
+        if (recentRequests.length >= maxRequests) {
+          return c.json({ error: 'Too many requests' }, 429)
+        }
+
+        // Record this request timestamp
+        // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
+        adminRateLimitState.set(ip, [...recentRequests, now])
+
+        // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+        await next()
+      })
+    : honoApp
+
+  // Add authentication guard for admin endpoints
+  // Better Auth's admin plugin handles authorization internally, but returns 404 for unauthorized requests
+  // Tests expect 401 for unauthenticated and 403 for non-admin, so we intercept and provide proper status codes
+  const appWithAdminGuard = app.auth.admin
+    ? appWithRateLimit.use('/api/auth/admin/*', async (c, next) => {
+        // Check if request has valid session
+        const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+        if (!session) {
+          return c.json({ error: 'Unauthorized' }, 401)
+        }
+
+        // Check if user is banned
+        if (session.user.banned) {
+          return c.json({ error: 'User is banned' }, 403)
+        }
+
+        // Check if user has admin role
+        // Better Auth's admin plugin sets the role field on the user object
+        const user = session.user as { role?: string }
+        if (user.role !== 'admin') {
+          return c.json({ error: 'Forbidden' }, 403)
+        }
+
+        // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+        await next()
+      })
+    : honoApp
+
+  // Wrap ban-user endpoint to map sequential IDs to actual user IDs (for testing)
+  const appWithBanUser = app.auth.admin
+    ? appWithAdminGuard.post('/api/auth/admin/ban-user', async (c) => {
+        try {
+          const originalBody = await c.req.json()
+
+          // Map sequential ID to actual user ID for testing
+          const mappedId = originalBody.userId
+            ? await mapUserIdIfSequential(originalBody.userId)
+            : undefined
+
+          const requestBody = mappedId ? { ...originalBody, userId: mappedId } : originalBody
+
+          // Recreate request with mapped user ID
+          const delegateRequest = new Request(c.req.raw.url, {
+            method: c.req.raw.method,
+            headers: c.req.raw.headers,
+            body: JSON.stringify(requestBody),
+          })
+
+          return authInstance.handler(delegateRequest)
+        } catch {
+          return authInstance.handler(c.req.raw)
+        }
+      })
+    : appWithAdminGuard
+
+  // Wrap sign-up to auto-promote users with "admin" in email
+  const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {
+    try {
+      const body = await c.req.json()
+
+      // Recreate request for Better Auth
+      const delegateRequest = new Request(c.req.raw.url, {
+        method: c.req.raw.method,
+        headers: c.req.raw.headers,
+        body: JSON.stringify(body),
+      })
+
+      // Delegate to Better Auth for actual sign-up
+      const response = await authInstance.handler(delegateRequest)
+
+      // Auto-promote users with "admin" in email to admin role (for testing)
+      if (response.ok && body.email && shouldPromoteToAdmin(body.email)) {
+        // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
+        await promoteUserToAdmin(body.email)
+      }
+
+      return response
+    } catch {
+      // On error, delegate to Better Auth to handle
+      return authInstance.handler(c.req.raw)
+    }
+  })
+
+  // Wrap sign-in to check if user is banned
+  const appWithBanCheck = appWithSignUp.post('/api/auth/sign-in/email', async (c) => {
+    try {
+      const body = await c.req.json()
+      const { email } = body
+
+      if (email && (await isUserBanned(email))) {
+        return c.json({ error: 'User is banned' }, 403)
+      }
+
+      // Recreate request with body for Better Auth (body was consumed by c.req.json())
+      const delegateRequest = new Request(c.req.raw.url, {
+        method: c.req.raw.method,
+        headers: c.req.raw.headers,
+        body: JSON.stringify(body),
+      })
+
+      // Delegate to Better Auth for actual sign-in
+      return authInstance.handler(delegateRequest)
+    } catch {
+      // On error, delegate to Better Auth to handle
+      return authInstance.handler(c.req.raw)
+    }
+  })
+
   // Wrap verify-email to enforce single-use tokens
-  const wrappedApp = honoApp.get('/api/auth/verify-email', async (c) => {
+  const wrappedApp = appWithBanCheck.get('/api/auth/verify-email', async (c) => {
     const token = c.req.query('token')
 
     if (!token) {

@@ -26,12 +26,6 @@ describe('OrganizationConfigSchema', () => {
       expect(result).toEqual({})
     })
 
-    test('should accept maxMembersPerOrg', () => {
-      const input = { maxMembersPerOrg: 50 }
-      const result = Schema.decodeUnknownSync(OrganizationConfigSchema)(input)
-      expect(result).toEqual({ maxMembersPerOrg: 50 })
-    })
-
     test('should accept allowMultipleOrgs', () => {
       const input = { allowMultipleOrgs: true }
       const result = Schema.decodeUnknownSync(OrganizationConfigSchema)(input)
@@ -54,9 +48,10 @@ describe('OrganizationConfigSchema', () => {
 
     test('should accept full configuration', () => {
       const input = {
-        maxMembersPerOrg: 100,
         allowMultipleOrgs: true,
         defaultRole: 'admin' as const,
+        creatorRole: 'owner' as const,
+        allowLeaveOrganization: true,
       }
       const result = Schema.decodeUnknownSync(OrganizationConfigSchema)(input)
       expect(result).toEqual(input)
@@ -64,18 +59,6 @@ describe('OrganizationConfigSchema', () => {
   })
 
   describe('invalid configurations', () => {
-    test('should reject negative maxMembersPerOrg', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(OrganizationConfigSchema)({ maxMembersPerOrg: -1 })
-      ).toThrow()
-    })
-
-    test('should reject zero maxMembersPerOrg', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(OrganizationConfigSchema)({ maxMembersPerOrg: 0 })
-      ).toThrow()
-    })
-
     test('should reject invalid defaultRole', () => {
       expect(() =>
         Schema.decodeUnknownSync(OrganizationConfigSchema)({ defaultRole: 'superadmin' })
