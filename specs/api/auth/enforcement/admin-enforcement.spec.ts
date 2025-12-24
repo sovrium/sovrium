@@ -300,7 +300,7 @@ test.describe('Admin Permission Enforcement', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-009: admin permission enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
