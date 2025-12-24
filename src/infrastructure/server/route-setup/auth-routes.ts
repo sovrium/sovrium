@@ -217,7 +217,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
   // Add set-role endpoint to assign roles to users
   const appWithSetRole = app.auth.admin
-    ? appWithAdminGuard.post('/api/auth/admin/set-role', async (c) => {
+    ? honoApp.post('/api/auth/admin/set-role', async (c) => {
         try {
           const body = await c.req.json()
           const { userId, role } = body
@@ -226,15 +226,39 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             return c.json({ error: 'userId and role are required' }, 400)
           }
 
+          // Check if user is authenticated
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
           // Map sequential ID to actual user ID for testing
           const mappedId = await mapUserIdIfSequential(userId)
           const actualUserId = mappedId ?? userId
 
-          // Update user role in database
+          // Get current user's role from database (not session, as it may be stale after auto-promotion)
           const { db } = await import('@/infrastructure/database')
           const { users } = await import('@/infrastructure/auth/better-auth/schema')
           const { eq } = await import('drizzle-orm')
 
+          // Special case: if no admins exist yet, allow any authenticated user to promote themselves
+          // This handles the bootstrap scenario where the first admin needs to be created
+          if (session) {
+            const allAdmins = await db.select().from(users).where(eq(users.role, 'admin'))
+            const currentUser = await db
+              .select()
+              .from(users)
+              .where(eq(users.id, session.user.id))
+              .limit(1)
+
+            const isBootstrap = allAdmins.length === 0 && actualUserId === session.user.id
+            const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
+
+            if (!isBootstrap && !isAdmin) {
+              return c.json({ error: 'Forbidden' }, 403)
+            }
+          } else {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          // Update user role in database
           const updatedUsers = await db
             .update(users)
             .set({ role })
@@ -245,8 +269,17 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             return c.json({ error: 'User not found' }, 404)
           }
 
+          // Invalidate all sessions for the user to force re-authentication
+          // This ensures the user gets a fresh session with the new role
+          // Without this, the old session would still contain the previous role
+          // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
+          await authInstance.api.revokeUserSessions({
+            body: { userId: actualUserId },
+            headers: c.req.raw.headers,
+          })
+
           return c.json({ user: updatedUsers[0] }, 200)
-        } catch (error) {
+        } catch {
           return c.json({ error: 'Failed to set role' }, 500)
         }
       })
