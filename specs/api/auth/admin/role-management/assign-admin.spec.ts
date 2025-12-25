@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Assign Admin Role', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-001: should return 200 OK when assigning admin role',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
