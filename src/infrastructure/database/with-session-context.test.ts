@@ -40,14 +40,17 @@ describe('with-session-context', () => {
       const mockDb = {
         transaction: mock(async (callback: any) => {
           const mockTx = {
-            execute: mock(async (sql: string) => {
-              executedSql.push(sql)
+            execute: mock(async (sql: any) => {
+              // Extract SQL string from drizzle sql.raw() object
+              // Structure: { queryChunks: [{ value: ["SQL STRING"] }] }
+              const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
+              executedSql.push(sqlStr)
               // Mock members table for org role lookup
-              if (sql.includes('_sovrium_auth_members')) {
+              if (sqlStr.includes('_sovrium_auth_members')) {
                 return [{ role: 'member' }]
               }
               // Mock users table for fallback
-              if (sql.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('_sovrium_auth_users')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined
@@ -67,11 +70,12 @@ describe('with-session-context', () => {
 
       expect(result).toBe('test result')
       expect(mockDb.transaction).toHaveBeenCalledTimes(1)
-      // Verify session variables were set (last query)
-      const setLocalQuery = executedSql.find((sql) => sql.includes('SET LOCAL'))
-      expect(setLocalQuery).toContain("SET LOCAL app.user_id = 'user_123'")
-      expect(setLocalQuery).toContain("SET LOCAL app.organization_id = 'org_456'")
-      expect(setLocalQuery).toContain("SET LOCAL app.user_role = 'member'")
+      // Verify session variables were set (separate SET LOCAL statements)
+      const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
+      expect(setLocalQueries.some((s) => s.includes('SET LOCAL ROLE app_user'))).toBe(true)
+      expect(setLocalQueries.some((s) => s.includes("app.user_id = 'user_123'"))).toBe(true)
+      expect(setLocalQueries.some((s) => s.includes("app.organization_id = 'org_456'"))).toBe(true)
+      expect(setLocalQueries.some((s) => s.includes("app.user_role = 'member'"))).toBe(true)
     })
 
     it('should handle user without organization', async () => {
@@ -93,10 +97,12 @@ describe('with-session-context', () => {
       const mockDb = {
         transaction: mock(async (callback: any) => {
           const mockTx = {
-            execute: mock(async (sql: string) => {
-              executedSql.push(sql)
+            execute: mock(async (sql: any) => {
+              // Extract SQL string from drizzle sql.raw() object
+              const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
+              executedSql.push(sqlStr)
               // Mock users table for global role lookup
-              if (sql.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('_sovrium_auth_users')) {
                 return [{ role: null }]
               }
               return undefined
@@ -114,11 +120,12 @@ describe('with-session-context', () => {
       await Effect.runPromise(withSessionContext(mockSession, operation))
 
       expect(mockDb.transaction).toHaveBeenCalled()
+      // Verify session variables were set (separate SET LOCAL statements)
+      const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
       // Verify empty string for organization when null
-      const setLocalQuery = executedSql.find((sql) => sql.includes('SET LOCAL'))
-      expect(setLocalQuery).toContain("SET LOCAL app.organization_id = ''")
+      expect(setLocalQueries.some((s) => s.includes("app.organization_id = ''"))).toBe(true)
       // Verify defaults to 'authenticated' when no role
-      expect(setLocalQuery).toContain("SET LOCAL app.user_role = 'authenticated'")
+      expect(setLocalQueries.some((s) => s.includes("app.user_role = 'authenticated'"))).toBe(true)
     })
 
     it('should escape SQL injection attempts', async () => {
@@ -140,14 +147,16 @@ describe('with-session-context', () => {
       const mockDb = {
         transaction: mock(async (callback: any) => {
           const mockTx = {
-            execute: mock(async (sql: string) => {
-              executedSql.push(sql)
+            execute: mock(async (sql: any) => {
+              // Extract SQL string from drizzle sql.raw() object
+              const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
+              executedSql.push(sqlStr)
               // Mock members table - no role found (triggers fallback)
-              if (sql.includes('_sovrium_auth_members')) {
+              if (sqlStr.includes('_sovrium_auth_members')) {
                 return []
               }
               // Mock users table for fallback
-              if (sql.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('_sovrium_auth_users')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined
@@ -165,15 +174,16 @@ describe('with-session-context', () => {
       await Effect.runPromise(withSessionContext(mockSession, operation))
 
       // Verify SQL injection is escaped in all queries
-      const memberQuery = executedSql.find((sql) => sql.includes('_sovrium_auth_members'))
-      const userQuery = executedSql.find((sql) => sql.includes('_sovrium_auth_users'))
-      const setLocalQuery = executedSql.find((sql) => sql.includes('SET LOCAL'))
+      const memberQuery = executedSql.find((s) => s.includes('_sovrium_auth_members'))
+      const userQuery = executedSql.find((s) => s.includes('_sovrium_auth_users'))
+      const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
 
       // All queries should have escaped the injection attempt
       expect(memberQuery).toContain("org''; DROP TABLE orgs; --")
       expect(userQuery).toContain("user''; DROP TABLE users; --")
-      expect(setLocalQuery).toContain("user''; DROP TABLE users; --")
-      expect(setLocalQuery).toContain("org''; DROP TABLE orgs; --")
+      // Check for escaped values in separate SET LOCAL statements
+      expect(setLocalQueries.some((s) => s.includes("user''; DROP TABLE users; --"))).toBe(true)
+      expect(setLocalQueries.some((s) => s.includes("org''; DROP TABLE orgs; --"))).toBe(true)
     })
   })
 
@@ -197,10 +207,12 @@ describe('with-session-context', () => {
       const mockDb = {
         transaction: mock(async (callback: any) => {
           const mockTx = {
-            execute: mock(async (sql: string) => {
-              executedSql.push(sql)
+            execute: mock(async (sql: any) => {
+              // Extract SQL string from drizzle sql.raw() object
+              const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
+              executedSql.push(sqlStr)
               // Mock members table for org role lookup
-              if (sql.includes('_sovrium_auth_members')) {
+              if (sqlStr.includes('_sovrium_auth_members')) {
                 return [{ role: 'admin' }]
               }
               return undefined
@@ -217,10 +229,10 @@ describe('with-session-context', () => {
 
       expect(result).toBe('async result')
       expect(mockDb.transaction).toHaveBeenCalled()
-      // Verify session variables were set
-      const setLocalQuery = executedSql.find((sql) => sql.includes('SET LOCAL'))
-      expect(setLocalQuery).toContain("SET LOCAL app.user_id = 'user_123'")
-      expect(setLocalQuery).toContain("SET LOCAL app.organization_id = 'org_456'")
+      // Verify session variables were set (separate SET LOCAL statements)
+      const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
+      expect(setLocalQueries.some((s) => s.includes("app.user_id = 'user_123'"))).toBe(true)
+      expect(setLocalQueries.some((s) => s.includes("app.organization_id = 'org_456'"))).toBe(true)
     })
 
     it('should propagate errors from operation', async () => {
@@ -241,9 +253,11 @@ describe('with-session-context', () => {
       const mockDb = {
         transaction: mock(async (callback: any) => {
           const mockTx = {
-            execute: mock(async (sql: string) => {
+            execute: mock(async (sql: any) => {
+              // Extract SQL string from drizzle sql.raw() object
+              const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               // Mock users table for global role lookup
-              if (sql.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('_sovrium_auth_users')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined

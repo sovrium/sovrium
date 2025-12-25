@@ -63,9 +63,9 @@ export function authMiddleware(auth: any) {
           }),
         })
 
-        const { session } = result
-        if (session) {
-          c.set('session', session as Session)
+        // getSession returns null when no valid session exists
+        if (result?.session) {
+          c.set('session', result.session as Session)
         }
       } else {
         // For cookie-based sessions, use original headers
@@ -73,9 +73,9 @@ export function authMiddleware(auth: any) {
           headers: c.req.raw.headers,
         })
 
-        const { session } = result
-        if (session) {
-          c.set('session', session as Session)
+        // getSession returns null when no valid session exists
+        if (result?.session) {
+          c.set('session', result.session as Session)
         }
       }
     } catch (error) {

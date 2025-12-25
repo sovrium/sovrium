@@ -102,15 +102,17 @@ describe('createRecordRequestSchema', () => {
 })
 
 describe('updateRecordRequestSchema', () => {
-  test('has same validation rules as createRecordRequestSchema', () => {
-    const input = { fields: { name: 'Updated Name', age: 31 } }
+  test('validates flat field object (not wrapped in fields property)', () => {
+    // updateRecordRequestSchema is a flat record, not wrapped like createRecordRequestSchema
+    const input = { name: 'Updated Name', age: 31 }
     const result = updateRecordRequestSchema.parse(input)
-    expect(result.fields).toEqual({ name: 'Updated Name', age: 31 })
+    expect(result).toEqual({ name: 'Updated Name', age: 31 })
   })
 
-  test('applies default empty object when fields is missing', () => {
+  test('parses empty object to empty record', () => {
+    // Flat schema means {} parses to {} directly
     const result = updateRecordRequestSchema.parse({})
-    expect(result.fields).toEqual({})
+    expect(result).toEqual({})
   })
 })
 
