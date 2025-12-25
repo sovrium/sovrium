@@ -680,6 +680,7 @@ test.describe('Organization Data Isolation', () => {
       createOrganization,
       setActiveOrganization,
       addMember: _addMember,
+      setActiveOrganization,
     }) => {
       // GIVEN: Application with organization plugin and organization-scoped data
       await startServerWithSchema({
@@ -698,7 +699,7 @@ test.describe('Organization Data Isolation', () => {
               { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] }, // Better Auth: role check
+              read: { type: 'roles', roles: ['member', 'admin', 'owner'] }, // Better Auth: role check
               organizationScoped: true, // RLS: organization filtering
             },
           },
