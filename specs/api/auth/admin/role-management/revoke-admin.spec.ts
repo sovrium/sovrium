@@ -61,7 +61,7 @@ test.describe('Revoke Admin Role', () => {
   test(
     'API-AUTH-ADMIN-REVOKE-002: should remove admin permissions from user',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
+    async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
       // GIVEN: A user with admin role
       await startServerWithSchema({
         name: 'test-app',
@@ -83,6 +83,9 @@ test.describe('Revoke Admin Role', () => {
         name: 'Target User',
       })
 
+      // Sign back in as admin (signUp replaces the session)
+      await signIn({ email: 'admin@example.com', password: 'Password123!' })
+
       await request.post('/api/auth/admin/set-role', {
         data: { userId: targetUser.user.id, role: 'admin' },
       })
@@ -101,7 +104,7 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-003: should return 403 when non-admin tries to revoke',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, request }) => {
