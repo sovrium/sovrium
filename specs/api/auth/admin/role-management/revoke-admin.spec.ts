@@ -15,10 +15,10 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Revoke Admin Role', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-001: should return 200 OK when revoking admin role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
+    async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
       // GIVEN: An admin and another user with admin role
       await startServerWithSchema({
         name: 'test-app',
@@ -39,6 +39,9 @@ test.describe('Revoke Admin Role', () => {
         password: 'Password123!',
         name: 'Target User',
       })
+
+      // Sign back in as admin (signUp replaces the session)
+      await signIn({ email: 'admin@example.com', password: 'Password123!' })
 
       // First assign admin role to target user
       await request.post('/api/auth/admin/set-role', {

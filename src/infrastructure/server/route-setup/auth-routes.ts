@@ -256,9 +256,55 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : honoApp
 
+  // Add revoke-admin endpoint to remove admin role from users
+  const appWithRevokeAdmin = app.auth.admin
+    ? appWithAdminGuard.post('/api/auth/admin/revoke-admin', async (c) => {
+        try {
+          const body = await c.req.json()
+          const { userId } = body
+
+          if (!userId) {
+            return c.json({ error: 'userId is required' }, 400)
+          }
+
+          // Check if user is authenticated
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          // Map sequential ID to actual user ID for testing
+          const mappedId = await mapUserIdIfSequential(userId)
+          const actualUserId = mappedId ?? userId
+
+          // Prevent self-revocation
+          if (session.user.id === actualUserId) {
+            return c.json({ error: 'Cannot revoke your own admin role' }, 400)
+          }
+
+          // Update user role to 'user' (revoking admin)
+          const updatedUser = await updateUserRole(actualUserId, 'user')
+          if (!updatedUser) {
+            return c.json({ error: 'User not found' }, 404)
+          }
+
+          // Invalidate all sessions for the user to force re-authentication
+          // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
+          await authInstance.api.revokeUserSessions({
+            body: { userId: actualUserId },
+            headers: c.req.raw.headers,
+          })
+
+          return c.json({ user: updatedUser }, 200)
+        } catch {
+          return c.json({ error: 'Failed to revoke admin role' }, 500)
+        }
+      })
+    : appWithAdminGuard
+
   // Add set-role endpoint to assign roles to users
   const appWithSetRole = app.auth.admin
-    ? honoApp.post('/api/auth/admin/set-role', async (c) => {
+    ? appWithRevokeAdmin.post('/api/auth/admin/set-role', async (c) => {
         try {
           const body = await c.req.json()
           const { userId, role } = body
