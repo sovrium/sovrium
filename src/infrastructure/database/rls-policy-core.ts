@@ -94,6 +94,9 @@ export const generateOwnerCheck = (permission?: TablePermission): string | undef
 /**
  * Generate authenticated check expression for RLS policies
  *
+ * Uses session context variable `app.user_id` to determine authentication status.
+ * A user is authenticated if `app.user_id` is set and not empty.
+ *
  * @param permission - Permission configuration
  * @returns SQL expression for authenticated check, or undefined if not authenticated permission
  */
@@ -102,7 +105,8 @@ export const generateAuthenticatedCheck = (permission?: TablePermission): string
     return undefined
   }
 
-  return 'auth.is_authenticated()'
+  // Check if user_id session variable is set and not empty
+  return "current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != ''"
 }
 
 /**

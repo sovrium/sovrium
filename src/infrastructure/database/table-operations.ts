@@ -18,6 +18,7 @@ import {
   generateLookupViewSQL,
   generateLookupViewTriggers,
 } from './lookup-view-generators'
+import { generateAppUserGrants } from './rls-grants'
 import {
   generateRLSPolicyStatements,
   generateBasicTableGrants,
@@ -272,6 +273,7 @@ const applyTableFeatures = (
     // Grant operations don't depend on each other
     yield* Effect.all(
       [
+        executeSQLStatementsParallel(tx, generateAppUserGrants(physicalTable)),
         executeSQLStatementsParallel(tx, generateBasicTableGrants(physicalTable)),
         executeSQLStatementsParallel(tx, generateAuthenticatedBasedGrants(physicalTable)),
         executeSQLStatementsParallel(tx, generateRoleBasedGrants(physicalTable)),
@@ -323,6 +325,7 @@ const applyTableFeaturesWithoutIndexes = (
     // Grant operations don't depend on each other
     yield* Effect.all(
       [
+        executeSQLStatementsParallel(tx, generateAppUserGrants(physicalTable)),
         executeSQLStatementsParallel(tx, generateBasicTableGrants(physicalTable)),
         executeSQLStatementsParallel(tx, generateAuthenticatedBasedGrants(physicalTable)),
         executeSQLStatementsParallel(tx, generateRoleBasedGrants(physicalTable)),

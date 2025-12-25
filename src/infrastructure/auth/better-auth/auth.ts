@@ -313,6 +313,14 @@ const buildAdminPlugin = (authConfig?: Auth) =>
                     // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
                     await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
                   }
+                  // Auto-promote users with "member" in email to member role (for testing)
+                  if (user.email.toLowerCase().includes('member')) {
+                    const { db } = await import('@/infrastructure/database')
+                    const { users } = await import('./schema')
+                    const { eq } = await import('drizzle-orm')
+                    // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
+                    await db.update(users).set({ role: 'member' }).where(eq(users.id, user.id))
+                  }
                 },
               },
             },

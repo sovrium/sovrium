@@ -718,8 +718,13 @@ test.describe('Field-Level Permissions', () => {
 
       // THEN: RLS filters secret_content based on ownership
       const data = await response.json()
+      console.log('DEBUG: API returned records:', JSON.stringify(data.records, null, 2))
+      console.log('DEBUG: user1.user.id:', user1.user.id)
+      console.log('DEBUG: user2.user.id:', user2.user.id)
       const user1Note = data.records.find((r: any) => r.fields.owner_id === user1.user.id)
       const user2Note = data.records.find((r: any) => r.fields.owner_id === user2.user.id)
+      console.log('DEBUG: user1Note:', user1Note)
+      console.log('DEBUG: user2Note:', user2Note)
 
       // User1 sees their own secret content
       expect(user1Note.fields).toHaveProperty('secret_content')

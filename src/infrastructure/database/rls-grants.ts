@@ -169,3 +169,37 @@ $$`
 
   return [...createRoleStatements, ...grantStatements]
 }
+
+/**
+ * Generate grants for app_user role (used by withSessionContext)
+ *
+ * The app_user role is used by withSessionContext to enforce RLS policies.
+ * It needs ALL privileges on the table to allow operations, but RLS policies
+ * will restrict row-level access based on session context.
+ *
+ * This grants:
+ * 1. CREATE ROLE statement for app_user (if not exists)
+ * 2. USAGE on public schema
+ * 3. ALL on the table (RLS policies will restrict row access)
+ *
+ * @param table - Table definition
+ * @returns Array of SQL statements to create role and grant access
+ */
+export const generateAppUserGrants = (table: Table): readonly string[] => {
+  const tableName = table.name
+
+  const createRoleStatement = `DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+    CREATE ROLE app_user WITH LOGIN;
+  END IF;
+END
+$$`
+
+  const grantStatements = [
+    `GRANT USAGE ON SCHEMA public TO app_user`,
+    `GRANT ALL ON ${tableName} TO app_user`,
+  ]
+
+  return [createRoleStatement, ...grantStatements]
+}

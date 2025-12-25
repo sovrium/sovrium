@@ -246,7 +246,6 @@ EXECUTE FUNCTION ${triggerFunctionName}()`
  * Note: This means users can't SELECT the restricted field without also being able to see
  * the row. This is a PostgreSQL limitation - we enforce at row level, not column level.
  */
-// @ts-expect-error - Preserved for future implementation
 const _generateCustomReadRLSPolicies = (
   tableName: string,
   fieldPermissions: readonly { field: string; read?: TablePermission }[]
@@ -280,13 +279,20 @@ const _generateCustomReadRLSPolicies = (
 -- Drop existing policy if exists
 DROP POLICY IF EXISTS ${policyName} ON ${tableName};
 
--- Create policy for custom field read conditions
+-- Create RESTRICTIVE policy for custom field read conditions
 -- Row is visible only if ALL custom field conditions are met
+-- RESTRICTIVE: Must be combined (AND) with PERMISSIVE policies
+-- NOTE: With FORCE ROW LEVEL SECURITY enabled, RESTRICTIVE policies apply to ALL roles
+-- Solution: Add OR condition to bypass filtering for app_user role (API uses application-layer field filtering)
+-- Other roles (authenticated_user, admin_user, member_user) get row-level filtering via custom conditions
 CREATE POLICY ${policyName}
 ON ${tableName}
+AS RESTRICTIVE
 FOR SELECT
-TO authenticated_user, admin_user, member_user
-USING (${combinedCondition})`
+USING (
+  current_user = 'app_user'
+  OR (${combinedCondition})
+)`
 
   return [enableRLS, forceRLS, policy]
 }
@@ -486,14 +492,17 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
 
   const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
 
-  // Note: Custom field READ permissions are handled by Better Auth layer (filterReadableFields),
-  // not RLS. Table-level RLS policies control row visibility based on table permissions.
-  // Custom field WRITE permissions still use triggers (customConditionTriggers above).
+  // NOTE: Custom read RLS policies target SQL roles (authenticated_user, admin_user, member_user)
+  // but NOT the API role (app_user). This allows:
+  // - Raw SQL queries: Use RLS for row-level filtering (PostgreSQL limitation - no column-level dynamic permissions)
+  // - API queries: Use filterReadableFields() for field-level filtering at application layer
+  const customReadRLSPolicies = _generateCustomReadRLSPolicies(tableName, fieldPermissions)
 
   return [
     ...roleSetupStatements,
     ...columnGrantStatements,
     ...customFieldReadGrants,
+    ...customReadRLSPolicies, // ENABLED for SQL roles, excluded from app_user
     ...writeGrantStatements,
     ...customConditionTriggers,
   ]

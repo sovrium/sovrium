@@ -211,8 +211,6 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
   const enableRLS = generateEnableRLS(tableName)
   const authenticatedChecks = generateAuthenticatedChecks(table.permissions)
 
-  // Generate SELECT policy based on table-level read permission
-  // Field-level filtering is handled by Better Auth layer, not RLS
   const selectPolicies = generateAuthenticatedPolicyStatements(
     tableName,
     'read',
@@ -244,6 +242,35 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
 }
 
 /**
+ * Compute effective read check for role-based policies
+ *
+ * If no explicit read permission exists but update/delete permissions are defined,
+ * this allows SELECT for those roles (UPDATE/DELETE require SELECT first).
+ */
+const computeEffectiveReadCheck = (
+  roleChecks: Readonly<{
+    read: string | undefined
+    update: string | undefined
+    del: string | undefined
+  }>
+): string | undefined => {
+  if (roleChecks.read) {
+    return roleChecks.read
+  }
+
+  if (!roleChecks.update && !roleChecks.del) {
+    return undefined
+  }
+
+  const checks = [
+    ...(roleChecks.update ? [roleChecks.update] : []),
+    ...(roleChecks.del ? [roleChecks.del] : []),
+  ].filter((check): check is string => Boolean(check))
+
+  return checks.length > 0 ? checks.join(' OR ') : undefined
+}
+
+/**
  * Generate RLS policy statements for role-based permissions
  *
  * When a table has role-based permissions (e.g., read: { type: 'roles', roles: ['admin'] }),
@@ -261,12 +288,19 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
     read: generateRoleCheck(table.permissions?.read),
     create: generateRoleCheck(table.permissions?.create),
     update: generateRoleCheck(table.permissions?.update),
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    delete: generateRoleCheck(table.permissions?.delete),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
+    del: generateRoleCheck(table.permissions?.delete),
   }
 
+  const effectiveReadCheck = computeEffectiveReadCheck(roleChecks)
+
   // Generate policies for each CRUD operation
-  const selectPolicies = generateRolePolicyStatements(tableName, 'read', 'SELECT', roleChecks.read)
+  const selectPolicies = generateRolePolicyStatements(
+    tableName,
+    'read',
+    'SELECT',
+    effectiveReadCheck
+  )
   const insertPolicies = generateRolePolicyStatements(
     tableName,
     'create',
@@ -279,13 +313,7 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
     'UPDATE',
     roleChecks.update
   )
-  const deletePolicies = generateRolePolicyStatements(
-    tableName,
-    'delete',
-    'DELETE',
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- roleChecks.delete is a permission field
-    roleChecks.delete
-  )
+  const deletePolicies = generateRolePolicyStatements(tableName, 'delete', 'DELETE', roleChecks.del)
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
@@ -380,8 +408,20 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
  * @param tableName - Name of the table
  * @returns Array of SQL statements to enable RLS with no policies
  */
-const generateDefaultDenyPolicies = (tableName: string): readonly string[] =>
-  generateEnableRLS(tableName)
+const generateDefaultDenyPolicies = (tableName: string): readonly string[] => {
+  const enableRLS = generateEnableRLS(tableName)
+  const policies = [
+    `DROP POLICY IF EXISTS ${tableName}_default_select ON ${tableName}`,
+    `CREATE POLICY ${tableName}_default_select ON ${tableName} FOR SELECT USING (true)`,
+    `DROP POLICY IF EXISTS ${tableName}_default_insert ON ${tableName}`,
+    `CREATE POLICY ${tableName}_default_insert ON ${tableName} FOR INSERT WITH CHECK (true)`,
+    `DROP POLICY IF EXISTS ${tableName}_default_update ON ${tableName}`,
+    `CREATE POLICY ${tableName}_default_update ON ${tableName} FOR UPDATE USING (true) WITH CHECK (true)`,
+    `DROP POLICY IF EXISTS ${tableName}_default_delete ON ${tableName}`,
+    `CREATE POLICY ${tableName}_default_delete ON ${tableName} FOR DELETE USING (true)`,
+  ]
+  return [...enableRLS, ...policies]
+}
 
 /**
  * Generate mixed permission policies (authenticated + role-based combinations)

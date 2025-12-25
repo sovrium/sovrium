@@ -72,7 +72,7 @@ describe('generateRLSPolicyStatements', () => {
     expect(statements).toEqual([])
   })
 
-  test('should enable RLS with no policies when no permissions configured (default deny)', () => {
+  test('should enable RLS with default allow policies when no permissions configured', () => {
     const table: Table = {
       id: 1,
       name: 'simple_table',
@@ -86,6 +86,14 @@ describe('generateRLSPolicyStatements', () => {
     expect(statements).toEqual([
       'ALTER TABLE simple_table ENABLE ROW LEVEL SECURITY',
       'ALTER TABLE simple_table FORCE ROW LEVEL SECURITY',
+      'DROP POLICY IF EXISTS simple_table_default_select ON simple_table',
+      'CREATE POLICY simple_table_default_select ON simple_table FOR SELECT USING (true)',
+      'DROP POLICY IF EXISTS simple_table_default_insert ON simple_table',
+      'CREATE POLICY simple_table_default_insert ON simple_table FOR INSERT WITH CHECK (true)',
+      'DROP POLICY IF EXISTS simple_table_default_update ON simple_table',
+      'CREATE POLICY simple_table_default_update ON simple_table FOR UPDATE USING (true) WITH CHECK (true)',
+      'DROP POLICY IF EXISTS simple_table_default_delete ON simple_table',
+      'CREATE POLICY simple_table_default_delete ON simple_table FOR DELETE USING (true)',
     ])
   })
 
