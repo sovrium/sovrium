@@ -78,26 +78,47 @@ export const hasOnlyPublicPermissions = (table: Table): boolean => {
 }
 
 /**
- * Check if table has NO permissions configured (default deny case)
+ * Check if table has NO permissions object defined at all
  *
- * When no permissions are configured at all, we want to enable RLS
- * but not create any policies, effectively blocking all access.
+ * When the permissions property is undefined (not even an empty object),
+ * we allow API access via app_user role. This is for developer convenience
+ * when a table hasn't been configured with permissions yet.
  *
  * @param table - Table definition
- * @returns True if no CRUD permissions are configured
+ * @returns True if permissions is undefined (not configured)
  */
 export const hasNoPermissions = (table: Table): boolean => {
+  return table.permissions === undefined
+}
+
+/**
+ * Check if table has an explicit empty permissions object
+ *
+ * When permissions is explicitly set to {} (empty object with all fields undefined),
+ * this represents an intentional "deny all" configuration. In this case:
+ * - RLS is enabled (default deny)
+ * - No policies are created
+ * - All access is blocked
+ *
+ * This is different from undefined (hasNoPermissions), which allows API access.
+ *
+ * @param table - Table definition
+ * @returns True if permissions object exists but is completely empty
+ */
+export const hasExplicitEmptyPermissions = (table: Table): boolean => {
   const { permissions } = table
+
+  // Must have a permissions object (not undefined)
   if (!permissions) {
-    return true
+    return false
   }
 
-  // If organizationScoped is explicitly set (true or false), it's a permission configuration
+  // If organizationScoped is explicitly set (true or false), it's a configuration
   if (permissions.organizationScoped !== undefined) {
     return false
   }
 
-  // Check if all permission types are undefined
+  // Check if all permission types are undefined (empty object)
   return (
     permissions.read === undefined &&
     permissions.create === undefined &&

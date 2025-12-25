@@ -316,6 +316,8 @@ test.describe('Table Permissions', () => {
               { id: 2, name: 'data', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
+            // Explicitly empty permissions = true deny (no policies, all access blocked)
+            permissions: {},
           },
         ],
       })

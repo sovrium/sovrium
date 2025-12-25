@@ -72,7 +72,7 @@ describe('generateRLSPolicyStatements', () => {
     expect(statements).toEqual([])
   })
 
-  test('should enable RLS with no policies when no permissions configured (default deny)', () => {
+  test('should enable RLS with no policies when explicit empty permissions configured (default deny)', () => {
     const table: Table = {
       id: 1,
       name: 'simple_table',
@@ -80,13 +80,42 @@ describe('generateRLSPolicyStatements', () => {
         { id: 1, name: 'id', type: 'integer', required: true },
         { id: 2, name: 'value', type: 'single-line-text' },
       ],
+      // Explicit empty permissions = true deny (0 policies, all access blocked)
+      permissions: {},
     }
 
     const statements = generateRLSPolicyStatements(table)
-    // When no permissions are configured, only enable RLS (no policies = default deny)
+    // When permissions is explicitly empty {}, only enable RLS (no policies = default deny)
     expect(statements).toEqual([
       'ALTER TABLE simple_table ENABLE ROW LEVEL SECURITY',
       'ALTER TABLE simple_table FORCE ROW LEVEL SECURITY',
+    ])
+  })
+
+  test('should generate app_user policies when permissions not configured (API access allowed)', () => {
+    const table: Table = {
+      id: 1,
+      name: 'unconfigured_table',
+      fields: [
+        { id: 1, name: 'id', type: 'integer', required: true },
+        { id: 2, name: 'value', type: 'single-line-text' },
+      ],
+      // No permissions property = undefined = API access allowed via app_user role
+    }
+
+    const statements = generateRLSPolicyStatements(table)
+    // When permissions is undefined (not configured), enable RLS with app_user policies
+    expect(statements).toEqual([
+      'ALTER TABLE unconfigured_table ENABLE ROW LEVEL SECURITY',
+      'ALTER TABLE unconfigured_table FORCE ROW LEVEL SECURITY',
+      'DROP POLICY IF EXISTS unconfigured_table_app_user_select ON unconfigured_table',
+      "CREATE POLICY unconfigured_table_app_user_select ON unconfigured_table FOR SELECT USING (current_user = 'app_user')",
+      'DROP POLICY IF EXISTS unconfigured_table_app_user_insert ON unconfigured_table',
+      "CREATE POLICY unconfigured_table_app_user_insert ON unconfigured_table FOR INSERT WITH CHECK (current_user = 'app_user')",
+      'DROP POLICY IF EXISTS unconfigured_table_app_user_update ON unconfigured_table',
+      "CREATE POLICY unconfigured_table_app_user_update ON unconfigured_table FOR UPDATE USING (current_user = 'app_user') WITH CHECK (current_user = 'app_user')",
+      'DROP POLICY IF EXISTS unconfigured_table_app_user_delete ON unconfigured_table',
+      "CREATE POLICY unconfigured_table_app_user_delete ON unconfigured_table FOR DELETE USING (current_user = 'app_user')",
     ])
   })
 

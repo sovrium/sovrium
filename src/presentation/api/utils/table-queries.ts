@@ -235,15 +235,6 @@ export function deleteRecord(
         validateTableName(tableName)
         const tableIdent = sql.identifier(tableName)
 
-        // Check if record exists before attempting delete (parameterized)
-        const checkResult = (await tx.execute(
-          sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-        )) as readonly Record<string, unknown>[]
-
-        if (checkResult.length === 0) {
-          return false // Record not found
-        }
-
         // Check if table has deleted_at column for soft delete
         const columnCheck = (await tx.execute(
           sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
@@ -251,15 +242,23 @@ export function deleteRecord(
 
         if (columnCheck.length > 0) {
           // Soft delete: set deleted_at timestamp (parameterized)
-          // eslint-disable-next-line functional/no-expression-statements -- Database update requires side effect
-          await tx.execute(sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId}`)
+          // Use RETURNING to check if update affected any rows (RLS may block access)
+          const result = (await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          // If RLS blocked the update, result will be empty
+          return result.length > 0
         } else {
           // Hard delete: remove record (parameterized)
-          // eslint-disable-next-line functional/no-expression-statements -- Database deletion requires side effect
-          await tx.execute(sql`DELETE FROM ${tableIdent} WHERE id = ${recordId}`)
-        }
+          // Use RETURNING to check if delete affected any rows (RLS may block access)
+          const result = (await tx.execute(
+            sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
+          )) as readonly Record<string, unknown>[]
 
-        return true
+          // If RLS blocked the delete, result will be empty
+          return result.length > 0
+        }
       },
       catch: (error) =>
         new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),

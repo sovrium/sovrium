@@ -17,6 +17,7 @@ import { translatePermissionCondition } from './permission-condition-translator'
 import {
   CRUD_TO_SQL_COMMAND,
   hasAuthenticatedPermissions,
+  hasExplicitEmptyPermissions,
   hasMixedPermissions,
   hasNoPermissions,
   hasOnlyPublicPermissions,
@@ -403,19 +404,53 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
 }
 
 /**
- * Generate default deny RLS policies (no permissions configured)
+ * Generate default policies for tables with NO permissions object (undefined)
  *
- * When a table has no permissions configured, we enable RLS but create NO policies.
- * This enforces the default deny behavior: RLS is enabled, but since there are no
- * policies allowing access, all queries will return zero rows (access denied by default).
+ * When a table has `permissions: undefined` (not even an empty object), we:
+ * 1. Enable RLS with FORCE
+ * 2. Create policies allowing the `app_user` role (used by withSessionContext)
+ *
+ * This is different from explicit empty permissions `permissions: {}` which
+ * creates ZERO policies (true default deny, all access blocked).
+ *
+ * Use case: Developer hasn't configured permissions yet, but API should work.
  *
  * @param tableName - Name of the table
- * @returns Array of SQL statements to enable RLS with no policies (default deny)
+ * @returns Array of SQL statements to enable RLS and allow app_user role
  */
 const generateDefaultDenyPolicies = (tableName: string): readonly string[] => {
   const enableRLS = generateEnableRLS(tableName)
-  // No policies = default deny (RLS blocks all access when no policies exist)
-  return enableRLS
+
+  // Allow app_user role (set by withSessionContext) to perform all operations
+  // This enables authenticated API access while blocking direct database access
+  const appUserCheck = `current_user = 'app_user'`
+
+  const selectPolicies = generatePolicyStatements(
+    tableName,
+    `${tableName}_app_user_select`,
+    'SELECT',
+    appUserCheck
+  )
+  const insertPolicies = generatePolicyStatements(
+    tableName,
+    `${tableName}_app_user_insert`,
+    'INSERT',
+    appUserCheck
+  )
+  const updatePolicies = generatePolicyStatements(
+    tableName,
+    `${tableName}_app_user_update`,
+    'UPDATE',
+    appUserCheck
+  )
+  const deletePolicies = generatePolicyStatements(
+    tableName,
+    `${tableName}_app_user_delete`,
+    'DELETE',
+    appUserCheck
+  )
+
+  return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
 }
 
 /**
@@ -477,13 +512,14 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
  *
  * Priority order (first match wins):
  * 1. Public permissions → No RLS
- * 2. No permissions → Default deny
- * 3. Record-level → Custom conditions
- * 4. Mixed permissions → Individual policies per operation
- * 5. Owner-based → Owner field check
- * 6. Authenticated → auth.is_authenticated()
- * 7. Role-based → Role checks
- * 8. Organization-scoped → Organization ID filter
+ * 2. Explicit empty permissions {} → Only enable RLS (true deny, 0 policies)
+ * 3. No permissions undefined → Allow API access (app_user policies)
+ * 4. Record-level → Custom conditions
+ * 5. Mixed permissions → Individual policies per operation
+ * 6. Owner-based → Owner field check
+ * 7. Authenticated → auth.is_authenticated()
+ * 8. Role-based → Role checks
+ * 9. Organization-scoped → Organization ID filter
  */
 const selectPolicyGenerator = (
   table: Table
@@ -493,9 +529,14 @@ const selectPolicyGenerator = (
     return returnEmptyPolicies
   }
 
+  // Explicit empty permissions {} = true default deny (0 policies, all access blocked)
+  if (hasExplicitEmptyPermissions(table)) {
+    return () => generateEnableRLS(table.name) // Only enable RLS, no policies
+  }
+
+  // No permissions object (undefined) = allow API access via app_user role
   if (hasNoPermissions(table)) {
-    const tableName = table.name
-    return () => generateDefaultDenyPolicies(tableName)
+    return () => generateDefaultDenyPolicies(table.name)
   }
 
   if (hasRecordLevelPermissions(table)) {
@@ -539,24 +580,30 @@ const selectPolicyGenerator = (
  *    - No RLS is enabled
  *    - All access is unrestricted
  *
- * 2. **No permissions** (default deny):
- *    - Enables RLS with no policies
- *    - All access is blocked
+ * 2. **Explicit empty permissions** (permissions: {}):
+ *    - Enables RLS with FORCE
+ *    - Creates ZERO policies
+ *    - All access is blocked (true default deny)
  *
- * 3. **Record-level permissions** (permissions.records array):
+ * 3. **No permissions object** (permissions: undefined):
+ *    - Enables RLS with FORCE
+ *    - Creates policies allowing app_user role
+ *    - API access works, direct DB access is blocked
+ *
+ * 4. **Record-level permissions** (permissions.records array):
  *    - Custom RLS conditions defined per CRUD action
  *    - Supports variable substitution: {userId}, {organizationId}
  *
- * 4. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
+ * 5. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
  *    - Filters records by the specified owner field
  *
- * 5. **Authenticated permissions** (e.g., update: { type: 'authenticated' }):
+ * 6. **Authenticated permissions** (e.g., update: { type: 'authenticated' }):
  *    - Checks if user is authenticated via auth.is_authenticated()
  *
- * 6. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin'] }):
+ * 7. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin'] }):
  *    - Checks user's role via current_setting('app.user_role')
  *
- * 7. **Organization-scoped** (permissions.organizationScoped: true):
+ * 8. **Organization-scoped** (permissions.organizationScoped: true):
  *    - Filters by organization_id using current_setting('app.organization_id')
  *
  * @param table - Table definition with permissions
