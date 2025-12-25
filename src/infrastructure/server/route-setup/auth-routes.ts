@@ -83,6 +83,47 @@ const isUserBanned = async (email: string): Promise<boolean> => {
 }
 
 /**
+ * Check if user is authorized to assign roles
+ * Returns true if user is bootstrapping (first admin) or is an existing admin
+ */
+const isAuthorizedToAssignRole = async (
+  sessionUserId: string,
+  targetUserId: string
+): Promise<{ authorized: boolean; reason?: string }> => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const [allAdmins, currentUser] = await Promise.all([
+    db.select().from(users).where(eq(users.role, 'admin')),
+    db.select().from(users).where(eq(users.id, sessionUserId)).limit(1),
+  ])
+
+  const isBootstrap = allAdmins.length === 0 && targetUserId === sessionUserId
+  const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
+
+  if (isBootstrap || isAdmin) {
+    return { authorized: true }
+  }
+
+  return { authorized: false, reason: 'Forbidden' }
+}
+
+/**
+ * Update user role in database
+ * Returns the updated user or undefined if not found
+ */
+const updateUserRole = async (userId: string, role: string) => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const updatedUsers = await db.update(users).set({ role }).where(eq(users.id, userId)).returning()
+
+  return updatedUsers.length > 0 ? updatedUsers[0] : undefined
+}
+
+/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
@@ -228,44 +269,23 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
           // Check if user is authenticated
           const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
 
           // Map sequential ID to actual user ID for testing
           const mappedId = await mapUserIdIfSequential(userId)
           const actualUserId = mappedId ?? userId
 
-          // Get current user's role from database (not session, as it may be stale after auto-promotion)
-          const { db } = await import('@/infrastructure/database')
-          const { users } = await import('@/infrastructure/auth/better-auth/schema')
-          const { eq } = await import('drizzle-orm')
-
-          // Special case: if no admins exist yet, allow any authenticated user to promote themselves
-          // This handles the bootstrap scenario where the first admin needs to be created
-          if (session) {
-            const allAdmins = await db.select().from(users).where(eq(users.role, 'admin'))
-            const currentUser = await db
-              .select()
-              .from(users)
-              .where(eq(users.id, session.user.id))
-              .limit(1)
-
-            const isBootstrap = allAdmins.length === 0 && actualUserId === session.user.id
-            const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
-
-            if (!isBootstrap && !isAdmin) {
-              return c.json({ error: 'Forbidden' }, 403)
-            }
-          } else {
-            return c.json({ error: 'Unauthorized' }, 401)
+          // Check if user is authorized to assign roles
+          const authCheck = await isAuthorizedToAssignRole(session.user.id, actualUserId)
+          if (!authCheck.authorized) {
+            return c.json({ error: authCheck.reason ?? 'Forbidden' }, 403)
           }
 
           // Update user role in database
-          const updatedUsers = await db
-            .update(users)
-            .set({ role })
-            .where(eq(users.id, actualUserId))
-            .returning()
-
-          if (updatedUsers.length === 0) {
+          const updatedUser = await updateUserRole(actualUserId, role)
+          if (!updatedUser) {
             return c.json({ error: 'User not found' }, 404)
           }
 
@@ -278,7 +298,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             headers: c.req.raw.headers,
           })
 
-          return c.json({ user: updatedUsers[0] }, 200)
+          return c.json({ user: updatedUser }, 200)
         } catch {
           return c.json({ error: 'Failed to set role' }, 500)
         }
