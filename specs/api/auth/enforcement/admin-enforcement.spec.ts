@@ -73,7 +73,7 @@ test.describe('Admin Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-ADMIN-002: should deny access to admin endpoints for regular users',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
