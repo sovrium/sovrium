@@ -153,7 +153,7 @@ test.describe('Assign Admin Role', () => {
   test(
     'API-AUTH-ADMIN-ASSIGN-004: should return 404 when user not found',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signIn, page }) => {
       // GIVEN: Server with admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -164,11 +164,14 @@ test.describe('Assign Admin Role', () => {
           },
         },
       })
-      await createAdmin({
+      const admin = await createAdmin({
         email: 'admin@example.com',
         password: 'Pass123!',
         name: 'Admin',
       })
+
+      // Sign in as admin (session switches after createAdmin)
+      await signIn({ email: admin.user.email, password: 'Pass123!' })
 
       // WHEN: Admin assigns role to non-existent user
       const response = await page.request.post('/api/auth/admin/set-role', {
