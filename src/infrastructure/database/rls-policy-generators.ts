@@ -325,6 +325,9 @@ const generateRoleBasedPolicies = (table: Table): readonly string[] => {
  * When a table has `permissions.records` array, this generates RLS policies
  * based on custom conditions defined in the schema.
  *
+ * If table-level role-based permissions also exist, they are combined with
+ * record-level conditions using AND logic (both must be satisfied).
+ *
  * @param table - Table definition with record-level permissions
  * @returns Array of SQL statements to enable RLS and create record-level policies
  */
@@ -337,6 +340,15 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
   }
 
   const enableRLS = generateEnableRLS(tableName)
+
+  // Generate role checks for table-level permissions (complementary filtering)
+  const roleChecks = {
+    read: generateRoleCheck(table.permissions?.read),
+    create: generateRoleCheck(table.permissions?.create),
+    update: generateRoleCheck(table.permissions?.update),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- permissions.delete is a permission field
+    delete: generateRoleCheck(table.permissions?.delete),
+  }
 
   // Group permissions by action to combine multiple conditions with AND
   const permissionsByAction = recordPermissions.reduce(
@@ -351,14 +363,20 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
     const sqlCommand = CRUD_TO_SQL_COMMAND[action as keyof typeof CRUD_TO_SQL_COMMAND]
     const policyName = `${tableName}_record_${action}`
 
-    // Combine multiple conditions with AND logic
+    // Combine multiple record-level conditions with AND logic
     const translatedConditions = permissions.map((p) => translatePermissionCondition(p.condition))
-    const combinedCondition =
+    const recordCondition =
       translatedConditions.length === 1
         ? translatedConditions[0]
         : `(${translatedConditions.map((c) => `(${c})`).join(' AND ')})`
 
-    return generatePolicyStatements(tableName, policyName, sqlCommand, combinedCondition)
+    // Get role check for this action
+    const roleCheck = roleChecks[action as keyof typeof roleChecks]
+
+    // Combine role check with record-level condition if both exist
+    const finalCondition = roleCheck ? `(${roleCheck}) AND (${recordCondition})` : recordCondition
+
+    return generatePolicyStatements(tableName, policyName, sqlCommand, finalCondition)
   })
 
   return [...enableRLS, ...policies]
