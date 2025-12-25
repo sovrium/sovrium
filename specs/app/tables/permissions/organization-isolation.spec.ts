@@ -666,17 +666,19 @@ test.describe('Organization Data Isolation', () => {
   // Dual-Layer Permission Tests (Better Auth + RLS)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-010: should enforce dual-layer organization isolation (Better Auth validates membership → RLS filters rows)',
     { tag: '@spec' },
     async ({
       startServerWithSchema,
       signUp: _signUp,
       signIn,
+      signOut,
       page,
       executeQuery,
       createAuthenticatedUser,
       createOrganization,
+      setActiveOrganization,
       addMember: _addMember,
     }) => {
       // GIVEN: Application with organization plugin and organization-scoped data
@@ -696,7 +698,7 @@ test.describe('Organization Data Isolation', () => {
               { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
-              read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: role check
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] }, // Better Auth: role check
               organizationScoped: true, // RLS: organization filtering
             },
           },
@@ -706,19 +708,22 @@ test.describe('Organization Data Isolation', () => {
       // Create two organizations
       await createAuthenticatedUser({ email: 'user1@example.com' })
       const org1 = await createOrganization({ name: 'Company A' })
+      await setActiveOrganization(org1.organization.id)
 
       await createAuthenticatedUser({ email: 'user2@example.com' })
       const org2 = await createOrganization({ name: 'Company B' })
+      await setActiveOrganization(org2.organization.id)
 
       // Insert confidential data for each organization
       await executeQuery([
-        `INSERT INTO company_data (confidential, organization_id) VALUES
-         ('Company A Secret', '${org1.organization.id}'),
-         ('Company B Secret', '${org2.organization.id}')`,
+        `INSERT INTO company_data (id, confidential, organization_id) VALUES
+         (1, 'Company A Secret', '${org1.organization.id}'),
+         (2, 'Company B Secret', '${org2.organization.id}')`,
       ])
 
       // WHEN: User1 (member of Company A) attempts to access company data
-      await signIn({ email: 'user1@example.com', password: 'UserPass123!' })
+      await signIn({ email: 'user1@example.com', password: 'TestPassword123!' })
+      await setActiveOrganization(org1.organization.id)
 
       const user1Response = await page.request.get('/api/tables/company_data/records')
 
@@ -728,11 +733,12 @@ test.describe('Organization Data Isolation', () => {
       // THEN: RLS filters rows by organization_id (only Company A visible)
       const user1Data = await user1Response.json()
       expect(user1Data.records).toHaveLength(1)
-      expect(user1Data.records[0].confidential).toBe('Company A Secret')
-      expect(user1Data.records[0].organization_id).toBe(org1.organization.id)
+      expect(user1Data.records[0].fields.confidential).toBe('Company A Secret')
+      expect(user1Data.records[0].fields.organization_id).toBe(org1.organization.id)
 
       // WHEN: User2 (member of Company B) attempts to access company data
-      await signIn({ email: 'user2@example.com', password: 'UserPass123!' })
+      await signIn({ email: 'user2@example.com', password: 'TestPassword123!' })
+      await setActiveOrganization(org2.organization.id)
 
       const user2Response = await page.request.get('/api/tables/company_data/records')
 
@@ -742,11 +748,11 @@ test.describe('Organization Data Isolation', () => {
       // THEN: RLS filters rows by organization_id (only Company B visible)
       const user2Data = await user2Response.json()
       expect(user2Data.records).toHaveLength(1)
-      expect(user2Data.records[0].confidential).toBe('Company B Secret')
-      expect(user2Data.records[0].organization_id).toBe(org2.organization.id)
+      expect(user2Data.records[0].fields.confidential).toBe('Company B Secret')
+      expect(user2Data.records[0].fields.organization_id).toBe(org2.organization.id)
 
       // WHEN: Unauthenticated user attempts to access company data
-      await signIn({ email: '', password: '' }) // Sign out
+      await signOut()
 
       const unauthResponse = await page.request.get('/api/tables/company_data/records')
 

@@ -9,6 +9,17 @@ import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
+ * Standard database roles used for testing and grants
+ *
+ * These roles correspond to Better Auth organization roles:
+ * - owner_user: Organization owner role
+ * - admin_user: Organization admin role
+ * - member_user: Organization member role
+ * - viewer_user: Organization viewer role
+ */
+export const TEST_ROLES = ['owner_user', 'admin_user', 'member_user', 'viewer_user'] as const
+
+/**
  * SQL command mapping for CRUD operations
  */
 export const CRUD_TO_SQL_COMMAND = {
