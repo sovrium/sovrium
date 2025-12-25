@@ -202,10 +202,16 @@ test.describe('Assign Admin Role', () => {
       expect(response.status()).toBe(401)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-007: admin can assign role and verify permissions apply',
     { tag: '@regression' },
-    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
+    async ({
+      startServerWithSchema,
+      createAuthenticatedAdmin: createAdmin,
+      signUp,
+      signIn,
+      page,
+    }) => {
       // GIVEN: Server with admin plugin, admin user, and regular user
       await startServerWithSchema({
         name: 'test-app',
@@ -234,6 +240,12 @@ test.describe('Assign Admin Role', () => {
 
       // THEN: Role assignment succeeds
       expect(assignResponse.status()).toBe(200)
+
+      // WHEN: User signs in with new role (sessions were revoked after role assignment)
+      await signIn({
+        email: user.user.email,
+        password: 'Pass123!',
+      })
 
       // THEN: User can now access admin endpoints
       const testResponse = await page.request.get('/api/auth/admin/list-users')
