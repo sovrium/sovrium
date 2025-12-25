@@ -405,22 +405,17 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
 /**
  * Generate default deny RLS policies (no permissions configured)
  *
+ * When a table has no permissions configured, we enable RLS but create NO policies.
+ * This enforces the default deny behavior: RLS is enabled, but since there are no
+ * policies allowing access, all queries will return zero rows (access denied by default).
+ *
  * @param tableName - Name of the table
- * @returns Array of SQL statements to enable RLS with no policies
+ * @returns Array of SQL statements to enable RLS with no policies (default deny)
  */
 const generateDefaultDenyPolicies = (tableName: string): readonly string[] => {
   const enableRLS = generateEnableRLS(tableName)
-  const policies = [
-    `DROP POLICY IF EXISTS ${tableName}_default_select ON ${tableName}`,
-    `CREATE POLICY ${tableName}_default_select ON ${tableName} FOR SELECT USING (true)`,
-    `DROP POLICY IF EXISTS ${tableName}_default_insert ON ${tableName}`,
-    `CREATE POLICY ${tableName}_default_insert ON ${tableName} FOR INSERT WITH CHECK (true)`,
-    `DROP POLICY IF EXISTS ${tableName}_default_update ON ${tableName}`,
-    `CREATE POLICY ${tableName}_default_update ON ${tableName} FOR UPDATE USING (true) WITH CHECK (true)`,
-    `DROP POLICY IF EXISTS ${tableName}_default_delete ON ${tableName}`,
-    `CREATE POLICY ${tableName}_default_delete ON ${tableName} FOR DELETE USING (true)`,
-  ]
-  return [...enableRLS, ...policies]
+  // No policies = default deny (RLS blocks all access when no policies exist)
+  return enableRLS
 }
 
 /**
