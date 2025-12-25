@@ -6,13 +6,18 @@
  */
 
 import {
-  TEST_ROLES,
   hasNoPermissions,
   hasAuthenticatedPermissions,
   hasRolePermissions,
   extractDatabaseRoles,
 } from './rls-permission-checks'
 import type { Table } from '@/domain/models/app/table'
+
+/**
+ * Standard test roles used in E2E tests
+ * These roles need basic table access even when no permissions are configured
+ */
+const TEST_ROLES = ['admin_user', 'member_user', 'authenticated_user'] as const
 
 /**
  * Generate table grants for tables with no permissions configured (test access)
