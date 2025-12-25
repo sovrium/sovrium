@@ -18,7 +18,13 @@ test.describe('Assign Admin Role', () => {
   test(
     'API-AUTH-ADMIN-ASSIGN-001: should return 200 OK when assigning admin role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
+    async ({
+      startServerWithSchema,
+      createAuthenticatedAdmin: createAdmin,
+      signUp,
+      signIn,
+      page,
+    }) => {
       // GIVEN: Server with admin plugin and admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -40,6 +46,12 @@ test.describe('Assign Admin Role', () => {
         name: 'User',
       })
 
+      // Sign back in as admin (signUp switched session to regular user)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Pass123!',
+      })
+
       // WHEN: Admin assigns admin role to user
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: { userId: user.user.id, role: 'admin' },
@@ -54,7 +66,13 @@ test.describe('Assign Admin Role', () => {
   test(
     'API-AUTH-ADMIN-ASSIGN-002: should grant admin permissions to user',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
+    async ({
+      startServerWithSchema,
+      createAuthenticatedAdmin: createAdmin,
+      signUp,
+      signIn,
+      page,
+    }) => {
       // GIVEN: Server with admin plugin and users
       await startServerWithSchema({
         name: 'test-app',
@@ -76,9 +94,21 @@ test.describe('Assign Admin Role', () => {
         name: 'User',
       })
 
+      // Sign back in as admin (signUp switched session to regular user)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Pass123!',
+      })
+
       // WHEN: Admin assigns admin role
       await page.request.post('/api/auth/admin/set-role', {
         data: { userId: user.user.id, role: 'admin' },
+      })
+
+      // Sign in as the newly promoted user to test permissions
+      await signIn({
+        email: 'user@example.com',
+        password: 'Pass123!',
       })
 
       // THEN: User can access admin endpoints
@@ -123,7 +153,7 @@ test.describe('Assign Admin Role', () => {
   test(
     'API-AUTH-ADMIN-ASSIGN-004: should return 404 when user not found',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, page }) => {
+    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signIn, page }) => {
       // GIVEN: Server with admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -134,11 +164,14 @@ test.describe('Assign Admin Role', () => {
           },
         },
       })
-      await createAdmin({
+      const admin = await createAdmin({
         email: 'admin@example.com',
         password: 'Pass123!',
         name: 'Admin',
       })
+
+      // Sign in as admin (session switches after createAdmin)
+      await signIn({ email: admin.user.email, password: 'Pass123!' })
 
       // WHEN: Admin assigns role to non-existent user
       const response = await page.request.post('/api/auth/admin/set-role', {
@@ -202,10 +235,16 @@ test.describe('Assign Admin Role', () => {
       expect(response.status()).toBe(401)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-007: admin can assign role and verify permissions apply',
     { tag: '@regression' },
-    async ({ startServerWithSchema, createAuthenticatedAdmin: createAdmin, signUp, page }) => {
+    async ({
+      startServerWithSchema,
+      createAuthenticatedAdmin: createAdmin,
+      signUp,
+      signIn,
+      page,
+    }) => {
       // GIVEN: Server with admin plugin, admin user, and regular user
       await startServerWithSchema({
         name: 'test-app',
@@ -227,6 +266,12 @@ test.describe('Assign Admin Role', () => {
         name: 'User',
       })
 
+      // Sign back in as admin (signUp switched session to regular user)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Pass123!',
+      })
+
       // WHEN: Admin assigns admin role to user
       const assignResponse = await page.request.post('/api/auth/admin/set-role', {
         data: { userId: user.user.id, role: 'admin' },
@@ -234,6 +279,12 @@ test.describe('Assign Admin Role', () => {
 
       // THEN: Role assignment succeeds
       expect(assignResponse.status()).toBe(200)
+
+      // Sign in as the newly promoted user to verify permissions
+      await signIn({
+        email: 'user@example.com',
+        password: 'Pass123!',
+      })
 
       // THEN: User can now access admin endpoints
       const testResponse = await page.request.get('/api/auth/admin/list-users')
