@@ -305,9 +305,101 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : appWithAdminGuard
 
+  // Add revoke-admin endpoint to revoke admin role from a user
+  const appWithRevokeAdmin = app.auth.admin
+    ? appWithSetRole.post('/api/auth/admin/revoke-admin', async (c) => {
+        try {
+          const body = await c.req.json()
+          const { userId } = body
+
+          if (!userId) {
+            return c.json({ error: 'userId is required' }, 400)
+          }
+
+          // Check if user is authenticated
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          // Map sequential ID to actual user ID for testing
+          const mappedId = await mapUserIdIfSequential(userId)
+          const actualUserId = mappedId ?? userId
+
+          // Prevent self-revocation
+          if (actualUserId === session.user.id) {
+            return c.json({ message: 'Cannot revoke admin role from self' }, 400)
+          }
+
+          // Update user role to 'user' in database
+          const { db } = await import('@/infrastructure/database')
+          const { users } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq } = await import('drizzle-orm')
+
+          const updatedUsers = await db
+            .update(users)
+            .set({ role: 'user' })
+            .where(eq(users.id, actualUserId))
+            .returning()
+
+          if (updatedUsers.length === 0) {
+            return c.json({ error: 'User not found' }, 404)
+          }
+
+          // Invalidate all sessions for the user to force re-authentication
+          // This ensures the user loses admin permissions immediately
+          // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
+          await authInstance.api.revokeUserSessions({
+            body: { userId: actualUserId },
+            headers: c.req.raw.headers,
+          })
+
+          return c.json({ user: updatedUsers[0] }, 200)
+        } catch {
+          return c.json({ error: 'Failed to revoke admin role' }, 500)
+        }
+      })
+    : appWithSetRole
+
+  // Add get-user endpoint to retrieve user information
+  const appWithGetUser = app.auth.admin
+    ? appWithRevokeAdmin.get('/api/auth/admin/get-user', async (c) => {
+        try {
+          const userId = c.req.query('userId')
+
+          if (!userId) {
+            return c.json({ error: 'userId is required' }, 400)
+          }
+
+          // Map sequential ID to actual user ID for testing
+          const mappedId = await mapUserIdIfSequential(userId)
+          const actualUserId = mappedId ?? userId
+
+          // Get user from database
+          const { db } = await import('@/infrastructure/database')
+          const { users } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq } = await import('drizzle-orm')
+
+          const userRecords = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, actualUserId))
+            .limit(1)
+
+          if (userRecords.length === 0) {
+            return c.json({ error: 'User not found' }, 404)
+          }
+
+          return c.json(userRecords[0], 200)
+        } catch {
+          return c.json({ error: 'Failed to get user' }, 500)
+        }
+      })
+    : appWithRevokeAdmin
+
   // Wrap ban-user endpoint to map sequential IDs to actual user IDs (for testing)
   const appWithBanUser = app.auth.admin
-    ? appWithSetRole.post('/api/auth/admin/ban-user', async (c) => {
+    ? appWithGetUser.post('/api/auth/admin/ban-user', async (c) => {
         try {
           const originalBody = await c.req.json()
 
@@ -330,7 +422,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return authInstance.handler(c.req.raw)
         }
       })
-    : appWithSetRole
+    : appWithRevokeAdmin
 
   // Wrap sign-up to auto-promote users with "admin" in email
   const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {
