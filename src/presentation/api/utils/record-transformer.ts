@@ -27,22 +27,52 @@ export interface TransformedRecord {
 }
 
 /**
+ * Convert a value to ISO 8601 datetime string
+ *
+ * @param value - Value to convert (Date object or string)
+ * @returns ISO 8601 datetime string
+ */
+const toISOString = (value: unknown): string => {
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  return new Date().toISOString()
+}
+
+/**
  * Transform a raw database record into the API response format
  *
  * This utility standardizes record transformation across all table endpoints:
  * - Converts id to string
  * - Preserves all fields with proper typing
  * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
+ * - Converts Date objects to ISO 8601 strings for API compliance
  *
  * @param record - Raw database record
  * @returns Transformed record for API response
  */
-export const transformRecord = (record: Record<string, unknown>): TransformedRecord => ({
-  id: String(record.id),
-  fields: record as Record<string, RecordFieldValue>,
-  createdAt: record.created_at ? String(record.created_at) : new Date().toISOString(),
-  updatedAt: record.updated_at ? String(record.updated_at) : new Date().toISOString(),
-})
+export const transformRecord = (record: Record<string, unknown>): TransformedRecord => {
+  // Convert Date objects to ISO strings in fields
+  const transformedFields = Object.entries(record).reduce<Record<string, RecordFieldValue>>(
+    (acc, [key, value]) => {
+      if (value instanceof Date) {
+        return { ...acc, [key]: value.toISOString() }
+      }
+      return { ...acc, [key]: value as RecordFieldValue }
+    },
+    {}
+  )
+
+  return {
+    id: String(record.id),
+    fields: transformedFields,
+    createdAt: record.created_at ? toISOString(record.created_at) : new Date().toISOString(),
+    updatedAt: record.updated_at ? toISOString(record.updated_at) : new Date().toISOString(),
+  }
+}
 
 /**
  * Transform multiple database records into API response format
