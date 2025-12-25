@@ -26,9 +26,7 @@ export const createRecordRequestSchema = z.object({
  *
  * Validates the request body for updating a record.
  */
-export const updateRecordRequestSchema = z.object({
-  fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-})
+export const updateRecordRequestSchema = z.record(z.string(), fieldValueSchema)
 
 // ============================================================================
 // Batch Operation Request Schemas

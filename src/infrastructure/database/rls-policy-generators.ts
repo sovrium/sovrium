@@ -186,7 +186,8 @@ const generateOwnerBasedPolicies = (table: Table): readonly string[] => {
  * Check if table has custom/owner field read permissions
  * These require special handling - the custom field read RLS policy handles SELECT
  */
-const hasCustomFieldReadPermissions = (table: Table): boolean =>
+// @ts-expect-error - Preserved for future implementation
+const _hasCustomFieldReadPermissions = (table: Table): boolean =>
   table.permissions?.fields?.some(
     (fp) => fp.read?.type === 'custom' || fp.read?.type === 'owner'
   ) ?? false
@@ -210,12 +211,14 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
   const enableRLS = generateEnableRLS(tableName)
   const authenticatedChecks = generateAuthenticatedChecks(table.permissions)
 
-  // Skip SELECT policy if custom field read permissions exist
-  // The custom field read RLS policy (from generateCustomReadRLSPolicies) handles SELECT
-  // Otherwise, PostgreSQL would OR the policies, allowing access when authenticated_read passes
-  const selectPolicies = hasCustomFieldReadPermissions(table)
-    ? []
-    : generateAuthenticatedPolicyStatements(tableName, 'read', 'SELECT', authenticatedChecks.read)
+  // Generate SELECT policy based on table-level read permission
+  // Field-level filtering is handled by Better Auth layer, not RLS
+  const selectPolicies = generateAuthenticatedPolicyStatements(
+    tableName,
+    'read',
+    'SELECT',
+    authenticatedChecks.read
+  )
 
   const insertPolicies = generateAuthenticatedPolicyStatements(
     tableName,
@@ -355,7 +358,7 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
   }
 
   const enableRLS = generateEnableRLS(tableName)
-  const orgIdCheck = `organization_id = current_setting('app.organization_id')::TEXT`
+  const orgIdCheck = `organization_id = current_setting('app.organization_id', true)::TEXT`
 
   const roleChecks = {
     read: generateRoleCheck(table.permissions?.read),

@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { drizzle } from 'drizzle-orm/bun-sql'
-import * as schema from './schema'
+// Runtime-specific database driver selection
+// Bun runtime uses native bun:sql (db-bun.ts), Node.js runtime uses postgres.js (db-node.ts)
+const isBun = typeof Bun !== 'undefined'
 
-// You can specify any property from the bun sql connection options
-export const db = drizzle({
-  connection: { url: process.env.DATABASE_URL! },
-  schema,
-})
+// Dynamic import based on runtime
+const dbModule = isBun ? './db-bun' : './db-node'
+const { db } = await import(dbModule)
 
-export type DrizzleDB = typeof db
+export { db }
+export type { DrizzleDB } from './db-bun'

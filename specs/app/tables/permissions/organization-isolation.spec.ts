@@ -768,6 +768,7 @@ test.describe('Organization Data Isolation', () => {
       executeQuery,
       createAuthenticatedUser,
       createOrganization,
+      setActiveOrganization,
     }) => {
       // GIVEN: Application with organization-scoped tables and write permissions
       await startServerWithSchema({
@@ -786,9 +787,9 @@ test.describe('Organization Data Isolation', () => {
               { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
-              read: { type: 'roles', roles: ['member', 'admin'] },
-              create: { type: 'roles', roles: ['member', 'admin'] },
-              update: { type: 'roles', roles: ['admin'] }, // Better Auth: only admins
+              read: { type: 'roles', roles: ['member', 'admin', 'owner'] },
+              create: { type: 'roles', roles: ['member', 'admin', 'owner'] },
+              update: { type: 'roles', roles: ['admin', 'owner'] }, // Better Auth: only admins and owners
               organizationScoped: true, // RLS: organization isolation
             },
           },
@@ -808,8 +809,32 @@ test.describe('Organization Data Isolation', () => {
          (2, 'Team B Resource', '${org2.organization.id}')`,
       ])
 
+      // Debug: Check if RLS is enabled and what policies exist
+      const rlsCheck = await executeQuery(`
+        SELECT relrowsecurity, relforcerowsecurity
+        FROM pg_class
+        WHERE relname = 'team_resources'
+      `)
+      console.log('RLS enabled:', rlsCheck.rows[0])
+
+      const policiesCheck = await executeQuery(`
+        SELECT policyname, cmd, qual, with_check
+        FROM pg_policies
+        WHERE tablename = 'team_resources'
+      `)
+      console.log('RLS policies:', policiesCheck.rows)
+
       // WHEN: Admin1 attempts to update Team B's resource (cross-org manipulation)
-      await signIn({ email: 'admin1@example.com', password: 'AdminPass123!' })
+      await signIn({ email: 'admin1@example.com', password: 'TestPassword123!' })
+      await setActiveOrganization(org1.organization.id)
+
+      // Debug: Check session after setting active org
+      const sessionCheck = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionCheck.json()
+      console.log('Session after setActiveOrganization:', {
+        activeOrganizationId: sessionData.session?.activeOrganizationId,
+        userId: sessionData.session?.userId,
+      })
 
       const crossOrgUpdateResponse = await page.request.patch(
         '/api/tables/team_resources/records/2',
@@ -818,7 +843,14 @@ test.describe('Organization Data Isolation', () => {
         }
       )
 
-      // THEN: Better Auth allows (is admin) → RLS blocks (different organization)
+      // Debug: Check response status and body
+      const responseBody = await crossOrgUpdateResponse.json().catch(() => ({}))
+      console.log('Cross-org update response:', {
+        status: crossOrgUpdateResponse.status(),
+        body: responseBody,
+      })
+
+      // THEN: Better Auth allows (is owner) → RLS blocks (different organization)
       expect([403, 404]).toContain(crossOrgUpdateResponse.status())
 
       // THEN: Database unchanged (RLS prevented cross-org update)
@@ -833,7 +865,7 @@ test.describe('Organization Data Isolation', () => {
         }
       )
 
-      // THEN: Better Auth allows (is admin) → RLS allows (same organization)
+      // THEN: Better Auth allows (is owner) → RLS allows (same organization)
       expect(sameOrgUpdateResponse.status()).toBe(200)
 
       // THEN: Database updated (both layers granted permission)
@@ -842,8 +874,6 @@ test.describe('Organization Data Isolation', () => {
 
       // WHEN: Member (non-admin) attempts to update resource
       await createAuthenticatedUser({ email: 'member1@example.com' })
-
-      await signIn({ email: 'member1@example.com', password: 'MemberPass123!' })
 
       const memberUpdateResponse = await page.request.patch(
         '/api/tables/team_resources/records/1',

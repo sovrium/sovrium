@@ -86,9 +86,9 @@ export const generateOwnerCheck = (permission?: TablePermission): string | undef
     return undefined
   }
 
-  // Generate owner check: owner_id = current_setting('app.user_id')::TEXT
+  // Generate owner check: owner_id = current_setting('app.user_id', true)::TEXT
   const ownerField = permission.field
-  return `${ownerField} = current_setting('app.user_id')::TEXT`
+  return `${ownerField} = current_setting('app.user_id', true)::TEXT`
 }
 
 /**
@@ -116,8 +116,10 @@ export const generateRoleCheck = (permission?: TablePermission): string | undefi
     return undefined
   }
 
-  // Generate OR'd role checks using auth.user_has_role() function
-  const roleChecks = permission.roles.map((role) => `auth.user_has_role('${role}')`).join(' OR ')
+  // Generate OR'd role checks using current_setting('app.user_role', true)
+  const roleChecks = permission.roles
+    .map((role) => `current_setting('app.user_role', true) = '${role}'`)
+    .join(' OR ')
 
   return `(${roleChecks})`
 }

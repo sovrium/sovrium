@@ -41,7 +41,7 @@ describe('generateRLSPolicyStatements', () => {
     // Check CREATE POLICY statements
     expect(statements[6]).toContain('CREATE POLICY projects_org_select ON projects FOR SELECT')
     expect(statements[6]).toContain(
-      "organization_id = current_setting('app.organization_id')::TEXT"
+      "organization_id = current_setting('app.organization_id', true)::TEXT"
     )
 
     expect(statements[7]).toContain('CREATE POLICY projects_org_insert ON projects FOR INSERT')
@@ -131,32 +131,32 @@ describe('generateRLSPolicyStatements', () => {
     // Check SELECT policy combines organization + role check
     expect(statements[6]).toContain('FOR SELECT')
     expect(statements[6]).toContain(
-      "organization_id = current_setting('app.organization_id')::TEXT"
+      "organization_id = current_setting('app.organization_id', true)::TEXT"
     )
-    expect(statements[6]).toContain("auth.user_has_role('admin')")
-    expect(statements[6]).toContain("auth.user_has_role('member')")
+    expect(statements[6]).toContain("current_setting('app.user_role', true) = 'admin'")
+    expect(statements[6]).toContain("current_setting('app.user_role', true) = 'member'")
     expect(statements[6]).toContain('OR') // admin OR member
 
     // Check INSERT policy combines organization + admin-only
     expect(statements[7]).toContain('FOR INSERT')
     expect(statements[7]).toContain(
-      "organization_id = current_setting('app.organization_id')::TEXT"
+      "organization_id = current_setting('app.organization_id', true)::TEXT"
     )
-    expect(statements[7]).toContain("auth.user_has_role('admin')")
+    expect(statements[7]).toContain("current_setting('app.user_role', true) = 'admin'")
 
     // Check UPDATE policy combines organization + admin-only
     expect(statements[8]).toContain('FOR UPDATE')
     expect(statements[8]).toContain(
-      "organization_id = current_setting('app.organization_id')::TEXT"
+      "organization_id = current_setting('app.organization_id', true)::TEXT"
     )
-    expect(statements[8]).toContain("auth.user_has_role('admin')")
+    expect(statements[8]).toContain("current_setting('app.user_role', true) = 'admin'")
 
     // Check DELETE policy combines organization + admin-only
     expect(statements[9]).toContain('FOR DELETE')
     expect(statements[9]).toContain(
-      "organization_id = current_setting('app.organization_id')::TEXT"
+      "organization_id = current_setting('app.organization_id', true)::TEXT"
     )
-    expect(statements[9]).toContain("auth.user_has_role('admin')")
+    expect(statements[9]).toContain("current_setting('app.user_role', true) = 'admin'")
   })
 
   test('should generate owner-based RLS policies for UPDATE operations', () => {
@@ -183,7 +183,7 @@ describe('generateRLSPolicyStatements', () => {
     const updatePolicy = statements.find((s) => s.includes('FOR UPDATE'))
     expect(updatePolicy).toBeDefined()
     expect(updatePolicy).toContain('CREATE POLICY documents_owner_update ON documents FOR UPDATE')
-    expect(updatePolicy).toContain("owner_id = current_setting('app.user_id')::TEXT")
+    expect(updatePolicy).toContain("owner_id = current_setting('app.user_id', true)::TEXT")
 
     // UPDATE should have both USING and WITH CHECK clauses
     expect(updatePolicy).toContain('USING')
@@ -220,26 +220,26 @@ describe('generateRLSPolicyStatements', () => {
     // Check SELECT policy
     const selectPolicy = statements.find((s) => s.includes('FOR SELECT'))
     expect(selectPolicy).toBeDefined()
-    expect(selectPolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(selectPolicy).toContain("author_id = current_setting('app.user_id', true)::TEXT")
     expect(selectPolicy).toContain('USING')
 
     // Check INSERT policy
     const insertPolicy = statements.find((s) => s.includes('FOR INSERT'))
     expect(insertPolicy).toBeDefined()
-    expect(insertPolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(insertPolicy).toContain("author_id = current_setting('app.user_id', true)::TEXT")
     expect(insertPolicy).toContain('WITH CHECK')
 
     // Check UPDATE policy
     const updatePolicy = statements.find((s) => s.includes('FOR UPDATE'))
     expect(updatePolicy).toBeDefined()
-    expect(updatePolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(updatePolicy).toContain("author_id = current_setting('app.user_id', true)::TEXT")
     expect(updatePolicy).toContain('USING')
     expect(updatePolicy).toContain('WITH CHECK')
 
     // Check DELETE policy
     const deletePolicy = statements.find((s) => s.includes('FOR DELETE'))
     expect(deletePolicy).toBeDefined()
-    expect(deletePolicy).toContain("author_id = current_setting('app.user_id')::TEXT")
+    expect(deletePolicy).toContain("author_id = current_setting('app.user_id', true)::TEXT")
     expect(deletePolicy).toContain('USING')
   })
 })

@@ -5,15 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sql } from 'drizzle-orm'
 import { Effect, Runtime } from 'effect'
 import { db } from './drizzle/db'
 import type { SessionContextError } from './session-context'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-
-/**
- * Database transaction type (Drizzle transaction is compatible with db for most operations)
- */
-type TransactionLike = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /**
  * Escape SQL string values to prevent SQL injection
@@ -32,8 +28,12 @@ const escapeSQL = (value: string): string => value.replace(/'/g, "''")
  * @param session - Better Auth session
  * @returns User role string
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Database transactions inherently require mutable state for query execution
-const getUserRole = async (tx: TransactionLike, session: Readonly<Session>): Promise<string> => {
+
+const getUserRole = async (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: any,
+  session: Readonly<Session>
+): Promise<string> => {
   // If active organization, check members table first
   if (session.activeOrganizationId) {
     const memberResult = (await tx.execute(
@@ -78,30 +78,40 @@ const getUserRole = async (tx: TransactionLike, session: Readonly<Session>): Pro
  */
 export const withSessionContext = <A, E>(
   session: Readonly<Session>,
-  operation: (tx: Readonly<TransactionLike>) => Effect.Effect<A, E>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  operation: (tx: Readonly<any>) => Effect.Effect<A, E>
 ): Effect.Effect<A, E | SessionContextError> =>
   Effect.gen(function* () {
     // Extract runtime to use in async callback (avoids Effect.runPromise inside Effect)
     const runtime = yield* Effect.runtime<never>()
 
     // Execute operation within a transaction with session context
-    const result = yield* Effect.tryPromise({
+    const result = yield* Effect.tryPromise<A, E | SessionContextError>({
       try: () =>
-        db.transaction(async (tx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+        db.transaction(async (tx: any) => {
           // Get user role (org-specific or global)
           const userRole = await getUserRole(tx, session)
 
+          // CRITICAL: Execute SET LOCAL ROLE app_user FIRST (superusers bypass RLS)
+          // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
+          await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
+
           // Set session context at the start of the transaction
-          // Use tx.execute for raw SQL (Drizzle transaction interface)
+          // Execute each SET LOCAL statement separately (Drizzle may not support multi-statement SQL)
+          // SET LOCAL requires literal string values, not parameterized queries
+          // Use sql.raw() with escapeSQL() for SQL injection protection
+          await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
           await tx.execute(
-            `SET LOCAL app.user_id = '${session.userId.replace(/'/g, "''")}';
-             SET LOCAL app.organization_id = '${(session.activeOrganizationId || '').replace(/'/g, "''")}';
-             SET LOCAL app.user_role = '${userRole.replace(/'/g, "''")}';`
+            sql.raw(
+              `SET LOCAL app.organization_id = '${escapeSQL(session.activeOrganizationId || '')}'`
+            )
           )
+          await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
 
           // Execute the user's operation with the transaction using the extracted runtime
           const operationResult = await Runtime.runPromise(runtime)(operation(tx))
-          return operationResult
+          return operationResult as A
         }),
       catch: (error) => error as E | SessionContextError,
     })
@@ -128,18 +138,27 @@ export const withSessionContext = <A, E>(
  */
 export const withSessionContextSimple = async <A>(
   session: Readonly<Session>,
-  operation: (tx: Readonly<TransactionLike>) => Promise<A>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  operation: (tx: Readonly<any>) => Promise<A>
 ): Promise<A> => {
-  return await db.transaction(async (tx) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  return await db.transaction(async (tx: any) => {
     // Get user role (org-specific or global)
     const userRole = await getUserRole(tx, session)
 
+    // CRITICAL: Execute SET LOCAL ROLE app_user FIRST (superusers bypass RLS)
+    // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
+    await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
+
     // Set session context at the start of the transaction
+    // Execute each SET LOCAL statement separately (Drizzle may not support multi-statement SQL)
+    // SET LOCAL requires literal string values, not parameterized queries
+    // Use sql.raw() with escapeSQL() for SQL injection protection
+    await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
     await tx.execute(
-      `SET LOCAL app.user_id = '${session.userId.replace(/'/g, "''")}';
-       SET LOCAL app.organization_id = '${(session.activeOrganizationId || '').replace(/'/g, "''")}';
-       SET LOCAL app.user_role = '${userRole.replace(/'/g, "''")}';`
+      sql.raw(`SET LOCAL app.organization_id = '${escapeSQL(session.activeOrganizationId || '')}'`)
     )
+    await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
 
     // Execute the user's operation with the transaction
     return await operation(tx)

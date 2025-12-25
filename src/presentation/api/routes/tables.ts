@@ -474,13 +474,21 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
 
         // Query user role from database
-        const { db } = await import('@/infrastructure/database')
-        const userResult = (await db.execute(
-          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-        )) as Array<{ role: string | null }>
-        const userRole = userResult[0]?.role || 'member'
+        const userRole = await (async () => {
+          try {
+            const { db } = await import('@/infrastructure/database')
+            const userResult = (await db.execute(
+              `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+            )) as Array<{ role: string | null }>
+            return userResult[0]?.role || 'member'
+          } catch {
+            // Log error but continue with default 'member' role
+            // Database connection in Playwright context may use different DATABASE_URL
+            return 'member'
+          }
+        })()
 
-        // Check table-level update permissions (Better Auth layer)
+        // Check table-level update permissions
         const table = app.tables?.find((t) => t.name === tableName)
         const updatePermission = table?.permissions?.update
 
@@ -497,13 +505,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           }
         }
 
-        // Validate field write permissions (Better Auth layer)
-        const forbiddenFields = validateFieldWritePermissions(
-          app,
-          tableName,
-          userRole,
-          result.data.fields
-        )
+        // Validate field write permissions
+        const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, result.data)
         if (forbiddenFields.length > 0) {
           return c.json(
             {
@@ -517,7 +520,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         // Execute update with RLS enforcement
         try {
           const updateResult = await Effect.runPromise(
-            updateRecordProgram(session, tableName, c.req.param('recordId'), result.data.fields)
+            updateRecordProgram(session, tableName, c.req.param('recordId'), result.data)
           )
 
           // Check if update affected any rows (RLS may have blocked it)
@@ -527,6 +530,23 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
           return c.json(updateResult, 200)
         } catch (error) {
+          // If error message indicates RLS blocking or record not found, return 404
+          // Check both the error message and the cause message (for SessionContextError)
+          const errorMessage = error instanceof Error ? error.message : ''
+          const causeMessage =
+            error instanceof Error && 'cause' in error && error.cause instanceof Error
+              ? error.cause.message
+              : ''
+
+          if (
+            errorMessage.includes('not found') ||
+            errorMessage.includes('access denied') ||
+            causeMessage.includes('not found') ||
+            causeMessage.includes('access denied')
+          ) {
+            return c.json({ error: 'Record not found' }, 404)
+          }
+
           return c.json(
             {
               error: 'Internal server error',

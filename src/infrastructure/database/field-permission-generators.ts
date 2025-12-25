@@ -246,7 +246,8 @@ EXECUTE FUNCTION ${triggerFunctionName}()`
  * Note: This means users can't SELECT the restricted field without also being able to see
  * the row. This is a PostgreSQL limitation - we enforce at row level, not column level.
  */
-const generateCustomReadRLSPolicies = (
+// @ts-expect-error - Preserved for future implementation
+const _generateCustomReadRLSPolicies = (
   tableName: string,
   fieldPermissions: readonly { field: string; read?: TablePermission }[]
 ): readonly string[] => {
@@ -484,7 +485,10 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
   )
 
   const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
-  const customReadPolicies = generateCustomReadRLSPolicies(tableName, fieldPermissions)
+
+  // Note: Custom field READ permissions are handled by Better Auth layer (filterReadableFields),
+  // not RLS. Table-level RLS policies control row visibility based on table permissions.
+  // Custom field WRITE permissions still use triggers (customConditionTriggers above).
 
   return [
     ...roleSetupStatements,
@@ -492,6 +496,5 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     ...customFieldReadGrants,
     ...writeGrantStatements,
     ...customConditionTriggers,
-    ...customReadPolicies,
   ]
 }

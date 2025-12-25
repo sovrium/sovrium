@@ -191,10 +191,22 @@ export function updateRecord(
           sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
         )) as readonly Record<string, unknown>[]
 
-        return result[0] ?? {}
+        // If RLS blocked the update, result will be empty
+        if (result.length === 0) {
+          // eslint-disable-next-line functional/no-throw-statements -- RLS blocking requires error propagation
+          throw new Error(`Record not found or access denied`)
+        }
+
+        return result[0]!
       },
-      catch: (error) =>
-        new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error),
+      catch: (error) => {
+        // Preserve "not found" or "access denied" in wrapper message for API error handling
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {
+          return new SessionContextError(errorMsg, error)
+        }
+        return new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error)
+      },
     })
   )
 }

@@ -209,7 +209,7 @@ test.describe('Batch Restore records', () => {
   test(
     'API-TABLES-RECORDS-BATCH-RESTORE-005: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
@@ -225,9 +225,9 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
-      const viewer = await createAuthenticatedViewer()
+      const viewer = await createAuthenticatedUser()
 
-      // Set viewer role directly in database (admin API not available yet)
+      // Set viewer role manually (admin plugin not enabled in this test)
       await executeQuery(`
         UPDATE "_sovrium_auth_users"
         SET role = 'viewer'

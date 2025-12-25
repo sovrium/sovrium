@@ -718,21 +718,23 @@ test.describe('Field-Level Permissions', () => {
 
       // THEN: RLS filters secret_content based on ownership
       const data = await response.json()
-      const user1Note = data.records.find((r: any) => r.owner_id === user1.user.id)
-      const user2Note = data.records.find((r: any) => r.owner_id === user2.user.id)
+      const user1Note = data.records.find((r: any) => r.fields.owner_id === user1.user.id)
+      const user2Note = data.records.find((r: any) => r.fields.owner_id === user2.user.id)
 
       // User1 sees their own secret content
-      expect(user1Note).toHaveProperty('secret_content')
-      expect(user1Note.secret_content).toBe('User 1 Secret')
+      expect(user1Note.fields).toHaveProperty('secret_content')
+      expect(user1Note.fields.secret_content).toBe('User 1 Secret')
 
-      // User1 does NOT see User2's secret content (RLS filtered it)
-      expect(user2Note).toHaveProperty('title') // Public field visible
-      expect(user2Note).not.toHaveProperty('secret_content') // RLS filtered
+      // User1 does NOT see User2's secret content (Better Auth filtered it)
+      expect(user2Note.fields).toHaveProperty('title') // Public field visible
+      expect(user2Note.fields).not.toHaveProperty('secret_content') // Better Auth filtered
 
-      // WHEN: Unauthenticated user attempts to read notes
-      await signIn({ email: '', password: '' }) // Sign out
-
-      const unauthResponse = await page.request.get('/api/tables/private_notes/records')
+      // WHEN: Unauthenticated user attempts to read notes (using request without auth cookies)
+      const unauthResponse = await page.request.get('/api/tables/private_notes/records', {
+        headers: {
+          Cookie: '', // Clear cookies to simulate unauthenticated request
+        },
+      })
 
       // THEN: Better Auth blocks at API level (not authenticated)
       expect(unauthResponse.status()).toBe(401)
