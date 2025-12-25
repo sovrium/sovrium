@@ -9,12 +9,6 @@ import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
- * Standard test roles used in E2E tests
- * These roles need basic table access even when no permissions are configured
- */
-export const TEST_ROLES = ['admin_user', 'member_user', 'authenticated_user'] as const
-
-/**
  * SQL command mapping for CRUD operations
  */
 export const CRUD_TO_SQL_COMMAND = {
