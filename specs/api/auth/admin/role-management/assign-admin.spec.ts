@@ -182,7 +182,7 @@ test.describe('Assign Admin Role', () => {
       expect(response.status()).toBe(404)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-ASSIGN-005: should prevent self-assignment without permission',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {

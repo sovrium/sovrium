@@ -752,8 +752,25 @@ export const test = base.extend<ServerFixtures>({
       })
 
       if (!response.ok()) {
-        // If admin endpoint not available, try database directly
-        console.warn('Admin API not available, user created without admin role')
+        // If admin endpoint not available, set role directly in database
+        const { db } = await import('@/infrastructure/database')
+        const { users } = await import('@/infrastructure/auth/better-auth/schema')
+        const { eq } = await import('drizzle-orm')
+
+        await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.user.id))
+
+        // Force session refresh by signing in again (without signing out first)
+        // This creates a new session with the updated role from the database
+        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: user.user.email,
+            password: data?.password || 'Pass123!',
+          },
+        })
+
+        if (!signInResponse.ok()) {
+          throw new Error(`Failed to refresh session after role update: ${signInResponse.status()}`)
+        }
       }
 
       return user
@@ -779,7 +796,25 @@ export const test = base.extend<ServerFixtures>({
       })
 
       if (!response.ok()) {
-        console.warn('Admin API not available, user created without viewer role')
+        // If admin endpoint not available, set role directly in database
+        const { db } = await import('@/infrastructure/database')
+        const { users } = await import('@/infrastructure/auth/better-auth/schema')
+        const { eq } = await import('drizzle-orm')
+
+        await db.update(users).set({ role: 'viewer' }).where(eq(users.id, user.user.id))
+
+        // Force session refresh by signing in again (without signing out first)
+        // This creates a new session with the updated role from the database
+        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: user.user.email,
+            password: data?.password || 'Pass123!',
+          },
+        })
+
+        if (!signInResponse.ok()) {
+          throw new Error(`Failed to refresh session after role update: ${signInResponse.status()}`)
+        }
       }
 
       return user
