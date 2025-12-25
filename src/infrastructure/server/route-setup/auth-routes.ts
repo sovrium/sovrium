@@ -48,6 +48,67 @@ const mapUserIdIfSequential = async (userId: string): Promise<string | undefined
 }
 
 /**
+ * Update user role in database and invalidate sessions
+ * Shared logic for role management endpoints
+ */
+const updateUserRoleAndInvalidateSessions = async (
+  userId: string,
+  role: string,
+  // eslint-disable-next-line functional/prefer-immutable-types -- Auth instance has mutable internal state
+  authInstance: ReturnType<typeof createAuthInstance>,
+  headers: Headers
+): Promise<{ success: boolean; user?: unknown; error?: string; status?: number }> => {
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const updatedUsers = await db.update(users).set({ role }).where(eq(users.id, userId)).returning()
+
+  if (updatedUsers.length === 0) {
+    return { success: false, error: 'User not found', status: 404 }
+  }
+
+  // Invalidate all sessions for the user to force re-authentication
+  // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
+  await authInstance.api.revokeUserSessions({
+    body: { userId },
+    headers,
+  })
+
+  return { success: true, user: updatedUsers[0] }
+}
+
+/**
+ * Check if user has admin permissions
+ * Returns authorization status for role management operations
+ */
+const checkAdminAuthorization = async (
+  // eslint-disable-next-line functional/prefer-immutable-types -- Session object comes from Better Auth
+  session: { user: { id: string } } | null,
+  targetUserId: string
+): Promise<{ authorized: boolean; error?: string; status?: number }> => {
+  if (!session) {
+    return { authorized: false, error: 'Unauthorized', status: 401 }
+  }
+
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq } = await import('drizzle-orm')
+
+  const allAdmins = await db.select().from(users).where(eq(users.role, 'admin'))
+  const currentUser = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
+
+  const isBootstrap = allAdmins.length === 0 && targetUserId === session.user.id
+  const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
+
+  if (!isBootstrap && !isAdmin) {
+    return { authorized: false, error: 'Forbidden', status: 403 }
+  }
+
+  return { authorized: true }
+}
+
+/**
  * Check if email should trigger admin auto-promotion
  * Returns true if email contains "admin" (case-insensitive)
  */
@@ -277,37 +338,80 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const mappedId = await mapUserIdIfSequential(userId)
           const actualUserId = mappedId ?? userId
 
-          // Check if user is authorized to assign roles
-          const authCheck = await isAuthorizedToAssignRole(session.user.id, actualUserId)
+          // Check if user has admin permissions
+          const authCheck = await checkAdminAuthorization(session, actualUserId)
           if (!authCheck.authorized) {
-            return c.json({ error: authCheck.reason ?? 'Forbidden' }, 403)
+            return c.json({ error: authCheck.error }, (authCheck.status ?? 500) as 401 | 403 | 500)
           }
 
-          // Update user role in database
-          const updatedUser = await updateUserRole(actualUserId, role)
-          if (!updatedUser) {
-            return c.json({ error: 'User not found' }, 404)
+          // Update user role and invalidate sessions
+          const result = await updateUserRoleAndInvalidateSessions(
+            actualUserId,
+            role,
+            authInstance,
+            c.req.raw.headers
+          )
+
+          if (!result.success) {
+            return c.json({ error: result.error }, (result.status ?? 500) as 404 | 500)
           }
 
-          // Invalidate all sessions for the user to force re-authentication
-          // This ensures the user gets a fresh session with the new role
-          // Without this, the old session would still contain the previous role
-          // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
-          await authInstance.api.revokeUserSessions({
-            body: { userId: actualUserId },
-            headers: c.req.raw.headers,
-          })
-
-          return c.json({ user: updatedUser }, 200)
+          return c.json({ user: result.user }, 200)
         } catch {
           return c.json({ error: 'Failed to set role' }, 500)
         }
       })
     : appWithAdminGuard
 
+  // Add revoke-admin endpoint to remove admin privileges from users
+  const appWithRevokeAdmin = app.auth.admin
+    ? appWithSetRole.post('/api/auth/admin/revoke-admin', async (c) => {
+        try {
+          const body = await c.req.json()
+          const { userId } = body
+
+          if (!userId) {
+            return c.json({ error: 'userId is required' }, 400)
+          }
+
+          // Check if user is authenticated
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          // Map sequential ID to actual user ID for testing
+          const mappedId = await mapUserIdIfSequential(userId)
+          const actualUserId = mappedId ?? userId
+
+          // Prevent self-revocation
+          if (actualUserId === session.user.id) {
+            return c.json({ error: 'Cannot revoke your own admin role' }, 400)
+          }
+
+          // Update user role to 'user' (revoke admin) and invalidate sessions
+          const result = await updateUserRoleAndInvalidateSessions(
+            actualUserId,
+            'user',
+            authInstance,
+            c.req.raw.headers
+          )
+
+          if (!result.success) {
+            return c.json({ error: result.error }, (result.status ?? 500) as 404 | 500)
+          }
+
+          return c.json({ user: result.user }, 200)
+        } catch {
+          return c.json({ error: 'Failed to revoke admin role' }, 500)
+        }
+      })
+    : appWithSetRole
+
   // Wrap ban-user endpoint to map sequential IDs to actual user IDs (for testing)
   const appWithBanUser = app.auth.admin
-    ? appWithSetRole.post('/api/auth/admin/ban-user', async (c) => {
+    ? appWithRevokeAdmin.post('/api/auth/admin/ban-user', async (c) => {
         try {
           const originalBody = await c.req.json()
 
@@ -330,7 +434,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return authInstance.handler(c.req.raw)
         }
       })
-    : appWithSetRole
+    : appWithRevokeAdmin
 
   // Wrap sign-up to auto-promote users with "admin" in email
   const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {

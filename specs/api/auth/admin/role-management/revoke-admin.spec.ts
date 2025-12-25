@@ -98,7 +98,7 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-003: should return 403 when non-admin tries to revoke',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, request }) => {
