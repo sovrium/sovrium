@@ -280,9 +280,9 @@ test.describe('Assign Admin Role', () => {
       // THEN: Role assignment succeeds
       expect(assignResponse.status()).toBe(200)
 
-      // Sign in as the newly promoted user to verify permissions
+      // WHEN: User signs in with new role (sessions were revoked after role assignment)
       await signIn({
-        email: 'user@example.com',
+        email: user.user.email,
         password: 'Pass123!',
       })
 
