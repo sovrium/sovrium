@@ -144,47 +144,6 @@ const isUserBanned = async (email: string): Promise<boolean> => {
 }
 
 /**
- * Check if user is authorized to assign roles
- * Returns true if user is bootstrapping (first admin) or is an existing admin
- */
-const isAuthorizedToAssignRole = async (
-  sessionUserId: string,
-  targetUserId: string
-): Promise<{ authorized: boolean; reason?: string }> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const [allAdmins, currentUser] = await Promise.all([
-    db.select().from(users).where(eq(users.role, 'admin')),
-    db.select().from(users).where(eq(users.id, sessionUserId)).limit(1),
-  ])
-
-  const isBootstrap = allAdmins.length === 0 && targetUserId === sessionUserId
-  const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
-
-  if (isBootstrap || isAdmin) {
-    return { authorized: true }
-  }
-
-  return { authorized: false, reason: 'Forbidden' }
-}
-
-/**
- * Update user role in database
- * Returns the updated user or undefined if not found
- */
-const updateUserRole = async (userId: string, role: string) => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const updatedUsers = await db.update(users).set({ role }).where(eq(users.id, userId)).returning()
-
-  return updatedUsers.length > 0 ? updatedUsers[0] : undefined
-}
-
-/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
