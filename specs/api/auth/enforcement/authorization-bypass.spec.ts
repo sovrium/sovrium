@@ -306,7 +306,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         ],
       })
 
-      const userA = await createAuthenticatedUser({
+      const _userA = await createAuthenticatedUser({
         email: 'userA@example.com',
         name: 'User A',
       })
