@@ -343,7 +343,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-006: should prevent access via modified JWT claims',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
