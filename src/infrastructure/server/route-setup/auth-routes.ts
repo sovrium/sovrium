@@ -244,10 +244,20 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return c.json({ error: 'User is banned' }, 403)
         }
 
-        // Check if user has admin role
-        // Better Auth's admin plugin sets the role field on the user object
-        const user = session.user as { role?: string }
-        if (user.role !== 'admin') {
+        // Fetch user role from database to ensure we have the latest value
+        // Better Auth's admin plugin sets the role field on the user object,
+        // but we need to fetch it from the database after role changes
+        const { db } = await import('@/infrastructure/database')
+        const { users } = await import('@/infrastructure/auth/better-auth/schema')
+        const { eq } = await import('drizzle-orm')
+
+        const userRecords = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, session.user.id))
+          .limit(1)
+
+        if (userRecords.length === 0 || userRecords[0]?.role !== 'admin') {
           return c.json({ error: 'Forbidden' }, 403)
         }
 
