@@ -100,7 +100,10 @@ export const AdminConfigSchema = Schema.Union(
     ),
     defaultRole: Schema.optional(
       UserLevelRoleSchema.pipe(
-        Schema.annotations({ description: 'Default role assigned to new users' })
+        Schema.annotations({
+          description: 'Default role assigned to new users',
+          message: () => 'Invalid default role. Must be one of: admin, user, viewer',
+        })
       )
     ),
 
