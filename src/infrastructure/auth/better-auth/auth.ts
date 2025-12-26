@@ -295,39 +295,44 @@ const drizzleSchema = {
 /**
  * Build admin plugin if enabled in auth configuration
  */
-const buildAdminPlugin = (authConfig?: Auth) =>
-  authConfig?.admin
-    ? [
-        admin({
-          defaultRole: 'user',
-          makeFirstUserAdmin: true, // First user gets admin role automatically
-          hooks: {
-            user: {
-              created: {
-                after: async (user: { readonly id: string; readonly email: string }) => {
-                  // Auto-promote users with "admin" in email to admin role (for testing)
-                  if (user.email.toLowerCase().includes('admin')) {
-                    const { db } = await import('@/infrastructure/database')
-                    const { users } = await import('./schema')
-                    const { eq } = await import('drizzle-orm')
-                    // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                    await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
-                  }
-                  // Auto-promote users with "member" in email to member role (for testing)
-                  if (user.email.toLowerCase().includes('member')) {
-                    const { db } = await import('@/infrastructure/database')
-                    const { users } = await import('./schema')
-                    const { eq } = await import('drizzle-orm')
-                    // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                    await db.update(users).set({ role: 'member' }).where(eq(users.id, user.id))
-                  }
-                },
-              },
+const buildAdminPlugin = (authConfig?: Auth) => {
+  if (!authConfig?.admin) return []
+
+  // Extract default role from config (supports both boolean and object forms)
+  const adminConfig = typeof authConfig.admin === 'boolean' ? {} : authConfig.admin
+  const defaultRole = adminConfig.defaultRole ?? 'user'
+
+  return [
+    admin({
+      defaultRole,
+      makeFirstUserAdmin: true, // First user gets admin role automatically
+      hooks: {
+        user: {
+          created: {
+            after: async (user: { readonly id: string; readonly email: string }) => {
+              // Auto-promote users with "admin" in email to admin role (for testing)
+              if (user.email.toLowerCase().includes('admin')) {
+                const { db } = await import('@/infrastructure/database')
+                const { users } = await import('./schema')
+                const { eq } = await import('drizzle-orm')
+                // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
+                await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
+              }
+              // Auto-promote users with "member" in email to member role (for testing)
+              if (user.email.toLowerCase().includes('member')) {
+                const { db } = await import('@/infrastructure/database')
+                const { users } = await import('./schema')
+                const { eq } = await import('drizzle-orm')
+                // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
+                await db.update(users).set({ role: 'member' }).where(eq(users.id, user.id))
+              }
             },
           },
-        }),
-      ]
-    : []
+        },
+      },
+    }),
+  ]
+}
 
 /**
  * Build organization plugin if enabled in auth configuration
