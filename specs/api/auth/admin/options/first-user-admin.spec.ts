@@ -67,7 +67,7 @@ test.describe('First User Admin Configuration', () => {
       expect((secondUser.user as { role?: string }).role).toBe('user')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-FIRST-USER-003: should support disabling first-user-admin option',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
