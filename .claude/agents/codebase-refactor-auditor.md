@@ -167,10 +167,12 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for architectural compliance, code quality analysis,
 # duplication detection, and refactoring strategies. Must understand layered architecture and provide comprehensive audit reports.
 color: orange
-tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP
-# Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand, Skill
-# Justification: Automation-safe toolset for post-implementation auditing. AskUserQuestion would
-# block automated pipeline execution. No Skill access needed (doesn't generate schemas).
+tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, WebFetch
+# Disallowed in CI: WebFetch, WebSearch, Skill (via workflow --disallowedTools)
+# Disallowed always: AskUserQuestion, NotebookEdit, SlashCommand
+# Justification: WebSearch/WebFetch enabled for local sessions (infrastructure docs lookup),
+# blocked in CI for reproducibility. AskUserQuestion would block automated pipeline execution.
+# No Skill access needed (doesn't generate schemas).
 # LSP enables code intelligence (findReferences, incomingCalls) for safe refactoring analysis.
 ---
 
@@ -196,6 +198,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP
   Cross-Phase Tools:
   - Task: Spawn sub-agents for complex codebase exploration
   - TodoWrite: Track multi-phase audit progress
+  - WebSearch/WebFetch: Infrastructure docs lookup (Effect.ts, Hono, etc.) - LOCAL ONLY, blocked in CI
 -->
 
 ## 🚀 Quick Start: Audit & Refactor Workflow (Execute Immediately)
