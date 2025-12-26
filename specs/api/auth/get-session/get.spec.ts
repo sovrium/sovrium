@@ -202,9 +202,10 @@ test.describe('Get current session', () => {
 
       await test.step('Verify no session before sign-in', async () => {
         const noSessionResponse = await page.request.get('/api/auth/get-session')
-        expect(noSessionResponse.status()).toBe(401)
+        expect(noSessionResponse.status()).toBe(200)
         const noSessionData = await noSessionResponse.json()
-        expect(noSessionData).toEqual({ error: 'Unauthorized' })
+        // Better Auth returns null body when no session exists
+        expect(noSessionData).toBeNull()
       })
 
       await test.step('Setup: Create and authenticate user', async () => {
@@ -228,9 +229,10 @@ test.describe('Get current session', () => {
         await page.request.post('/api/auth/sign-out')
 
         const afterSignOutResponse = await page.request.get('/api/auth/get-session')
-        expect(afterSignOutResponse.status()).toBe(401)
+        expect(afterSignOutResponse.status()).toBe(200)
         const afterSignOutData = await afterSignOutResponse.json()
-        expect(afterSignOutData).toEqual({ error: 'Unauthorized' })
+        // Better Auth returns null body when no session exists
+        expect(afterSignOutData).toBeNull()
       })
     }
   )

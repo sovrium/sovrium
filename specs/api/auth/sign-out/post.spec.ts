@@ -212,9 +212,10 @@ test.describe('Sign out user', () => {
 
       await test.step('Verify session is invalidated', async () => {
         const sessionResponse = await page.request.get('/api/auth/get-session')
-        expect(sessionResponse.status()).toBe(401)
+        expect(sessionResponse.status()).toBe(200)
         const sessionData = await sessionResponse.json()
-        expect(sessionData).toEqual({ error: 'Unauthorized' })
+        // Better Auth returns null body when no session exists
+        expect(sessionData).toBeNull()
       })
 
       await test.step('Verify user can sign in again', async () => {

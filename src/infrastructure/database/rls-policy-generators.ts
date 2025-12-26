@@ -577,7 +577,14 @@ const selectPolicyGenerator = (
     return generateRoleBasedPolicies
   }
   if (table.permissions?.organizationScoped) return generateOrganizationScopedPolicies
-  if (hasOnlyFieldPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
+  if (hasOnlyFieldPermissions(table)) {
+    // For tables with only role-based field permissions, skip RLS (column-level GRANTs handle access)
+    // For tables with custom/owner field permissions, generate default deny policies
+    if (shouldSkipRLSForFieldPermissions(table)) {
+      return returnEmptyPolicies
+    }
+    return () => generateDefaultDenyPolicies(table.name)
+  }
   return returnEmptyPolicies
 }
 

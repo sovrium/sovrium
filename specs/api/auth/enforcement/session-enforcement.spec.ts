@@ -156,8 +156,11 @@ test.describe('Session Permission Enforcement', () => {
       expect(signOutResponse.ok()).toBe(true)
 
       // THEN: Session token immediately invalid
+      // Better Auth returns 200 with null body when no session exists (status check endpoint)
       const protectedResponse = await page.request.get('/api/auth/get-session')
-      expect(protectedResponse.status()).toBe(401)
+      expect(protectedResponse.status()).toBe(200)
+      const body = await protectedResponse.json()
+      expect(body).toBeNull()
     }
   )
 
@@ -179,7 +182,10 @@ test.describe('Session Permission Enforcement', () => {
       })
 
       // THEN: Access denied (no grace period)
-      expect(response.status()).toBe(401)
+      // Better Auth returns 200 with null body for invalid tokens (status check endpoint)
+      expect(response.status()).toBe(200)
+      const body = await response.json()
+      expect(body).toBeNull()
     }
   )
 

@@ -165,6 +165,15 @@ export class DatabaseTemplateManager {
         GRANT guest_user TO app_user;
       `)
 
+      // Grant test roles to 'test' user for direct SET ROLE usage in executeQuery fixture
+      // This allows tests to directly SET ROLE admin_user without going through app_user first
+      await templatePool.query(`
+        GRANT admin_user TO test;
+        GRANT member_user TO test;
+        GRANT authenticated_user TO test;
+        GRANT guest_user TO test;
+      `)
+
       // Grant schema and sequence privileges to test roles
       // Required for INSERT operations when using SET ROLE to switch roles
       await templatePool.query(`

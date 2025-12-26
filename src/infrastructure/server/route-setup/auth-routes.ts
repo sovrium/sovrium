@@ -681,28 +681,10 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     }
   )
 
-  // Wrap get-session endpoint to return 401 when no valid session exists
-  // Better Auth's default behavior returns 200 with null/empty body
-  const appWithGetSession = appWithRevokeOthers.get('/api/auth/get-session', async (c) => {
-    try {
-      const session = await authInstance.api.getSession({
-        headers: c.req.raw.headers,
-      })
-
-      if (!session) {
-        return c.json({ error: 'Unauthorized' }, 401)
-      }
-
-      return c.json(session, 200)
-    } catch {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-  })
-
   // Add organization isolation endpoint (GET /api/auth/organization/:id)
   // Enforces that users can only access organizations they belong to
   const wrappedApp = app.auth.organization
-    ? appWithGetSession.get('/api/auth/organization/:id', async (c) => {
+    ? appWithRevokeOthers.get('/api/auth/organization/:id', async (c) => {
         try {
           const organizationId = c.req.param('id')
 
@@ -751,7 +733,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return c.json({ error: 'Failed to get organization' }, 500)
         }
       })
-    : appWithGetSession
+    : appWithRevokeOthers
 
   // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
