@@ -279,7 +279,10 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
           // Prevent self-revocation
           if (session.user.id === actualUserId) {
-            return c.json({ error: 'Cannot revoke your own admin role' }, 400)
+            return c.json(
+              { message: 'Cannot revoke your own admin role (self-revocation not allowed)' },
+              400
+            )
           }
 
           // Update user role to 'user' (revoking admin)

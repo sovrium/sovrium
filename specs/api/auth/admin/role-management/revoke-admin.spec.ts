@@ -170,7 +170,7 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-005: should prevent self-revocation',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
