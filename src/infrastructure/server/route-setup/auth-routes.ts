@@ -681,9 +681,55 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     }
   })
 
+  // Add session revoke-others endpoint
+  // POST /api/auth/session/revoke-others
+  // Revokes all sessions for the current user except the current session
+  const appWithRevokeOthers = appWithSessionRevoke.post(
+    '/api/auth/session/revoke-others',
+    async (c) => {
+      try {
+        // Check if user is authenticated
+        const session = await authInstance.api.getSession({
+          headers: c.req.raw.headers,
+        })
+        if (!session) {
+          return c.json({ error: 'Unauthorized' }, 401)
+        }
+
+        // Get all sessions for the current user
+        const { db } = await import('@/infrastructure/database')
+        const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
+        const { eq, and, not } = await import('drizzle-orm')
+
+        // Find all sessions for this user except the current one
+        const sessionsToRevoke = await db
+          .select()
+          .from(sessions)
+          .where(
+            and(eq(sessions.userId, session.user.id), not(eq(sessions.id, session.session.id)))
+          )
+
+        // Revoke each session (using Promise.all for parallel execution)
+        // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
+        await Promise.all(
+          sessionsToRevoke.map((sessionToRevoke: { readonly id: string }) =>
+            authInstance.api.revokeSession({
+              body: { token: sessionToRevoke.id },
+              headers: c.req.raw.headers,
+            })
+          )
+        )
+
+        return c.json({ success: true, revokedCount: sessionsToRevoke.length }, 200)
+      } catch {
+        return c.json({ error: 'Failed to revoke sessions' }, 500)
+      }
+    }
+  )
+
   // Wrap get-session endpoint to return 401 when no valid session exists
   // Better Auth's default behavior returns 200 with null/empty body
-  const appWithGetSession = appWithSessionRevoke.get('/api/auth/get-session', async (c) => {
+  const appWithGetSession = appWithRevokeOthers.get('/api/auth/get-session', async (c) => {
     try {
       const session = await authInstance.api.getSession({
         headers: c.req.raw.headers,

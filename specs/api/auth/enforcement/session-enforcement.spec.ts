@@ -161,7 +161,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-004: should enforce session expiration strictly',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -183,7 +183,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-005: should prevent session token reuse after refresh',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -216,7 +216,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-006: should allow user to revoke all own sessions except current',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -254,7 +254,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-007: should bind session to original IP/user-agent when strict mode enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {

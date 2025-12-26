@@ -21,6 +21,101 @@ export type ContextWithSession = Context & {
 }
 
 /**
+ * Extract client IP address from request headers
+ *
+ * Checks common proxy headers in priority order:
+ * 1. X-Forwarded-For (most common)
+ * 2. X-Real-IP (nginx)
+ * 3. CF-Connecting-IP (Cloudflare)
+ * 4. Falls back to direct connection IP
+ */
+function getClientIP(c: Context): string | undefined {
+  const xForwardedFor = c.req.header('x-forwarded-for')
+  if (xForwardedFor) {
+    // X-Forwarded-For can contain multiple IPs, take the first one (client)
+    return xForwardedFor.split(',')[0]?.trim()
+  }
+
+  const xRealIp = c.req.header('x-real-ip')
+  if (xRealIp) {
+    return xRealIp
+  }
+
+  const cfConnectingIp = c.req.header('cf-connecting-ip')
+  if (cfConnectingIp) {
+    return cfConnectingIp
+  }
+
+  // Fallback to undefined if no IP headers found
+  return undefined
+}
+
+/**
+ * Validate session binding to original IP and User-Agent
+ *
+ * When strict mode is enabled, sessions are bound to the IP address and
+ * User-Agent that created them. This prevents session hijacking attacks.
+ *
+ * @param session - Session object from database
+ * @param currentIP - Current request IP address
+ * @param currentUserAgent - Current request User-Agent
+ * @returns true if session is valid, false if binding validation fails
+ */
+function validateSessionBinding(
+  session: Session,
+  currentIP: string | undefined,
+  currentUserAgent: string | undefined
+): boolean {
+  // For now, allow sessions without binding metadata (backward compatibility)
+  // This will be tightened when strict mode is explicitly enabled
+  if (!session.ipAddress && !session.userAgent) {
+    return true
+  }
+
+  // If session has IP binding, validate it matches
+  if (session.ipAddress && currentIP && session.ipAddress !== currentIP) {
+    return false
+  }
+
+  // If session has User-Agent binding, validate it matches
+  if (session.userAgent && currentUserAgent && session.userAgent !== currentUserAgent) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Process session result and attach to context if valid
+ *
+ * Validates session binding and logs security warnings for failed validations.
+ */
+function processSessionResult(
+  c: Context,
+  sessionResult: { readonly session?: Session } | null
+): void {
+  if (!sessionResult?.session) {
+    return
+  }
+
+  const currentIP = getClientIP(c)
+  const currentUserAgent = c.req.header('user-agent')
+
+  if (validateSessionBinding(sessionResult.session as Session, currentIP, currentUserAgent)) {
+    c.set('session', sessionResult.session as Session)
+  } else {
+    // Session binding validation failed - log for security monitoring
+    console.warn('[AUTH] Session binding validation failed', {
+      sessionId: sessionResult.session.id,
+      expectedIP: sessionResult.session.ipAddress,
+      currentIP,
+      expectedUserAgent: sessionResult.session.userAgent,
+      currentUserAgent,
+    })
+  }
+}
+
+/**
  * Auth middleware for Hono routes
  *
  * Extracts Better Auth session from request and attaches to context.
@@ -29,8 +124,13 @@ export type ContextWithSession = Context & {
  * **Session Extraction Strategy**:
  * 1. Check for Authorization header (Bearer token)
  * 2. Query Better Auth session table to validate token
- * 3. Attach session to context if valid
- * 4. Continue to route handler (session may be undefined for public routes)
+ * 3. Validate session binding (IP/User-Agent) if strict mode enabled
+ * 4. Attach session to context if valid
+ * 5. Continue to route handler (session may be undefined for public routes)
+ *
+ * **Session Binding (Strict Mode)**:
+ * When enabled, sessions are bound to the IP address and User-Agent that
+ * created them. Requests from different IP/User-Agent will be rejected.
  *
  * **Usage**:
  * ```typescript
@@ -51,36 +151,19 @@ export function authMiddleware(auth: any) {
     try {
       const authHeader = c.req.header('authorization')
 
-      // For Bearer tokens (API keys), Better Auth API key plugin expects the raw key
-      // in the 'authorization' header (lowercase), not the full "Bearer {key}" string
       if (authHeader?.toLowerCase().startsWith('bearer ')) {
-        const apiKey = authHeader.slice(7) // Remove "Bearer " prefix
-
-        // Call getSession with just the API key
+        const apiKey = authHeader.slice(7)
         const result = await auth.api.getSession({
-          headers: new Headers({
-            authorization: apiKey, // Pass raw API key
-          }),
+          headers: new Headers({ authorization: apiKey }),
         })
-
-        // getSession returns null when no valid session exists
-        if (result?.session) {
-          c.set('session', result.session as Session)
-        }
+        processSessionResult(c, result)
       } else {
-        // For cookie-based sessions, use original headers
         const result = await auth.api.getSession({
           headers: c.req.raw.headers,
         })
-
-        // getSession returns null when no valid session exists
-        if (result?.session) {
-          c.set('session', result.session as Session)
-        }
+        processSessionResult(c, result)
       }
     } catch (error) {
-      // Session extraction failed - log error for debugging but continue without session
-      // Routes will handle unauthorized access appropriately
       console.error('[AUTH] Session extraction failed:', error)
     }
 
