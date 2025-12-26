@@ -226,7 +226,7 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-007: admin can revoke role and verify permissions removed',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
@@ -250,6 +250,9 @@ test.describe('Revoke Admin Role', () => {
         password: 'Password123!',
         name: 'Target User',
       })
+
+      // Sign back in as admin (signUp replaces the session)
+      await signIn({ email: 'admin@example.com', password: 'Password123!' })
 
       await request.post('/api/auth/admin/set-role', {
         data: { userId: targetUser.user.id, role: 'admin' },
