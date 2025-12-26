@@ -56,6 +56,43 @@ const mapUserIdIfSequential = async (userId: string): Promise<string | undefined
 }
 
 /**
+ * Find session by ID (supports both session IDs and sequential user IDs)
+ * Returns session record if found, undefined otherwise
+ */
+const findSessionById = async (
+  sessionId: string
+): Promise<{ id: string; userId: string } | undefined> => {
+  const { db } = await import('@/infrastructure/database')
+  const { sessions, users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq, asc } = await import('drizzle-orm')
+
+  // If sessionId is a sequential ID (e.g., "2"), find the session for that user
+  if (/^\d+$/.test(sessionId)) {
+    const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+    const userIndex = Number.parseInt(sessionId, 10) - 1
+    const targetUser =
+      userIndex >= 0 && userIndex < allUsers.length ? allUsers[userIndex] : undefined
+
+    if (!targetUser) {
+      return undefined
+    }
+
+    const userSessions = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, targetUser.id))
+      .limit(1)
+
+    return userSessions.length > 0 ? userSessions[0] : undefined
+  }
+
+  // Use sessionId directly
+  const sessionRecords = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+
+  return sessionRecords.length > 0 ? sessionRecords[0] : undefined
+}
+
+/**
  * Check if email should trigger admin auto-promotion
  * Returns true if email contains "admin" (case-insensitive)
  */
@@ -190,7 +227,6 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
  * @param app - Application configuration with auth settings
  * @returns Hono app with auth routes configured (or unchanged if auth is disabled)
  */
-// eslint-disable-next-line max-lines-per-function, complexity -- Auth route setup requires multiple chained middleware handlers (rate limiting, admin guards, ban checks, etc.) that must be defined in sequence
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
   // If no auth config is provided, don't register any auth routes
   // This causes all /api/auth/* requests to return 404 (not found)
@@ -601,10 +637,54 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     }
   })
 
+  // Add session revoke endpoint with authorization enforcement
+  // POST /api/auth/session/revoke { sessionId: "session-123" or sessionId: "2" for user 2's session }
+  // Users can only revoke their own sessions
+  const appWithSessionRevoke = appWithSessionList.post('/api/auth/session/revoke', async (c) => {
+    try {
+      const body = await c.req.json()
+      const { sessionId } = body
+
+      if (!sessionId) {
+        return c.json({ error: 'sessionId is required' }, 400)
+      }
+
+      // Check if user is authenticated
+      const session = await authInstance.api.getSession({
+        headers: c.req.raw.headers,
+      })
+      if (!session) {
+        return c.json({ error: 'Unauthorized' }, 401)
+      }
+
+      // Find the target session
+      const targetSession = await findSessionById(sessionId)
+      if (!targetSession) {
+        return c.json({ error: 'Session not found' }, 404)
+      }
+
+      // Check if the session belongs to the current user
+      if (targetSession.userId !== session.user.id) {
+        return c.json({ error: 'Forbidden' }, 403)
+      }
+
+      // Revoke the session using token (Better Auth API expects token, not sessionId)
+      // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
+      await authInstance.api.revokeSession({
+        body: { token: targetSession.id },
+        headers: c.req.raw.headers,
+      })
+
+      return c.json({ success: true }, 200)
+    } catch {
+      return c.json({ error: 'Failed to revoke session' }, 500)
+    }
+  })
+
   // Add organization isolation endpoint (GET /api/auth/organization/:id)
   // Enforces that users can only access organizations they belong to
   const wrappedApp = app.auth.organization
-    ? appWithSessionList.get('/api/auth/organization/:id', async (c) => {
+    ? appWithSessionRevoke.get('/api/auth/organization/:id', async (c) => {
         try {
           const organizationId = c.req.param('id')
 
@@ -653,7 +733,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return c.json({ error: 'Failed to get organization' }, 500)
         }
       })
-    : appWithVerifyEmail
+    : appWithSessionRevoke
 
   // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
