@@ -513,7 +513,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : appWithGetUser
 
-  // Wrap sign-up to auto-promote users with "admin" in email and apply runtime default role
+  // Wrap sign-up to auto-promote users with "admin" in email, apply firstUserAdmin logic, and runtime default role
   const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {
     try {
       const body = await c.req.json()
@@ -528,20 +528,77 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       // Delegate to Better Auth for actual sign-up
       const response = await authInstance.handler(delegateRequest)
 
-      // Auto-promote users with "admin" in email to admin role (for testing)
-      if (response.ok && body.email && shouldPromoteToAdmin(body.email)) {
-        // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
-        await promoteUserToAdmin(body.email)
-      } else if (response.ok && body.email) {
-        // Apply runtime default role to newly created users (if not auto-promoted to admin)
+      // If signup succeeded, handle role updates
+      if (response.ok && body.email) {
         const { db } = await import('@/infrastructure/database')
         const { users } = await import('@/infrastructure/auth/better-auth/schema')
-        const { eq } = await import('drizzle-orm')
-        // eslint-disable-next-line functional/no-expression-statements -- Side effect required for role assignment
-        await db
-          .update(users)
-          .set({ role: runtimeAuthConfig.defaultRole })
+        const { eq, sql } = await import('drizzle-orm')
+
+        // Auto-promote users with "admin" in email to admin role (for testing)
+        if (shouldPromoteToAdmin(body.email)) {
+          // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
+          await promoteUserToAdmin(body.email)
+        } else {
+          // Check if firstUserAdmin is enabled and this is the first user
+          const firstUserAdmin = adminConfig?.firstUserAdmin ?? false
+
+          if (firstUserAdmin) {
+            // Count existing users to determine if this is the first user
+            const userCount = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(users)
+              .then((result: readonly { readonly count: number }[]) =>
+                Number(result[0]?.count ?? 0)
+              )
+
+            // If this is the first user (count is 1), set role to admin
+            if (userCount === 1) {
+              // eslint-disable-next-line functional/no-expression-statements -- Side effect required for first-user-admin
+              await db.update(users).set({ role: 'admin' }).where(eq(users.email, body.email))
+            } else {
+              // Apply runtime default role to subsequent users
+              // eslint-disable-next-line functional/no-expression-statements -- Side effect required for role assignment
+              await db
+                .update(users)
+                .set({ role: runtimeAuthConfig.defaultRole })
+                .where(eq(users.email, body.email))
+            }
+          } else {
+            // firstUserAdmin not enabled - apply runtime default role to all users
+            // eslint-disable-next-line functional/no-expression-statements -- Side effect required for role assignment
+            await db
+              .update(users)
+              .set({ role: runtimeAuthConfig.defaultRole })
+              .where(eq(users.email, body.email))
+          }
+        }
+
+        // Re-fetch user from database to get updated role
+        const updatedUserRecords = await db
+          .select()
+          .from(users)
           .where(eq(users.email, body.email))
+          .limit(1)
+
+        // If user found, reconstruct response with updated user object
+        if (updatedUserRecords.length > 0) {
+          const originalData = (await response.json()) as { user: { role?: string } }
+          const updatedResponse = {
+            ...originalData,
+            user: {
+              ...originalData.user,
+              role: updatedUserRecords[0].role,
+            },
+          }
+
+          // Create new response with updated data and preserve original headers (including cookies)
+          const newResponse = new Response(JSON.stringify(updatedResponse), {
+            status: response.status,
+            headers: response.headers,
+          })
+
+          return newResponse
+        }
       }
 
       return response
