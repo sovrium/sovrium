@@ -481,7 +481,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   })
 
   // Wrap verify-email to enforce single-use tokens
-  const wrappedApp = appWithBanCheck.get('/api/auth/verify-email', async (c) => {
+  const appWithVerifyEmail = appWithBanCheck.get('/api/auth/verify-email', async (c) => {
     const token = c.req.query('token')
 
     if (!token) {
@@ -500,6 +500,58 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     // Delegate to Better Auth for actual verification
     return authInstance.handler(c.req.raw)
   })
+
+  // Add organization isolation endpoint (GET /api/auth/organization/:id)
+  // Enforces that users can only access organizations they belong to
+  const wrappedApp = app.auth.organization
+    ? appWithVerifyEmail.get('/api/auth/organization/:id', async (c) => {
+        try {
+          const organizationId = c.req.param('id')
+
+          // Check if user is authenticated
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          // Check if user is a member of this organization
+          const { db } = await import('@/infrastructure/database')
+          const { members } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq, and } = await import('drizzle-orm')
+
+          const membership = await db
+            .select()
+            .from(members)
+            .where(
+              and(eq(members.organizationId, organizationId), eq(members.userId, session.user.id))
+            )
+            .limit(1)
+
+          const isMember = membership.length > 0
+
+          if (!isMember) {
+            // Return 404 to prevent organization enumeration
+            return c.json({ error: 'Organization not found' }, 404)
+          }
+
+          // User is a member - fetch organization details
+          const { organizations } = await import('@/infrastructure/auth/better-auth/schema')
+          const orgRecords = await db
+            .select()
+            .from(organizations)
+            .where(eq(organizations.id, organizationId))
+            .limit(1)
+
+          if (orgRecords.length === 0) {
+            return c.json({ error: 'Organization not found' }, 404)
+          }
+
+          return c.json(orgRecords[0], 200)
+        } catch {
+          return c.json({ error: 'Failed to get organization' }, 500)
+        }
+      })
+    : appWithVerifyEmail
 
   // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
