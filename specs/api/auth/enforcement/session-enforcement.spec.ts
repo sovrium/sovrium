@@ -216,7 +216,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-006: should allow user to revoke all own sessions except current',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
