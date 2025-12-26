@@ -215,9 +215,22 @@ function createGetRecordProgram(
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
+    // Enforce organization isolation
+    // If the record has an organization_id field, verify it matches the session's active organization
+    const { userId, activeOrganizationId } = session
+    const recordOrgId = record['organization_id']
+
+    // If the record has an organization_id field and session has an active organization
+    if (recordOrgId !== undefined && activeOrganizationId !== undefined) {
+      // If organization IDs don't match, deny access
+      if (String(recordOrgId) !== String(activeOrganizationId)) {
+        // Return 404 instead of 403 to prevent enumeration
+        return yield* Effect.fail(new SessionContextError('Record not found'))
+      }
+    }
+
     // Enforce horizontal privilege escalation prevention
     // If the record has a user_id or owner_id field, verify ownership
-    const { userId } = session
     const recordUserId = record['user_id'] ?? record['owner_id']
 
     // If the record has a user/owner field and it doesn't match the session user, deny access
