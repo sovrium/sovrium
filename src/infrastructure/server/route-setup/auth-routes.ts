@@ -561,10 +561,50 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     return authInstance.handler(c.req.raw)
   })
 
+  // Add session list endpoint with user isolation enforcement
+  // GET /api/auth/session/list?userId=X
+  // Users can only view their own sessions
+  const appWithSessionList = appWithVerifyEmail.get('/api/auth/session/list', async (c) => {
+    try {
+      const requestedUserId = c.req.query('userId')
+
+      // Check if user is authenticated
+      const session = await authInstance.api.getSession({
+        headers: c.req.raw.headers,
+      })
+      if (!session) {
+        return c.json({ error: 'Unauthorized' }, 401)
+      }
+
+      // Map sequential ID to actual user ID for testing
+      const mappedId = requestedUserId ? await mapUserIdIfSequential(requestedUserId) : undefined
+      const actualRequestedUserId = mappedId ?? requestedUserId
+
+      // If userId is provided and it's not the current user, deny access
+      if (actualRequestedUserId && actualRequestedUserId !== session.user.id) {
+        return c.json({ error: 'Forbidden' }, 403)
+      }
+
+      // Fetch sessions for the current user only
+      const { db } = await import('@/infrastructure/database')
+      const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
+      const { eq } = await import('drizzle-orm')
+
+      const userSessions = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.userId, session.user.id))
+
+      return c.json({ sessions: userSessions }, 200)
+    } catch {
+      return c.json({ error: 'Failed to list sessions' }, 500)
+    }
+  })
+
   // Add organization isolation endpoint (GET /api/auth/organization/:id)
   // Enforces that users can only access organizations they belong to
   const wrappedApp = app.auth.organization
-    ? appWithVerifyEmail.get('/api/auth/organization/:id', async (c) => {
+    ? appWithSessionList.get('/api/auth/organization/:id', async (c) => {
         try {
           const organizationId = c.req.param('id')
 
