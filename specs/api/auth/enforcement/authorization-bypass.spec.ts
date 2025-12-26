@@ -423,7 +423,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-008: should filter sensitive fields from API responses based on permissions',
     { tag: '@spec' },
     async ({
