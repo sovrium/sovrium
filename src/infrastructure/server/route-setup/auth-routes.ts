@@ -712,7 +712,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
         // Revoke each session (using Promise.all for parallel execution)
         // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
         await Promise.all(
-          sessionsToRevoke.map((sessionToRevoke: { id: string }) =>
+          sessionsToRevoke.map((sessionToRevoke: { readonly id: string }) =>
             authInstance.api.revokeSession({
               body: { token: sessionToRevoke.id },
               headers: c.req.raw.headers,
