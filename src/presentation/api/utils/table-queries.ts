@@ -439,3 +439,92 @@ export function batchRestoreRecords(
     })
   )
 }
+
+/**
+ * Batch delete records with session context (soft delete if deleted_at field exists)
+ *
+ * Deletes multiple records in a transaction.
+ * Validates all records are accessible by the current user BEFORE deleting any.
+ * Implements soft delete pattern (sets deleted_at timestamp) if table has deleted_at field.
+ * RLS policies automatically applied via session context.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordIds - Array of record IDs to delete
+ * @returns Effect resolving to number of deleted records or error
+ */
+// eslint-disable-next-line max-lines-per-function -- Batch validation requires multiple steps
+export function batchDeleteRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  recordIds: readonly string[]
+): Effect.Effect<number, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
+        // Check if table has deleted_at column for soft delete
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasSoftDelete = columnCheck.length > 0
+
+        // Validate all records are accessible (RLS-enforced) BEFORE deleting any
+        // This prevents partial deletions if some records are unauthorized
+        const validationResults = await Promise.all(
+          recordIds.map(async (recordId) => {
+            const checkResult = (await tx.execute(
+              sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+            )) as readonly Record<string, unknown>[]
+
+            return { recordId, exists: checkResult.length > 0 }
+          })
+        )
+
+        // Check for unauthorized records
+        const unauthorizedRecords = validationResults.filter((result) => !result.exists)
+        if (unauthorizedRecords.length > 0) {
+          // Return 403 Forbidden if any record is unauthorized
+          // Use the first unauthorized record ID in the error message
+          const firstUnauthorized = unauthorizedRecords[0]
+          // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
+          throw new Error(
+            `Access denied: Record ${firstUnauthorized?.recordId} not found or you don't have permission to delete it`
+          )
+        }
+
+        // All records validated - delete them all
+        const idParams = sql.join(
+          recordIds.map((id) => sql`${id}`),
+          sql.raw(', ')
+        )
+
+        if (hasSoftDelete) {
+          // Soft delete: set deleted_at timestamp
+          const result = (await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          return result.length
+        } else {
+          // Hard delete: remove records
+          const result = (await tx.execute(
+            sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          return result.length
+        }
+      },
+      catch: (error) => {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return new SessionContextError(
+          `Failed to batch delete records in ${tableName}: ${errorMessage}`,
+          error
+        )
+      },
+    })
+  )
+}

@@ -51,6 +51,7 @@ import {
   deleteRecord,
   restoreRecord,
   batchRestoreRecords,
+  batchDeleteRecords,
 } from '@/presentation/api/utils/table-queries'
 import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
@@ -306,11 +307,21 @@ function batchUpdateProgram(
   return Effect.succeed({ records, count: records.length })
 }
 
-function batchDeleteProgram(ids: readonly string[]) {
-  return Effect.succeed({
-    success: true as const,
-    count: ids.length,
-    deletedIds: [...ids],
+function batchDeleteProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  ids: readonly string[]
+): Effect.Effect<
+  { success: true; count: number; deletedIds: readonly string[] },
+  SessionContextError
+> {
+  return Effect.gen(function* () {
+    const count = yield* batchDeleteRecords(session, tableName, ids)
+    return {
+      success: true as const,
+      count,
+      deletedIds: ids,
+    }
   })
 }
 
@@ -608,6 +619,51 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           )
         }
       })
+      .delete('/api/tables/:tableId/records', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
+
+        // Parse request body for bulk delete
+        const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
+        if (!result.success) return result.response
+
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        try {
+          const count = await Effect.runPromise(
+            batchDeleteRecords(session, tableName, result.data.ids)
+          )
+          return c.json({ count }, 200)
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+          // If any record in the batch is unauthorized, return 403
+          if (errorMessage.includes('Access denied') || errorMessage.includes('permission')) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: errorMessage,
+              },
+              403
+            )
+          }
+
+          // For other errors, return 500
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: errorMessage,
+            },
+            500
+          )
+        }
+      })
       .delete('/api/tables/:tableId/records/:recordId', async (c) => {
         const { session } = (c as ContextWithSession).var
         if (!session) {
@@ -751,9 +807,49 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
       })
       .delete('/api/tables/:tableId/records/batch', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
+
         const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
         if (!result.success) return result.response
-        return runEffect(c, batchDeleteProgram(result.data.ids), batchDeleteRecordsResponseSchema)
+
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        try {
+          const response = await Effect.runPromise(
+            batchDeleteProgram(session, tableName, result.data.ids)
+          )
+          return c.json(response, 200)
+        } catch (error) {
+          // Handle authorization errors
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+          // If any record in the batch is unauthorized, return 403
+          if (errorMessage.includes('Access denied') || errorMessage.includes('permission')) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: errorMessage,
+              },
+              403
+            )
+          }
+
+          // For other errors, return 500
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: errorMessage,
+            },
+            500
+          )
+        }
       })
       .post('/api/tables/:tableId/records/upsert', async (c) => {
         const result = await validateRequest(c, upsertRecordsRequestSchema)

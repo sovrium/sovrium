@@ -277,10 +277,10 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-005: should prevent parameter tampering in bulk operations',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, signIn }) => {
       // GIVEN: Application with bulk delete endpoint
       await startServerWithSchema({
         name: 'test-app',
@@ -294,8 +294,14 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'integer', required: true },
+              { id: 3, name: 'owner_id', type: 'created-by', required: true },
             ],
+            permissions: {
+              read: { type: 'owner', field: 'owner_id' },
+              create: { type: 'authenticated' },
+              update: { type: 'owner', field: 'owner_id' },
+              delete: { type: 'owner', field: 'owner_id' },
+            },
           },
         ],
       })
@@ -305,11 +311,13 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
         name: 'User A',
       })
 
-      // Create task for user A
+      // Create task for user A (owner_id is auto-populated from session)
       const taskResponse = await request.post('/api/tables/1/records', {
-        data: { title: 'User A Task', owner_id: userA.user.id },
+        data: { title: 'User A Task' },
       })
+      expect(taskResponse.status()).toBe(201)
       const taskA = await taskResponse.json()
+      expect(taskA.id).toBeDefined()
 
       // Create user B
       await createAuthenticatedUser({
@@ -326,9 +334,9 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
       expect([400, 403, 404]).toContain(response.status())
 
       // Verify task still exists (using user A's session)
-      await createAuthenticatedUser({
+      await signIn({
         email: 'userA@example.com',
-        name: 'User A',
+        password: 'TestPassword123!',
       })
       const verifyResponse = await request.get(`/api/tables/1/records/${taskA.id}`)
       expect(verifyResponse.status()).toBe(200)
