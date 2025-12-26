@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('First User Admin Configuration', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-FIRST-USER-001: should make first registered user admin',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
