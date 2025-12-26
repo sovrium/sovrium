@@ -55,7 +55,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('viewer')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-003: should apply default role on sign-up',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
@@ -75,7 +75,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-004: should fallback to user role when not configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
@@ -92,7 +92,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-005: should validate default role exists',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

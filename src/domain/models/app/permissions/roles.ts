@@ -58,7 +58,15 @@ export type AdminLevelRole = Schema.Schema.Type<typeof AdminLevelRoleSchema>
  * Subset of standard roles for default user role assignment.
  * Used in admin plugin for defaultRole configuration.
  */
-export const UserLevelRoleSchema = Schema.Literal('admin', 'user', 'viewer').pipe(
+export const UserLevelRoleSchema = Schema.String.pipe(
+  Schema.filter(
+    (value): value is 'admin' | 'user' | 'viewer' => {
+      return value === 'admin' || value === 'user' || value === 'viewer'
+    },
+    {
+      message: () => 'Invalid role. Must be one of: admin, user, viewer',
+    }
+  ),
   Schema.annotations({
     title: 'User-Level Role',
     description: 'Roles available for default user assignment in admin context',

@@ -80,6 +80,35 @@ const getTableNameFromId = (app: App, tableId: string): string | undefined => {
 }
 
 /**
+ * Check if a string contains authorization-related keywords
+ */
+const containsAuthKeywords = (text: string): boolean =>
+  text.includes('not found') || text.includes('access denied')
+
+/**
+ * Check if error is an authorization error (SessionContextError or access denied)
+ *
+ * @param error - The error to check
+ * @returns true if error is authorization-related (should return 404 instead of 500)
+ */
+const isAuthorizationError = (error: unknown): boolean => {
+  const errorMessage = error instanceof Error ? error.message : ''
+  const errorName = error instanceof Error ? error.name : ''
+  const errorString = String(error)
+  const causeMessage =
+    error instanceof Error && 'cause' in error && error.cause instanceof Error
+      ? error.cause.message
+      : ''
+
+  return (
+    containsAuthKeywords(errorMessage) ||
+    containsAuthKeywords(causeMessage) ||
+    errorName.includes('SessionContextError') ||
+    errorString.includes('SessionContextError')
+  )
+}
+
+/**
  * Handle batch restore errors with appropriate HTTP responses
  */
 const handleBatchRestoreError = (c: Context, error: unknown) => {
@@ -632,20 +661,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
           return c.json(updateResult, 200)
         } catch (error) {
-          // If error message indicates RLS blocking or record not found, return 404
-          // Check both the error message and the cause message (for SessionContextError)
-          const errorMessage = error instanceof Error ? error.message : ''
-          const causeMessage =
-            error instanceof Error && 'cause' in error && error.cause instanceof Error
-              ? error.cause.message
-              : ''
-
-          if (
-            errorMessage.includes('not found') ||
-            errorMessage.includes('access denied') ||
-            causeMessage.includes('not found') ||
-            causeMessage.includes('access denied')
-          ) {
+          // Return 404 for authorization failures to prevent enumeration
+          if (isAuthorizationError(error)) {
             return c.json({ error: 'Record not found' }, 404)
           }
 
@@ -728,6 +745,11 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for empty responses
           return c.body(null, 204) // 204 No Content
         } catch (error) {
+          // Return 404 for authorization failures to prevent enumeration
+          if (isAuthorizationError(error)) {
+            return c.json({ error: 'Record not found' }, 404)
+          }
+
           return c.json(
             {
               error: 'Internal server error',
