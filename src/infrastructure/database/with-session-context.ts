@@ -46,11 +46,16 @@ const getUserRole = async (
   }
 
   // Fall back to global user role from users table
-  const userResult = (await tx.execute(
-    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
-  )) as Array<{ role: string | null }>
+  try {
+    const userResult = (await tx.execute(
+      `SELECT role FROM "_sovrium_auth_users" WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
+    )) as Array<{ role: string | null }>
 
-  return userResult[0]?.role || 'authenticated'
+    return userResult[0]?.role || 'authenticated'
+  } catch (error) {
+    // If role column doesn't exist, default to 'authenticated'
+    return 'authenticated'
+  }
 }
 
 /**
@@ -93,14 +98,11 @@ export const withSessionContext = <A, E>(
           // Get user role (org-specific or global)
           const userRole = await getUserRole(tx, session)
 
-          // CRITICAL: Execute SET LOCAL ROLE app_user FIRST (superusers bypass RLS)
-          // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
-          await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
-
-          // Set session context at the start of the transaction
-          // Execute each SET LOCAL statement separately (Drizzle may not support multi-statement SQL)
-          // SET LOCAL requires literal string values, not parameterized queries
-          // Use sql.raw() with escapeSQL() for SQL injection protection
+          // CRITICAL ORDER: Set session variables BEFORE role switch
+          // Session variables must be set before SET ROLE because:
+          // 1. SET LOCAL is transaction-scoped, not role-scoped
+          // 2. RLS policies evaluate in the context of the CURRENT role
+          // 3. Setting variables after role switch may not be visible to RLS evaluation
           await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
           await tx.execute(
             sql.raw(
@@ -108,6 +110,10 @@ export const withSessionContext = <A, E>(
             )
           )
           await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
+
+          // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
+          // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
+          await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
 
           // Execute the user's operation with the transaction using the extracted runtime
           const operationResult = await Runtime.runPromise(runtime)(operation(tx))
@@ -146,19 +152,20 @@ export const withSessionContextSimple = async <A>(
     // Get user role (org-specific or global)
     const userRole = await getUserRole(tx, session)
 
-    // CRITICAL: Execute SET LOCAL ROLE app_user FIRST (superusers bypass RLS)
-    // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
-    await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
-
-    // Set session context at the start of the transaction
-    // Execute each SET LOCAL statement separately (Drizzle may not support multi-statement SQL)
-    // SET LOCAL requires literal string values, not parameterized queries
-    // Use sql.raw() with escapeSQL() for SQL injection protection
+    // CRITICAL ORDER: Set session variables BEFORE role switch
+    // Session variables must be set before SET ROLE because:
+    // 1. SET LOCAL is transaction-scoped, not role-scoped
+    // 2. RLS policies evaluate in the context of the CURRENT role
+    // 3. Setting variables after role switch may not be visible to RLS evaluation
     await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
     await tx.execute(
       sql.raw(`SET LOCAL app.organization_id = '${escapeSQL(session.activeOrganizationId || '')}'`)
     )
     await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
+
+    // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
+    // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
+    await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
 
     // Execute the user's operation with the transaction
     return await operation(tx)
