@@ -129,7 +129,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-003: should invalidate session immediately after sign-out',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
