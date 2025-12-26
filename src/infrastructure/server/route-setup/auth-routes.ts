@@ -8,7 +8,6 @@
 import { type Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-<<<<<<< HEAD
 import {
   isRateLimitExceeded,
   recordRateLimitRequest,
@@ -23,9 +22,6 @@ import {
 } from './auth-route-utils'
 import type { App } from '@/domain/models/app'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-=======
-import type { App } from '@/domain/models/app'
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 
 /**
  * Track used verification tokens to enforce single-use
@@ -35,16 +31,6 @@ import type { App } from '@/domain/models/app'
  * Note: Mutable Set is required here for cross-request token tracking
  */
 const usedVerificationTokens = new Set<string>()
-<<<<<<< HEAD
-=======
-
-/**
- * Rate limiting state for admin endpoints
- * Maps IP addresses to request timestamps
- * In production, this should use Redis or similar distributed storage
- */
-const adminRateLimitState = new Map<string, number[]>()
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 
 /**
  * Runtime configuration state for auth instance
@@ -53,18 +39,14 @@ const adminRateLimitState = new Map<string, number[]>()
 const runtimeAuthConfig = {
   defaultRole: 'user' as string,
 }
-<<<<<<< HEAD
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Better Auth instance type is complex and not fully exported
 type AuthInstance = any
-=======
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 
 /**
  * Apply rate limiting middleware for admin endpoints
  * Returns a Hono app with rate limiting middleware applied
  */
-<<<<<<< HEAD
 const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
   return honoApp.use('/api/auth/admin/*', async (c, next) => {
     const ip = extractClientIp(c.req.header('x-forwarded-for'))
@@ -78,60 +60,6 @@ const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
     // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
     await next()
   })
-=======
-const mapUserIdIfSequential = async (userId: string): Promise<string | undefined> => {
-  if (!/^\d+$/.test(userId)) {
-    return undefined
-  }
-
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { asc } = await import('drizzle-orm')
-
-  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-  const userIndex = Number.parseInt(userId, 10) - 1
-
-  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
-    ? allUsers[userIndex].id
-    : undefined
-}
-
-/**
- * Find session by ID (supports both session IDs and sequential user IDs)
- * Returns session record if found, undefined otherwise
- */
-const findSessionById = async (
-  sessionId: string
-): Promise<{ id: string; userId: string } | undefined> => {
-  const { db } = await import('@/infrastructure/database')
-  const { sessions, users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq, asc } = await import('drizzle-orm')
-
-  // If sessionId is a sequential ID (e.g., "2"), find the session for that user
-  if (/^\d+$/.test(sessionId)) {
-    const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-    const userIndex = Number.parseInt(sessionId, 10) - 1
-    const targetUser =
-      userIndex >= 0 && userIndex < allUsers.length ? allUsers[userIndex] : undefined
-
-    if (!targetUser) {
-      return undefined
-    }
-
-    const userSessions = await db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.userId, targetUser.id))
-      .limit(1)
-
-    return userSessions.length > 0 ? userSessions[0] : undefined
-  }
-
-  // Use sessionId directly
-  const sessionRecords = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
-
-  return sessionRecords.length > 0 ? sessionRecords[0] : undefined
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 }
 
 /**
@@ -139,7 +67,6 @@ const findSessionById = async (
  * Returns a Hono app with admin guard middleware applied
  * Attaches validated session to context for downstream handlers (avoids redundant DB queries)
  */
-<<<<<<< HEAD
 const applyAdminGuardMiddleware = (
   honoApp: Readonly<Hono>,
   authInstance: AuthInstance
@@ -244,17 +171,12 @@ const registerRevokeAdminEndpoint = (
       return c.json({ error: 'Failed to revoke admin role' }, 500)
     }
   })
-=======
-const shouldPromoteToAdmin = (email: string): boolean => {
-  return email.toLowerCase().includes('admin')
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 }
 
 /**
  * Register set-role endpoint
  * Sets a user's role (admin, user, member, viewer) and invalidates their sessions
  */
-<<<<<<< HEAD
 const registerSetRoleEndpoint = (
   honoApp: Readonly<Hono>,
   authInstance: AuthInstance
@@ -291,22 +213,12 @@ const registerSetRoleEndpoint = (
       return c.json({ error: 'Failed to set role' }, 500)
     }
   })
-=======
-const promoteUserToAdmin = async (email: string): Promise<void> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
-  await db.update(users).set({ role: 'admin' }).where(eq(users.email, email))
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 }
 
 /**
  * Register get-user endpoint
  * Retrieves user details by ID (supports sequential ID mapping for testing)
  */
-<<<<<<< HEAD
 const registerGetUserEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
   return honoApp.get('/api/auth/admin/get-user', async (c) => {
     try {
@@ -331,23 +243,12 @@ const registerGetUserEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
       return c.json({ error: 'Failed to get user' }, 500)
     }
   })
-=======
-const isUserBanned = async (email: string): Promise<boolean> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const userRecord = await db.select().from(users).where(eq(users.email, email)).limit(1)
-
-  return userRecord.length > 0 && userRecord[0]?.banned === true
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 }
 
 /**
  * Register ban-user endpoint
  * Bans a user by delegating to Better Auth's ban-user handler
  */
-<<<<<<< HEAD
 const registerBanUserEndpoint = (
   honoApp: Readonly<Hono>,
   authInstance: AuthInstance
@@ -374,35 +275,11 @@ const registerBanUserEndpoint = (
       return authInstance.handler(c.req.raw)
     }
   })
-=======
-const isAuthorizedToAssignRole = async (
-  sessionUserId: string,
-  targetUserId: string
-): Promise<{ authorized: boolean; reason?: string }> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const [allAdmins, currentUser] = await Promise.all([
-    db.select().from(users).where(eq(users.role, 'admin')),
-    db.select().from(users).where(eq(users.id, sessionUserId)).limit(1),
-  ])
-
-  const isBootstrap = allAdmins.length === 0 && targetUserId === sessionUserId
-  const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
-
-  if (isBootstrap || isAdmin) {
-    return { authorized: true }
-  }
-
-  return { authorized: false, reason: 'Forbidden' }
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 }
 
 /**
  * Endpoint registration function type for composable admin routes
  */
-<<<<<<< HEAD
 type EndpointRegistrar = (app: Readonly<Hono>) => Readonly<Hono>
 
 /**
@@ -422,16 +299,64 @@ const registerAdminRoutes = (
   ]
 
   return registrars.reduce((app, register) => register(app), honoApp)
-=======
-const updateUserRole = async (userId: string, role: string) => {
+}
+
+/**
+ * Map sequential user ID to actual database user ID (for testing convenience)
+ * Returns undefined if not a sequential ID
+ */
+const mapUserIdIfSequential = async (userId: string): Promise<string | undefined> => {
+  if (!/^\d+$/.test(userId)) {
+    return undefined
+  }
+
   const { db } = await import('@/infrastructure/database')
   const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
+  const { asc } = await import('drizzle-orm')
 
-  const updatedUsers = await db.update(users).set({ role }).where(eq(users.id, userId)).returning()
+  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+  const userIndex = Number.parseInt(userId, 10) - 1
 
-  return updatedUsers.length > 0 ? updatedUsers[0] : undefined
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
+  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
+    ? allUsers[userIndex].id
+    : undefined
+}
+
+/**
+ * Find session by ID (supports both session IDs and sequential user IDs)
+ * Returns session record if found, undefined otherwise
+ */
+const findSessionById = async (
+  sessionId: string
+): Promise<{ id: string; userId: string } | undefined> => {
+  const { db } = await import('@/infrastructure/database')
+  const { sessions, users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq, asc } = await import('drizzle-orm')
+
+  // If sessionId is a sequential ID (e.g., "2"), find the session for that user
+  if (/^\d+$/.test(sessionId)) {
+    const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
+    const userIndex = Number.parseInt(sessionId, 10) - 1
+    const targetUser =
+      userIndex >= 0 && userIndex < allUsers.length ? allUsers[userIndex] : undefined
+
+    if (!targetUser) {
+      return undefined
+    }
+
+    const userSessions = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, targetUser.id))
+      .limit(1)
+
+    return userSessions.length > 0 ? userSessions[0] : undefined
+  }
+
+  // Use sessionId directly
+  const sessionRecords = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+
+  return sessionRecords.length > 0 ? sessionRecords[0] : undefined
 }
 
 /**
@@ -493,10 +418,6 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>, app?: App): Readonl
  * @param app - Application configuration with auth settings
  * @returns Hono app with auth routes configured (or unchanged if auth is disabled)
  */
-<<<<<<< HEAD
-// eslint-disable-next-line max-lines-per-function -- Auth route setup requires multiple chained middleware handlers (rate limiting, admin guards, ban checks, etc.) that must be defined in sequence
-=======
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
   // If no auth config is provided, don't register any auth routes
   // This causes all /api/auth/* requests to return 404 (not found)
@@ -514,7 +435,6 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Initialize runtime config
   runtimeAuthConfig.defaultRole = initialDefaultRole
 
-<<<<<<< HEAD
   // Add rate limiting, admin guard middleware, and admin routes
   const appWithAdminRoutes = app.auth.admin
     ? registerAdminRoutes(
@@ -525,279 +445,6 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
   // Wrap sign-up to auto-promote users with "admin" in email and apply runtime default role
   const appWithSignUp = appWithAdminRoutes.post('/api/auth/sign-up/email', async (c) => {
-=======
-  // Add rate limiting for admin endpoints (before authentication check)
-  // Rate limit: 10 requests per second per IP address
-  const appWithRateLimit = app.auth.admin
-    ? honoApp.use('/api/auth/admin/*', async (c, next) => {
-        // Extract IP address (use x-forwarded-for for proxied requests, fallback to connection IP)
-        const forwardedFor = c.req.header('x-forwarded-for')
-        const ip = forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
-
-        // Get current timestamp
-        const now = Date.now()
-        const windowMs = 1000 // 1 second window
-        const maxRequests = 10
-
-        // Get or create request history for this IP
-        const requestHistory = adminRateLimitState.get(ip) ?? []
-
-        // Filter out timestamps older than the window
-        const recentRequests = requestHistory.filter((timestamp) => now - timestamp < windowMs)
-
-        // Check if rate limit exceeded
-        if (recentRequests.length >= maxRequests) {
-          return c.json({ error: 'Too many requests' }, 429)
-        }
-
-        // Record this request timestamp
-        // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
-        adminRateLimitState.set(ip, [...recentRequests, now])
-
-        // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
-        await next()
-      })
-    : honoApp
-
-  // Add authentication guard for admin endpoints
-  // Better Auth's admin plugin handles authorization internally, but returns 404 for unauthorized requests
-  // Tests expect 401 for unauthenticated and 403 for non-admin, so we intercept and provide proper status codes
-  const appWithAdminGuard = app.auth.admin
-    ? appWithRateLimit.use('/api/auth/admin/*', async (c, next) => {
-        // Check if request has valid session
-        const session = await authInstance.api.getSession({
-          headers: c.req.raw.headers,
-        })
-
-        if (!session) {
-          return c.json({ error: 'Unauthorized' }, 401)
-        }
-
-        // Check if user is banned
-        if (session.user.banned) {
-          return c.json({ error: 'User is banned' }, 403)
-        }
-
-        // Fetch user role from database to ensure we have the latest value
-        // Better Auth's admin plugin sets the role field on the user object,
-        // but we need to fetch it from the database after role changes
-        const { db } = await import('@/infrastructure/database')
-        const { users } = await import('@/infrastructure/auth/better-auth/schema')
-        const { eq } = await import('drizzle-orm')
-
-        const userRecords = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, session.user.id))
-          .limit(1)
-
-        if (userRecords.length === 0 || userRecords[0]?.role !== 'admin') {
-          return c.json({ error: 'Forbidden' }, 403)
-        }
-
-        // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
-        await next()
-      })
-    : honoApp
-
-  // Add update-config endpoint to update auth configuration at runtime
-  const appWithUpdateConfig = app.auth.admin
-    ? appWithAdminGuard.post('/api/auth/admin/update-config', async (c) => {
-        try {
-          const body = await c.req.json()
-          const { defaultRole } = body
-
-          if (!defaultRole) {
-            return c.json({ error: 'defaultRole is required' }, 400)
-          }
-
-          // Validate role exists
-          const validRoles = ['admin', 'user', 'member', 'viewer']
-          if (!validRoles.includes(defaultRole)) {
-            return c.json({ error: 'Invalid role' }, 400)
-          }
-
-          // Update runtime configuration
-          // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Runtime config update requires mutation
-          runtimeAuthConfig.defaultRole = defaultRole
-
-          return c.json({ success: true, defaultRole }, 200)
-        } catch {
-          return c.json({ error: 'Failed to update configuration' }, 500)
-        }
-      })
-    : appWithAdminGuard
-
-  // Add revoke-admin endpoint to remove admin role from users
-  const appWithRevokeAdmin = app.auth.admin
-    ? appWithUpdateConfig.post('/api/auth/admin/revoke-admin', async (c) => {
-        try {
-          const body = await c.req.json()
-          const { userId } = body
-
-          if (!userId) {
-            return c.json({ error: 'userId is required' }, 400)
-          }
-
-          // Get session for user ID check (authentication already validated by middleware)
-          const session = await authInstance.api.getSession({
-            headers: c.req.raw.headers,
-          })
-          if (!session) {
-            return c.json({ error: 'Unauthorized' }, 401)
-          }
-
-          // Map sequential ID to actual user ID for testing
-          const mappedId = await mapUserIdIfSequential(userId)
-          const actualUserId = mappedId ?? userId
-
-          // Prevent self-revocation
-          if (session.user.id === actualUserId) {
-            return c.json(
-              {
-                message: 'Cannot revoke your own admin role (self-revocation not allowed)',
-              },
-              400
-            )
-          }
-
-          // Update user role to 'user' (revoking admin)
-          const updatedUser = await updateUserRole(actualUserId, 'user')
-          if (!updatedUser) {
-            return c.json({ error: 'User not found' }, 404)
-          }
-
-          // Invalidate all sessions for the user to force re-authentication
-          // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
-          await authInstance.api.revokeUserSessions({
-            body: { userId: actualUserId },
-            headers: c.req.raw.headers,
-          })
-
-          return c.json({ user: updatedUser }, 200)
-        } catch {
-          return c.json({ error: 'Failed to revoke admin role' }, 500)
-        }
-      })
-    : appWithAdminGuard
-
-  // Add set-role endpoint to assign roles to users
-  const appWithSetRole = app.auth.admin
-    ? appWithRevokeAdmin.post('/api/auth/admin/set-role', async (c) => {
-        try {
-          const body = await c.req.json()
-          const { userId, role } = body
-
-          if (!userId || !role) {
-            return c.json({ error: 'userId and role are required' }, 400)
-          }
-
-          // Check if user is authenticated
-          const session = await authInstance.api.getSession({
-            headers: c.req.raw.headers,
-          })
-          if (!session) {
-            return c.json({ error: 'Unauthorized' }, 401)
-          }
-
-          // Map sequential ID to actual user ID for testing
-          const mappedId = await mapUserIdIfSequential(userId)
-          const actualUserId = mappedId ?? userId
-
-          // Check if user is authorized to assign roles
-          const authCheck = await isAuthorizedToAssignRole(session.user.id, actualUserId)
-          if (!authCheck.authorized) {
-            return c.json({ error: authCheck.reason ?? 'Forbidden' }, 403)
-          }
-
-          // Update user role in database
-          const updatedUser = await updateUserRole(actualUserId, role)
-          if (!updatedUser) {
-            return c.json({ error: 'User not found' }, 404)
-          }
-
-          // Invalidate all sessions for the user to force re-authentication
-          // This ensures the user gets a fresh session with the new role
-          // Without this, the old session would still contain the previous role
-          // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
-          await authInstance.api.revokeUserSessions({
-            body: { userId: actualUserId },
-            headers: c.req.raw.headers,
-          })
-
-          return c.json({ user: updatedUser }, 200)
-        } catch {
-          return c.json({ error: 'Failed to set role' }, 500)
-        }
-      })
-    : appWithRevokeAdmin
-
-  // Add get-user endpoint to retrieve user information
-  const appWithGetUser = app.auth.admin
-    ? appWithSetRole.get('/api/auth/admin/get-user', async (c) => {
-        try {
-          const userId = c.req.query('userId')
-
-          if (!userId) {
-            return c.json({ error: 'userId is required' }, 400)
-          }
-
-          // Map sequential ID to actual user ID for testing
-          const mappedId = await mapUserIdIfSequential(userId)
-          const actualUserId = mappedId ?? userId
-
-          // Get user from database
-          const { db } = await import('@/infrastructure/database')
-          const { users } = await import('@/infrastructure/auth/better-auth/schema')
-          const { eq } = await import('drizzle-orm')
-
-          const userRecords = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, actualUserId))
-            .limit(1)
-
-          if (userRecords.length === 0) {
-            return c.json({ error: 'User not found' }, 404)
-          }
-
-          return c.json(userRecords[0], 200)
-        } catch {
-          return c.json({ error: 'Failed to get user' }, 500)
-        }
-      })
-    : appWithSetRole
-
-  // Wrap ban-user endpoint to map sequential IDs to actual user IDs (for testing)
-  const appWithBanUser = app.auth.admin
-    ? appWithGetUser.post('/api/auth/admin/ban-user', async (c) => {
-        try {
-          const originalBody = await c.req.json()
-
-          // Map sequential ID to actual user ID for testing
-          const mappedId = originalBody.userId
-            ? await mapUserIdIfSequential(originalBody.userId)
-            : undefined
-
-          const requestBody = mappedId ? { ...originalBody, userId: mappedId } : originalBody
-
-          // Recreate request with mapped user ID
-          const delegateRequest = new Request(c.req.raw.url, {
-            method: c.req.raw.method,
-            headers: c.req.raw.headers,
-            body: JSON.stringify(requestBody),
-          })
-
-          return authInstance.handler(delegateRequest)
-        } catch {
-          return authInstance.handler(c.req.raw)
-        }
-      })
-    : appWithGetUser
-
-  // Wrap sign-up to auto-promote users with "admin" in email and apply runtime default role
-  const appWithSignUp = appWithBanUser.post('/api/auth/sign-up/email', async (c) => {
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
     try {
       const body = await c.req.json()
 
@@ -825,7 +472,6 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           .update(users)
           .set({ role: runtimeAuthConfig.defaultRole })
           .where(eq(users.email, body.email))
-<<<<<<< HEAD
 
         // Update response body to include the new role (only if defaultRole is configured)
         if (runtimeAuthConfig.defaultRole) {
@@ -850,8 +496,6 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
           return newResponse
         }
-=======
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
       }
 
       return response
@@ -889,24 +533,6 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Wrap verify-email to enforce single-use tokens
   const appWithVerifyEmail = appWithBanCheck.get('/api/auth/verify-email', async (c) => {
     const token = c.req.query('token')
-<<<<<<< HEAD
-
-    if (!token) {
-      return c.json({ message: 'Token is required' }, 400)
-    }
-
-    // Check if token has already been used
-    if (usedVerificationTokens.has(token)) {
-      return c.json({ message: 'Token has already been used' }, 401)
-    }
-
-    // Mark token as used before delegating to Better Auth
-    // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Token consumption tracking requires mutation
-    usedVerificationTokens.add(token)
-
-    // Delegate to Better Auth for actual verification
-    return authInstance.handler(c.req.raw)
-=======
 
     if (!token) {
       return c.json({ message: 'Token is required' }, 400)
@@ -1071,17 +697,12 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     } catch {
       return c.json({ error: 'Unauthorized' }, 401)
     }
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
   })
 
   // Add organization isolation endpoint (GET /api/auth/organization/:id)
   // Enforces that users can only access organizations they belong to
   const wrappedApp = app.auth.organization
-<<<<<<< HEAD
-    ? appWithVerifyEmail.get('/api/auth/organization/:id', async (c) => {
-=======
     ? appWithGetSession.get('/api/auth/organization/:id', async (c) => {
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
         try {
           const organizationId = c.req.param('id')
 
@@ -1130,11 +751,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return c.json({ error: 'Failed to get organization' }, 500)
         }
       })
-<<<<<<< HEAD
-    : appWithVerifyEmail
-=======
     : appWithGetSession
->>>>>>> f8941dd63ad6c0b611aeb719480c6abf2caa2c46
 
   // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
