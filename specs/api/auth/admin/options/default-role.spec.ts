@@ -92,7 +92,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-005: should validate default role exists',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
