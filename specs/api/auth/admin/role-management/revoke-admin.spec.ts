@@ -201,11 +201,11 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-006: should return 401 when not authenticated',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, request }) => {
-      // GIVEN: An unauthenticated request
+    async ({ startServerWithSchema, request }) => {
+      // GIVEN: Server with admin plugin (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -215,15 +215,10 @@ test.describe('Revoke Admin Role', () => {
           },
         },
       })
-      const targetUser = await signUp({
-        email: 'target@example.com',
-        password: 'Password123!',
-        name: 'Target User',
-      })
 
-      // WHEN: Trying to revoke admin without authentication
+      // WHEN: Unauthenticated request to revoke admin role
       const response = await request.post('/api/auth/admin/revoke-admin', {
-        data: { userId: targetUser.user.id },
+        data: { userId: 'some-id' },
       })
 
       // THEN: Should return 401 Unauthorized

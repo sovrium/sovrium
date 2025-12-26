@@ -267,7 +267,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             return c.json({ error: 'userId is required' }, 400)
           }
 
-          // Check if user is authenticated
+          // Get session for user ID check (authentication already validated by middleware)
           const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
           if (!session) {
             return c.json({ error: 'Unauthorized' }, 401)
