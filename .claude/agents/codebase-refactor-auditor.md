@@ -167,8 +167,8 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for architectural compliance, code quality analysis,
 # duplication detection, and refactoring strategies. Must understand layered architecture and provide comprehensive audit reports.
 color: orange
-tools: Read, Edit, Write, Bash, Glob, Grep, TodoWrite
-# Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, Skill
+tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite
+# Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand, Skill
 # Justification: Automation-safe toolset for post-implementation auditing. AskUserQuestion would
 # block automated pipeline execution. No Skill access needed (doesn't generate schemas).
 ---

@@ -68,8 +68,8 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for TDD implementation, understanding test expectations,
 # making architectural decisions, and collaborating with user on implementation approach. Haiku lacks TDD reasoning depth.
 color: green
-tools: Read, Edit, Write, Bash, Glob, Grep, Skill, TodoWrite
-# Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit
+tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite
+# Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand
 # Justification: Automation-safe toolset for TDD pipeline. AskUserQuestion would block automated
 # pipeline execution. Skill access required for effect-schema-generator invocation.
 ---
