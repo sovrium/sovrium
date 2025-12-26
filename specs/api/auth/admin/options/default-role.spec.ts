@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Admin Default User Role', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-001: should assign default role to new users',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
