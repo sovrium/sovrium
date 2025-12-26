@@ -170,7 +170,7 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-005: should prevent self-revocation',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
@@ -201,11 +201,11 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-006: should return 401 when not authenticated',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, request }) => {
-      // GIVEN: An unauthenticated request
+    async ({ startServerWithSchema, request }) => {
+      // GIVEN: Server with admin plugin (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -215,15 +215,10 @@ test.describe('Revoke Admin Role', () => {
           },
         },
       })
-      const targetUser = await signUp({
-        email: 'target@example.com',
-        password: 'Password123!',
-        name: 'Target User',
-      })
 
-      // WHEN: Trying to revoke admin without authentication
+      // WHEN: Unauthenticated request to revoke admin role
       const response = await request.post('/api/auth/admin/revoke-admin', {
-        data: { userId: targetUser.user.id },
+        data: { userId: 'some-id' },
       })
 
       // THEN: Should return 401 Unauthorized
@@ -231,7 +226,7 @@ test.describe('Revoke Admin Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-REVOKE-007: admin can revoke role and verify permissions removed',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
@@ -255,6 +250,9 @@ test.describe('Revoke Admin Role', () => {
         password: 'Password123!',
         name: 'Target User',
       })
+
+      // Sign back in as admin (signUp replaces the session)
+      await signIn({ email: 'admin@example.com', password: 'Password123!' })
 
       await request.post('/api/auth/admin/set-role', {
         data: { userId: targetUser.user.id, role: 'admin' },

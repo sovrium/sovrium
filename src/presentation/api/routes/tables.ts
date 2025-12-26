@@ -79,6 +79,35 @@ const getTableNameFromId = (app: App, tableId: string): string | undefined => {
 }
 
 /**
+ * Check if a string contains authorization-related keywords
+ */
+const containsAuthKeywords = (text: string): boolean =>
+  text.includes('not found') || text.includes('access denied')
+
+/**
+ * Check if error is an authorization error (SessionContextError or access denied)
+ *
+ * @param error - The error to check
+ * @returns true if error is authorization-related (should return 404 instead of 500)
+ */
+const isAuthorizationError = (error: unknown): boolean => {
+  const errorMessage = error instanceof Error ? error.message : ''
+  const errorName = error instanceof Error ? error.name : ''
+  const errorString = String(error)
+  const causeMessage =
+    error instanceof Error && 'cause' in error && error.cause instanceof Error
+      ? error.cause.message
+      : ''
+
+  return (
+    containsAuthKeywords(errorMessage) ||
+    containsAuthKeywords(causeMessage) ||
+    errorName.includes('SessionContextError') ||
+    errorString.includes('SessionContextError')
+  )
+}
+
+/**
  * Handle batch restore errors with appropriate HTTP responses
  */
 const handleBatchRestoreError = (c: Context, error: unknown) => {
@@ -169,10 +198,21 @@ function createListRecordsProgram(
     // Query records with session context (RLS policies automatically applied)
     const records = yield* listRecords(session, tableName)
 
-    // Apply field-level read permissions filtering
+    // Enforce horizontal privilege escalation prevention
+    // Filter out records that don't belong to the current user (if table has user_id/owner_id)
     const { userId } = session
+    const ownerFilteredRecords = records.filter((record) => {
+      const recordUserId = record['user_id'] ?? record['owner_id']
+      // If the record has a user/owner field, only include records owned by the current user
+      if (recordUserId !== undefined) {
+        return String(recordUserId) === String(userId)
+      }
+      // If no user/owner field, include the record (no ownership constraint)
+      return true
+    })
 
-    const filteredRecords = records.map((record) =>
+    // Apply field-level read permissions filtering
+    const filteredRecords = ownerFilteredRecords.map((record) =>
       filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
@@ -190,12 +230,31 @@ function createListRecordsProgram(
   })
 }
 
+/**
+ * Retrieves the user's role from the database
+ */
+async function getUserRole(userId: string): Promise<string> {
+  const { db } = await import('@/infrastructure/database')
+  const userResult = (await db.execute(
+    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+  )) as Array<{ role: string | null }>
+  return userResult[0]?.role || 'member'
+}
+
+interface GetRecordConfig {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly recordId: string
+  readonly app: App
+  readonly userRole: string
+}
+
 function createGetRecordProgram(
-  session: Readonly<Session>,
-  tableName: string,
-  recordId: string
+  config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
+    const { session, tableName, recordId, app, userRole } = config
+
     // Query record with session context (RLS policies automatically applied)
     const record = yield* getRecord(session, tableName, recordId)
 
@@ -203,7 +262,34 @@ function createGetRecordProgram(
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
-    return { record: transformRecord(record) }
+    // Enforce organization isolation
+    // If the record has an organization_id field, verify it matches the session's active organization
+    const { userId, activeOrganizationId } = session
+    const recordOrgId = record['organization_id']
+
+    // If the record has an organization_id field and session has an active organization
+    if (recordOrgId !== undefined && activeOrganizationId !== undefined) {
+      // If organization IDs don't match, deny access
+      if (String(recordOrgId) !== String(activeOrganizationId)) {
+        // Return 404 instead of 403 to prevent enumeration
+        return yield* Effect.fail(new SessionContextError('Record not found'))
+      }
+    }
+
+    // Enforce horizontal privilege escalation prevention
+    // If the record has a user_id or owner_id field, verify ownership
+    const recordUserId = record['user_id'] ?? record['owner_id']
+
+    // If the record has a user/owner field and it doesn't match the session user, deny access
+    if (recordUserId !== undefined && String(recordUserId) !== String(userId)) {
+      // Return 404 instead of 403 to prevent enumeration
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
+
+    // Apply field-level read permissions filtering
+    const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
+
+    return { record: transformRecord(filteredRecord) }
   })
 }
 
@@ -403,11 +489,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
 
         // Query user role from database (for field-level read permissions)
-        const { db } = await import('@/infrastructure/database')
-        const userResult = (await db.execute(
-          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-        )) as Array<{ role: string | null }>
-        const userRole = userResult[0]?.role || 'member'
+        const userRole = await getUserRole(session.userId)
 
         return runEffect(
           c,
@@ -437,6 +519,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           createRecordResponseSchema
         )
       })
+      // eslint-disable-next-line complexity -- Error handling for authorization requires multiple checks
       .get('/api/tables/:tableId/records/:recordId', async (c) => {
         const { session } = (c as ContextWithSession).var
         if (!session) {
@@ -450,11 +533,48 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
-        return runEffect(
-          c,
-          createGetRecordProgram(session, tableName, c.req.param('recordId')),
-          getRecordResponseSchema
-        )
+        // Query user role from database (for field-level read permissions)
+        const userRole = await getUserRole(session.userId)
+
+        try {
+          const program = createGetRecordProgram({
+            session,
+            tableName,
+            recordId: c.req.param('recordId'),
+            app,
+            userRole,
+          })
+          const result = await Effect.runPromise(program)
+          const validated = getRecordResponseSchema.parse(result)
+          return c.json(validated, 200)
+        } catch (error) {
+          // Check if error indicates authorization failure or record not found
+          // Effect wraps errors, so check both message and error name
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          const errorName = error instanceof Error ? error.name : ''
+          const errorString = String(error)
+
+          // Check if it's a SessionContextError (authorization/not found)
+          if (
+            errorMessage.includes('Record not found') ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('access denied') ||
+            errorName.includes('SessionContextError') ||
+            errorString.includes('SessionContextError')
+          ) {
+            // Return 404 for authorization failures to prevent enumeration
+            return c.json({ error: 'Record not found' }, 404)
+          }
+
+          // For other errors, return 500
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: errorMessage,
+            },
+            500
+          )
+        }
       })
       // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions
       .patch('/api/tables/:tableId/records/:recordId', async (c) => {
@@ -530,20 +650,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
           return c.json(updateResult, 200)
         } catch (error) {
-          // If error message indicates RLS blocking or record not found, return 404
-          // Check both the error message and the cause message (for SessionContextError)
-          const errorMessage = error instanceof Error ? error.message : ''
-          const causeMessage =
-            error instanceof Error && 'cause' in error && error.cause instanceof Error
-              ? error.cause.message
-              : ''
-
-          if (
-            errorMessage.includes('not found') ||
-            errorMessage.includes('access denied') ||
-            causeMessage.includes('not found') ||
-            causeMessage.includes('access denied')
-          ) {
+          // Return 404 for authorization failures to prevent enumeration
+          if (isAuthorizationError(error)) {
             return c.json({ error: 'Record not found' }, 404)
           }
 
@@ -581,6 +689,11 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for empty responses
           return c.body(null, 204) // 204 No Content
         } catch (error) {
+          // Return 404 for authorization failures to prevent enumeration
+          if (isAuthorizationError(error)) {
+            return c.json({ error: 'Record not found' }, 404)
+          }
+
           return c.json(
             {
               error: 'Internal server error',

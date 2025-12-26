@@ -105,8 +105,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // Chain activity routes (activity log access)
   const honoWithActivity = chainActivityRoutes(honoWithTables)
 
-  // Chain auth routes (organization member management)
-  return chainAuthRoutes(honoWithActivity)
+  // Chain auth routes (role manipulation prevention)
+  return chainAuthRoutes(honoWithActivity, auth)
 }
 
 /**

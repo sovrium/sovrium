@@ -43,7 +43,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-001: should prevent horizontal privilege escalation on user records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -99,7 +99,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-002: should prevent IDOR attacks via predictable IDs',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -156,7 +156,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-003: should enforce organization isolation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -221,7 +221,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-004: should prevent role manipulation attacks',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -335,7 +335,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-006: should prevent access via modified JWT claims',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -367,7 +367,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-007: should return 404 instead of 403 to prevent enumeration',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -423,7 +423,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-008: should filter sensitive fields from API responses based on permissions',
     { tag: '@spec' },
     async ({
@@ -510,7 +510,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-009: should prevent cross-organization access to table records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
@@ -571,16 +571,10 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-010: authorization controls prevent privilege escalation and data leakage',
     { tag: '@regression' },
-    async ({
-      page,
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createAuthenticatedAdmin,
-    }) => {
+    async ({ page, request, startServerWithSchema, createAuthenticatedUser, signIn }) => {
       let userAId: string
       let privateNoteId: number
 
@@ -607,7 +601,11 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
       })
 
       await test.step('Setup: Create admin and regular users', async () => {
-        await createAuthenticatedAdmin()
+        // Create first user with "admin" in email (auto-promoted to admin role)
+        await createAuthenticatedUser({
+          email: 'admin@example.com',
+          name: 'Admin User',
+        })
 
         const userA = await createAuthenticatedUser({
           email: 'userA@example.com',
@@ -651,7 +649,9 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
       })
 
       await test.step('Verify: Admin can access admin endpoints', async () => {
-        await createAuthenticatedAdmin()
+        // Sign in as the admin user we created at the beginning
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
+
         const adminResponse = await page.request.get('/api/auth/admin/list-users')
         expect(adminResponse.status()).toBe(200)
       })

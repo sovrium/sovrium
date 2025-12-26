@@ -64,4 +64,27 @@ describe('AdminConfigSchema', () => {
       expect(() => Schema.decodeUnknownSync(AdminConfigSchema)(['admin'])).toThrow()
     })
   })
+
+  describe('defaultRole validation', () => {
+    test('should accept valid default role: admin', () => {
+      const result = Schema.decodeUnknownSync(AdminConfigSchema)({ defaultRole: 'admin' })
+      expect(result).toEqual({ defaultRole: 'admin' })
+    })
+
+    test('should accept valid default role: user', () => {
+      const result = Schema.decodeUnknownSync(AdminConfigSchema)({ defaultRole: 'user' })
+      expect(result).toEqual({ defaultRole: 'user' })
+    })
+
+    test('should accept valid default role: viewer', () => {
+      const result = Schema.decodeUnknownSync(AdminConfigSchema)({ defaultRole: 'viewer' })
+      expect(result).toEqual({ defaultRole: 'viewer' })
+    })
+
+    test('should reject invalid default role with clear error message', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(AdminConfigSchema)({ defaultRole: 'non-existent-role' })
+      ).toThrow(/invalid.*role/i)
+    })
+  })
 })

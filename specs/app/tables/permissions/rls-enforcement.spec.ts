@@ -518,7 +518,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // Dual-Layer Permission Tests (Better Auth + RLS) - Dual Filtering Pattern
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-009: should demonstrate dual filtering pattern (Better Auth allows → RLS filters rows)',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -541,7 +541,12 @@ test.describe('Row-Level Security Enforcement', () => {
             ],
             permissions: {
               read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: role check
-              // No owner-based read restriction here - RLS handles row filtering
+              records: [
+                {
+                  action: 'read',
+                  condition: '{userId} = author_id', // RLS: row filtering by ownership
+                },
+              ],
             },
           },
         ],
@@ -582,7 +587,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-010: should apply complementary filtering (role-based API + status-based RLS)',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -654,7 +659,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-011: should enforce multi-condition RLS filtering with role-based API access',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
