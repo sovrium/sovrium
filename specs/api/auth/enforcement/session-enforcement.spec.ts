@@ -161,7 +161,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-004: should enforce session expiration strictly',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
