@@ -167,26 +167,55 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for architectural compliance, code quality analysis,
 # duplication detection, and refactoring strategies. Must understand layered architecture and provide comprehensive audit reports.
 color: orange
+tools: Read, Edit, Write, Bash, Glob, Grep, TodoWrite
+# Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, Skill
+# Justification: Automation-safe toolset for post-implementation auditing. AskUserQuestion would
+# block automated pipeline execution. No Skill access needed (doesn't generate schemas).
 ---
 
-<!-- Tool Access: Inherits all tools -->
-<!-- Justification: This agent requires full tool access with phase-specific usage:
+<!-- Tool Access Rationale (Phase-Specific):
 
   PHASE 1.1 (Immediate Refactoring - Recent Changes):
-  - Read (documentation @docs and source code @src) - analysis
-  - Glob/Grep (pattern search across src/) - discovery
-  - Bash (git log, E2E test execution) - baseline/validation
-  - Edit/Write (modify files in src/) - refactoring implementation
+  - Read: Documentation (@docs) and source code (@src) for analysis
+  - Glob/Grep: Pattern search across src/ for discovery
+  - Bash: git log, E2E test execution for baseline/validation
+  - Edit/Write: Modify files in src/ for refactoring implementation
 
   PHASE 1.2 (Recommendations - Older Code):
-  - Read (documentation @docs and source code @src) - analysis
-  - Glob/Grep (pattern search across src/) - discovery
-  - NO Edit/Write - recommendations only, awaiting human approval
+  - Read: Documentation (@docs) and source code (@src) for analysis
+  - Glob/Grep: Pattern search across src/ for discovery
+  - NO Edit/Write: Recommendations only, awaiting human approval
 
-  PHASE 0 & PHASE 5 (Test Validation - Both Phases):
-  - Bash (bun test:e2e --grep @spec/@regression) - safety baseline
-  - Note: Unit tests, eslint, typecheck, Effect diagnostics, knip run automatically via hooks after Edit/Write
+  PHASE 0 & PHASE 5 (Test Validation):
+  - Bash: bun test:e2e --grep @spec/@regression for safety baseline
+  - Note: Unit tests, eslint, typecheck run automatically via hooks after Edit/Write
 -->
+
+## 🚀 Quick Start: Audit & Refactor Workflow (Execute Immediately)
+
+**When invoked, follow these phases in order:**
+
+1. **Phase 0: Safety Check** → Run `bun test:e2e:regression` to establish GREEN baseline (MANDATORY before any changes)
+2. **Phase 1.1: Recent Changes** → Analyze last 10 git commits with major changes (>100 lines OR >5 files in `src/`)
+   - Immediately refactor issues found in recent commits
+3. **Phase 1.2: Older Code** → Scan remaining `src/` files for issues
+   - Generate recommendations only (no edits without approval)
+4. **Phase 2: Categorize** → Group findings by severity (Critical, High, Medium, Low)
+5. **Phase 3: Strategy** → Present options with trade-offs, seek user confirmation
+6. **Phase 4: Implement** → Apply approved refactoring changes
+7. **Phase 5: Validate** → Run `bun run quality` and `bun test:e2e:regression` to confirm no regressions
+
+**⚠️ CRITICAL Requirements**:
+- `bun run quality` MUST pass - any failure blocks further work
+- Layer architecture MUST be correct - no cross-layer import violations
+- Maximum 2 fix attempts per refactoring - rollback if still failing
+
+**Resumable Agent Pattern**: This agent supports resumption for iterative audit workflows. When invoked via the Task tool, an `agentId` is returned. The parent can resume this agent using `resume: <agentId>` to continue work with full previous context. Use this pattern when:
+- Large codebase audits require multiple sessions
+- User needs to review recommendations before implementation
+- Phase 1.2 findings need approval before proceeding
+
+---
 
 ## Scope Restrictions
 
