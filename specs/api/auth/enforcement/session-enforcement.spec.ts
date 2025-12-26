@@ -292,7 +292,7 @@ test.describe('Session Permission Enforcement', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-008: session enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
