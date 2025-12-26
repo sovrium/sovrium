@@ -202,9 +202,9 @@ test.describe('Get current session', () => {
 
       await test.step('Verify no session before sign-in', async () => {
         const noSessionResponse = await page.request.get('/api/auth/get-session')
-        expect(noSessionResponse.status()).toBe(200)
+        expect(noSessionResponse.status()).toBe(401)
         const noSessionData = await noSessionResponse.json()
-        expect(noSessionData).toBeNull()
+        expect(noSessionData).toEqual({ error: 'Unauthorized' })
       })
 
       await test.step('Setup: Create and authenticate user', async () => {
@@ -228,9 +228,9 @@ test.describe('Get current session', () => {
         await page.request.post('/api/auth/sign-out')
 
         const afterSignOutResponse = await page.request.get('/api/auth/get-session')
-        expect(afterSignOutResponse.status()).toBe(200)
+        expect(afterSignOutResponse.status()).toBe(401)
         const afterSignOutData = await afterSignOutResponse.json()
-        expect(afterSignOutData).toBeNull()
+        expect(afterSignOutData).toEqual({ error: 'Unauthorized' })
       })
     }
   )

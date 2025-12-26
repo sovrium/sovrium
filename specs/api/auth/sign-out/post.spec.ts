@@ -212,8 +212,9 @@ test.describe('Sign out user', () => {
 
       await test.step('Verify session is invalidated', async () => {
         const sessionResponse = await page.request.get('/api/auth/get-session')
+        expect(sessionResponse.status()).toBe(401)
         const sessionData = await sessionResponse.json()
-        expect(sessionData).toBeNull()
+        expect(sessionData).toEqual({ error: 'Unauthorized' })
       })
 
       await test.step('Verify user can sign in again', async () => {

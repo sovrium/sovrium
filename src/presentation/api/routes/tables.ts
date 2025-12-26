@@ -198,21 +198,11 @@ function createListRecordsProgram(
     // Query records with session context (RLS policies automatically applied)
     const records = yield* listRecords(session, tableName)
 
-    // Enforce horizontal privilege escalation prevention
-    // Filter out records that don't belong to the current user (if table has user_id/owner_id)
-    const { userId } = session
-    const ownerFilteredRecords = records.filter((record) => {
-      const recordUserId = record['user_id'] ?? record['owner_id']
-      // If the record has a user/owner field, only include records owned by the current user
-      if (recordUserId !== undefined) {
-        return String(recordUserId) === String(userId)
-      }
-      // If no user/owner field, include the record (no ownership constraint)
-      return true
-    })
-
     // Apply field-level read permissions filtering
-    const filteredRecords = ownerFilteredRecords.map((record) =>
+    // Note: Row-level ownership filtering is handled by RLS policies
+    // Field-level filtering is handled at application layer
+    const { userId } = session
+    const filteredRecords = records.map((record) =>
       filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
