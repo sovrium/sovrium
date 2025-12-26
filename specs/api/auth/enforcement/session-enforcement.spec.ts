@@ -254,7 +254,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-007: should bind session to original IP/user-agent when strict mode enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
