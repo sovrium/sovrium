@@ -1027,117 +1027,160 @@ jobs:
 
           echo "✅ Duplicate handling complete - exiting successfully (no further action needed)"
 
-      - name: Verify PR was created
-        # Skip PR verification if duplicate was detected (issue already closed or PR already merged)
+      # =========================================================================
+      # PHASE 2: Workflow-managed PR creation
+      # =========================================================================
+      # Claude is now instructed to commit and push, but NOT create PR.
+      # The workflow creates the PR to ensure reliable "Closes #XXXX" format.
+      # =========================================================================
+
+      - name: Create PR from branch (workflow-managed)
+        # Skip if duplicate was detected (issue already closed or PR already merged)
         if: steps.duplicate_check.outputs.is_duplicate != 'true'
+        id: create_pr
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
         run: |
-          echo "🔍 Verifying PR was created for issue #$ISSUE_NUMBER..."
+          echo "🔍 Looking for branch to create PR for issue #$ISSUE_NUMBER..."
 
-          # Wait up to 2 minutes for PR to appear
-          PR_FOUND=false
-          for i in {1..12}; do
-            PR_COUNT=$(gh pr list --repo "$REPO" --json number,headRefName --jq "[.[] | select(.headRefName | test(\"^claude/issue-.*$ISSUE_NUMBER.*\"))] | length")
+          # Check if PR already exists (Claude might have created one despite instructions)
+          EXISTING_PR=$(gh pr list --repo "$REPO" \
+            --json number,headRefName \
+            --jq "[.[] | select(.headRefName | test(\"^claude/issue-.*$ISSUE_NUMBER.*\"))][0].number" 2>/dev/null || echo "")
 
-            if [ "$PR_COUNT" -gt 0 ]; then
-              PR_NUMBER=$(gh pr list --repo "$REPO" --json number,headRefName --jq "[.[] | select(.headRefName | test(\"^claude/issue-.*$ISSUE_NUMBER.*\"))][0].number")
-              echo "✅ PR #$PR_NUMBER found!"
-              PR_FOUND=true
-              break
-            fi
-
-            echo "Attempt $i/12: PR not found yet, waiting 10 seconds..."
-            sleep 10
-          done
-
-          # PR Recovery: Check if branch exists with commits before marking as failed
-          if [ "$PR_FOUND" = false ]; then
-            echo "🔍 PR not found - checking if branch exists with commits..."
-
-            BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
-            BRANCH_EXISTS=$(gh api "/repos/$REPO/branches" --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))] | length")
-
-            if [ "$BRANCH_EXISTS" -gt 0 ]; then
-              BRANCH_FULL_NAME=$(gh api "/repos/$REPO/branches" --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name")
-
-              echo "🔧 Branch found: $BRANCH_FULL_NAME - attempting PR creation from existing branch..."
-
-              # Get spec ID from issue body
-              SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body' | grep -oP 'SPEC-[A-Z0-9-]+' | head -1 || echo "unknown-spec")
-
-              # Create PR from existing branch
-              PR_CREATE_OUTPUT=$(gh pr create \
-                --repo "$REPO" \
-                --head "$BRANCH_FULL_NAME" \
-                --base main \
-                --title "fix: implement $SPEC_ID" \
-                --body "Closes #${ISSUE_NUMBER}"$'\n\n'"Automated PR creation from existing branch (Claude Code forgot to create PR)."$'\n\n'"---"$'\n'"🤖 Automated recovery via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-                --label "tdd-automation" \
-                --json number --jq '.number' 2>&1)
-
-              if [[ "$PR_CREATE_OUTPUT" =~ ^[0-9]+$ ]]; then
-                PR_NUMBER="$PR_CREATE_OUTPUT"
-                echo "✅ Recovery successful - PR #$PR_NUMBER created from branch $BRANCH_FULL_NAME"
-                PR_FOUND=true
-
-                # Enable auto-merge
-                gh pr merge "$PR_NUMBER" --auto --squash --repo "$REPO" || echo "⚠️  Auto-merge failed, but PR created successfully"
-
-                gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
-                  --body "✅ **Automatic Recovery**: PR #$PR_NUMBER created from existing branch"$'\n\n'"Claude Code forgot to create PR, but changes were committed to branch \`$BRANCH_FULL_NAME\`. PR created automatically."$'\n\n'"Auto-merge enabled - PR will merge when CI passes."$'\n\n'"---"$'\n'"🤖 Automated recovery via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-              else
-                echo "⚠️  PR creation failed: $PR_CREATE_OUTPUT"
-              fi
-            else
-              echo "ℹ️  No branch found with pattern: $BRANCH_PATTERN"
-            fi
+          if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
+            echo "✅ PR #$EXISTING_PR already exists - skipping PR creation"
+            echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
+            echo "pr_created=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
-          if [ "$PR_FOUND" = false ]; then
-            echo "❌ No PR found after 2 minutes and recovery failed - marking issue as failed"
+          # Find branch created by Claude
+          BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
+          BRANCH_FULL_NAME=$(gh api "/repos/$REPO/branches" \
+            --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
+
+          if [ -z "$BRANCH_FULL_NAME" ] || [ "$BRANCH_FULL_NAME" = "null" ]; then
+            echo "❌ No branch found with pattern: $BRANCH_PATTERN"
+            echo "   Claude may not have pushed changes."
+            echo ""
+            echo "Marking issue as failed..."
 
             gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
               --remove-label "tdd-spec:in-progress" \
               --add-label "tdd-spec:failed"
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
-              --body "❌ **TDD Automation Failed: PR Not Created**
+              --body "❌ **TDD Automation Failed: No Branch Found**
 
-            Claude Code finished successfully but did not create a pull request. This is required for the TDD automation workflow to complete.
+          Claude Code finished but no branch was pushed to the repository.
 
-            **Next Steps**:
-            1. Review Claude Code's work in the branch (if created)
-            2. Manually create PR if changes exist
-            3. Or re-run this spec if needed
+          **Expected branch pattern**: \`$BRANCH_PATTERN*\`
 
-            **Issue Status**: Marked as \`tdd-spec:failed\` - requires manual intervention.
-            **Pipeline Status**: Queue processor will continue with next spec (this issue does not block the pipeline).
+          **Next Steps**:
+          1. Check if Claude encountered an error during implementation
+          2. Re-run this spec if needed
 
-            ---
-            *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          **Issue Status**: Marked as \`tdd-spec:failed\` - requires manual intervention.
+
+          ---
+          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
 
             exit 1
           fi
 
-      # NEW: Validate and fix PR body to ensure auto-close will work
-      # This prevents orphaned issues when Claude writes detailed PR descriptions
-      # instead of the required simple "Closes #<issue_number>" format
+          echo "✅ Found branch: $BRANCH_FULL_NAME"
+
+          # Get spec ID from issue body
+          SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body' | grep -oE '[A-Z]+-[A-Z]+-[A-Z0-9-]+' | head -1 || echo "unknown-spec")
+
+          echo "📋 Creating PR for $SPEC_ID..."
+
+          # Create PR with guaranteed correct format
+          # CRITICAL: Body is EXACTLY "Closes #XXXX" - nothing else
+          PR_CREATE_OUTPUT=$(gh pr create \
+            --repo "$REPO" \
+            --head "$BRANCH_FULL_NAME" \
+            --base main \
+            --title "fix: implement $SPEC_ID" \
+            --body "Closes #${ISSUE_NUMBER}" \
+            --label "tdd-automation" \
+            --json number --jq '.number' 2>&1)
+
+          if [[ "$PR_CREATE_OUTPUT" =~ ^[0-9]+$ ]]; then
+            PR_NUMBER="$PR_CREATE_OUTPUT"
+            echo "✅ PR #$PR_NUMBER created successfully!"
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "pr_created=true" >> $GITHUB_OUTPUT
+
+            # Enable auto-merge
+            echo ""
+            echo "🔄 Enabling auto-merge..."
+            if gh pr merge "$PR_NUMBER" --auto --squash --repo "$REPO"; then
+              echo "✅ Auto-merge enabled"
+            else
+              echo "⚠️  Auto-merge failed - PR will need manual merge"
+            fi
+
+            # Post success comment
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+              --body "✅ **PR Created**: #$PR_NUMBER
+
+          Workflow created PR from branch \`$BRANCH_FULL_NAME\` with auto-merge enabled.
+
+          PR will merge automatically when CI passes.
+
+          ---
+          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          else
+            echo "❌ PR creation failed: $PR_CREATE_OUTPUT"
+
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
+              --remove-label "tdd-spec:in-progress" \
+              --add-label "tdd-spec:failed"
+
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+              --body "❌ **TDD Automation Failed: PR Creation Error**
+
+          Branch \`$BRANCH_FULL_NAME\` exists but PR creation failed.
+
+          **Error**: \`$PR_CREATE_OUTPUT\`
+
+          **Next Steps**:
+          1. Manually create PR from branch \`$BRANCH_FULL_NAME\`
+          2. Or investigate the error above
+
+          **Issue Status**: Marked as \`tdd-spec:failed\` - requires manual intervention.
+
+          ---
+          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+
+            exit 1
+          fi
+
+      # Safety net: Validate PR body in case Claude created PR despite instructions
+      # (When workflow creates PR, body is guaranteed correct)
       - name: Validate PR body has auto-close keyword
         if: steps.duplicate_check.outputs.is_duplicate != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
+          CREATED_PR_NUMBER: ${{ steps.create_pr.outputs.pr_number }}
         run: |
           echo "🔍 Validating PR body contains auto-close keyword..."
 
-          # Find the PR for this issue (using branch pattern)
-          PR_NUMBER=$(gh pr list --repo "$REPO" \
-            --json number,headRefName \
-            --jq "[.[] | select(.headRefName | test(\"^claude/issue-.*$ISSUE_NUMBER.*\"))][0].number")
+          # Use PR number from create_pr step if available, otherwise find it
+          if [ -n "$CREATED_PR_NUMBER" ] && [ "$CREATED_PR_NUMBER" != "" ]; then
+            PR_NUMBER="$CREATED_PR_NUMBER"
+            echo "Using PR #$PR_NUMBER from create_pr step"
+          else
+            PR_NUMBER=$(gh pr list --repo "$REPO" \
+              --json number,headRefName \
+              --jq "[.[] | select(.headRefName | test(\"^claude/issue-.*$ISSUE_NUMBER.*\"))][0].number")
+          fi
 
           if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
             echo "⚠️  No PR found to validate - skipping body check"
