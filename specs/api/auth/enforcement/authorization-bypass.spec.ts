@@ -221,7 +221,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-004: should prevent role manipulation attacks',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
