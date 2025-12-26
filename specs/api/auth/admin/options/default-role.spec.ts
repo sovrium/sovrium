@@ -35,7 +35,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: should support custom default role configuration',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
