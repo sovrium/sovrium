@@ -732,7 +732,7 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  createAuthenticatedAdmin: async ({ createAuthenticatedUser, page }, use, testInfo) => {
+  createAuthenticatedAdmin: async ({ createAuthenticatedUser, page, signIn }, use, testInfo) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
       const user = await createAuthenticatedUser(data)
@@ -743,7 +743,7 @@ export const test = base.extend<ServerFixtures>({
         throw new Error('Server not started.')
       }
 
-      // Use admin API to set role
+      // Use admin API to set role (this revokes all user sessions)
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
           userId: user.user.id,
@@ -759,7 +759,12 @@ export const test = base.extend<ServerFixtures>({
         )
       }
 
-      return user
+      // Re-authenticate after session revocation (set-role revokes all sessions)
+      const testId = data?.email || user.user.email
+      const password = data?.password || 'TestPassword123!'
+      const signInResult = await signIn({ email: testId, password })
+
+      return signInResult
     })
   },
 

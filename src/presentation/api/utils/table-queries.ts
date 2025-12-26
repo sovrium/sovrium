@@ -87,6 +87,7 @@ export function getRecord(
     Effect.tryPromise({
       try: async () => {
         validateTableName(tableName)
+
         // Use parameterized query for recordId (automatic via template literal)
         const result = (await tx.execute(
           sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
@@ -95,8 +96,9 @@ export function getRecord(
         // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
         return result[0] ?? null
       },
-      catch: (error) =>
-        new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error),
+      catch: (error) => {
+        return new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error)
+      },
     })
   )
 }
@@ -149,7 +151,22 @@ export function createRecord(
 
         return result[0] ?? {}
       },
-      catch: (error) => new SessionContextError(`Failed to create record in ${tableName}`, error),
+      catch: (error) => {
+        // Debug: Log actual PostgreSQL error
+        console.error('[createRecord] PostgreSQL error:', error)
+        if (error && typeof error === 'object' && 'message' in error) {
+          console.error('[createRecord] Error message:', error.message)
+        }
+        // Include the actual error message in the SessionContextError message for debugging
+        const errorMessage =
+          error && typeof error === 'object' && 'message' in error
+            ? String(error.message)
+            : String(error)
+        return new SessionContextError(
+          `Failed to create record in ${tableName}: ${errorMessage}`,
+          error
+        )
+      },
     })
   )
 }

@@ -249,46 +249,57 @@ interface GetRecordConfig {
   readonly userRole: string
 }
 
+/**
+ * Check if record passes organization isolation check
+ * Returns true if access is allowed, false if denied
+ */
+function passesOrganizationCheck(
+  record: Readonly<Record<string, unknown>>,
+  activeOrganizationId: string | null | undefined
+): boolean {
+  const recordOrgId = record['organization_id']
+  if (recordOrgId === undefined || !activeOrganizationId) return true
+  return String(recordOrgId) === String(activeOrganizationId)
+}
+
+/**
+ * Check if record passes ownership check
+ * Returns true if access is allowed, false if denied
+ */
+function passesOwnershipCheck(
+  record: Readonly<Record<string, unknown>>,
+  userId: string,
+  app: App,
+  tableName: string
+): boolean {
+  const recordUserId = record['user_id'] ?? record['owner_id']
+  const table = app.tables?.find((t) => t.name === tableName)
+  const hasOwnerField = table?.fields.some((f) => f.name === 'user_id' || f.name === 'owner_id')
+  if (!hasOwnerField || recordUserId === undefined) return true
+  return String(recordUserId) === String(userId)
+}
+
 function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
     const { session, tableName, recordId, app, userRole } = config
-
-    // Query record with session context (RLS policies automatically applied)
-    const record = yield* getRecord(session, tableName, recordId)
-
-    if (!record) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
-    }
-
-    // Enforce organization isolation
-    // If the record has an organization_id field, verify it matches the session's active organization
     const { userId, activeOrganizationId } = session
-    const recordOrgId = record['organization_id']
 
-    // If the record has an organization_id field and session has an active organization
-    if (recordOrgId !== undefined && activeOrganizationId !== undefined) {
-      // If organization IDs don't match, deny access
-      if (String(recordOrgId) !== String(activeOrganizationId)) {
-        // Return 404 instead of 403 to prevent enumeration
-        return yield* Effect.fail(new SessionContextError('Record not found'))
-      }
-    }
+    const record = yield* getRecord(session, tableName, recordId)
+    if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
 
-    // Enforce horizontal privilege escalation prevention
-    // If the record has a user_id or owner_id field, verify ownership
-    const recordUserId = record['user_id'] ?? record['owner_id']
-
-    // If the record has a user/owner field and it doesn't match the session user, deny access
-    if (recordUserId !== undefined && String(recordUserId) !== String(userId)) {
-      // Return 404 instead of 403 to prevent enumeration
+    // Enforce organization isolation (return 404 to prevent enumeration)
+    if (!passesOrganizationCheck(record, activeOrganizationId)) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
-    // Apply field-level read permissions filtering
-    const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
+    // Enforce ownership check (return 404 to prevent enumeration)
+    if (!passesOwnershipCheck(record, userId, app, tableName)) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
 
+    const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
     return { record: transformRecord(filteredRecord) }
   })
 }
@@ -516,7 +527,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         return runEffect(
           c,
           createRecordProgram(session, tableName, result.data.fields),
-          createRecordResponseSchema
+          createRecordResponseSchema,
+          201
         )
       })
       // eslint-disable-next-line complexity -- Error handling for authorization requires multiple checks

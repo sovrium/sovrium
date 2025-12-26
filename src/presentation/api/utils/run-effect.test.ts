@@ -136,7 +136,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Operation failed',
+        message: 'Operation failed | Cause: No cause details',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -152,7 +152,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Unexpected failure',
+        message: 'Unexpected failure | Cause: No cause details',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -170,7 +170,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Sync error',
+        message: 'Sync error | Cause: No cause details',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -183,7 +183,10 @@ describe('runEffect', () => {
       await runEffect(c, program, schema)
 
       const responses = c.getJsonResponses()
-      expect(responses[0]?.data).toHaveProperty('message', 'Database connection lost')
+      expect(responses[0]?.data).toHaveProperty(
+        'message',
+        'Database connection lost | Cause: No cause details'
+      )
     })
   })
 
@@ -358,7 +361,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Schema validation failed',
+        message: 'Schema validation failed | Cause: No cause details',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -407,7 +410,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Promise rejected',
+        message: 'Promise rejected | Cause: No cause details',
         code: 'INTERNAL_ERROR',
       })
     })

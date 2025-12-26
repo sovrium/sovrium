@@ -267,7 +267,14 @@ const applyTableFeatures = (
 
     // Group 2: RLS policies (sequential - must run after table is fully set up)
     // RLS policies depend on the table existing with all columns
-    yield* executeSQLStatements(tx, generateRLSPolicyStatements(physicalTable))
+    console.log(`[APPLY-FEATURES] Generating RLS policies for table: ${physicalTable.name}`)
+    const rlsPolicies = generateRLSPolicyStatements(physicalTable)
+    console.log(
+      `[APPLY-FEATURES] Generated ${rlsPolicies.length} RLS policy statements for ${physicalTable.name}`
+    )
+    console.log(`[APPLY-FEATURES] About to execute RLS policies for ${physicalTable.name}`)
+    yield* executeSQLStatements(tx, rlsPolicies)
+    console.log(`[APPLY-FEATURES] Successfully executed RLS policies for ${physicalTable.name}`)
 
     // Group 3: Grants (can run in parallel - all independent)
     // Grant operations don't depend on each other

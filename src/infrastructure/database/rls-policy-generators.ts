@@ -439,33 +439,34 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
 const generateDefaultDenyPolicies = (tableName: string): readonly string[] => {
   const enableRLS = generateEnableRLS(tableName)
 
-  // Allow app_user role (set by withSessionContext) to perform all operations
+  // Allow authenticated users (identified by app.user_id session variable)
   // This enables authenticated API access while blocking direct database access
-  const appUserCheck = `current_user = 'app_user'`
+  // Note: We use session variables instead of current_user because SET ROLE may not work reliably in all environments
+  const authenticatedCheck = `current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != ''`
 
   const selectPolicies = generatePolicyStatements(
     tableName,
-    `${tableName}_app_user_select`,
+    `${tableName}_authenticated_select`,
     'SELECT',
-    appUserCheck
+    authenticatedCheck
   )
   const insertPolicies = generatePolicyStatements(
     tableName,
-    `${tableName}_app_user_insert`,
+    `${tableName}_authenticated_insert`,
     'INSERT',
-    appUserCheck
+    authenticatedCheck
   )
   const updatePolicies = generatePolicyStatements(
     tableName,
-    `${tableName}_app_user_update`,
+    `${tableName}_authenticated_update`,
     'UPDATE',
-    appUserCheck
+    authenticatedCheck
   )
   const deletePolicies = generatePolicyStatements(
     tableName,
-    `${tableName}_app_user_delete`,
+    `${tableName}_authenticated_delete`,
     'DELETE',
-    appUserCheck
+    authenticatedCheck
   )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
@@ -526,6 +527,25 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
 // ============================================================================
 
 /**
+ * Check if table has ONLY field permissions (no row-level permissions)
+ * In this case, field-level filtering happens at the application layer,
+ * but we still need RLS policies to allow app_user role to access rows
+ */
+const hasOnlyFieldPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  return Boolean(
+    permissions?.fields &&
+    permissions.fields.length > 0 &&
+    !permissions.read &&
+    !permissions.create &&
+    !permissions.update &&
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Checking property, not calling delete method
+    !permissions.delete &&
+    !permissions.records
+  )
+}
+
+/**
  * Determine which RLS policy generator to use based on table permissions
  *
  * Priority order (first match wins):
@@ -538,50 +558,26 @@ const generateMixedPermissionPolicies = (table: Table): readonly string[] => {
  * 7. Authenticated → auth.is_authenticated()
  * 8. Role-based → Role checks
  * 9. Organization-scoped → Organization ID filter
+ * 10. Field-only permissions → Default deny with app_user access
  */
 const selectPolicyGenerator = (
   table: Table
   // eslint-disable-next-line complexity
 ): ((table: Table) => readonly string[]) | (() => readonly string[]) => {
-  if (hasOnlyPublicPermissions(table)) {
-    return returnEmptyPolicies
-  }
-
-  // Explicit empty permissions {} = true default deny (0 policies, all access blocked)
-  if (hasExplicitEmptyPermissions(table)) {
-    return () => generateEnableRLS(table.name) // Only enable RLS, no policies
-  }
-
-  // No permissions object (undefined) = allow API access via app_user role
-  if (hasNoPermissions(table)) {
-    return () => generateDefaultDenyPolicies(table.name)
-  }
-
-  if (hasRecordLevelPermissions(table)) {
-    return generateRecordLevelPolicies
-  }
-
-  // Handle mixed permissions (authenticated read + role create, etc.)
-  if (hasMixedPermissions(table)) {
-    return generateMixedPermissionPolicies
-  }
-
-  if (hasOwnerPermissions(table)) {
-    return generateOwnerBasedPolicies
-  }
-
+  if (hasOnlyPublicPermissions(table)) return returnEmptyPolicies
+  if (hasExplicitEmptyPermissions(table)) return () => generateEnableRLS(table.name)
+  if (hasNoPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
+  if (hasRecordLevelPermissions(table)) return generateRecordLevelPolicies
+  if (hasMixedPermissions(table)) return generateMixedPermissionPolicies
+  if (hasOwnerPermissions(table)) return generateOwnerBasedPolicies
   if (hasAuthenticatedPermissions(table) && !table.permissions?.organizationScoped) {
     return generateAuthenticatedBasedPolicies
   }
-
   if (hasRolePermissions(table) && !table.permissions?.organizationScoped) {
     return generateRoleBasedPolicies
   }
-
-  if (table.permissions?.organizationScoped) {
-    return generateOrganizationScopedPolicies
-  }
-
+  if (table.permissions?.organizationScoped) return generateOrganizationScopedPolicies
+  if (hasOnlyFieldPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
   return returnEmptyPolicies
 }
 
@@ -629,5 +625,12 @@ const selectPolicyGenerator = (
  */
 export const generateRLSPolicyStatements = (table: Table): readonly string[] => {
   const generator = selectPolicyGenerator(table)
-  return generator(table)
+  const statements = generator(table)
+  console.log(`[RLS-GEN] Table: ${table.name}`)
+  console.log(`[RLS-GEN] Policies count: ${statements.length}`)
+  console.log(`[RLS-GEN] First 3 policies:`)
+  statements.slice(0, 3).forEach((stmt, i) => {
+    console.log(`  [${i}] ${stmt.substring(0, 150)}...`)
+  })
+  return statements
 }

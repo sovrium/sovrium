@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { errorResponseSchema } from '@/presentation/api/schemas/error-schemas'
 import type { Context } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
 /**
  * Schema interface for Zod-compatible parsing
@@ -27,6 +28,7 @@ interface ParseableSchema<T> {
  * @param c - Hono context for response generation
  * @param program - Effect program to execute
  * @param schema - Zod schema for response validation
+ * @param successStatus - HTTP status code for successful response (default: 200)
  * @returns JSON response with validated data or error
  *
  * @example
@@ -34,22 +36,33 @@ interface ParseableSchema<T> {
  * app.get('/api/users', async (c) =>
  *   runEffect(c, listUsersProgram(), listUsersResponseSchema)
  * )
+ * app.post('/api/users', async (c) =>
+ *   runEffect(c, createUserProgram(), createUserResponseSchema, 201)
+ * )
  * ```
  */
 export async function runEffect<T, S>(
   c: Context,
   program: Effect.Effect<T, Error>,
-  schema: ParseableSchema<S>
+  schema: ParseableSchema<S>,
+  successStatus: number = 200
 ) {
   try {
     const result = await Effect.runPromise(program)
     const validated = schema.parse(result)
-    return c.json(validated, 200)
+    return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
+    // Debug: Include full error details in response for debugging
+    const errorDetails = error instanceof Error ? error.message : 'Internal server error'
+    const causeDetails =
+      error && typeof error === 'object' && 'cause' in error
+        ? String(error.cause)
+        : 'No cause details'
+
     return c.json(
       errorResponseSchema.parse({
         success: false,
-        message: error instanceof Error ? error.message : 'Internal server error',
+        message: `${errorDetails} | Cause: ${causeDetails}`,
         code: 'INTERNAL_ERROR',
       }),
       500

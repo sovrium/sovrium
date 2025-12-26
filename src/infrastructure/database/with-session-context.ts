@@ -52,7 +52,7 @@ const getUserRole = async (
     )) as Array<{ role: string | null }>
 
     return userResult[0]?.role || 'authenticated'
-  } catch (error) {
+  } catch {
     // If role column doesn't exist, default to 'authenticated'
     return 'authenticated'
   }

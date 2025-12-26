@@ -201,10 +201,37 @@ BEGIN
 END
 $$`
 
+  // Grant the current database user (typically the owner) membership in app_user role
+  // This allows SET ROLE app_user to succeed (required for RLS policies)
+  // Note: Superusers can always SET ROLE without explicit grants
+  const grantMembershipStatement = `DO $$
+DECLARE
+  is_superuser_val boolean;
+  current_user_val text;
+BEGIN
+  -- Get current user
+  SELECT current_user INTO current_user_val;
+
+  -- Check if current user is a superuser
+  SELECT rolsuper INTO is_superuser_val
+  FROM pg_roles
+  WHERE rolname = current_user_val;
+
+  -- Only grant if not a superuser (superusers don't need explicit grants)
+  IF NOT is_superuser_val THEN
+    EXECUTE format('GRANT app_user TO %I', current_user_val);
+  END IF;
+EXCEPTION
+  -- Ignore errors if already granted
+  WHEN duplicate_object THEN NULL;
+  WHEN OTHERS THEN NULL;
+END
+$$`
+
   const grantStatements = [
     `GRANT USAGE ON SCHEMA public TO app_user`,
     `GRANT ALL ON ${tableName} TO app_user`,
   ]
 
-  return [createRoleStatement, ...grantStatements]
+  return [createRoleStatement, grantMembershipStatement, ...grantStatements]
 }

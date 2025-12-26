@@ -8,7 +8,20 @@
 import { type Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import {
+  isRateLimitExceeded,
+  recordRateLimitRequest,
+  extractClientIp,
+  shouldPromoteToAdmin,
+  promoteUserToAdmin,
+  isUserBanned,
+  hasAdminRole,
+  isAuthorizedToAssignRole,
+  updateUserRole,
+  resolveUserId,
+} from './auth-route-utils'
 import type { App } from '@/domain/models/app'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
 /**
  * Track used verification tokens to enforce single-use
@@ -20,19 +33,6 @@ import type { App } from '@/domain/models/app'
 const usedVerificationTokens = new Set<string>()
 
 /**
- * Rate limiting state for admin endpoints
- * Maps IP addresses to request timestamps
- * In production, this should use Redis or similar distributed storage
- */
-const adminRateLimitState = new Map<string, number[]>()
-
-/**
- * Rate limiting configuration constants
- */
-const RATE_LIMIT_WINDOW_MS = 1000 // 1 second window
-const RATE_LIMIT_MAX_REQUESTS = 10 // Maximum requests per window
-
-/**
  * Runtime configuration state for auth instance
  * Stores mutable configuration that can be updated via admin endpoints
  */
@@ -40,170 +40,8 @@ const runtimeAuthConfig = {
   defaultRole: 'user' as string,
 }
 
-/**
- * Map sequential user ID to actual database user ID
- * Used for testing convenience - allows using sequential IDs (1, 2, 3) instead of UUIDs
- */
-const mapUserIdIfSequential = async (userId: string): Promise<string | undefined> => {
-  if (!/^\d+$/.test(userId)) {
-    return undefined
-  }
-
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { asc } = await import('drizzle-orm')
-
-  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-  const userIndex = Number.parseInt(userId, 10) - 1
-
-  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
-    ? allUsers[userIndex].id
-    : undefined
-}
-
-/**
- * Check if email should trigger admin auto-promotion
- * Returns true if email contains "admin" (case-insensitive)
- */
-const shouldPromoteToAdmin = (email: string): boolean => {
-  return email.toLowerCase().includes('admin')
-}
-
-/**
- * Promote user to admin role by email
- * Used for testing convenience - auto-promotes users with "admin" in email
- */
-const promoteUserToAdmin = async (email: string): Promise<void> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
-  await db.update(users).set({ role: 'admin' }).where(eq(users.email, email))
-}
-
-/**
- * Check if user is banned by email
- * Returns true if user exists and is banned
- */
-const isUserBanned = async (email: string): Promise<boolean> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const userRecord = await db.select().from(users).where(eq(users.email, email)).limit(1)
-
-  return userRecord.length > 0 && userRecord[0]?.banned === true
-}
-
-/**
- * Get recent requests within the rate limit window for an IP address
- * Returns filtered array of timestamps within RATE_LIMIT_WINDOW_MS
- * Single source of truth for request filtering (DRY principle)
- */
-const getRecentRequests = (ip: string): readonly number[] => {
-  const now = Date.now()
-  const requestHistory = adminRateLimitState.get(ip) ?? []
-  return requestHistory.filter((timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS)
-}
-
-/**
- * Check rate limit for an IP address
- * Returns true if rate limit is exceeded, false otherwise
- */
-const isRateLimitExceeded = (ip: string): boolean => {
-  return getRecentRequests(ip).length >= RATE_LIMIT_MAX_REQUESTS
-}
-
-/**
- * Record a request for rate limiting
- * Updates the request history for the given IP address
- * Returns the updated request history for testing/debugging
- */
-const recordRateLimitRequest = (ip: string): readonly number[] => {
-  const recentRequests = getRecentRequests(ip)
-  const now = Date.now()
-  const updated = [...recentRequests, now]
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
-  adminRateLimitState.set(ip, updated)
-  return updated
-}
-
-/**
- * Extract IP address from request headers
- * Returns the client IP from x-forwarded-for or defaults to localhost
- */
-const extractClientIp = (forwardedFor: string | undefined): string => {
-  return forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
-}
-
-/**
- * Check if user has admin role in database
- * Returns true if user exists and has admin role
- */
-const hasAdminRole = async (userId: string): Promise<boolean> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const userRecords = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-
-  return userRecords.length > 0 && userRecords[0]?.role === 'admin'
-}
-
-/**
- * Check if user is authorized to assign roles
- * Returns true if user is bootstrapping (first admin) or is an existing admin
- */
-const isAuthorizedToAssignRole = async (
-  sessionUserId: string,
-  targetUserId: string
-): Promise<{ authorized: boolean; reason?: string }> => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const [allAdmins, currentUser] = await Promise.all([
-    db.select().from(users).where(eq(users.role, 'admin')),
-    db.select().from(users).where(eq(users.id, sessionUserId)).limit(1),
-  ])
-
-  const isBootstrap = allAdmins.length === 0 && targetUserId === sessionUserId
-  const isAdmin = currentUser.length > 0 && currentUser[0]?.role === 'admin'
-
-  if (isBootstrap || isAdmin) {
-    return { authorized: true }
-  }
-
-  return { authorized: false, reason: 'Forbidden' }
-}
-
-/**
- * Update user role in database
- * Returns the updated user or undefined if not found
- */
-const updateUserRole = async (userId: string, role: string) => {
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const updatedUsers = await db.update(users).set({ role }).where(eq(users.id, userId)).returning()
-
-  return updatedUsers.length > 0 ? updatedUsers[0] : undefined
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Better Auth instance type is complex and not fully exported
 type AuthInstance = any
-
-/**
- * Resolve user ID, mapping sequential IDs to actual database UUIDs if needed
- * Returns the actual database user ID (or original if not sequential)
- * Single source of truth for user ID resolution (DRY principle)
- */
-const resolveUserId = async (userId: string): Promise<string> => {
-  const mappedId = await mapUserIdIfSequential(userId)
-  return mappedId ?? userId
-}
 
 /**
  * Apply rate limiting middleware for admin endpoints
@@ -257,9 +95,24 @@ const applyAdminGuardMiddleware = (
 }
 
 /** Register update-config admin endpoint - allows updating runtime configuration */
-const registerUpdateConfigEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+const registerUpdateConfigEndpoint = (
+  honoApp: Readonly<Hono>,
+  authInstance: AuthInstance
+): Readonly<Hono> => {
   return honoApp.post('/api/auth/admin/update-config', async (c) => {
     try {
+      // Check authentication and admin role
+      const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+      if (!session) {
+        return c.json({ error: 'Unauthorized' }, 401)
+      }
+
+      const isAdmin = await hasAdminRole(session.user.id)
+      if (!isAdmin) {
+        return c.json({ error: 'Forbidden: Admin role required' }, 403)
+      }
+
       const body = await c.req.json()
       const { defaultRole } = body
 
@@ -438,7 +291,7 @@ const registerAdminRoutes = (
   authInstance: AuthInstance
 ): Readonly<Hono> => {
   const registrars: readonly EndpointRegistrar[] = [
-    registerUpdateConfigEndpoint,
+    (app) => registerUpdateConfigEndpoint(app, authInstance),
     (app) => registerRevokeAdminEndpoint(app, authInstance),
     (app) => registerSetRoleEndpoint(app, authInstance),
     registerGetUserEndpoint,
@@ -562,6 +415,30 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           .update(users)
           .set({ role: runtimeAuthConfig.defaultRole })
           .where(eq(users.email, body.email))
+
+        // Update response body to include the new role (only if defaultRole is configured)
+        if (runtimeAuthConfig.defaultRole) {
+          const responseData = await response.json()
+          const updatedResponseData = responseData.user
+            ? {
+                ...responseData,
+                user: {
+                  ...responseData.user,
+                  role: runtimeAuthConfig.defaultRole,
+                },
+              }
+            : responseData
+
+          // Create new response with updated data BUT preserve original headers (especially Set-Cookie)
+          const newResponse = c.json(updatedResponseData, response.status as ContentfulStatusCode)
+
+          // Copy all headers from original response (including Set-Cookie for session)
+          response.headers.forEach((value, key) => {
+            newResponse.headers.set(key, value)
+          })
+
+          return newResponse
+        }
       }
 
       return response
