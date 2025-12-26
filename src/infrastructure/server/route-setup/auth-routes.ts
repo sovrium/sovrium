@@ -267,7 +267,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             return c.json({ error: 'userId is required' }, 400)
           }
 
-          // Check if user is authenticated
+          // Get session for user ID check (authentication already validated by middleware)
           const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
           if (!session) {
             return c.json({ error: 'Unauthorized' }, 401)
@@ -491,11 +491,20 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     return authInstance.handler(c.req.raw)
   })
 
-  // Mount Better Auth handler for all other /api/auth/* routes
+  // Mount Better Auth handler as fallback for undefined routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
-  // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
-  // including the /api/auth prefix. We pass the original request without modification.
-  return wrappedApp.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  // IMPORTANT: This must be registered AFTER all custom routes to avoid conflicts
+  // Better Auth handles its own internal routing and expects the FULL request path
+  const finalApp = wrappedApp.use('/api/auth/*', async (c, next) => {
+    // Skip for admin paths - they're handled by custom routes above
+    if (c.req.path.startsWith('/api/auth/admin/')) {
+      await next()
+      return
+    }
+
+    // For all other /api/auth/* paths, delegate to Better Auth
     return authInstance.handler(c.req.raw)
   })
+
+  return finalApp
 }
