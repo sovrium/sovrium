@@ -202,13 +202,31 @@ function createListRecordsProgram(
   })
 }
 
+/**
+ * Retrieves the user's role from the database
+ */
+async function getUserRole(userId: string): Promise<string> {
+  const { db } = await import('@/infrastructure/database')
+  const userResult = (await db.execute(
+    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+  )) as Array<{ role: string | null }>
+  return userResult[0]?.role || 'member'
+}
+
+interface GetRecordConfig {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly recordId: string
+  readonly app: App
+  readonly userRole: string
+}
+
 function createGetRecordProgram(
-  session: Readonly<Session>,
-  tableName: string,
-  recordId: string,
-  _app: App
+  config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
+    const { session, tableName, recordId, app, userRole } = config
+
     // Query record with session context (RLS policies automatically applied)
     const record = yield* getRecord(session, tableName, recordId)
 
@@ -216,9 +234,22 @@ function createGetRecordProgram(
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
+    // Enforce organization isolation
+    // If the record has an organization_id field, verify it matches the session's active organization
+    const { userId, activeOrganizationId } = session
+    const recordOrgId = record['organization_id']
+
+    // If the record has an organization_id field and session has an active organization
+    if (recordOrgId !== undefined && activeOrganizationId !== undefined) {
+      // If organization IDs don't match, deny access
+      if (String(recordOrgId) !== String(activeOrganizationId)) {
+        // Return 404 instead of 403 to prevent enumeration
+        return yield* Effect.fail(new SessionContextError('Record not found'))
+      }
+    }
+
     // Enforce horizontal privilege escalation prevention
     // If the record has a user_id or owner_id field, verify ownership
-    const { userId } = session
     const recordUserId = record['user_id'] ?? record['owner_id']
 
     // If the record has a user/owner field and it doesn't match the session user, deny access
@@ -227,7 +258,10 @@ function createGetRecordProgram(
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
-    return { record: transformRecord(record) }
+    // Apply field-level read permissions filtering
+    const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
+
+    return { record: transformRecord(filteredRecord) }
   })
 }
 
@@ -437,11 +471,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
 
         // Query user role from database (for field-level read permissions)
-        const { db } = await import('@/infrastructure/database')
-        const userResult = (await db.execute(
-          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-        )) as Array<{ role: string | null }>
-        const userRole = userResult[0]?.role || 'member'
+        const userRole = await getUserRole(session.userId)
 
         return runEffect(
           c,
@@ -485,8 +515,17 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
+        // Query user role from database (for field-level read permissions)
+        const userRole = await getUserRole(session.userId)
+
         try {
-          const program = createGetRecordProgram(session, tableName, c.req.param('recordId'), app)
+          const program = createGetRecordProgram({
+            session,
+            tableName,
+            recordId: c.req.param('recordId'),
+            app,
+            userRole,
+          })
           const result = await Effect.runPromise(program)
           const validated = getRecordResponseSchema.parse(result)
           return c.json(validated, 200)
