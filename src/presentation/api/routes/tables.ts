@@ -169,10 +169,21 @@ function createListRecordsProgram(
     // Query records with session context (RLS policies automatically applied)
     const records = yield* listRecords(session, tableName)
 
-    // Apply field-level read permissions filtering
+    // Enforce horizontal privilege escalation prevention
+    // Filter out records that don't belong to the current user (if table has user_id/owner_id)
     const { userId } = session
+    const ownerFilteredRecords = records.filter((record) => {
+      const recordUserId = record['user_id'] ?? record['owner_id']
+      // If the record has a user/owner field, only include records owned by the current user
+      if (recordUserId !== undefined) {
+        return String(recordUserId) === String(userId)
+      }
+      // If no user/owner field, include the record (no ownership constraint)
+      return true
+    })
 
-    const filteredRecords = records.map((record) =>
+    // Apply field-level read permissions filtering
+    const filteredRecords = ownerFilteredRecords.map((record) =>
       filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
@@ -193,13 +204,25 @@ function createListRecordsProgram(
 function createGetRecordProgram(
   session: Readonly<Session>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  _app: App
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
     // Query record with session context (RLS policies automatically applied)
     const record = yield* getRecord(session, tableName, recordId)
 
     if (!record) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
+
+    // Enforce horizontal privilege escalation prevention
+    // If the record has a user_id or owner_id field, verify ownership
+    const { userId } = session
+    const recordUserId = record['user_id'] ?? record['owner_id']
+
+    // If the record has a user/owner field and it doesn't match the session user, deny access
+    if (recordUserId !== undefined && String(recordUserId) !== String(userId)) {
+      // Return 404 instead of 403 to prevent enumeration
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
@@ -437,6 +460,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           createRecordResponseSchema
         )
       })
+      // eslint-disable-next-line complexity -- Error handling for authorization requires multiple checks
       .get('/api/tables/:tableId/records/:recordId', async (c) => {
         const { session } = (c as ContextWithSession).var
         if (!session) {
@@ -450,11 +474,39 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
-        return runEffect(
-          c,
-          createGetRecordProgram(session, tableName, c.req.param('recordId')),
-          getRecordResponseSchema
-        )
+        try {
+          const program = createGetRecordProgram(session, tableName, c.req.param('recordId'), app)
+          const result = await Effect.runPromise(program)
+          const validated = getRecordResponseSchema.parse(result)
+          return c.json(validated, 200)
+        } catch (error) {
+          // Check if error indicates authorization failure or record not found
+          // Effect wraps errors, so check both message and error name
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          const errorName = error instanceof Error ? error.name : ''
+          const errorString = String(error)
+
+          // Check if it's a SessionContextError (authorization/not found)
+          if (
+            errorMessage.includes('Record not found') ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('access denied') ||
+            errorName.includes('SessionContextError') ||
+            errorString.includes('SessionContextError')
+          ) {
+            // Return 404 for authorization failures to prevent enumeration
+            return c.json({ error: 'Record not found' }, 404)
+          }
+
+          // For other errors, return 500
+          return c.json(
+            {
+              error: 'Internal server error',
+              message: errorMessage,
+            },
+            500
+          )
+        }
       })
       // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions
       .patch('/api/tables/:tableId/records/:recordId', async (c) => {
