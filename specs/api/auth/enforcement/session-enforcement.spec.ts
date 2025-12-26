@@ -38,7 +38,7 @@ test.describe('Session Permission Enforcement', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-001: should prevent user from accessing another users sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -83,7 +83,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-002: should prevent user from revoking another users session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
