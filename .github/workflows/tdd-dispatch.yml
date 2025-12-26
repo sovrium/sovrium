@@ -7,6 +7,7 @@ on:
       - 'TDD - Scan (Find .fixme tests)' # New specs added to queue
       - 'TDD - Execute (Claude Code)' # Spec completed, pick next one
       - 'TDD - Monitor (Health & Recovery)' # Stuck specs re-queued
+      - 'TDD - Dispatch (Trigger Claude)' # Self-trigger: pre-validation completed, pick next spec
     types: [completed]
     branches: [main]
 
@@ -42,7 +43,7 @@ jobs:
   process-queue:
     name: 🔄 Process TDD Queue
     runs-on: ubuntu-latest
-    timeout-minutes: 5 # Quick operation: fetch queue, update labels, post @claude comment
+    timeout-minutes: 15 # Includes pre-validation step which runs tests
     # Only process queue if:
     # 1. Triggered by schedule or manual (always run)
     # 2. Triggered by workflow_run AND the workflow succeeded
@@ -286,8 +287,123 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
 
-      - name: Mark spec as in-progress and trigger Claude Code workflow
+      # =========================================================================
+      # PHASE 1: Pre-validation with validate-specs.ts
+      # =========================================================================
+      # Before invoking Claude, check if the test already passes.
+      # If yes → commit, push, close issue → skip Claude (saves time and cost)
+      # If no → continue to Claude invocation (current behavior)
+      # =========================================================================
+
+      - name: Pre-validate spec (check if test passes without Claude)
         if: steps.check.outputs.should_process == 'true' && steps.validate.outputs.should_process == 'true' && steps.superseded.outputs.is_superseded != 'true'
+        id: prevalidate
+        run: |
+          ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
+          SPEC_ID="${{ steps.next.outputs.spec_id }}"
+          TEST_FILE="${{ steps.next.outputs.test_file }}"
+
+          echo "🧪 Pre-validating $SPEC_ID..."
+          echo "   This checks if the test passes without any code changes."
+          echo "   If it passes, the feature is already implemented → skip Claude."
+          echo ""
+
+          # Run validate-specs.ts with JSON output for parsing
+          # This will: remove .fixme(), run test, commit if passes, close issue
+          RESULT=$(bun run scripts/validate-specs.ts --json "$SPEC_ID" 2>&1) || true
+          EXIT_CODE=$?
+
+          echo "Exit code: $EXIT_CODE"
+          echo "Raw output:"
+          echo "$RESULT"
+
+          # Parse JSON result
+          STATUS=$(echo "$RESULT" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+          HAS_SRC_CHANGES=$(echo "$RESULT" | grep -o '"hasSrcChanges":[^,}]*' | head -1 | cut -d':' -f2 || echo "false")
+          COMMITTED=$(echo "$RESULT" | grep -o '"committed":[^,}]*' | head -1 | cut -d':' -f2 || echo "false")
+          ISSUE_CLOSED=$(echo "$RESULT" | grep -o '"issueClosed":[^,}]*' | head -1 | cut -d':' -f2 || echo "false")
+
+          echo ""
+          echo "Parsed results:"
+          echo "  Status: $STATUS"
+          echo "  Has src changes: $HAS_SRC_CHANGES"
+          echo "  Committed: $COMMITTED"
+          echo "  Issue closed: $ISSUE_CLOSED"
+
+          if [ "$STATUS" = "passed" ]; then
+            echo ""
+            echo "✅ Test passed! Feature already implemented."
+            echo "   validate-specs.ts has committed the change locally."
+            echo "   Skipping Claude invocation."
+
+            # Push the commit to main
+            echo ""
+            echo "📤 Pushing commit to main..."
+            if git push origin main; then
+              echo "✅ Push successful"
+
+              # Close issue AFTER successful push (atomic: close only when code is in main)
+              echo ""
+              echo "🔒 Closing issue #$ISSUE_NUMBER..."
+
+              # Remove old state labels
+              gh issue edit "$ISSUE_NUMBER" \
+                --remove-label "tdd-spec:queued" \
+                --remove-label "tdd-spec:in-progress" \
+                --remove-label "tdd-spec:failed" 2>/dev/null || true
+
+              # Add completed label
+              gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:completed" 2>/dev/null || true
+
+              # Add closure comment
+              gh issue comment "$ISSUE_NUMBER" --body "✅ **Spec Completed via Pre-Validation**
+
+          Test \\\`$SPEC_ID\\\` passed without code changes - feature was already implemented.
+
+          - **Pre-validation**: Removed \\\`.fixme()\\\`, test passed
+          - **Commit**: Created and pushed to main
+          - **Status**: Complete
+
+          *🤖 TDD Queue - Pre-Validation*" || true
+
+              # Close issue
+              gh issue close "$ISSUE_NUMBER" --reason completed || true
+
+              echo "✅ Issue #$ISSUE_NUMBER closed"
+              echo "test_passed=true" >> $GITHUB_OUTPUT
+              echo "needs_claude=false" >> $GITHUB_OUTPUT
+            else
+              echo ""
+              echo "❌ Push to main failed! Re-queuing issue for retry..."
+
+              # Re-queue issue (issue was NOT closed since we're in CI mode)
+              gh issue edit "$ISSUE_NUMBER" \
+                --remove-label "tdd-spec:in-progress" \
+                --add-label "tdd-spec:queued" 2>/dev/null || true
+
+              gh issue comment "$ISSUE_NUMBER" --body "⚠️ **Push Failed** - Pre-validation passed but push to main failed. Test \\\`$SPEC_ID\\\` passed after removing \\\`.fixme()\\\`, commit created locally, but push failed (network issue, branch protection, etc.). Issue re-queued for retry. *🤖 TDD Queue*"
+
+              echo "test_passed=false" >> $GITHUB_OUTPUT
+              echo "needs_claude=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo ""
+            echo "❌ Test failed (status: $STATUS)"
+            echo "   This is expected - the feature needs implementation."
+            echo "   Proceeding to Claude invocation."
+
+            echo "test_passed=false" >> $GITHUB_OUTPUT
+            echo "needs_claude=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Mark spec as in-progress and trigger Claude Code workflow
+        if: |
+          steps.check.outputs.should_process == 'true' &&
+          steps.validate.outputs.should_process == 'true' &&
+          steps.superseded.outputs.is_superseded != 'true' &&
+          steps.prevalidate.outputs.needs_claude == 'true'
         run: |
           ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
@@ -343,19 +459,9 @@ jobs:
              - **If src/ files changed**: Full audit (layer architecture, code quality, refactoring) + \`bun run quality\`
              - **If NO src/ files changed** (test-only): Quick Exit - runs \`bun run quality\` only, skips full audit
              - Agent auto-detects and handles appropriately - ensures quality passes before proceeding
-          3. **Commit changes** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
-          4. **⚠️ CREATE PR** (EXACT FORMAT REQUIRED - DO NOT MODIFY):
-             \`\`\`bash
-             gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"
-             \`\`\`
-             **CRITICAL**: The PR body MUST be EXACTLY \`Closes #$ISSUE_NUMBER\` - nothing else!
-             - ❌ DO NOT write a summary or description in the PR body
-             - ❌ DO NOT add implementation details (put those in commit message)
-             - ❌ DO NOT add extra text after the issue number
-             - ✅ The ONLY content should be: \`Closes #$ISSUE_NUMBER\`
-             - **WHY**: GitHub's auto-close feature is format-sensitive and fails with extra text
-          5. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\`
-          6. **⚠️ VERIFY AUTO-MERGE** - Run \`gh pr view \$PR_NUMBER --json autoMergeRequest\` and confirm autoMergeRequest is NOT null
+          3. **Commit and push** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
+
+          ⚠️ **IMPORTANT: DO NOT CREATE PR** - The workflow will create the PR automatically after you push.
 
           ## ⚠️ Error Handling
 
@@ -363,18 +469,14 @@ jobs:
             1. Read the FULL error output carefully
             2. Fix ALL failing checks (ESLint, TypeScript, Effect diagnostics, unit tests, E2E)
             3. Re-run \`bun run quality\` until it passes completely
-            4. Only THEN proceed to commit and PR creation
+            4. Only THEN proceed to commit and push
           - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
-          - **If PR creation fails**: Retry once, then report error in issue comment
-          - **If auto-merge fails**: Comment the failure reason on the PR and retry
 
           ## 🚨 MOST COMMON FAILURES (Learn from history)
 
-          - Missing PR creation (issue #1319) → spec marked failed after 2 minutes
-          - Missing auto-merge (PRs #1541, #1546) → pipeline blocked for hours
-          - Auto-merge not verified → may silently fail, always check with \`gh pr view\`
           - Skipping codebase-refactor-auditor → technical debt accumulates
-          - **Creating PR with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before PR
+          - **Creating commits with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before commit
+          - Not pushing to branch → workflow can't create PR
 
           **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 

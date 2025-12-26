@@ -720,20 +720,31 @@ const validateSpec = (
     )
 
     // 6. Find and close the GitHub issue if committed
+    // In CI mode, skip issue closure - let the workflow handle it after push succeeds
     let issueNumber: number | null = null
     let issueClosed = false
+    const isCI = process.env.GITHUB_ACTIONS === 'true' || process.env.CI === 'true'
 
     if (commitResult) {
       yield* logInfo(`  Looking for GitHub issue...`)
       issueNumber = yield* findIssueBySpecId(specId)
 
       if (issueNumber) {
-        yield* logInfo(`  Found issue #${issueNumber}, closing...`)
-        issueClosed = yield* closeIssue(issueNumber, specId)
-        if (issueClosed) {
-          yield* success(`  ✅ Closed issue #${issueNumber}`)
+        if (isCI) {
+          // In CI mode, skip issue closure - workflow will close after successful push
+          yield* logInfo(
+            `  Found issue #${issueNumber}, skipping closure (CI mode - workflow will close after push)`
+          )
+          issueClosed = false
         } else {
-          yield* logInfo(`  ⚠️  Failed to close issue #${issueNumber}`)
+          // Local mode - close issue directly
+          yield* logInfo(`  Found issue #${issueNumber}, closing...`)
+          issueClosed = yield* closeIssue(issueNumber, specId)
+          if (issueClosed) {
+            yield* success(`  ✅ Closed issue #${issueNumber}`)
+          } else {
+            yield* logInfo(`  ⚠️  Failed to close issue #${issueNumber}`)
+          }
         }
       } else {
         yield* logInfo(`  No open issue found for ${specId}`)
@@ -1015,18 +1026,28 @@ const validateAllSpecs = (
         })
       )
 
-      // Find and close the GitHub issue
+      // Find and close the GitHub issue (skip in CI mode - workflow handles closure)
       let issueNumber: number | null = null
       let issueClosed = false
+      const isCI = process.env.GITHUB_ACTIONS === 'true' || process.env.CI === 'true'
 
       if (commitResult) {
         issueNumber = yield* findIssueBySpecId(spec.specId)
 
         if (issueNumber) {
-          yield* logInfo(`    Closing issue #${issueNumber}...`)
-          issueClosed = yield* closeIssue(issueNumber, spec.specId)
-          if (issueClosed) {
-            yield* success(`    🔒 Closed issue #${issueNumber}`)
+          if (isCI) {
+            // In CI mode, skip issue closure - workflow will close after successful push
+            yield* logInfo(
+              `    Found issue #${issueNumber}, skipping closure (CI mode - workflow will close after push)`
+            )
+            issueClosed = false
+          } else {
+            // Local mode - close issue directly
+            yield* logInfo(`    Closing issue #${issueNumber}...`)
+            issueClosed = yield* closeIssue(issueNumber, spec.specId)
+            if (issueClosed) {
+              yield* success(`    🔒 Closed issue #${issueNumber}`)
+            }
           }
         }
       }
