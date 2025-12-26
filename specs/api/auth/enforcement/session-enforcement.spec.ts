@@ -183,7 +183,7 @@ test.describe('Session Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-SESSION-005: should prevent session token reuse after refresh',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
