@@ -47,6 +47,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
     CREATE ROLE ${role} WITH LOGIN;
   END IF;
+EXCEPTION
+  -- Handle race condition: another process may have created the role
+  WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
 END
 $$`
   )
@@ -90,6 +94,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated_user') THEN
     CREATE ROLE authenticated_user WITH LOGIN;
   END IF;
+EXCEPTION
+  -- Handle race condition: another process may have created the role
+  WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
 END
 $$`,
   ]
@@ -153,6 +161,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
     CREATE ROLE ${role} WITH LOGIN;
   END IF;
+EXCEPTION
+  -- Handle race condition: another process may have created the role
+  WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
 END
 $$`
   )
@@ -198,6 +210,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
     CREATE ROLE app_user WITH LOGIN;
   END IF;
+EXCEPTION
+  -- Handle race condition: another process may have created the role
+  WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
 END
 $$`
 

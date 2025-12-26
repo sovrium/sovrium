@@ -147,6 +147,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${role}') THEN
     CREATE ROLE ${role} WITH LOGIN;
   END IF;
+EXCEPTION
+  -- Handle race condition: another process may have created the role
+  WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
 END
 $$`
   )
