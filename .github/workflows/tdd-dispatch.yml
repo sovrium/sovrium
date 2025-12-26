@@ -342,6 +342,21 @@ jobs:
             if git push origin main; then
               echo "✅ Push successful"
 
+              # Clean up any orphaned Claude branches for this issue
+              echo ""
+              echo "🧹 Cleaning up orphaned claude branches..."
+              ORPHAN_BRANCHES=$(git ls-remote --heads origin "claude/issue-${ISSUE_NUMBER}-*" 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||' || true)
+              if [ -n "$ORPHAN_BRANCHES" ]; then
+                echo "Found orphaned branches:"
+                echo "$ORPHAN_BRANCHES" | while read branch; do
+                  echo "  Deleting: $branch"
+                  git push origin --delete "$branch" 2>/dev/null || true
+                done
+                echo "✅ Orphaned branches cleaned up"
+              else
+                echo "No orphaned branches found"
+              fi
+
               # Close issue AFTER successful push (atomic: close only when code is in main)
               echo ""
               echo "🔒 Closing issue #$ISSUE_NUMBER..."

@@ -1100,17 +1100,43 @@ jobs:
 
           # Create PR with guaranteed correct format
           # CRITICAL: Body is EXACTLY "Closes #XXXX" - nothing else
-          PR_CREATE_OUTPUT=$(gh pr create \
-            --repo "$REPO" \
-            --head "$BRANCH_FULL_NAME" \
-            --base main \
-            --title "fix: implement $SPEC_ID" \
-            --body "Closes #${ISSUE_NUMBER}" \
-            --label "tdd-automation" \
-            --json number --jq '.number' 2>&1)
+          # Retry up to 3 times for transient network errors
+          PR_NUMBER=""
+          PR_CREATE_ERROR=""
+          for attempt in 1 2 3; do
+            echo "PR creation attempt $attempt/3..."
+            PR_CREATE_OUTPUT=$(gh pr create \
+              --repo "$REPO" \
+              --head "$BRANCH_FULL_NAME" \
+              --base main \
+              --title "fix: implement $SPEC_ID" \
+              --body "Closes #${ISSUE_NUMBER}" \
+              --label "tdd-automation" \
+              --json number --jq '.number' 2>&1)
 
-          if [[ "$PR_CREATE_OUTPUT" =~ ^[0-9]+$ ]]; then
-            PR_NUMBER="$PR_CREATE_OUTPUT"
+            if [[ "$PR_CREATE_OUTPUT" =~ ^[0-9]+$ ]]; then
+              PR_NUMBER="$PR_CREATE_OUTPUT"
+              echo "✅ PR creation succeeded on attempt $attempt"
+              break
+            fi
+
+            # Check if it's a duplicate error (no retry needed)
+            if echo "$PR_CREATE_OUTPUT" | grep -qi "already exists"; then
+              echo "PR already exists - no retry needed"
+              PR_CREATE_ERROR="$PR_CREATE_OUTPUT"
+              break
+            fi
+
+            PR_CREATE_ERROR="$PR_CREATE_OUTPUT"
+            if [ "$attempt" -lt 3 ]; then
+              DELAY=$((attempt * 5))
+              echo "⚠️  Attempt $attempt failed: $PR_CREATE_OUTPUT"
+              echo "Retrying in ${DELAY}s..."
+              sleep $DELAY
+            fi
+          done
+
+          if [ -n "$PR_NUMBER" ] && [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "✅ PR #$PR_NUMBER created successfully!"
             echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
             echo "pr_created=true" >> $GITHUB_OUTPUT
@@ -1135,7 +1161,7 @@ jobs:
           ---
           *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
           else
-            echo "❌ PR creation failed: $PR_CREATE_OUTPUT"
+            echo "❌ PR creation failed after 3 attempts: $PR_CREATE_ERROR"
 
             gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
               --remove-label "tdd-spec:in-progress" \
@@ -1144,9 +1170,9 @@ jobs:
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
               --body "❌ **TDD Automation Failed: PR Creation Error**
 
-          Branch \`$BRANCH_FULL_NAME\` exists but PR creation failed.
+          Branch \`$BRANCH_FULL_NAME\` exists but PR creation failed after 3 retry attempts.
 
-          **Error**: \`$PR_CREATE_OUTPUT\`
+          **Error**: \`$PR_CREATE_ERROR\`
 
           **Next Steps**:
           1. Manually create PR from branch \`$BRANCH_FULL_NAME\`
