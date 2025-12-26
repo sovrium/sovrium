@@ -43,7 +43,7 @@ test.describe('Authorization Bypass - Access Control Vulnerabilities', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ENFORCE-AUTHZ-001: should prevent horizontal privilege escalation on user records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
