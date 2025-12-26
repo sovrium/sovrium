@@ -171,7 +171,7 @@ test.describe("Admin Default User Role", () => {
       expect((user.user as { role?: string }).role).toBe("viewer");
     },
   );
-  test.fixme(
+  test(
     "API-AUTH-ADMIN-OPT-DEFAULT-ROLE-007: system can manage default role assignment",
     { tag: "@regression" },
     async ({ startServerWithSchema, signUp }) => {
