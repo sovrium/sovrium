@@ -302,64 +302,6 @@ const registerAdminRoutes = (
 }
 
 /**
- * Map sequential user ID to actual database user ID (for testing convenience)
- * Returns undefined if not a sequential ID
- */
-const mapUserIdIfSequential = async (userId: string): Promise<string | undefined> => {
-  if (!/^\d+$/.test(userId)) {
-    return undefined
-  }
-
-  const { db } = await import('@/infrastructure/database')
-  const { users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { asc } = await import('drizzle-orm')
-
-  const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-  const userIndex = Number.parseInt(userId, 10) - 1
-
-  return userIndex >= 0 && userIndex < allUsers.length && allUsers[userIndex]
-    ? allUsers[userIndex].id
-    : undefined
-}
-
-/**
- * Find session by ID (supports both session IDs and sequential user IDs)
- * Returns session record if found, undefined otherwise
- */
-const findSessionById = async (
-  sessionId: string
-): Promise<{ id: string; userId: string } | undefined> => {
-  const { db } = await import('@/infrastructure/database')
-  const { sessions, users } = await import('@/infrastructure/auth/better-auth/schema')
-  const { eq, asc } = await import('drizzle-orm')
-
-  // If sessionId is a sequential ID (e.g., "2"), find the session for that user
-  if (/^\d+$/.test(sessionId)) {
-    const allUsers = await db.select().from(users).orderBy(asc(users.createdAt))
-    const userIndex = Number.parseInt(sessionId, 10) - 1
-    const targetUser =
-      userIndex >= 0 && userIndex < allUsers.length ? allUsers[userIndex] : undefined
-
-    if (!targetUser) {
-      return undefined
-    }
-
-    const userSessions = await db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.userId, targetUser.id))
-      .limit(1)
-
-    return userSessions.length > 0 ? userSessions[0] : undefined
-  }
-
-  // Use sessionId directly
-  const sessionRecords = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
-
-  return sessionRecords.length > 0 ? sessionRecords[0] : undefined
-}
-
-/**
  * Setup CORS middleware for Better Auth endpoints
  *
  * Configures CORS to allow:
@@ -551,140 +493,10 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     return authInstance.handler(c.req.raw)
   })
 
-  // Add session list endpoint with user isolation enforcement
-  // GET /api/auth/session/list?userId=X
-  // Users can only view their own sessions
-  const appWithSessionList = appWithVerifyEmail.get('/api/auth/session/list', async (c) => {
-    try {
-      const requestedUserId = c.req.query('userId')
-
-      // Check if user is authenticated
-      const session = await authInstance.api.getSession({
-        headers: c.req.raw.headers,
-      })
-      if (!session) {
-        return c.json({ error: 'Unauthorized' }, 401)
-      }
-
-      // Map sequential ID to actual user ID for testing
-      const mappedId = requestedUserId ? await mapUserIdIfSequential(requestedUserId) : undefined
-      const actualRequestedUserId = mappedId ?? requestedUserId
-
-      // If userId is provided and it's not the current user, deny access
-      if (actualRequestedUserId && actualRequestedUserId !== session.user.id) {
-        return c.json({ error: 'Forbidden' }, 403)
-      }
-
-      // Fetch sessions for the current user only
-      const { db } = await import('@/infrastructure/database')
-      const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
-      const { eq } = await import('drizzle-orm')
-
-      const userSessions = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.userId, session.user.id))
-
-      return c.json({ sessions: userSessions }, 200)
-    } catch {
-      return c.json({ error: 'Failed to list sessions' }, 500)
-    }
-  })
-
-  // Add session revoke endpoint with authorization enforcement
-  // POST /api/auth/session/revoke { sessionId: "session-123" or sessionId: "2" for user 2's session }
-  // Users can only revoke their own sessions
-  const appWithSessionRevoke = appWithSessionList.post('/api/auth/session/revoke', async (c) => {
-    try {
-      const body = await c.req.json()
-      const { sessionId } = body
-
-      if (!sessionId) {
-        return c.json({ error: 'sessionId is required' }, 400)
-      }
-
-      // Check if user is authenticated
-      const session = await authInstance.api.getSession({
-        headers: c.req.raw.headers,
-      })
-      if (!session) {
-        return c.json({ error: 'Unauthorized' }, 401)
-      }
-
-      // Find the target session
-      const targetSession = await findSessionById(sessionId)
-      if (!targetSession) {
-        return c.json({ error: 'Session not found' }, 404)
-      }
-
-      // Check if the session belongs to the current user
-      if (targetSession.userId !== session.user.id) {
-        return c.json({ error: 'Forbidden' }, 403)
-      }
-
-      // Revoke the session using token (Better Auth API expects token, not sessionId)
-      // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
-      await authInstance.api.revokeSession({
-        body: { token: targetSession.id },
-        headers: c.req.raw.headers,
-      })
-
-      return c.json({ success: true }, 200)
-    } catch {
-      return c.json({ error: 'Failed to revoke session' }, 500)
-    }
-  })
-
-  // Add session revoke-others endpoint
-  // POST /api/auth/session/revoke-others
-  // Revokes all sessions for the current user except the current session
-  const appWithRevokeOthers = appWithSessionRevoke.post(
-    '/api/auth/session/revoke-others',
-    async (c) => {
-      try {
-        // Check if user is authenticated
-        const session = await authInstance.api.getSession({
-          headers: c.req.raw.headers,
-        })
-        if (!session) {
-          return c.json({ error: 'Unauthorized' }, 401)
-        }
-
-        // Get all sessions for the current user
-        const { db } = await import('@/infrastructure/database')
-        const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
-        const { eq, and, not } = await import('drizzle-orm')
-
-        // Find all sessions for this user except the current one
-        const sessionsToRevoke = await db
-          .select()
-          .from(sessions)
-          .where(
-            and(eq(sessions.userId, session.user.id), not(eq(sessions.id, session.session.id)))
-          )
-
-        // Revoke each session (using Promise.all for parallel execution)
-        // eslint-disable-next-line functional/no-expression-statements -- Session revocation is a necessary side effect
-        await Promise.all(
-          sessionsToRevoke.map((sessionToRevoke: { readonly id: string }) =>
-            authInstance.api.revokeSession({
-              body: { token: sessionToRevoke.id },
-              headers: c.req.raw.headers,
-            })
-          )
-        )
-
-        return c.json({ success: true, revokedCount: sessionsToRevoke.length }, 200)
-      } catch {
-        return c.json({ error: 'Failed to revoke sessions' }, 500)
-      }
-    }
-  )
-
   // Add organization isolation endpoint (GET /api/auth/organization/:id)
   // Enforces that users can only access organizations they belong to
   const wrappedApp = app.auth.organization
-    ? appWithRevokeOthers.get('/api/auth/organization/:id', async (c) => {
+    ? appWithVerifyEmail.get('/api/auth/organization/:id', async (c) => {
         try {
           const organizationId = c.req.param('id')
 
@@ -733,7 +545,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           return c.json({ error: 'Failed to get organization' }, 500)
         }
       })
-    : appWithRevokeOthers
+    : appWithVerifyEmail
 
   // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.

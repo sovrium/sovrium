@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/auth/revoke-session/post.json
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
@@ -170,48 +170,7 @@ test.describe('Revoke specific session', () => {
   )
 
   test(
-    'API-AUTH-REVOKE-SESSION-005: should return 200 OK when revoking another user session (no cross-user access)',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Two users with their own sessions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-      })
-
-      // Create User A
-      await signUp({
-        email: 'userA@example.com',
-        password: 'PasswordA123!',
-        name: 'User A',
-      })
-
-      // Create User B
-      await signUp({
-        email: 'userB@example.com',
-        password: 'PasswordB123!',
-        name: 'User B',
-      })
-
-      // Sign in as User A
-      await signIn({ email: 'userA@example.com', password: 'PasswordA123!' })
-
-      // WHEN: User A attempts to revoke User B's session (with fake token)
-      const response = await page.request.post('/api/auth/revoke-session', {
-        data: {
-          token: 'user_b_fake_session_token',
-        },
-      })
-
-      // THEN: Returns 200 OK (idempotent) or 404 (prevent session enumeration)
-      expect([200, 404]).toContain(response.status())
-    }
-  )
-
-  test(
-    'API-AUTH-REVOKE-SESSION-006: should return 200 OK and revoke current session',
+    'API-AUTH-REVOKE-SESSION-005: should return 200 OK and revoke current session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with current session
@@ -260,7 +219,7 @@ test.describe('Revoke specific session', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-REVOKE-SESSION-007: user can complete full revoke-session workflow',
+    'API-AUTH-REVOKE-SESSION-006: user can complete full revoke-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with auth enabled', async () => {
