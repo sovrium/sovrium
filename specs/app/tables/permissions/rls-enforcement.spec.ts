@@ -659,7 +659,7 @@ test.describe('Row-Level Security Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-RLS-ENFORCEMENT-011: should enforce multi-condition RLS filtering with role-based API access',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
