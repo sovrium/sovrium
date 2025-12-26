@@ -167,10 +167,11 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for architectural compliance, code quality analysis,
 # duplication detection, and refactoring strategies. Must understand layered architecture and provide comprehensive audit reports.
 color: orange
-tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite
+tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP
 # Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand, Skill
 # Justification: Automation-safe toolset for post-implementation auditing. AskUserQuestion would
 # block automated pipeline execution. No Skill access needed (doesn't generate schemas).
+# LSP enables code intelligence (findReferences, incomingCalls) for safe refactoring analysis.
 ---
 
 <!-- Tool Access Rationale (Phase-Specific):
@@ -180,15 +181,21 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite
   - Glob/Grep: Pattern search across src/ for discovery
   - Bash: git log, E2E test execution for baseline/validation
   - Edit/Write: Modify files in src/ for refactoring implementation
+  - LSP: findReferences before renaming, incomingCalls for impact analysis
 
   PHASE 1.2 (Recommendations - Older Code):
   - Read: Documentation (@docs) and source code (@src) for analysis
   - Glob/Grep: Pattern search across src/ for discovery
+  - LSP: Detect dead code (0 references), understand call hierarchies
   - NO Edit/Write: Recommendations only, awaiting human approval
 
   PHASE 0 & PHASE 5 (Test Validation):
   - Bash: bun test:e2e --grep @spec/@regression for safety baseline
   - Note: Unit tests, eslint, typecheck run automatically via hooks after Edit/Write
+
+  Cross-Phase Tools:
+  - Task: Spawn sub-agents for complex codebase exploration
+  - TodoWrite: Track multi-phase audit progress
 -->
 
 ## 🚀 Quick Start: Audit & Refactor Workflow (Execute Immediately)

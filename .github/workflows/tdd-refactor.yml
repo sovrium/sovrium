@@ -222,7 +222,7 @@ jobs:
           claude_args: >-
             --model claude-sonnet-4-5-20250929
             --max-budget-usd 10.00
-            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Verify refactor completed

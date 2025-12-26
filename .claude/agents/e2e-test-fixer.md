@@ -68,10 +68,11 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for TDD implementation, understanding test expectations,
 # making architectural decisions, and collaborating with user on implementation approach. Haiku lacks TDD reasoning depth.
 color: green
-tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite
+tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite, LSP
 # Disallowed: WebFetch, WebSearch, AskUserQuestion, NotebookEdit, SlashCommand
 # Justification: Automation-safe toolset for TDD pipeline. AskUserQuestion would block automated
 # pipeline execution. Skill access required for effect-schema-generator invocation.
+# LSP enables code intelligence (goToDefinition, findReferences) for understanding code structure.
 ---
 
 <!-- Tool Access Rationale:
@@ -79,8 +80,10 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite
   - Edit/Write: Modify source files during TDD cycle
   - Bash: Execute tests, quality checks (bun test:e2e, bun run quality)
   - Glob/Grep: Pattern search for existing implementations
+  - Task: Spawn sub-agents for complex codebase exploration
   - Skill: Invoke effect-schema-generator for missing schemas
   - TodoWrite: Track multi-step implementation progress
+  - LSP: Code intelligence (goToDefinition, findReferences) for understanding code structure
 -->
 
 ## 🚀 Quick Start: TDD Workflow (Execute Immediately)
