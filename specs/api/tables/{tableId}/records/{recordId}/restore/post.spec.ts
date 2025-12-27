@@ -137,7 +137,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
