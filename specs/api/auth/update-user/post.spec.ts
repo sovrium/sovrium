@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Update user profile
  *
- * Source: specs/api/paths/auth/update-user/patch.json
+ * Source: specs/api/paths/auth/update-user/post.json
  * Domain: api
  * Spec Count: 6
  *
