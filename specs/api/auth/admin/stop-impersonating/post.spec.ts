@@ -8,15 +8,17 @@
 import { test, expect } from '@/specs/fixtures'
 
 /**
- * E2E Tests for Admin Stop Impersonation
+ * E2E Tests for Admin: Stop Impersonating
  *
+ * Endpoint: POST /api/auth/admin/stop-impersonating
+ * Better Auth Admin Plugin: stopImpersonation
  * Domain: api
  * Spec Count: 6
  */
 
-test.describe('Admin Stop Impersonation', () => {
+test.describe('Admin: Stop Impersonating', () => {
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-001: should return 200 OK when stopping impersonation',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-001: should return 200 OK when stopping impersonation',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Admin currently impersonating a user
@@ -53,7 +55,7 @@ test.describe('Admin Stop Impersonation', () => {
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-002: should restore admin session',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-002: should restore admin session',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Admin impersonating a user
@@ -94,7 +96,7 @@ test.describe('Admin Stop Impersonation', () => {
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-003: should terminate impersonation session',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-003: should terminate impersonation session',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Admin impersonating a user
@@ -134,7 +136,7 @@ test.describe('Admin Stop Impersonation', () => {
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-004: should return 400 when not impersonating',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-004: should return 400 when not impersonating',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Admin not currently impersonating anyone
@@ -163,7 +165,7 @@ test.describe('Admin Stop Impersonation', () => {
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-005: should log impersonation end event',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-005: should log impersonation end event',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Admin impersonating a user
@@ -204,7 +206,7 @@ test.describe('Admin Stop Impersonation', () => {
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-006: should return 401 when not authenticated',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: An unauthenticated request
@@ -227,7 +229,7 @@ test.describe('Admin Stop Impersonation', () => {
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-STOP-007: admin can complete impersonation lifecycle',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-007: admin can complete impersonation lifecycle',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
       // GIVEN: Admin and target user
