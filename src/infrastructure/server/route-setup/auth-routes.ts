@@ -117,7 +117,9 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
   // Add authorization middleware for team member operations (if organization plugin with teams is enabled)
   const appWithTeamAuth =
-    app.auth.organization && typeof app.auth.organization === 'object' && app.auth.organization.teams
+    app.auth.organization &&
+    typeof app.auth.organization === 'object' &&
+    app.auth.organization.teams
       ? appWithRateLimit.use('/api/auth/organization/add-team-member', async (c, next) => {
           const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
 
@@ -125,8 +127,9 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             return c.json({ error: 'Unauthorized' }, 401)
           }
 
-          // Get request body to extract teamId
-          const { teamId } = await c.req.json()
+          // Clone request to preserve body for Better Auth handler
+          const clonedRequest = c.req.raw.clone()
+          const { teamId, userId } = await clonedRequest.json()
 
           if (!teamId) {
             return c.json({ error: 'Team ID is required' }, 400)
@@ -134,14 +137,15 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
           // Get the team to find its organization
           const { db } = await import('@/infrastructure/database')
-          const { teams, members } = await import('@/infrastructure/auth/better-auth/schema')
+          const { teams, members, teamMembers } =
+            await import('@/infrastructure/auth/better-auth/schema')
           const { eq, and } = await import('drizzle-orm')
 
           const team = await db
             .select()
             .from(teams)
             .where(eq(teams.id, teamId))
-            .then((rows: readonly typeof teams.$inferSelect[]) => rows[0])
+            .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
 
           if (!team) {
             return c.json({ error: 'Team not found' }, 404)
@@ -151,8 +155,13 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const membership = await db
             .select()
             .from(members)
-            .where(and(eq(members.organizationId, team.organizationId), eq(members.userId, session.user.id)))
-            .then((rows: readonly typeof members.$inferSelect[]) => rows[0])
+            .where(
+              and(
+                eq(members.organizationId, team.organizationId),
+                eq(members.userId, session.user.id)
+              )
+            )
+            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
 
           if (!membership) {
             return c.json({ error: 'Not a member of this organization' }, 403)
@@ -160,7 +169,23 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
           // Check if user has owner or admin role
           if (membership.role !== 'owner' && membership.role !== 'admin') {
-            return c.json({ error: 'Insufficient permissions. Only owners and admins can add team members.' }, 403)
+            return c.json(
+              { error: 'Insufficient permissions. Only owners and admins can add team members.' },
+              403
+            )
+          }
+
+          // Check if the target user is already a team member (409 Conflict)
+          if (userId) {
+            const existingTeamMember = await db
+              .select()
+              .from(teamMembers)
+              .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+              .then((rows: readonly (typeof teamMembers.$inferSelect)[]) => rows[0])
+
+            if (existingTeamMember) {
+              return c.json({ error: 'User is already a member of this team' }, 409)
+            }
           }
 
           // Authorization passed, continue to Better Auth handler
