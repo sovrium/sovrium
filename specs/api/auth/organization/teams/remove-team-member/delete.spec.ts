@@ -173,7 +173,7 @@ test.describe('Remove Team Member', () => {
       expect(error.message).toContain('member')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-004: should return 404 when team does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
