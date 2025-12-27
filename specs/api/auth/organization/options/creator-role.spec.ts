@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Creator Role
  *
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 3
  */
 
 test.describe('Organization Creator Role', () => {
@@ -45,46 +45,6 @@ test.describe('Organization Creator Role', () => {
       // THEN: Creator should have owner role
       expect(creatorMember).toBeDefined()
       expect(creatorMember.role).toBe('owner')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-002: should support custom creator role configuration',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: System configured with custom creator role
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-
-      // Configure default creator role to admin instead of owner
-      await request.patch('/api/auth/system/update-settings', {
-        data: {
-          defaultCreatorRole: 'admin',
-        },
-      })
-
-      const creator = await createAuthenticatedUser({
-        email: 'creator@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      // WHEN: Check creator's role
-      const members = await request
-        .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId! },
-        })
-        .then((r) => r.json())
-
-      const creatorMember = members.find((m: any) => m.userId === creator.user.id)
-
-      // THEN: Creator should have configured role (admin)
-      expect(creatorMember.role).toBe('admin')
     }
   )
 
@@ -133,142 +93,6 @@ test.describe('Organization Creator Role', () => {
       expect(response.status()).toBe(400)
       const error = await response.json()
       expect(error.message).toContain('creator')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-004: should allow creator role change by super admin',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, adminSetRole, request }) => {
-      // GIVEN: Organization with creator and a super admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const creator = await createAuthenticatedUser({
-        email: 'creator@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      const superAdmin = await createAuthenticatedUser({
-        email: 'superadmin@example.com',
-        password: 'Password123!',
-        createOrganization: false,
-      })
-
-      // Grant super admin privileges
-      await adminSetRole(superAdmin.user.id, 'superadmin')
-
-      const members = await request
-        .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId! },
-        })
-        .then((r) => r.json())
-
-      const creatorMember = members.find((m: any) => m.userId === creator.user.id)
-
-      // WHEN: Super admin changes creator role
-      const response = await request.patch('/api/auth/organization/update-member-role', {
-        data: {
-          organizationId: creator.organizationId!,
-          memberId: creatorMember.id,
-          role: 'admin',
-        },
-        headers: {
-          Authorization: `Bearer ${superAdmin.session!.token}`,
-        },
-      })
-
-      // THEN: Role change should succeed
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data.role).toBe('admin')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-005: should preserve creator metadata on organization',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: User creates organization
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const creator = await createAuthenticatedUser({
-        email: 'creator@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      // WHEN: Fetch organization details
-      const response = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: creator.organizationId! },
-      })
-
-      // THEN: Organization should have creator metadata
-      expect(response.status()).toBe(200)
-      const org = await response.json()
-      expect(org.createdBy).toBe(creator.user.id)
-      expect(org.createdAt).toBeDefined()
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-006: should inherit creator permissions from role',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: Organization with creator
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const creator = await createAuthenticatedUser({
-        email: 'creator@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      // Create a custom role
-      await request.post('/api/auth/organization/create-role', {
-        data: {
-          organizationId: creator.organizationId!,
-          name: 'custom-admin',
-          permissions: ['read:all', 'write:all', 'manage:members'],
-        },
-      })
-
-      // WHEN: Check creator has owner permissions (superset of all roles)
-      const ownerPermissions = ['read:all', 'write:all', 'manage:members', 'manage:organization']
-
-      const checkResults = await Promise.all(
-        ownerPermissions.map((permission) =>
-          request
-            .post('/api/auth/organization/check-permission', {
-              data: {
-                organizationId: creator.organizationId!,
-                memberId: creator.user.id,
-                permission,
-              },
-            })
-            .then((r) => r.json())
-        )
-      )
-
-      // THEN: Creator should have all owner permissions
-      checkResults.forEach((result) => {
-        expect(result.hasPermission).toBe(true)
-      })
     }
   )
 

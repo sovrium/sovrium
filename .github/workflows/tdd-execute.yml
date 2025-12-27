@@ -410,10 +410,11 @@ jobs:
       id-token: write
       actions: read
     outputs:
-      claude_success: ${{ steps.claude.outcome == 'success' }}
+      claude_success: ${{ steps.set_success.outputs.claude_success }}
       claude_exit_code: ${{ steps.claude.outcome }}
       error_type: ${{ steps.detect_error.outputs.error_type }}
       is_infrastructure_error: ${{ steps.detect_error.outputs.is_infrastructure_error }}
+      has_branch: ${{ steps.set_success.outputs.has_branch }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -529,6 +530,44 @@ jobs:
 
           echo "is_infrastructure_error=$IS_INFRA_ERROR" >> $GITHUB_OUTPUT
           echo "error_type=$ERROR_TYPE" >> $GITHUB_OUTPUT
+
+      # CRITICAL: Explicitly set success output to fix detection issue
+      # GitHub Actions has issues with expression-based outputs when steps use continue-on-error
+      # This step explicitly captures both success state and branch existence for fallback
+      - name: Set success output
+        id: set_success
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+        run: |
+          echo "🔍 Setting success output..."
+          echo "   Claude outcome: $CLAUDE_OUTCOME"
+
+          # Explicitly set claude_success based on outcome
+          if [ "$CLAUDE_OUTCOME" = "success" ]; then
+            echo "claude_success=true" >> $GITHUB_OUTPUT
+            echo "✅ Claude completed successfully"
+          else
+            echo "claude_success=false" >> $GITHUB_OUTPUT
+            echo "❌ Claude did not complete successfully (outcome: $CLAUDE_OUTCOME)"
+          fi
+
+          # Also check if a branch was created (fallback indicator)
+          # This allows verify-success to run even if claude_success detection fails
+          BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
+          BRANCH_EXISTS=$(gh api "/repos/$REPO/branches" \
+            --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
+
+          if [ -n "$BRANCH_EXISTS" ] && [ "$BRANCH_EXISTS" != "null" ]; then
+            echo "has_branch=true" >> $GITHUB_OUTPUT
+            echo "✅ Branch exists: $BRANCH_EXISTS"
+          else
+            echo "has_branch=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No branch found with pattern: $BRANCH_PATTERN"
+          fi
 
       - name: Update issue on failure
         if: steps.claude.outcome != 'success'
@@ -905,11 +944,20 @@ jobs:
   # - Another workflow might have already created and merged a PR for this issue
   # - The issue might have been closed by a merged PR
   # This job detects and handles these duplicate PR scenarios
+  #
+  # RELIABILITY FIX: Run this job when EITHER:
+  # - claude_success == 'true' (normal case)
+  # - has_branch == 'true' (fallback: Claude pushed a branch but success detection failed)
+  # This prevents issues getting stuck when Claude successfully implements code but
+  # the workflow skips PR creation due to output detection issues.
   verify-success:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [execute-claude]
-    if: needs.execute-claude.outputs.claude_success == 'true'
+    if: |
+      always() &&
+      (needs.execute-claude.outputs.claude_success == 'true' ||
+       needs.execute-claude.outputs.has_branch == 'true')
     permissions:
       issues: write
       pull-requests: write  # Need write to close duplicate PRs

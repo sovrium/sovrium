@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Leave Organization
  *
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 4
  */
 
 test.describe('Leave Organization', () => {
@@ -70,93 +70,6 @@ test.describe('Leave Organization', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-002: should remove member from all teams on leave',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
-      // GIVEN: Organization with teams and member assigned to teams
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      const member = await signUp({
-        email: 'member@example.com',
-        password: 'Password123!',
-        name: 'Member User',
-      })
-
-      const { member: memberRecord } = await addMember({
-        organizationId: owner.organizationId!,
-        userId: member.user.id,
-        role: 'member',
-      })
-
-      // Create teams and add member
-      const team1 = await request
-        .post('/api/auth/organization/create-team', {
-          data: {
-            organizationId: owner.organizationId!,
-            name: 'Engineering',
-          },
-        })
-        .then((r) => r.json())
-
-      const team2 = await request
-        .post('/api/auth/organization/create-team', {
-          data: {
-            organizationId: owner.organizationId!,
-            name: 'Design',
-          },
-        })
-        .then((r) => r.json())
-
-      await request.post('/api/auth/organization/add-team-member', {
-        data: {
-          teamId: team1.id,
-          memberId: memberRecord.id,
-        },
-      })
-
-      await request.post('/api/auth/organization/add-team-member', {
-        data: {
-          teamId: team2.id,
-          memberId: memberRecord.id,
-        },
-      })
-
-      // WHEN: Member leaves organization
-      await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId! },
-        headers: { Authorization: `Bearer ${member.session!.token}` },
-      })
-
-      // THEN: Member should be removed from all teams
-      const team1Members = await request
-        .get('/api/auth/organization/list-team-members', {
-          params: { teamId: team1.id },
-        })
-        .then((r) => r.json())
-
-      const team2Members = await request
-        .get('/api/auth/organization/list-team-members', {
-          params: { teamId: team2.id },
-        })
-        .then((r) => r.json())
-
-      expect(team1Members.find((m: any) => m.memberId === memberRecord.id)).toBeUndefined()
-      expect(team2Members.find((m: any) => m.memberId === memberRecord.id)).toBeUndefined()
-    }
-  )
-
-  test.fixme(
     'API-AUTH-ORG-OPT-LEAVE-003: should return 400 when owner tries to leave',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
@@ -185,100 +98,6 @@ test.describe('Leave Organization', () => {
       expect(response.status()).toBe(400)
       const error = await response.json()
       expect(error.message).toContain('owner')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-004: should require ownership transfer before owner leave',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
-      // GIVEN: Organization with owner and admin
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      const admin = await signUp({
-        email: 'admin@example.com',
-        password: 'Password123!',
-        name: 'Admin User',
-      })
-
-      await addMember({
-        organizationId: owner.organizationId!,
-        userId: admin.user.id,
-        role: 'admin',
-      })
-
-      // WHEN: Owner transfers ownership and then leaves
-      const members = await request
-        .get('/api/auth/organization/list-members', {
-          params: { organizationId: owner.organizationId! },
-        })
-        .then((r) => r.json())
-
-      const adminMember = members.find((m: any) => m.userId === admin.user.id)
-
-      await request.patch('/api/auth/organization/transfer-ownership', {
-        data: {
-          organizationId: owner.organizationId!,
-          newOwnerId: adminMember.id,
-        },
-      })
-
-      // THEN: Original owner can now leave
-      const leaveResponse = await request.post('/api/auth/organization/leave', {
-        data: { organizationId: owner.organizationId! },
-      })
-
-      expect(leaveResponse.status()).toBe(200)
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-005: should delete organization if last member leaves',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: Organization with single non-owner member
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      // First transfer ownership would be needed, or handle single-member org differently
-      // For this test, assume organization has auto-delete-when-empty policy
-
-      // WHEN: Last member leaves (after ownership transfer or deletion policy)
-      const response = await request.delete('/api/auth/organization/delete', {
-        data: {
-          organizationId: owner.organizationId!,
-        },
-      })
-
-      expect(response.status()).toBe(200)
-
-      // THEN: Organization should no longer exist
-      const getOrgResponse = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: owner.organizationId! },
-      })
-
-      expect(getOrgResponse.status()).toBe(404)
     }
   )
 

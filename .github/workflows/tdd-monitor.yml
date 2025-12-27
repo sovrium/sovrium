@@ -394,6 +394,135 @@ jobs:
             echo "✅ No stuck specs found"
           fi
 
+      # FALLBACK MECHANISM: Create PRs for orphaned branches
+      # This handles cases where Claude successfully pushed a branch but verify-success was skipped
+      # (e.g., claude_success output detection failure)
+      - name: Create PRs for orphaned branches
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          TIMEOUT_MINUTES: ${{ env.STUCK_TIMEOUT_MINUTES }}
+        run: |
+          echo "🔍 Looking for orphaned branches (branches with commits but no PR)..."
+
+          # Get issues stuck in-progress for >30 min (shorter window for this check)
+          ISSUES=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "tdd-spec:in-progress" \
+            --json number,title,updatedAt \
+            --limit 100)
+
+          NOW=$(date +%s)
+          ORPHAN_TIMEOUT=1800  # 30 minutes - shorter than full stuck timeout
+          CREATED_COUNT=0
+
+          while read -r issue; do
+            [ -z "$issue" ] && continue
+
+            ISSUE_NUMBER=$(echo "$issue" | jq -r '.number')
+            TITLE=$(echo "$issue" | jq -r '.title')
+            UPDATED_AT=$(echo "$issue" | jq -r '.updatedAt')
+
+            UPDATED_EPOCH=$(date -d "$UPDATED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s 2>/dev/null || echo "0")
+            AGE=$((NOW - UPDATED_EPOCH))
+
+            # Only check issues that have been in-progress for >30 minutes
+            if [ "$AGE" -le "$ORPHAN_TIMEOUT" ]; then
+              continue
+            fi
+
+            AGE_MIN=$((AGE / 60))
+            echo ""
+            echo "🔍 Checking issue #$ISSUE_NUMBER (${AGE_MIN} min old) for orphaned branch..."
+
+            # Check if a PR already exists for this issue
+            EXISTING_PR=$(gh pr list \
+              --repo ${{ github.repository }} \
+              --json number,body \
+              --jq "[.[] | select(.body | test(\"Closes #$ISSUE_NUMBER(\\\\s|$)\"))][0].number" 2>/dev/null || echo "")
+
+            if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
+              echo "   ✅ PR #$EXISTING_PR already exists - skipping"
+              continue
+            fi
+
+            # Check if a branch exists for this issue
+            BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
+            BRANCH_NAME=$(gh api "/repos/${{ github.repository }}/branches" \
+              --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
+
+            if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" = "null" ]; then
+              echo "   ⚠️  No branch found - cannot create PR"
+              continue
+            fi
+
+            echo "   🌿 Found orphaned branch: $BRANCH_NAME"
+
+            # Check if branch has commits ahead of main
+            COMMITS_AHEAD=$(gh api "/repos/${{ github.repository }}/compare/main...$BRANCH_NAME" \
+              --jq '.ahead_by' 2>/dev/null || echo "0")
+
+            if [ "$COMMITS_AHEAD" -eq 0 ]; then
+              echo "   ⚠️  Branch has no commits ahead of main - skipping"
+              continue
+            fi
+
+            echo "   📝 Branch has $COMMITS_AHEAD commit(s) ahead of main"
+
+            # Extract spec ID from issue title
+            SPEC_ID=$(echo "$TITLE" | grep -oE '[A-Z]+-[A-Z]+-[A-Z0-9-]+' | head -1 || echo "unknown-spec")
+
+            echo "   🚀 Creating PR from orphaned branch..."
+
+            # Create the PR
+            PR_NUMBER=$(gh pr create \
+              --repo ${{ github.repository }} \
+              --head "$BRANCH_NAME" \
+              --base main \
+              --title "fix: implement $SPEC_ID" \
+              --body "Closes #${ISSUE_NUMBER}" \
+              --label "tdd-automation" \
+              --json number --jq '.number' 2>&1)
+
+            if [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "   ✅ PR #$PR_NUMBER created successfully!"
+              CREATED_COUNT=$((CREATED_COUNT + 1))
+
+              # Enable auto-merge
+              if gh pr merge "$PR_NUMBER" --repo ${{ github.repository }} --auto --squash 2>/dev/null; then
+                echo "   ✅ Auto-merge enabled"
+              else
+                echo "   ⚠️  Could not enable auto-merge"
+              fi
+
+              # Post comment on issue
+              gh issue comment "$ISSUE_NUMBER" --repo ${{ github.repository }} \
+                --body "🔧 **Orphaned Branch Recovery**
+
+              Found branch \`$BRANCH_NAME\` with $COMMITS_AHEAD commit(s) but no PR.
+
+              **Created**: PR #$PR_NUMBER with auto-merge enabled.
+
+              This recovery was triggered because the original verify-success job was skipped (likely due to output detection issues).
+
+              ---
+              *🤖 TDD Monitor - Orphaned Branch Recovery*"
+            else
+              echo "   ❌ Failed to create PR: $PR_NUMBER"
+
+              # Check if it's a "PR already exists" error
+              if echo "$PR_NUMBER" | grep -qi "already exists"; then
+                echo "   ℹ️  PR already exists (race condition)"
+              fi
+            fi
+          done < <(echo "$ISSUES" | jq -r '.[] | @json')
+
+          if [ "$CREATED_COUNT" -gt 0 ]; then
+            echo ""
+            echo "✅ Created $CREATED_COUNT PR(s) from orphaned branches"
+          else
+            echo "✅ No orphaned branches found"
+          fi
+
   # Job 3: PR Monitoring
   # Monitors PRs for missing auto-merge and stuck validation
   pr-monitoring:

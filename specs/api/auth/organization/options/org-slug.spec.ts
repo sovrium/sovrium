@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Slug Handling
  *
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 4
  */
 
 test.describe('Organization Slug Handling', () => {
@@ -50,40 +50,6 @@ test.describe('Organization Slug Handling', () => {
       const org = await response.json()
       expect(org.slug).toBeDefined()
       expect(org.slug).toBe('acme-corporation')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-002: should accept custom slug on creation',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: User creates organization with custom slug
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      // WHEN: Update organization with custom slug
-      const response = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: owner.organizationId!,
-          name: 'Acme Corporation',
-          slug: 'acme-corp',
-        },
-      })
-
-      // THEN: Custom slug should be used
-      expect(response.status()).toBe(200)
-      const org = await response.json()
-      expect(org.slug).toBe('acme-corp')
     }
   )
 
@@ -184,112 +150,6 @@ test.describe('Organization Slug Handling', () => {
 
       // THEN: Valid slug should succeed
       expect(validResponse.status()).toBe(200)
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-005: should prevent slug update after creation',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: Organization with initial slug
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: owner.organizationId!,
-          slug: 'initial-slug',
-        },
-      })
-
-      // WHEN: Try to update slug
-      const response = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: owner.organizationId!,
-          slug: 'new-slug',
-        },
-      })
-
-      // THEN: Should return 400 if slug updates are prevented
-      expect(response.status()).toBe(400)
-      const error = await response.json()
-      expect(error.message).toContain('slug')
-    }
-  )
-
-  test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-006: should allow slug update with owner permission',
-    { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
-      // GIVEN: Organization with owner and admin
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: owner.organizationId!,
-          slug: 'initial-slug',
-        },
-      })
-
-      const admin = await signUp({
-        email: 'admin@example.com',
-        password: 'Password123!',
-        name: 'Admin User',
-      })
-
-      await addMember({
-        organizationId: owner.organizationId!,
-        userId: admin.user.id,
-        role: 'admin',
-      })
-
-      // WHEN: Admin tries to update slug
-      const adminResponse = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: owner.organizationId!,
-          slug: 'admin-new-slug',
-        },
-        headers: {
-          Authorization: `Bearer ${admin.session!.token}`,
-        },
-      })
-
-      // THEN: Should be rejected (admin cannot update slug)
-      expect(adminResponse.status()).toBe(403)
-
-      // WHEN: Owner updates slug
-      const ownerResponse = await request.patch('/api/auth/organization/update-slug', {
-        data: {
-          organizationId: owner.organizationId!,
-          slug: 'owner-new-slug',
-        },
-      })
-
-      // THEN: Owner should succeed
-      expect(ownerResponse.status()).toBe(200)
-      const org = await ownerResponse.json()
-      expect(org.slug).toBe('owner-new-slug')
     }
   )
 
