@@ -167,7 +167,7 @@ test.describe('Send Magic Link', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-SEND-005: should return 400 when magic link not enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
