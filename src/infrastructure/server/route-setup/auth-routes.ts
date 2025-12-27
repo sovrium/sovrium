@@ -614,7 +614,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
             // Parse request body
             const body = await c.req.json()
-            const organizationId = body.organizationId
+            const { organizationId } = body
 
             if (!organizationId) {
               return c.json({ message: 'organizationId is required' }, 400)
@@ -644,6 +644,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
 
             // Update the session's active organization
+            // eslint-disable-next-line functional/no-expression-statements -- Side effect required for session update
             await db
               .update(sessions)
               .set({ activeOrganizationId: organizationId })
