@@ -1149,28 +1149,46 @@ jobs:
           # Create PR with guaranteed correct format
           # CRITICAL: Body is EXACTLY "Closes #XXXX" - nothing else
           # Retry up to 3 times for transient network errors
+          #
+          # RELIABILITY FIX: Don't use --json --jq flags - they fail when gh pr create
+          # returns an error (tries to parse non-JSON error message as JSON).
+          # Instead, extract PR number from the URL in the success output.
           PR_NUMBER=""
           PR_CREATE_ERROR=""
+
+          # Disable exit-on-error for retry loop (default behavior can vary)
+          set +e
+
           for attempt in 1 2 3; do
             echo "PR creation attempt $attempt/3..."
+
+            # Capture output AND exit code separately
             PR_CREATE_OUTPUT=$(gh pr create \
               --repo "$REPO" \
               --head "$BRANCH_FULL_NAME" \
               --base main \
               --title "fix: implement $SPEC_ID" \
               --body "Closes #${ISSUE_NUMBER}" \
-              --label "tdd-automation" \
-              --json number --jq '.number' 2>&1)
+              --label "tdd-automation" 2>&1)
+            PR_EXIT_CODE=$?
 
-            if [[ "$PR_CREATE_OUTPUT" =~ ^[0-9]+$ ]]; then
-              PR_NUMBER="$PR_CREATE_OUTPUT"
-              echo "✅ PR creation succeeded on attempt $attempt"
-              break
+            echo "Exit code: $PR_EXIT_CODE"
+            echo "Output: $PR_CREATE_OUTPUT"
+
+            # Extract PR number from URL (format: https://github.com/owner/repo/pull/123)
+            if [ $PR_EXIT_CODE -eq 0 ]; then
+              PR_NUMBER=$(echo "$PR_CREATE_OUTPUT" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+' | head -1)
+              if [ -n "$PR_NUMBER" ]; then
+                echo "✅ PR creation succeeded on attempt $attempt"
+                break
+              fi
             fi
 
             # Check if it's a duplicate error (no retry needed)
             if echo "$PR_CREATE_OUTPUT" | grep -qi "already exists"; then
               echo "PR already exists - no retry needed"
+              # Try to extract existing PR number
+              PR_NUMBER=$(echo "$PR_CREATE_OUTPUT" | grep -oE '/pull/[0-9]+' | grep -oE '[0-9]+' | head -1)
               PR_CREATE_ERROR="$PR_CREATE_OUTPUT"
               break
             fi
@@ -1178,11 +1196,14 @@ jobs:
             PR_CREATE_ERROR="$PR_CREATE_OUTPUT"
             if [ "$attempt" -lt 3 ]; then
               DELAY=$((attempt * 5))
-              echo "⚠️  Attempt $attempt failed: $PR_CREATE_OUTPUT"
+              echo "⚠️  Attempt $attempt failed (exit code $PR_EXIT_CODE): $PR_CREATE_OUTPUT"
               echo "Retrying in ${DELAY}s..."
               sleep $DELAY
             fi
           done
+
+          # Re-enable exit-on-error
+          set -e
 
           if [ -n "$PR_NUMBER" ] && [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
             echo "✅ PR #$PR_NUMBER created successfully!"
