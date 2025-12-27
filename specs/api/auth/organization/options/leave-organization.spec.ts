@@ -69,7 +69,7 @@ test.describe('Leave Organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-OPT-LEAVE-002: should return 400 when owner tries to leave',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
@@ -101,7 +101,7 @@ test.describe('Leave Organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-OPT-LEAVE-003: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
