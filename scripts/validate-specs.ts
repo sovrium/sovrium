@@ -377,21 +377,26 @@ const runTest = (
 
 /**
  * Playwright JSON reporter result structure
+ * Based on actual Playwright JSON output format (v1.57+)
  */
-interface PlaywrightTestResult {
-  readonly title: string
+interface PlaywrightTestResultEntry {
   readonly status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted'
+}
+
+interface PlaywrightTest {
+  readonly results: readonly PlaywrightTestResultEntry[]
 }
 
 interface PlaywrightSpec {
   readonly title: string
-  readonly tests: readonly PlaywrightTestResult[]
+  readonly ok: boolean // true if all tests in this spec passed
+  readonly tests: readonly PlaywrightTest[]
 }
 
 interface PlaywrightSuite {
   readonly title: string
-  readonly specs: readonly PlaywrightSpec[]
-  readonly suites: readonly PlaywrightSuite[]
+  readonly specs?: readonly PlaywrightSpec[] // Can be undefined for file-level suites
+  readonly suites?: readonly PlaywrightSuite[] // Can be undefined for leaf suites
 }
 
 interface PlaywrightJsonReport {
@@ -400,6 +405,7 @@ interface PlaywrightJsonReport {
 
 /**
  * Extract all test results from Playwright JSON report (recursive)
+ * Uses spec.title for ID extraction and spec.ok for pass/fail status
  */
 const extractTestResults = (
   suites: readonly PlaywrightSuite[]
@@ -407,25 +413,26 @@ const extractTestResults = (
   const results = new Map<string, 'passed' | 'failed'>()
 
   const processSpec = (spec: PlaywrightSpec) => {
-    for (const test of spec.tests) {
-      // Extract spec ID from test title (format: "[SPEC-ID] description" or "SPEC-ID: description")
-      const specIdMatch = test.title.match(
-        /\[([A-Z]+-[A-Z]+-[A-Z0-9-]+)\]|^([A-Z]+-[A-Z]+-[A-Z0-9-]+):/
-      )
-      if (specIdMatch) {
-        const specId = specIdMatch[1] || specIdMatch[2]
-        if (specId) {
-          results.set(specId, test.status === 'passed' ? 'passed' : 'failed')
-        }
+    // Extract spec ID from spec title (format: "[SPEC-ID] description" or "SPEC-ID: description")
+    const specIdMatch = spec.title.match(
+      /\[([A-Z]+-[A-Z]+-[A-Z0-9-]+)\]|^([A-Z]+-[A-Z]+-[A-Z0-9-]+):/
+    )
+    if (specIdMatch) {
+      const specId = specIdMatch[1] || specIdMatch[2]
+      if (specId) {
+        // Use spec.ok for quick pass/fail determination
+        results.set(specId, spec.ok ? 'passed' : 'failed')
       }
     }
   }
 
   const processSuite = (suite: PlaywrightSuite) => {
-    for (const spec of suite.specs) {
+    // Handle optional specs array (file-level suites may not have specs)
+    for (const spec of suite.specs ?? []) {
       processSpec(spec)
     }
-    for (const nestedSuite of suite.suites) {
+    // Handle optional suites array (leaf suites may not have nested suites)
+    for (const nestedSuite of suite.suites ?? []) {
       processSuite(nestedSuite)
     }
   }
@@ -481,10 +488,20 @@ const runBatchTests = (
         )
       )
 
-    // Parse JSON output
+    // Parse JSON output - extract JSON from stdout (may have non-JSON prefix)
     try {
-      const report = JSON.parse(result.stdout) as PlaywrightJsonReport
-      return extractTestResults(report.suites)
+      // Playwright stdout may contain non-JSON output before the JSON report
+      // (e.g., "Starting test environment..." from global-setup.ts)
+      // Find the first '{' to locate the start of JSON
+      const jsonStart = result.stdout.indexOf('{')
+      if (jsonStart === -1) {
+        throw new Error('No JSON found in stdout')
+      }
+      const jsonString = result.stdout.substring(jsonStart)
+      const report = JSON.parse(jsonString) as PlaywrightJsonReport
+      const results = extractTestResults(report.suites)
+
+      return results
     } catch {
       // If JSON parsing fails, assume all tests failed
       const failedResults = new Map<string, 'passed' | 'failed'>()
