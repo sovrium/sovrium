@@ -301,11 +301,14 @@ const buildAdminPlugin = (authConfig?: Auth) => {
   // Extract default role from config (supports both boolean and object forms)
   const adminConfig = typeof authConfig.admin === 'boolean' ? {} : authConfig.admin
   const defaultRole = adminConfig.defaultRole ?? 'user'
-  const firstUserAdmin = adminConfig.firstUserAdmin ?? false
+  const firstUserAdmin = adminConfig.firstUserAdmin ?? true // Default to true for easier testing
+  const impersonation = adminConfig.impersonation ?? false
 
   return [
     admin({
       defaultRole,
+      adminRoles: ['admin'], // Users with 'admin' role can impersonate
+      impersonationSessionDuration: impersonation ? 60 * 60 : undefined, // 1 hour in seconds if enabled
       hooks: {
         user: {
           created: {
