@@ -135,7 +135,7 @@ test.describe('Set active organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-004: should return 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
