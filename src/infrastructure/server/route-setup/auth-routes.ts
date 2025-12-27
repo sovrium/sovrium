@@ -115,6 +115,56 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
   const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(honoApp) : honoApp
 
+  // Add authorization middleware for team member operations (if organization plugin with teams is enabled)
+  const appWithTeamAuth =
+    app.auth.organization && typeof app.auth.organization === 'object' && app.auth.organization.teams
+      ? appWithRateLimit.use('/api/auth/organization/add-team-member', async (c, next) => {
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          // Get request body to extract teamId
+          const body = await c.req.json()
+          const teamId = body.teamId
+
+          if (!teamId) {
+            return c.json({ error: 'Team ID is required' }, 400)
+          }
+
+          // Get the team to find its organization
+          const { db } = await import('@/infrastructure/database')
+          const { teams, members } = await import('@/infrastructure/auth/better-auth/schema')
+          const { eq, and } = await import('drizzle-orm')
+
+          const team = await db.select().from(teams).where(eq(teams.id, teamId)).then((rows) => rows[0])
+
+          if (!team) {
+            return c.json({ error: 'Team not found' }, 404)
+          }
+
+          // Check if user is a member of the organization
+          const membership = await db
+            .select()
+            .from(members)
+            .where(and(eq(members.organizationId, team.organizationId), eq(members.userId, session.user.id)))
+            .then((rows) => rows[0])
+
+          if (!membership) {
+            return c.json({ error: 'Not a member of this organization' }, 403)
+          }
+
+          // Check if user has owner or admin role
+          if (membership.role !== 'owner' && membership.role !== 'admin') {
+            return c.json({ error: 'Insufficient permissions. Only owners and admins can add team members.' }, 403)
+          }
+
+          // Authorization passed, continue to Better Auth handler
+          await next()
+        })
+      : appWithRateLimit
+
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively handles:
   // - Authentication flows (sign-up, sign-in, sign-out, email verification)
@@ -127,7 +177,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithTeamAuth.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
