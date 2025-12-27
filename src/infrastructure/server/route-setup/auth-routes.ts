@@ -282,7 +282,7 @@ const registerListUsersEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
           .select({ count: sql<number>`count(*)` })
           .from(users)
           .where(whereClause)
-          .then((result) => Number(result[0]?.count ?? 0)),
+          .then((result: readonly { count: number }[]) => Number(result[0]?.count ?? 0)),
         db.select().from(users).where(whereClause).limit(limit).offset(offset),
       ])
 
