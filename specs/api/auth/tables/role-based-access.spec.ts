@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Role-Based Table Access Control
  *
  * Domain: api/auth/tables
- * Spec Count: 13
+ * Spec Count: 12
  *
  * These tests verify the integration between Better Auth roles and table permissions:
  * - Organization context: membership roles control table access
