@@ -95,7 +95,7 @@ test.describe('Admin: Stop Impersonating', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-003: should terminate impersonation session',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
