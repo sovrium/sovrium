@@ -56,7 +56,10 @@ test.describe('CLI Start Command - Watch Mode', () => {
       try {
         // WHEN: Starting server with --watch flag
         const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
-        const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+        const serverProcess = spawn('bun', args, {
+          stdio: 'pipe',
+          env: { ...process.env, PORT: '0' }, // Let Bun auto-select available port
+        })
 
         const output = await new Promise<string>((resolve) => {
           const outputBuffer: string[] = []
@@ -105,7 +108,10 @@ description: Testing -w flag
       try {
         // WHEN: Starting server with -w flag
         const args = ['run', 'src/cli.ts', 'start', configPath, '-w']
-        const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+        const serverProcess = spawn('bun', args, {
+          stdio: 'pipe',
+          env: { ...process.env, PORT: '0' }, // Let Bun auto-select available port
+        })
 
         const output = await new Promise<string>((resolve) => {
           const outputBuffer: string[] = []
@@ -151,7 +157,10 @@ description: Testing -w flag
 
       try {
         const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
-        const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+        const serverProcess = spawn('bun', args, {
+          stdio: 'pipe',
+          env: { ...process.env, PORT: '0' }, // Let Bun auto-select available port
+        })
 
         const reloadOutput = await new Promise<string>((resolve) => {
           const outputBuffer: string[] = []
@@ -217,7 +226,10 @@ description: Original YAML description
 
       try {
         const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
-        const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+        const serverProcess = spawn('bun', args, {
+          stdio: 'pipe',
+          env: { ...process.env, PORT: '0' }, // Let Bun auto-select available port
+        })
 
         const reloadOutput = await new Promise<string>((resolve) => {
           const outputBuffer: string[] = []
