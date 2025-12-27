@@ -172,7 +172,7 @@ test.describe('Set active organization', () => {
   )
 
   test(
-    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-005: should return 200 with null for non-member org',
+    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-005: should return 404 Not Found (prevent enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is not member of an organization
@@ -216,9 +216,11 @@ test.describe('Set active organization', () => {
         },
       })
 
-      // THEN: Better Auth returns 403 Forbidden (native behavior)
-      // User is not a member of the organization
-      expect(response.status()).toBe(403)
+      // THEN: Returns 404 Not Found (prevent organization enumeration)
+      expect(response.status()).toBe(404)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('message')
     }
   )
 

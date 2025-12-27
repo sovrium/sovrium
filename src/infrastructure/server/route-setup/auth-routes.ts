@@ -115,6 +115,25 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
   const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(honoApp) : honoApp
 
+  // Add wrapper for set-active-organization to prevent organization enumeration
+  // Security requirement: Return 404 instead of 403 to prevent attackers from
+  // determining if an organization exists by observing different status codes
+  const appWithOrgWrapper = appWithRateLimit.post(
+    '/api/auth/organization/set-active',
+    async (c) => {
+      const response = await authInstance.handler(c.req.raw)
+
+      // Convert 403 Forbidden to 404 Not Found (prevent enumeration)
+      if (response.status === 403) {
+        return c.json({ message: 'Organization not found' }, 404)
+      }
+
+      // Pass through other responses
+      const data = await response.json()
+      return c.json(data, response.status as 200 | 400 | 401 | 404 | 500)
+    }
+  )
+
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively handles:
   // - Authentication flows (sign-up, sign-in, sign-out, email verification)
@@ -127,7 +146,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithOrgWrapper.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
