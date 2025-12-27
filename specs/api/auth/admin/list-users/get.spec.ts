@@ -145,7 +145,7 @@ test.describe('Admin: List users', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-004: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -166,7 +166,7 @@ test.describe('Admin: List users', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-005: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
