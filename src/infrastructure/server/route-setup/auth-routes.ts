@@ -175,6 +175,21 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             )
           }
 
+          // Check if the target user is a member of the organization (400 Bad Request)
+          if (userId) {
+            const targetUserMembership = await db
+              .select()
+              .from(members)
+              .where(
+                and(eq(members.organizationId, team.organizationId), eq(members.userId, userId))
+              )
+              .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
+
+            if (!targetUserMembership) {
+              return c.json({ error: 'User is not a member of this organization' }, 400)
+            }
+          }
+
           // Check if the target user is already a team member (409 Conflict)
           if (userId) {
             const existingTeamMember = await db
