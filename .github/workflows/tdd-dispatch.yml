@@ -1,13 +1,15 @@
 name: TDD - Dispatch (Trigger Claude)
+# Trigger: Picks next spec from queue and invokes Claude Code
 
 on:
   # Event-driven triggers (immediate response when work is available)
+  # NOTE: workflow_run does NOT support self-triggers (GitHub security feature).
+  # Self-continuation (after pre-validation/superseded) is done via workflow_dispatch API.
   workflow_run:
     workflows:
       - 'TDD - Scan (Find .fixme tests)' # New specs added to queue
       - 'TDD - Execute (Claude Code)' # Spec completed, pick next one
       - 'TDD - Monitor (Health & Recovery)' # Stuck specs re-queued
-      - 'TDD - Dispatch (Trigger Claude)' # Self-trigger: pre-validation completed, pick next spec
     types: [completed]
     branches: [main]
 
@@ -228,6 +230,7 @@ jobs:
 
       - name: Close superseded issue
         if: steps.check.outputs.should_process == 'true' && steps.validate.outputs.should_process == 'true' && steps.superseded.outputs.is_superseded == 'true'
+        id: close_superseded
         run: |
           ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
@@ -284,6 +287,27 @@ jobs:
           done
 
           echo "✅ Issue #$ISSUE_NUMBER processed as superseded"
+          echo "should_trigger_next=true" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Trigger next queue run (after superseded issue closed)
+        if: steps.close_superseded.outputs.should_trigger_next == 'true'
+        run: |
+          echo "🔄 Superseded issue closed - triggering next queue run..."
+          echo ""
+          echo "Note: GitHub Actions does not support workflow_run self-triggers."
+          echo "Using workflow_dispatch API to continue queue processing."
+          echo ""
+
+          # Small delay to ensure GitHub has processed the issue closure
+          sleep 3
+
+          # Trigger the next queue run
+          gh workflow run "TDD - Dispatch (Trigger Claude)" \
+            --ref main
+
+          echo "✅ Next queue run triggered via workflow_dispatch"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
 
@@ -387,6 +411,7 @@ jobs:
               echo "✅ Issue #$ISSUE_NUMBER closed"
               echo "test_passed=true" >> $GITHUB_OUTPUT
               echo "needs_claude=false" >> $GITHUB_OUTPUT
+              echo "should_trigger_next=true" >> $GITHUB_OUTPUT
             else
               echo ""
               echo "❌ Push to main failed! Re-queuing issue for retry..."
@@ -400,6 +425,7 @@ jobs:
 
               echo "test_passed=false" >> $GITHUB_OUTPUT
               echo "needs_claude=false" >> $GITHUB_OUTPUT
+              echo "should_trigger_next=false" >> $GITHUB_OUTPUT
             fi
           else
             echo ""
@@ -409,7 +435,36 @@ jobs:
 
             echo "test_passed=false" >> $GITHUB_OUTPUT
             echo "needs_claude=true" >> $GITHUB_OUTPUT
+            echo "should_trigger_next=false" >> $GITHUB_OUTPUT
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      # =========================================================================
+      # SELF-TRIGGER: Queue continuation after pre-validation success
+      # =========================================================================
+      # GitHub Actions does NOT allow workflow_run to trigger the same workflow.
+      # When pre-validation passes, we must explicitly trigger the next queue run
+      # via workflow_dispatch API to continue processing the queue.
+      # =========================================================================
+
+      - name: Trigger next queue run (after pre-validation success)
+        if: steps.prevalidate.outputs.should_trigger_next == 'true'
+        run: |
+          echo "🔄 Pre-validation succeeded - triggering next queue run..."
+          echo ""
+          echo "Note: GitHub Actions does not support workflow_run self-triggers."
+          echo "Using workflow_dispatch API to continue queue processing."
+          echo ""
+
+          # Small delay to ensure GitHub has processed the issue closure
+          sleep 3
+
+          # Trigger the next queue run
+          gh workflow run "TDD - Dispatch (Trigger Claude)" \
+            --ref main
+
+          echo "✅ Next queue run triggered via workflow_dispatch"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
 
