@@ -128,9 +128,8 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
         return c.json({ message: 'Organization not found' }, 404)
       }
 
-      // Pass through other responses
-      const data = await response.json()
-      return c.json(data, response.status as 200 | 400 | 401 | 404 | 500)
+      // Pass through all other responses unchanged
+      return response
     }
   )
 
