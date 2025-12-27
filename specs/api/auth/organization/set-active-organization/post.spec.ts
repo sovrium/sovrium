@@ -29,7 +29,7 @@ test.describe('Set active organization', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-001: should return 200 OK and update session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -61,7 +61,7 @@ test.describe('Set active organization', () => {
       const org2 = await createResponse2.json()
 
       // WHEN: User sets active organization
-      const response = await page.request.post('/api/auth/organization/set-active', {
+      const response = await page.request.post('/api/auth/organization/set-active-organization', {
         data: {
           organizationId: org2.id,
         },
@@ -95,7 +95,7 @@ test.describe('Set active organization', () => {
       })
 
       // WHEN: User submits request without organizationId
-      const response = await page.request.post('/api/auth/organization/set-active', {
+      const response = await page.request.post('/api/auth/organization/set-active-organization', {
         data: {},
       })
 
@@ -121,7 +121,7 @@ test.describe('Set active organization', () => {
       })
 
       // WHEN: Unauthenticated user attempts to set active organization
-      const response = await page.request.post('/api/auth/organization/set-active', {
+      const response = await page.request.post('/api/auth/organization/set-active-organization', {
         data: {
           organizationId: '1',
         },
@@ -152,7 +152,7 @@ test.describe('Set active organization', () => {
       })
 
       // WHEN: User attempts to set non-existent organization as active
-      const response = await page.request.post('/api/auth/organization/set-active', {
+      const response = await page.request.post('/api/auth/organization/set-active-organization', {
         data: {
           organizationId: 'nonexistent-org-id',
         },
@@ -205,7 +205,7 @@ test.describe('Set active organization', () => {
       })
 
       // WHEN: User attempts to set that organization as active
-      const response = await page.request.post('/api/auth/organization/set-active', {
+      const response = await page.request.post('/api/auth/organization/set-active-organization', {
         data: {
           organizationId: privateOrg.id,
         },
@@ -238,7 +238,7 @@ test.describe('Set active organization', () => {
       })
 
       await test.step('Verify set active organization fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/organization/set-active', {
+        const noAuthResponse = await page.request.post('/api/auth/organization/set-active-organization', {
           data: { organizationId: '1' },
         })
         expect(noAuthResponse.status()).toBe(401)
@@ -270,21 +270,21 @@ test.describe('Set active organization', () => {
       })
 
       await test.step('Set active organization to second org', async () => {
-        const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
+        const setActiveResponse = await page.request.post('/api/auth/organization/set-active-organization', {
           data: { organizationId: org2Id },
         })
         expect(setActiveResponse.status()).toBe(200)
       })
 
       await test.step('Switch back to first organization', async () => {
-        const switchResponse = await page.request.post('/api/auth/organization/set-active', {
+        const switchResponse = await page.request.post('/api/auth/organization/set-active-organization', {
           data: { organizationId: org1Id },
         })
         expect(switchResponse.status()).toBe(200)
       })
 
       await test.step('Verify set non-member organization fails', async () => {
-        const notFoundResponse = await page.request.post('/api/auth/organization/set-active', {
+        const notFoundResponse = await page.request.post('/api/auth/organization/set-active-organization', {
           data: { organizationId: 'nonexistent-id' },
         })
         expect(notFoundResponse.status()).toBe(404)
