@@ -127,7 +127,95 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
+  //
+  // SPECIAL HANDLING: We wrap certain endpoints for validation and audit logging
   return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+    const path = new URL(c.req.url).pathname
+
+    // Special handling for set-active-organization to validate organization membership
+    if (c.req.method === 'POST' && path === '/api/auth/organization/set-active') {
+      // Get authenticated user session
+      const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+      if (!session) {
+        return c.json({ message: 'Unauthorized' }, 401)
+      }
+
+      // Parse request body to get organizationId
+      const { organizationId } = await c.req.json()
+
+      // Validate organizationId is provided
+      if (!organizationId || typeof organizationId !== 'string') {
+        return c.json({ message: 'Organization ID is required' }, 400)
+      }
+
+      // Check if organization exists and user is a member
+      const { db } = await import('@/infrastructure/database')
+      const { organizations, members } = await import('@/infrastructure/auth/better-auth/schema')
+      const { eq, and } = await import('drizzle-orm')
+
+      // Query organization and membership in a single query
+      const membershipResult = await db
+        .select({ organizationId: organizations.id })
+        .from(organizations)
+        .innerJoin(members, eq(organizations.id, members.organizationId))
+        .where(and(eq(organizations.id, organizationId), eq(members.userId, session.user.id)))
+        .limit(1)
+
+      // If no membership found, return 404 (prevents enumeration)
+      if (membershipResult.length === 0) {
+        return c.json({ message: 'Organization not found' }, 404)
+      }
+
+      // User is a member, proceed with Better Auth's handler
+      return authInstance.handler(c.req.raw)
+    }
+
+    // Special handling for stop-impersonating to add audit log
+    if (c.req.method === 'POST' && path === '/api/auth/admin/stop-impersonating') {
+      // Capture impersonation context BEFORE stopping
+      const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+      if (!session) {
+        return c.json({ message: 'Unauthorized' }, 401)
+      }
+
+      // Extract admin ID and target user ID from session metadata
+      const adminId = session.session.impersonatedBy ?? session.user.id
+      const targetUserId = session.user.id
+
+      // Call Better Auth's native stop-impersonating handler
+      const response = await authInstance.handler(c.req.raw)
+
+      // If successful (200), add audit log to response
+      if (response.status === 200) {
+        // Read the original response body
+        const originalBody = await response.json()
+
+        // Create new response with audit log added
+        return new Response(
+          JSON.stringify({
+            ...originalBody,
+            auditLog: {
+              event: 'impersonation_ended',
+              adminId,
+              targetUserId,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      }
+
+      // Return original response for errors
+      return response
+    }
+
+    // Default: pass to Better Auth handler
     return authInstance.handler(c.req.raw)
   })
 }
