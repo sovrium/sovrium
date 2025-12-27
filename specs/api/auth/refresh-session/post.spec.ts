@@ -14,24 +14,28 @@ import { test, expect } from '@/specs/fixtures'
  * Domain: api
  * Spec Count: 5
  *
- * Test Organization:
- * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
- * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ * ⚠️ IMPORTANT: Better Auth does NOT expose a /api/auth/refresh-session endpoint.
+ * Session refresh is handled AUTOMATICALLY when:
+ * - An authenticated request is made
+ * - The `updateAge` threshold is reached (default: 1 day)
+ * - The session expiration is then automatically extended
  *
- * Validation Approach:
- * - API response assertions (status codes, response schemas)
- * - Database state validation via API (no direct executeQuery for auth data)
- * - Authentication/authorization checks
+ * See: https://www.better-auth.com/docs/concepts/session-management
  *
- * Note: Better Auth may not expose a refresh-session endpoint - session refresh
- * may be handled automatically via cookies.
+ * These tests need to be REDESIGNED to test actual Better Auth behavior:
+ * - Test that session.expiresAt extends after authenticated requests
+ * - Test that session remains valid beyond initial expiration when actively used
+ * - Remove tests for non-existent POST /refresh-session endpoint
+ *
+ * Current tests are .fixme because they test a fictional endpoint.
  */
 
 test.describe('Refresh session token', () => {
   // ============================================================================
-  // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: Better Auth may not have a dedicated refresh-session endpoint.
-  // Session refresh is typically handled automatically by the session middleware.
+  // ⚠️ WARNING: These tests target a FICTIONAL endpoint.
+  // Better Auth does NOT have POST /refresh-session.
+  // Session refresh is automatic via updateAge - see file header for details.
+  // These tests remain as .fixme until redesigned for actual Better Auth behavior.
   // ============================================================================
 
   test.fixme(
