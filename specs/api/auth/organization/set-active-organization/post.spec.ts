@@ -238,9 +238,12 @@ test.describe('Set active organization', () => {
       })
 
       await test.step('Verify set active organization fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/organization/set-active-organization', {
-          data: { organizationId: '1' },
-        })
+        const noAuthResponse = await page.request.post(
+          '/api/auth/organization/set-active-organization',
+          {
+            data: { organizationId: '1' },
+          }
+        )
         expect(noAuthResponse.status()).toBe(401)
       })
 
@@ -270,23 +273,32 @@ test.describe('Set active organization', () => {
       })
 
       await test.step('Set active organization to second org', async () => {
-        const setActiveResponse = await page.request.post('/api/auth/organization/set-active-organization', {
-          data: { organizationId: org2Id },
-        })
+        const setActiveResponse = await page.request.post(
+          '/api/auth/organization/set-active-organization',
+          {
+            data: { organizationId: org2Id },
+          }
+        )
         expect(setActiveResponse.status()).toBe(200)
       })
 
       await test.step('Switch back to first organization', async () => {
-        const switchResponse = await page.request.post('/api/auth/organization/set-active-organization', {
-          data: { organizationId: org1Id },
-        })
+        const switchResponse = await page.request.post(
+          '/api/auth/organization/set-active-organization',
+          {
+            data: { organizationId: org1Id },
+          }
+        )
         expect(switchResponse.status()).toBe(200)
       })
 
       await test.step('Verify set non-member organization fails', async () => {
-        const notFoundResponse = await page.request.post('/api/auth/organization/set-active-organization', {
-          data: { organizationId: 'nonexistent-id' },
-        })
+        const notFoundResponse = await page.request.post(
+          '/api/auth/organization/set-active-organization',
+          {
+            data: { organizationId: 'nonexistent-id' },
+          }
+        )
         expect(notFoundResponse.status()).toBe(404)
       })
     }
