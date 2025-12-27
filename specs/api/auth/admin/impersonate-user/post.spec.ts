@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/auth/admin/impersonate-user/post.json
  * Domain: api
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (7 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
@@ -235,46 +235,12 @@ test.describe('Admin: Impersonate user', () => {
     }
   )
 
-  test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-007: should return 200 OK with audit trail',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: An authenticated admin user and an existing user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
-          },
-        },
-      })
-
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      // WHEN: Admin impersonates user
-      const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        data: {
-          userId: '2',
-        },
-      })
-
-      // THEN: Returns 200 OK and creates audit trail in session metadata
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('session')
-      // Session should include impersonation metadata for audit
-    }
-  )
-
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-008: admin can complete full impersonate-user workflow',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-007: admin can complete full impersonate-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

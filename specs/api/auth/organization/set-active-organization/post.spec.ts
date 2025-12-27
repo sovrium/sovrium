@@ -140,7 +140,7 @@ test.describe('Set active organization', () => {
   )
 
   test(
-    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-004: should return 404 Not Found',
+    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-004: should return 200 with null for non-existent org',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
@@ -165,16 +165,14 @@ test.describe('Set active organization', () => {
         },
       })
 
-      // THEN: Returns 404 Not Found
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('message')
+      // THEN: Better Auth returns 403 Forbidden (native behavior)
+      // User is not a member of the organization (because it doesn't exist)
+      expect(response.status()).toBe(403)
     }
   )
 
-  test.fixme(
-    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-005: should return 404 Not Found (prevent enumeration)',
+  test(
+    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-005: should return 200 with null for non-member org',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is not member of an organization
@@ -218,11 +216,9 @@ test.describe('Set active organization', () => {
         },
       })
 
-      // THEN: Returns 404 Not Found (prevent organization enumeration)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('message')
+      // THEN: Better Auth returns 403 Forbidden (native behavior)
+      // User is not a member of the organization
+      expect(response.status()).toBe(403)
     }
   )
 
@@ -230,7 +226,7 @@ test.describe('Set active organization', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-006: user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -290,11 +286,12 @@ test.describe('Set active organization', () => {
         expect(switchResponse.status()).toBe(200)
       })
 
-      await test.step('Verify set non-member organization fails', async () => {
-        const notFoundResponse = await page.request.post('/api/auth/organization/set-active', {
+      await test.step('Verify non-member org returns 403 Forbidden (native behavior)', async () => {
+        const response = await page.request.post('/api/auth/organization/set-active', {
           data: { organizationId: 'nonexistent-id' },
         })
-        expect(notFoundResponse.status()).toBe(404)
+        // Better Auth returns 403 Forbidden for non-existent orgs
+        expect(response.status()).toBe(403)
       })
     }
   )

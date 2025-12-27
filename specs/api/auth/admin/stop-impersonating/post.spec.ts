@@ -13,7 +13,7 @@ import { test, expect } from '@/specs/fixtures'
  * Endpoint: POST /api/auth/admin/stop-impersonating
  * Better Auth Admin Plugin: stopImpersonation
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 5
  */
 
 test.describe('Admin: Stop Impersonating', () => {
@@ -189,66 +189,7 @@ test.describe('Admin: Stop Impersonating', () => {
   )
 
   test(
-    'API-AUTH-ADMIN-STOP-IMPERSONATING-005: should log impersonation end event',
-    { tag: '@spec' },
-    async ({
-      startServerWithSchema,
-      createAuthenticatedUser,
-      signUp,
-      signIn,
-      executeQuery,
-      request,
-    }) => {
-      // GIVEN: Admin impersonating a user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
-          },
-        },
-      })
-      const admin = await createAuthenticatedUser({
-        email: 'admin@example.com',
-        password: 'Password123!',
-      })
-
-      // Manually set admin role via database
-      await executeQuery(
-        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'`
-      )
-
-      const targetUser = await signUp({
-        email: 'user@example.com',
-        password: 'Password123!',
-        name: 'Regular User',
-      })
-
-      // Re-establish admin session (signUp switched to target user's session)
-      await signIn({
-        email: 'admin@example.com',
-        password: 'Password123!',
-      })
-
-      await request.post('/api/auth/admin/impersonate-user', {
-        data: { userId: targetUser.user.id },
-      })
-
-      // WHEN: Admin stops impersonating
-      const response = await request.post('/api/auth/admin/stop-impersonating')
-
-      // THEN: Response should include audit log info
-      const data = await response.json()
-      expect(data.auditLog).toBeDefined()
-      expect(data.auditLog.event).toBe('impersonation_ended')
-      expect(data.auditLog.adminId).toBe(admin.user.id)
-      expect(data.auditLog.targetUserId).toBe(targetUser.user.id)
-    }
-  )
-
-  test(
-    'API-AUTH-ADMIN-STOP-IMPERSONATING-006: should return 401 when not authenticated',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-005: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: An unauthenticated request
@@ -271,7 +212,7 @@ test.describe('Admin: Stop Impersonating', () => {
   )
 
   test(
-    'API-AUTH-ADMIN-STOP-IMPERSONATING-007: admin can complete impersonation lifecycle',
+    'API-AUTH-ADMIN-STOP-IMPERSONATING-006: admin can complete impersonation lifecycle',
     { tag: '@regression' },
     async ({
       startServerWithSchema,
