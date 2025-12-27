@@ -270,7 +270,7 @@ test.describe('Admin: Stop Impersonating', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-007: admin can complete impersonation lifecycle',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
