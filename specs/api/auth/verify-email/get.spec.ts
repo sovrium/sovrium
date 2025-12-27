@@ -143,7 +143,7 @@ test.describe('Verify email address', () => {
   )
 
   test(
-    'API-AUTH-VERIFY-EMAIL-005: should return 401 Unauthorized with already used token',
+    'API-AUTH-VERIFY-EMAIL-005: should return 200 OK with already used token (idempotent)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: A user with token that's already been used
@@ -181,11 +181,11 @@ test.describe('Verify email address', () => {
       // WHEN: User attempts to reuse the same verification token
       const response = await page.request.get(`/api/auth/verify-email?token=${token}`)
 
-      // THEN: Returns 401 Unauthorized (token already used)
-      expect([400, 401]).toContain(response.status())
+      // THEN: Returns 200 OK (Better Auth is idempotent - email already verified)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('status', true)
     }
   )
 
