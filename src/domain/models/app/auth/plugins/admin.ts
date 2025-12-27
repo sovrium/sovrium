@@ -55,7 +55,6 @@ export type RoleManagement = Schema.Schema.Type<typeof RoleManagementSchema>
  * - userManagement: Enable user CRUD operations
  * - firstUserAdmin: Make first registered user an admin
  * - defaultRole: Default role for new users
- * - listUsers/setUserRole: User lifecycle operations
  * - customPermissions: Granular resource:action permissions
  * - roleManagement: Admin role assignment/revocation
  *
@@ -104,16 +103,6 @@ export const AdminConfigSchema = Schema.Union(
           description: 'Default role assigned to new users',
           message: () => 'Invalid default role. Must be one of: admin, user, viewer',
         })
-      )
-    ),
-
-    // ========== User Lifecycle Operations ==========
-    listUsers: Schema.optional(
-      Schema.Boolean.pipe(Schema.annotations({ description: 'Enable user listing functionality' }))
-    ),
-    setUserRole: Schema.optional(
-      Schema.Boolean.pipe(
-        Schema.annotations({ description: 'Enable role assignment functionality' })
       )
     ),
 
