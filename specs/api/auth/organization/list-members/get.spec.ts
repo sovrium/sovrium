@@ -29,7 +29,7 @@ test.describe('List organization members', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-MEMBERS-001: should return 200 OK with all members and their roles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -91,7 +91,7 @@ test.describe('List organization members', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-MEMBERS-002: should return 400 Bad Request without organizationId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -121,7 +121,7 @@ test.describe('List organization members', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-MEMBERS-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -221,7 +221,7 @@ test.describe('List organization members', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-MEMBERS-006: should return 200 OK with member data excluding password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
