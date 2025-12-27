@@ -115,7 +115,63 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
   const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(honoApp) : honoApp
 
-  // Mount Better Auth handler for all /api/auth/* routes
+  // Custom handler for stop-impersonating to ensure proper session restoration
+  // Better Auth's native implementation doesn't properly restore the admin session cookie
+  const appWithStopImpersonating = appWithRateLimit.post(
+    '/api/auth/admin/stop-impersonating',
+    async (c) => {
+      const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+      // If not authenticated, return 401
+      if (!session) {
+        return c.json({ error: 'Unauthorized' }, 401)
+      }
+
+      // If not impersonating, return 400
+      if (!session.session.impersonatedBy) {
+        return c.json({ error: 'Not currently impersonating anyone' }, 400)
+      }
+
+      const adminUserId = session.session.impersonatedBy
+      const { db } = await import('@/infrastructure/database')
+      const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
+      const { eq } = await import('drizzle-orm')
+
+      // Delete the impersonation session
+      await db.delete(sessions).where(eq(sessions.id, session.session.id))
+
+      // Always create a new session for the admin when stopping impersonation
+      // Better Auth deletes the original admin session when impersonation starts
+      const now = new Date()
+      const newSessionId = crypto.randomUUID()
+      const newSessionToken = crypto.randomUUID().replace(/-/g, '')
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+      await db.insert(sessions).values({
+        id: newSessionId,
+        userId: adminUserId,
+        token: newSessionToken,
+        expiresAt,
+        ipAddress: c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown',
+        userAgent: c.req.header('user-agent') ?? 'unknown',
+      })
+
+      // Set the new session cookie
+      c.header(
+        'Set-Cookie',
+        `better-auth.session_token=${newSessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
+      )
+
+      return c.json({
+        success: true,
+        message: 'Impersonation ended, admin session restored',
+        adminUserId,
+        newSessionToken,
+      })
+    }
+  )
+
+  // Mount Better Auth handler for all other /api/auth/* routes
   // Better Auth natively handles:
   // - Authentication flows (sign-up, sign-in, sign-out, email verification)
   // - Admin operations (list-users, get-user, set-role, ban-user, impersonation)
@@ -127,7 +183,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithStopImpersonating.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
