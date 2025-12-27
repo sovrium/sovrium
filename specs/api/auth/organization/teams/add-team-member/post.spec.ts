@@ -425,7 +425,7 @@ test.describe('Add Team Member', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-007: owner can add multiple members to team and verify membership',
     { tag: '@regression' },
     async ({
