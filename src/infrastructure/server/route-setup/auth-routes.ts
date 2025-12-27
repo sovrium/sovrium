@@ -126,8 +126,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           }
 
           // Get request body to extract teamId
-          const body = await c.req.json()
-          const teamId = body.teamId
+          const { teamId } = await c.req.json()
 
           if (!teamId) {
             return c.json({ error: 'Team ID is required' }, 400)
@@ -138,7 +137,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const { teams, members } = await import('@/infrastructure/auth/better-auth/schema')
           const { eq, and } = await import('drizzle-orm')
 
-          const team = await db.select().from(teams).where(eq(teams.id, teamId)).then((rows) => rows[0])
+          const team = await db
+            .select()
+            .from(teams)
+            .where(eq(teams.id, teamId))
+            .then((rows: readonly typeof teams.$inferSelect[]) => rows[0])
 
           if (!team) {
             return c.json({ error: 'Team not found' }, 404)
@@ -149,7 +152,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             .select()
             .from(members)
             .where(and(eq(members.organizationId, team.organizationId), eq(members.userId, session.user.id)))
-            .then((rows) => rows[0])
+            .then((rows: readonly typeof members.$inferSelect[]) => rows[0])
 
           if (!membership) {
             return c.json({ error: 'Not a member of this organization' }, 403)
@@ -161,6 +164,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           }
 
           // Authorization passed, continue to Better Auth handler
+          // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
           await next()
         })
       : appWithRateLimit
