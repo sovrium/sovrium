@@ -70,7 +70,7 @@ test.describe('Leave Organization', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-003: should return 400 when owner tries to leave',
+    'API-AUTH-ORG-OPT-LEAVE-002: should return 400 when owner tries to leave',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization owner
@@ -102,7 +102,7 @@ test.describe('Leave Organization', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-006: should return 401 when not authenticated',
+    'API-AUTH-ORG-OPT-LEAVE-003: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
       // GIVEN: Server without authentication
@@ -127,7 +127,7 @@ test.describe('Leave Organization', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-007: member can leave organization and verify cleanup',
+    'API-AUTH-ORG-OPT-LEAVE-004: member can leave organization and verify cleanup',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with members and teams

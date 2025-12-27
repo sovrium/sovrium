@@ -49,7 +49,7 @@ test.describe('Organization Creator Role', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-003: should return 400 when demoting creator below owner',
+    'API-AUTH-ORG-OPT-CREATOR-002: should return 400 when demoting creator below owner',
     { tag: '@spec' },
     async ({
       startServerWithSchema,
@@ -97,7 +97,7 @@ test.describe('Organization Creator Role', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-007: system can manage creator role lifecycle',
+    'API-AUTH-ORG-OPT-CREATOR-003: system can manage creator role lifecycle',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with creator and multiple members

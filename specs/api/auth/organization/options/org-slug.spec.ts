@@ -54,7 +54,7 @@ test.describe('Organization Slug Handling', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-003: should return 400 when slug conflicts with existing',
+    'API-AUTH-ORG-OPT-SLUG-002: should return 400 when slug conflicts with existing',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Organization with existing slug
@@ -100,7 +100,7 @@ test.describe('Organization Slug Handling', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-004: should validate slug format (alphanumeric-dash)',
+    'API-AUTH-ORG-OPT-SLUG-003: should validate slug format (alphanumeric-dash)',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Authenticated organization owner
@@ -154,7 +154,7 @@ test.describe('Organization Slug Handling', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-007: system can manage slug uniqueness across organizations',
+    'API-AUTH-ORG-OPT-SLUG-004: system can manage slug uniqueness across organizations',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Multiple organizations

@@ -40,7 +40,7 @@ test.describe('Admin Default User Role', () => {
     }
   )
   test(
-    'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-004: should fallback to user role when not configured',
+    'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: should fallback to user role when not configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp }) => {
       // GIVEN: Server without default role configured
@@ -61,7 +61,7 @@ test.describe('Admin Default User Role', () => {
     }
   )
   test(
-    'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-007: system can manage default role assignment',
+    'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-003: system can manage default role assignment',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp }) => {
       // GIVEN: Server with default role configured
