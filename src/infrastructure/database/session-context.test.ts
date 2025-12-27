@@ -127,7 +127,7 @@ describe('session-context', () => {
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user''; DROP TABLE users; --'")
     })
 
-    it('should handle missing member record gracefully', async () => {
+    it('should return guest role when user has active org but is NOT a member (Option B)', async () => {
       const executedSql: string[] = []
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async (sql: string) => {
@@ -135,7 +135,6 @@ describe('session-context', () => {
           if (sql.includes('SELECT role FROM "_sovrium_auth_members"')) {
             return [] // No member found
           }
-          // Global user role lookup returns empty (no role)
           return []
         }),
       }
@@ -157,13 +156,13 @@ describe('session-context', () => {
       const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
 
       expect(result).toBeUndefined()
-      // 3 queries: members lookup, users fallback, SET LOCAL
-      expect(executedSql.length).toBe(3)
-      // When no member found, falls back to global user role
+      // Option B: Only 2 queries - NO fallback to global user role
+      expect(executedSql.length).toBe(2)
+      // First query: members lookup
       expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_members"')
-      expect(executedSql[1]).toContain('SELECT role FROM "_sovrium_auth_users"')
-      // SET LOCAL with default 'authenticated' role
-      expect(executedSql[2]).toContain("SET LOCAL app.user_role = 'authenticated'")
+      // NO query to _sovrium_auth_users (global role not used for org-scoped context)
+      // Second query: SET LOCAL with 'guest' role (Option B semantics)
+      expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'guest'")
     })
 
     it('should fail with SessionContextError on database error', async () => {

@@ -80,12 +80,31 @@ const getGlobalUserRole = (
   })
 
 /**
+ * Role returned when user is not a member of active organization
+ *
+ * Option B semantics: Global user role does NOT grant access to org-scoped tables.
+ * When a user has an active organization but is NOT a member, they get this role
+ * instead of their global role. This ensures org-scoped tables require explicit
+ * org membership, even if the user has matching global role (e.g., 'user').
+ *
+ * The 'guest' role is intentionally chosen to NOT match any standard org roles
+ * (owner, admin, member, viewer) or common permission roles.
+ */
+const NON_MEMBER_ROLE = 'guest' as const
+
+/**
  * Get user role in active organization from Better Auth members table
  *
  * Role resolution priority:
- * 1. If active organization: check members table for org-specific role
- * 2. If no active organization or no membership: check global user role from users table
- * 3. Default: 'authenticated'
+ * 1. If no active organization: use global user role from users table
+ * 2. If active organization AND user is member: use org membership role
+ * 3. If active organization AND user is NOT member: use 'guest' role (Option B)
+ * 4. Default: 'authenticated'
+ *
+ * Option B Semantics:
+ * Global user roles (admin, user, viewer) do NOT automatically grant access to
+ * org-scoped tables. Users must have explicit membership in the organization.
+ * A global 'user' role cannot access org tables where 'user' is in the roles list.
  *
  * @param tx - Database transaction
  * @param session - Better Auth session
@@ -113,9 +132,11 @@ const getUserRoleInOrganization = (
         new SessionContextError('Failed to query user role from members table', error),
     })
 
-    // If no membership found, fall back to global user role
+    // Option B: If user has active org but is NOT a member, return 'guest' role
+    // This prevents global user roles from accessing org-scoped tables
+    // The 'guest' role won't match any standard permission roles
     if (!result || result.length === 0) {
-      return yield* getGlobalUserRole(tx, session.userId)
+      return NON_MEMBER_ROLE
     }
 
     const role = result[0]?.role
