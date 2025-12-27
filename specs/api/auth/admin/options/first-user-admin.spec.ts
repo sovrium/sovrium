@@ -87,7 +87,7 @@ test.describe('First User Admin Configuration', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-FIRST-USER-004: should verify user is first via user count',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {

@@ -114,6 +114,42 @@ const promoteUserToAdmin = async (email: string): Promise<void> => {
 }
 
 /**
+ * Apply role assignment logic after user sign-up
+ * Handles auto-promotion, firstUserAdmin, and default role assignment
+ */
+const applyRoleAfterSignup = async (
+  email: string,
+  adminConfig: { readonly firstUserAdmin?: boolean; readonly [key: string]: unknown } | undefined
+): Promise<void> => {
+  // Auto-promote users with "admin" in email (for testing)
+  if (shouldPromoteToAdmin(email)) {
+    // eslint-disable-next-line functional/no-expression-statements -- Side effect required
+    await promoteUserToAdmin(email)
+    return
+  }
+
+  const { db } = await import('@/infrastructure/database')
+  const { users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq, sql } = await import('drizzle-orm')
+
+  const firstUserAdmin = adminConfig?.firstUserAdmin ?? false
+
+  // Determine role based on firstUserAdmin setting and user count
+  const role = firstUserAdmin
+    ? await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .then((result: readonly { readonly count: number }[]) => {
+          const userCount = Number(result[0]?.count ?? 0)
+          return userCount === 1 ? 'admin' : runtimeAuthConfig.defaultRole
+        })
+    : runtimeAuthConfig.defaultRole
+
+  // eslint-disable-next-line functional/no-expression-statements -- Side effect required
+  await db.update(users).set({ role }).where(eq(users.email, email))
+}
+
+/**
  * Check if user is banned by email
  * Returns true if user exists and is banned
  */
@@ -282,6 +318,13 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Tests expect 401 for unauthenticated and 403 for non-admin, so we intercept and provide proper status codes
   const appWithAdminGuard = app.auth.admin
     ? appWithRateLimit.use('/api/auth/admin/*', async (c, next) => {
+        // Skip authentication for user-count endpoint (used during bootstrap before any user exists)
+        if (c.req.path === '/api/auth/admin/user-count') {
+          // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+          await next()
+          return
+        }
+
         // Check if request has valid session
         const session = await authInstance.api.getSession({
           headers: c.req.raw.headers,
@@ -450,6 +493,31 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       })
     : appWithRevokeAdmin
 
+  // Add user-count endpoint to get total number of users
+  // This endpoint is public (no authentication required) because it's used to check
+  // if this is the first user during the bootstrap process (before any user exists)
+  // Note: This is registered directly on appWithRateLimit without being part of the main chain
+  if (app.auth.admin) {
+    // eslint-disable-next-line functional/no-expression-statements -- Endpoint registration is a necessary side effect
+    appWithRateLimit.get('/api/auth/admin/user-count', async (c) => {
+      try {
+        const { db } = await import('@/infrastructure/database')
+        const { users } = await import('@/infrastructure/auth/better-auth/schema')
+        const { sql } = await import('drizzle-orm')
+
+        // Count all users in the system
+        const userCount = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(users)
+          .then((result: readonly { readonly count: number }[]) => Number(result[0]?.count ?? 0))
+
+        return c.json({ count: userCount }, 200)
+      } catch {
+        return c.json({ error: 'Failed to get user count' }, 500)
+      }
+    })
+  }
+
   // Add get-user endpoint to retrieve user information
   const appWithGetUser = app.auth.admin
     ? appWithSetRole.get('/api/auth/admin/get-user', async (c) => {
@@ -532,46 +600,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       if (response.ok && body.email) {
         const { db } = await import('@/infrastructure/database')
         const { users } = await import('@/infrastructure/auth/better-auth/schema')
-        const { eq, sql } = await import('drizzle-orm')
+        const { eq } = await import('drizzle-orm')
 
-        // Auto-promote users with "admin" in email to admin role (for testing)
-        if (shouldPromoteToAdmin(body.email)) {
-          // eslint-disable-next-line functional/no-expression-statements -- Side effect required for admin promotion
-          await promoteUserToAdmin(body.email)
-        } else {
-          // Check if firstUserAdmin is enabled and this is the first user
-          const firstUserAdmin = adminConfig?.firstUserAdmin ?? false
-
-          if (firstUserAdmin) {
-            // Count existing users to determine if this is the first user
-            const userCount = await db
-              .select({ count: sql<number>`count(*)` })
-              .from(users)
-              .then((result: readonly { readonly count: number }[]) =>
-                Number(result[0]?.count ?? 0)
-              )
-
-            // If this is the first user (count is 1), set role to admin
-            if (userCount === 1) {
-              // eslint-disable-next-line functional/no-expression-statements -- Side effect required for first-user-admin
-              await db.update(users).set({ role: 'admin' }).where(eq(users.email, body.email))
-            } else {
-              // Apply runtime default role to subsequent users
-              // eslint-disable-next-line functional/no-expression-statements -- Side effect required for role assignment
-              await db
-                .update(users)
-                .set({ role: runtimeAuthConfig.defaultRole })
-                .where(eq(users.email, body.email))
-            }
-          } else {
-            // firstUserAdmin not enabled - apply runtime default role to all users
-            // eslint-disable-next-line functional/no-expression-statements -- Side effect required for role assignment
-            await db
-              .update(users)
-              .set({ role: runtimeAuthConfig.defaultRole })
-              .where(eq(users.email, body.email))
-          }
-        }
+        // Apply role assignment logic (auto-promotion, firstUserAdmin, or default role)
+        // eslint-disable-next-line functional/no-expression-statements -- Side effect required for role assignment
+        await applyRoleAfterSignup(body.email, adminConfig)
 
         // Re-fetch user from database to get updated role
         const updatedUserRecords = await db
