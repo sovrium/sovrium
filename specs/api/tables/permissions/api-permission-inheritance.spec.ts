@@ -339,7 +339,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-INHERIT-005: role escalation attempt fails',
     { tag: '@spec' },
     async ({
