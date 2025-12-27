@@ -473,7 +473,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-UP-EMAIL-014: should prevent access to protected resources without email verification',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, mailpit }) => {
