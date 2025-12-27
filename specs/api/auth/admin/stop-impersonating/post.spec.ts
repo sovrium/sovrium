@@ -57,7 +57,7 @@ test.describe('Admin: Stop Impersonating', () => {
   test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-002: should restore admin session',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
+    async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
       // GIVEN: Admin impersonating a user
       await startServerWithSchema({
         name: 'test-app',
@@ -80,11 +80,9 @@ test.describe('Admin: Stop Impersonating', () => {
       })
 
       // Re-establish admin session (signUp switched to target user's session)
-      await request.post('/api/auth/sign-in/email', {
-        data: {
-          email: 'admin@example.com',
-          password: 'Password123!',
-        },
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Password123!',
       })
 
       await request.post('/api/auth/admin/impersonate-user', {
