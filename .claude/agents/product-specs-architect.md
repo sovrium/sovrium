@@ -158,6 +158,36 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 - ✅ Create schemas via effect-schema-generator skill if missing
 - ✅ Write minimal production-ready code that satisfies your tests
 
+**CRITICAL - MANDATORY FIXTURE USAGE (Learn from PR #6574)**:
+- ✅ **REQUIRED**: Tests MUST use provided fixtures for ALL authentication flows
+- ✅ **REQUIRED**: Use `signIn`, `signUp`, `createAuthenticatedUser` fixtures from `specs/fixtures.ts`
+- ❌ **FORBIDDEN**: Using raw `request.post('/api/auth/...')` for authentication when fixtures exist
+- ❌ **FORBIDDEN**: Writing inline session management code in tests
+
+**Available Authentication Fixtures** (from `specs/fixtures.ts`):
+| Fixture | Purpose | Use When |
+|---------|---------|----------|
+| `signIn({ email, password })` | Authenticate existing user | Testing protected endpoints |
+| `signUp({ email, password, name })` | Create new user | Testing registration flows |
+| `createAuthenticatedUser()` | Create + authenticate user | Setting up test users quickly |
+
+**Why This Matters**:
+- Raw API calls bypass proper session handling and lead to fragile tests
+- Fixtures handle cookies, session state, and context properly
+- When tests use raw calls, e2e-test-fixer may create workarounds instead of proper implementations
+- PR #6574 showed agent creating custom endpoints because test used raw `request.post()` instead of `signIn` fixture
+
+**Example - CORRECT vs INCORRECT**:
+```typescript
+// ❌ INCORRECT - Raw API call
+await request.post('/api/auth/sign-in/email', {
+  data: { email: 'admin@example.com', password: 'Password123!' }
+})
+
+// ✅ CORRECT - Using fixture
+await signIn({ email: 'admin@example.com', password: 'Password123!' })
+```
+
 ---
 
 ### 1. Test File Structure (mirrors `src/domain/models/app/`)

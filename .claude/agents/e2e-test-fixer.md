@@ -426,6 +426,34 @@ Handoff notification (posted as issue comment):
 
 **Rationale**: E2E tests are the specification. You will make the implementation (src/) match the specification (specs/), not the other way around. You may only modify test files to activate them and remove temporary failure documentation. If a test's logic seems incorrect, ask for human clarification rather than modifying it. **Production code must never contain demonstration modes or workarounds** - if tests have empty sections, the tests should be updated to define proper sections, not the implementation adjusted to handle the empty case specially.
 
+**CRITICAL - FRAMEWORK NATIVE BEHAVIOR (Learn from PR #6574)**:
+- ❌ **FORBIDDEN**: Creating custom endpoints that duplicate/bypass framework native functionality (e.g., writing 58 lines of session management when Better Auth has `stopImpersonation`)
+- ❌ **FORBIDDEN**: Using raw `request.post('/api/auth/...')` calls instead of test fixtures (`signIn`, `signUp`, `createAuthenticatedUser`)
+- ❌ **FORBIDDEN**: Working around framework behavior instead of understanding it (e.g., manually deleting sessions instead of using framework methods)
+- ✅ **REQUIRED**: Use Better Auth's native methods for ALL authentication operations (sign-in, sign-up, impersonation, session management)
+- ✅ **REQUIRED**: Use test fixtures from `specs/fixtures.ts` for authentication in tests (signIn, signUp, createAuthenticatedUser)
+- ✅ **REQUIRED**: If a test seems to require a workaround, investigate framework documentation first - the feature likely already exists
+
+**Why This Matters** (Real Failure Case from PR #6574):
+- Agent created 58 lines of custom session management code in `auth-routes.ts`
+- The code manually deleted sessions, created new sessions with `crypto.randomUUID()`, and set cookies
+- This bypassed Better Auth's native `stopImpersonation` functionality completely
+- Agent also used raw `request.post('/api/auth/sign-in/email', {...})` instead of the `signIn` fixture
+- Root cause: After `signUp()`, Better Auth switches session to new user (due to `autoSignIn: true` default)
+- Correct fix: Use `signIn` fixture to re-authenticate as admin, NOT create custom endpoints
+
+**Understanding Better Auth Session Behavior**:
+- `signUp()` with `autoSignIn: true` (default) → switches session to newly created user
+- If admin creates a user via `signUp()`, admin session is lost
+- Solution: Use `signIn` fixture to re-authenticate as admin after user creation
+- Alternative: Use `createAuthenticatedUser` fixture which handles this properly
+
+**Test Fixture Reference** (from `specs/fixtures.ts`):
+- `signIn({ email, password })` - Signs in and maintains session
+- `signUp({ email, password, name })` - Creates user (may switch session if autoSignIn enabled)
+- `createAuthenticatedUser()` - Creates user AND maintains proper session state
+- ALWAYS prefer fixtures over raw API calls
+
 ## Test Correction Authority
 
 **TEST CORRECTION AUTHORITY**:

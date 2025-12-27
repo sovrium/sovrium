@@ -1253,6 +1253,50 @@ These issues were found in older code (not part of recent major commits). **Huma
 ##### Better Auth Violations
 [Same pattern as above]
 
+**CRITICAL - FRAMEWORK BYPASS DETECTION (Learn from PR #6574)**:
+
+When auditing `src/infrastructure/` and `src/presentation/`, actively detect and flag these anti-patterns:
+
+**Detection Pattern 1: Custom Endpoints Duplicating Framework Functionality**
+- **Signature**: Custom Hono routes with inline session/cookie management when Better Auth provides native methods
+- **Example Bad Code**:
+  ```typescript
+  // ❌ VIOLATION: Custom endpoint duplicating Better Auth's stopImpersonation
+  app.post('/api/auth/admin/stop-impersonating', async (c) => {
+    // Manual session deletion
+    await db.delete(sessions).where(eq(sessions.userId, userId))
+    // Manual session creation with crypto.randomUUID()
+    const newSessionToken = crypto.randomUUID()
+    // Manual cookie setting
+    setCookie(c, 'auth.session_token', newSessionToken)
+  })
+  ```
+- **Correct Implementation**: Use `auth.api.stopImpersonation()` from Better Auth
+- **Severity**: Critical
+- **Action**: Flag for immediate refactoring to use native Better Auth methods
+
+**Detection Pattern 2: Session Management Outside Better Auth**
+- **Signature**: Direct database operations on `sessions` table, manual cookie manipulation for auth
+- **Keywords to grep**: `db.delete(sessions)`, `db.insert(sessions)`, `crypto.randomUUID()` in auth context, `setCookie(c, 'auth.session_token'`
+- **Correct Approach**: All session management MUST go through Better Auth APIs
+- **Severity**: Critical
+
+**Detection Pattern 3: Reimplemented Auth Features**
+- **Signature**: Code that implements features Better Auth already provides
+- **Common violations**:
+  - Custom impersonation instead of `admin.impersonateUser()`
+  - Custom session refresh instead of Better Auth's automatic handling
+  - Manual password hashing instead of using Better Auth's built-in methods
+  - Custom 2FA instead of Better Auth's `twoFactor` plugin
+- **Reference**: Check `@docs/infrastructure/framework/better-auth.md` for native features
+- **Severity**: High
+
+**Audit Action Items**:
+1. **Grep for violations**: `grep -r "db.delete(sessions)" src/` and `grep -r "crypto.randomUUID()" src/infrastructure/auth/`
+2. **Check auth-routes.ts**: Custom routes under `/api/auth/*` should delegate to Better Auth, not implement auth logic
+3. **Verify Better Auth usage**: Compare custom code with `@docs/infrastructure/framework/better-auth.md` to find duplicated functionality
+4. **Recommend refactoring**: Replace custom implementations with Better Auth native methods
+
 #### Database Best Practices
 ##### Drizzle ORM Violations
 [Same pattern]
