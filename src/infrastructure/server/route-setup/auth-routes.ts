@@ -124,12 +124,12 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
       // If not authenticated, return 401
       if (!session) {
-        return c.json({ error: 'Unauthorized' }, 401)
+        return c.json({ message: 'Unauthorized' }, 401)
       }
 
       // If not impersonating, return 400
       if (!session.session.impersonatedBy) {
-        return c.json({ error: 'Not currently impersonating anyone' }, 400)
+        return c.json({ message: 'User is not impersonating anyone' }, 400)
       }
 
       const adminUserId = session.session.impersonatedBy
