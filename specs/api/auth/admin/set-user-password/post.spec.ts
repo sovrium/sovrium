@@ -124,7 +124,7 @@ test.describe('Admin: Set user password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -188,7 +188,7 @@ test.describe('Admin: Set user password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-005: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -214,7 +214,7 @@ test.describe('Admin: Set user password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-006: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
