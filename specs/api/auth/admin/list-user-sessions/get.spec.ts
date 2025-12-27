@@ -159,7 +159,7 @@ test.describe('Admin: List user sessions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
