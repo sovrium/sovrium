@@ -96,7 +96,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-002: should return 403 Forbidden when non-owner tries to add team member',
     { tag: '@spec' },
     async ({

@@ -375,7 +375,12 @@ const buildOrganizationPlugin = (
             organization: { modelName: AUTH_TABLE_NAMES.organization },
             member: { modelName: AUTH_TABLE_NAMES.member },
             invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+            team: { modelName: AUTH_TABLE_NAMES.team },
+            teamMember: { modelName: AUTH_TABLE_NAMES.teamMember },
           },
+          // NOTE: Better Auth's organization plugin does not support access control (ac)
+          // for team and teamMember resources. Authorization is handled manually in middleware.
+          // See: src/infrastructure/server/route-setup/auth-routes.ts
         }),
       ]
     : []
