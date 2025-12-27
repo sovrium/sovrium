@@ -29,7 +29,7 @@ test.describe('List user organizations', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     "API-ORG-LIST-ORGANIZATIONS-001: should return 200 OK with all organizations and user's roles",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -68,7 +68,7 @@ test.describe('List user organizations', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-002: should return 200 OK with empty organizations array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -99,7 +99,7 @@ test.describe('List user organizations', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -120,7 +120,7 @@ test.describe('List user organizations', () => {
     }
   )
 
-  test.fixme(
+  test(
     "API-ORG-LIST-ORGANIZATIONS-004: should return 200 OK with only User A's organizations (User B's not visible)",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -171,7 +171,7 @@ test.describe('List user organizations', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-005: should return 200 OK with correct role for each organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -213,7 +213,7 @@ test.describe('List user organizations', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
