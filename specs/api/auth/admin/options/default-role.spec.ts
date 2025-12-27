@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Admin Default User Role
  *
  * Domain: api
- * Spec Count: 3
+ * Spec Count: 2
  */
 
 test.describe('Admin Default User Role', () => {

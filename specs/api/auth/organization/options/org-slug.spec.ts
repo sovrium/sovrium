@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Organization Slug Handling
  *
  * Domain: api
- * Spec Count: 4
+ * Spec Count: 3
  */
 
 test.describe('Organization Slug Handling', () => {
