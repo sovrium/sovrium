@@ -72,7 +72,7 @@ test.describe('Admin: Get user by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-002: should return 400 Bad Request without userId parameter',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
