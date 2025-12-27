@@ -165,9 +165,9 @@ test.describe('Set active organization', () => {
         },
       })
 
-      // THEN: Better Auth returns 403 Forbidden (native behavior)
+      // THEN: Returns 404 Not Found (prevent organization enumeration)
       // User is not a member of the organization (because it doesn't exist)
-      expect(response.status()).toBe(403)
+      expect(response.status()).toBe(404)
     }
   )
 
@@ -288,12 +288,12 @@ test.describe('Set active organization', () => {
         expect(switchResponse.status()).toBe(200)
       })
 
-      await test.step('Verify non-member org returns 403 Forbidden (native behavior)', async () => {
+      await test.step('Verify non-member org returns 404 Not Found (prevent enumeration)', async () => {
         const response = await page.request.post('/api/auth/organization/set-active', {
           data: { organizationId: 'nonexistent-id' },
         })
-        // Better Auth returns 403 Forbidden for non-existent orgs
-        expect(response.status()).toBe(403)
+        // Returns 404 Not Found to prevent organization enumeration
+        expect(response.status()).toBe(404)
       })
     }
   )
