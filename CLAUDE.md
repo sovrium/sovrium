@@ -611,17 +611,37 @@ git push
 - **DO** create PR with `tdd-automation` label and include `Closes #<issue_number>` in PR body (⚠️ no extra text after number)
 - **DO** retry up to 3 times on validation failures
 
+### CRITICAL - Endpoint Path Rules (Learn from PR #6564)
+
+- **NEVER** modify API endpoint paths in spec files - they are authoritative specifications
+- **NEVER** confuse Better Auth method names with URL paths:
+  - Method: `setActiveOrganization` (camelCase, JavaScript)
+  - URL: `/api/auth/organization/set-active` (kebab-case, HTTP)
+  - These are DIFFERENT - do NOT change URL to match method name
+- **ALWAYS** use the EXACT endpoint path from the spec file in your implementation
+- **Task is NOT complete** if target test fails with HTTP 404 - this means you used wrong endpoint
+
 ### Completion Checklist
 
-- [ ] `.fixme()` removed, code implemented, both agents run
-- [ ] Copyright headers added, changes committed/pushed
+**CRITICAL - Task is NOT complete until ALL boxes are checked:**
+
+- [ ] `.fixme()` removed from target test
+- [ ] **Target test passes** (run `bun test:e2e -- <test-file>`)
+- [ ] **`bun run quality` passes** with ZERO errors
+- [ ] **All tests in same file pass** (not just the target test)
+- [ ] **`bun test:e2e:regression` passes** (no global regressions)
+- [ ] Copyright headers added (`bun run license`)
+- [ ] Changes committed and pushed
 - [ ] **⚠️ PRE-PR CHECKS**: Issue still open AND no existing PRs (prevents duplicates)
 - [ ] **⚠️ CRITICAL: PR created** with `tdd-automation` label and `Closes #<issue_number>` in body
 - [ ] Auto-merge enabled after validation passes
 
+**If ANY validation fails, keep iterating - do NOT create PR with failing tests or quality checks.**
+
 **Remember**:
 - PR creation is mandatory - Issue #1319 failed because PR was not created.
 - Pre-PR checks are mandatory - PR #6067 was created as duplicate after PR #6066 already merged.
+- Endpoint paths are sacred - PR #6564 failed because Claude changed URL path to match method name.
 
 ### Queue System Architecture
 

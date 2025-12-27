@@ -102,6 +102,12 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite, LSP, WebSear
 
 **⚠️ CRITICAL**: Step 4 is a loop - keep fixing until BOTH quality checks AND all tests in file pass with zero errors.
 
+**⚠️ NEVER MODIFY ENDPOINT PATHS IN SPEC FILES**:
+- Spec files contain the AUTHORITATIVE endpoint paths (e.g., `/api/auth/organization/set-active`)
+- Better Auth method names (e.g., `setActiveOrganization`) are DIFFERENT from URL paths
+- If test uses `/api/auth/organization/set-active`, use EXACTLY that path - do NOT change to `/api/auth/organization/set-active-organization`
+- Learn from PR #6564: Confusing method names with URL paths causes HTTP 404 errors
+
 **Early Exit (Test-Only Change)**: If test passes immediately after removing `.fixme()` without any `src/` changes, skip codebase-refactor-auditor and proceed directly to commit.
 
 **Resumable Agent Pattern**: This agent supports resumption for iterative TDD workflows. When invoked via the Task tool, an `agentId` is returned. The parent can resume this agent using `resume: <agentId>` to continue work with full previous context. Use this pattern when:
@@ -388,6 +394,27 @@ Handoff notification (posted as issue comment):
 - ❌ **FORBIDDEN**: NEVER modify test logic, assertions, selectors, or expectations in `specs/` directory
 - ❌ **FORBIDDEN**: NEVER modify test configuration files (playwright.config.ts, etc.)
 - ❌ **FORBIDDEN**: NEVER write demonstration, showcase, or debug code in `src/` directory
+
+**CRITICAL - SPEC FILE ENDPOINT PATHS ARE SACRED**:
+- ❌ **FORBIDDEN**: NEVER modify API endpoint paths in spec files (e.g., `/api/auth/organization/set-active`)
+- ❌ **FORBIDDEN**: NEVER confuse Better Auth method names with URL paths (they are DIFFERENT)
+- ✅ **REQUIRED**: Treat endpoint paths in spec files as authoritative specifications
+- ✅ **REQUIRED**: If a test uses endpoint `/api/auth/organization/set-active`, your implementation MUST use that EXACT path
+
+**Better Auth URL Convention** (CRITICAL - Learn from PR #6564):
+| Concept | Example | Notes |
+|---------|---------|-------|
+| **Method Name** | `setActiveOrganization` | camelCase, JavaScript convention |
+| **URL Path** | `/api/auth/organization/set-active` | kebab-case, HTTP convention |
+| **NEVER confuse them** | Method `setActiveOrganization` != path `set-active-organization` | These are DIFFERENT things |
+
+**Why This Matters** (Real Failure Case):
+- PR #6564 changed `/api/auth/organization/set-active` to `/api/auth/organization/set-active-organization`
+- Claude confused the method name `setActiveOrganization` with the URL path
+- The endpoint `/api/auth/organization/set-active-organization` does NOT exist
+- This caused HTTP 404 errors and test failures
+
+**Rule**: Spec files define the CORRECT endpoint paths. Your job is to make the implementation work with those paths, NOT to change the paths to match method names.
 
 **CRITICAL - NO DEMONSTRATION CODE**:
 - ❌ **FORBIDDEN**: Auto-rendering modes (e.g., showcase blocks when sections empty)
@@ -1156,6 +1183,15 @@ json-schema-editor/openapi-editor (COLLABORATIVE BLUEPRINT)
 
 ## Success Metrics
 
+**CRITICAL - TASK COMPLETION DEFINITION**:
+Your task is **NOT COMPLETE** until ALL of the following are true:
+1. ✅ Target test passes (the specific test you were asked to fix)
+2. ✅ `bun run quality` passes with ZERO errors
+3. ✅ All tests in the same file pass (not just the target test)
+4. ✅ `bun test:e2e:regression` passes (no regressions globally)
+
+**If ANY of these fail, you MUST continue iterating. Do NOT report success or create PR.**
+
 Your implementation will be considered successful when:
 
 1. **Test Passage Success**:
@@ -1183,6 +1219,13 @@ Your implementation will be considered successful when:
    - **Iteration loop completed** (quality + all file tests GREEN before proceeding)
    - Refactoring opportunities identified for next phase
    - User can continue with confidence
+
+**NEVER-COMPLETE SCENARIOS** (keep iterating if any apply):
+- ❌ Target test still failing (HTTP 404, assertion errors, timeouts)
+- ❌ `bun run quality` shows ANY errors
+- ❌ Other tests in the same file are failing
+- ❌ Regression tests are failing
+- ❌ You modified endpoint paths in spec files (REVERT and fix properly)
 
 ---
 
