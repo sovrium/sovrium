@@ -97,7 +97,7 @@ test.describe('API Organization Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-002: should return 404 when accessing record from different organization',
     { tag: '@spec' },
     async ({
@@ -398,7 +398,7 @@ test.describe('API Organization Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-007: should prevent delete of records from other organizations',
     { tag: '@spec' },
     async ({
