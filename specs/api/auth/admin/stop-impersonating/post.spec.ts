@@ -159,7 +159,7 @@ test.describe('Admin: Stop Impersonating', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-004: should return 400 when not impersonating',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
