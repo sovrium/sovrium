@@ -120,7 +120,7 @@ test.describe('List organization invitations', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-INVITATIONS-003: should return 400 Bad Request without organizationId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -150,7 +150,7 @@ test.describe('List organization invitations', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-INVITATIONS-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -173,7 +173,7 @@ test.describe('List organization invitations', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-LIST-INVITATIONS-005: should return 403 Forbidden for regular member',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
