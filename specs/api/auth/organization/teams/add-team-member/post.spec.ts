@@ -389,7 +389,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-006: should return 401 Unauthorized when user is not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
