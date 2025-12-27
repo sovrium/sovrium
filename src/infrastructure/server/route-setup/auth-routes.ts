@@ -582,7 +582,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
             if (!isMember) {
               // Return 404 to prevent organization enumeration
-              return c.json({ error: 'Organization not found' }, 404)
+              return c.json({ message: 'Organization not found' }, 404)
             }
 
             // User is a member - fetch organization details
@@ -602,22 +602,22 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             return c.json({ error: 'Failed to get organization' }, 500)
           }
         })
-        .post('/api/auth/organization/set-active-organization', async (c) => {
+        .post('/api/auth/organization/set-active', async (c) => {
           try {
             // Check if user is authenticated
             const session = await authInstance.api.getSession({
               headers: c.req.raw.headers,
             })
             if (!session) {
-              return c.json({ error: 'Unauthorized' }, 401)
+              return c.json({ message: 'Unauthorized' }, 401)
             }
 
             // Parse request body
             const body = await c.req.json()
-            const organizationId = body.organizationId
+            const { organizationId } = body
 
             if (!organizationId) {
-              return c.json({ error: 'organizationId is required' }, 400)
+              return c.json({ message: 'organizationId is required' }, 400)
             }
 
             // Check if user is a member of this organization
@@ -637,11 +637,12 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
             if (!isMember) {
               // Return 404 to prevent organization enumeration
-              return c.json({ error: 'Organization not found' }, 404)
+              return c.json({ message: 'Organization not found' }, 404)
             }
 
             // Update session with active organization using Better Auth's API
-            const { sessions } = await import('@/infrastructure/auth/better-auth/schema')
+            const { sessions, organizations } =
+              await import('@/infrastructure/auth/better-auth/schema')
 
             // Update the session's active organization
             await db
@@ -649,12 +650,15 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
               .set({ activeOrganizationId: organizationId })
               .where(eq(sessions.token, session.session.token))
 
-            // Fetch the updated session
-            const updatedSession = await authInstance.api.getSession({
-              headers: c.req.raw.headers,
-            })
+            // Fetch the organization to return it
+            const orgRecords = await db
+              .select()
+              .from(organizations)
+              .where(eq(organizations.id, organizationId))
+              .limit(1)
 
-            return c.json({ session: updatedSession }, 200)
+            // Return the organization object (as expected by Better Auth clients)
+            return c.json(orgRecords[0], 200)
           } catch {
             return c.json({ error: 'Failed to set active organization' }, 500)
           }
