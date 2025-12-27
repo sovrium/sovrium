@@ -245,7 +245,7 @@ test.describe('Role-Based Table Access Control', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-005: global user role should access non-org user-level table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -498,7 +498,7 @@ test.describe('Role-Based Table Access Control', () => {
   // EDGE CASES (API-AUTH-TABLES-ROLE-010 to 012)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-010: authenticated user without explicit role should use default role',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
