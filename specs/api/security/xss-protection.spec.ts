@@ -142,7 +142,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-XSS-003: should reject or sanitize javascript: URLs',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
@@ -196,7 +196,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-XSS-004: should return Content-Type application/json for API responses',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
@@ -342,7 +342,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-XSS-007: should prevent XSS in user profile name field during sign-up',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
