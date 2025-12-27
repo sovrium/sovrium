@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Role-Based Table Access Control
  *
  * Domain: api/auth/tables
- * Spec Count: 12
+ * Spec Count: 13
  *
  * These tests verify the integration between Better Auth roles and table permissions:
  * - Organization context: membership roles control table access
@@ -27,17 +27,17 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Test Organization:
  * 1. @spec tests - One per spec (12 tests) - Exhaustive acceptance criteria
- * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ * 2. @regression test - ONE optimized integration test (1 test) - Efficient workflow validation
  */
 
 test.describe('Role-Based Table Access Control', () => {
   // ============================================================================
-  // ORGANIZATION CONTEXT TESTS (AUTH-TABLE-ROLE-001 to 003)
+  // ORGANIZATION CONTEXT TESTS (API-AUTH-TABLES-ROLE-001 to 003)
   // Verify org membership roles control access to org-scoped tables
   // ============================================================================
 
   test.fixme(
-    'AUTH-TABLE-ROLE-001: org member role should grant access to org-scoped table with member permission',
+    'API-AUTH-TABLES-ROLE-001: org member role should grant access to org-scoped table with member permission',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: An org-scoped table with member read permission
@@ -87,7 +87,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-002: org admin role should grant elevated access to org-scoped table',
+    'API-AUTH-TABLES-ROLE-002: org admin role should grant elevated access to org-scoped table',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: An org-scoped table with admin-only create permission
@@ -141,7 +141,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-003: org viewer role should have read-only access to org-scoped table',
+    'API-AUTH-TABLES-ROLE-003: org viewer role should have read-only access to org-scoped table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: An org-scoped table with viewer read permission but admin-only write
@@ -198,12 +198,12 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   // ============================================================================
-  // NON-ORGANIZATION CONTEXT TESTS (AUTH-TABLE-ROLE-004 to 006)
+  // NON-ORGANIZATION CONTEXT TESTS (API-AUTH-TABLES-ROLE-004 to 006)
   // Verify global user roles control access to non-org tables
   // ============================================================================
 
   test.fixme(
-    'AUTH-TABLE-ROLE-004: global admin role should access non-org admin-only table',
+    'API-AUTH-TABLES-ROLE-004: global admin role should access non-org admin-only table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: A non-org table with admin role permission
@@ -246,7 +246,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-005: global user role should access non-org user-level table',
+    'API-AUTH-TABLES-ROLE-005: global user role should access non-org user-level table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: A non-org table with user role permission
@@ -287,7 +287,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-006: global user role should NOT access org-scoped table (Option B)',
+    'API-AUTH-TABLES-ROLE-006: global user role should NOT access org-scoped table (Option B)',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
       // GIVEN: An org-scoped table with member permission
@@ -329,12 +329,12 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   // ============================================================================
-  // CONTEXT SWITCHING TESTS (AUTH-TABLE-ROLE-007 to 009)
+  // CONTEXT SWITCHING TESTS (API-AUTH-TABLES-ROLE-007 to 009)
   // Verify role changes correctly when switching organizations
   // ============================================================================
 
   test.fixme(
-    'AUTH-TABLE-ROLE-007: switching organizations should apply new org role',
+    'API-AUTH-TABLES-ROLE-007: switching organizations should apply new org role',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: A user who is admin in Org A but member in Org B
@@ -388,7 +388,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-008: clearing active organization should revoke org-scoped access',
+    'API-AUTH-TABLES-ROLE-008: clearing active organization should revoke org-scoped access',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: A user with active organization
@@ -441,7 +441,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-009: role should be correctly resolved during concurrent requests',
+    'API-AUTH-TABLES-ROLE-009: role should be correctly resolved during concurrent requests',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: Setup with org-scoped table
@@ -495,11 +495,11 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   // ============================================================================
-  // EDGE CASES (AUTH-TABLE-ROLE-010 to 012)
+  // EDGE CASES (API-AUTH-TABLES-ROLE-010 to 012)
   // ============================================================================
 
   test.fixme(
-    'AUTH-TABLE-ROLE-010: authenticated user without explicit role should use default role',
+    'API-AUTH-TABLES-ROLE-010: authenticated user without explicit role should use default role',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
       // GIVEN: Table with authenticated permission
@@ -539,7 +539,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-011: org owner should have full access to all org-scoped tables',
+    'API-AUTH-TABLES-ROLE-011: org owner should have full access to all org-scoped tables',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: Org-scoped table with owner-only delete permission
@@ -597,7 +597,7 @@ test.describe('Role-Based Table Access Control', () => {
   )
 
   test.fixme(
-    'AUTH-TABLE-ROLE-012: user in multiple orgs should only access active org data',
+    'API-AUTH-TABLES-ROLE-012: user in multiple orgs should only access active org data',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       // GIVEN: User in two organizations, each with org-scoped data
@@ -665,7 +665,7 @@ test.describe('Role-Based Table Access Control', () => {
   // ============================================================================
 
   test.fixme(
-    'AUTH-TABLE-ROLE-013: complete role-based access workflow',
+    'API-AUTH-TABLES-ROLE-013: complete role-based access workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       await test.step('Setup: Start server with mixed permission tables', async () => {
