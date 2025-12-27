@@ -44,7 +44,7 @@ test.describe('Admin List Users', () => {
       expect(data.page).toBe(1)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-LIST-002: should filter users by role',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
@@ -64,6 +64,15 @@ test.describe('Admin List Users', () => {
         password: 'Pass123!',
         name: 'Moderator',
       })
+
+      // Re-authenticate as admin after signUp calls replaced session
+      await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'admin@example.com',
+          password: 'Pass123!',
+        },
+      })
+
       await page.request.post('/api/auth/admin/set-role', {
         data: { userId: moderator.user.id, role: 'moderator' },
       })

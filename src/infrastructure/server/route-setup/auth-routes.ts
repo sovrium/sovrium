@@ -216,6 +216,69 @@ const registerSetRoleEndpoint = (
 }
 
 /**
+ * Register list-users endpoint
+ * Lists users with optional filtering by role, status, email, and name
+ * Supports pagination
+ */
+const registerListUsersEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+  return honoApp.get('/api/auth/admin/list-users', async (c) => {
+    try {
+      const { db } = await import('@/infrastructure/database')
+      const { users } = await import('@/infrastructure/auth/better-auth/schema')
+      const { eq, and, like, sql } = await import('drizzle-orm')
+
+      // Parse query parameters
+      const page = parseInt(c.req.query('page') ?? '1', 10)
+      const limit = parseInt(c.req.query('limit') ?? '10', 10)
+      const role = c.req.query('role')
+      const status = c.req.query('status')
+      const emailFilter = c.req.query('email')
+      const nameFilter = c.req.query('name')
+
+      // Build WHERE conditions
+      const conditions = [
+        role ? eq(users.role, role) : undefined,
+        status === 'banned' ? eq(users.banned, true) : undefined,
+        status === 'active' ? eq(users.banned, false) : undefined,
+        emailFilter ? like(users.email, `%${emailFilter}%`) : undefined,
+        nameFilter ? like(users.name, `${nameFilter}%`) : undefined,
+      ].filter((condition): condition is NonNullable<typeof condition> => condition !== undefined)
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+      // Count total users matching filters
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(whereClause)
+
+      const total = Number(countResult[0]?.count ?? 0)
+
+      // Fetch paginated users
+      const offset = (page - 1) * limit
+      const userRecords = await db
+        .select()
+        .from(users)
+        .where(whereClause)
+        .limit(limit)
+        .offset(offset)
+
+      return c.json(
+        {
+          users: userRecords,
+          total,
+          page,
+          limit,
+        },
+        200
+      )
+    } catch {
+      return c.json({ error: 'Failed to list users' }, 500)
+    }
+  })
+}
+
+/**
  * Register get-user endpoint
  * Retrieves user details by ID (supports sequential ID mapping for testing)
  */
@@ -294,6 +357,7 @@ const registerAdminRoutes = (
     (app) => registerUpdateConfigEndpoint(app, authInstance),
     (app) => registerRevokeAdminEndpoint(app, authInstance),
     (app) => registerSetRoleEndpoint(app, authInstance),
+    registerListUsersEndpoint,
     registerGetUserEndpoint,
     (app) => registerBanUserEndpoint(app, authInstance),
   ]
