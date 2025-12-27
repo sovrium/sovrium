@@ -29,7 +29,7 @@ test.describe('Get organization details', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-GET-ORGANIZATION-001: should return 200 OK with organization data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -99,7 +99,7 @@ test.describe('Get organization details', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-GET-ORGANIZATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
