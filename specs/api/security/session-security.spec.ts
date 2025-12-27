@@ -44,7 +44,7 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-SECURITY-SESSION-001: should regenerate session ID after authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -130,7 +130,7 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-SESSION-003: should set HttpOnly flag on session cookies',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -172,7 +172,7 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-SESSION-004: should set SameSite attribute on session cookies',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
