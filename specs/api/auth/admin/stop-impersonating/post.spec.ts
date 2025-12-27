@@ -17,10 +17,17 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Admin: Stop Impersonating', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-001: should return 200 OK when stopping impersonation',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
+    async ({
+      startServerWithSchema,
+      createAuthenticatedUser,
+      signUp,
+      signIn,
+      executeQuery,
+      request,
+    }) => {
       // GIVEN: Admin currently impersonating a user
       await startServerWithSchema({
         name: 'test-app',
@@ -31,15 +38,26 @@ test.describe('Admin: Stop Impersonating', () => {
           },
         },
       })
-      await createAuthenticatedUser({
+      const admin = await createAuthenticatedUser({
         email: 'admin@example.com',
         password: 'Password123!',
       })
+
+      // Manually set admin role via database
+      await executeQuery(
+        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'`
+      )
 
       const targetUser = await signUp({
         email: 'user@example.com',
         password: 'Password123!',
         name: 'Regular User',
+      })
+
+      // Re-establish admin session (signUp switched to target user's session)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Password123!',
       })
 
       await request.post('/api/auth/admin/impersonate-user', {
