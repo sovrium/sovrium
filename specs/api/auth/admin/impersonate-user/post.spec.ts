@@ -106,7 +106,7 @@ test.describe('Admin: Impersonate user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-IMPERSONATE-USER-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -133,7 +133,7 @@ test.describe('Admin: Impersonate user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-IMPERSONATE-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -171,7 +171,7 @@ test.describe('Admin: Impersonate user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-IMPERSONATE-USER-005: should return 403 Forbidden for banned user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
