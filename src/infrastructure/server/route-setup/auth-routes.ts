@@ -128,48 +128,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
   //
-  // SPECIAL HANDLING: We wrap certain endpoints for validation and audit logging
+  // SPECIAL HANDLING:
+  // - stop-impersonating: Add audit logging to track impersonation sessions
+  // - set-active-organization: Convert 403 to 404 to prevent organization enumeration
   return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     const path = new URL(c.req.url).pathname
-
-    // Special handling for set-active-organization to validate organization membership
-    if (c.req.method === 'POST' && path === '/api/auth/organization/set-active') {
-      // Get authenticated user session
-      const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
-
-      if (!session) {
-        return c.json({ message: 'Unauthorized' }, 401)
-      }
-
-      // Parse request body to get organizationId
-      const { organizationId } = await c.req.json()
-
-      // Validate organizationId is provided
-      if (!organizationId || typeof organizationId !== 'string') {
-        return c.json({ message: 'Organization ID is required' }, 400)
-      }
-
-      // Check if organization exists and user is a member
-      const { db } = await import('@/infrastructure/database')
-      const { organizations, members } = await import('@/infrastructure/auth/better-auth/schema')
-      const { eq, and } = await import('drizzle-orm')
-
-      // Query organization and membership in a single query
-      const membershipResult = await db
-        .select({ organizationId: organizations.id })
-        .from(organizations)
-        .innerJoin(members, eq(organizations.id, members.organizationId))
-        .where(and(eq(organizations.id, organizationId), eq(members.userId, session.user.id)))
-        .limit(1)
-
-      // If no membership found, return 404 (prevents enumeration)
-      if (membershipResult.length === 0) {
-        return c.json({ message: 'Organization not found' }, 404)
-      }
-
-      // User is a member, proceed with Better Auth's handler
-      return authInstance.handler(c.req.raw)
-    }
 
     // Special handling for stop-impersonating to add audit log
     if (c.req.method === 'POST' && path === '/api/auth/admin/stop-impersonating') {
@@ -212,6 +175,32 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
       }
 
       // Return original response for errors
+      return response
+    }
+
+    // Special handling for set-active-organization to prevent enumeration
+    // Convert 403 (Forbidden - user not member) to 404 (Not Found) for security
+    // This prevents attackers from enumerating which organizations exist
+    if (c.req.method === 'POST' && path === '/api/auth/organization/set-active') {
+      const response = await authInstance.handler(c.req.raw)
+
+      // If Better Auth returns 403 (user is not a member of the organization),
+      // convert to 404 to prevent organization enumeration
+      if (response.status === 403) {
+        const originalBody = await response.json()
+        return new Response(
+          JSON.stringify({
+            message: originalBody.message || 'Organization not found',
+          }),
+          {
+            status: 404,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      }
+
       return response
     }
 
