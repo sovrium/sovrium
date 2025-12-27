@@ -130,7 +130,7 @@ test.describe('Set Active Team', () => {
       expect(error.message).toContain('member')
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-004: should return 404 when team does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
