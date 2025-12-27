@@ -1220,6 +1220,24 @@ When Claude Code receives a `@claude` mention for TDD automation, it operates in
 2. **Missing auto-merge enablement** (PRs #1541, #1546) -> Pipeline blocked for hours
 3. **Auto-merge enabled but not VERIFIED** -> May silently fail
 4. **Duplicate PR created** (PR #6067) -> PR created after another PR already merged (60 min timeout issue)
+5. **Endpoint path confusion** (PR #6564) -> Claude confused Better Auth method name (`setActiveOrganization`) with URL path (`/api/auth/organization/set-active`), changed endpoint to non-existent `/api/auth/organization/set-active-organization`, causing HTTP 404 errors
+
+### Endpoint Path Rules (CRITICAL - Learn from PR #6564)
+
+**NEVER modify API endpoint paths in spec files**. Spec files define the authoritative endpoints.
+
+| Concept         | Example                             | Convention             |
+| --------------- | ----------------------------------- | ---------------------- |
+| **Method Name** | `setActiveOrganization`             | camelCase (JavaScript) |
+| **URL Path**    | `/api/auth/organization/set-active` | kebab-case (HTTP)      |
+
+**These are DIFFERENT**. If spec uses `/api/auth/organization/set-active`, your implementation MUST use that exact path.
+
+**Warning Signs of Endpoint Confusion**:
+
+- Test fails with HTTP 404
+- Endpoint URL contains camelCase (e.g., `setActive` instead of `set-active`)
+- URL path matches a JavaScript method name exactly
 
 ### Implementation Workflow (4 Steps - ALL REQUIRED)
 
