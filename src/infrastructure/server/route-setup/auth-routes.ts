@@ -127,7 +127,56 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
+  //
+  // SPECIAL HANDLING: We wrap the stop-impersonating endpoint to add audit logging
   return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+    const path = new URL(c.req.url).pathname
+
+    // Special handling for stop-impersonating to add audit log
+    if (c.req.method === 'POST' && path === '/api/auth/admin/stop-impersonating') {
+      // Capture impersonation context BEFORE stopping
+      const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+      if (!session) {
+        return c.json({ message: 'Unauthorized' }, 401)
+      }
+
+      // Extract admin ID and target user ID from session metadata
+      const adminId = session.session.impersonatedBy ?? session.user.id
+      const targetUserId = session.user.id
+
+      // Call Better Auth's native stop-impersonating handler
+      const response = await authInstance.handler(c.req.raw)
+
+      // If successful (200), add audit log to response
+      if (response.status === 200) {
+        // Read the original response body
+        const originalBody = await response.json()
+
+        // Create new response with audit log added
+        return new Response(
+          JSON.stringify({
+            ...originalBody,
+            auditLog: {
+              event: 'impersonation_ended',
+              adminId,
+              targetUserId,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      }
+
+      // Return original response for errors
+      return response
+    }
+
+    // Default: pass to Better Auth handler
     return authInstance.handler(c.req.raw)
   })
 }
