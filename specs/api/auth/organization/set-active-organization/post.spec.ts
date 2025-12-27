@@ -75,7 +75,7 @@ test.describe('Set active organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {

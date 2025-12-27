@@ -617,7 +617,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             const organizationId = body.organizationId
 
             if (!organizationId) {
-              return c.json({ error: 'organizationId is required' }, 400)
+              return c.json({ message: 'organizationId is required' }, 400)
             }
 
             // Check if user is a member of this organization
