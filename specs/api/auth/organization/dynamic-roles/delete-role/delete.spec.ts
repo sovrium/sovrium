@@ -229,7 +229,7 @@ test.describe('Delete Custom Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-DYNAMIC-ROLE-DELETE-005: should return 404 when role not found',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
