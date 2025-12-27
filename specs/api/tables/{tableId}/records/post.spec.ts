@@ -195,7 +195,7 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-005: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
