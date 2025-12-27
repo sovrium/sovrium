@@ -163,7 +163,7 @@ test.describe('Enable Two-Factor Authentication', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-ENABLE-005: should return 400 when 2FA plugin not enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
