@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Admin List Users', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-OPT-LIST-001: should return paginated list of users',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createAuthenticatedAdmin: createAdmin, page }) => {
