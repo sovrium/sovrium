@@ -34,7 +34,7 @@ test.describe('Admin: Set user role', () => {
   // require proper admin user setup which isn't available via public API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-001: should return 200 OK with updated user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, executeQuery }) => {
@@ -90,7 +90,7 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -150,7 +150,7 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-004: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -176,7 +176,7 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-005: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
