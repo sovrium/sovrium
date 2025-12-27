@@ -32,7 +32,7 @@ test.describe('API Session Context Integration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-SESSION-CTX-INT-001: should set session context from auth token for API requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
@@ -357,7 +357,7 @@ test.describe('API Session Context Integration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-SESSION-CTX-INT-006: should reject unauthenticated API requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
