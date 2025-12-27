@@ -17,7 +17,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Admin: Stop Impersonating', () => {
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-001: should return 200 OK when stopping impersonation',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request }) => {
