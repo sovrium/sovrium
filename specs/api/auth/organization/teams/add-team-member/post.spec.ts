@@ -245,7 +245,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-004: should return 409 Conflict when user is already team member',
     { tag: '@spec' },
     async ({
