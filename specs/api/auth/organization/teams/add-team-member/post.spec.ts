@@ -184,7 +184,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-003: should return 400 Bad Request when user is not organization member',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
