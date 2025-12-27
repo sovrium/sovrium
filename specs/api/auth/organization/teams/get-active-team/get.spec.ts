@@ -136,7 +136,7 @@ test.describe('Get Active Team', () => {
       expect(response.status()).toBe(401)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-005: placeholder',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -149,7 +149,7 @@ test.describe('Get Active Team', () => {
       expect(true).toBe(true)
     }
   )
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-006: placeholder',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
