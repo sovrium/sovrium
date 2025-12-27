@@ -1100,6 +1100,21 @@ jobs:
 
           if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
             echo "✅ PR #$EXISTING_PR already exists - skipping PR creation"
+
+            # Check if auto-merge is enabled on existing PR
+            AUTO_MERGE_STATUS=$(gh pr view "$EXISTING_PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest' 2>/dev/null || echo "null")
+
+            if [ "$AUTO_MERGE_STATUS" = "null" ] || [ -z "$AUTO_MERGE_STATUS" ]; then
+              echo "🔄 Auto-merge not enabled on existing PR - enabling now..."
+              if gh pr merge "$EXISTING_PR" --auto --squash --repo "$REPO"; then
+                echo "✅ Auto-merge enabled on PR #$EXISTING_PR"
+              else
+                echo "⚠️  Failed to enable auto-merge on PR #$EXISTING_PR - may need manual merge"
+              fi
+            else
+              echo "✅ Auto-merge already enabled on PR #$EXISTING_PR"
+            fi
+
             echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
             echo "pr_created=false" >> $GITHUB_OUTPUT
             exit 0
