@@ -90,7 +90,7 @@ test.describe('Invite member to organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-INVITE-MEMBER-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -126,7 +126,7 @@ test.describe('Invite member to organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-INVITE-MEMBER-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -166,7 +166,7 @@ test.describe('Invite member to organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-INVITE-MEMBER-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
