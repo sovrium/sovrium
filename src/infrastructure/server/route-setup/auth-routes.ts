@@ -141,11 +141,17 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             await import('@/infrastructure/auth/better-auth/schema')
           const { eq, and } = await import('drizzle-orm')
 
-          const team = await db
-            .select()
-            .from(teams)
-            .where(eq(teams.id, teamId))
-            .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
+          let team
+          try {
+            team = await db
+              .select()
+              .from(teams)
+              .where(eq(teams.id, teamId))
+              .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
+          } catch {
+            // Database query failed (e.g., invalid UUID format)
+            return c.json({ error: 'Team not found' }, 404)
+          }
 
           if (!team) {
             return c.json({ error: 'Team not found' }, 404)

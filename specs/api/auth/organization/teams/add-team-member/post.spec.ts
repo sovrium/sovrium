@@ -325,7 +325,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-005: should return 404 Not Found when team does not exist',
     { tag: '@spec' },
     async ({
