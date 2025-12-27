@@ -36,7 +36,7 @@ test.describe('SQL Injection Prevention', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-SECURITY-SQLI-001: should prevent SQL injection in query string filters',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
@@ -98,7 +98,7 @@ test.describe('SQL Injection Prevention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-SQLI-002: should prevent SQL injection in URL path parameters',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
@@ -379,7 +379,7 @@ test.describe('SQL Injection Prevention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-SQLI-007: should prevent SQL injection in authentication email parameter',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
