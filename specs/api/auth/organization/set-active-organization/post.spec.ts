@@ -110,7 +110,7 @@ test.describe('Set active organization', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
