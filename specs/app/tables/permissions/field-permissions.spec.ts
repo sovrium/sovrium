@@ -605,11 +605,17 @@ test.describe('Field-Level Permissions', () => {
       ])
 
       // Create member user
-      await signUp({
+      const memberResult = await signUp({
         email: 'member@example.com',
         password: 'MemberPass123!',
         name: 'Member User',
       })
+
+      // Manually set user role to member (default role in Better Auth)
+      await executeQuery([
+        `UPDATE _sovrium_auth_users SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
+      ])
+
       await signIn({
         email: 'member@example.com',
         password: 'MemberPass123!',
@@ -628,11 +634,17 @@ test.describe('Field-Level Permissions', () => {
       expect(dbResult.rows[0].verified).toBe(false) // Unchanged
 
       // WHEN: Admin attempts to update verified field
-      await signUp({
+      const adminResult = await signUp({
         email: 'admin@example.com',
         password: 'AdminPass123!',
         name: 'Admin User',
       })
+
+      // Manually set user role to admin
+      await executeQuery([
+        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
+      ])
+
       await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',

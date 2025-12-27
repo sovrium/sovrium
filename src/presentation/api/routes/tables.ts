@@ -222,9 +222,27 @@ function createListRecordsProgram(
 
 /**
  * Retrieves the user's role from the database
+ *
+ * Role resolution priority:
+ * 1. If active organization: check members table for org-specific role
+ * 2. If no active organization or no membership: check global user role from users table
+ * 3. Default: 'member'
  */
-async function getUserRole(userId: string): Promise<string> {
+async function getUserRole(userId: string, activeOrganizationId?: string | null): Promise<string> {
   const { db } = await import('@/infrastructure/database')
+
+  // If active organization, check members table first
+  if (activeOrganizationId) {
+    const memberResult = (await db.execute(
+      `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+    )) as Array<{ role: string | null }>
+
+    if (memberResult[0]?.role) {
+      return memberResult[0].role
+    }
+  }
+
+  // Fall back to global user role from users table
   const userResult = (await db.execute(
     `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
   )) as Array<{ role: string | null }>
@@ -490,7 +508,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
 
         // Query user role from database (for field-level read permissions)
-        const userRole = await getUserRole(session.userId)
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
         return runEffect(
           c,
@@ -536,7 +554,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
 
         // Query user role from database (for field-level read permissions)
-        const userRole = await getUserRole(session.userId)
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
         try {
           const program = createGetRecordProgram({
@@ -595,20 +613,8 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
-        // Query user role from database
-        const userRole = await (async () => {
-          try {
-            const { db } = await import('@/infrastructure/database')
-            const userResult = (await db.execute(
-              `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-            )) as Array<{ role: string | null }>
-            return userResult[0]?.role || 'member'
-          } catch {
-            // Log error but continue with default 'member' role
-            // Database connection in Playwright context may use different DATABASE_URL
-            return 'member'
-          }
-        })()
+        // Query user role from database (check org-specific role first)
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
         // Check table-level update permissions
         const table = app.tables?.find((t) => t.name === tableName)
