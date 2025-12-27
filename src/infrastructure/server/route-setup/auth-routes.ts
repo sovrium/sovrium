@@ -141,7 +141,9 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           const membership = await db
             .select()
             .from(members)
-            .where(and(eq(members.organizationId, organizationId), eq(members.userId, session.user.id)))
+            .where(
+              and(eq(members.organizationId, organizationId), eq(members.userId, session.user.id))
+            )
             .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
 
           if (!membership) {
@@ -199,11 +201,18 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             await import('@/infrastructure/auth/better-auth/schema')
           const { eq, and } = await import('drizzle-orm')
 
-          const team = await db
+          const teamResult = await db
             .select()
             .from(teams)
             .where(eq(teams.id, teamId))
             .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
+            .catch(() => undefined)
+
+          if (!teamResult) {
+            return c.json({ error: 'Team not found' }, 404)
+          }
+
+          const team = teamResult
 
           if (!team) {
             return c.json({ error: 'Team not found' }, 404)
