@@ -72,7 +72,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -596,7 +596,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-016: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
