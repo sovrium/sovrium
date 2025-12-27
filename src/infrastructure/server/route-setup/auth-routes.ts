@@ -246,6 +246,61 @@ const registerGetUserEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
 }
 
 /**
+ * Register list-users endpoint
+ * Returns paginated list of users with optional filtering
+ */
+const registerListUsersEndpoint = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+  return honoApp.get('/api/auth/admin/list-users', async (c) => {
+    try {
+      const pageParam = c.req.query('page')
+      const limitParam = c.req.query('limit')
+      const roleFilter = c.req.query('role')
+      const statusFilter = c.req.query('status')
+      const emailFilter = c.req.query('email')
+      const nameFilter = c.req.query('name')
+
+      const page = pageParam ? Number.parseInt(pageParam, 10) : 1
+      const limit = limitParam ? Number.parseInt(limitParam, 10) : 10
+      const offset = (page - 1) * limit
+
+      const { db } = await import('@/infrastructure/database')
+      const { users } = await import('@/infrastructure/auth/better-auth/schema')
+      const { eq, and, like, sql, or, isNull } = await import('drizzle-orm')
+
+      const conditions = [
+        ...(roleFilter ? [eq(users.role, roleFilter)] : []),
+        ...(statusFilter === 'banned' ? [eq(users.banned, true)] : []),
+        ...(statusFilter === 'active' ? [or(isNull(users.banned), eq(users.banned, false))] : []),
+        ...(emailFilter ? [like(users.email, `%${emailFilter}%`)] : []),
+        ...(nameFilter ? [like(users.name, `${nameFilter}%`)] : []),
+      ]
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+      const [totalResult, userRecords] = await Promise.all([
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(users)
+          .where(whereClause)
+          .then((result: readonly { count: number }[]) => Number(result[0]?.count ?? 0)),
+        db.select().from(users).where(whereClause).limit(limit).offset(offset),
+      ])
+
+      return c.json(
+        {
+          users: userRecords,
+          total: totalResult,
+          page,
+        },
+        200
+      )
+    } catch {
+      return c.json({ error: 'Failed to list users' }, 500)
+    }
+  })
+}
+
+/**
  * Register ban-user endpoint
  * Bans a user by delegating to Better Auth's ban-user handler
  */
@@ -295,6 +350,7 @@ const registerAdminRoutes = (
     (app) => registerRevokeAdminEndpoint(app, authInstance),
     (app) => registerSetRoleEndpoint(app, authInstance),
     registerGetUserEndpoint,
+    registerListUsersEndpoint,
     (app) => registerBanUserEndpoint(app, authInstance),
   ]
 
