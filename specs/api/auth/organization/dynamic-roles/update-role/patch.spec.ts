@@ -223,7 +223,7 @@ test.describe('Update Custom Role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-DYNAMIC-ROLE-UPDATE-005: should return 404 when role not found',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
