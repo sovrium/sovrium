@@ -108,7 +108,7 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -200,7 +200,7 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-006: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -227,7 +227,7 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-007: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
