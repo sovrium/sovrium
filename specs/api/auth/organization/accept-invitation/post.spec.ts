@@ -31,7 +31,7 @@ test.describe('Accept organization invitation', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-ACCEPT-INVITATION-001: should return 200 OK and add user to organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -99,7 +99,7 @@ test.describe('Accept organization invitation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-ACCEPT-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -131,7 +131,7 @@ test.describe('Accept organization invitation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-ACCEPT-INVITATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
