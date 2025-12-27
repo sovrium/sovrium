@@ -162,7 +162,7 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-SECURITY-HEADERS-006: should not expose server version in headers',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
