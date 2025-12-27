@@ -97,7 +97,7 @@ test.describe('Reject organization invitation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-REJECT-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -129,7 +129,7 @@ test.describe('Reject organization invitation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-REJECT-INVITATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
