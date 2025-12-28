@@ -41,7 +41,7 @@ test.describe('Assign Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'custom-role',
-          permissions: ['read:projects', 'write:projects'],
+          permission: ['read:projects', 'write:projects'],
         },
       })
       const role = await roleResponse.json()
@@ -118,7 +118,7 @@ test.describe('Assign Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'developer',
-          permissions: ['read:code'],
+          permission: ['read:code'],
         },
       })
       const role1 = await role1Response.json()
@@ -127,7 +127,7 @@ test.describe('Assign Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'senior-developer',
-          permissions: ['read:code', 'write:code', 'deploy:production'],
+          permission: ['read:code', 'write:code', 'deploy:production'],
         },
       })
       const role2 = await role2Response.json()
@@ -238,7 +238,7 @@ test.describe('Assign Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'custom-role',
-          permissions: ['read:projects'],
+          permission: ['read:projects'],
         },
       })
       const role = await roleResponse.json()
@@ -307,7 +307,7 @@ test.describe('Assign Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'custom-role',
-          permissions: ['read:projects'],
+          permission: ['read:projects'],
         },
       })
       const role = await roleResponse.json()
@@ -390,7 +390,7 @@ test.describe('Assign Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'developer',
-            permissions: ['read:code', 'write:code'],
+            permission: ['read:code', 'write:code'],
           },
         })
         .then((r) => r.json())
@@ -400,7 +400,7 @@ test.describe('Assign Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'qa',
-            permissions: ['read:code', 'test:code'],
+            permission: ['read:code', 'test:code'],
           },
         })
         .then((r) => r.json())

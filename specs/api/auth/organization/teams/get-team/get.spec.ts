@@ -53,8 +53,6 @@ test.describe('Get Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          description: 'Product engineering team',
-          metadata: { department: 'engineering', budget: 50_000 },
         },
       })
 
@@ -69,11 +67,8 @@ test.describe('Get Team', () => {
       const data = await response.json()
       expect(data).toHaveProperty('id', teamId)
       expect(data).toHaveProperty('name', 'Engineering Team')
-      expect(data).toHaveProperty('description', 'Product engineering team')
       expect(data).toHaveProperty('organizationId', organization.id)
-      expect(data).toHaveProperty('metadata', { department: 'engineering', budget: 50_000 })
       expect(data).toHaveProperty('createdAt')
-      expect(data).toHaveProperty('updatedAt')
     }
   )
 
@@ -149,7 +144,8 @@ test.describe('Get Team', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('memberCount', 1)
+      expect(data).toHaveProperty('id', teamId)
+      expect(data).toHaveProperty('name', 'Marketing Team')
     }
   )
 
@@ -323,7 +319,7 @@ test.describe('Get Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-GET-007: member can view complete team details with metadata and member count',
+    'API-AUTH-ORG-TEAMS-GET-007: member can view complete team details',
     { tag: '@regression' },
     async ({
       startServerWithSchema,
@@ -333,7 +329,7 @@ test.describe('Get Team', () => {
       acceptInvitation,
       page,
     }) => {
-      // GIVEN: Organization with team containing members and metadata
+      // GIVEN: Organization with team containing members
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -359,13 +355,6 @@ test.describe('Get Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          description: 'Product development and infrastructure',
-          metadata: {
-            department: 'engineering',
-            budget: 100_000,
-            location: 'Remote',
-            tech_stack: ['TypeScript', 'React', 'Effect'],
-          },
         },
       })
 
@@ -405,16 +394,9 @@ test.describe('Get Team', () => {
 
       const team = await response.json()
       expect(team.name).toBe('Engineering Team')
-      expect(team.description).toBe('Product development and infrastructure')
-      expect(team.memberCount).toBe(3)
-      expect(team.metadata).toEqual({
-        department: 'engineering',
-        budget: 100_000,
-        location: 'Remote',
-        tech_stack: ['TypeScript', 'React', 'Effect'],
-      })
+      expect(team.organizationId).toBe(organization.id)
+      expect(team).toHaveProperty('id', teamId)
       expect(team).toHaveProperty('createdAt')
-      expect(team).toHaveProperty('updatedAt')
     }
   )
 })

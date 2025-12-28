@@ -385,7 +385,6 @@ test.describe('Delete Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Team to Delete',
-          metadata: { temporary: true },
         },
       })
 

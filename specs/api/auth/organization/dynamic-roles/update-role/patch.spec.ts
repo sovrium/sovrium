@@ -40,7 +40,7 @@ test.describe('Update Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles'],
+            permission: ['read:articles'],
           },
         })
         .then((r) => r.json())
@@ -51,7 +51,7 @@ test.describe('Update Custom Role', () => {
           organizationId: owner.organizationId!,
           roleId: role.id,
           name: 'content-editor',
-          permissions: ['read:articles', 'write:articles'],
+          permission: ['read:articles', 'write:articles'],
         },
       })
 
@@ -59,7 +59,7 @@ test.describe('Update Custom Role', () => {
       expect(response.status()).toBe(200)
       const data = await response.json()
       expect(data.name).toBe('content-editor')
-      expect(data.permissions).toContain('write:articles')
+      expect(data.permission).toContain('write:articles')
     }
   )
 
@@ -88,7 +88,7 @@ test.describe('Update Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles', 'write:articles', 'delete:drafts'],
+            permission: ['read:articles', 'write:articles', 'delete:drafts'],
           },
         })
         .then((r) => r.json())
@@ -98,15 +98,15 @@ test.describe('Update Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           roleId: role.id,
-          permissions: ['read:articles', 'write:articles', 'publish:articles'], // Removed delete:drafts, added publish:articles
+          permission: ['read:articles', 'write:articles', 'publish:articles'], // Removed delete:drafts, added publish:articles
         },
       })
 
       // THEN: Permissions should be updated correctly
       expect(response.status()).toBe(200)
       const data = await response.json()
-      expect(data.permissions).toEqual(['read:articles', 'write:articles', 'publish:articles'])
-      expect(data.permissions).not.toContain('delete:drafts')
+      expect(data.permission).toEqual(['read:articles', 'write:articles', 'publish:articles'])
+      expect(data.permission).not.toContain('delete:drafts')
     }
   )
 
@@ -135,7 +135,7 @@ test.describe('Update Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles'],
+            permission: ['read:articles'],
           },
         })
         .then((r) => r.json())
@@ -194,7 +194,7 @@ test.describe('Update Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles'],
+            permission: ['read:articles'],
           },
         })
         .then((r) => r.json())
@@ -203,7 +203,7 @@ test.describe('Update Custom Role', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'viewer',
-          permissions: ['read:articles'],
+          permission: ['read:articles'],
         },
       })
 
@@ -311,7 +311,7 @@ test.describe('Update Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'content-manager',
-            permissions: ['read:articles', 'write:drafts'],
+            permission: ['read:articles', 'write:drafts'],
           },
         })
         .then((r) => r.json())
@@ -359,7 +359,7 @@ test.describe('Update Custom Role', () => {
           organizationId: owner.organizationId!,
           roleId: role.id,
           name: 'senior-content-manager',
-          permissions: ['read:articles', 'write:drafts', 'publish:articles', 'delete:articles'],
+          permission: ['read:articles', 'write:drafts', 'publish:articles', 'delete:articles'],
         },
       })
 
@@ -367,7 +367,7 @@ test.describe('Update Custom Role', () => {
       expect(updateResponse.status()).toBe(200)
       const updatedRole = await updateResponse.json()
       expect(updatedRole.name).toBe('senior-content-manager')
-      expect(updatedRole.permissions).toEqual([
+      expect(updatedRole.permission).toEqual([
         'read:articles',
         'write:drafts',
         'publish:articles',
@@ -383,7 +383,7 @@ test.describe('Update Custom Role', () => {
 
       const listedRole = roles.find((r: any) => r.id === role.id)
       expect(listedRole.name).toBe('senior-content-manager')
-      expect(listedRole.permissions).toEqual([
+      expect(listedRole.permission).toEqual([
         'read:articles',
         'write:drafts',
         'publish:articles',

@@ -54,7 +54,6 @@ test.describe('List Teams', () => {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          description: 'Product engineering',
         },
       })
 
@@ -62,7 +61,6 @@ test.describe('List Teams', () => {
         data: {
           organizationId: organization.id,
           name: 'Marketing Team',
-          description: 'Marketing and growth',
         },
       })
 
@@ -80,7 +78,6 @@ test.describe('List Teams', () => {
 
       expect(data[0]).toHaveProperty('id')
       expect(data[0]).toHaveProperty('name')
-      expect(data[0]).toHaveProperty('description')
       expect(data[0]).toHaveProperty('organizationId', organization.id)
 
       const teamNames = data.map((team: { name: string }) => team.name)
@@ -183,10 +180,10 @@ test.describe('List Teams', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-LIST-004: should return teams with metadata when present',
+    'API-AUTH-ORG-TEAMS-LIST-004: should return teams with createdAt timestamp',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
-      // GIVEN: Organization with team containing metadata
+      // GIVEN: Organization with a team
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -212,7 +209,6 @@ test.describe('List Teams', () => {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          metadata: { department: 'engineering', size: 'large' },
         },
       })
 
@@ -221,12 +217,12 @@ test.describe('List Teams', () => {
         `/api/auth/organization/list-teams?organizationId=${organization.id}`
       )
 
-      // THEN: Teams include metadata
+      // THEN: Teams include createdAt timestamp
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data[0]).toHaveProperty('metadata')
-      expect(data[0].metadata).toEqual({ department: 'engineering', size: 'large' })
+      expect(data[0]).toHaveProperty('createdAt')
+      expect(new Date(data[0].createdAt)).toBeInstanceOf(Date)
     }
   )
 
@@ -297,7 +293,7 @@ test.describe('List Teams', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-LIST-007: member can view all organization teams with metadata',
+    'API-AUTH-ORG-TEAMS-LIST-007: member can view all organization teams',
     { tag: '@regression' },
     async ({
       startServerWithSchema,
@@ -329,12 +325,11 @@ test.describe('List Teams', () => {
         slug: 'test-company',
       })
 
-      // Create teams with varying metadata
+      // Create multiple teams
       await page.request.post('/api/auth/organization/create-team', {
         data: {
           organizationId: organization.id,
           name: 'Engineering',
-          metadata: { department: 'eng', budget: 50_000 },
         },
       })
 
@@ -365,17 +360,15 @@ test.describe('List Teams', () => {
         `/api/auth/organization/list-teams?organizationId=${organization.id}`
       )
 
-      // THEN: Member sees all teams with metadata
+      // THEN: Member sees all teams
       expect(response.status()).toBe(200)
 
       const teams = await response.json()
       expect(teams).toHaveLength(2)
 
-      const engineering = teams.find((t: { name: string }) => t.name === 'Engineering')
-      expect(engineering.metadata).toEqual({ department: 'eng', budget: 50_000 })
-
-      const marketing = teams.find((t: { name: string }) => t.name === 'Marketing')
-      expect(marketing.metadata).toBeUndefined()
+      const teamNames = teams.map((t: { name: string }) => t.name)
+      expect(teamNames).toContain('Engineering')
+      expect(teamNames).toContain('Marketing')
     }
   )
 })

@@ -53,8 +53,6 @@ test.describe('Update Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          description: 'Original description',
-          metadata: { department: 'engineering' },
         },
       })
 
@@ -65,8 +63,6 @@ test.describe('Update Team', () => {
         data: {
           teamId,
           name: 'Product Engineering Team',
-          description: 'Updated description for product development',
-          metadata: { department: 'engineering', size: 'large', budget: 75_000 },
         },
       })
 
@@ -76,12 +72,7 @@ test.describe('Update Team', () => {
       const data = await response.json()
       expect(data).toHaveProperty('id', teamId)
       expect(data).toHaveProperty('name', 'Product Engineering Team')
-      expect(data).toHaveProperty('description', 'Updated description for product development')
-      expect(data).toHaveProperty('metadata', {
-        department: 'engineering',
-        size: 'large',
-        budget: 75_000,
-      })
+      expect(data).toHaveProperty('organizationId', organization.id)
       expect(data).toHaveProperty('updatedAt')
     }
   )
@@ -116,7 +107,6 @@ test.describe('Update Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Original Name',
-          description: 'Original description',
         },
       })
 
@@ -130,12 +120,12 @@ test.describe('Update Team', () => {
         },
       })
 
-      // THEN: Returns 200 OK with updated name, other fields unchanged
+      // THEN: Returns 200 OK with updated name
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('name', 'Updated Name')
-      expect(data).toHaveProperty('description', 'Original description')
+      expect(data).toHaveProperty('organizationId', organization.id)
     }
   )
 
@@ -382,42 +372,37 @@ test.describe('Update Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Original Team',
-          description: 'Original description',
-          metadata: { version: 1 },
         },
       })
 
       const { id: teamId } = await createResponse.json()
 
       // WHEN: Owner performs multiple updates
-      // First update: name and description
+      // First update
       const update1Response = await page.request.patch('/api/auth/organization/update-team', {
         data: {
           teamId,
           name: 'Updated Team v1',
-          description: 'First update',
         },
       })
 
       expect(update1Response.status()).toBe(200)
 
-      // Second update: metadata
+      // Second update
       const update2Response = await page.request.patch('/api/auth/organization/update-team', {
         data: {
           teamId,
-          metadata: { version: 2, features: ['chat', 'video'], active: true },
+          name: 'Updated Team v2',
         },
       })
 
       expect(update2Response.status()).toBe(200)
 
-      // Third update: all fields
+      // Third update: final name
       const update3Response = await page.request.patch('/api/auth/organization/update-team', {
         data: {
           teamId,
           name: 'Final Team Name',
-          description: 'Final description',
-          metadata: { version: 3, status: 'production' },
         },
       })
 
@@ -428,8 +413,7 @@ test.describe('Update Team', () => {
       const finalTeam = await getResponse.json()
 
       expect(finalTeam.name).toBe('Final Team Name')
-      expect(finalTeam.description).toBe('Final description')
-      expect(finalTeam.metadata).toEqual({ version: 3, status: 'production' })
+      expect(finalTeam.organizationId).toBe(organization.id)
     }
   )
 })

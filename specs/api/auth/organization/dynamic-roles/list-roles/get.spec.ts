@@ -39,7 +39,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'editor',
-          permissions: ['read:articles', 'write:articles'],
+          permission: ['read:articles', 'write:articles'],
         },
       })
 
@@ -47,7 +47,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'viewer',
-          permissions: ['read:articles'],
+          permission: ['read:articles'],
         },
       })
 
@@ -97,7 +97,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'editor',
-          permissions: ['read:articles', 'write:articles', 'delete:drafts'],
+          permission: ['read:articles', 'write:articles', 'delete:drafts'],
         },
       })
 
@@ -114,7 +114,7 @@ test.describe('List Roles', () => {
 
       const editorRole = roles.find((r: any) => r.name === 'editor')
       expect(editorRole).toBeDefined()
-      expect(editorRole.permissions).toEqual(['read:articles', 'write:articles', 'delete:drafts'])
+      expect(editorRole.permission).toEqual(['read:articles', 'write:articles', 'delete:drafts'])
     }
   )
 
@@ -143,7 +143,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: org1Owner.organizationId!,
           name: 'org1-editor',
-          permissions: ['read:articles'],
+          permission: ['read:articles'],
         },
       })
 
@@ -157,7 +157,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: org2Owner.organizationId!,
           name: 'org2-editor',
-          permissions: ['read:docs'],
+          permission: ['read:docs'],
         },
       })
 
@@ -300,7 +300,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'admin-editor',
-          permissions: ['read:all', 'write:all', 'delete:all'],
+          permission: ['read:all', 'write:all', 'delete:all'],
         },
       })
 
@@ -308,7 +308,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'content-editor',
-          permissions: ['read:articles', 'write:articles', 'read:media', 'upload:media'],
+          permission: ['read:articles', 'write:articles', 'read:media', 'upload:media'],
         },
       })
 
@@ -316,7 +316,7 @@ test.describe('List Roles', () => {
         data: {
           organizationId: owner.organizationId!,
           name: 'viewer',
-          permissions: ['read:articles', 'read:media'],
+          permission: ['read:articles', 'read:media'],
         },
       })
 
@@ -350,7 +350,7 @@ test.describe('List Roles', () => {
       // Verify default roles
       const ownerRole = roles.find((r: any) => r.name === 'owner')
       expect(ownerRole).toBeDefined()
-      expect(ownerRole.permissions).toBeDefined()
+      expect(ownerRole.permission).toBeDefined()
 
       const adminRole = roles.find((r: any) => r.name === 'admin')
       expect(adminRole).toBeDefined()
@@ -360,10 +360,10 @@ test.describe('List Roles', () => {
 
       // Verify custom roles with correct permissions
       const adminEditorRole = roles.find((r: any) => r.name === 'admin-editor')
-      expect(adminEditorRole.permissions).toEqual(['read:all', 'write:all', 'delete:all'])
+      expect(adminEditorRole.permission).toEqual(['read:all', 'write:all', 'delete:all'])
 
       const contentEditorRole = roles.find((r: any) => r.name === 'content-editor')
-      expect(contentEditorRole.permissions).toEqual([
+      expect(contentEditorRole.permission).toEqual([
         'read:articles',
         'write:articles',
         'read:media',
@@ -371,7 +371,7 @@ test.describe('List Roles', () => {
       ])
 
       const viewerRole = roles.find((r: any) => r.name === 'viewer')
-      expect(viewerRole.permissions).toEqual(['read:articles', 'read:media'])
+      expect(viewerRole.permission).toEqual(['read:articles', 'read:media'])
     }
   )
 })

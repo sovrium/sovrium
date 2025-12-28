@@ -40,7 +40,7 @@ test.describe('Delete Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles', 'write:articles'],
+            permission: ['read:articles', 'write:articles'],
           },
         })
         .then((r) => r.json())
@@ -127,7 +127,7 @@ test.describe('Delete Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles', 'write:articles'],
+            permission: ['read:articles', 'write:articles'],
           },
         })
         .then((r) => r.json())
@@ -196,7 +196,7 @@ test.describe('Delete Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles'],
+            permission: ['read:articles'],
           },
         })
         .then((r) => r.json())
@@ -316,7 +316,7 @@ test.describe('Delete Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'editor',
-            permissions: ['read:articles', 'write:articles'],
+            permission: ['read:articles', 'write:articles'],
           },
         })
         .then((r) => r.json())
@@ -326,7 +326,7 @@ test.describe('Delete Custom Role', () => {
           data: {
             organizationId: owner.organizationId!,
             name: 'viewer',
-            permissions: ['read:articles'],
+            permission: ['read:articles'],
           },
         })
         .then((r) => r.json())

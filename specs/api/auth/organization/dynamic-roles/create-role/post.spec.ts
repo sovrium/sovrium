@@ -55,7 +55,7 @@ test.describe('Create Custom Role', () => {
           organizationId: organization.id,
           name: 'Project Manager',
           description: 'Can manage projects and view analytics',
-          permissions: ['project:read', 'project:write', 'analytics:read'],
+          permission: ['project:read', 'project:write', 'analytics:read'],
         },
       })
 
@@ -66,8 +66,8 @@ test.describe('Create Custom Role', () => {
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name', 'Project Manager')
       expect(data).toHaveProperty('description', 'Can manage projects and view analytics')
-      expect(data).toHaveProperty('permissions')
-      expect(data.permissions).toEqual(['project:read', 'project:write', 'analytics:read'])
+      expect(data).toHaveProperty('permission')
+      expect(data.permission).toEqual(['project:read', 'project:write', 'analytics:read'])
       expect(data).toHaveProperty('organizationId', organization.id)
       expect(data).toHaveProperty('createdAt')
     }
@@ -104,7 +104,7 @@ test.describe('Create Custom Role', () => {
         data: {
           organizationId: organization.id,
           name: 'Content Editor',
-          permissions: [
+          permission: [
             'posts:create',
             'posts:read',
             'posts:update',
@@ -119,9 +119,9 @@ test.describe('Create Custom Role', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.permissions).toHaveLength(6)
-      expect(data.permissions).toContain('posts:create')
-      expect(data.permissions).toContain('media:upload')
+      expect(data.permission).toHaveLength(6)
+      expect(data.permission).toContain('posts:create')
+      expect(data.permission).toContain('media:upload')
     }
   )
 
@@ -177,7 +177,7 @@ test.describe('Create Custom Role', () => {
         data: {
           organizationId: organization.id,
           name: 'Unauthorized Role',
-          permissions: ['some:permission'],
+          permission: ['some:permission'],
         },
       })
 
@@ -220,7 +220,7 @@ test.describe('Create Custom Role', () => {
       const response = await page.request.post('/api/auth/organization/create-role', {
         data: {
           organizationId: organization.id,
-          permissions: ['some:permission'],
+          permission: ['some:permission'],
         },
       })
 
@@ -263,7 +263,7 @@ test.describe('Create Custom Role', () => {
         data: {
           organizationId: organization.id,
           name: 'Project Manager',
-          permissions: ['project:read'],
+          permission: ['project:read'],
         },
       })
 
@@ -272,7 +272,7 @@ test.describe('Create Custom Role', () => {
         data: {
           organizationId: organization.id,
           name: 'Project Manager',
-          permissions: ['project:write'],
+          permission: ['project:write'],
         },
       })
 
@@ -305,7 +305,7 @@ test.describe('Create Custom Role', () => {
         data: {
           organizationId: 'org-123',
           name: 'Some Role',
-          permissions: ['some:permission'],
+          permission: ['some:permission'],
         },
       })
 
@@ -352,15 +352,15 @@ test.describe('Create Custom Role', () => {
       const roles = [
         {
           name: 'Content Editor',
-          permissions: ['posts:create', 'posts:read', 'posts:update', 'posts:delete'],
+          permission: ['posts:create', 'posts:read', 'posts:update', 'posts:delete'],
         },
         {
           name: 'Analyst',
-          permissions: ['analytics:read', 'reports:read'],
+          permission: ['analytics:read', 'reports:read'],
         },
         {
           name: 'Project Manager',
-          permissions: ['project:read', 'project:write', 'team:read'],
+          permission: ['project:read', 'project:write', 'team:read'],
         },
       ]
 
@@ -383,13 +383,13 @@ test.describe('Create Custom Role', () => {
       const createdRoles = await Promise.all(responses.map((r) => r.json()))
 
       expect(createdRoles).toHaveLength(3)
-      expect(createdRoles.find((r) => r.name === 'Content Editor').permissions).toEqual([
+      expect(createdRoles.find((r) => r.name === 'Content Editor').permission).toEqual([
         'posts:create',
         'posts:read',
         'posts:update',
         'posts:delete',
       ])
-      expect(createdRoles.find((r) => r.name === 'Analyst').permissions).toEqual([
+      expect(createdRoles.find((r) => r.name === 'Analyst').permission).toEqual([
         'analytics:read',
         'reports:read',
       ])
