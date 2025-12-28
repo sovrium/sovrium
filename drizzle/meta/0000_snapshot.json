@@ -1,5 +1,5 @@
 {
-  "id": "7d1385f2-de20-49b7-9a07-9120acd321c0",
+  "id": "424ddfc2-8879-4de8-af53-236e550d3799",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -95,8 +95,12 @@
           "name": "_sovrium_auth_accounts_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_auth_accounts",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -173,8 +177,12 @@
           "name": "_sovrium_auth_invitations_organization_id__sovrium_auth_organizations_id_fk",
           "tableFrom": "_sovrium_auth_invitations",
           "tableTo": "_sovrium_auth_organizations",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -182,8 +190,12 @@
           "name": "_sovrium_auth_invitations_inviter_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_auth_invitations",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["inviter_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "inviter_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -236,8 +248,12 @@
           "name": "_sovrium_auth_members_organization_id__sovrium_auth_organizations_id_fk",
           "tableFrom": "_sovrium_auth_members",
           "tableTo": "_sovrium_auth_organizations",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -245,8 +261,12 @@
           "name": "_sovrium_auth_members_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_auth_members",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -279,8 +299,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "permissions": {
-          "name": "permissions",
+        "permission": {
+          "name": "permission",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -305,8 +325,12 @@
           "name": "_sovrium_auth_organization_roles_organization_id__sovrium_auth_organizations_id_fk",
           "tableFrom": "_sovrium_auth_organization_roles",
           "tableTo": "_sovrium_auth_organizations",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -366,7 +390,9 @@
         "_sovrium_auth_organizations_slug_unique": {
           "name": "_sovrium_auth_organizations_slug_unique",
           "nullsNotDistinct": false,
-          "columns": ["slug"]
+          "columns": [
+            "slug"
+          ]
         }
       },
       "policies": {},
@@ -452,8 +478,12 @@
           "name": "_sovrium_auth_sessions_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_auth_sessions",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -463,7 +493,9 @@
         "_sovrium_auth_sessions_token_unique": {
           "name": "_sovrium_auth_sessions_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         }
       },
       "policies": {},
@@ -506,8 +538,12 @@
           "name": "_sovrium_auth_team_members_team_id__sovrium_auth_teams_id_fk",
           "tableFrom": "_sovrium_auth_team_members",
           "tableTo": "_sovrium_auth_teams",
-          "columnsFrom": ["team_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -515,8 +551,12 @@
           "name": "_sovrium_auth_team_members_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_auth_team_members",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -569,8 +609,12 @@
           "name": "_sovrium_auth_teams_organization_id__sovrium_auth_organizations_id_fk",
           "tableFrom": "_sovrium_auth_teams",
           "tableTo": "_sovrium_auth_organizations",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -616,8 +660,12 @@
           "name": "_sovrium_auth_two_factors_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_auth_two_factors",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -715,7 +763,9 @@
         "_sovrium_auth_users_email_unique": {
           "name": "_sovrium_auth_users_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         }
       },
       "policies": {},
@@ -1093,8 +1143,12 @@
           "name": "_sovrium_activity_logs_organization_id__sovrium_auth_organizations_id_fk",
           "tableFrom": "_sovrium_activity_logs",
           "tableTo": "_sovrium_auth_organizations",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1102,8 +1156,12 @@
           "name": "_sovrium_activity_logs_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_activity_logs",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1287,8 +1345,12 @@
           "name": "_sovrium_record_comments_organization_id__sovrium_auth_organizations_id_fk",
           "tableFrom": "_sovrium_record_comments",
           "tableTo": "_sovrium_auth_organizations",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1296,8 +1358,12 @@
           "name": "_sovrium_record_comments_user_id__sovrium_auth_users_id_fk",
           "tableFrom": "_sovrium_record_comments",
           "tableTo": "_sovrium_auth_users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
