@@ -140,7 +140,7 @@ export const organizationRoles = pgTable('_sovrium_auth_organization_roles', {
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
   role: text('role').notNull(),
-  permissions: text('permissions'),
+  permission: text('permission'), // Better Auth expects 'permission' (singular)
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
 })
