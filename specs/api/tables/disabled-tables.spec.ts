@@ -27,7 +27,7 @@ test.describe('Disabled Tables Endpoints', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-DISABLED-001: should return 404 for list tables endpoint when no tables configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
