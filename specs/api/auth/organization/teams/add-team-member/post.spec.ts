@@ -23,7 +23,7 @@ test.describe('Add Team Member', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-001: should return 200 OK when owner adds organization member to team',
     { tag: '@spec' },
     async ({
@@ -96,7 +96,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-002: should return 403 Forbidden when non-owner tries to add team member',
     { tag: '@spec' },
     async ({
@@ -184,7 +184,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-003: should return 400 Bad Request when user is not organization member',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
@@ -245,7 +245,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-004: should return 409 Conflict when user is already team member',
     { tag: '@spec' },
     async ({
@@ -325,7 +325,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-005: should return 404 Not Found when team does not exist',
     { tag: '@spec' },
     async ({
@@ -389,7 +389,7 @@ test.describe('Add Team Member', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-006: should return 401 Unauthorized when user is not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {

@@ -115,164 +115,6 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
   const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(honoApp) : honoApp
 
-  // Add custom create-team endpoint (Better Auth doesn't provide this natively)
-  const appWithCreateTeam =
-    app.auth.organization &&
-    typeof app.auth.organization === 'object' &&
-    app.auth.organization.teams
-      ? appWithRateLimit.post('/api/auth/organization/create-team', async (c) => {
-          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
-
-          if (!session) {
-            return c.json({ error: 'Unauthorized' }, 401)
-          }
-
-          const { organizationId, name } = await c.req.json()
-
-          if (!organizationId || !name) {
-            return c.json({ error: 'Organization ID and team name are required' }, 400)
-          }
-
-          const { db } = await import('@/infrastructure/database')
-          const { teams, members } = await import('@/infrastructure/auth/better-auth/schema')
-          const { eq, and } = await import('drizzle-orm')
-
-          // Check if user is a member of the organization
-          const membership = await db
-            .select()
-            .from(members)
-            .where(
-              and(eq(members.organizationId, organizationId), eq(members.userId, session.user.id))
-            )
-            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
-
-          if (!membership) {
-            return c.json({ error: 'Not a member of this organization' }, 403)
-          }
-
-          // Check if user has owner or admin role
-          if (membership.role !== 'owner' && membership.role !== 'admin') {
-            return c.json(
-              { error: 'Insufficient permissions. Only owners and admins can create teams.' },
-              403
-            )
-          }
-
-          // Create the team
-          const newTeam = await db
-            .insert(teams)
-            .values({
-              id: crypto.randomUUID(),
-              organizationId,
-              name,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .returning()
-            .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
-
-          return c.json(newTeam, 200)
-        })
-      : appWithRateLimit
-
-  // Add custom add-team-member endpoint (Better Auth doesn't provide this natively)
-  const appWithAddTeamMember =
-    app.auth.organization &&
-    typeof app.auth.organization === 'object' &&
-    app.auth.organization.teams
-      ? appWithCreateTeam.post('/api/auth/organization/add-team-member', async (c) => {
-          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
-
-          if (!session) {
-            return c.json({ error: 'Unauthorized' }, 401)
-          }
-
-          const { teamId, userId } = await c.req.json()
-
-          // Get the team to find its organization
-          const { db } = await import('@/infrastructure/database')
-          const { teams, members, teamMembers } =
-            await import('@/infrastructure/auth/better-auth/schema')
-          const { eq, and } = await import('drizzle-orm')
-
-          // Check if team exists FIRST (404 if not found)
-          const team = await db
-            .select()
-            .from(teams)
-            .where(eq(teams.id, teamId))
-            .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
-
-          if (!team) {
-            return c.json({ error: 'Team not found' }, 404)
-          }
-
-          // THEN validate inputs (400 if missing)
-          if (!userId) {
-            return c.json({ error: 'User ID is required' }, 400)
-          }
-
-          // Check if user is a member of the organization
-          const membership = await db
-            .select()
-            .from(members)
-            .where(
-              and(
-                eq(members.organizationId, team.organizationId),
-                eq(members.userId, session.user.id)
-              )
-            )
-            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
-
-          if (!membership) {
-            return c.json({ error: 'Not a member of this organization' }, 403)
-          }
-
-          // Check if user has owner or admin role
-          if (membership.role !== 'owner' && membership.role !== 'admin') {
-            return c.json(
-              { error: 'Insufficient permissions. Only owners and admins can add team members.' },
-              403
-            )
-          }
-
-          // Check if the target user is a member of the organization (400 Bad Request)
-          const targetUserMembership = await db
-            .select()
-            .from(members)
-            .where(and(eq(members.organizationId, team.organizationId), eq(members.userId, userId)))
-            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
-
-          if (!targetUserMembership) {
-            return c.json({ error: 'User is not a member of this organization' }, 400)
-          }
-
-          // Check if the target user is already a team member (409 Conflict)
-          const existingTeamMember = await db
-            .select()
-            .from(teamMembers)
-            .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
-            .then((rows: readonly (typeof teamMembers.$inferSelect)[]) => rows[0])
-
-          if (existingTeamMember) {
-            return c.json({ error: 'User is already a member of this team' }, 409)
-          }
-
-          // Add user to team
-          const newTeamMember = await db
-            .insert(teamMembers)
-            .values({
-              id: crypto.randomUUID(),
-              teamId,
-              userId,
-              createdAt: new Date(),
-            })
-            .returning()
-            .then((rows: readonly (typeof teamMembers.$inferSelect)[]) => rows[0])
-
-          return c.json(newTeamMember, 200)
-        })
-      : appWithCreateTeam
-
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively handles:
   // - Authentication flows (sign-up, sign-in, sign-out, email verification)
@@ -282,10 +124,11 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // - Magic link authentication (send, verify)
   // - Banned user rejection (automatic for admin plugin)
   // - Single-use verification tokens (automatic)
+  // - Team operations (create-team, add-team-member, etc.) when teams plugin enabled
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithAddTeamMember.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
