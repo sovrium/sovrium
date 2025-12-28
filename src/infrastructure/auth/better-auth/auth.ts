@@ -366,24 +366,28 @@ const buildAdminPlugin = (authConfig?: Auth) => {
 const buildOrganizationPlugin = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth
-) =>
-  authConfig?.organization
-    ? [
-        organization({
-          sendInvitationEmail: handlers.organizationInvitation,
-          schema: {
-            organization: { modelName: AUTH_TABLE_NAMES.organization },
-            member: { modelName: AUTH_TABLE_NAMES.member },
-            invitation: { modelName: AUTH_TABLE_NAMES.invitation },
-            team: { modelName: AUTH_TABLE_NAMES.team },
-            teamMember: { modelName: AUTH_TABLE_NAMES.teamMember },
-          },
-          // NOTE: Better Auth's organization plugin does not support access control (ac)
-          // for team and teamMember resources. Authorization is handled manually in middleware.
-          // See: src/infrastructure/server/route-setup/auth-routes.ts
-        }),
-      ]
-    : []
+) => {
+  if (!authConfig?.organization) return []
+
+  // Extract teams config from organization settings
+  const orgConfig = typeof authConfig.organization === 'boolean' ? {} : authConfig.organization
+  const teamsEnabled = !!orgConfig.teams
+
+  return [
+    organization({
+      sendInvitationEmail: handlers.organizationInvitation,
+      // Enable native teams endpoints when teams are configured
+      ...(teamsEnabled && { teams: { enabled: true } }),
+      schema: {
+        organization: { modelName: AUTH_TABLE_NAMES.organization },
+        member: { modelName: AUTH_TABLE_NAMES.member },
+        invitation: { modelName: AUTH_TABLE_NAMES.invitation },
+        team: { modelName: AUTH_TABLE_NAMES.team },
+        teamMember: { modelName: AUTH_TABLE_NAMES.teamMember },
+      },
+    }),
+  ]
+}
 
 /**
  * Build two-factor plugin if enabled in auth configuration
