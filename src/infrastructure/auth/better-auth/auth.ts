@@ -423,7 +423,12 @@ const buildMagicLinkPlugin = (
   authConfig?: Auth
 ) =>
   authConfig?.magicLink
-    ? [magicLink({ sendMagicLink: async ({ email, token, url }) => handlers.magicLink({ user: { email }, url, token }) })]
+    ? [
+        magicLink({
+          sendMagicLink: async ({ email, token, url }) =>
+            handlers.magicLink({ user: { email }, url, token }),
+        }),
+      ]
     : []
 
 /**
