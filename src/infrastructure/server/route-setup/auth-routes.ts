@@ -189,35 +189,26 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
 
           const { teamId, userId } = await c.req.json()
 
-          if (!teamId) {
-            return c.json({ error: 'Team ID is required' }, 400)
-          }
-
-          if (!userId) {
-            return c.json({ error: 'User ID is required' }, 400)
-          }
-
           // Get the team to find its organization
           const { db } = await import('@/infrastructure/database')
           const { teams, members, teamMembers } =
             await import('@/infrastructure/auth/better-auth/schema')
           const { eq, and } = await import('drizzle-orm')
 
-          const teamResult = await db
+          // Check if team exists FIRST (404 if not found)
+          const team = await db
             .select()
             .from(teams)
             .where(eq(teams.id, teamId))
             .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
-            .catch(() => undefined)
-
-          if (!teamResult) {
-            return c.json({ error: 'Team not found' }, 404)
-          }
-
-          const team = teamResult
 
           if (!team) {
             return c.json({ error: 'Team not found' }, 404)
+          }
+
+          // THEN validate inputs (400 if missing)
+          if (!userId) {
+            return c.json({ error: 'User ID is required' }, 400)
           }
 
           // Check if user is a member of the organization
