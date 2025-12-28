@@ -273,6 +273,66 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
         })
       : appWithCreateTeam
 
+  // Add custom list-team-members endpoint (Better Auth doesn't provide this natively)
+  const appWithListTeamMembers =
+    app.auth.organization &&
+    typeof app.auth.organization === 'object' &&
+    app.auth.organization.teams
+      ? appWithAddTeamMember.get('/api/auth/organization/list-team-members', async (c) => {
+          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+          if (!session) {
+            return c.json({ error: 'Unauthorized' }, 401)
+          }
+
+          const teamId = c.req.query('teamId')
+
+          if (!teamId) {
+            return c.json({ error: 'Team ID is required' }, 400)
+          }
+
+          const { db } = await import('@/infrastructure/database')
+          const { teams, members, teamMembers } =
+            await import('@/infrastructure/auth/better-auth/schema')
+          const { eq, and } = await import('drizzle-orm')
+
+          // Check if team exists
+          const team = await db
+            .select()
+            .from(teams)
+            .where(eq(teams.id, teamId))
+            .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
+
+          if (!team) {
+            return c.json({ error: 'Team not found' }, 404)
+          }
+
+          // Check if requesting user is a member of the organization
+          const membership = await db
+            .select()
+            .from(members)
+            .where(
+              and(
+                eq(members.organizationId, team.organizationId),
+                eq(members.userId, session.user.id)
+              )
+            )
+            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
+
+          if (!membership) {
+            return c.json({ error: 'Not a member of this organization' }, 403)
+          }
+
+          // Get all team members
+          const teamMembersList = await db
+            .select()
+            .from(teamMembers)
+            .where(eq(teamMembers.teamId, teamId))
+
+          return c.json(teamMembersList, 200)
+        })
+      : appWithAddTeamMember
+
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively handles:
   // - Authentication flows (sign-up, sign-in, sign-out, email verification)
@@ -285,7 +345,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithAddTeamMember.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithListTeamMembers.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
