@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, twoFactor } from 'better-auth/plugins'
+import { openAPI, admin, organization, twoFactor, magicLink } from 'better-auth/plugins'
 import { db } from '@/infrastructure/database'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -212,6 +212,23 @@ const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemp
 }
 
 /**
+ * Create magic link email handler with optional custom templates
+ */
+const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate) =>
+  createEmailHandler(
+    {
+      emailType: 'magic link',
+      buildUrl: (url, token) => `${url}?token=${token}`,
+      getDefaultTemplate: ({ userName, actionUrl }) => ({
+        subject: 'Sign in to your account',
+        html: `<p>Hi ${userName ?? 'there'},</p><p>Click here to sign in: <a href="${actionUrl}">Sign In</a></p><p>This link will expire in 10 minutes.</p>`,
+        text: `Hi ${userName ?? 'there'},\n\nClick here to sign in: ${actionUrl}\n\nThis link will expire in 10 minutes.`,
+      }),
+    },
+    customTemplate
+  )
+
+/**
  * Create email handlers from auth configuration
  */
 const createEmailHandlers = (authConfig?: Auth) => {
@@ -221,6 +238,7 @@ const createEmailHandlers = (authConfig?: Auth) => {
     organizationInvitation: createOrganizationInvitationEmailHandler(
       authConfig?.emailTemplates?.organizationInvitation
     ),
+    magicLink: createMagicLinkEmailHandler(authConfig?.emailTemplates?.magicLink),
   }
 }
 
@@ -398,6 +416,17 @@ const buildTwoFactorPlugin = (authConfig?: Auth) =>
     : []
 
 /**
+ * Build magic link plugin if enabled in auth configuration
+ */
+const buildMagicLinkPlugin = (
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
+  authConfig?: Auth
+) =>
+  authConfig?.magicLink
+    ? [magicLink({ sendMagicLink: async ({ email, token, url }) => handlers.magicLink({ user: { email }, url, token }) })]
+    : []
+
+/**
  * Build Better Auth plugins array with custom table names
  *
  * Conditionally includes plugins when enabled in auth configuration.
@@ -411,6 +440,7 @@ const buildAuthPlugins = (
   ...buildAdminPlugin(authConfig),
   ...buildOrganizationPlugin(handlers, authConfig),
   ...buildTwoFactorPlugin(authConfig),
+  ...buildMagicLinkPlugin(handlers, authConfig),
 ]
 
 /**
