@@ -45,7 +45,7 @@ test.describe('Disabled Tables Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-DISABLED-002: should return 404 for get table endpoint when no tables configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
