@@ -115,68 +115,73 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
   const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(honoApp) : honoApp
 
-  // Add authorization middleware for team member operations (if organization plugin with teams is enabled)
-  const appWithTeamAuth =
+  // Add custom team member endpoints (if organization plugin with teams is enabled)
+  const appWithTeamEndpoints =
     app.auth.organization &&
     typeof app.auth.organization === 'object' &&
     app.auth.organization.teams
-      ? appWithRateLimit.use('/api/auth/organization/add-team-member', async (c, next) => {
-          const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+      ? appWithRateLimit
+          // POST /api/auth/organization/add-team-member
+          .post('/api/auth/organization/add-team-member', async (c) => {
+            const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
 
-          if (!session) {
-            return c.json({ error: 'Unauthorized' }, 401)
-          }
+            if (!session) {
+              return c.json({ error: 'Unauthorized' }, 401)
+            }
 
-          // Clone request to preserve body for Better Auth handler
-          const clonedRequest = c.req.raw.clone()
-          const { teamId, userId } = await clonedRequest.json()
+            const body = await c.req.json()
+            const { teamId, userId } = body
 
-          if (!teamId) {
-            return c.json({ error: 'Team ID is required' }, 400)
-          }
+            if (!teamId) {
+              return c.json({ error: 'Team ID is required' }, 400)
+            }
 
-          // Get the team to find its organization
-          const { db } = await import('@/infrastructure/database')
-          const { teams, members, teamMembers } =
-            await import('@/infrastructure/auth/better-auth/schema')
-          const { eq, and } = await import('drizzle-orm')
+            if (!userId) {
+              return c.json({ error: 'User ID is required' }, 400)
+            }
 
-          const team = await db
-            .select()
-            .from(teams)
-            .where(eq(teams.id, teamId))
-            .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
+            // Get the team to find its organization
+            const { db } = await import('@/infrastructure/database')
+            const { teams, members, teamMembers } =
+              await import('@/infrastructure/auth/better-auth/schema')
+            const { eq, and } = await import('drizzle-orm')
+            const { nanoid } = await import('nanoid')
 
-          if (!team) {
-            return c.json({ error: 'Team not found' }, 404)
-          }
+            const team = await db
+              .select()
+              .from(teams)
+              .where(eq(teams.id, teamId))
+              .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
 
-          // Check if user is a member of the organization
-          const membership = await db
-            .select()
-            .from(members)
-            .where(
-              and(
-                eq(members.organizationId, team.organizationId),
-                eq(members.userId, session.user.id)
+            if (!team) {
+              return c.json({ error: 'Team not found' }, 404)
+            }
+
+            // Check if user is a member of the organization
+            const membership = await db
+              .select()
+              .from(members)
+              .where(
+                and(
+                  eq(members.organizationId, team.organizationId),
+                  eq(members.userId, session.user.id)
+                )
               )
-            )
-            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
+              .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
 
-          if (!membership) {
-            return c.json({ error: 'Not a member of this organization' }, 403)
-          }
+            if (!membership) {
+              return c.json({ error: 'Not a member of this organization' }, 403)
+            }
 
-          // Check if user has owner or admin role
-          if (membership.role !== 'owner' && membership.role !== 'admin') {
-            return c.json(
-              { error: 'Insufficient permissions. Only owners and admins can add team members.' },
-              403
-            )
-          }
+            // Check if user has owner or admin role
+            if (membership.role !== 'owner' && membership.role !== 'admin') {
+              return c.json(
+                { error: 'Insufficient permissions. Only owners and admins can add team members.' },
+                403
+              )
+            }
 
-          // Check if the target user is a member of the organization (400 Bad Request)
-          if (userId) {
+            // Check if the target user is a member of the organization (400 Bad Request)
             const targetUserMembership = await db
               .select()
               .from(members)
@@ -188,10 +193,8 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             if (!targetUserMembership) {
               return c.json({ error: 'User is not a member of this organization' }, 400)
             }
-          }
 
-          // Check if the target user is already a team member (409 Conflict)
-          if (userId) {
+            // Check if the target user is already a team member (409 Conflict)
             const existingTeamMember = await db
               .select()
               .from(teamMembers)
@@ -201,12 +204,51 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             if (existingTeamMember) {
               return c.json({ error: 'User is already a member of this team' }, 409)
             }
-          }
 
-          // Authorization passed, continue to Better Auth handler
-          // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
-          await next()
-        })
+            // Insert team member record
+            const teamMemberId = nanoid()
+            const createdAt = new Date()
+
+            // eslint-disable-next-line functional/no-expression-statements -- Database operation
+            await db.insert(teamMembers).values({
+              id: teamMemberId,
+              teamId,
+              userId,
+              createdAt,
+            })
+
+            return c.json({
+              teamId,
+              userId,
+              createdAt: createdAt.toISOString(),
+            })
+          })
+          // GET /api/auth/organization/list-team-members?teamId={teamId}
+          .get('/api/auth/organization/list-team-members', async (c) => {
+            const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
+
+            if (!session) {
+              return c.json({ error: 'Unauthorized' }, 401)
+            }
+
+            const teamId = c.req.query('teamId')
+
+            if (!teamId) {
+              return c.json({ error: 'Team ID is required' }, 400)
+            }
+
+            // Get all team members
+            const { db } = await import('@/infrastructure/database')
+            const { teamMembers } = await import('@/infrastructure/auth/better-auth/schema')
+            const { eq } = await import('drizzle-orm')
+
+            const members = await db
+              .select()
+              .from(teamMembers)
+              .where(eq(teamMembers.teamId, teamId))
+
+            return c.json(members)
+          })
       : appWithRateLimit
 
   // Mount Better Auth handler for all /api/auth/* routes
@@ -221,7 +263,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithTeamAuth.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithTeamEndpoints.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
