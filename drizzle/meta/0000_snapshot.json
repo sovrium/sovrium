@@ -1,5 +1,5 @@
 {
-  "id": "7d1385f2-de20-49b7-9a07-9120acd321c0",
+  "id": "424ddfc2-8879-4de8-af53-236e550d3799",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -279,8 +279,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "permissions": {
-          "name": "permissions",
+        "permission": {
+          "name": "permission",
           "type": "text",
           "primaryKey": false,
           "notNull": false

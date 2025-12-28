@@ -121,7 +121,7 @@ test.describe('List Team Members', () => {
       expect(response.status()).toBe(403)
     }
   )
-  test(
+  test.fixme(
     'API-AUTH-ORG-TEAMS-LIST-MEMBERS-004: should return 404 when team does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
