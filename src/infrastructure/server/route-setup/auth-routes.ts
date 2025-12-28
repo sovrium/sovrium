@@ -175,25 +175,19 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
         })
       : appWithRateLimit
 
-  // Add authorization middleware for team member operations (if organization plugin with teams is enabled)
-  const appWithTeamAuth =
+  // Add custom add-team-member endpoint (Better Auth doesn't provide this natively)
+  const appWithAddTeamMember =
     app.auth.organization &&
     typeof app.auth.organization === 'object' &&
     app.auth.organization.teams
-      ? appWithCreateTeam.use('/api/auth/organization/add-team-member', async (c, next) => {
+      ? appWithCreateTeam.post('/api/auth/organization/add-team-member', async (c) => {
           const session = await authInstance.api.getSession({ headers: c.req.raw.headers })
 
           if (!session) {
             return c.json({ error: 'Unauthorized' }, 401)
           }
 
-          // Clone request to preserve body for Better Auth handler
-          const clonedRequest = c.req.raw.clone()
-          const { teamId, userId } = await clonedRequest.json()
-
-          if (!teamId) {
-            return c.json({ error: 'Team ID is required' }, 400)
-          }
+          const { teamId, userId } = await c.req.json()
 
           // Get the team to find its organization
           const { db } = await import('@/infrastructure/database')
@@ -201,21 +195,20 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
             await import('@/infrastructure/auth/better-auth/schema')
           const { eq, and } = await import('drizzle-orm')
 
-          const teamResult = await db
+          // Check if team exists FIRST (404 if not found)
+          const team = await db
             .select()
             .from(teams)
             .where(eq(teams.id, teamId))
             .then((rows: readonly (typeof teams.$inferSelect)[]) => rows[0])
-            .catch(() => undefined)
-
-          if (!teamResult) {
-            return c.json({ error: 'Team not found' }, 404)
-          }
-
-          const team = teamResult
 
           if (!team) {
             return c.json({ error: 'Team not found' }, 404)
+          }
+
+          // THEN validate inputs (400 if missing)
+          if (!userId) {
+            return c.json({ error: 'User ID is required' }, 400)
           }
 
           // Check if user is a member of the organization
@@ -243,36 +236,40 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
           }
 
           // Check if the target user is a member of the organization (400 Bad Request)
-          if (userId) {
-            const targetUserMembership = await db
-              .select()
-              .from(members)
-              .where(
-                and(eq(members.organizationId, team.organizationId), eq(members.userId, userId))
-              )
-              .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
+          const targetUserMembership = await db
+            .select()
+            .from(members)
+            .where(and(eq(members.organizationId, team.organizationId), eq(members.userId, userId)))
+            .then((rows: readonly (typeof members.$inferSelect)[]) => rows[0])
 
-            if (!targetUserMembership) {
-              return c.json({ error: 'User is not a member of this organization' }, 400)
-            }
+          if (!targetUserMembership) {
+            return c.json({ error: 'User is not a member of this organization' }, 400)
           }
 
           // Check if the target user is already a team member (409 Conflict)
-          if (userId) {
-            const existingTeamMember = await db
-              .select()
-              .from(teamMembers)
-              .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
-              .then((rows: readonly (typeof teamMembers.$inferSelect)[]) => rows[0])
+          const existingTeamMember = await db
+            .select()
+            .from(teamMembers)
+            .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+            .then((rows: readonly (typeof teamMembers.$inferSelect)[]) => rows[0])
 
-            if (existingTeamMember) {
-              return c.json({ error: 'User is already a member of this team' }, 409)
-            }
+          if (existingTeamMember) {
+            return c.json({ error: 'User is already a member of this team' }, 409)
           }
 
-          // Authorization passed, continue to Better Auth handler
-          // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
-          await next()
+          // Add user to team
+          const newTeamMember = await db
+            .insert(teamMembers)
+            .values({
+              id: crypto.randomUUID(),
+              teamId,
+              userId,
+              createdAt: new Date(),
+            })
+            .returning()
+            .then((rows: readonly (typeof teamMembers.$inferSelect)[]) => rows[0])
+
+          return c.json(newTeamMember, 200)
         })
       : appWithCreateTeam
 
@@ -288,7 +285,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithTeamAuth.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithAddTeamMember.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }

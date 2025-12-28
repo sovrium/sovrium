@@ -23,7 +23,7 @@ test.describe('Add Team Member', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-ADD-MEMBER-001: should return 200 OK when owner adds organization member to team',
     { tag: '@spec' },
     async ({
