@@ -40,7 +40,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'editor',
-            permissions: ['read:articles', 'write:articles'],
+            permission: ['read:articles', 'write:articles'],
           },
         })
         .then((r) => r.json())
@@ -104,7 +104,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'reader',
-            permissions: ['read:articles'],
+            permission: ['read:articles'],
           },
         })
         .then((r) => r.json())
@@ -168,7 +168,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'project-manager',
-            permissions: ['projects:read', 'projects:write', 'tasks:create'],
+            permission: ['projects:read', 'projects:write', 'tasks:create'],
           },
         })
         .then((r) => r.json())
@@ -232,7 +232,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'admin',
-            permissions: ['read:all', 'write:all', 'delete:all'],
+            permission: ['read:all', 'write:all', 'delete:all'],
           },
         })
         .then((r) => r.json())
@@ -383,7 +383,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'developer',
-            permissions: ['code:read', 'code:write', 'deploy:staging'],
+            permission: ['code:read', 'code:write', 'deploy:staging'],
           },
         })
         .then((r) => r.json())
@@ -393,7 +393,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'qa',
-            permissions: ['code:read', 'test:execute', 'bugs:report'],
+            permission: ['code:read', 'test:execute', 'bugs:report'],
           },
         })
         .then((r) => r.json())
@@ -403,7 +403,7 @@ test.describe('Check Permission', () => {
           data: {
             organizationId: owner.organizationId,
             name: 'admin',
-            permissions: ['*:*'], // All permissions
+            permission: ['*:*'], // All permissions
           },
         })
         .then((r) => r.json())

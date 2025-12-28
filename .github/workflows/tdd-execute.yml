@@ -1091,6 +1091,33 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
         run: |
+          # =========================================================================
+          # PR CONTEXT DETECTION: Handle case where trigger is a PR, not an issue
+          # =========================================================================
+          # When triggered on PR #6590 that "Closes #4598", ISSUE_NUMBER becomes 6590,
+          # but the branch was created as claude/issue-4598-*. We need to detect this
+          # and extract the actual linked issue number from the PR body.
+          #
+          # Detection method: Check if ISSUE_NUMBER corresponds to a PR (not just an issue)
+          # If it's a PR with a "Closes #XXXX" in the body, use that issue number instead.
+
+          ORIGINAL_NUMBER="$ISSUE_NUMBER"
+
+          # Check if ISSUE_NUMBER is actually a PR
+          PR_CHECK=$(gh pr view "$ISSUE_NUMBER" --repo "$REPO" --json number,body 2>/dev/null || echo "")
+
+          if [ -n "$PR_CHECK" ] && [ "$PR_CHECK" != "null" ]; then
+            # This is a PR context - extract linked issue from PR body
+            PR_BODY=$(echo "$PR_CHECK" | jq -r '.body // ""')
+            LINKED_ISSUE=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | grep -oE '[0-9]+' | head -1 || echo "")
+
+            if [ -n "$LINKED_ISSUE" ] && [ "$LINKED_ISSUE" != "$ISSUE_NUMBER" ]; then
+              echo "📋 Detected PR context: PR #$ISSUE_NUMBER closes issue #$LINKED_ISSUE"
+              echo "   Switching to linked issue number for branch search..."
+              ISSUE_NUMBER="$LINKED_ISSUE"
+            fi
+          fi
+
           echo "🔍 Looking for branch to create PR for issue #$ISSUE_NUMBER..."
 
           # Check if PR already exists (Claude might have created one despite instructions)

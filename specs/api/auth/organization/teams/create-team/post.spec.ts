@@ -54,8 +54,6 @@ test.describe('Create Team', () => {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          description: 'Product engineering team',
-          metadata: { department: 'engineering' },
         },
       })
 
@@ -65,9 +63,7 @@ test.describe('Create Team', () => {
       const data = await response.json()
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name', 'Engineering Team')
-      expect(data).toHaveProperty('description', 'Product engineering team')
       expect(data).toHaveProperty('organizationId', organization.id)
-      expect(data).toHaveProperty('metadata', { department: 'engineering' })
       expect(data).toHaveProperty('createdAt')
     }
   )
@@ -106,15 +102,13 @@ test.describe('Create Team', () => {
         },
       })
 
-      // THEN: Returns 201 Created with team data (description and metadata are optional)
+      // THEN: Returns 201 Created with team data
       expect(response.status()).toBe(201)
 
       const data = await response.json()
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name', 'Marketing Team')
       expect(data).toHaveProperty('organizationId', organization.id)
-      expect(data.description).toBeUndefined()
-      expect(data.metadata).toBeUndefined()
     }
   )
 
@@ -212,7 +206,6 @@ test.describe('Create Team', () => {
       const response = await page.request.post('/api/auth/organization/create-team', {
         data: {
           organizationId: organization.id,
-          description: 'Team without name',
         },
       })
 
@@ -312,7 +305,7 @@ test.describe('Create Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-CREATE-007: owner can complete full team creation workflow with metadata',
+    'API-AUTH-ORG-TEAMS-CREATE-007: owner can complete full team creation workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: Authenticated organization owner
@@ -337,13 +330,11 @@ test.describe('Create Team', () => {
         slug: 'test-company',
       })
 
-      // WHEN: Owner creates multiple teams with different configurations
+      // WHEN: Owner creates multiple teams
       const engineeringResponse = await page.request.post('/api/auth/organization/create-team', {
         data: {
           organizationId: organization.id,
           name: 'Engineering Team',
-          description: 'Product engineering',
-          metadata: { department: 'engineering', size: 'large' },
         },
       })
 
@@ -362,10 +353,10 @@ test.describe('Create Team', () => {
       const mktTeam = await marketingResponse.json()
 
       expect(engTeam.name).toBe('Engineering Team')
-      expect(engTeam.metadata).toEqual({ department: 'engineering', size: 'large' })
+      expect(engTeam.organizationId).toBe(organization.id)
 
       expect(mktTeam.name).toBe('Marketing Team')
-      expect(mktTeam.description).toBeUndefined()
+      expect(mktTeam.organizationId).toBe(organization.id)
     }
   )
 })

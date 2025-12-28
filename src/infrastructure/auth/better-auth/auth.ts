@@ -7,11 +7,13 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization, twoFactor, magicLink } from 'better-auth/plugins'
+import { openAPI } from 'better-auth/plugins'
 import { db } from '@/infrastructure/database'
-import { sendEmail } from '../../email/email-service'
-import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
-import { logError } from '../../logging'
+import { createEmailHandlers } from './email-handlers'
+import { buildAdminPlugin } from './plugins/admin'
+import { buildMagicLinkPlugin } from './plugins/magic-link'
+import { buildOrganizationPlugin, ORGANIZATION_TABLE_NAMES } from './plugins/organization'
+import { buildTwoFactorPlugin, TWO_FACTOR_TABLE_NAME } from './plugins/two-factor'
 import {
   users,
   sessions,
@@ -25,222 +27,7 @@ import {
   organizationRoles,
   twoFactors,
 } from './schema'
-import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
-
-/**
- * Substitute variables in a template string
- *
- * Replaces $variable patterns with actual values from the context.
- * Supported variables: $name, $url, $email, $organizationName, $inviterName
- */
-const substituteVariables = (
-  template: string,
-  context: Readonly<{
-    name?: string
-    url: string
-    email: string
-    organizationName?: string
-    inviterName?: string
-  }>
-): string => {
-  return template
-    .replace(/\$name/g, context.name ?? 'there')
-    .replace(/\$url/g, context.url)
-    .replace(/\$email/g, context.email)
-    .replace(/\$organizationName/g, context.organizationName ?? 'the organization')
-    .replace(/\$inviterName/g, context.inviterName ?? 'Someone')
-}
-
-/**
- * Email handler configuration for the factory
- */
-type EmailHandlerConfig = Readonly<{
-  /** Email type for logging (e.g., 'password reset', 'verification') */
-  emailType: string
-  /** Function to build the action URL from base URL and token */
-  buildUrl: (url: string, token: string) => string
-  /** Function to generate the default template when no custom template is provided */
-  getDefaultTemplate: (params: Readonly<{ userName?: string; actionUrl: string }>) => Readonly<{
-    subject: string
-    html: string
-    text: string
-  }>
-}>
-
-/**
- * Generic email handler factory - eliminates duplication between email types
- *
- * Creates a Better Auth email callback that:
- * 1. Builds the action URL using the provided strategy
- * 2. Sends custom template if provided (with variable substitution)
- * 3. Falls back to default template otherwise
- * 4. Handles errors silently to prevent user enumeration
- */
-const createEmailHandler = (config: EmailHandlerConfig, customTemplate?: AuthEmailTemplate) => {
-  return async ({
-    user,
-    url,
-    token,
-  }: Readonly<{
-    user: Readonly<{ email: string; name?: string }>
-    url: string
-    token: string
-  }>) => {
-    const actionUrl = config.buildUrl(url, token)
-    const context = { name: user.name, url: actionUrl, email: user.email }
-
-    try {
-      // Custom template takes precedence - use it entirely (don't mix with defaults)
-      if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: user.email,
-          subject: substituteVariables(customTemplate.subject, context),
-          html: customTemplate.html ? substituteVariables(customTemplate.html, context) : undefined,
-          text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
-        })
-      } else {
-        // Use default template
-        const defaultTemplate = config.getDefaultTemplate({
-          userName: user.name,
-          actionUrl,
-        })
-
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: user.email,
-          subject: defaultTemplate.subject,
-          html: defaultTemplate.html,
-          text: defaultTemplate.text,
-        })
-      }
-    } catch (error) {
-      // Don't throw - silent failure prevents user enumeration attacks
-      logError(`[EMAIL] Failed to send ${config.emailType} email to ${user.email}`, error)
-    }
-  }
-}
-
-/**
- * Create password reset email handler with optional custom templates
- */
-const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) =>
-  createEmailHandler(
-    {
-      emailType: 'password reset',
-      buildUrl: (url, token) => `${url}?token=${token}`,
-      getDefaultTemplate: ({ userName, actionUrl }) =>
-        passwordResetEmail({ userName, resetUrl: actionUrl, expiresIn: '1 hour' }),
-    },
-    customTemplate
-  )
-
-/**
- * Create email verification handler with optional custom templates
- */
-const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
-  createEmailHandler(
-    {
-      emailType: 'verification',
-      // Better Auth sometimes includes token in URL already
-      buildUrl: (url, token) => (url.includes('token=') ? url : `${url}?token=${token}`),
-      getDefaultTemplate: ({ userName, actionUrl }) =>
-        emailVerificationEmail({ userName, verifyUrl: actionUrl, expiresIn: '24 hours' }),
-    },
-    customTemplate
-  )
-
-/**
- * Create organization invitation email handler with optional custom templates
- *
- * Better Auth organization plugin provides inviter and organization context
- */
-const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
-  // Data shape is defined by Better Auth's organization plugin callback signature
-  // eslint-disable-next-line functional/prefer-immutable-types
-  return async (data: {
-    id: string
-    role: string
-    email: string
-    organization: { name: string }
-    invitation: { id: string }
-    inviter: { user: { name?: string } }
-  }) => {
-    const { email, organization, inviter } = data
-    const url = `${process.env.BETTER_AUTH_BASE_URL}/invitation/${data.id}`
-
-    const context = {
-      name: undefined,
-      url,
-      email,
-      organizationName: organization.name,
-      inviterName: inviter.user.name,
-    }
-
-    try {
-      // Custom template takes precedence
-      if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: email,
-          subject: substituteVariables(customTemplate.subject, context),
-          html: customTemplate.html ? substituteVariables(customTemplate.html, context) : undefined,
-          text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
-        })
-      } else {
-        // Use default template
-        const inviterText = inviter.user.name ?? 'Someone'
-        const defaultTemplate = {
-          subject: `You have been invited to join ${organization.name}`,
-          html: `<p>Hi,</p><p>${inviterText} has invited you to join ${organization.name}.</p><p><a href="${url}">Click here to accept the invitation</a></p>`,
-          text: `Hi,\n\n${inviterText} has invited you to join ${organization.name}.\n\nClick here to accept: ${url}`,
-        }
-
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: email,
-          subject: defaultTemplate.subject,
-          html: defaultTemplate.html,
-          text: defaultTemplate.text,
-        })
-      }
-    } catch (error) {
-      // Don't throw - silent failure prevents user enumeration attacks
-      logError(`[EMAIL] Failed to send organization invitation email to ${email}`, error)
-    }
-  }
-}
-
-/**
- * Create magic link email handler with optional custom templates
- */
-const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate) =>
-  createEmailHandler(
-    {
-      emailType: 'magic link',
-      buildUrl: (url, token) => `${url}?token=${token}`,
-      getDefaultTemplate: ({ userName, actionUrl }) => ({
-        subject: 'Sign in to your account',
-        html: `<p>Hi ${userName ?? 'there'},</p><p>Click here to sign in: <a href="${actionUrl}">Sign In</a></p><p>This link will expire in 10 minutes.</p>`,
-        text: `Hi ${userName ?? 'there'},\n\nClick here to sign in: ${actionUrl}\n\nThis link will expire in 10 minutes.`,
-      }),
-    },
-    customTemplate
-  )
-
-/**
- * Create email handlers from auth configuration
- */
-const createEmailHandlers = (authConfig?: Auth) => {
-  return {
-    passwordReset: createPasswordResetEmailHandler(authConfig?.emailTemplates?.resetPassword),
-    verification: createVerificationEmailHandler(authConfig?.emailTemplates?.verification),
-    organizationInvitation: createOrganizationInvitationEmailHandler(
-      authConfig?.emailTemplates?.organizationInvitation
-    ),
-    magicLink: createMagicLinkEmailHandler(authConfig?.emailTemplates?.magicLink),
-  }
-}
+import type { Auth } from '@/domain/models/app/auth'
 
 /**
  * Build socialProviders configuration from auth config
@@ -277,13 +64,8 @@ const AUTH_TABLE_NAMES = {
   session: '_sovrium_auth_sessions',
   account: '_sovrium_auth_accounts',
   verification: '_sovrium_auth_verifications',
-  organization: '_sovrium_auth_organizations',
-  member: '_sovrium_auth_members',
-  invitation: '_sovrium_auth_invitations',
-  team: '_sovrium_auth_teams',
-  teamMember: '_sovrium_auth_team_members',
-  organizationRole: '_sovrium_auth_organization_roles',
-  twoFactor: '_sovrium_auth_two_factors',
+  twoFactor: TWO_FACTOR_TABLE_NAME,
+  ...ORGANIZATION_TABLE_NAMES,
 } as const
 
 /**
@@ -311,127 +93,6 @@ const drizzleSchema = {
 }
 
 /**
- * Build admin plugin if enabled in auth configuration
- */
-const buildAdminPlugin = (authConfig?: Auth) => {
-  if (!authConfig?.admin) return []
-
-  // Extract default role from config (supports both boolean and object forms)
-  const adminConfig = typeof authConfig.admin === 'boolean' ? {} : authConfig.admin
-  const defaultRole = adminConfig.defaultRole ?? 'user'
-  const firstUserAdmin = adminConfig.firstUserAdmin ?? true // Default to true for easier testing
-  const impersonation = adminConfig.impersonation ?? false
-
-  return [
-    admin({
-      defaultRole,
-      adminRoles: ['admin'], // Users with 'admin' role can impersonate
-      impersonationSessionDuration: impersonation ? 60 * 60 : undefined, // 1 hour in seconds if enabled
-      hooks: {
-        user: {
-          created: {
-            after: async (user: { readonly id: string; readonly email: string }) => {
-              const { db } = await import('@/infrastructure/database')
-              const { users } = await import('./schema')
-              const { eq, sql } = await import('drizzle-orm')
-
-              // First user admin: if enabled, make the first user an admin
-              if (firstUserAdmin) {
-                // Count existing users to determine if this is the first user
-                const userCount = await db
-                  .select({ count: sql<number>`count(*)` })
-                  .from(users)
-                  .then((result: readonly { readonly count: number }[]) =>
-                    Number(result[0]?.count ?? 0)
-                  )
-
-                // If this is the first user (count is 1, including the just-created user), set role to admin
-                if (userCount === 1) {
-                  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                  await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
-                  return
-                }
-              }
-
-              // Auto-promote users with "admin" in email to admin role (for testing)
-              if (user.email.toLowerCase().includes('admin')) {
-                // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
-                return
-              }
-
-              // Auto-promote users with "member" in email to member role (for testing)
-              if (user.email.toLowerCase().includes('member')) {
-                // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                await db.update(users).set({ role: 'member' }).where(eq(users.id, user.id))
-              }
-            },
-          },
-        },
-      },
-    }),
-  ]
-}
-
-/**
- * Build organization plugin if enabled in auth configuration
- *
- * Includes support for:
- * - Organizations and members
- * - Teams (sub-groups within organizations)
- * - Dynamic access control (custom roles per organization)
- */
-const buildOrganizationPlugin = (
-  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
-  authConfig?: Auth
-) => {
-  if (!authConfig?.organization) return []
-
-  // Extract teams config from organization settings
-  const orgConfig = typeof authConfig.organization === 'boolean' ? {} : authConfig.organization
-  const teamsEnabled = !!orgConfig.teams
-
-  return [
-    organization({
-      sendInvitationEmail: handlers.organizationInvitation,
-      // Enable native teams endpoints when teams are configured
-      ...(teamsEnabled && { teams: { enabled: true } }),
-      schema: {
-        organization: { modelName: AUTH_TABLE_NAMES.organization },
-        member: { modelName: AUTH_TABLE_NAMES.member },
-        invitation: { modelName: AUTH_TABLE_NAMES.invitation },
-        team: { modelName: AUTH_TABLE_NAMES.team },
-        teamMember: { modelName: AUTH_TABLE_NAMES.teamMember },
-      },
-    }),
-  ]
-}
-
-/**
- * Build two-factor plugin if enabled in auth configuration
- */
-const buildTwoFactorPlugin = (authConfig?: Auth) =>
-  authConfig?.twoFactor
-    ? [twoFactor({ schema: { twoFactor: { modelName: AUTH_TABLE_NAMES.twoFactor } } })]
-    : []
-
-/**
- * Build magic link plugin if enabled in auth configuration
- */
-const buildMagicLinkPlugin = (
-  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
-  authConfig?: Auth
-) =>
-  authConfig?.magicLink
-    ? [
-        magicLink({
-          sendMagicLink: async ({ email, token, url }) =>
-            handlers.magicLink({ user: { email }, url, token }),
-        }),
-      ]
-    : []
-
-/**
  * Build Better Auth plugins array with custom table names
  *
  * Conditionally includes plugins when enabled in auth configuration.
@@ -443,9 +104,9 @@ const buildAuthPlugins = (
 ) => [
   openAPI({ disableDefaultReference: true }),
   ...buildAdminPlugin(authConfig),
-  ...buildOrganizationPlugin(handlers, authConfig),
+  ...buildOrganizationPlugin(handlers.organizationInvitation, authConfig),
   ...buildTwoFactorPlugin(authConfig),
-  ...buildMagicLinkPlugin(handlers, authConfig),
+  ...buildMagicLinkPlugin(handlers.magicLink, authConfig),
 ]
 
 /**

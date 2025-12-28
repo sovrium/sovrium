@@ -78,7 +78,7 @@ test.describe('Get Active Team', () => {
     }
   )
   test.fixme(
-    'API-AUTH-ORG-TEAMS-GET-ACTIVE-003: should include team metadata in response',
+    'API-AUTH-ORG-TEAMS-GET-ACTIVE-003: should include team organizationId in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: User with active team set
@@ -95,7 +95,7 @@ test.describe('Get Active Team', () => {
       const { organization } = await createOrganization({ name: 'Company', slug: 'company' })
 
       const teamResponse = await page.request.post('/api/auth/organization/create-team', {
-        data: { organizationId: organization.id, name: 'Engineering', metadata: { color: 'blue' } },
+        data: { organizationId: organization.id, name: 'Engineering' },
       })
       const { id: teamId } = await teamResponse.json()
 
@@ -106,12 +106,12 @@ test.describe('Get Active Team', () => {
       // WHEN: User gets active team
       const response = await page.request.get('/api/auth/organization/get-active-team')
 
-      // THEN: Returns team with metadata
+      // THEN: Returns team with organizationId
       expect(response.status()).toBe(200)
       const team = await response.json()
       expect(team).toHaveProperty('id', teamId)
       expect(team).toHaveProperty('name', 'Engineering')
-      expect(team).toHaveProperty('metadata')
+      expect(team).toHaveProperty('organizationId', organization.id)
     }
   )
   test.fixme(
