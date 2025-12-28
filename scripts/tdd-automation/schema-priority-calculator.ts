@@ -20,7 +20,7 @@
  *
  * Within each domain:
  * - Features are grouped alphabetically (default)
- * - API domain uses custom ordering: health → auth → tables → activity → security
+ * - API domain uses custom ordering: health → tables → activity → auth → security
  * - Individual tests: base + test number (001 → 1, 002 → 2, etc.)
  * - Regression tests: base + 900 (ensures they run last in their group)
  *
@@ -29,9 +29,9 @@
  * - APP-THEME-COLORS-001 → app/theme/colors
  * - MIG-ERROR-001 → mig/error
  * - API-HEALTH-001 → api/health (runs first in API)
- * - API-AUTH-SIGN-UP-POST-001 → api/auth/sign/up/post (runs after health)
- * - API-TABLES-001 → api/tables (runs after auth)
+ * - API-TABLES-001 → api/tables (runs after health)
  * - API-ACTIVITY-001 → api/activity (runs after tables)
+ * - API-AUTH-SIGN-UP-POST-001 → api/auth/sign/up/post (runs after activity)
  * - API-SECURITY-001 → api/security (runs last in API)
  * - ADMIN-TABLES-001 → admin/tables
  */
@@ -57,9 +57,9 @@ const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
  *
  * API features should run in this specific order:
  * 1. health (api/health/*) - Health checks run first
- * 2. auth (api/auth/*) - Authentication before all other features
- * 3. tables (api/tables) - Core data operations
- * 4. activity (api/activity) - Activity tracking
+ * 2. tables (api/tables) - Core data operations
+ * 3. activity (api/activity) - Activity tracking
+ * 4. auth (api/auth/*) - Authentication
  * 5. security (api/security/*) - Security specs run last
  *
  * Priority spacing accounts for maximum sub-path contribution (~56,000):
@@ -68,9 +68,9 @@ const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
  */
 const API_FEATURE_PRIORITIES: Record<string, number> = {
   health: 0, // api/health/* (max: 56,000)
-  auth: 60_000, // api/auth/* (max: 116,000)
-  tables: 120_000, // api/tables (max: 176,000)
-  activity: 180_000, // api/activity (max: 236,000)
+  tables: 60_000, // api/tables (max: 116,000)
+  activity: 120_000, // api/activity (max: 176,000)
+  auth: 180_000, // api/auth/* (max: 236,000)
   security: 240_000, // api/security/* (max: 296,000)
 }
 
