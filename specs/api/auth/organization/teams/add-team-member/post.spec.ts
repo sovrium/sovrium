@@ -431,6 +431,7 @@ test.describe('Add Team Member', () => {
     async ({
       startServerWithSchema,
       signUp,
+      signIn,
       createOrganization,
       inviteMember,
       acceptInvitation,
@@ -486,6 +487,12 @@ test.describe('Add Team Member', () => {
         const memberAccept = await acceptInvitation(invitation.id)
 
         memberIds.push(memberAccept.member.userId)
+
+        // Restore owner session (signUp switched to member session)
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+        })
 
         // WHEN: Owner adds each member to team
         const addResponse = await page.request.post('/api/auth/organization/add-team-member', {
