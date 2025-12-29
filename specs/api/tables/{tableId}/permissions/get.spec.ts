@@ -332,7 +332,7 @@ test.describe('Check table permissions', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CHECK-007: user can complete full permissions check workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin, signOut }) => {

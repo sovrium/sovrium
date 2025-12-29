@@ -261,15 +261,91 @@ function createGetTableProgram(
   })
 }
 
-function createGetPermissionsProgram() {
-  return Effect.succeed({
-    permissions: {
-      read: true,
-      create: true,
-      update: true,
-      delete: true,
-      manage: false,
-    },
+/**
+ * Check if user has permission based on permission configuration
+ */
+function hasPermission(
+  permission: { type: string; roles?: readonly string[] } | undefined,
+  userRole: string
+): boolean {
+  // If no permission is configured, deny access by default (secure by default)
+  if (!permission) {
+    return false
+  }
+
+  // Check permission type
+  switch (permission.type) {
+    case 'public':
+      return true
+    case 'authenticated':
+      return true // User is authenticated if they have a session
+    case 'roles': {
+      const allowedRoles = permission.roles || []
+      return allowedRoles.includes(userRole)
+    }
+    case 'owner':
+    case 'custom':
+      // These require record-level checks, return true for table-level check
+      return true
+    default:
+      return false
+  }
+}
+
+function createGetPermissionsProgram(
+  tableId: string,
+  app: App,
+  userRole: string
+): Effect.Effect<
+  {
+    table: { read: boolean; create: boolean; update: boolean; delete: boolean }
+    fields: Record<string, { read: boolean; write: boolean }>
+  },
+  Error
+> {
+  return Effect.gen(function* () {
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new Error('TABLE_NOT_FOUND'))
+    }
+
+    // Check table-level permissions
+    const permissions = table.permissions || {}
+
+    const tablePermissions = {
+      read: hasPermission(permissions.read, userRole),
+      create: hasPermission(permissions.create, userRole),
+      update: hasPermission(permissions.update, userRole),
+      delete: hasPermission(permissions.delete, userRole),
+    }
+
+    // Check field-level permissions
+    const fieldPermissions: Record<string, { read: boolean; write: boolean }> = {}
+
+    // Process field-level permissions if configured
+    if (permissions.fields) {
+      for (const fieldPermission of permissions.fields) {
+        const fieldName = fieldPermission.field
+
+        // Check read permission for this field
+        const canRead = hasPermission(fieldPermission.read, userRole)
+
+        // Check write permission for this field
+        const canWrite = hasPermission(fieldPermission.write, userRole)
+
+        fieldPermissions[fieldName] = {
+          read: canRead,
+          write: canWrite,
+        }
+      }
+    }
+
+    return {
+      table: tablePermissions,
+      fields: fieldPermissions,
+    }
   })
 }
 
@@ -671,7 +747,28 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
-      return runEffect(c, createGetPermissionsProgram(), getTablePermissionsResponseSchema)
+
+      // Get user role from database
+      const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+      try {
+        const program = createGetPermissionsProgram(c.req.param('tableId'), app, userRole)
+        const result = await Effect.runPromise(program)
+        const validated = getTablePermissionsResponseSchema.parse(result)
+        return c.json(validated, 200)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        if (errorMessage === 'TABLE_NOT_FOUND') {
+          return c.json({ error: 'Table not found' }, 404)
+        }
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: errorMessage,
+          },
+          500
+        )
+      }
     })
 }
 
