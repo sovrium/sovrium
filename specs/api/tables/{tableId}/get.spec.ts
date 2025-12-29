@@ -142,7 +142,7 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-005: should return 404 for cross-org table access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
