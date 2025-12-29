@@ -107,7 +107,7 @@ test.describe('Disabled Tables Endpoints', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-DISABLED-005: all tables endpoints should be disabled when no tables config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
