@@ -72,7 +72,7 @@ test.describe('API Bulk Operations with Permissions', () => {
       await createOrganization({ name: 'Test Org' })
 
       // WHEN: User bulk creates multiple records
-      const response = await request.post('/api/tables/1/records/bulk', {
+      const response = await request.post('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -146,7 +146,7 @@ test.describe('API Bulk Operations with Permissions', () => {
       })
 
       // WHEN: Member tries to bulk create
-      const response = await request.post('/api/tables/1/records/bulk', {
+      const response = await request.post('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -213,14 +213,14 @@ test.describe('API Bulk Operations with Permissions', () => {
       `)
 
       // WHEN: User tries to bulk update their own notes
-      const response = await request.patch('/api/tables/1/records/bulk', {
+      const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
           records: [
-            { id: 1, content: 'Updated Note 1' },
-            { id: 2, content: 'Updated Note 2' },
+            { id: '1', fields: { content: 'Updated Note 1' } },
+            { id: '2', fields: { content: 'Updated Note 2' } },
           ],
         },
       })
@@ -260,7 +260,7 @@ test.describe('API Bulk Operations with Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'created-by' },
               { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -284,14 +284,14 @@ test.describe('API Bulk Operations with Permissions', () => {
       `)
 
       // WHEN: User tries to bulk update BOTH (owns one, doesn't own other)
-      const response = await request.patch('/api/tables/1/records/bulk', {
+      const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
           records: [
-            { id: 1, title: 'Updated My Doc' },
-            { id: 2, title: 'Trying to Update Other Doc' },
+            { id: '1', fields: { title: 'Updated My Doc' } },
+            { id: '2', fields: { title: 'Trying to Update Other Doc' } },
           ],
         },
       })
@@ -376,7 +376,7 @@ test.describe('API Bulk Operations with Permissions', () => {
       await signOut()
       await createAuthenticatedUser({ email: 'user-a@example.com' })
 
-      const response = await request.delete('/api/tables/1/records/bulk', {
+      const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -454,7 +454,7 @@ test.describe('API Bulk Operations with Permissions', () => {
       })
 
       // WHEN: Member tries to bulk create with salary field
-      const response = await request.post('/api/tables/1/records/bulk', {
+      const response = await request.post('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -537,17 +537,17 @@ test.describe('API Bulk Operations with Permissions', () => {
       `)
 
       // WHEN: Member attempts large bulk update
-      const response = await request.patch('/api/tables/1/records/bulk', {
+      const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
           records: [
-            { id: 1, value: 'Updated 1' },
-            { id: 2, value: 'Updated 2' },
-            { id: 3, value: 'Updated 3' },
-            { id: 4, value: 'Updated 4' },
-            { id: 5, value: 'Updated 5' },
+            { id: '1', fields: { value: 'Updated 1' } },
+            { id: '2', fields: { value: 'Updated 2' } },
+            { id: '3', fields: { value: 'Updated 3' } },
+            { id: '4', fields: { value: 'Updated 4' } },
+            { id: '5', fields: { value: 'Updated 5' } },
           ],
         },
       })
@@ -646,7 +646,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'member@example.com' })
 
-        const response = await request.post('/api/tables/1/records/bulk', {
+        const response = await request.post('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -664,7 +664,7 @@ test.describe('API Bulk Operations with Permissions', () => {
       })
 
       await test.step('Member cannot bulk create with price field', async () => {
-        const response = await request.post('/api/tables/1/records/bulk', {
+        const response = await request.post('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -680,7 +680,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         await signOut()
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
 
-        const response = await request.post('/api/tables/1/records/bulk', {
+        const response = await request.post('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -704,12 +704,12 @@ test.describe('API Bulk Operations with Permissions', () => {
         const items = await listResponse.json()
         const itemIds = items.records.slice(0, 2).map((r: any) => r.id)
 
-        const response = await request.patch('/api/tables/1/records/bulk', {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            records: itemIds.map((id: number) => ({ id, quantity: 999 })),
+            records: itemIds.map((id: number) => ({ id: String(id), fields: { quantity: 999 } })),
           },
         })
 
@@ -725,14 +725,14 @@ test.describe('API Bulk Operations with Permissions', () => {
         const items = await listResponse.json()
         const itemIds = items.records.slice(0, 2).map((r: any) => r.id)
 
-        const response = await request.patch('/api/tables/1/records/bulk', {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
             records: [
-              { id: itemIds[0], quantity: 200 },
-              { id: itemIds[1], quantity: 100 },
+              { id: String(itemIds[0]), fields: { quantity: 200 } },
+              { id: String(itemIds[1]), fields: { quantity: 100 } },
             ],
           },
         })
@@ -751,7 +751,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         await signOut()
         await createAuthenticatedUser({ email: 'member@example.com' })
 
-        const response = await request.delete('/api/tables/1/records/bulk', {
+        const response = await request.delete('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -770,7 +770,7 @@ test.describe('API Bulk Operations with Permissions', () => {
         const beforeItems = await beforeResponse.json()
         const deleteIds = beforeItems.records.slice(0, 2).map((r: any) => r.id)
 
-        const response = await request.delete('/api/tables/1/records/bulk', {
+        const response = await request.delete('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
