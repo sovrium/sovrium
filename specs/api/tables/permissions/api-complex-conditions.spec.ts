@@ -288,7 +288,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-005: different custom conditions for read vs update',
     { tag: '@spec' },
     async ({
