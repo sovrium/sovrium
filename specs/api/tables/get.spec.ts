@@ -98,13 +98,14 @@ test.describe('List all tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-LIST-004: should return 403 when user lacks list-tables permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: A user with restricted permissions (cannot list tables)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -113,6 +114,16 @@ test.describe('List all tables', () => {
           },
         ],
       })
+
+      // Create a user and set role to 'viewer' manually
+      const viewer = await createAuthenticatedUser()
+
+      // Set viewer role manually (admin plugin not enabled in this test)
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'viewer'
+        WHERE id = '${viewer.user.id}'
+      `)
 
       // WHEN: User without list-tables permission requests tables
       const response = await request.get('/api/tables', {})
