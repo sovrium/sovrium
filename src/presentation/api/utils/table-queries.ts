@@ -472,7 +472,7 @@ export function batchRestoreRecords(
 export function batchUpdateRecords(
   session: Readonly<Session>,
   tableName: string,
-  updates: readonly { readonly id: number; readonly [key: string]: unknown }[]
+  updates: readonly { readonly id: string; readonly [key: string]: unknown }[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({

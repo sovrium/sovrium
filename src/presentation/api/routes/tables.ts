@@ -374,6 +374,24 @@ function passesOwnershipCheck(
   return String(recordUserId) === String(userId)
 }
 
+/**
+ * Check if user has role-based create permission for a table
+ * Returns true if permission granted, false if denied
+ */
+function hasCreatePermission(
+  table: { permissions?: { create?: unknown } } | undefined,
+  userRole: string
+): boolean {
+  const createPermission = table?.permissions?.create as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+  if (createPermission?.type !== 'roles') return true
+  // Type narrowing: we know it's the 'roles' type here
+  const allowedRoles = (createPermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}
+
 function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
@@ -466,7 +484,7 @@ function batchCreateProgram(recordsData: readonly { fields?: Record<string, unkn
 function batchUpdateProgram(
   session: Readonly<Session>,
   tableName: string,
-  recordsData: readonly { id: number; [key: string]: unknown }[]
+  recordsData: readonly { id: string; [key: string]: unknown }[]
 ): Effect.Effect<
   { records: readonly Record<string, unknown>[]; count: number },
   SessionContextError
@@ -969,19 +987,14 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Check table-level create permissions
         const table = app.tables?.find((t) => t.name === tableName)
-        const createPermission = table?.permissions?.create
-
-        if (createPermission?.type === 'roles') {
-          const allowedRoles = createPermission.roles || []
-          if (!allowedRoles.includes(userRole)) {
-            return c.json(
-              {
-                error: 'Forbidden',
-                message: 'You do not have permission to create records in this table',
-              },
-              403
-            )
-          }
+        if (!hasCreatePermission(table, userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to create records in this table',
+            },
+            403
+          )
         }
 
         return runEffect(
