@@ -407,16 +407,17 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
   const enableRLS = generateEnableRLS(tableName)
   const orgIdCheck = `organization_id = current_setting('app.organization_id', true)::TEXT`
 
-  const roleChecks = {
-    read: generateRoleCheck(table.permissions?.read),
-    create: generateRoleCheck(table.permissions?.create),
-    update: generateRoleCheck(table.permissions?.update),
+  // Use generateOperationCheck to support all permission types (role, custom, owner, authenticated)
+  const operationChecks = {
+    read: generateOperationCheck(table.permissions?.read),
+    create: generateOperationCheck(table.permissions?.create),
+    update: generateOperationCheck(table.permissions?.update),
     // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    delete: generateRoleCheck(table.permissions?.delete),
+    delete: generateOperationCheck(table.permissions?.delete),
   }
 
   const dropPolicies = generateDropPolicies(tableName)
-  const createPolicies = generateCreatePolicies(tableName, orgIdCheck, roleChecks)
+  const createPolicies = generateCreatePolicies(tableName, orgIdCheck, operationChecks)
 
   return [...enableRLS, ...dropPolicies, ...createPolicies]
 }
