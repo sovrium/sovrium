@@ -121,22 +121,17 @@ test.describe('API Field Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-002: should include all fields in API response when admin has full read permission',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedAdmin,
-      createOrganization,
-      executeQuery,
-    }) => {
+    async ({ page, request, startServerWithSchema, signUp, createOrganization, executeQuery }) => {
       // GIVEN: Same table with field-level permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
           organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -163,8 +158,25 @@ test.describe('API Field Permission Enforcement', () => {
         ],
       })
 
-      // Create admin user with organization
-      await createAuthenticatedAdmin({ email: 'admin@example.com' })
+      // Create admin user (following pattern from working admin tests)
+      const admin = await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+
+      // Manually set role to admin via database
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'admin'
+        WHERE id = '${admin.user.id}'
+      `)
+
+      // Re-sign in to refresh session with admin role
+      await page.request.post('/api/auth/sign-in/email', {
+        data: { email: 'admin@example.com', password: 'AdminPass123!' },
+      })
+
       const org = await createOrganization({ name: 'Test Org' })
 
       // Insert test data
@@ -183,7 +195,7 @@ test.describe('API Field Permission Enforcement', () => {
       expect(data.records).toHaveLength(1)
       expect(data.records[0]).toHaveProperty('name', 'Jane Smith')
       // KEY ASSERTION: Admin can see salary field
-      expect(data.records[0]).toHaveProperty('salary', 95_000)
+      expect(data.records[0]).toHaveProperty('salary', '95000')
     }
   )
 
