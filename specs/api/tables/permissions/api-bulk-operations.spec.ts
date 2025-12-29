@@ -236,7 +236,7 @@ test.describe('API Bulk Operations with Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-004: bulk update with mixed ownership returns partial success or fails atomically',
     { tag: '@spec' },
     async ({
