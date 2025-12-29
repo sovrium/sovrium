@@ -373,7 +373,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-006: custom condition with NULL handling',
     { tag: '@spec' },
     async ({
@@ -432,7 +432,7 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(2)
-      const titles = data.records.map((r: any) => r.title)
+      const titles = data.records.map((r: any) => r.fields.title)
       expect(titles).toContain('Unassigned Task')
       expect(titles).toContain('My Task')
       expect(titles).not.toContain('Other Task')
