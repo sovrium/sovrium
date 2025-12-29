@@ -319,23 +319,30 @@ function createListRecordsProgram(
  */
 async function getUserRole(userId: string, activeOrganizationId?: string | null): Promise<string> {
   const { db } = await import('@/infrastructure/database')
+  const { sql } = await import('drizzle-orm')
 
   // If active organization, check members table first
   if (activeOrganizationId) {
-    const memberResult = (await db.execute(
-      `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-    )) as Array<{ role: string | null }>
+    const memberResult = await db.execute(
+      sql.raw(
+        `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+      )
+    )
 
-    if (memberResult[0]?.role) {
-      return memberResult[0].role
+    const firstRow = memberResult.rows[0] as { role: string | null } | undefined
+    if (firstRow?.role) {
+      return firstRow.role
     }
   }
 
   // Fall back to global user role from users table
-  const userResult = (await db.execute(
-    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-  )) as Array<{ role: string | null }>
-  return userResult[0]?.role || 'member'
+  const userResult = await db.execute(
+    sql.raw(
+      `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+    )
+  )
+  const firstRow = userResult.rows[0] as { role: string | null } | undefined
+  return firstRow?.role || 'member'
 }
 
 interface GetRecordConfig {
@@ -978,10 +985,14 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Authorization check BEFORE validation (viewers cannot restore, regardless of input validity)
         const { db } = await import('@/infrastructure/database')
-        const userResult = (await db.execute(
-          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-        )) as Array<{ role: string | null }>
-        const userRole = userResult[0]?.role
+        const { sql } = await import('drizzle-orm')
+        const userResult = await db.execute(
+          sql.raw(
+            `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+          )
+        )
+        const firstRow = userResult.rows[0] as { role: string | null } | undefined
+        const userRole = firstRow?.role
 
         if (userRole === 'viewer') {
           return c.json(
@@ -1083,6 +1094,45 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level update permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        const updatePermission = table?.permissions?.update
+
+        if (updatePermission?.type === 'roles') {
+          const allowedRoles = updatePermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to update records in this table',
+              },
+              403
+            )
+          }
+        }
+
+        // Validate field write permissions for all records
+        const allForbiddenFields = result.data.records
+          .map((record) =>
+            validateFieldWritePermissions(app, tableName, userRole, record.fields || {})
+          )
+          .filter((fields) => fields.length > 0)
+
+        if (allForbiddenFields.length > 0) {
+          // Flatten and deduplicate forbidden field names
+          const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+            },
+            403
+          )
+        }
+
         return runEffect(
           c,
           batchUpdateProgram(session, tableName, result.data.records),
@@ -1103,6 +1153,26 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const tableName = getTableNameFromId(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level delete permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        const deletePermission = table?.permissions?.delete
+
+        if (deletePermission?.type === 'roles') {
+          const allowedRoles = deletePermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to delete records in this table',
+              },
+              403
+            )
+          }
         }
 
         return runEffect(
