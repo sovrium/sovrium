@@ -319,23 +319,30 @@ function createListRecordsProgram(
  */
 async function getUserRole(userId: string, activeOrganizationId?: string | null): Promise<string> {
   const { db } = await import('@/infrastructure/database')
+  const { sql } = await import('drizzle-orm')
 
   // If active organization, check members table first
   if (activeOrganizationId) {
-    const memberResult = (await db.execute(
-      `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-    )) as Array<{ role: string | null }>
+    const memberResult = await db.execute(
+      sql.raw(
+        `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+      )
+    )
 
-    if (memberResult[0]?.role) {
-      return memberResult[0].role
+    const firstRow = memberResult.rows[0] as { role: string | null } | undefined
+    if (firstRow?.role) {
+      return firstRow.role
     }
   }
 
   // Fall back to global user role from users table
-  const userResult = (await db.execute(
-    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-  )) as Array<{ role: string | null }>
-  return userResult[0]?.role || 'member'
+  const userResult = await db.execute(
+    sql.raw(
+      `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+    )
+  )
+  const firstRow = userResult.rows[0] as { role: string | null } | undefined
+  return firstRow?.role || 'member'
 }
 
 interface GetRecordConfig {
@@ -953,10 +960,14 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Authorization check BEFORE validation (viewers cannot restore, regardless of input validity)
         const { db } = await import('@/infrastructure/database')
-        const userResult = (await db.execute(
-          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-        )) as Array<{ role: string | null }>
-        const userRole = userResult[0]?.role
+        const { sql } = await import('drizzle-orm')
+        const userResult = await db.execute(
+          sql.raw(
+            `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+          )
+        )
+        const firstRow = userResult.rows[0] as { role: string | null } | undefined
+        const userRole = firstRow?.role
 
         if (userRole === 'viewer') {
           return c.json(
