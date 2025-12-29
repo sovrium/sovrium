@@ -32,7 +32,7 @@ test.describe('API Complex Permission Conditions', () => {
   // @spec tests - EXHAUSTIVE coverage of custom permission conditions
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-001: custom condition with userId variable substitution',
     { tag: '@spec' },
     async ({
