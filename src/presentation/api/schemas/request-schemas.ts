@@ -37,11 +37,7 @@ export const updateRecordRequestSchema = z.record(z.string(), fieldValueSchema)
  */
 export const batchCreateRecordsRequestSchema = z.object({
   records: z
-    .array(
-      z.object({
-        fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-      })
-    )
+    .array(z.record(z.string(), fieldValueSchema))
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
 })

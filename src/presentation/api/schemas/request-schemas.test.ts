@@ -120,16 +120,16 @@ describe('batchCreateRecordsRequestSchema', () => {
   describe('valid inputs', () => {
     test('validates single record', () => {
       const input = {
-        records: [{ fields: { name: 'John' } }],
+        records: [{ name: 'John' }],
       }
       const result = batchCreateRecordsRequestSchema.parse(input)
       expect(result.records).toHaveLength(1)
-      expect(result.records[0]?.fields).toEqual({ name: 'John' })
+      expect(result.records[0]).toEqual({ name: 'John' })
     })
 
     test('validates multiple records', () => {
       const input = {
-        records: [{ fields: { name: 'John' } }, { fields: { name: 'Jane' } }],
+        records: [{ name: 'John' }, { name: 'Jane' }],
       }
       const result = batchCreateRecordsRequestSchema.parse(input)
       expect(result.records).toHaveLength(2)
@@ -138,26 +138,26 @@ describe('batchCreateRecordsRequestSchema', () => {
     test('validates exactly 100 records (maximum)', () => {
       const input = {
         records: Array.from({ length: 100 }, (_, i) => ({
-          fields: { index: i },
+          index: i,
         })),
       }
       const result = batchCreateRecordsRequestSchema.parse(input)
       expect(result.records).toHaveLength(100)
     })
 
-    test('applies default empty fields to records without fields', () => {
+    test('validates empty record object', () => {
       const input = {
         records: [{}],
       }
       const result = batchCreateRecordsRequestSchema.parse(input)
-      expect(result.records[0]?.fields).toEqual({})
+      expect(result.records[0]).toEqual({})
     })
 
     test('validates records with mixed field types', () => {
       const input = {
         records: [
-          { fields: { name: 'John', age: 30 } },
-          { fields: { active: true, tags: ['a', 'b'] } },
+          { name: 'John', age: 30 },
+          { active: true, tags: ['a', 'b'] },
         ],
       }
       const result = batchCreateRecordsRequestSchema.parse(input)
