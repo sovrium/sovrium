@@ -32,7 +32,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   // @spec tests - EXHAUSTIVE coverage of bulk operation permissions
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-001: bulk create succeeds when user has create permission',
     { tag: '@spec' },
     async ({
