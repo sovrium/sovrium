@@ -352,6 +352,90 @@ export function restoreRecord(
 }
 
 /**
+ * Helper to create a single record within a transaction
+ */
+async function createSingleRecord(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: Readonly<any>,
+  tableName: string,
+  fields: Record<string, unknown>
+): Promise<Record<string, unknown> | undefined> {
+  const entries = Object.entries(fields)
+  if (entries.length === 0) return undefined
+
+  const columnIdentifiers = entries.map(([key]) => {
+    validateColumnName(key)
+    return sql.identifier(key)
+  })
+
+  const valueParams = entries.map(([, value]) => value)
+  const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
+  const valuesClause = sql.join(
+    valueParams.map((v) => sql`${v}`),
+    sql.raw(', ')
+  )
+
+  const result = (await tx.execute(
+    sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+  )) as readonly Record<string, unknown>[]
+
+  return result[0] ?? undefined
+}
+
+/**
+ * Batch create records with session context
+ *
+ * Creates multiple records in a single transaction.
+ * Automatically sets organization_id and owner_id from session for each record.
+ * RLS policies automatically applied via session context.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordsData - Array of field objects to insert
+ * @returns Effect resolving to array of created records
+ */
+export function batchCreateRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  recordsData: readonly Record<string, unknown>[]
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        if (recordsData.length === 0) {
+          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty batch
+          throw new Error('Cannot create batch with no records')
+        }
+
+        const recordResults = await recordsData.reduce(
+          async (accPromise, fields) => {
+            const acc = await accPromise
+            const record = await createSingleRecord(tx, tableName, fields)
+            return record ? [...acc, record] : acc
+          },
+          Promise.resolve([] as readonly Record<string, unknown>[])
+        )
+
+        return recordResults
+      },
+      catch: (error) => {
+        console.error('[batchCreateRecords] PostgreSQL error:', error)
+        const errorMessage =
+          error && typeof error === 'object' && 'message' in error
+            ? String(error.message)
+            : String(error)
+        return new SessionContextError(
+          `Failed to batch create records in ${tableName}: ${errorMessage}`,
+          error
+        )
+      },
+    })
+  )
+}
+
+/**
  * Batch restore soft-deleted records with session context
  *
  * Restores multiple soft-deleted records in a transaction.

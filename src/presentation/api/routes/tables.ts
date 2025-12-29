@@ -50,6 +50,7 @@ import {
   updateRecord,
   deleteRecord,
   restoreRecord,
+  batchCreateRecords,
   batchRestoreRecords,
   batchUpdateRecords,
 } from '@/presentation/api/utils/table-queries'
@@ -471,14 +472,23 @@ function restoreRecordProgram(
 // Batch Operation Handlers
 // ============================================================================
 
-function batchCreateProgram(recordsData: readonly { fields?: Record<string, unknown> }[]) {
-  const records = recordsData.map((r) => ({
-    id: crypto.randomUUID(),
-    fields: r.fields ?? {},
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }))
-  return Effect.succeed({ records, count: records.length })
+function batchCreateProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordsData: readonly Record<string, unknown>[]
+) {
+  return Effect.gen(function* () {
+    // Create records in the database
+    const createdRecords = yield* batchCreateRecords(session, tableName, recordsData)
+
+    // Transform records to API format
+    const transformed = transformRecords(createdRecords)
+
+    return {
+      records: transformed,
+      count: transformed.length,
+    }
+  })
 }
 
 function batchUpdateProgram(
@@ -966,6 +976,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
       })
       // Generic batch routes AFTER more specific batch/restore route
+      // eslint-disable-next-line complexity -- Route handler with permission checks requires complexity 11
       .post('/api/tables/:tableId/records/batch', async (c) => {
         const { session } = (c as ContextWithSession).var
         if (!session) {
@@ -999,7 +1010,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         return runEffect(
           c,
-          batchCreateProgram(result.data.records),
+          batchCreateProgram(session, tableName, result.data.records),
           batchCreateRecordsResponseSchema,
           201
         )
