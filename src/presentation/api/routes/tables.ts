@@ -155,20 +155,47 @@ const handleBatchRestoreError = (c: Context, error: unknown) => {
 // Table Route Handlers
 // ============================================================================
 
-function createListTablesProgram(
-  userRole: string
-): Effect.Effect<unknown[], Error> {
-  return Effect.gen(function* () {
-    // Check if user has permission to list tables
-    // By default, only owners and admins can list all tables
-    const allowedRoles = ['owner', 'admin']
+function createListTablesProgram(userRole: string, app: App): Effect.Effect<unknown[], Error> {
+  // Global permission check: only owner/admin/member can list tables
+  // Viewer role is explicitly denied from listing tables
+  const allowedRolesToListTables = ['owner', 'admin', 'member']
+  if (!allowedRolesToListTables.includes(userRole)) {
+    return Effect.fail(new Error('FORBIDDEN_LIST_TABLES'))
+  }
 
-    if (!allowedRoles.includes(userRole)) {
-      return yield* Effect.fail(new Error('FORBIDDEN_LIST_TABLES'))
+  // Filter tables based on user's read permissions
+  // Only return tables the user has permission to view
+  const tables = app.tables ?? []
+
+  const accessibleTables = tables.filter((table) => {
+    const readPermission = table.permissions?.read
+
+    // If no read permission configured, deny access by default (secure by default)
+    if (!readPermission) {
+      return false
     }
 
-    return []
+    // Check role-based permissions
+    if (readPermission.type === 'roles') {
+      const allowedRoles = readPermission.roles || []
+      return allowedRoles.includes(userRole)
+    }
+
+    // For public, authenticated, owner, or custom permission types, allow access
+    // These would need additional implementation if required
+    return true
   })
+
+  // Map tables to API response format
+  const result = accessibleTables.map((table) => ({
+    id: String(table.id),
+    name: table.name,
+    description: undefined, // Domain model doesn't have table description
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }))
+
+  return Effect.succeed(result)
 }
 
 function createGetTableProgram(
@@ -523,6 +550,7 @@ function getViewRecordsProgram() {
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
+// eslint-disable-next-line max-lines-per-function -- Route chaining with permission checks requires multiple lines
 function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .get('/api/tables', async (c) => {
@@ -535,7 +563,7 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
       try {
-        const program = createListTablesProgram(userRole)
+        const program = createListTablesProgram(userRole, app)
         const result = await Effect.runPromise(program)
         const validated = z.array(z.unknown()).parse(result)
         return c.json(validated, 200)
