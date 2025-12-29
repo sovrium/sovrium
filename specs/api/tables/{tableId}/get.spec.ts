@@ -180,10 +180,41 @@ test.describe('Get table by ID', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-GET-006: user can complete full table retrieval workflow',
     { tag: '@regression' },
-    async ({ request }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+      // GIVEN: A running server with a test table
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'email', type: 'single-line-text' },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+            permissions: {
+              read: {
+                type: 'roles',
+                roles: ['owner', 'admin', 'member', 'viewer'],
+              },
+            },
+          },
+        ],
+      })
+
+      // Create authenticated user with member role
+      await createAuthenticatedUser({
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Test User',
+      })
+
       await test.step('Get table by ID successfully', async () => {
         const successResponse = await request.get('/api/tables/1', {})
         expect(successResponse.status()).toBe(200)

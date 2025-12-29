@@ -191,12 +191,27 @@ function createGetTableProgram(
     // For other permission types (public, authenticated, owner, custom), allow access
     // These would need additional implementation if required
 
+    // Map table fields to API response format
+    const fields = table.fields.map((field) => ({
+      id: String(field.id),
+      name: field.name,
+      type: field.type,
+      required: field.required,
+      unique: field.unique,
+      indexed: field.indexed,
+      description: undefined, // Domain model doesn't have description field
+    }))
+
+    // Convert primaryKey object to string (field name) for API response
+    const primaryKeyField = table.primaryKey?.field || undefined
+
     return {
       table: {
-        id: tableId,
-        name: 'Sample Table',
-        description: 'A sample table',
-        fields: [],
+        id: String(table.id),
+        name: table.name,
+        description: undefined, // Domain model doesn't have table description
+        fields,
+        primaryKey: primaryKeyField,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -514,7 +529,8 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const program = createGetTableProgram(c.req.param('tableId'), app, userRole)
         const result = await Effect.runPromise(program)
         const validated = getTableResponseSchema.parse(result)
-        return c.json(validated, 200)
+        // Return the table object directly (unwrapped) to match test expectations
+        return c.json(validated.table, 200)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         if (errorMessage === 'TABLE_NOT_FOUND') {
