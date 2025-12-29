@@ -55,20 +55,26 @@ export const batchUpdateRecordsRequestSchema = z.object({
       z.union([
         // Format 1: Nested format with fields object (backward compatibility)
         z.object({
-          id: z.union([z.string().min(1, 'Record ID is required'), z.number()]).transform((val) => String(val)),
+          id: z
+            .union([z.string().min(1, 'Record ID is required'), z.number()])
+            .transform((val) => String(val)),
           fields: z.record(z.string(), fieldValueSchema).optional().default({}),
         }),
         // Format 2: Flat format with id and other fields at same level
-        z.intersection(
-          z.object({
-            id: z.union([z.string().min(1, 'Record ID is required'), z.number()]).transform((val) => String(val)),
+        z
+          .intersection(
+            z.object({
+              id: z
+                .union([z.string().min(1, 'Record ID is required'), z.number()])
+                .transform((val) => String(val)),
+            }),
+            z.record(z.string(), fieldValueSchema)
+          )
+          .transform((data) => {
+            // Transform flat format to nested format for consistency
+            const { id, ...fields } = data
+            return { id, fields }
           }),
-          z.record(z.string(), fieldValueSchema)
-        ).transform((data) => {
-          // Transform flat format to nested format for consistency
-          const { id, ...fields } = data
-          return { id, fields }
-        }),
       ])
     )
     .min(1, 'At least one record is required')

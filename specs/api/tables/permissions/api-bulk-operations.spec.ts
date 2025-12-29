@@ -395,7 +395,7 @@ test.describe('API Bulk Operations with Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-006: bulk create with field-level permissions',
     { tag: '@spec' },
     async ({
