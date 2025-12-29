@@ -151,6 +151,16 @@ export default [
     },
   },
 
+  // Table query utilities - Cohesive set of CRUD operations with session context
+  // Contains single + batch operations for list/get/create/update/delete/restore
+  {
+    files: ['src/presentation/api/utils/table-queries.ts'],
+    rules: {
+      'max-lines': ['warn', { max: 700, skipBlankLines: true, skipComments: true }], // Comprehensive CRUD + batch operations
+      'max-lines-per-function': ['warn', { max: 80 }], // Batch operations can be longer due to validation logic
+    },
+  },
+
   // TODO: Remove these overrides after refactoring (tracked in codebase-refactor-auditor findings)
   // Temporary overrides for files exceeding limits - should be refactored into smaller modules
   {
