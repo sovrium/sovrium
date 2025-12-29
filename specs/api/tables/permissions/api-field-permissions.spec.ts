@@ -276,7 +276,7 @@ test.describe('API Field Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-004: should allow partial update when user has write permission for some fields',
     { tag: '@spec' },
     async ({
@@ -348,7 +348,7 @@ test.describe('API Field Permission Enforcement', () => {
       // VERIFY: Name updated, salary unchanged
       const result = await executeQuery(`SELECT name, salary FROM employees WHERE id = 1`)
       expect(result.name).toBe('John Smith')
-      expect(result.salary).toBe(75_000)
+      expect(result.salary).toBe('75000')
     }
   )
 

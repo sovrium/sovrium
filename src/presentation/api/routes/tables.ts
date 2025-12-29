@@ -819,22 +819,29 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           }
         }
 
-        // Validate field write permissions
+        // Validate field write permissions and filter out forbidden fields
         const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, result.data)
-        if (forbiddenFields.length > 0) {
+
+        // Filter data to only include fields the user has permission to write
+        const allowedFieldsData = Object.fromEntries(
+          Object.entries(result.data).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
+        )
+
+        // If no fields remain after filtering, return 403
+        if (Object.keys(allowedFieldsData).length === 0) {
           return c.json(
             {
               error: 'Forbidden',
-              message: `You do not have permission to modify field(s): ${forbiddenFields.join(', ')}`,
+              message: `You do not have permission to modify any of the specified fields: ${forbiddenFields.join(', ')}`,
             },
             403
           )
         }
 
-        // Execute update with RLS enforcement
+        // Execute update with RLS enforcement (using only allowed fields)
         try {
           const updateResult = await Effect.runPromise(
-            updateRecordProgram(session, tableName, c.req.param('recordId'), result.data)
+            updateRecordProgram(session, tableName, c.req.param('recordId'), allowedFieldsData)
           )
 
           // Check if update affected any rows (RLS may have blocked it)
