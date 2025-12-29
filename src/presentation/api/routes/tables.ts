@@ -318,29 +318,23 @@ function createGetPermissionsProgram(
       read: hasPermission(permissions.read, userRole),
       create: hasPermission(permissions.create, userRole),
       update: hasPermission(permissions.update, userRole),
+      // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is a permission property, not a Drizzle delete
       delete: hasPermission(permissions.delete, userRole),
     }
 
     // Check field-level permissions
-    const fieldPermissions: Record<string, { read: boolean; write: boolean }> = {}
-
-    // Process field-level permissions if configured
-    if (permissions.fields) {
-      for (const fieldPermission of permissions.fields) {
-        const fieldName = fieldPermission.field
-
-        // Check read permission for this field
-        const canRead = hasPermission(fieldPermission.read, userRole)
-
-        // Check write permission for this field
-        const canWrite = hasPermission(fieldPermission.write, userRole)
-
-        fieldPermissions[fieldName] = {
-          read: canRead,
-          write: canWrite,
-        }
-      }
-    }
+    // Use functional map/reduce instead of for loop
+    const fieldPermissions: Record<string, { read: boolean; write: boolean }> =
+      permissions.fields?.reduce(
+        (acc, fieldPermission) => ({
+          ...acc,
+          [fieldPermission.field]: {
+            read: hasPermission(fieldPermission.read, userRole),
+            write: hasPermission(fieldPermission.write, userRole),
+          },
+        }),
+        {} as Record<string, { read: boolean; write: boolean }>
+      ) ?? {}
 
     return {
       table: tablePermissions,
