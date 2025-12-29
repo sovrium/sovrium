@@ -456,3 +456,68 @@ export function batchRestoreRecords(
     })
   )
 }
+
+/**
+ * Batch update records with session context
+ *
+ * Updates multiple records in a transaction with RLS policy enforcement.
+ * Only records the user has permission to update will be affected.
+ * Records without permission are silently skipped (RLS behavior).
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param updates - Array of records with id and fields to update
+ * @returns Effect resolving to array of updated records
+ */
+export function batchUpdateRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  updates: readonly { readonly id: number; readonly [key: string]: unknown }[]
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        // Update each record individually with RLS enforcement
+        const updatedRecords = await Promise.all(
+          updates.map(async (update) => {
+            const { id, ...fields } = update
+            const entries = Object.entries(fields)
+
+            if (entries.length === 0) {
+              // eslint-disable-next-line unicorn/no-null -- Null for skipped records
+              return null
+            }
+
+            // Build SET clause with validated columns and parameterized values
+            const setClauses = entries.map(([key, value]) => {
+              validateColumnName(key)
+              return sql`${sql.identifier(key)} = ${value}`
+            })
+            const setClause = sql.join(setClauses, sql.raw(', '))
+
+            try {
+              const result = (await tx.execute(
+                sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${id} RETURNING *`
+              )) as readonly Record<string, unknown>[]
+
+              // If RLS blocked the update, result will be empty - skip this record
+              // eslint-disable-next-line unicorn/no-null -- Null for records blocked by RLS
+              return result[0] ?? null
+            } catch {
+              // If update fails (e.g., RLS policy), skip this record
+              // eslint-disable-next-line unicorn/no-null -- Null for failed updates
+              return null
+            }
+          })
+        )
+
+        // Filter out null values (records blocked by RLS or failed updates)
+        return updatedRecords.filter((record): record is Record<string, unknown> => record !== null)
+      },
+      catch: (error) =>
+        new SessionContextError(`Failed to batch update records in ${tableName}`, error),
+    })
+  )
+}

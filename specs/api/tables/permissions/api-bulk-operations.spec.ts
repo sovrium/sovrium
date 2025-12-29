@@ -164,7 +164,7 @@ test.describe('API Bulk Operations with Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-003: bulk update succeeds for owned records only',
     { tag: '@spec' },
     async ({
