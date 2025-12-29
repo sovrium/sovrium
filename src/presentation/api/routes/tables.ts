@@ -943,12 +943,46 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       })
       // Generic batch routes AFTER more specific batch/restore route
       .post('/api/tables/:tableId/records/batch', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
+
         const result = await validateRequest(c, batchCreateRecordsRequestSchema)
         if (!result.success) return result.response
+
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level create permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        const createPermission = table?.permissions?.create
+
+        if (createPermission?.type === 'roles') {
+          const allowedRoles = createPermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to create records in this table',
+              },
+              403
+            )
+          }
+        }
+
         return runEffect(
           c,
           batchCreateProgram(result.data.records),
-          batchCreateRecordsResponseSchema
+          batchCreateRecordsResponseSchema,
+          201
         )
       })
       .patch('/api/tables/:tableId/records/batch', async (c) => {
