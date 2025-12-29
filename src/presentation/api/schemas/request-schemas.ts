@@ -44,16 +44,32 @@ export const batchCreateRecordsRequestSchema = z.object({
 
 /**
  * Batch update records request schema
+ *
+ * Supports two formats:
+ * 1. Nested format: { id: string, fields: {...} }
+ * 2. Flat format: { id: string|number, ...otherFields }
  */
 export const batchUpdateRecordsRequestSchema = z.object({
   records: z
     .array(
-      z.intersection(
+      z.union([
+        // Format 1: Nested format with fields object (backward compatibility)
         z.object({
-          id: z.union([z.string(), z.number()]).transform((val) => String(val)),
+          id: z.union([z.string().min(1, 'Record ID is required'), z.number()]).transform((val) => String(val)),
+          fields: z.record(z.string(), fieldValueSchema).optional().default({}),
         }),
-        z.record(z.string(), fieldValueSchema)
-      )
+        // Format 2: Flat format with id and other fields at same level
+        z.intersection(
+          z.object({
+            id: z.union([z.string().min(1, 'Record ID is required'), z.number()]).transform((val) => String(val)),
+          }),
+          z.record(z.string(), fieldValueSchema)
+        ).transform((data) => {
+          // Transform flat format to nested format for consistency
+          const { id, ...fields } = data
+          return { id, fields }
+        }),
+      ])
     )
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
