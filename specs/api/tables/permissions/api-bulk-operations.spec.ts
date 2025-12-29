@@ -318,7 +318,7 @@ test.describe('API Bulk Operations with Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-005: bulk delete respects organization isolation',
     { tag: '@spec' },
     async ({

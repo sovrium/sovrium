@@ -53,6 +53,7 @@ import {
   batchCreateRecords,
   batchRestoreRecords,
   batchUpdateRecords,
+  batchDeleteRecords,
 } from '@/presentation/api/utils/table-queries'
 import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
@@ -508,11 +509,21 @@ function batchUpdateProgram(
   })
 }
 
-function batchDeleteProgram(ids: readonly string[]) {
-  return Effect.succeed({
-    success: true as const,
-    count: ids.length,
-    deletedIds: [...ids],
+function batchDeleteProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  ids: readonly string[]
+): Effect.Effect<
+  { success: true; count: number; deletedIds: readonly string[] },
+  SessionContextError
+> {
+  return Effect.gen(function* () {
+    const deletedCount = yield* batchDeleteRecords(session, tableName, ids)
+    return {
+      success: true as const,
+      count: deletedCount,
+      deletedIds: ids,
+    }
   })
 }
 
@@ -1038,9 +1049,26 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
       })
       .delete('/api/tables/:tableId/records/batch', async (c) => {
+        const { session } = (c as ContextWithSession).var
+        if (!session) {
+          return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        }
+
         const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
         if (!result.success) return result.response
-        return runEffect(c, batchDeleteProgram(result.data.ids), batchDeleteRecordsResponseSchema)
+
+        // Get table name from route parameter
+        const tableId = c.req.param('tableId')
+        const tableName = getTableNameFromId(app, tableId)
+        if (!tableName) {
+          return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        return runEffect(
+          c,
+          batchDeleteProgram(session, tableName, result.data.ids),
+          batchDeleteRecordsResponseSchema
+        )
       })
       .post('/api/tables/:tableId/records/upsert', async (c) => {
         const result = await validateRequest(c, upsertRecordsRequestSchema)

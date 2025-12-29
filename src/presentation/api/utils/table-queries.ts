@@ -605,3 +605,61 @@ export function batchUpdateRecords(
     })
   )
 }
+
+/**
+ * Batch delete records with session context
+ *
+ * Deletes multiple records (soft or hard delete based on deleted_at field).
+ * Organization isolation automatically enforced via RLS policies.
+ * Only records in the user's organization will be deleted.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordIds - Array of record IDs to delete
+ * @returns Effect resolving to number of deleted records
+ */
+export function batchDeleteRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  recordIds: readonly string[]
+): Effect.Effect<number, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
+        // Check if table has deleted_at column for soft delete
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        // Build parameterized IN clause
+        const idParams = sql.join(
+          recordIds.map((id) => sql`${id}`),
+          sql.raw(', ')
+        )
+
+        if (columnCheck.length > 0) {
+          // Soft delete: set deleted_at timestamp
+          // RLS policies automatically filter to user's organization
+          const result = (await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          return result.length
+        } else {
+          // Hard delete: remove records
+          // RLS policies automatically filter to user's organization
+          const result = (await tx.execute(
+            sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          return result.length
+        }
+      },
+      catch: (error) =>
+        new SessionContextError(`Failed to batch delete records in ${tableName}`, error),
+    })
+  )
+}
