@@ -1058,6 +1058,45 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level update permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        const updatePermission = table?.permissions?.update
+
+        if (updatePermission?.type === 'roles') {
+          const allowedRoles = updatePermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to update records in this table',
+              },
+              403
+            )
+          }
+        }
+
+        // Validate field write permissions for all records
+        const allForbiddenFields = result.data.records
+          .map((record) =>
+            validateFieldWritePermissions(app, tableName, userRole, record.fields || {})
+          )
+          .filter((fields) => fields.length > 0)
+
+        if (allForbiddenFields.length > 0) {
+          // Flatten and deduplicate forbidden field names
+          const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+            },
+            403
+          )
+        }
+
         return runEffect(
           c,
           batchUpdateProgram(session, tableName, result.data.records),
@@ -1078,6 +1117,26 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const tableName = getTableNameFromId(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level delete permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        const deletePermission = table?.permissions?.delete
+
+        if (deletePermission?.type === 'roles') {
+          const allowedRoles = deletePermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to delete records in this table',
+              },
+              403
+            )
+          }
         }
 
         return runEffect(

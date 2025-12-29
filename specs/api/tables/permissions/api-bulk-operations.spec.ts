@@ -567,7 +567,7 @@ test.describe('API Bulk Operations with Permissions', () => {
   // @regression test - Complete workflow validation
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-008: complete bulk operations workflow with permissions',
     { tag: '@regression' },
     async ({
@@ -578,6 +578,7 @@ test.describe('API Bulk Operations with Permissions', () => {
       createOrganization,
       addMember,
       signOut,
+      signIn,
     }) => {
       let org: { organization: { id: string } }
 
@@ -623,9 +624,9 @@ test.describe('API Bulk Operations with Permissions', () => {
         await createAuthenticatedUser({ email: 'owner@example.com' })
         org = await createOrganization({ name: 'Inventory Org' })
 
-        // Admin
+        // Admin - Manual role assignment without Better Auth admin plugin
         await signOut()
-        const admin = await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
         await addMember({
           organizationId: org.organization.id,
           userId: admin.user.id,
@@ -644,7 +645,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Member can bulk create (without price)', async () => {
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
 
         const response = await request.post('/api/tables/1/records/batch', {
           headers: {
@@ -678,7 +679,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Admin can bulk create with price', async () => {
         await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
 
         const response = await request.post('/api/tables/1/records/batch', {
           headers: {
