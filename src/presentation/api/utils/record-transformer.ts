@@ -19,9 +19,8 @@ export type RecordFieldValue =
 /**
  * Transformed record structure for API responses
  */
-export interface TransformedRecord {
+export interface TransformedRecord extends Record<string, RecordFieldValue> {
   readonly id: string
-  readonly fields: Record<string, RecordFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
 }
@@ -47,7 +46,7 @@ const toISOString = (value: unknown): string => {
  *
  * This utility standardizes record transformation across all table endpoints:
  * - Converts id to string
- * - Preserves all fields with proper typing
+ * - Preserves all fields at root level (no nesting)
  * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
  * - Converts Date objects to ISO 8601 strings for API compliance
  *
@@ -55,8 +54,11 @@ const toISOString = (value: unknown): string => {
  * @returns Transformed record for API response
  */
 export const transformRecord = (record: Record<string, unknown>): TransformedRecord => {
-  // Convert Date objects to ISO strings in fields
-  const transformedFields = Object.entries(record).reduce<Record<string, RecordFieldValue>>(
+  // Extract system fields
+  const { id, created_at: createdAt, updated_at: updatedAt, ...userFields } = record
+
+  // Convert Date objects to ISO strings in user fields
+  const transformedFields = Object.entries(userFields).reduce<Record<string, RecordFieldValue>>(
     (acc, [key, value]) => {
       if (value instanceof Date) {
         return { ...acc, [key]: value.toISOString() }
@@ -67,10 +69,10 @@ export const transformRecord = (record: Record<string, unknown>): TransformedRec
   )
 
   return {
-    id: String(record.id),
-    fields: transformedFields,
-    createdAt: record.created_at ? toISOString(record.created_at) : new Date().toISOString(),
-    updatedAt: record.updated_at ? toISOString(record.updated_at) : new Date().toISOString(),
+    id: String(id),
+    ...transformedFields,
+    createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
+    updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
   }
 }
 

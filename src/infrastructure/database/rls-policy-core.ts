@@ -130,14 +130,15 @@ export const generateRoleCheck = (permission?: TablePermission): string | undefi
 }
 
 /**
- * Generate custom check expression for RLS policies
+ * Generate custom permission check expression for RLS policies
  *
- * Translates custom permission conditions with variable substitution:
+ * Custom permissions allow arbitrary SQL conditions with variable substitution.
+ * Variables are substituted with PostgreSQL session context values:
  * - {userId} → current_setting('app.user_id', true)::TEXT
  * - {organizationId} → current_setting('app.organization_id', true)::TEXT
  *
  * @param permission - Permission configuration
- * @returns SQL expression for custom check, or undefined if no custom check needed
+ * @returns SQL expression for custom check, or undefined if not custom permission
  */
 export const generateCustomCheck = (permission?: TablePermission): string | undefined => {
   if (!permission || permission.type !== 'custom') {

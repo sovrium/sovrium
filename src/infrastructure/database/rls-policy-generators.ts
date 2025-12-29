@@ -407,7 +407,6 @@ const generateOrganizationScopedPolicies = (table: Table): readonly string[] => 
   const enableRLS = generateEnableRLS(tableName)
   const orgIdCheck = `organization_id = current_setting('app.organization_id', true)::TEXT`
 
-  // Use generateOperationCheck to support all permission types (role, custom, owner, authenticated)
   const operationChecks = {
     read: generateOperationCheck(table.permissions?.read),
     create: generateOperationCheck(table.permissions?.create),
