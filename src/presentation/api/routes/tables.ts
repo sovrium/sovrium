@@ -155,8 +155,20 @@ const handleBatchRestoreError = (c: Context, error: unknown) => {
 // Table Route Handlers
 // ============================================================================
 
-function createListTablesProgram(): Effect.Effect<unknown[], never> {
-  return Effect.succeed([])
+function createListTablesProgram(
+  userRole: string
+): Effect.Effect<unknown[], Error> {
+  return Effect.gen(function* () {
+    // Check if user has permission to list tables
+    // By default, only owners and admins can list all tables
+    const allowedRoles = ['owner', 'admin']
+
+    if (!allowedRoles.includes(userRole)) {
+      return yield* Effect.fail(new Error('FORBIDDEN_LIST_TABLES'))
+    }
+
+    return []
+  })
 }
 
 function createGetTableProgram(
@@ -518,7 +530,34 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
-      return runEffect(c, createListTablesProgram(), z.array(z.unknown()))
+
+      // Get user role from database
+      const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+      try {
+        const program = createListTablesProgram(userRole)
+        const result = await Effect.runPromise(program)
+        const validated = z.array(z.unknown()).parse(result)
+        return c.json(validated, 200)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        if (errorMessage === 'FORBIDDEN_LIST_TABLES') {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to list tables',
+            },
+            403
+          )
+        }
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: errorMessage,
+          },
+          500
+        )
+      }
     })
     .get('/api/tables/:tableId', async (c) => {
       const { session } = (c as ContextWithSession).var
