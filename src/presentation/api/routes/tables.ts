@@ -159,16 +159,48 @@ function createListTablesProgram(): Effect.Effect<unknown[], never> {
   return Effect.succeed([])
 }
 
-function createGetTableProgram(tableId: string): Effect.Effect<GetTableResponse, never> {
-  return Effect.succeed({
-    table: {
-      id: tableId,
-      name: 'Sample Table',
-      description: 'A sample table',
-      fields: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+function createGetTableProgram(
+  tableId: string,
+  app: App,
+  userRole: string
+): Effect.Effect<GetTableResponse, Error> {
+  return Effect.gen(function* () {
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new Error('TABLE_NOT_FOUND'))
+    }
+
+    // Check table-level read permissions
+    const readPermission = table.permissions?.read
+
+    // If no read permission is configured, deny access by default (secure by default)
+    if (!readPermission) {
+      return yield* Effect.fail(new Error('FORBIDDEN'))
+    }
+
+    // Check role-based permissions
+    if (readPermission.type === 'roles') {
+      const allowedRoles = readPermission.roles || []
+      if (!allowedRoles.includes(userRole)) {
+        return yield* Effect.fail(new Error('FORBIDDEN'))
+      }
+    }
+
+    // For other permission types (public, authenticated, owner, custom), allow access
+    // These would need additional implementation if required
+
+    return {
+      table: {
+        id: tableId,
+        name: 'Sample Table',
+        description: 'A sample table',
+        fields: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    }
   })
 }
 
@@ -464,7 +496,7 @@ function getViewRecordsProgram() {
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
-function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
+function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .get('/api/tables', async (c) => {
       const { session } = (c as ContextWithSession).var
@@ -478,7 +510,40 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
-      return runEffect(c, createGetTableProgram(c.req.param('tableId')), getTableResponseSchema)
+
+      // Get user role for permission checking
+      const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+      try {
+        const program = createGetTableProgram(c.req.param('tableId'), app, userRole)
+        const result = await Effect.runPromise(program)
+        const validated = getTableResponseSchema.parse(result)
+        return c.json(validated, 200)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+
+        if (errorMessage === 'TABLE_NOT_FOUND') {
+          return c.json({ error: 'Table not found' }, 404)
+        }
+
+        if (errorMessage === 'FORBIDDEN') {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to access this table',
+            },
+            403
+          )
+        }
+
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: errorMessage,
+          },
+          500
+        )
+      }
     })
     .get('/api/tables/:tableId/permissions', async (c) => {
       const { session } = (c as ContextWithSession).var
@@ -865,6 +930,9 @@ export function chainTableRoutes<T extends Hono>(honoApp: T, app: App) {
   // More specific routes (batch/restore) must be registered BEFORE
   // parameterized routes (:recordId/restore) to avoid route collisions.
   return chainViewRoutesMethods(
-    chainRecordRoutesMethods(chainBatchRoutesMethods(chainTableRoutesMethods(honoApp), app), app)
+    chainRecordRoutesMethods(
+      chainBatchRoutesMethods(chainTableRoutesMethods(honoApp, app), app),
+      app
+    )
   )
 }

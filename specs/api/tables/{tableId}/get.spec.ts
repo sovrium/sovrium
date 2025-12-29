@@ -99,13 +99,16 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-004: should return 403 when user lacks read permission for table',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A viewer user without permission to access confidential table
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 1,
@@ -116,6 +119,13 @@ test.describe('Get table by ID', () => {
             ],
           },
         ],
+      })
+
+      // Create authenticated user (viewer role by default)
+      await createAuthenticatedUser({
+        email: 'viewer@example.com',
+        password: 'password123',
+        name: 'Test Viewer',
       })
 
       // WHEN: User requests table they don't have permission to access
