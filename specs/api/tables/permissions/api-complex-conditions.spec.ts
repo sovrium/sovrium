@@ -224,7 +224,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-004: custom condition with numeric comparison',
     { tag: '@spec' },
     async ({
@@ -281,7 +281,7 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(2)
-      const descriptions = data.records.map((r: any) => r.description)
+      const descriptions = data.records.map((r: any) => r.fields.description)
       expect(descriptions).toContain('Small Order')
       expect(descriptions).toContain('Medium Order')
       expect(descriptions).not.toContain('Large Order')
