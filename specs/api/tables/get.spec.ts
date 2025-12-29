@@ -139,31 +139,51 @@ test.describe('List all tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-LIST-005: should only return tables user has permission to view',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Multiple tables with different permission levels
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
             name: 'public_projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            permissions: {
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+            },
           },
           {
             id: 2,
             name: 'confidential_data',
             fields: [{ id: 1, name: 'secret', type: 'long-text' }],
+            permissions: {
+              read: { type: 'roles', roles: ['owner', 'admin'] }, // Only owner/admin can read
+            },
           },
           {
             id: 3,
             name: 'team_tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            permissions: {
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+            },
           },
         ],
       })
+
+      // Create a user and set role to 'member' manually
+      const member = await createAuthenticatedUser()
+
+      // Set member role manually (admin plugin not enabled in this test)
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'member'
+        WHERE id = '${member.user.id}'
+      `)
 
       // WHEN: Member with limited permissions requests tables
       const response = await request.get('/api/tables', {})
