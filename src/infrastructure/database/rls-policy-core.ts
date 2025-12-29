@@ -12,6 +12,7 @@
  * Higher-level policy generators are in rls-policy-generators.ts.
  */
 
+import { translatePermissionCondition } from './permission-condition-translator'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 // ============================================================================
@@ -126,6 +127,24 @@ export const generateRoleCheck = (permission?: TablePermission): string | undefi
     .join(' OR ')
 
   return `(${roleChecks})`
+}
+
+/**
+ * Generate custom check expression for RLS policies
+ *
+ * Translates custom permission conditions with variable substitution:
+ * - {userId} → current_setting('app.user_id', true)::TEXT
+ * - {organizationId} → current_setting('app.organization_id', true)::TEXT
+ *
+ * @param permission - Permission configuration
+ * @returns SQL expression for custom check, or undefined if no custom check needed
+ */
+export const generateCustomCheck = (permission?: TablePermission): string | undefined => {
+  if (!permission || permission.type !== 'custom') {
+    return undefined
+  }
+
+  return translatePermissionCondition(permission.condition)
 }
 
 /**
@@ -270,7 +289,8 @@ export const generateOperationCheck = (
 ): string | undefined =>
   generateAuthenticatedCheck(permission) ||
   generateRoleCheck(permission) ||
-  generateOwnerCheck(permission)
+  generateOwnerCheck(permission) ||
+  generateCustomCheck(permission)
 
 /**
  * Generate policy name based on operation and permission type
@@ -299,6 +319,10 @@ export const generatePolicyName = (
 
   if (permission.type === 'owner') {
     return `${tableName}_owner_${operation}`
+  }
+
+  if (permission.type === 'custom') {
+    return `${tableName}_custom_${operation}`
   }
 
   return `${tableName}_${operation}`

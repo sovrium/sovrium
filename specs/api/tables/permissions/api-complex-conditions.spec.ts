@@ -93,7 +93,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-002: custom condition with AND logic (status check)',
     { tag: '@spec' },
     async ({
@@ -152,8 +152,8 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].name).toBe('Active Project')
-      expect(data.records[0].status).toBe('active')
+      expect(data.records[0].fields.name).toBe('Active Project')
+      expect(data.records[0].fields.status).toBe('active')
     }
   )
 
