@@ -17,6 +17,7 @@ import { translatePermissionCondition } from './permission-condition-translator'
 import {
   CRUD_TO_SQL_COMMAND,
   hasAuthenticatedPermissions,
+  hasCustomPermissions,
   hasExplicitEmptyPermissions,
   hasMixedPermissions,
   hasNoPermissions,
@@ -554,11 +555,12 @@ const hasOnlyFieldPermissions = (table: Table): boolean => {
  * 3. No permissions undefined → Allow API access (app_user policies)
  * 4. Record-level → Custom conditions
  * 5. Mixed permissions → Individual policies per operation
- * 6. Owner-based → Owner field check
- * 7. Authenticated → auth.is_authenticated()
- * 8. Role-based → Role checks
- * 9. Organization-scoped → Organization ID filter
- * 10. Field-only permissions → Default deny with app_user access
+ * 6. Custom permissions → Custom condition policies
+ * 7. Owner-based → Owner field check
+ * 8. Authenticated → auth.is_authenticated()
+ * 9. Role-based → Role checks
+ * 10. Organization-scoped → Organization ID filter
+ * 11. Field-only permissions → Default deny with app_user access
  */
 const selectPolicyGenerator = (
   table: Table
@@ -569,6 +571,7 @@ const selectPolicyGenerator = (
   if (hasNoPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
   if (hasRecordLevelPermissions(table)) return generateRecordLevelPolicies
   if (hasMixedPermissions(table)) return generateMixedPermissionPolicies
+  if (hasCustomPermissions(table)) return generateMixedPermissionPolicies
   if (hasOwnerPermissions(table)) return generateOwnerBasedPolicies
   if (hasAuthenticatedPermissions(table) && !table.permissions?.organizationScoped) {
     return generateAuthenticatedBasedPolicies

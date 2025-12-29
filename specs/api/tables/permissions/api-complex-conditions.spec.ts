@@ -32,7 +32,7 @@ test.describe('API Complex Permission Conditions', () => {
   // @spec tests - EXHAUSTIVE coverage of custom permission conditions
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-001: custom condition with userId variable substitution',
     { tag: '@spec' },
     async ({
@@ -88,8 +88,8 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].content).toBe('My private note')
-      expect(data.records[0].author_id).toBe(user.user.id)
+      expect(data.records[0].fields.content).toBe('My private note')
+      expect(data.records[0].fields.author_id).toBe(user.user.id)
     }
   )
 

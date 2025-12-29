@@ -188,6 +188,27 @@ export const hasRolePermissions = (table: Table): boolean => {
 }
 
 /**
+ * Check if table has custom permissions
+ *
+ * @param table - Table definition
+ * @returns True if any CRUD operation uses custom permission
+ */
+export const hasCustomPermissions = (table: Table): boolean => {
+  const { permissions } = table
+  if (!permissions) {
+    return false
+  }
+
+  return (
+    permissions.read?.type === 'custom' ||
+    permissions.create?.type === 'custom' ||
+    permissions.update?.type === 'custom' ||
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
+    permissions.delete?.type === 'custom'
+  )
+}
+
+/**
  * Check if table has record-level permissions
  *
  * @param table - Table definition
