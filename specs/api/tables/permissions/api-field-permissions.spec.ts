@@ -199,7 +199,7 @@ test.describe('API Field Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-003: should reject write operation when user lacks field write permission',
     { tag: '@spec' },
     async ({
@@ -272,7 +272,7 @@ test.describe('API Field Permission Enforcement', () => {
 
       // VERIFY: Salary should remain unchanged in database
       const result = await executeQuery(`SELECT salary FROM employees WHERE id = 1`)
-      expect(result.salary).toBe(75_000)
+      expect(result.salary).toBe('75000')
     }
   )
 
