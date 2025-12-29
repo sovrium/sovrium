@@ -567,17 +567,17 @@ test.describe('API Bulk Operations with Permissions', () => {
   // @regression test - Complete workflow validation
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-008: complete bulk operations workflow with permissions',
     { tag: '@regression' },
     async ({
       request,
       startServerWithSchema,
       createAuthenticatedUser,
-      createAuthenticatedAdmin,
       createOrganization,
       addMember,
       signOut,
+      signIn,
     }) => {
       let org: { organization: { id: string } }
 
@@ -587,6 +587,7 @@ test.describe('API Bulk Operations with Permissions', () => {
           auth: {
             emailAndPassword: true,
             organization: true,
+            admin: true,
           },
           tables: [
             {
@@ -623,9 +624,9 @@ test.describe('API Bulk Operations with Permissions', () => {
         await createAuthenticatedUser({ email: 'owner@example.com' })
         org = await createOrganization({ name: 'Inventory Org' })
 
-        // Admin
+        // Admin - use createAuthenticatedUser and set role manually
         await signOut()
-        const admin = await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
         await addMember({
           organizationId: org.organization.id,
           userId: admin.user.id,
@@ -644,7 +645,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Member can bulk create (without price)', async () => {
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
 
         const response = await request.post('/api/tables/1/records/batch', {
           headers: {
@@ -678,7 +679,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Admin can bulk create with price', async () => {
         await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
 
         const response = await request.post('/api/tables/1/records/batch', {
           headers: {
@@ -697,7 +698,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Member cannot bulk update', async () => {
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
 
         // Get item IDs
         const listResponse = await request.get('/api/tables/1/records')
@@ -718,7 +719,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Admin can bulk update', async () => {
         await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
 
         // Get item IDs
         const listResponse = await request.get('/api/tables/1/records')
@@ -749,7 +750,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Member cannot bulk delete', async () => {
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
 
         const response = await request.delete('/api/tables/1/records/batch', {
           headers: {
@@ -763,7 +764,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       await test.step('Admin can bulk delete', async () => {
         await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
 
         // Get current item count
         const beforeResponse = await request.get('/api/tables/1/records')

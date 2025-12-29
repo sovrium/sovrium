@@ -394,6 +394,41 @@ function hasCreatePermission(
   return allowedRoles.includes(userRole)
 }
 
+/**
+ * Check if user has role-based update permission for a table
+ * Returns true if permission granted, false if denied
+ */
+function hasUpdatePermission(
+  table: { permissions?: { update?: unknown } } | undefined,
+  userRole: string
+): boolean {
+  const updatePermission = table?.permissions?.update as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+  if (updatePermission?.type !== 'roles') return true
+  const allowedRoles = (updatePermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}
+
+/**
+ * Check if user has role-based delete permission for a table
+ * Returns true if permission granted, false if denied
+ */
+function hasDeletePermission(
+  table: { permissions?: { delete?: unknown } } | undefined,
+  userRole: string
+): boolean {
+  // eslint-disable-next-line drizzle/enforce-delete-with-where
+  const deletePermission = table?.permissions?.delete as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+  if (deletePermission?.type !== 'roles') return true
+  const allowedRoles = (deletePermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}
+
 function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
@@ -1076,6 +1111,41 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level update permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        if (!hasUpdatePermission(table, userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to update records in this table',
+            },
+            403
+          )
+        }
+
+        // Validate field write permissions for all records
+        const allForbiddenFields = result.data.records
+          .map((record) => {
+            const fields = record.fields ?? {}
+            return validateFieldWritePermissions(app, tableName, userRole, fields)
+          })
+          .filter((fields) => fields.length > 0)
+
+        if (allForbiddenFields.length > 0) {
+          // Flatten and deduplicate forbidden field names
+          const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+            },
+            403
+          )
+        }
+
         return runEffect(
           c,
           batchUpdateProgram(session, tableName, result.data.records),
@@ -1096,6 +1166,21 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const tableName = getTableNameFromId(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level delete permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        if (!hasDeletePermission(table, userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to delete records in this table',
+            },
+            403
+          )
         }
 
         return runEffect(
