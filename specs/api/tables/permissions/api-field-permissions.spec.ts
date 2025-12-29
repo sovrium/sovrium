@@ -35,7 +35,7 @@ test.describe('API Field Permission Enforcement', () => {
   // @spec tests - EXHAUSTIVE coverage of field permission enforcement via API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-001: should exclude salary field from API response when member lacks read permission',
     { tag: '@spec' },
     async ({
@@ -43,7 +43,9 @@ test.describe('API Field Permission Enforcement', () => {
       startServerWithSchema,
       createAuthenticatedUser,
       createOrganization,
+      addMember,
       executeQuery,
+      signOut,
     }) => {
       // GIVEN: Table with field-level permissions (salary restricted to admin)
       await startServerWithSchema({
@@ -79,9 +81,24 @@ test.describe('API Field Permission Enforcement', () => {
         ],
       })
 
-      // Create member user with organization
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      // Create admin user and organization (admin becomes owner)
+      const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
+
+      // Set admin role via direct database update
+      await executeQuery(`
+        UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'
+      `)
+
       const org = await createOrganization({ name: 'Test Org' })
+
+      // Create member user and add to organization
+      await signOut()
+      const member = await createAuthenticatedUser({ email: 'member@example.com' })
+      await addMember({
+        organizationId: org.organization.id,
+        userId: member.user.id,
+        role: 'member',
+      })
 
       // Insert test data
       await executeQuery(`
