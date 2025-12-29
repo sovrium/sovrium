@@ -851,9 +851,27 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
           return c.json(updateResult, 200)
         } catch (error) {
-          // Return 404 for authorization failures to prevent enumeration
+          // Check if this is an authorization error (RLS blocking the update)
           if (isAuthorizationError(error)) {
-            return c.json({ error: 'Record not found' }, 404)
+            // Check if the record exists with read permission
+            try {
+              const recordId = c.req.param('recordId')
+              const readResult = await Effect.runPromise(getRecord(session, tableName, recordId))
+
+              // If we can read the record but couldn't update it, return 403 Forbidden
+              if (readResult !== null) {
+                return c.json(
+                  { error: 'Forbidden: You do not have permission to update this record' },
+                  403
+                )
+              }
+
+              // If we can't read the record either, return 404 Not Found
+              return c.json({ error: 'Record not found' }, 404)
+            } catch {
+              // If getRecord also fails, return 404 (record doesn't exist or not readable)
+              return c.json({ error: 'Record not found' }, 404)
+            }
           }
 
           return c.json(

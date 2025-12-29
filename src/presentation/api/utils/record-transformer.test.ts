@@ -30,10 +30,12 @@ describe('transformRecord', () => {
       expect(result.updatedAt).toBe(timestamp)
     })
 
-    test('Then includes all fields in fields property', () => {
+    test('Then includes all fields at root level', () => {
       const record = { id: 1, name: 'Test', email: 'test@example.com', active: true }
       const result = transformRecord(record)
-      expect(result.fields).toEqual(record)
+      expect(result.name).toBe('Test')
+      expect(result.email).toBe('test@example.com')
+      expect(result.active).toBe(true)
     })
   })
 
