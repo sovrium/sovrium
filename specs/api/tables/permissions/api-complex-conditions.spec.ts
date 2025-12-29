@@ -439,7 +439,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-007: custom condition with date comparison',
     { tag: '@spec' },
     async ({
@@ -500,7 +500,7 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(2)
-      const names = data.records.map((r: any) => r.name)
+      const names = data.records.map((r: any) => r.fields.name)
       expect(names).toContain('Today Event')
       expect(names).toContain('Future Event')
       expect(names).not.toContain('Past Event')
