@@ -507,15 +507,9 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     })
     .get('/api/tables/:tableId', async (c) => {
       const { session } = (c as ContextWithSession).var
-      if (!session) {
-        // Return 404 instead of 401 to prevent table enumeration
-        // Security: Don't reveal which table IDs exist to unauthenticated users
-        return c.json({ error: 'Table not found' }, 404)
-      }
-
-      // Get user role for permission checking
+      // Security: Return 404 (not 401) to prevent table enumeration attacks
+      if (!session) return c.json({ error: 'Table not found' }, 404)
       const userRole = await getUserRole(session.userId, session.activeOrganizationId)
-
       try {
         const program = createGetTableProgram(c.req.param('tableId'), app, userRole)
         const result = await Effect.runPromise(program)
@@ -523,11 +517,9 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         return c.json(validated, 200)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
-
         if (errorMessage === 'TABLE_NOT_FOUND') {
           return c.json({ error: 'Table not found' }, 404)
         }
-
         if (errorMessage === 'FORBIDDEN') {
           return c.json(
             {
@@ -537,7 +529,6 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
             403
           )
         }
-
         return c.json(
           {
             error: 'Internal server error',
