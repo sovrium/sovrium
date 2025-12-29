@@ -288,7 +288,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-005: different custom conditions for read vs update',
     { tag: '@spec' },
     async ({
@@ -373,7 +373,7 @@ test.describe('API Complex Permission Conditions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-006: custom condition with NULL handling',
     { tag: '@spec' },
     async ({
@@ -432,14 +432,14 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(2)
-      const titles = data.records.map((r: any) => r.title)
+      const titles = data.records.map((r: any) => r.fields.title)
       expect(titles).toContain('Unassigned Task')
       expect(titles).toContain('My Task')
       expect(titles).not.toContain('Other Task')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CONDITIONS-007: custom condition with date comparison',
     { tag: '@spec' },
     async ({
@@ -500,7 +500,7 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(2)
-      const names = data.records.map((r: any) => r.name)
+      const names = data.records.map((r: any) => r.fields.name)
       expect(names).toContain('Today Event')
       expect(names).toContain('Future Event')
       expect(names).not.toContain('Past Event')
