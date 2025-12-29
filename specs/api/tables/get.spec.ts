@@ -207,10 +207,30 @@ test.describe('List all tables', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-LIST-006: user can complete full tables list workflow',
     { tag: '@regression' },
-    async ({ request }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, signOut }) => {
+      await test.step('Setup: Start server with tables and auth', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+          ],
+        })
+        await createAuthenticatedUser()
+      })
+
       await test.step('Verify authenticated access returns tables list', async () => {
         const authResponse = await request.get('/api/tables', {})
         expect(authResponse.status()).toBe(200)
@@ -219,6 +239,7 @@ test.describe('List all tables', () => {
       })
 
       await test.step('Verify unauthenticated access returns 401', async () => {
+        await signOut()
         const unauthResponse = await request.get('/api/tables')
         expect(unauthResponse.status()).toBe(401)
       })
