@@ -987,7 +987,6 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
       })
       // Generic batch routes AFTER more specific batch/restore route
-      // eslint-disable-next-line complexity -- Route handler with permission checks requires complexity 11
       .post('/api/tables/:tableId/records/batch', async (c) => {
         const { session } = (c as ContextWithSession).var
         if (!session) {
@@ -1014,6 +1013,23 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
             {
               error: 'Forbidden',
               message: 'You do not have permission to create records in this table',
+            },
+            403
+          )
+        }
+
+        // Validate field write permissions for all records
+        const allForbiddenFields = result.data.records
+          .map((record) => validateFieldWritePermissions(app, tableName, userRole, record))
+          .filter((fields) => fields.length > 0)
+
+        if (allForbiddenFields.length > 0) {
+          // Flatten and deduplicate forbidden field names
+          const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
             },
             403
           )
