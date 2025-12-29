@@ -94,7 +94,7 @@ test.describe('API Bulk Operations with Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-BULK-002: bulk create fails entirely when user lacks permission',
     { tag: '@spec' },
     async ({
