@@ -151,13 +151,14 @@ export default [
     },
   },
 
-  // Table query utilities - Cohesive set of CRUD operations with session context
-  // Contains single + batch operations for list/get/create/update/delete/restore
+  // Table query utilities - Complex database operations with session context
+  // Handles CRUD operations, batch operations, RLS enforcement, soft delete/restore
   {
     files: ['src/presentation/api/utils/table-queries.ts'],
     rules: {
-      'max-lines': ['warn', { max: 700, skipBlankLines: true, skipComments: true }], // Comprehensive CRUD + batch operations
-      'max-lines-per-function': ['warn', { max: 80 }], // Batch operations can be longer due to validation logic
+      'max-lines': ['warn', { max: 700, skipBlankLines: true, skipComments: true }], // Complex database query utilities with session context
+      'max-lines-per-function': ['warn', { max: 80 }], // Database query builders can be longer
+      'max-statements': 'off', // Database operations require many sequential statements
     },
   },
 
