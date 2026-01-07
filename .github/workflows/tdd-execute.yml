@@ -432,7 +432,82 @@ jobs:
           echo "$ISSUE_BODY_INPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # =========================================================================
+      # USAGE LIMIT CHECK: Verify Claude Code subscription usage before proceeding
+      # =========================================================================
+      # Checks the Claude Code API to ensure we have capacity:
+      # - Weekly limit: Max 90% of subscription (leaves 10% for manual work)
+      # - Five-hour window: Max 80% (prevents burst rate limiting)
+      # - Daily spread: Ensures even distribution across the week
+      # If limits exceeded, workflow exits gracefully without running Claude.
+      # =========================================================================
+
+      - name: Setup Bun for usage check
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies for usage check
+        run: bun install --frozen-lockfile
+
+      - name: Check Claude Code usage limits
+        id: usage
+        run: |
+          echo "📊 Checking Claude Code usage limits..."
+          echo ""
+
+          # Run usage check script
+          if bun run scripts/tdd-automation/check-usage.ts check; then
+            echo ""
+            echo "✅ Usage within limits - proceeding with Claude Code"
+            echo "can_proceed=true" >> $GITHUB_OUTPUT
+          else
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 1 ]; then
+              echo ""
+              echo "⛔ Usage limit exceeded - skipping Claude Code execution"
+              echo "   The workflow will exit gracefully."
+              echo "   Check /status in Claude Code or run: bun run scripts/tdd-automation/check-usage.ts status"
+              echo "can_proceed=false" >> $GITHUB_OUTPUT
+            else
+              echo ""
+              echo "⚠️ Usage check error (exit code: $EXIT_CODE) - allowing proceed (fail-open)"
+              echo "can_proceed=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Skip execution due to usage limits
+        if: steps.usage.outputs.can_proceed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
+        run: |
+          echo "⏸️ Skipping Claude Code execution due to usage limits"
+          echo ""
+          echo "The issue #$ISSUE_NUMBER remains in its current state."
+          echo "Claude Code will be available when usage capacity resets."
+
+          # Post comment on issue to explain why execution was skipped
+          if [ -n "$ISSUE_NUMBER" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body "⏸️ **Usage Limit Reached**
+
+          Claude Code execution was skipped because subscription usage limits have been reached.
+
+          **What happens now**:
+          - This issue remains in its current state (not marked as failed)
+          - The TDD queue will retry when capacity is available
+          - Manual work on other tasks can continue
+
+          **Check status**: Run \`bun run scripts/tdd-automation/check-usage.ts status\` locally
+
+          ---
+          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*" || true
+          fi
+
       - name: Run Claude Code
+        if: steps.usage.outputs.can_proceed == 'true'
         id: claude
         uses: anthropics/claude-code-action@v1
         timeout-minutes: 90
@@ -468,7 +543,7 @@ jobs:
 
       - name: Detect error type
         id: detect_error
-        if: always()
+        if: always() && steps.usage.outputs.can_proceed == 'true'
         run: |
           echo "🔍 Analyzing Claude Code execution..."
 
@@ -536,7 +611,7 @@ jobs:
       # This step explicitly captures both success state and branch existence for fallback
       - name: Set success output
         id: set_success
-        if: always()
+        if: always() && steps.usage.outputs.can_proceed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -570,7 +645,7 @@ jobs:
           fi
 
       - name: Update issue on failure
-        if: steps.claude.outcome != 'success'
+        if: steps.usage.outputs.can_proceed == 'true' && steps.claude.outcome != 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}

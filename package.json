@@ -85,6 +85,10 @@
     "db:check": "drizzle-kit check",
     "website:build": "bun run website/build.ts",
     "website:serve": "bun --watch run website/serve.ts",
+    "tdd:usage": "bun run scripts/tdd-automation/check-usage.ts",
+    "tdd:usage:check": "bun run scripts/tdd-automation/check-usage.ts check",
+    "tdd:usage:json": "bun run scripts/tdd-automation/check-usage.ts json",
+    "tdd:close-stale-issues": "bun run scripts/tdd-automation/close-stale-issues.ts",
     "release": "semantic-release"
   },
   "devDependencies": {

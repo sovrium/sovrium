@@ -149,7 +149,48 @@ jobs:
           echo "✅ Branch created: $BRANCH_NAME"
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
+      # =========================================================================
+      # USAGE LIMIT CHECK: Verify Claude Code subscription usage before proceeding
+      # =========================================================================
+
+      - name: Check Claude Code usage limits
+        id: usage
+        run: |
+          echo "📊 Checking Claude Code usage limits..."
+
+          if bun run scripts/tdd-automation/check-usage.ts check; then
+            echo "✅ Usage within limits - proceeding with Claude Code"
+            echo "can_proceed=true" >> $GITHUB_OUTPUT
+          else
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 1 ]; then
+              echo "⛔ Usage limit exceeded - skipping Claude Code execution"
+              echo "can_proceed=false" >> $GITHUB_OUTPUT
+            else
+              # Exit code 2 or other = API error, fail-open to allow proceeding
+              echo "⚠️ Usage check error (exit code: $EXIT_CODE) - allowing proceed (fail-open)"
+              echo "can_proceed=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Skip refactor due to usage limits
+        if: steps.usage.outputs.can_proceed == 'false'
+        run: |
+          echo "⛔ Skipping automated refactor due to Claude Code usage limits"
+          echo ""
+          echo "The daily refactor workflow detected that Claude Code subscription"
+          echo "usage is at or near limits. The refactor will be skipped for today"
+          echo "to conserve resources for critical TDD spec processing."
+          echo ""
+          echo "This is expected behavior when usage is high. The refactor will"
+          echo "automatically run again tomorrow if usage limits allow."
+          echo ""
+          echo "📊 Check usage status: bun run scripts/tdd-automation/check-usage.ts status"
+
       - name: Run Claude Code with codebase-refactor-auditor
+        if: steps.usage.outputs.can_proceed == 'true'
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
@@ -227,7 +268,7 @@ jobs:
 
       - name: Verify refactor completed
         id: verify
-        if: always()
+        if: always() && steps.usage.outputs.can_proceed == 'true'
         env:
           BRANCH_NAME: ${{ steps.branch.outputs.branch }}
           GH_TOKEN: ${{ github.token }}
@@ -253,7 +294,7 @@ jobs:
           echo "   PR State: $PR_STATUS"
 
       - name: Handle validation failure
-        if: failure() && steps.verify.outputs.pr_created == 'true'
+        if: failure() && steps.usage.outputs.can_proceed == 'true' && steps.verify.outputs.pr_created == 'true'
         env:
           PR_NUMBER: ${{ steps.verify.outputs.pr_number }}
           GH_TOKEN: ${{ github.token }}
@@ -291,9 +332,19 @@ jobs:
           echo "========================"
           echo "Scope: ${{ needs.wait-for-clean.outputs.scope }}"
           echo "Branch: ${{ needs.wait-for-clean.outputs.branch_name }}"
-          echo "PR Created: ${{ steps.verify.outputs.pr_created }}"
-          if [ "${{ steps.verify.outputs.pr_created }}" = "true" ]; then
+          echo "Usage Check Passed: ${{ steps.usage.outputs.can_proceed }}"
+
+          if [ "${{ steps.usage.outputs.can_proceed }}" = "false" ]; then
+            echo "Status: ⛔ Skipped (usage limit exceeded)"
+            echo ""
+            echo "The refactor was skipped to conserve Claude Code resources."
+            echo "It will automatically run again tomorrow if usage limits allow."
+          elif [ "${{ steps.verify.outputs.pr_created }}" = "true" ]; then
+            echo "PR Created: Yes"
             echo "PR Number: #${{ steps.verify.outputs.pr_number }}"
+          else
+            echo "PR Created: No (codebase may already be clean)"
           fi
+
           echo ""
           echo "TDD queue will resume normal processing"

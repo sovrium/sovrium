@@ -1082,6 +1082,93 @@ fi
 
 **Combined Result**: Pipeline is now self-healing and requires minimal manual intervention
 
+## Claude Code Usage Limits
+
+The TDD pipeline includes usage limit tracking to prevent exhausting the Claude Code subscription mid-week. This ensures sustainable usage that spreads across the week and preserves capacity for manual work.
+
+### How It Works
+
+Before triggering Claude Code for each spec, the pipeline checks the Claude Code OAuth API to verify:
+
+1. **Weekly Limit (90%)**: Maximum 90% of weekly subscription usage, leaving 10% buffer for manual/interactive work
+2. **Five-Hour Window (80%)**: Maximum 80% of the five-hour rate limit to prevent burst usage
+3. **Daily Spread**: Encourages even distribution of usage across the week (~15% per day)
+
+If any limit is exceeded, the queue pauses processing and waits for usage to reset:
+
+- Five-hour window resets automatically
+- Weekly usage resets on a rolling 7-day basis
+
+### Configuration
+
+Usage limits can be customized via environment variables:
+
+| Variable                    | Default | Description                          |
+| --------------------------- | ------- | ------------------------------------ |
+| `TDD_MAX_DAILY_PERCENT`     | `15`    | Max daily usage as % of weekly limit |
+| `TDD_MAX_WEEKLY_PERCENT`    | `90`    | Max weekly usage (leaves buffer)     |
+| `TDD_MAX_FIVE_HOUR_PERCENT` | `80`    | Max five-hour window usage           |
+
+### Checking Usage
+
+```bash
+# Show detailed usage status
+bun run tdd:usage
+
+# Quick check for CI (exits 0=ok, 1=limit exceeded, 2=error)
+bun run tdd:usage:check
+
+# JSON output for programmatic use
+bun run tdd:usage:json
+```
+
+Example output:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║                   Claude Code Usage Status                   ║
+╠══════════════════════════════════════════════════════════════╣
+║  Five-Hour Window:  45.2% used ( 34.8% remaining)            ║
+║  Seven-Day Window:  62.3% used ( 27.7% remaining)            ║
+║                                                              ║
+║  Limits:                                                     ║
+║    • Five-hour max:   80%                                    ║
+║    • Weekly max:      90% (leaves 10% for manual work)       ║
+║    • Daily target:   ~15% per day (spread evenly)            ║
+║                                                              ║
+║  Status: ✅ CAN PROCEED                                      ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+### Required Setup
+
+1. **Generate OAuth Token**: The usage API requires a Claude Code OAuth token
+2. **Add to GitHub Secrets**: Create secret `CLAUDE_CODE_OAUTH_TOKEN` with the token value
+3. **Workflow uses token**: The `tdd-dispatch.yml` workflow reads this secret automatically
+
+To get your OAuth token (from macOS Keychain):
+
+```bash
+security find-generic-password -s "Claude Code-credentials" -w | jq -r '.access_token'
+```
+
+### Behavior When Limits Exceeded
+
+- **Queued issues remain queued**: No processing happens, no labels change
+- **No comments added by default**: Reduces noise (can be enabled in workflow)
+- **Automatic retry**: Queue checks again on next scheduled run (hourly)
+- **Fail-open on API errors**: If usage API is unavailable, processing continues
+
+### Usage Tracking Granularity
+
+The Claude Code API provides:
+
+- `five_hour.utilization`: Rolling 5-hour window usage (0-1 scale)
+- `seven_day.utilization`: Rolling 7-day window usage (0-1 scale)
+- Reset timestamps for both windows
+
+Note: There is no per-run or per-token breakdown, so daily limits are estimated based on weekly usage divided by 7.
+
 ## Configuration Options
 
 ### Adjust Processing Interval
