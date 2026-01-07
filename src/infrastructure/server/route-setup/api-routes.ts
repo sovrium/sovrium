@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Data } from 'effect'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { authMiddleware } from '@/presentation/api/middleware/auth'
 import { chainTableRoutes, chainAuthRoutes, chainActivityRoutes } from '@/presentation/api/routes'
@@ -15,6 +15,14 @@ import {
 } from '@/presentation/api/schemas/health-schemas'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
+
+/**
+ * Error when health response validation fails
+ */
+class HealthResponseValidationError extends Data.TaggedError('HealthResponseValidationError')<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}
 
 /**
  * Create API routes using method chaining pattern
@@ -68,7 +76,11 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
       // Validate response against schema (ensures type safety)
       const validated = yield* Effect.try({
         try: () => healthResponseSchema.parse(response),
-        catch: (error) => new Error(`Health response validation failed: ${error}`),
+        catch: (error) =>
+          new HealthResponseValidationError({
+            message: `Health response validation failed: ${error}`,
+            cause: error,
+          }),
       })
 
       return validated

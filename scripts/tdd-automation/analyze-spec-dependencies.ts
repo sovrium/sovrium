@@ -68,6 +68,14 @@ interface DependencyGraph {
 }
 
 /**
+ * Tagged error for missing scan results
+ */
+class ScanResultsNotFoundError {
+  readonly _tag = 'ScanResultsNotFoundError'
+  constructor(readonly message: string) {}
+}
+
+/**
  * Extract import statements from a TypeScript file
  */
 const extractImports = (filePath: string): string[] => {
@@ -214,7 +222,7 @@ const analyzeSpecDependencies = Effect.gen(function* () {
   if (!fs.existsSync(scanFilePath)) {
     yield* logError(`Scan file not found: ${scanFilePath}`)
     yield* logInfo('  Run queue-manager.ts scan first')
-    return yield* Effect.fail(new Error('No scan results found'))
+    return yield* Effect.fail(new ScanResultsNotFoundError('No scan results found'))
   }
 
   const scanData: QueueScanData = JSON.parse(fs.readFileSync(scanFilePath, 'utf-8'))

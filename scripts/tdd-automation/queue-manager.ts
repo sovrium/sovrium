@@ -69,6 +69,14 @@ export {
 }
 
 /**
+ * Tagged error for idempotency lock conflicts
+ */
+class PopulateOperationInProgressError {
+  readonly _tag = 'PopulateOperationInProgressError'
+  constructor(readonly message: string) {}
+}
+
+/**
  * CLI: Scan for all test.fixme() and save to file
  */
 const commandScan = Effect.gen(function* () {
@@ -103,7 +111,9 @@ const commandPopulate = Effect.gen(function* () {
   // Check idempotency lock
   const canProceed = yield* checkIdempotencyLock
   if (!canProceed) {
-    return yield* Effect.fail(new Error('Another populate operation is in progress'))
+    return yield* Effect.fail(
+      new PopulateOperationInProgressError('Another populate operation is in progress')
+    )
   }
 
   // Create lock

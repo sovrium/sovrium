@@ -11,6 +11,19 @@ import { z } from 'zod'
 import { runEffect } from './run-effect'
 import type { Context } from 'hono'
 
+/**
+ * Tagged error class for testing Effect failure handling
+ * Extends Error to be compatible with runEffect's error handling
+ */
+class TestError extends Error {
+  readonly _tag = 'TestError'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'TestError'
+  }
+}
+
 // Helper to create a mock Hono context
 const createMockContext = () => {
   const jsonResponses: Array<{ data: unknown; status: number }> = []
@@ -124,9 +137,9 @@ describe('runEffect', () => {
   })
 
   describe('Effect program failures', () => {
-    test('handles Effect failure with Error', async () => {
+    test('handles Effect failure with tagged error', async () => {
       const c = createMockContext()
-      const program = Effect.fail(new Error('Operation failed'))
+      const program = Effect.fail(new TestError('Operation failed'))
       const schema = z.object({ success: z.boolean() })
 
       await runEffect(c, program, schema)
@@ -177,7 +190,7 @@ describe('runEffect', () => {
 
     test('includes error message in response', async () => {
       const c = createMockContext()
-      const program = Effect.fail(new Error('Database connection lost'))
+      const program = Effect.fail(new TestError('Database connection lost'))
       const schema = z.object({ data: z.string() })
 
       await runEffect(c, program, schema)

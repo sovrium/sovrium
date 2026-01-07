@@ -10,7 +10,7 @@
 import { Effect } from 'effect'
 import { z } from 'zod'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure for session context
-import { SessionContextError, type ForbiddenError } from '@/infrastructure/database/session-context'
+import { SessionContextError, ForbiddenError } from '@/infrastructure/database/session-context'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
@@ -60,6 +60,34 @@ import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
+
+/* eslint-disable functional/no-expression-statements -- Error subclass requires super() and this.name assignment */
+
+/**
+ * Error when table is not found
+ */
+class TableNotFoundError extends Error {
+  readonly _tag = 'TableNotFoundError'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'TableNotFoundError'
+  }
+}
+
+/**
+ * Error when listing tables is forbidden
+ */
+class ForbiddenListTablesError extends Error {
+  readonly _tag = 'ForbiddenListTablesError'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'ForbiddenListTablesError'
+  }
+}
+
+/* eslint-enable functional/no-expression-statements */
 
 // ============================================================================
 // Constants
@@ -176,7 +204,7 @@ function createListTablesProgram(userRole: string, app: App): Effect.Effect<unkn
       userRole as (typeof ALLOWED_ROLES_TO_LIST_TABLES)[number]
     )
   ) {
-    return Effect.fail(new Error('FORBIDDEN_LIST_TABLES'))
+    return Effect.fail(new ForbiddenListTablesError('FORBIDDEN_LIST_TABLES'))
   }
 
   // Filter tables based on user's read permissions
@@ -224,7 +252,7 @@ function createGetTableProgram(
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
 
     if (!table) {
-      return yield* Effect.fail(new Error('TABLE_NOT_FOUND'))
+      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
     }
 
     // Check table-level read permissions
@@ -232,14 +260,14 @@ function createGetTableProgram(
 
     // If no read permission is configured, deny access by default (secure by default)
     if (!readPermission) {
-      return yield* Effect.fail(new Error('FORBIDDEN'))
+      return yield* Effect.fail(new ForbiddenError('FORBIDDEN'))
     }
 
     // Check role-based permissions
     if (readPermission.type === 'roles') {
       const allowedRoles = readPermission.roles || []
       if (!allowedRoles.includes(userRole)) {
-        return yield* Effect.fail(new Error('FORBIDDEN'))
+        return yield* Effect.fail(new ForbiddenError('FORBIDDEN'))
       }
     }
 

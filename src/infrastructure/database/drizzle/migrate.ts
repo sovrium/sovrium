@@ -8,8 +8,24 @@
 import { SQL } from 'bun'
 import { drizzle } from 'drizzle-orm/bun-sql'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
 import * as schema from './schema'
+
+/**
+ * Error when database connection fails
+ */
+export class DatabaseConnectionError extends Data.TaggedError('DatabaseConnectionError')<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}
+
+/**
+ * Error when migration fails
+ */
+export class MigrationError extends Data.TaggedError('MigrationError')<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}
 
 /**
  * Run Drizzle migrations to create/update database schema
@@ -27,7 +43,9 @@ import * as schema from './schema'
  * @param databaseUrl - PostgreSQL connection URL
  * @returns Effect that completes when migrations are applied
  */
-export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =>
+export const runMigrations = (
+  databaseUrl: string
+): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
     yield* Console.log('[runMigrations] Running Drizzle migrations...')
 
@@ -37,18 +55,20 @@ export const runMigrations = (databaseUrl: string): Effect.Effect<void, Error> =
     // Test database connection first to fail fast on connection errors
     yield* Effect.tryPromise({
       try: () => client.unsafe('SELECT 1'),
-      catch: (error) => {
-        const errorMessage = String(error)
-        return new Error(`Database connection failed: ${errorMessage}`)
-      },
+      catch: (error) =>
+        new DatabaseConnectionError({
+          message: `Database connection failed: ${String(error)}`,
+          cause: error,
+        }),
     })
 
     yield* Effect.tryPromise({
       try: () => migrate(db, { migrationsFolder: './drizzle' }),
-      catch: (error) => {
-        const errorMessage = String(error)
-        return new Error(`Migration failed: ${errorMessage}`)
-      },
+      catch: (error) =>
+        new MigrationError({
+          message: `Migration failed: ${String(error)}`,
+          cause: error,
+        }),
     })
 
     yield* Effect.promise(() => client.close())
