@@ -62,6 +62,16 @@ import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+const AUTH_TABLE_MEMBERS = '_sovrium_auth_members'
+const AUTH_TABLE_USERS = '_sovrium_auth_users'
+const AUTH_KEYWORDS = ['not found', 'access denied'] as const
+const ALLOWED_ROLES_TO_LIST_TABLES = ['owner', 'admin', 'member'] as const
+const DEFAULT_ROLE = 'member'
+
+// ============================================================================
 // Table ID Resolution
 // ============================================================================
 
@@ -85,7 +95,7 @@ const getTableNameFromId = (app: App, tableId: string): string | undefined => {
  * Check if a string contains authorization-related keywords
  */
 const containsAuthKeywords = (text: string): boolean =>
-  text.includes('not found') || text.includes('access denied')
+  AUTH_KEYWORDS.some((keyword) => text.includes(keyword))
 
 /**
  * Check if error is an authorization error (SessionContextError or access denied)
@@ -161,8 +171,11 @@ const handleBatchRestoreError = (c: Context, error: unknown) => {
 function createListTablesProgram(userRole: string, app: App): Effect.Effect<unknown[], Error> {
   // Global permission check: only owner/admin/member can list tables
   // Viewer role is explicitly denied from listing tables
-  const allowedRolesToListTables = ['owner', 'admin', 'member']
-  if (!allowedRolesToListTables.includes(userRole)) {
+  if (
+    !ALLOWED_ROLES_TO_LIST_TABLES.includes(
+      userRole as (typeof ALLOWED_ROLES_TO_LIST_TABLES)[number]
+    )
+  ) {
     return Effect.fail(new Error('FORBIDDEN_LIST_TABLES'))
   }
 
@@ -323,7 +336,7 @@ async function getUserRole(userId: string, activeOrganizationId?: string | null)
   // If active organization, check members table first
   if (activeOrganizationId) {
     const memberResult = (await db.execute(
-      `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+      `SELECT role FROM "${AUTH_TABLE_MEMBERS}" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
     )) as Array<{ role: string | null }>
 
     if (memberResult[0]?.role) {
@@ -333,9 +346,9 @@ async function getUserRole(userId: string, activeOrganizationId?: string | null)
 
   // Fall back to global user role from users table
   const userResult = (await db.execute(
-    `SELECT role FROM "_sovrium_auth_users" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
+    `SELECT role FROM "${AUTH_TABLE_USERS}" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
   )) as Array<{ role: string | null }>
-  return userResult[0]?.role || 'member'
+  return userResult[0]?.role || DEFAULT_ROLE
 }
 
 interface GetRecordConfig {
@@ -979,7 +992,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         // Authorization check BEFORE validation (viewers cannot restore, regardless of input validity)
         const { db } = await import('@/infrastructure/database')
         const userResult = (await db.execute(
-          `SELECT role FROM "_sovrium_auth_users" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
+          `SELECT role FROM "${AUTH_TABLE_USERS}" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
         )) as Array<{ role: string | null }>
         const userRole = userResult[0]?.role
 
