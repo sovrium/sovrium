@@ -6,7 +6,7 @@ Skills are autonomous, reusable utilities that Claude automatically invokes when
 
 **Location**: `.claude/skills/`
 
-**Total Skills**: 8
+**Total Skills**: 9
 
 ---
 
