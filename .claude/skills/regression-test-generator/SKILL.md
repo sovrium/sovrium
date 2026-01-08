@@ -395,6 +395,41 @@ Combine all steps into the final @regression test structure.
 - If no @regression exists: Append to end of file
 - If @regression exists: Replace the existing one
 
+### Step 8: Quality Validation
+
+**MANDATORY**: After generating the regression test, run quality checks:
+
+```bash
+# Run full quality validation
+bun run quality
+```
+
+This validates:
+- ✅ ESLint passes (no linting errors)
+- ✅ TypeScript compiles (no type errors)
+- ✅ Prettier formatting is correct
+- ✅ Unit tests pass
+- ✅ The generated @regression test runs successfully
+
+**If quality checks fail**:
+1. Fix any ESLint/TypeScript errors in the generated test
+2. Run `bun run lint:fix` to auto-fix formatting issues
+3. Re-run `bun run quality` to verify fixes
+4. Only report success when all quality checks pass
+
+**Example workflow**:
+```bash
+# After generating regression test
+bun run quality
+
+# If there are fixable issues
+bun run lint:fix
+bun run format
+
+# Verify again
+bun run quality
+```
+
 ## Report Format
 
 ### Success Report

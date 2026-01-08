@@ -43,7 +43,7 @@ description: |-
   </commentary>
   </example>
 
-model: sonnet
+model: opus
 # Model Rationale: Requires complex reasoning for schema design, architectural alignment,
 # test coverage analysis, and cross-domain consistency validation. Must balance product vision
 # with implementation pragmatism and provide collaborative guidance on specification decisions.

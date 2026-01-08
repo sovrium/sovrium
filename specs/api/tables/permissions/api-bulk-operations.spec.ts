@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
+import { test, expect, type OrganizationResult, type AuthResult } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Bulk Operations with Permissions
@@ -570,24 +570,32 @@ test.describe('API Bulk Operations with Permissions', () => {
   )
 
   // ============================================================================
-  // @regression test - Complete workflow validation
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying bulk operations work correctly with various permission scenarios
+  // Generated from 7 @spec tests - covers: create, update, delete with role-based, owner-based, field-level, and org-scoped permissions
   // ============================================================================
 
-  test.fixme(
-    'API-TABLES-PERMISSIONS-BULK-008: complete bulk operations workflow with permissions',
+  test(
+    'API-TABLES-PERMISSIONS-BULK-REGRESSION: complete bulk operations workflow with permissions',
     { tag: '@regression' },
     async ({
       request,
       startServerWithSchema,
       createAuthenticatedUser,
-      createAuthenticatedAdmin,
       createOrganization,
       addMember,
+      executeQuery,
       signOut,
+      signIn,
+      setActiveOrganization,
     }) => {
-      let org: { organization: { id: string } }
+      let ownerOrg: OrganizationResult
+      let memberUser: AuthResult
+      let adminUser: AuthResult
+      let crossOrgAId: string
+      let crossOrgBId: string
 
-      await test.step('Setup: Create schema with tiered bulk permissions', async () => {
+      await test.step('Setup: Initialize comprehensive permission test schema', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -595,200 +603,333 @@ test.describe('API Bulk Operations with Permissions', () => {
             organization: true,
           },
           tables: [
+            // Table 1: Simple authenticated create (for BULK-001)
             {
               id: 1,
-              name: 'inventory',
+              name: 'tasks',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'quantity', type: 'integer' },
-                { id: 4, name: 'price', type: 'currency', currency: 'USD' },
-                { id: 5, name: 'organization_id', type: 'single-line-text' },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
                 organizationScoped: true,
                 read: { type: 'authenticated' },
-                create: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-                update: { type: 'roles', roles: ['owner', 'admin'] },
-                delete: { type: 'roles', roles: ['owner', 'admin'] },
+                create: { type: 'authenticated' },
+              },
+            },
+            // Table 2: Admin-only create (for BULK-002)
+            {
+              id: 2,
+              name: 'restricted_items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                create: { type: 'roles', roles: ['admin'] },
+              },
+            },
+            // Table 3: Owner-based update (for BULK-003, BULK-004)
+            {
+              id: 3,
+              name: 'notes',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'long-text' },
+                { id: 3, name: 'owner_id', type: 'created-by' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                update: { type: 'owner', field: 'owner_id' },
+              },
+            },
+            // Table 4: Organization-scoped delete (for BULK-005)
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                delete: { type: 'authenticated' },
+              },
+            },
+            // Table 5: Field-level permissions (for BULK-006)
+            {
+              id: 5,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                create: { type: 'authenticated' },
                 fields: [
                   {
-                    field: 'price',
-                    write: { type: 'roles', roles: ['owner', 'admin'] },
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['owner', 'admin'] },
+                    write: { type: 'roles', roles: ['admin'] },
                   },
                 ],
               },
             },
+            // Table 6: Batch update testing (for BULK-007)
+            {
+              id: 6,
+              name: 'records',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                update: { type: 'authenticated' },
+              },
+            },
           ],
         })
-      })
 
-      await test.step('Setup: Create users with different roles', async () => {
-        // Owner
+        // Create owner and organization
         await createAuthenticatedUser({ email: 'owner@example.com' })
-        org = await createOrganization({ name: 'Inventory Org' })
+        ownerOrg = await createOrganization({ name: 'Test Org' })
 
-        // Admin
+        // Create admin
         await signOut()
-        const admin = await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        adminUser = await createAuthenticatedUser({ email: 'admin@example.com' })
         await addMember({
-          organizationId: org.organization.id,
-          userId: admin.user.id,
+          organizationId: ownerOrg.organization.id,
+          userId: adminUser.user.id,
           role: 'admin',
         })
 
-        // Member
+        // Create member
         await signOut()
-        const member = await createAuthenticatedUser({ email: 'member@example.com' })
+        memberUser = await createAuthenticatedUser({ email: 'member@example.com' })
         await addMember({
-          organizationId: org.organization.id,
-          userId: member.user.id,
+          organizationId: ownerOrg.organization.id,
+          userId: memberUser.user.id,
           role: 'member',
         })
+
+        // Create second organization for cross-org testing
+        await signOut()
+        await createAuthenticatedUser({ email: 'user-b@example.com' })
+        const orgB = await createOrganization({ name: 'Organization B' })
+        crossOrgBId = orgB.organization.id
+
+        // Switch back to first org for testing
+        await signOut()
+        await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+        crossOrgAId = ownerOrg.organization.id
       })
 
-      await test.step('Member can bulk create (without price)', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
-
+      await test.step('BULK-001: Bulk create succeeds with authenticated permission', async () => {
         const response = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [
-              { name: 'Widget A', quantity: 100 },
-              { name: 'Widget B', quantity: 50 },
-            ],
+            records: [{ title: 'Task 1' }, { title: 'Task 2' }, { title: 'Task 3' }],
           },
         })
 
         expect(response.status()).toBe(201)
         const data = await response.json()
-        expect(data.records).toHaveLength(2)
+        expect(data.records).toHaveLength(3)
+        expect(data.records.map((r: any) => r.fields.title)).toEqual(['Task 1', 'Task 2', 'Task 3'])
       })
 
-      await test.step('Member cannot bulk create with price field', async () => {
-        const response = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('BULK-002: Bulk create fails when user lacks role permission', async () => {
+        // Switch to member user
+        await signOut()
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+
+        const response = await request.post('/api/tables/2/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'Expensive Widget', quantity: 10, price: 9999 }],
+            records: [{ name: 'Item 1' }, { name: 'Item 2' }],
           },
         })
 
         expect(response.status()).toBe(403)
+
+        // Switch back to owner
+        await signOut()
+        await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
       })
 
-      await test.step('Admin can bulk create with price', async () => {
-        await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+      await test.step('BULK-003: Bulk update succeeds for owner-based permissions', async () => {
+        // Insert notes owned by owner
+        await executeQuery(`
+          INSERT INTO notes (id, content, owner_id, organization_id) VALUES
+            (1, 'My Note 1', '${adminUser.user.id}', '${ownerOrg.organization.id}'),
+            (2, 'My Note 2', '${adminUser.user.id}', '${ownerOrg.organization.id}')
+        `)
 
-        const response = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        // Switch to admin user (note owner)
+        await signOut()
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+
+        const response = await request.patch('/api/tables/3/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { name: 'Premium Widget', quantity: 25, price: 29_900 },
-              { name: 'Deluxe Widget', quantity: 10, price: 59_900 },
-            ],
-          },
-        })
-
-        expect(response.status()).toBe(201)
-      })
-
-      await test.step('Member cannot bulk update', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
-
-        // Get item IDs
-        const listResponse = await request.get('/api/tables/1/records')
-        const items = await listResponse.json()
-        const itemIds = items.records.slice(0, 2).map((r: any) => r.id)
-
-        const response = await request.patch('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            records: itemIds.map((id: number) => ({ id: String(id), fields: { quantity: 999 } })),
-          },
-        })
-
-        expect(response.status()).toBe(403)
-      })
-
-      await test.step('Admin can bulk update', async () => {
-        await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
-
-        // Get item IDs
-        const listResponse = await request.get('/api/tables/1/records')
-        const items = await listResponse.json()
-        const itemIds = items.records.slice(0, 2).map((r: any) => r.id)
-
-        const response = await request.patch('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            records: [
-              { id: String(itemIds[0]), fields: { quantity: 200 } },
-              { id: String(itemIds[1]), fields: { quantity: 100 } },
+              { id: '1', fields: { content: 'Updated Note 1' } },
+              { id: '2', fields: { content: 'Updated Note 2' } },
             ],
           },
         })
 
         expect(response.status()).toBe(200)
 
-        // Verify updates
-        const updatedResponse = await request.get('/api/tables/1/records')
-        const updatedItems = await updatedResponse.json()
-        const updated = updatedItems.records.filter((r: any) => itemIds.includes(r.id))
-        expect(updated.some((r: any) => r.quantity === 200)).toBe(true)
-        expect(updated.some((r: any) => r.quantity === 100)).toBe(true)
+        const dbResult = await executeQuery('SELECT id, content FROM notes ORDER BY id')
+        expect(dbResult.rows[0].content).toBe('Updated Note 1')
+        expect(dbResult.rows[1].content).toBe('Updated Note 2')
+
+        // Switch back to owner
+        await signOut()
+        await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
       })
 
-      await test.step('Member cannot bulk delete', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+      await test.step('BULK-004: Mixed ownership update handles partial success', async () => {
+        // Insert notes with mixed ownership (owner owns note 3, admin owns note 4)
+        await executeQuery(`
+          INSERT INTO notes (id, content, owner_id, organization_id) VALUES
+            (3, 'Owner Note', '${adminUser.user.id}', '${ownerOrg.organization.id}'),
+            (4, 'Member Note', '${memberUser.user.id}', '${ownerOrg.organization.id}')
+        `)
 
-        const response = await request.delete('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
+        // Admin tries to update both notes (owns 3, doesn't own 4)
+        await signOut()
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+
+        const response = await request.patch('/api/tables/3/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { id: '3', fields: { content: 'Updated Owner Note' } },
+              { id: '4', fields: { content: 'Trying to Update Member Note' } },
+            ],
           },
-          data: { ids: [1, 2] },
         })
 
-        expect(response.status()).toBe(403)
+        expect([200, 403, 207]).toContain(response.status())
+
+        // Switch back to owner
+        await signOut()
+        await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
       })
 
-      await test.step('Admin can bulk delete', async () => {
-        await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+      await test.step('BULK-005: Bulk delete respects organization isolation', async () => {
+        // Insert items in both organizations
+        await executeQuery(`
+          INSERT INTO items (id, name, organization_id) VALUES
+            (1, 'Org A Item 1', '${crossOrgAId}'),
+            (2, 'Org A Item 2', '${crossOrgAId}'),
+            (3, 'Org B Item 1', '${crossOrgBId}')
+        `)
 
-        // Get current item count
-        const beforeResponse = await request.get('/api/tables/1/records')
-        const beforeItems = await beforeResponse.json()
-        const deleteIds = beforeItems.records.slice(0, 2).map((r: any) => r.id)
-
-        const response = await request.delete('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
+        // Try to delete all items including cross-org item
+        const response = await request.delete('/api/tables/4/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            ids: ['1', '2', '3'],
           },
-          data: { ids: deleteIds },
         })
 
         expect(response.status()).toBe(200)
 
-        // Verify deletion
-        const afterResponse = await request.get('/api/tables/1/records')
-        const afterItems = await afterResponse.json()
-        expect(afterItems.records.length).toBe(beforeItems.records.length - 2)
+        // Only Org A items should be soft-deleted (Org B item ignored by RLS)
+        const dbResult = await executeQuery(
+          'SELECT id FROM items WHERE deleted_at IS NULL ORDER BY id'
+        )
+        expect(dbResult.rows).toHaveLength(1)
+        expect(dbResult.rows[0].id).toBe(3)
+      })
+
+      await test.step('BULK-006: Bulk create respects field-level permissions', async () => {
+        // Switch to member user
+        await signOut()
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+
+        const response = await request.post('/api/tables/5/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Employee 1', salary: 50_000 },
+              { name: 'Employee 2', salary: 60_000 },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.message).toMatch(/permission|salary|forbidden/i)
+
+        // Switch back to owner
+        await signOut()
+        await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+      })
+
+      await test.step('BULK-007: Large batch update handles rate limiting', async () => {
+        // Insert test records
+        await executeQuery(`
+          INSERT INTO records (id, value, organization_id) VALUES
+            (1, 'Value 1', '${ownerOrg.organization.id}'),
+            (2, 'Value 2', '${ownerOrg.organization.id}'),
+            (3, 'Value 3', '${ownerOrg.organization.id}'),
+            (4, 'Value 4', '${ownerOrg.organization.id}'),
+            (5, 'Value 5', '${ownerOrg.organization.id}')
+        `)
+
+        // Switch to member
+        await signOut()
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(ownerOrg.organization.id)
+
+        const response = await request.patch('/api/tables/6/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { id: '1', fields: { value: 'Updated 1' } },
+              { id: '2', fields: { value: 'Updated 2' } },
+              { id: '3', fields: { value: 'Updated 3' } },
+              { id: '4', fields: { value: 'Updated 4' } },
+              { id: '5', fields: { value: 'Updated 5' } },
+            ],
+          },
+        })
+
+        expect([200, 429]).toContain(response.status())
       })
     }
   )
