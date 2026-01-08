@@ -377,12 +377,40 @@ export const translateFormulaToPostgres = (
 }
 
 /**
+ * EXTRACT date/time field keywords that should not be qualified
+ * These are valid arguments to EXTRACT() function and not column references
+ */
+const EXTRACT_KEYWORDS = new Set([
+  'year',
+  'month',
+  'day',
+  'hour',
+  'minute',
+  'second',
+  'dow',
+  'doy',
+  'week',
+  'quarter',
+  'decade',
+  'century',
+  'millennium',
+  'epoch',
+  'timezone',
+  'timezone_hour',
+  'timezone_minute',
+])
+
+/**
  * Qualify column references in a formula with a prefix
  * Used by trigger functions to reference columns from subqueries or NEW/OLD records
  *
  * @example
  * qualifyColumnReferences('NOT paid AND due_date < CURRENT_DATE', fields, 't')
  * // Returns: 'NOT t.paid AND t.due_date < CURRENT_DATE'
+ *
+ * @example
+ * qualifyColumnReferences('EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)', fields, 't')
+ * // Returns: 'EXTRACT(HOUR FROM t.timestamp_value::TIMESTAMP)' (HOUR not qualified)
  */
 export const qualifyColumnReferences = (
   formula: string,
@@ -390,6 +418,21 @@ export const qualifyColumnReferences = (
   prefix: string
 ): string =>
   allFields.reduce((acc, field) => {
+    // Don't qualify EXTRACT keywords (e.g., HOUR, MINUTE, DAY)
+    if (EXTRACT_KEYWORDS.has(field.name.toLowerCase())) {
+      // Check if this field name appears as an EXTRACT keyword
+      const extractPattern = new RegExp(`\\bEXTRACT\\s*\\(\\s*${field.name}\\s+FROM\\b`, 'gi')
+      if (extractPattern.test(acc)) {
+        // This is an EXTRACT keyword, only qualify non-keyword occurrences
+        // Match the field name but exclude it when preceded by EXTRACT(
+        const fieldRegex = new RegExp(
+          `(?<!EXTRACT\\s{0,10}\\(\\s{0,10})(?<![."])\\b${field.name}\\b(?!["']|\\s+FROM)`,
+          'gi'
+        )
+        return acc.replace(fieldRegex, `${prefix}.${field.name}`)
+      }
+    }
+
     // Create regex that matches field name as a whole word
     // Use word boundaries (\b) and negative lookbehind for dots (avoid double-qualifying)
     const fieldRegex = new RegExp(`(?<![."])\\b${field.name}\\b(?!["'])`, 'gi')

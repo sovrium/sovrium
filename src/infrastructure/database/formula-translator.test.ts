@@ -10,6 +10,7 @@ import {
   translateFormulaToPostgres,
   isFormulaReturningArray,
   isFormulaVolatile,
+  qualifyColumnReferences,
 } from './formula-utils'
 
 describe('translateFormulaToPostgres', () => {
@@ -421,5 +422,112 @@ describe('Reserved Word Escaping', () => {
       const expected = '"order_num"  *  2'
       expect(translateFormulaToPostgres(input, fields)).toBe(expected)
     })
+  })
+})
+
+describe('qualifyColumnReferences', () => {
+  test('should qualify simple field references', () => {
+    const fields = [
+      { name: 'amount', type: 'decimal' },
+      { name: 'quantity', type: 'integer' },
+    ]
+    const input = 'amount * quantity'
+    const expected = 't.amount * t.quantity'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should not qualify already qualified references', () => {
+    const fields = [{ name: 'amount', type: 'decimal' }]
+    const input = 't.amount * 2'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(input)
+  })
+
+  test('should qualify references in boolean expressions', () => {
+    const fields = [
+      { name: 'paid', type: 'checkbox' },
+      { name: 'due_date', type: 'date' },
+    ]
+    const input = 'NOT paid AND due_date < CURRENT_DATE'
+    const expected = 'NOT t.paid AND t.due_date < CURRENT_DATE'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should NOT qualify EXTRACT date/time keywords', () => {
+    const fields = [
+      { name: 'timestamp_value', type: 'single-line-text' },
+      { name: 'hour', type: 'formula' },
+    ]
+    const input = 'EXTRACT(HOUR FROM timestamp_value::TIMESTAMP)::INTEGER'
+    const expected = 'EXTRACT(HOUR FROM t.timestamp_value::TIMESTAMP)::INTEGER'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should NOT qualify EXTRACT MINUTE keyword', () => {
+    const fields = [
+      { name: 'timestamp_value', type: 'single-line-text' },
+      { name: 'minute', type: 'formula' },
+    ]
+    const input = 'EXTRACT(MINUTE FROM timestamp_value::TIMESTAMP)'
+    const expected = 'EXTRACT(MINUTE FROM t.timestamp_value::TIMESTAMP)'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should NOT qualify EXTRACT DAY keyword', () => {
+    const fields = [
+      { name: 'date_value', type: 'date' },
+      { name: 'day', type: 'formula' },
+    ]
+    const input = 'EXTRACT(DAY FROM date_value)'
+    const expected = 'EXTRACT(DAY FROM t.date_value)'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should NOT qualify EXTRACT YEAR, MONTH, SECOND keywords', () => {
+    const fields = [
+      { name: 'date_value', type: 'date' },
+      { name: 'year', type: 'formula' },
+      { name: 'month', type: 'formula' },
+      { name: 'second', type: 'formula' },
+    ]
+    const input = 'EXTRACT(YEAR FROM date_value) + EXTRACT(MONTH FROM date_value)'
+    const expected = 'EXTRACT(YEAR FROM t.date_value) + EXTRACT(MONTH FROM t.date_value)'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should qualify field named "hour" when NOT used as EXTRACT keyword', () => {
+    const fields = [
+      { name: 'hour', type: 'integer' },
+      { name: 'rate', type: 'decimal' },
+    ]
+    const input = 'hour * rate'
+    const expected = 't.hour * t.rate'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should handle mixed EXTRACT keyword and regular field reference', () => {
+    const fields = [
+      { name: 'timestamp_value', type: 'single-line-text' },
+      { name: 'hour', type: 'integer' }, // Regular hour field (not EXTRACT keyword)
+    ]
+    const input = 'EXTRACT(HOUR FROM timestamp_value) + hour'
+    const expected = 'EXTRACT(HOUR FROM t.timestamp_value) + t.hour'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should handle case-insensitive EXTRACT keywords', () => {
+    const fields = [
+      { name: 'timestamp_value', type: 'single-line-text' },
+      { name: 'hour', type: 'formula' },
+    ]
+    const input = 'extract(hour from timestamp_value)'
+    const expected = 'extract(hour from t.timestamp_value)'
+    expect(qualifyColumnReferences(input, fields, 't')).toBe(expected)
+  })
+
+  test('should use custom prefix', () => {
+    const fields = [{ name: 'amount', type: 'decimal' }]
+    const input = 'amount * 2'
+    const expected = 'NEW.amount * 2'
+    expect(qualifyColumnReferences(input, fields, 'NEW')).toBe(expected)
   })
 })
