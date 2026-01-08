@@ -36,7 +36,6 @@ import { CommandServiceLive, LoggerServicePretty, logInfo, logError, success } f
 import {
   checkUsageLimits,
   getUsageStatus,
-  canProceedWithUsage,
   fetchClaudeCodeUsage,
   DEFAULT_CONFIG,
   type UsageConfig,
@@ -159,8 +158,8 @@ const commandJson = Effect.gen(function* () {
 
   const usage = yield* fetchClaudeCodeUsage.pipe(
     Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        const errorJson = JSON.stringify({ error: error.message }, null, 2)
+      Effect.sync(() => {
+        const errorJson = JSON.stringify({ error: error?.message ?? 'Unknown error' }, null, 2)
         console.log(errorJson)
         return null
       })

@@ -24,7 +24,7 @@
  */
 
 import * as Effect from 'effect/Effect'
-import { CommandService, logInfo, logWarn, logError, success } from '../../lib/effect'
+import { CommandService, type LoggerService, logInfo, logWarn, success } from '../../lib/effect'
 
 /**
  * Usage data from Claude Code API
@@ -134,14 +134,11 @@ export const getOAuthToken = Effect.gen(function* () {
   }
 
   // Parse the keychain credentials (JSON format)
-  const parseResult = yield* Effect.try({
-    try: () => {
-      const credentials = JSON.parse(keychainOutput.trim())
-      // The token is stored in access_token field
-      return credentials.access_token as string | undefined
-    },
-    catch: () => null,
-  })
+  const parseResult = yield* Effect.try(() => {
+    const credentials = JSON.parse(keychainOutput.trim())
+    // The token is stored in access_token field
+    return credentials.access_token as string | undefined
+  }).pipe(Effect.orElseSucceed(() => undefined))
 
   if (!parseResult) {
     yield* logWarn('Failed to parse Keychain credentials')
@@ -191,7 +188,7 @@ export const fetchClaudeCodeUsage = Effect.gen(function* () {
 
   // Parse response
   const parseResult = yield* Effect.try({
-    try: () => {
+    try: (): ClaudeCodeUsage => {
       const data = JSON.parse(curlOutput) as {
         five_hour?: { utilization: number; resets_at: string }
         seven_day?: { utilization: number; resets_at: string }
@@ -215,14 +212,10 @@ export const fetchClaudeCodeUsage = Effect.gen(function* () {
           utilization: data.seven_day.utilization,
           resetsAt: data.seven_day.resets_at,
         },
-      } as ClaudeCodeUsage
+      }
     },
-    catch: (error) => new UsageCheckError(`Failed to parse usage data: ${error}`),
+    catch: (error): UsageCheckError => new UsageCheckError(`Failed to parse usage data: ${error}`),
   })
-
-  if (parseResult._tag === 'UsageCheckError') {
-    return yield* Effect.fail(parseResult)
-  }
 
   return parseResult
 })
@@ -232,7 +225,7 @@ export const fetchClaudeCodeUsage = Effect.gen(function* () {
  */
 export const checkUsageLimits = (
   config: UsageConfig = DEFAULT_CONFIG
-): Effect.Effect<UsageCheckResult, UsageCheckError, CommandService> =>
+): Effect.Effect<UsageCheckResult, UsageCheckError, CommandService | LoggerService> =>
   Effect.gen(function* () {
     yield* logInfo('Checking Claude Code usage limits...', '🔍')
 
@@ -261,7 +254,7 @@ export const checkUsageLimits = (
       reason =
         `Weekly limit reached: ${sevenDayPercent.toFixed(1)}% >= ${config.maxWeeklyUtilizationPercent}% max. ` +
         `Resets at ${usage.sevenDay.resetsAt}. ` +
-        `${100 - sevenDayPercent.toFixed(1)}% remaining is reserved for manual work.`
+        `${(100 - sevenDayPercent).toFixed(1)}% remaining is reserved for manual work.`
       yield* logWarn(`⛔ ${reason}`)
     }
     // Check five-hour window to prevent burst usage
@@ -306,7 +299,7 @@ export const checkUsageLimits = (
  */
 export const getUsageStatus = (
   config: UsageConfig = DEFAULT_CONFIG
-): Effect.Effect<string, UsageCheckError, CommandService> =>
+): Effect.Effect<string, UsageCheckError, CommandService | LoggerService> =>
   Effect.gen(function* () {
     const result = yield* checkUsageLimits(config)
 
@@ -346,7 +339,7 @@ ${result.reason ? `║  Reason: ${result.reason.slice(0, 50).padEnd(51)}║\n` :
  */
 export const canProceedWithUsage = (
   config: UsageConfig = DEFAULT_CONFIG
-): Effect.Effect<boolean, never, CommandService> =>
+): Effect.Effect<boolean, never, CommandService | LoggerService> =>
   checkUsageLimits(config).pipe(
     Effect.map((result) => result.canProceed),
     Effect.catchAll((error) => {
