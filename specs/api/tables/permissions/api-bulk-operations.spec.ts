@@ -86,7 +86,7 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(3)
-      expect(data.records.map((r: any) => r.title)).toEqual(['Task 1', 'Task 2', 'Task 3'])
+      expect(data.records.map((r: any) => r.fields.title)).toEqual(['Task 1', 'Task 2', 'Task 3'])
 
       // Verify in database
       const dbResult = await executeQuery('SELECT COUNT(*) as count FROM tasks')
@@ -328,6 +328,8 @@ test.describe('API Bulk Operations with Permissions', () => {
       createOrganization,
       executeQuery,
       signOut,
+      signIn,
+      setActiveOrganization,
     }) => {
       // GIVEN: Table with organization-scoped delete permission
       await startServerWithSchema({
@@ -374,24 +376,28 @@ test.describe('API Bulk Operations with Permissions', () => {
 
       // WHEN: User A tries to bulk delete including Org B's item
       await signOut()
-      await createAuthenticatedUser({ email: 'user-a@example.com' })
+      await signIn({ email: 'user-a@example.com', password: 'TestPassword123!' })
+      await setActiveOrganization(orgA.organization.id)
 
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
-          ids: [1, 2, 3], // Includes Org B's item
+          ids: ['1', '2', '3'], // Includes Org B's item (strings expected by API)
         },
       })
 
-      // THEN: Only Org A items are deleted (Org B item is ignored due to RLS)
+      // THEN: Only Org A items are soft-deleted (Org B item is ignored due to RLS)
       expect(response.status()).toBe(200)
 
-      // Verify: Org A items deleted, Org B item still exists
-      const dbResult = await executeQuery('SELECT id, organization_id FROM items ORDER BY id')
+      // Verify: Org A items soft-deleted, Org B item still active
+      // Note: Sovrium uses soft-delete by default (deleted_at column)
+      const dbResult = await executeQuery(
+        'SELECT id, organization_id FROM items WHERE deleted_at IS NULL ORDER BY id'
+      )
       expect(dbResult.rows).toHaveLength(1)
-      expect(dbResult.rows[0].id).toBe(3) // Only Org B item remains
+      expect(dbResult.rows[0].id).toBe(3) // Only Org B item remains active
     }
   )
 

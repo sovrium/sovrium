@@ -563,13 +563,13 @@ test.describe('Batch update records', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.updated).toBe(2)
-      expect(data.records[0].name).toBe('Alice Updated')
-      expect(data.records[1].name).toBe('Bob Updated')
+      expect(data.records[0].fields.name).toBe('Alice Updated')
+      expect(data.records[1].fields.name).toBe('Bob Updated')
 
       // Salary field not in response
       // THEN: assertion
-      expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
+      expect(data.records[1].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -618,8 +618,8 @@ test.describe('Batch update records', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.updated).toBe(2)
-      expect(data.records[0].salary).toBe(130_000)
-      expect(data.records[1].salary).toBe(100_000)
+      expect(data.records[0].fields.salary).toBe(130_000)
+      expect(data.records[1].fields.salary).toBe(100_000)
     }
   )
 
@@ -765,8 +765,8 @@ test.describe('Batch update records', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.updated).toBe(1)
-      expect(data.records[0].name).toBe('David Updated')
-      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[0].fields.name).toBe('David Updated')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
     }
   )
 

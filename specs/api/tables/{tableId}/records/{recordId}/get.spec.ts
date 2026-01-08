@@ -62,10 +62,10 @@ test.describe('Get record by ID', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.id).toBe(1)
-      expect(data.email).toBe('john.doe@example.com')
-      expect(data.name).toBe('John Doe')
-      expect(data.phone).toBe('555-0100')
-      expect(data).toHaveProperty('created_at')
+      expect(data.fields.email).toBe('john.doe@example.com')
+      expect(data.fields.name).toBe('John Doe')
+      expect(data.fields.phone).toBe('555-0100')
+      expect(data).toHaveProperty('createdAt')
     }
   )
 
@@ -231,10 +231,10 @@ test.describe('Get record by ID', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('name')
-      expect(data).toHaveProperty('email')
-      expect(data).toHaveProperty('salary')
-      expect(data.salary).toBe(75_000)
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).toHaveProperty('email')
+      expect(data.fields).toHaveProperty('salary')
+      expect(data.fields.salary).toBe(75_000)
     }
   )
 
@@ -356,10 +356,10 @@ test.describe('Get record by ID', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.id).toBe(1)
-      expect(data.name).toBe('Alice Cooper')
-      expect(data.email).toBe('alice@example.com')
-      expect(data.organization_id).toBe('org_123')
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields.name).toBe('Alice Cooper')
+      expect(data.fields.email).toBe('alice@example.com')
+      expect(data.fields.organization_id).toBe('org_123')
+      expect(data.fields).not.toHaveProperty('salary')
     }
   )
 
@@ -521,8 +521,8 @@ test.describe('Get record by ID', () => {
 
         const data = await response.json()
         expect(data.id).toBe(1)
-        expect(data.email).toBe('test@example.com')
-        expect(data.name).toBe('Test User')
+        expect(data.fields.email).toBe('test@example.com')
+        expect(data.fields.name).toBe('Test User')
       })
     }
   )

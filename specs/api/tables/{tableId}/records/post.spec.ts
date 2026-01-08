@@ -62,9 +62,9 @@ test.describe('Create new record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data.email).toBe('john.doe@example.com')
-      expect(data.first_name).toBe('John')
-      expect(data.last_name).toBe('Doe')
+      expect(data.fields.email).toBe('john.doe@example.com')
+      expect(data.fields.first_name).toBe('John')
+      expect(data.fields.last_name).toBe('Doe')
 
       // Verify record exists in database
       const result = await executeQuery(`
@@ -370,9 +370,9 @@ test.describe('Create new record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data.name).toBe('John Doe')
-      expect(data.email).toBe('john@example.com')
-      expect(data.salary).toBe(75_000)
+      expect(data.fields.name).toBe('John Doe')
+      expect(data.fields.email).toBe('john@example.com')
+      expect(data.fields.salary).toBe(75_000)
     }
   )
 
@@ -585,8 +585,8 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.name).toBe('Alpha Project')
-      expect(data.organization_id).toBe('org_123')
+      expect(data.fields.name).toBe('Alpha Project')
+      expect(data.fields.organization_id).toBe('org_123')
 
       // Verify database record has correct organization_id
       const result = await executeQuery(`
@@ -674,10 +674,10 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.name).toBe('Carol Davis')
-      expect(data.email).toBe('carol@example.com')
-      expect(data.organization_id).toBe('org_123')
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields.name).toBe('Carol Davis')
+      expect(data.fields.email).toBe('carol@example.com')
+      expect(data.fields.organization_id).toBe('org_123')
+      expect(data.fields).not.toHaveProperty('salary')
     }
   )
 
@@ -717,8 +717,8 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.name).toBe('David Lee')
-      expect(data.email).toBe('david@example.com')
+      expect(data.fields.name).toBe('David Lee')
+      expect(data.fields.email).toBe('david@example.com')
 
       // Verify database has default salary value
       const result = await executeQuery(`
@@ -845,8 +845,8 @@ test.describe('Create new record', () => {
 
         const data = await response.json()
         expect(data).toHaveProperty('id')
-        expect(data.email).toBe('user@example.com')
-        expect(data.name).toBe('Test User')
+        expect(data.fields.email).toBe('user@example.com')
+        expect(data.fields.name).toBe('Test User')
       })
 
       await test.step('Verify record exists in database', async () => {

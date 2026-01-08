@@ -115,8 +115,8 @@ test.describe('API Session Context Integration', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].title).toBe('User 1 Task')
-      expect(data.records[0].owner_id).toBe(user1.user.id)
+      expect(data.records[0].fields.title).toBe('User 1 Task')
+      expect(data.records[0].fields.owner_id).toBe(user1.user.id)
     }
   )
 
@@ -182,8 +182,8 @@ test.describe('API Session Context Integration', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].name).toBe('Org 1 Project')
-      expect(data.records[0].organization_id).toBe(org1.organization.id)
+      expect(data.records[0].fields.name).toBe('Org 1 Project')
+      expect(data.records[0].fields.organization_id).toBe(org1.organization.id)
     }
   )
 
@@ -337,8 +337,8 @@ test.describe('API Session Context Integration', () => {
 
       const memberData = await memberResponse.json()
       expect(memberData.records).toHaveLength(1)
-      expect(memberData.records[0].name).toBe('John Doe')
-      expect(memberData.records[0]).not.toHaveProperty('salary')
+      expect(memberData.records[0].fields.name).toBe('John Doe')
+      expect(memberData.records[0].fields).not.toHaveProperty('salary')
 
       // WHEN: Admin requests employee data via API
       const adminResponse = await request.get('/api/tables/1/records', {
@@ -352,8 +352,8 @@ test.describe('API Session Context Integration', () => {
 
       const adminData = await adminResponse.json()
       expect(adminData.records).toHaveLength(1)
-      expect(adminData.records[0].name).toBe('John Doe')
-      expect(adminData.records[0].salary).toBe(75_000)
+      expect(adminData.records[0].fields.name).toBe('John Doe')
+      expect(adminData.records[0].fields.salary).toBe(75_000)
     }
   )
 
@@ -442,7 +442,7 @@ test.describe('API Session Context Integration', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.record.name).toBe('New Project')
+      expect(data.record.fields.name).toBe('New Project')
 
       // Verify in database that organization_id and owner_id were set correctly
       const result = await executeQuery(`
@@ -539,9 +539,9 @@ test.describe('API Session Context Integration', () => {
         const data = await response.json()
         // Owner should see only their own projects (RLS owner filtering)
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].name).toBe('Org1 Owner Project')
+        expect(data.records[0].fields.name).toBe('Org1 Owner Project')
         // Owner should see budget field (role-based field permission)
-        expect(data.records[0].budget).toBe(100_000)
+        expect(data.records[0].fields.budget).toBe(100_000)
         // Should NOT see org1Member's project (owner filtering)
         expect(
           data.records.find((r: { name: string }) => r.name === 'Org1 Member Project')
@@ -560,9 +560,9 @@ test.describe('API Session Context Integration', () => {
         const data = await response.json()
         // Member should see only their own projects (RLS owner filtering)
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].name).toBe('Org1 Member Project')
+        expect(data.records[0].fields.name).toBe('Org1 Member Project')
         // Member should NOT see budget field (role-based field permission)
-        expect(data.records[0]).not.toHaveProperty('budget')
+        expect(data.records[0].fields).not.toHaveProperty('budget')
       })
 
       await test.step('Org2 owner sees only Org2 projects via API', async () => {
@@ -577,8 +577,8 @@ test.describe('API Session Context Integration', () => {
         const data = await response.json()
         // Org2 owner should see only Org2 projects (organization isolation)
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].name).toBe('Org2 Owner Project')
-        expect(data.records[0].budget).toBe(75_000)
+        expect(data.records[0].fields.name).toBe('Org2 Owner Project')
+        expect(data.records[0].fields.budget).toBe(75_000)
         // Should NOT see any Org1 projects (organization isolation)
         expect(
           data.records.find((r: { name: string }) => r.name.startsWith('Org1'))

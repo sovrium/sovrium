@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isFormulaVolatile, translateFormulaToPostgres } from './formula-utils'
+import {
+  isFormulaVolatile,
+  qualifyColumnReferences,
+  translateFormulaToPostgres,
+} from './formula-utils'
 import type { Fields } from '@/domain/models/app/table/fields'
 
 /**
@@ -50,9 +54,9 @@ export const generateVolatileFormulaTriggerFunction = (
     .map((field) => {
       // Translate formula to PostgreSQL syntax (e.g., SUBSTR → SUBSTRING, date::TEXT → TO_CHAR)
       const translatedFormula = translateFormulaToPostgres(field.formula, fields)
-      // Replace column references with NEW.column_name
-      // We need to handle this carefully - for now, use dynamic SQL with NEW.*
-      return `  SELECT (${translatedFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
+      // Qualify column references with 't.' prefix for the subquery alias
+      const qualifiedFormula = qualifyColumnReferences(translatedFormula, fields, 't')
+      return `  SELECT (${qualifiedFormula}) INTO NEW.${field.name} FROM (SELECT NEW.*) AS t;`
     })
     .join('\n')
 

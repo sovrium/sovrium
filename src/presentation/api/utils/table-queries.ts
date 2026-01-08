@@ -122,28 +122,40 @@ export function createRecord(
     Effect.tryPromise({
       try: async () => {
         validateTableName(tableName)
-        const entries = Object.entries(fields)
 
-        if (entries.length === 0) {
+        // Check if table has organization_id column
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasOrgId = columnCheck.length > 0
+        const needsOrgId = hasOrgId && !('organization_id' in fields)
+
+        // Build base entries from user fields
+        const baseEntries = Object.entries(fields)
+        if (baseEntries.length === 0 && !needsOrgId) {
           // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
           throw new Error('Cannot create record with no fields')
         }
 
-        // Validate and build column identifiers
-        const columnIdentifiers = entries.map(([key]) => {
+        // Build column identifiers and values
+        const baseColumnIdentifiers = baseEntries.map(([key]) => {
           validateColumnName(key)
           return sql.identifier(key)
         })
+        const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
 
-        // Build parameterized values
-        const valueParams = entries.map(([, value]) => value)
+        // Add organization_id column and value if needed (immutable)
+        const columnIdentifiers = needsOrgId
+          ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
+          : baseColumnIdentifiers
+        const valueParams = needsOrgId
+          ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
+          : baseValueParams
 
         // Build INSERT query using sql.join for columns and values
         const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
-        const valuesClause = sql.join(
-          valueParams.map((v) => sql`${v}`),
-          sql.raw(', ')
-        )
+        const valuesClause = sql.join(valueParams, sql.raw(', '))
 
         const result = (await tx.execute(
           sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
@@ -151,22 +163,7 @@ export function createRecord(
 
         return result[0] ?? {}
       },
-      catch: (error) => {
-        // Debug: Log actual PostgreSQL error
-        console.error('[createRecord] PostgreSQL error:', error)
-        if (error && typeof error === 'object' && 'message' in error) {
-          console.error('[createRecord] Error message:', error.message)
-        }
-        // Include the actual error message in the SessionContextError message for debugging
-        const errorMessage =
-          error && typeof error === 'object' && 'message' in error
-            ? String(error.message)
-            : String(error)
-        return new SessionContextError(
-          `Failed to create record in ${tableName}: ${errorMessage}`,
-          error
-        )
-      },
+      catch: (error) => new SessionContextError(`Failed to create record in ${tableName}`, error),
     })
   )
 }
@@ -353,6 +350,7 @@ export function restoreRecord(
 
 /**
  * Helper to create a single record within a transaction
+ * Automatically adds organization_id from current_setting if table has organization_id column
  */
 async function createSingleRecord(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
@@ -360,20 +358,35 @@ async function createSingleRecord(
   tableName: string,
   fields: Record<string, unknown>
 ): Promise<Record<string, unknown> | undefined> {
-  const entries = Object.entries(fields)
-  if (entries.length === 0) return undefined
+  // Check if table has organization_id column
+  const columnCheck = (await tx.execute(
+    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+  )) as readonly Record<string, unknown>[]
 
-  const columnIdentifiers = entries.map(([key]) => {
+  const hasOrgId = columnCheck.length > 0
+  const needsOrgId = hasOrgId && !('organization_id' in fields)
+
+  // Build base entries from user fields
+  const baseEntries = Object.entries(fields)
+  if (baseEntries.length === 0 && !needsOrgId) return undefined
+
+  // Build column identifiers and values
+  const baseColumnIdentifiers = baseEntries.map(([key]) => {
     validateColumnName(key)
     return sql.identifier(key)
   })
+  const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
 
-  const valueParams = entries.map(([, value]) => value)
+  // Add organization_id column and value if needed (immutable)
+  const columnIdentifiers = needsOrgId
+    ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
+    : baseColumnIdentifiers
+  const valueParams = needsOrgId
+    ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
+    : baseValueParams
+
   const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
-  const valuesClause = sql.join(
-    valueParams.map((v) => sql`${v}`),
-    sql.raw(', ')
-  )
+  const valuesClause = sql.join(valueParams, sql.raw(', '))
 
   const result = (await tx.execute(
     sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
@@ -420,17 +433,8 @@ export function batchCreateRecords(
 
         return recordResults
       },
-      catch: (error) => {
-        console.error('[batchCreateRecords] PostgreSQL error:', error)
-        const errorMessage =
-          error && typeof error === 'object' && 'message' in error
-            ? String(error.message)
-            : String(error)
-        return new SessionContextError(
-          `Failed to batch create records in ${tableName}: ${errorMessage}`,
-          error
-        )
-      },
+      catch: (error) =>
+        new SessionContextError(`Failed to batch create records in ${tableName}`, error),
     })
   )
 }
@@ -550,7 +554,7 @@ export function batchRestoreRecords(
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
- * @param updates - Array of records with id and fields to update
+ * @param updates - Array of records with id and fields to update (supports both nested and flat format)
  * @returns Effect resolving to array of updated records
  */
 export function batchUpdateRecords(
@@ -566,8 +570,15 @@ export function batchUpdateRecords(
         // Update each record individually with RLS enforcement
         const updatedRecords = await Promise.all(
           updates.map(async (update) => {
-            const { id, ...fields } = update
-            const entries = Object.entries(fields)
+            // Extract fields - handle both nested format { id, fields: {...} } and flat format { id, ...fields }
+            const { id, fields: nestedFields, ...flatFields } = update
+            // If 'fields' property exists (nested format), use it; otherwise use flat fields
+            const fieldsToUpdate =
+              nestedFields && typeof nestedFields === 'object' && !Array.isArray(nestedFields)
+                ? (nestedFields as Record<string, unknown>)
+                : flatFields
+
+            const entries = Object.entries(fieldsToUpdate)
 
             if (entries.length === 0) {
               // eslint-disable-next-line unicorn/no-null -- Null for skipped records
@@ -581,10 +592,10 @@ export function batchUpdateRecords(
             })
             const setClause = sql.join(setClauses, sql.raw(', '))
 
+            const query = sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${id} RETURNING *`
+
             try {
-              const result = (await tx.execute(
-                sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${id} RETURNING *`
-              )) as readonly Record<string, unknown>[]
+              const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
 
               // If RLS blocked the update, result will be empty - skip this record
               // eslint-disable-next-line unicorn/no-null -- Null for records blocked by RLS

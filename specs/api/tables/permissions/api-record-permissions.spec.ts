@@ -90,8 +90,8 @@ test.describe('API Record-Level Permissions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].content).toBe('My private note')
-      expect(data.records[0].owner_id).toBe(user.user.id)
+      expect(data.records[0].fields.content).toBe('My private note')
+      expect(data.records[0].fields.owner_id).toBe(user.user.id)
     }
   )
 
@@ -457,7 +457,7 @@ test.describe('API Record-Level Permissions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].title).toBe('My Document')
+      expect(data.records[0].fields.title).toBe('My Document')
     }
   )
 
@@ -553,7 +553,7 @@ test.describe('API Record-Level Permissions', () => {
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].title).toBe('My private task')
+        expect(data.records[0].fields.title).toBe('My private task')
       })
 
       await test.step('Other user cannot see owner tasks', async () => {
@@ -565,7 +565,9 @@ test.describe('API Record-Level Permissions', () => {
         expect(response.status()).toBe(200)
         const data = await response.json()
         // Other user sees nothing (or only their own tasks)
-        expect(data.records.filter((r: any) => r.title === 'My private task')).toHaveLength(0)
+        expect(data.records.filter((r: any) => r.fields.title === 'My private task')).toHaveLength(
+          0
+        )
       })
 
       await test.step('Other user cannot update owner task', async () => {
@@ -602,7 +604,7 @@ test.describe('API Record-Level Permissions', () => {
         expect(response.status()).toBe(200)
         const data = await response.json()
         // Admin sees all tasks in the org
-        expect(data.records.some((r: any) => r.title === 'My private task')).toBe(true)
+        expect(data.records.some((r: any) => r.fields.title === 'My private task')).toBe(true)
       })
 
       await test.step('Owner can delete their task', async () => {

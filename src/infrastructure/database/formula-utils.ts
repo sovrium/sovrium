@@ -375,3 +375,23 @@ export const translateFormulaToPostgres = (
   const withRoundCast = addNumericCastsToRound(withSubstring)
   return escapeReservedFieldNames(withRoundCast, allFields)
 }
+
+/**
+ * Qualify column references in a formula with a prefix
+ * Used by trigger functions to reference columns from subqueries or NEW/OLD records
+ *
+ * @example
+ * qualifyColumnReferences('NOT paid AND due_date < CURRENT_DATE', fields, 't')
+ * // Returns: 'NOT t.paid AND t.due_date < CURRENT_DATE'
+ */
+export const qualifyColumnReferences = (
+  formula: string,
+  allFields: readonly { name: string; type: string }[],
+  prefix: string
+): string =>
+  allFields.reduce((acc, field) => {
+    // Create regex that matches field name as a whole word
+    // Use word boundaries (\b) and negative lookbehind for dots (avoid double-qualifying)
+    const fieldRegex = new RegExp(`(?<![."])\\b${field.name}\\b(?!["'])`, 'gi')
+    return acc.replace(fieldRegex, `${prefix}.${field.name}`)
+  }, formula)

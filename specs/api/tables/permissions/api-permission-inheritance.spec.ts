@@ -89,7 +89,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       expect(response.status()).toBe(200)
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].secret).toBe('Top secret data')
+      expect(data.records[0].fields.secret).toBe('Top secret data')
     }
   )
 

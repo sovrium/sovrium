@@ -78,19 +78,20 @@ export const tableSummarySchema = z
 // ============================================================================
 
 /**
- * Record schema
+ * Record schema (Airtable-style)
  *
  * Represents a record in a table.
- * User-defined fields are stored at the root level (not nested).
+ * User-defined fields are nested under the `fields` property.
+ * System fields (id, createdAt, updatedAt) remain at root level.
  */
 export const recordSchema = z
   .object({
     id: z.string().describe('Record identifier'),
+    fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
     createdBy: z.string().optional().describe('User who created the record'),
     updatedBy: z.string().optional().describe('User who last updated the record'),
   })
   .extend(timestampSchema.shape)
-  .passthrough() // Allow additional user-defined fields at root level
 
 // ============================================================================
 // Table API Response Schemas

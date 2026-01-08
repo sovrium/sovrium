@@ -175,9 +175,9 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.records).toHaveLength(3)
-      expect(data.records[0].priority).toBe(5)
-      expect(data.records[1].priority).toBe(3)
-      expect(data.records[2].priority).toBe(1)
+      expect(data.records[0].fields.priority).toBe(5)
+      expect(data.records[1].fields.priority).toBe(3)
+      expect(data.records[2].fields.priority).toBe(1)
     }
   )
 
@@ -440,7 +440,7 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].name).toBe('High Priority Active')
+      expect(data.records[0].fields.name).toBe('High Priority Active')
     }
   )
 
@@ -482,9 +482,9 @@ test.describe('List records in table', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.records[0].priority).toBe(5)
-      expect(data.records[1].priority).toBe(5)
-      expect(data.records[2].priority).toBe(3)
+      expect(data.records[0].fields.priority).toBe(5)
+      expect(data.records[1].fields.priority).toBe(5)
+      expect(data.records[2].fields.priority).toBe(3)
     }
   )
 
@@ -753,7 +753,7 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].organization_id).toBe('org_123')
+      expect(data.records[0].fields.organization_id).toBe('org_123')
     }
   )
 
@@ -794,8 +794,8 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].name).toBe('John Doe')
-      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[0].fields.name).toBe('John Doe')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -1188,7 +1188,9 @@ test.describe('List records in table', () => {
         const data = await response.json()
         expect(data.records.length).toBeGreaterThan(0)
         expect(data).toHaveProperty('pagination')
-        expect(data.records[0].priority).toBeGreaterThanOrEqual(data.records[1].priority)
+        expect(data.records[0].fields.priority).toBeGreaterThanOrEqual(
+          data.records[1].fields.priority
+        )
       })
     }
   )

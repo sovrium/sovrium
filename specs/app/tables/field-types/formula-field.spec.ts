@@ -300,8 +300,9 @@ test.describe('Formula Field', () => {
       })
 
       // WHEN: executing query
+      // Note: Use far-past and far-future dates to prevent test data rot
       await executeQuery(
-        "INSERT INTO invoices (due_date, paid) VALUES ('2024-01-15', false), ('2025-12-31', false), ('2024-06-01', true)"
+        "INSERT INTO invoices (due_date, paid) VALUES ('2020-01-15', false), ('2099-12-31', false), ('2020-06-01', true)"
       )
 
       // WHEN: executing query
@@ -309,7 +310,7 @@ test.describe('Formula Field', () => {
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 1'
       )
       // THEN: assertion
-      expect(pastDueUnpaid.due_date.toLocaleDateString('en-CA')).toBe('2024-01-15')
+      expect(pastDueUnpaid.due_date.toLocaleDateString('en-CA')).toBe('2020-01-15')
       // THEN: assertion
       expect(pastDueUnpaid.paid).toBe(false)
       // THEN: assertion
@@ -320,7 +321,7 @@ test.describe('Formula Field', () => {
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 2'
       )
       // THEN: assertion
-      expect(futureDueUnpaid.due_date.toLocaleDateString('en-CA')).toBe('2025-12-31')
+      expect(futureDueUnpaid.due_date.toLocaleDateString('en-CA')).toBe('2099-12-31')
       // THEN: assertion
       expect(futureDueUnpaid.paid).toBe(false)
       // THEN: assertion
@@ -331,7 +332,7 @@ test.describe('Formula Field', () => {
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 3'
       )
       // THEN: assertion
-      expect(pastDuePaid.due_date.toLocaleDateString('en-CA')).toBe('2024-06-01')
+      expect(pastDuePaid.due_date.toLocaleDateString('en-CA')).toBe('2020-06-01')
       // THEN: assertion
       expect(pastDuePaid.paid).toBe(true)
       // THEN: assertion

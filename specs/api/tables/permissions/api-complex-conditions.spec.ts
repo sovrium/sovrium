@@ -88,8 +88,8 @@ test.describe('API Complex Permission Conditions', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].content).toBe('My private note')
-      expect(data.records[0].author_id).toBe(user.user.id)
+      expect(data.records[0].fields.content).toBe('My private note')
+      expect(data.records[0].fields.author_id).toBe(user.user.id)
     }
   )
 
@@ -618,7 +618,7 @@ test.describe('API Complex Permission Conditions', () => {
 
         // User2 only sees public+published (not User1's draft)
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].title).toBe('User1 Published')
+        expect(data.records[0].fields.title).toBe('User1 Published')
       })
 
       await test.step('User1 can see all their own docs', async () => {

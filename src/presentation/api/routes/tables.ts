@@ -42,7 +42,11 @@ import {
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { filterReadableFields } from '@/presentation/api/utils/field-read-filter'
-import { transformRecord, transformRecords } from '@/presentation/api/utils/record-transformer'
+import {
+  transformRecord,
+  transformRecords,
+  type TransformedRecord,
+} from '@/presentation/api/utils/record-transformer'
 import {
   listRecords,
   getRecord,
@@ -537,15 +541,16 @@ function batchUpdateProgram(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly { id: string; [key: string]: unknown }[]
-): Effect.Effect<
-  { records: readonly Record<string, unknown>[]; count: number },
-  SessionContextError
-> {
+): Effect.Effect<{ records: TransformedRecord[]; count: number }, SessionContextError> {
   return Effect.gen(function* () {
     const updatedRecords = yield* batchUpdateRecords(session, tableName, recordsData)
+
+    // Transform records to API format (nested fields structure)
+    const transformed = transformRecords(updatedRecords)
+
     return {
-      records: updatedRecords,
-      count: updatedRecords.length,
+      records: transformed,
+      count: transformed.length,
     }
   })
 }

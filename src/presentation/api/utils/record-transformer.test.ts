@@ -30,12 +30,12 @@ describe('transformRecord', () => {
       expect(result.updatedAt).toBe(timestamp)
     })
 
-    test('Then includes all fields at root level', () => {
+    test('Then nests user fields under fields property (Airtable-style)', () => {
       const record = { id: 1, name: 'Test', email: 'test@example.com', active: true }
       const result = transformRecord(record)
-      expect(result.name).toBe('Test')
-      expect(result.email).toBe('test@example.com')
-      expect(result.active).toBe(true)
+      expect(result.fields.name).toBe('Test')
+      expect(result.fields.email).toBe('test@example.com')
+      expect(result.fields.active).toBe(true)
     })
   })
 
@@ -74,7 +74,7 @@ describe('transformRecord', () => {
 
 describe('transformRecords', () => {
   describe('When transforming multiple records', () => {
-    test('Then transforms each record', () => {
+    test('Then transforms each record with nested fields', () => {
       const records = [
         { id: 1, name: 'First' },
         { id: 2, name: 'Second' },
@@ -86,6 +86,10 @@ describe('transformRecords', () => {
       expect(result[0]?.id).toBe('1')
       expect(result[1]?.id).toBe('2')
       expect(result[2]?.id).toBe('3')
+      // Verify nested fields structure
+      expect(result[0]?.fields.name).toBe('First')
+      expect(result[1]?.fields.name).toBe('Second')
+      expect(result[2]?.fields.name).toBe('Third')
     })
 
     test('Then returns empty array for empty input', () => {

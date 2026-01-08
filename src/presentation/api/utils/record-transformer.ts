@@ -17,10 +17,14 @@ export type RecordFieldValue =
   | null
 
 /**
- * Transformed record structure for API responses
+ * Transformed record structure for API responses (Airtable-style)
+ *
+ * System fields (id, createdAt, updatedAt) are at root level.
+ * User-defined fields are nested under the `fields` property.
  */
-export interface TransformedRecord extends Record<string, RecordFieldValue> {
+export interface TransformedRecord {
   readonly id: string
+  readonly fields: Record<string, RecordFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
 }
@@ -42,11 +46,12 @@ const toISOString = (value: unknown): string => {
 }
 
 /**
- * Transform a raw database record into the API response format
+ * Transform a raw database record into the API response format (Airtable-style)
  *
  * This utility standardizes record transformation across all table endpoints:
  * - Converts id to string
- * - Preserves all fields at root level (no nesting)
+ * - Nests user-defined fields under `fields` property (Airtable-style)
+ * - Keeps system fields (id, createdAt, updatedAt) at root level
  * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
  * - Converts Date objects to ISO 8601 strings for API compliance
  *
@@ -70,7 +75,7 @@ export const transformRecord = (record: Record<string, unknown>): TransformedRec
 
   return {
     id: String(id),
-    ...transformedFields,
+    fields: transformedFields,
     createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
     updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
   }

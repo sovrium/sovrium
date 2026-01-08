@@ -346,8 +346,8 @@ test.describe('Batch create records', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.created).toBe(2)
-      expect(data.records[0].organization_id).toBe('org_123')
-      expect(data.records[1].organization_id).toBe('org_123')
+      expect(data.records[0].fields.organization_id).toBe('org_123')
+      expect(data.records[1].fields.organization_id).toBe('org_123')
     }
   )
 
@@ -520,13 +520,13 @@ test.describe('Batch create records', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.created).toBe(2)
-      expect(data.records[0].name).toBe('Alice Cooper')
-      expect(data.records[1].name).toBe('Bob Smith')
+      expect(data.records[0].fields.name).toBe('Alice Cooper')
+      expect(data.records[1].fields.name).toBe('Bob Smith')
 
       // Salary field not in response
       // THEN: assertion
-      expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
+      expect(data.records[1].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -570,10 +570,10 @@ test.describe('Batch create records', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.created).toBe(2)
-      expect(data.records[0].name).toBe('Charlie Brown')
-      expect(data.records[0].salary).toBe(130_000)
-      expect(data.records[1].name).toBe('Diana Prince')
-      expect(data.records[1].salary).toBe(95_000)
+      expect(data.records[0].fields.name).toBe('Charlie Brown')
+      expect(data.records[0].fields.salary).toBe(130_000)
+      expect(data.records[1].fields.name).toBe('Diana Prince')
+      expect(data.records[1].fields.salary).toBe(95_000)
     }
   )
 

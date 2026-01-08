@@ -65,12 +65,12 @@ test.describe('Update record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('email')
-      expect(data).toHaveProperty('name')
-      expect(data).toHaveProperty('updated_at')
+      expect(data.fields).toHaveProperty('email')
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).toHaveProperty('updated_at')
       expect(data.id).toBe(1)
-      expect(data.email).toBe('new@example.com')
-      expect(data.name).toBe('New Name')
+      expect(data.fields.email).toBe('new@example.com')
+      expect(data.fields.name).toBe('New Name')
 
       // Verify database reflects updated values
       const result = await executeQuery(`SELECT email, name FROM users WHERE id=1`)
@@ -320,9 +320,9 @@ test.describe('Update record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('salary')
+      expect(data.fields).toHaveProperty('salary')
       expect(data.id).toBe(1)
-      expect(data.salary).toBe(85_000)
+      expect(data.fields.salary).toBe(85_000)
 
       // Verify database reflects updated salary
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
@@ -472,15 +472,15 @@ test.describe('Update record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('name')
-      expect(data).toHaveProperty('email')
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).toHaveProperty('email')
       expect(data.id).toBe(1)
-      expect(data.name).toBe('Alice Updated')
-      expect(data.email).toBe('alice.updated@example.com')
+      expect(data.fields.name).toBe('Alice Updated')
+      expect(data.fields.email).toBe('alice.updated@example.com')
 
       // Salary field not in response (member cannot read it)
       // THEN: assertion
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields).not.toHaveProperty('salary')
 
       // Verify salary remains unchanged in database
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
@@ -582,17 +582,17 @@ test.describe('Update record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('name')
-      expect(data).toHaveProperty('email')
-      expect(data).toHaveProperty('organization_id')
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).toHaveProperty('email')
+      expect(data.fields).toHaveProperty('organization_id')
       expect(data.id).toBe(1)
-      expect(data.name).toBe('Bob Updated')
-      expect(data.email).toBe('bob.updated@example.com')
-      expect(data.organization_id).toBe('org_123')
+      expect(data.fields.name).toBe('Bob Updated')
+      expect(data.fields.email).toBe('bob.updated@example.com')
+      expect(data.fields.organization_id).toBe('org_123')
 
       // Salary field not in response
       // THEN: assertion
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields).not.toHaveProperty('salary')
     }
   )
 
@@ -693,13 +693,13 @@ test.describe('Update record', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('name')
-      expect(data).toHaveProperty('email')
-      expect(data.name).toBe('David Updated')
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).toHaveProperty('email')
+      expect(data.fields.name).toBe('David Updated')
 
       // Salary field not in response despite existing in database
       // THEN: assertion
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields).not.toHaveProperty('salary')
 
       // Verify database has salary field unchanged
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
@@ -936,7 +936,7 @@ test.describe('Update record', () => {
 
         expect(successResponse.status()).toBe(200)
         const record = await successResponse.json()
-        expect(record.name).toBe('Updated Name')
+        expect(record.fields.name).toBe('Updated Name')
       })
 
       await test.step('Verify update in database', async () => {

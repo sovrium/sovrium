@@ -206,7 +206,7 @@ test.describe('API Organization Isolation', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.organization_id).toBe(org.organization.id)
+      expect(data.fields.organization_id).toBe(org.organization.id)
 
       // Verify in database
       const dbResult = await executeQuery(
@@ -266,7 +266,7 @@ test.describe('API Organization Isolation', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.organization_id).toBe(org.organization.id) // Overridden to user's actual org
+      expect(data.fields.organization_id).toBe(org.organization.id) // Overridden to user's actual org
     }
   )
 
@@ -557,8 +557,8 @@ test.describe('API Organization Isolation', () => {
 
         // Only see Org A projects
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].name).toBe('Org A Secret Project')
-        expect(data.records.some((r: any) => r.name === 'Org B Public Project')).toBe(false)
+        expect(data.records[0].fields.name).toBe('Org A Secret Project')
+        expect(data.records.some((r: any) => r.fields.name === 'Org B Public Project')).toBe(false)
       })
 
       await test.step('User B cannot access Org A project by ID', async () => {
