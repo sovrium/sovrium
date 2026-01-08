@@ -569,7 +569,9 @@ const selectPolicyGenerator = (
   if (hasNoPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
   if (hasRecordLevelPermissions(table)) return generateRecordLevelPolicies
   if (hasMixedPermissions(table)) return generateMixedPermissionPolicies
-  if (hasOwnerPermissions(table)) return generateOwnerBasedPolicies
+  if (hasOwnerPermissions(table) && !table.permissions?.organizationScoped) {
+    return generateOwnerBasedPolicies
+  }
   if (hasAuthenticatedPermissions(table) && !table.permissions?.organizationScoped) {
     return generateAuthenticatedBasedPolicies
   }
