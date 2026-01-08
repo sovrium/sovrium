@@ -970,7 +970,7 @@ jobs:
             echo "⚠️ Workflow dispatch may have failed, triggering via issue comment as fallback..."
 
             # Get spec details from issue for context
-            SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
+            SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-([0-9]+|REGRESSION)' || echo "unknown")
             TEST_FILE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body' | grep -oP 'Test File.*`\K[^`]+' || echo "unknown")
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \

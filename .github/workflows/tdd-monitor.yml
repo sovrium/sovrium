@@ -312,7 +312,7 @@ jobs:
                 RETRY_TYPE=$(echo "$RETRY_LABEL" | sed -E 's/retry:(spec|infra):.*/\1/')
 
                 # Get spec details from issue for context (needed for Claude running check)
-                SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
+                SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-([0-9]+|REGRESSION)' || echo "unknown")
 
                 # Check if Claude Code is actively processing this spec
                 # This prevents posting @claude retry while original Claude is still running

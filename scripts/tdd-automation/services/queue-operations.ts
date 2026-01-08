@@ -108,7 +108,7 @@ export const getQueuedSpecs = Effect.gen(function* () {
   const specIssues: SpecIssue[] = parseResult
     .map((issue): SpecIssue | null => {
       // Extract spec ID from title: "🤖 APP-VERSION-001: description"
-      const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
+      const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-(?:\d{3}|REGRESSION)):/)
       const specId = specIdMatch?.[1]
 
       if (!specId) return null
@@ -176,7 +176,7 @@ export const getInProgressSpecs = Effect.gen(function* () {
 
   const specIssues: SpecIssue[] = parseResult
     .map((issue): SpecIssue | null => {
-      const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):/)
+      const specIdMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-(?:\d{3}|REGRESSION)):/)
       const specId = specIdMatch?.[1]
 
       if (!specId) return null
@@ -331,7 +331,7 @@ export const getAllExistingSpecs = Effect.gen(function* () {
 
   for (const issue of allIssues) {
     // Extract spec ID and description from title: "🤖 APP-VERSION-001: description here"
-    const titleMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-\d{3}):\s*(.+)/)
+    const titleMatch = issue.title.match(/🤖\s+([A-Z]+-[A-Z-]+-(?:\d{3}|REGRESSION)):\s*(.+)/)
     const specId = titleMatch?.[1]
     const description = titleMatch?.[2]?.trim()
 

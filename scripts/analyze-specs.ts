@@ -178,7 +178,7 @@ interface DomainSummary {
 // Constants
 // =============================================================================
 
-const SPEC_ID_PATTERN = /^([A-Z]+-[A-Z0-9-]+-\d{3})/
+const SPEC_ID_PATTERN = /^([A-Z]+-[A-Z0-9-]+-(?:\d{3}|REGRESSION))/
 const GIVEN_PATTERN = /\/\/\s*GIVEN/i
 const WHEN_PATTERN = /\/\/\s*(WHEN|GIVEN\/WHEN|WHEN\/THEN)/i
 const THEN_PATTERN = /\/\/\s*(THEN|WHEN\/THEN)/i

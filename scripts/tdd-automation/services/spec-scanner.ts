@@ -19,11 +19,11 @@ import type { SpecItem, QueueScanResult } from './types'
 
 /**
  * Extract spec ID from test title
- * Format: "APP-VERSION-001: description"
- * Returns: "APP-VERSION-001" or undefined
+ * Format: "APP-VERSION-001: description" or "APP-VERSION-REGRESSION: description"
+ * Returns: "APP-VERSION-001" or "APP-VERSION-REGRESSION" or undefined
  */
 export const extractSpecId = (line: string): string | undefined => {
-  const match = line.match(/['"`]([A-Z]+-[A-Z-]+-\d{3}):/)
+  const match = line.match(/['"`]([A-Z]+-[A-Z-]+-(?:\d{3}|REGRESSION)):/)
   return match?.[1]
 }
 
@@ -73,7 +73,7 @@ export const parseTestFileForSpecs = (
           specId = extractSpecId(testLine)
           if (specId) {
             // Extract description (everything after "SPEC-ID: ")
-            const descMatch = testLine.match(/[A-Z]+-[A-Z-]+-\d{3}:\s*(.+?)['"`]/)
+            const descMatch = testLine.match(/[A-Z]+-[A-Z-]+-(?:\d{3}|REGRESSION):\s*(.+?)['"`]/)
             description = descMatch?.[1]?.trim() ?? 'No description'
             break
           }
