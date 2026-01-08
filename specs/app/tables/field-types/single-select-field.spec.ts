@@ -276,7 +276,7 @@ test.describe('Single Select Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-008: user can complete full single-select-field workflow',
+    'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-REGRESSION: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with single-select field', async () => {

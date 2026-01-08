@@ -409,7 +409,7 @@ test.describe('Restore record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-RESTORE-010: user can complete full record restore workflow',
+    'API-TABLES-RECORDS-RESTORE-REGRESSION: user can complete full record restore workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with tasks table', async () => {

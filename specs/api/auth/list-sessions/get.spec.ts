@@ -261,7 +261,7 @@ test.describe('List user sessions', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-LIST-SESSIONS-008: user can complete full list-sessions workflow',
+    'API-AUTH-LIST-SESSIONS-REGRESSION: user can complete full list-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

@@ -188,7 +188,7 @@ test.describe('Get current session', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-GET-SESSION-006: user can complete full get-session workflow',
+    'API-AUTH-GET-SESSION-REGRESSION: user can complete full get-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

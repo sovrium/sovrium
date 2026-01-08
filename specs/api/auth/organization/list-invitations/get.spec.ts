@@ -356,7 +356,7 @@ test.describe('List organization invitations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-LIST-INVITATIONS-009: user can complete full listInvitations workflow',
+    'API-AUTH-ORG-LIST-INVITATIONS-REGRESSION: user can complete full listInvitations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

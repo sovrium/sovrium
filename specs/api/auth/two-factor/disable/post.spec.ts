@@ -199,7 +199,7 @@ test.describe('Disable Two-Factor Authentication', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-TWO-FACTOR-DISABLE-006: user can complete full 2FA disable workflow',
+    'API-AUTH-TWO-FACTOR-DISABLE-REGRESSION: user can complete full 2FA disable workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with two-factor plugin', async () => {

@@ -606,7 +606,7 @@ test.describe('Sign up with email and password', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-SIGN-UP-EMAIL-016: user can complete full sign-up workflow',
+    'API-AUTH-SIGN-UP-EMAIL-REGRESSION: user can complete full sign-up workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

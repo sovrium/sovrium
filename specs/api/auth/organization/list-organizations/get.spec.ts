@@ -214,7 +214,7 @@ test.describe('List user organizations', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-REGRESSION: user can complete full listOrganizations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

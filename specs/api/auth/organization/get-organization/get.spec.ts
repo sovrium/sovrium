@@ -204,7 +204,7 @@ test.describe('Get organization details', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-GET-ORGANIZATION-006: user can complete full getOrganization workflow',
+    'API-AUTH-ORG-GET-ORGANIZATION-REGRESSION: user can complete full getOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

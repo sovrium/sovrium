@@ -281,7 +281,7 @@ test.describe('Modify Field Constraints Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-CONSTRAINTS-005: user can complete full modify-field-constraints workflow',
+    'MIGRATION-MODIFY-CONSTRAINTS-REGRESSION: user can complete full modify-field-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create pricing table without constraints', async () => {

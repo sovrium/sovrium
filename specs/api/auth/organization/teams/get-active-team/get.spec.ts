@@ -163,7 +163,7 @@ test.describe('Get Active Team', () => {
     }
   )
   test.fixme(
-    'API-AUTH-ORG-TEAMS-GET-ACTIVE-007: user can verify active team context persists across requests',
+    'API-AUTH-ORG-TEAMS-GET-ACTIVE-REGRESSION: user can verify active team context persists across requests',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: User with multiple teams

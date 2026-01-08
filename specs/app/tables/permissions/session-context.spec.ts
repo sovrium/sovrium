@@ -326,7 +326,7 @@ test.describe('Database Session Context Integration', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-SESSION-CTX-006: session context integration workflow',
+    'APP-TABLES-SESSION-CTX-REGRESSION: session context integration workflow',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

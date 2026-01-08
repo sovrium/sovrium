@@ -288,7 +288,7 @@ test.describe('Sign in with email and password', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-SIGN-IN-EMAIL-009: user can complete full sign-in workflow',
+    'API-AUTH-SIGN-IN-EMAIL-REGRESSION: user can complete full sign-in workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Create server and test user', async () => {

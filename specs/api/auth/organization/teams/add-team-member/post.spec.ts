@@ -426,7 +426,7 @@ test.describe('Add Team Member', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-ADD-MEMBER-007: owner can add multiple members to team and verify membership',
+    'API-AUTH-ORG-TEAMS-ADD-MEMBER-REGRESSION: owner can add multiple members to team and verify membership',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

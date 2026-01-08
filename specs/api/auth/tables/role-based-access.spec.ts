@@ -665,7 +665,7 @@ test.describe('Role-Based Table Access Control', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-TABLES-ROLE-013: complete role-based access workflow',
+    'API-AUTH-TABLES-ROLE-REGRESSION: complete role-based access workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
       await test.step('Setup: Start server with mixed permission tables', async () => {

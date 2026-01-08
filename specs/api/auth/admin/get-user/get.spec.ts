@@ -209,7 +209,7 @@ test.describe('Admin: Get user by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-GET-USER-007: admin can complete full get-user workflow',
+    'API-AUTH-ADMIN-GET-USER-REGRESSION: admin can complete full get-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

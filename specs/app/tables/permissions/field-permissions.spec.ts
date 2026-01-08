@@ -765,7 +765,7 @@ test.describe('Field-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-PERMISSIONS-010: user can complete full field-permissions workflow',
+    'APP-TABLES-FIELD-PERMISSIONS-REGRESSION: user can complete full field-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any

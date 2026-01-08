@@ -286,7 +286,7 @@ test.describe('Delete organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-REGRESSION: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

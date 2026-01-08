@@ -248,7 +248,7 @@ test.describe('Update user profile', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-UPDATE-USER-007: user can complete full update-user workflow',
+    'API-AUTH-UPDATE-USER-REGRESSION: user can complete full update-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

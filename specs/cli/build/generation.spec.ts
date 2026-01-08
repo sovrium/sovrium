@@ -428,7 +428,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'CLI-BUILD-GENERATION-007: complete static generation workflow',
+    'CLI-BUILD-GENERATION-REGRESSION: complete static generation workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

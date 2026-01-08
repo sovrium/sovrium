@@ -288,7 +288,7 @@ test.describe('Remove Field Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-ALTER-REMOVE-005: user can complete full remove-field-migration workflow',
+    'MIGRATION-ALTER-REMOVE-REGRESSION: user can complete full remove-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create table with indexed field and data', async () => {

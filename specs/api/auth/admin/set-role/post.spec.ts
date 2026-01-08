@@ -321,7 +321,7 @@ test.describe('Admin: Set user role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-SET-ROLE-009: admin can complete full set-role workflow',
+    'API-AUTH-ADMIN-SET-ROLE-REGRESSION: admin can complete full set-role workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

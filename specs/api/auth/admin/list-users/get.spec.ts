@@ -257,7 +257,7 @@ test.describe('Admin: List users', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-008: admin can complete full list-users workflow',
+    'API-AUTH-ADMIN-LIST-USERS-REGRESSION: admin can complete full list-users workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

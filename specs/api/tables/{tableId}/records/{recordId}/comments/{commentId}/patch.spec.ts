@@ -497,7 +497,7 @@ test.describe('Update comment', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-UPDATE-011: user can complete full update comment workflow',
+    'API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION: user can complete full update comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with tasks table and authenticate', async () => {

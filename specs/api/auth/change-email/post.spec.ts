@@ -294,7 +294,7 @@ test.describe('Change email address', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-CHANGE-EMAIL-008: user can complete full change-email workflow',
+    'API-AUTH-CHANGE-EMAIL-REGRESSION: user can complete full change-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
       let workflowEmail: string

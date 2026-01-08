@@ -322,7 +322,7 @@ test.describe('Static Site Generation - Asset Management', () => {
   )
 
   test(
-    'CLI-BUILD-ASSETS-005: complete asset management workflow',
+    'CLI-BUILD-ASSETS-REGRESSION: complete asset management workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

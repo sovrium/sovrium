@@ -219,7 +219,7 @@ test.describe('Revoke specific session', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-REVOKE-SESSION-006: user can complete full revoke-session workflow',
+    'API-AUTH-REVOKE-SESSION-REGRESSION: user can complete full revoke-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

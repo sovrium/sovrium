@@ -121,7 +121,7 @@ test.describe('HTTPS Redirect Security', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-REDIRECT-003: user can complete full HTTPS redirect workflow',
+    'API-SECURITY-REDIRECT-REGRESSION: user can complete full HTTPS redirect workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with Hono secure-headers middleware configured

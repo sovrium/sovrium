@@ -365,7 +365,7 @@ test.describe('NULL Handling in Unique Constraints', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-UNIQUECONSTRAINTS-NULL-008: user can complete full NULL-in-unique-constraints workflow',
+    'APP-TABLES-UNIQUECONSTRAINTS-NULL-REGRESSION: user can complete full NULL-in-unique-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create table with optional unique field', async () => {

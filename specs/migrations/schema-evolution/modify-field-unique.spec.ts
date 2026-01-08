@@ -202,7 +202,7 @@ test.describe('Modify Field Unique Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-FIELD-UNIQUE-004: user can complete full modify-field-unique workflow',
+    'MIGRATION-MODIFY-FIELD-UNIQUE-REGRESSION: user can complete full modify-field-unique workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without unique constraint', async () => {

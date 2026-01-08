@@ -276,7 +276,7 @@ test.describe('List Roles', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-DYNAMIC-ROLE-LIST-007: member can view all available roles with permissions',
+    'API-AUTH-ORG-DYNAMIC-ROLE-LIST-REGRESSION: member can view all available roles with permissions',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with multiple custom roles and a member user

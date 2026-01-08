@@ -783,7 +783,7 @@ test.describe('Single Line Text Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-REGRESSION: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with single-line-text field', async () => {

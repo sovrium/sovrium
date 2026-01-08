@@ -259,7 +259,7 @@ test.describe('Batch Restore records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-RESTORE-006: user can complete full batch restore workflow',
+    'API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION: user can complete full batch restore workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with tasks table', async () => {

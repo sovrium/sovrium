@@ -460,7 +460,7 @@ test.describe('API Session Context Integration', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-SESSION-CTX-INT-008: complete API session context integration workflow',
+    'API-TABLES-SESSION-CTX-INT-REGRESSION: complete API session context integration workflow',
     { tag: '@regression' },
     async ({
       request,

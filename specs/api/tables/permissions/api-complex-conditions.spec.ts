@@ -512,7 +512,7 @@ test.describe('API Complex Permission Conditions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-PERMISSIONS-CONDITIONS-008: complete custom permission workflow',
+    'API-TABLES-PERMISSIONS-CONDITIONS-REGRESSION: complete custom permission workflow',
     { tag: '@regression' },
     async ({
       request,

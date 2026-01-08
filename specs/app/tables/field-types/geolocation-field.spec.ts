@@ -232,7 +232,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-GEOLOCATION-006: user can complete full geolocation-field workflow',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-REGRESSION: user can complete full geolocation-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with geolocation field', async () => {

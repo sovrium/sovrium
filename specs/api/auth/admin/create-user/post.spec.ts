@@ -366,7 +366,7 @@ test.describe('Admin: Create user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-011: admin can complete full create-user workflow',
+    'API-AUTH-ADMIN-CREATE-USER-REGRESSION: admin can complete full create-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

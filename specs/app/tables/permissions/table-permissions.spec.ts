@@ -302,7 +302,7 @@ test.describe('Table-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-006: user can complete full table-permissions workflow',
+    'APP-TABLES-TABLE-PERMISSIONS-REGRESSION: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any

@@ -315,7 +315,7 @@ test.describe('Rename Field Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-ALTER-RENAME-005: user can complete full rename-field-migration workflow',
+    'MIGRATION-ALTER-RENAME-REGRESSION: user can complete full rename-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create table with old field name', async () => {

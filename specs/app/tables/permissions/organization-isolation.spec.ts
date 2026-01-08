@@ -902,7 +902,7 @@ test.describe('Organization Data Isolation', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-ORG-ISOLATION-012: organization data isolation workflow',
+    'APP-TABLES-ORG-ISOLATION-REGRESSION: organization data isolation workflow',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

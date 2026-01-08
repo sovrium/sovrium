@@ -332,7 +332,7 @@ test.describe('Request password reset', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-REQUEST-PASSWORD-RESET-008: user can complete full request-password-reset workflow',
+    'API-AUTH-REQUEST-PASSWORD-RESET-REGRESSION: user can complete full request-password-reset workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let userEmail: string

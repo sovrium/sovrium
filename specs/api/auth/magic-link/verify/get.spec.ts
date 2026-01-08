@@ -216,7 +216,7 @@ test.describe('Verify Magic Link', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-MAGIC-LINK-VERIFY-006: user can complete full magic link verification workflow',
+    'API-AUTH-MAGIC-LINK-VERIFY-REGRESSION: user can complete full magic link verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       await test.step('Setup: Start server with magic link auth', async () => {

@@ -470,7 +470,7 @@ test.describe('Invite member to organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
+    'API-AUTH-ORG-INVITE-MEMBER-REGRESSION: user can complete full inviteMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

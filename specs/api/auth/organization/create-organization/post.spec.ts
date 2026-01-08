@@ -213,7 +213,7 @@ test.describe('Create organization', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ORG-CREATE-ORGANIZATION-006: user can complete full createOrganization workflow',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-REGRESSION: user can complete full createOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

@@ -319,7 +319,7 @@ test.describe('Get Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-GET-007: member can view complete team details',
+    'API-AUTH-ORG-TEAMS-GET-REGRESSION: member can view complete team details',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

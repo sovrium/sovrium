@@ -467,7 +467,7 @@ test.describe('Database Views Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-VIEW-007: user can complete full views workflow',
+    'MIGRATION-VIEW-REGRESSION: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Create table with view and seed data', async () => {

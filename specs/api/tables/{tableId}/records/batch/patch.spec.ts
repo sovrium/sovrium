@@ -775,7 +775,7 @@ test.describe('Batch update records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-PATCH-016: user can complete full batch update workflow',
+    'API-TABLES-RECORDS-BATCH-PATCH-REGRESSION: user can complete full batch update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with employees table', async () => {

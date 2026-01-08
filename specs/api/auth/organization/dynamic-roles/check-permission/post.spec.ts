@@ -358,7 +358,7 @@ test.describe('Check Permission', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-007: system can verify permissions across multiple roles',
+    'API-AUTH-ORG-DYNAMIC-ROLE-CHECK-PERM-REGRESSION: system can verify permissions across multiple roles',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request, addMember, signUp }) => {
       // GIVEN: Organization with multiple roles and members

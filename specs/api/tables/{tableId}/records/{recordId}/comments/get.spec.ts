@@ -485,7 +485,7 @@ test.describe('List comments on a record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-012: user can complete full list comments workflow',
+    'API-TABLES-RECORDS-COMMENTS-LIST-REGRESSION: user can complete full list comments workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with tasks table and authenticate', async () => {

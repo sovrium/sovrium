@@ -267,7 +267,7 @@ test.describe('Remove Team Member', () => {
     }
   )
   test.fixme(
-    'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-007: owner can remove multiple members and verify removal',
+    'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-REGRESSION: owner can remove multiple members and verify removal',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, addMember, page }) => {
       // GIVEN: Organization with team and multiple members

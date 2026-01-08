@@ -886,7 +886,7 @@ test.describe('Rollup Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-ROLLUP-014: user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-REGRESSION: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple rollup aggregations', async () => {

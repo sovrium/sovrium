@@ -153,7 +153,7 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ORG-PLUGIN-005: all organization endpoints return 404 without organization plugin',
+    'API-AUTH-ORG-PLUGIN-REGRESSION: all organization endpoints return 404 without organization plugin',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server without organization plugin', async () => {

@@ -294,7 +294,7 @@ test.describe('Rename Table Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-RENAME-TABLE-005: user can complete full rename-table workflow',
+    'MIGRATION-RENAME-TABLE-REGRESSION: user can complete full rename-table workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create employees table with data and index', async () => {

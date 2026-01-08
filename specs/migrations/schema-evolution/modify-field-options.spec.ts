@@ -297,7 +297,7 @@ test.describe('Modify Field Options Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-OPTIONS-005: user can complete full modify-field-options workflow',
+    'MIGRATION-MODIFY-OPTIONS-REGRESSION: user can complete full modify-field-options workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table with enum options', async () => {

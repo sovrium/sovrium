@@ -208,7 +208,7 @@ test.describe('Modify Field Default Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
+    'MIGRATION-MODIFY-DEFAULT-REGRESSION: user can complete full modify-field-default workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without default value', async () => {

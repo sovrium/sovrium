@@ -324,7 +324,7 @@ test.describe('Change password', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-CHANGE-PASSWORD-009: user can complete full change-password workflow',
+    'API-AUTH-CHANGE-PASSWORD-REGRESSION: user can complete full change-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

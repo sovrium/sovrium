@@ -97,7 +97,7 @@ test.describe('Organization Creator Role', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-CREATOR-003: system can manage creator role lifecycle',
+    'API-AUTH-ORG-OPT-CREATOR-REGRESSION: system can manage creator role lifecycle',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with creator and multiple members

@@ -436,7 +436,7 @@ test.describe('Remove member from organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-009: user can complete full removeMember workflow',
+    'API-AUTH-ORG-REMOVE-MEMBER-REGRESSION: user can complete full removeMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

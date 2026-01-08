@@ -412,7 +412,7 @@ test.describe('API Field Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-PERMISSIONS-FIELD-006: complete field permission workflow via API',
+    'API-TABLES-PERMISSIONS-FIELD-REGRESSION: complete field permission workflow via API',
     { tag: '@regression' },
     async ({
       request,

@@ -659,7 +659,7 @@ test.describe('Lookup Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-LOOKUP-012: user can complete full lookup-field workflow',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-REGRESSION: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple lookup fields of different types', async () => {

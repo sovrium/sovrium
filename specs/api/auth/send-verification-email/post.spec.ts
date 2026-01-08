@@ -252,7 +252,7 @@ test.describe('Send verification email', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-007: user can complete full send-verification-email workflow',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-REGRESSION: user can complete full send-verification-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let userEmail: string

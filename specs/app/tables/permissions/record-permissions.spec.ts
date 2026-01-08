@@ -501,7 +501,7 @@ test.describe('Record-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-RECORD-PERMISSIONS-006: user can complete full record-permissions workflow',
+    'APP-TABLES-RECORD-PERMISSIONS-REGRESSION: user can complete full record-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       const roleName = generateRoleName('006')

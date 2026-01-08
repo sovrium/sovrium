@@ -323,7 +323,7 @@ test.describe('Create Custom Role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-DYNAMIC-ROLE-CREATE-007: owner can create multiple custom roles with different permissions',
+    'API-AUTH-ORG-DYNAMIC-ROLE-CREATE-REGRESSION: owner can create multiple custom roles with different permissions',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: Authenticated organization owner

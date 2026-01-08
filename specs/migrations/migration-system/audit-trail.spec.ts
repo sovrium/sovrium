@@ -302,7 +302,7 @@ test.describe('Migration Audit Trail', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-AUDIT-007: user can complete full migration audit workflow',
+    'MIGRATION-AUDIT-REGRESSION: user can complete full migration audit workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Apply initial migration', async () => {

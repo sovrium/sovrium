@@ -208,7 +208,7 @@ test.describe('List all tables', () => {
   // ============================================================================
 
   test(
-    'API-TABLES-LIST-006: user can complete full tables list workflow',
+    'API-TABLES-LIST-REGRESSION: user can complete full tables list workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, signOut }) => {
       await test.step('Setup: Start server with tables and auth', async () => {

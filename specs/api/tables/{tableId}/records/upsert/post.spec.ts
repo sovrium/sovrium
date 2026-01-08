@@ -774,7 +774,7 @@ test.describe('Upsert records (create or update)', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-016: user can complete full upsert workflow',
+    'API-TABLES-RECORDS-UPSERT-REGRESSION: user can complete full upsert workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with employees table', async () => {

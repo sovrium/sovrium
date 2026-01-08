@@ -227,7 +227,7 @@ test.describe('Set active organization', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-006: user can complete full setActiveOrganization workflow',
+    'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-REGRESSION: user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

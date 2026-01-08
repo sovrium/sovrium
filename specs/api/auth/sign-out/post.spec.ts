@@ -187,7 +187,7 @@ test.describe('Sign out user', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-SIGN-OUT-006: user can complete full sign-out workflow',
+    'API-AUTH-SIGN-OUT-REGRESSION: user can complete full sign-out workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Create server and authenticate user', async () => {

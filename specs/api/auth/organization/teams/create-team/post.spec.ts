@@ -305,7 +305,7 @@ test.describe('Create Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-CREATE-007: owner can complete full team creation workflow',
+    'API-AUTH-ORG-TEAMS-CREATE-REGRESSION: owner can complete full team creation workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: Authenticated organization owner

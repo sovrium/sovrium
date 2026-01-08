@@ -215,7 +215,7 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-SESSION-005: session security workflow prevents attacks',
+    'API-SECURITY-SESSION-REGRESSION: session security workflow prevents attacks',
     { tag: '@regression' },
     async ({ page, context, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with auth', async () => {

@@ -181,7 +181,7 @@ test.describe('Get table by ID', () => {
   // ============================================================================
 
   test(
-    'API-TABLES-GET-006: user can complete full table retrieval workflow',
+    'API-TABLES-GET-REGRESSION: user can complete full table retrieval workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A running server with a test table

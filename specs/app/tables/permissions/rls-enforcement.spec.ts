@@ -845,7 +845,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-RLS-ENFORCEMENT-015: row-level security enforcement workflow',
+    'APP-TABLES-RLS-ENFORCEMENT-REGRESSION: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       let user1: any

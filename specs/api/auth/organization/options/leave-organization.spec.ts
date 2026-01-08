@@ -127,7 +127,7 @@ test.describe('Leave Organization', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-LEAVE-004: member can leave organization and verify cleanup',
+    'API-AUTH-ORG-OPT-LEAVE-REGRESSION: member can leave organization and verify cleanup',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with members and teams

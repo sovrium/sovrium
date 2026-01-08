@@ -272,7 +272,7 @@ test.describe('GET /trash endpoint', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-TRASH-006: user can complete full trash workflow',
+    'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with contacts table', async () => {

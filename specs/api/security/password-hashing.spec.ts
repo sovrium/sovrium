@@ -153,7 +153,7 @@ test.describe('Password Hashing Security', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-HASH-004: user can complete full password hashing workflow',
+    'API-SECURITY-HASH-REGRESSION: user can complete full password hashing workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with authentication enabled

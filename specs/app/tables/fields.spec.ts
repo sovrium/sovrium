@@ -529,7 +529,7 @@ test.describe('Table Fields', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELDS-017: user can complete full Table Fields workflow',
+    'APP-TABLES-FIELDS-REGRESSION: user can complete full Table Fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with tables containing various field configurations

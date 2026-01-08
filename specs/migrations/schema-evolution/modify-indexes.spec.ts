@@ -330,7 +330,7 @@ test.describe('Modify Indexes Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
+    'MIGRATION-MODIFY-INDEX-REGRESSION: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without indexes', async () => {

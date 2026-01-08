@@ -248,7 +248,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-TWO-FACTOR-VERIFY-007: user can complete full 2FA verification workflow',
+    'API-AUTH-TWO-FACTOR-VERIFY-REGRESSION: user can complete full 2FA verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with two-factor plugin', async () => {

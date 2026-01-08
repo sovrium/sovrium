@@ -240,7 +240,7 @@ test.describe('Admin: Impersonate user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-007: admin can complete full impersonate-user workflow',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-REGRESSION: admin can complete full impersonate-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

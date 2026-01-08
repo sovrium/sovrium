@@ -673,7 +673,7 @@ test.describe('Table Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-PERMISSIONS-011: user can complete full permissions workflow',
+    'APP-TABLES-PERMISSIONS-REGRESSION: user can complete full permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with hierarchical permissions', async () => {

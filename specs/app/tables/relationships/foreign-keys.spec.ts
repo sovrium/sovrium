@@ -741,7 +741,7 @@ test.describe('Foreign Key Relationships', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FK-015: user can complete full foreign-key workflow with CASCADE behaviors',
+    'APP-TABLES-FK-REGRESSION: user can complete full foreign-key workflow with CASCADE behaviors',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create tables with various FK relationships', async () => {

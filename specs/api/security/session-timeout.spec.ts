@@ -185,7 +185,7 @@ test.describe('Session Timeout - Idle and Maximum Session Lifetime', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-TIMEOUT-004: session timeout workflow protects against unattended access',
+    'API-SECURITY-TIMEOUT-REGRESSION: session timeout workflow protects against unattended access',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with session auth (timeout is native)', async () => {

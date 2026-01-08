@@ -698,7 +698,7 @@ test.describe('Relationship Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: user can complete full relationship-field workflow',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-REGRESSION: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create tables with various relationship types', async () => {

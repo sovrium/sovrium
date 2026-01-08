@@ -434,7 +434,7 @@ version: 3.0.0
   // ============================================================================
 
   test(
-    'CLI-START-ENV-012: user can start server with environment variable in production workflow',
+    'CLI-START-ENV-REGRESSION: user can start server with environment variable in production workflow',
     { tag: '@regression' },
     async () => {
       await test.step('Load inline JSON schema from environment variable', async () => {

@@ -198,7 +198,7 @@ test.describe('Send Magic Link', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-MAGIC-LINK-SEND-006: user can complete full magic link send workflow',
+    'API-AUTH-MAGIC-LINK-SEND-REGRESSION: user can complete full magic link send workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let existingUserEmail: string

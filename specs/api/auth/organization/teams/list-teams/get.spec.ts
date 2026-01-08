@@ -293,7 +293,7 @@ test.describe('List Teams', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-LIST-007: member can view all organization teams',
+    'API-AUTH-ORG-TEAMS-LIST-REGRESSION: member can view all organization teams',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

@@ -1726,7 +1726,7 @@ test.describe('Data Tables', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-045: user can complete full Data Tables workflow',
+    'APP-TABLES-REGRESSION: user can complete full Data Tables workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create table with representative configuration', async () => {

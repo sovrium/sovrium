@@ -365,7 +365,7 @@ test.describe('Assign Custom Role', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-DYNAMIC-ROLE-ASSIGN-007: owner can assign roles and verify permissions apply',
+    'API-AUTH-ORG-DYNAMIC-ROLE-ASSIGN-REGRESSION: owner can assign roles and verify permissions apply',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: An organization with custom roles and members

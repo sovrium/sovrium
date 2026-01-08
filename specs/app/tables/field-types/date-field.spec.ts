@@ -225,7 +225,7 @@ test.describe('Date Field', () => {
   // These tests now validate API response formatting rather than UI display.
 
   test(
-    'APP-TABLES-FIELD-TYPES-DATE-006: user can complete full date-field workflow',
+    'APP-TABLES-FIELD-TYPES-DATE-REGRESSION: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with date field', async () => {

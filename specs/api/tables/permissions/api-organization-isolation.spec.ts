@@ -460,7 +460,7 @@ test.describe('API Organization Isolation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-PERMISSIONS-ORG-008: complete multi-org isolation workflow via API',
+    'API-TABLES-PERMISSIONS-ORG-REGRESSION: complete multi-org isolation workflow via API',
     { tag: '@regression' },
     async ({
       request,

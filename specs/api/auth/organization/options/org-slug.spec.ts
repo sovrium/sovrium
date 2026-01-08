@@ -154,7 +154,7 @@ test.describe('Organization Slug Handling', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-OPT-SLUG-004: system can manage slug uniqueness across organizations',
+    'API-AUTH-ORG-OPT-SLUG-REGRESSION: system can manage slug uniqueness across organizations',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
       // GIVEN: Multiple organizations

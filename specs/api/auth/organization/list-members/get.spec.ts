@@ -285,7 +285,7 @@ test.describe('List organization members', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-LIST-MEMBERS-007: user can complete full listMembers workflow',
+    'API-AUTH-ORG-LIST-MEMBERS-REGRESSION: user can complete full listMembers workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

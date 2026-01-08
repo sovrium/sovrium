@@ -333,7 +333,7 @@ test.describe('Check table permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-PERMISSIONS-CHECK-007: user can complete full permissions check workflow',
+    'API-TABLES-PERMISSIONS-CHECK-REGRESSION: user can complete full permissions check workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin, signOut }) => {
       await test.step('Setup: Create table with comprehensive permissions', async () => {

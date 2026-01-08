@@ -247,7 +247,7 @@ test.describe('Admin: List user sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USER-SESSIONS-008: admin can complete full list-user-sessions workflow',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-REGRESSION: admin can complete full list-user-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

@@ -454,7 +454,7 @@ test.describe('Timezone Handling', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-TIMEZONE-010: user can complete full timezone-handling workflow',
+    'APP-TABLES-TIMEZONE-REGRESSION: user can complete full timezone-handling workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create tables with timezone-aware and zoneless timestamps', async () => {

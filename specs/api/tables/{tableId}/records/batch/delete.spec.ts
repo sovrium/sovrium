@@ -666,7 +666,7 @@ test.describe('Batch delete records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-014: user can complete full batch soft delete workflow',
+    'API-TABLES-RECORDS-BATCH-DELETE-REGRESSION: user can complete full batch soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with tasks table', async () => {

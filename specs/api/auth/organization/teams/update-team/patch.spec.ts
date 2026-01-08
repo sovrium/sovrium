@@ -343,7 +343,7 @@ test.describe('Update Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-UPDATE-007: owner can update all team fields and verify changes persist',
+    'API-AUTH-ORG-TEAMS-UPDATE-REGRESSION: owner can update all team fields and verify changes persist',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: Organization with team

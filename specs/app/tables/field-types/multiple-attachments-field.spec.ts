@@ -251,7 +251,7 @@ test.describe('Multiple Attachments Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-008: user can complete full multiple-attachments-field workflow',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-REGRESSION: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with multiple-attachments field', async () => {

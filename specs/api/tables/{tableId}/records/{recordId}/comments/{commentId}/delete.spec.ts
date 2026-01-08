@@ -386,7 +386,7 @@ test.describe('Delete comment', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-DELETE-010: user can complete full delete comment workflow',
+    'API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION: user can complete full delete comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with tasks table and authenticate', async () => {

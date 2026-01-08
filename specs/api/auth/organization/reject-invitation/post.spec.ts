@@ -354,7 +354,7 @@ test.describe('Reject organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-REJECT-INVITATION-008: user can complete full rejectInvitation workflow',
+    'API-AUTH-ORG-REJECT-INVITATION-REGRESSION: user can complete full rejectInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

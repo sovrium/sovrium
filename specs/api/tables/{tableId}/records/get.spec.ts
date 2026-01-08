@@ -1143,7 +1143,7 @@ test.describe('List records in table', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-029: user can complete full list records workflow',
+    'API-TABLES-RECORDS-LIST-REGRESSION: user can complete full list records workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with projects table', async () => {

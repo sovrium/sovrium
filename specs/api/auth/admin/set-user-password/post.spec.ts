@@ -284,7 +284,7 @@ test.describe('Admin: Set user password', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-SET-USER-PASSWORD-008: admin can complete full set-user-password workflow',
+    'API-AUTH-ADMIN-SET-USER-PASSWORD-REGRESSION: admin can complete full set-user-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

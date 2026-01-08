@@ -236,7 +236,7 @@ test.describe('Checksum Optimization', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-CHECKSUM-005: user can complete full checksum-optimization workflow',
+    'MIGRATION-CHECKSUM-REGRESSION: user can complete full checksum-optimization workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('First run: Create initial checksum', async () => {

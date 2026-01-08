@@ -678,7 +678,7 @@ test.describe('Database Indexes', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-INDEXES-011: user can complete full Database Indexes workflow',
+    'APP-TABLES-INDEXES-REGRESSION: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create table with index configurations and seed data', async () => {

@@ -492,7 +492,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-PERMISSIONS-INHERIT-007: complete role hierarchy workflow',
+    'API-TABLES-PERMISSIONS-INHERIT-REGRESSION: complete role hierarchy workflow',
     { tag: '@regression' },
     async ({
       request,

@@ -439,7 +439,7 @@ test.describe('Error Handling and Rollback', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-ERROR-011: user can complete full error-handling-and-rollback workflow',
+    'MIGRATION-ERROR-REGRESSION: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Test invalid field type triggers rollback', async () => {

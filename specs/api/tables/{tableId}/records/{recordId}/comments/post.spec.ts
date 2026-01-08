@@ -525,7 +525,7 @@ test.describe('Create comment on a record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-CREATE-012: user can complete full create comment workflow',
+    'API-TABLES-RECORDS-COMMENTS-CREATE-REGRESSION: user can complete full create comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with tasks table and authenticate', async () => {

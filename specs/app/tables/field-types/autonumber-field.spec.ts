@@ -179,7 +179,7 @@ test.describe('Autonumber Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-AUTONUMBER-006: user can complete full autonumber-field workflow',
+    'APP-TABLES-FIELD-TYPES-AUTONUMBER-REGRESSION: user can complete full autonumber-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with autonumber field', async () => {

@@ -609,7 +609,7 @@ test.describe('Primary Key', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-PRIMARYKEY-011: user can complete full Primary Key workflow',
+    'APP-TABLES-PRIMARYKEY-REGRESSION: user can complete full Primary Key workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create tables with various primary key types', async () => {

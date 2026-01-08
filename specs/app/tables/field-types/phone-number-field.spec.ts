@@ -250,7 +250,7 @@ test.describe('Phone Number Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
+    'APP-TABLES-FIELD-PHONE-NUMBER-REGRESSION: user can complete full phone-number-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with phone-number field', async () => {

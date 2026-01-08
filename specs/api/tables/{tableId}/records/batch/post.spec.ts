@@ -761,7 +761,7 @@ test.describe('Batch create records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-017: user can complete full batch create workflow',
+    'API-TABLES-RECORDS-BATCH-POST-REGRESSION: user can complete full batch create workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with employees table', async () => {

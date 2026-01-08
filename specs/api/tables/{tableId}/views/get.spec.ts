@@ -121,7 +121,7 @@ test.describe('List table views', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-VIEWS-LIST-005: user can complete full views list workflow',
+    'API-TABLES-VIEWS-LIST-REGRESSION: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request }) => {
       await test.step('Verify successful views list retrieval', async () => {

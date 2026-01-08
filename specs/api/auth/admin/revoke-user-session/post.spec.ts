@@ -303,7 +303,7 @@ test.describe('Admin: Revoke user session', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-009: admin can complete full revoke-user-session workflow',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-REGRESSION: admin can complete full revoke-user-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with admin plugin', async () => {

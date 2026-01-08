@@ -261,7 +261,7 @@ test.describe('Modify Field Required Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
+    'MIGRATION-MODIFY-REQUIRED-REGRESSION: user can complete full modify-field-required workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table with optional description field', async () => {

@@ -407,7 +407,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
   )
 
   test(
-    'CLI-BUILD-I18N-005: complete multi-language workflow',
+    'CLI-BUILD-I18N-REGRESSION: complete multi-language workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

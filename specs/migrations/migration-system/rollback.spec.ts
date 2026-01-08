@@ -454,7 +454,7 @@ test.describe('Migration Rollback', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
+    'MIGRATION-ROLLBACK-REGRESSION: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Create migration history and test data', async () => {

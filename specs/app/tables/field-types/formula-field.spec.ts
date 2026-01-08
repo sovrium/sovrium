@@ -4605,7 +4605,7 @@ test.describe('Formula Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-FORMULA-123: user can complete full formula-field workflow',
+    'APP-TABLES-FIELD-TYPES-FORMULA-REGRESSION: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with formula field', async () => {

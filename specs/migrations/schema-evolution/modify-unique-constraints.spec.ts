@@ -330,7 +330,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-UNIQUE-006: user can complete full modify-unique-constraints workflow',
+    'MIGRATION-MODIFY-UNIQUE-REGRESSION: user can complete full modify-unique-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table without unique constraint', async () => {

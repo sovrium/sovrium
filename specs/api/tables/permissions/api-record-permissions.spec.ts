@@ -466,7 +466,7 @@ test.describe('API Record-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-PERMISSIONS-RECORD-008: complete owner-based access workflow',
+    'API-TABLES-PERMISSIONS-RECORD-REGRESSION: complete owner-based access workflow',
     { tag: '@regression' },
     async ({
       request,

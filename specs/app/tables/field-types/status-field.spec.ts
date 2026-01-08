@@ -378,7 +378,7 @@ test.describe('Status Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-STATUS-009: user can complete full status-field workflow',
+    'APP-TABLES-FIELD-TYPES-STATUS-REGRESSION: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with status field', async () => {

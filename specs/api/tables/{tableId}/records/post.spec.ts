@@ -810,7 +810,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-019: user can complete full record creation workflow',
+    'API-TABLES-RECORDS-CREATE-REGRESSION: user can complete full record creation workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {

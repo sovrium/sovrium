@@ -148,7 +148,7 @@ test.describe('Get view details', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-VIEWS-GET-006: user can complete full view details workflow',
+    'API-TABLES-VIEWS-GET-REGRESSION: user can complete full view details workflow',
     { tag: '@regression' },
     async ({ request }) => {
       await test.step('Verify successful view details retrieval', async () => {

@@ -447,7 +447,7 @@ test.describe('Cancel organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
+    'API-AUTH-ORG-CANCEL-INVITATION-REGRESSION: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server with organization plugin', async () => {

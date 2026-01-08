@@ -893,7 +893,7 @@ test.describe('Update record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-018: user can complete full record update workflow',
+    'API-TABLES-RECORDS-UPDATE-REGRESSION: user can complete full record update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with employees table', async () => {

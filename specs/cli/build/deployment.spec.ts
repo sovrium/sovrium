@@ -485,7 +485,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'CLI-BUILD-DEPLOY-007: complete deployment workflow',
+    'CLI-BUILD-DEPLOY-REGRESSION: complete deployment workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       let outputDir: string

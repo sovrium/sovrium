@@ -488,7 +488,7 @@ test.describe('Get record by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-013: user can complete full get record workflow',
+    'API-TABLES-RECORDS-GET-REGRESSION: user can complete full get record workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with users table', async () => {

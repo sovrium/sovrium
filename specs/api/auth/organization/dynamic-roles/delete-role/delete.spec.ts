@@ -291,7 +291,7 @@ test.describe('Delete Custom Role', () => {
   )
 
   test.fixme(
-    'API-AUTH-ORG-DYNAMIC-ROLE-DELETE-007: owner can delete role and verify members updated',
+    'API-AUTH-ORG-DYNAMIC-ROLE-DELETE-REGRESSION: owner can delete role and verify members updated',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
       // GIVEN: Organization with multiple custom roles and members

@@ -376,7 +376,7 @@ test.describe('Add Field Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-ALTER-ADD-007: user can complete full add-field-migration workflow',
+    'MIGRATION-ALTER-ADD-REGRESSION: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Add optional field to table', async () => {

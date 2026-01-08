@@ -209,7 +209,7 @@ test.describe('Set Active Team', () => {
     }
   )
   test.fixme(
-    'API-AUTH-ORG-TEAMS-SET-ACTIVE-007: user can switch between teams and verify context updates',
+    'API-AUTH-ORG-TEAMS-SET-ACTIVE-REGRESSION: user can switch between teams and verify context updates',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, page }) => {
       // GIVEN: User with multiple teams

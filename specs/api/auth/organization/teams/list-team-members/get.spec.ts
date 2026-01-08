@@ -198,7 +198,7 @@ test.describe('List Team Members', () => {
     }
   )
   test.fixme(
-    'API-AUTH-ORG-TEAMS-LIST-MEMBERS-007: member can list all team members with user details',
+    'API-AUTH-ORG-TEAMS-LIST-MEMBERS-REGRESSION: member can list all team members with user details',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, createOrganization, addMember, page }) => {
       // GIVEN: Organization with team and multiple members

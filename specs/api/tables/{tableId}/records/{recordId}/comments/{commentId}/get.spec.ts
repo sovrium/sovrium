@@ -298,7 +298,7 @@ test.describe('Get single comment by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-GET-008: user can complete full get comment workflow',
+    'API-TABLES-RECORDS-COMMENTS-GET-REGRESSION: user can complete full get comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with tasks table and authenticate', async () => {

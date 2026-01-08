@@ -378,7 +378,7 @@ test.describe('Modify Field Type Migration', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
+    'MIGRATION-MODIFY-TYPE-REGRESSION: user can complete full modify-field-type workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('Setup: create items table with TEXT and INTEGER fields', async () => {

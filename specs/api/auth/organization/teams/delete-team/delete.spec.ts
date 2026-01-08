@@ -348,7 +348,7 @@ test.describe('Delete Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-DELETE-007: owner can delete team with members and verify cleanup',
+    'API-AUTH-ORG-TEAMS-DELETE-REGRESSION: owner can delete team with members and verify cleanup',
     { tag: '@regression' },
     async ({
       startServerWithSchema,

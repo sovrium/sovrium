@@ -844,7 +844,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-019: user can complete full soft delete workflow',
+    'API-TABLES-RECORDS-DELETE-REGRESSION: user can complete full soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       await test.step('Setup: Start server with contacts table', async () => {

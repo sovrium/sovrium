@@ -327,7 +327,7 @@ test.describe('Update member role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-007: user can complete full updateMemberRole workflow',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-REGRESSION: user can complete full updateMemberRole workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with organization plugin', async () => {
