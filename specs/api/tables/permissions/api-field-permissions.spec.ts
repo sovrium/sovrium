@@ -114,10 +114,10 @@ test.describe('API Field Permission Enforcement', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0]).toHaveProperty('name', 'John Doe')
-      expect(data.records[0]).toHaveProperty('email', 'john@example.com')
+      expect(data.records[0].fields).toHaveProperty('name', 'John Doe')
+      expect(data.records[0].fields).toHaveProperty('email', 'john@example.com')
       // KEY ASSERTION: Salary field should be filtered out
-      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -193,9 +193,9 @@ test.describe('API Field Permission Enforcement', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0]).toHaveProperty('name', 'Jane Smith')
+      expect(data.records[0].fields).toHaveProperty('name', 'Jane Smith')
       // KEY ASSERTION: Admin can see salary field
-      expect(data.records[0]).toHaveProperty('salary', '95000')
+      expect(data.records[0].fields).toHaveProperty('salary', '95000')
     }
   )
 
