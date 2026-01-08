@@ -470,67 +470,109 @@ test(
 
 // ============================================================================
 // REGRESSION TEST (@regression)
-// ONE consolidated test covering complete workflow
-// Run during: CI/CD, pre-release (bun test:e2e:regression)
-//
-// Optimization: Reduced from 10 server restarts to 4 by batching related scenarios
+// ONE OPTIMIZED test verifying components work together efficiently
+// Generated from 15 @spec tests - see individual @spec tests for exhaustive criteria
 // ============================================================================
 
 test(
-  'APP-DESCRIPTION-016: user can view complete app description in all scenarios',
+  'APP-DESCRIPTION-REGRESSION: user can complete full description workflow',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    await test.step('Setup: Start server with complex description', async () => {
+    await test.step('APP-DESCRIPTION-001: Display description below app name', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
-          description: 'MiXeD CaSe!  With   Spaces  & Special@#$% Très bien! 你好 🎉',
+          description: 'A simple application',
         },
         { useDatabase: false }
       )
-    })
-
-    await test.step('Verify core display, layout, and styling', async () => {
       await page.goto('/')
       const description = page.locator('[data-testid="app-description"]')
-      const title = page.locator('h1[data-testid="app-name-heading"]')
-
       await expect(description).toBeVisible()
-      await expect(description).toHaveText(
-        'MiXeD CaSe!  With   Spaces  & Special@#$% Très bien! 你好 🎉'
+      await expect(description).toHaveText('A simple application')
+    })
+
+    await test.step('APP-DESCRIPTION-002: NOT render when description missing', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+        },
+        { useDatabase: false }
       )
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeHidden()
+    })
 
-      const paragraph = page.locator('p[data-testid="app-description"]')
-      await expect(paragraph).toBeVisible()
-      await expect(description).toBeInViewport()
-
-      const textAlign = await description.evaluate((el) => window.getComputedStyle(el).textAlign)
-      expect(textAlign).toBe('center')
-
+    await test.step('APP-DESCRIPTION-003: Render description AFTER h1 title', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'A simple application',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const title = page.locator('h1[data-testid="app-name-heading"]')
+      const description = page.locator('[data-testid="app-description"]')
       await expect(title).toBeVisible()
+      await expect(description).toBeVisible()
       const titleBox = await title.boundingBox()
       const descriptionBox = await description.boundingBox()
-
       expect(titleBox).not.toBeNull()
       expect(descriptionBox).not.toBeNull()
       expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
-
-      const spacing = descriptionBox!.y - (titleBox!.y + titleBox!.height)
-      expect(spacing).toBeGreaterThan(0)
     })
 
-    await test.step('Verify missing and empty description handling', async () => {
+    await test.step('APP-DESCRIPTION-004: Display special characters correctly', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
+          description: 'My app - with special!@#$%',
         },
         { useDatabase: false }
       )
       await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toHaveText('My app - with special!@#$%')
+    })
 
-      let hiddenDescription = page.locator('[data-testid="app-description"]')
-      await expect(hiddenDescription).toBeHidden()
+    await test.step('APP-DESCRIPTION-005: Display Unicode and emojis correctly', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'Très bien! 你好 🎉',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toHaveText('Très bien! 你好 🎉')
+    })
 
+    await test.step('APP-DESCRIPTION-006: Wrap long description properly', async () => {
+      const longDescription =
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
+        'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ' +
+        'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris. ' +
+        'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum. ' +
+        'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia. ' +
+        'Deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste. ' +
+        'Natus error sit voluptatem accusantium doloremque laudantium totam rem.'
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: longDescription,
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeVisible()
+      await expect(description).toHaveText(longDescription)
+    })
+
+    await test.step('APP-DESCRIPTION-007: NOT render when description is empty', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -539,16 +581,99 @@ test(
         { useDatabase: false }
       )
       await page.goto('/')
-
-      hiddenDescription = page.locator('[data-testid="app-description"]')
-      await expect(hiddenDescription).toBeHidden()
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeHidden()
     })
 
-    await test.step('Verify long text handling and no truncation', async () => {
+    await test.step('APP-DESCRIPTION-008: Render as paragraph element', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'A simple application',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const description = page.locator('p[data-testid="app-description"]')
+      await expect(description).toBeVisible()
+    })
+
+    await test.step('APP-DESCRIPTION-009: Center description horizontally', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'A simple application',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeVisible()
+      const styles = await description.evaluate((el) => {
+        const computed = window.getComputedStyle(el)
+        return { textAlign: computed.textAlign }
+      })
+      expect(styles.textAlign).toBe('center')
+    })
+
+    await test.step('APP-DESCRIPTION-010: Display description in viewport', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'A simple application',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeVisible()
+      await expect(description).toBeInViewport()
+    })
+
+    await test.step('APP-DESCRIPTION-011: Display text without transformation', async () => {
+      const originalText = 'MiXeD CaSe!  With   Spaces  & Special@#$%'
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: originalText,
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toHaveText(originalText)
+    })
+
+    await test.step('APP-DESCRIPTION-012: Display elements in order: version → title → description', async () => {
+      await startServerWithSchema(
+        {
+          version: '1.0.0',
+          name: 'test-app',
+          description: 'A simple application',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const version = page.locator('[data-testid="app-version-badge"]')
+      const title = page.locator('h1[data-testid="app-name-heading"]')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(version).toBeVisible()
+      await expect(title).toBeVisible()
+      await expect(description).toBeVisible()
+      const versionBox = await version.boundingBox()
+      const titleBox = await title.boundingBox()
+      const descriptionBox = await description.boundingBox()
+      expect(versionBox).not.toBeNull()
+      expect(titleBox).not.toBeNull()
+      expect(descriptionBox).not.toBeNull()
+      expect(versionBox!.y).toBeLessThan(titleBox!.y)
+      expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
+    })
+
+    await test.step('APP-DESCRIPTION-013: Display full description without truncation', async () => {
       const veryLongDescription =
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(20) +
         'Final sentence to verify complete rendering without any truncation.'
-
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -557,51 +682,51 @@ test(
         { useDatabase: false }
       )
       await page.goto('/')
-
-      const longDescription = page.locator('[data-testid="app-description"]')
-      await expect(longDescription).toBeVisible()
-      await expect(longDescription).toHaveText(veryLongDescription)
-
-      const textOverflow = await longDescription.evaluate(
-        (el) => window.getComputedStyle(el).textOverflow
-      )
-      expect(textOverflow).not.toBe('ellipsis')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeVisible()
+      await expect(description).toHaveText(veryLongDescription)
+      const styles = await description.evaluate((el) => {
+        const computed = window.getComputedStyle(el)
+        return { textOverflow: computed.textOverflow }
+      })
+      expect(styles.textOverflow).not.toBe('ellipsis')
     })
 
-    await test.step('Verify complete layout integration and security', async () => {
+    await test.step('APP-DESCRIPTION-014: Escape HTML tags and display as text', async () => {
       await startServerWithSchema(
         {
-          version: '1.0.0',
           name: 'test-app',
           description: '<script>alert(1)</script>',
         },
         { useDatabase: false }
       )
       await page.goto('/')
-
-      const version = page.locator('[data-testid="app-version-badge"]')
-      const finalTitle = page.locator('h1[data-testid="app-name-heading"]')
-      const finalDescription = page.locator('[data-testid="app-description"]')
-
-      await expect(version).toBeVisible()
-      await expect(finalTitle).toBeVisible()
-      await expect(finalDescription).toBeVisible()
-
-      const versionBox = await version.boundingBox()
-      const finalTitleBox = await finalTitle.boundingBox()
-      const finalDescriptionBox = await finalDescription.boundingBox()
-
-      expect(versionBox).not.toBeNull()
-      expect(finalTitleBox).not.toBeNull()
-      expect(finalDescriptionBox).not.toBeNull()
-
-      expect(versionBox!.y).toBeLessThan(finalTitleBox!.y)
-      expect(finalTitleBox!.y).toBeLessThan(finalDescriptionBox!.y)
-
-      await expect(finalDescription).toHaveText('<script>alert(1)</script>')
-
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(description).toBeVisible()
+      await expect(description).toHaveText('<script>alert(1)</script>')
       const scriptElement = page.locator('script:has-text("alert(1)")')
       await expect(scriptElement).toHaveCount(0)
+    })
+
+    await test.step('APP-DESCRIPTION-015: Have appropriate spacing between title and description', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'A simple application',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const title = page.locator('h1[data-testid="app-name-heading"]')
+      const description = page.locator('[data-testid="app-description"]')
+      await expect(title).toBeVisible()
+      await expect(description).toBeVisible()
+      const titleBox = await title.boundingBox()
+      const descriptionBox = await description.boundingBox()
+      expect(titleBox).not.toBeNull()
+      expect(descriptionBox).not.toBeNull()
+      const spacing = descriptionBox!.y - (titleBox!.y + titleBox!.height)
+      expect(spacing).toBeGreaterThan(0)
     })
   }
 )

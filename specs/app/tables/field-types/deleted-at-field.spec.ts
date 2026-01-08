@@ -182,73 +182,122 @@ test.describe('Deleted At Field', () => {
     }
   )
 
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-DELETED-AT-006: user can complete full deleted-at-field workflow',
+    'APP-TABLES-FIELD-TYPES-DELETED-AT-REGRESSION: user can complete full deleted-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with deleted-at field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-AT-001: Create PostgreSQL TIMESTAMP column with NULL default', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'records',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 2, name: 'deleted_at', type: 'deleted-at' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Insert test records', async () => {
-        await executeQuery([
-          "INSERT INTO data (id, title) VALUES (1, 'Active Record 1')",
-          "INSERT INTO data (id, title) VALUES (2, 'Active Record 2')",
-          "INSERT INTO data (id, title) VALUES (3, 'Active Record 3')",
-        ])
-      })
-
-      await test.step('Verify all records start as active (NULL deleted_at)', async () => {
-        const results = await executeQuery('SELECT id, deleted_at FROM data ORDER BY id')
-        expect(results.rows.length).toBe(3)
-        expect(results.rows[0].deleted_at).toBeNull()
-        expect(results.rows[1].deleted_at).toBeNull()
-        expect(results.rows[2].deleted_at).toBeNull()
-      })
-
-      await test.step('Soft delete record 2', async () => {
-        await executeQuery('UPDATE data SET deleted_at = NOW() WHERE id = 2')
-      })
-
-      await test.step('Verify soft-deleted record is filtered out by default query', async () => {
-        const activeRecords = await executeQuery(
-          'SELECT id FROM data WHERE deleted_at IS NULL ORDER BY id'
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='records' AND column_name='deleted_at'"
         )
-        expect(activeRecords.rows.length).toBe(2)
-        expect(activeRecords.rows.map((r: { id: number }) => r.id)).toEqual([1, 3])
+        expect(columnInfo.data_type).toMatch(/timestamp/)
+        expect(columnInfo.column_default).toBeNull()
       })
 
-      await test.step('Verify soft-deleted record still exists in database', async () => {
-        const deletedRecord = await executeQuery('SELECT id, deleted_at FROM data WHERE id = 2')
-        expect(deletedRecord.deleted_at).toBeTruthy()
-      })
-
-      await test.step('Restore soft-deleted record', async () => {
-        await executeQuery('UPDATE data SET deleted_at = NULL WHERE id = 2')
-      })
-
-      await test.step('Verify restored record is active again', async () => {
-        const restoredRecord = await executeQuery('SELECT id, deleted_at FROM data WHERE id = 2')
-        expect(restoredRecord.deleted_at).toBeNull()
-
-        const allActiveRecords = await executeQuery(
-          'SELECT id FROM data WHERE deleted_at IS NULL ORDER BY id'
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-AT-002: Allow NULL values (nullable by design)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'deleted_at', type: 'deleted-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const nullableCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='deleted_at'"
         )
-        expect(allActiveRecords.rows.length).toBe(3)
+        expect(nullableCheck.is_nullable).toBe('YES')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-AT-003: Allow setting timestamp for soft delete', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'deleted_at', type: 'deleted-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery('INSERT INTO tasks (id) VALUES (1)')
+        await executeQuery('UPDATE tasks SET deleted_at = NOW() WHERE id = 1')
+        const result = await executeQuery('SELECT deleted_at FROM tasks WHERE id = 1')
+        expect(result.deleted_at).toBeTruthy()
+        const deletedDate = new Date(result.deleted_at)
+        expect(deletedDate.getFullYear()).toBeGreaterThanOrEqual(2025)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-AT-004: Allow clearing timestamp for restore', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'deleted_at', type: 'deleted-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery('INSERT INTO items (id, deleted_at) VALUES (1, NOW())')
+        const beforeRestore = await executeQuery('SELECT deleted_at FROM items WHERE id = 1')
+        expect(beforeRestore.deleted_at).toBeTruthy()
+        await executeQuery('UPDATE items SET deleted_at = NULL WHERE id = 1')
+        const afterRestore = await executeQuery('SELECT deleted_at FROM items WHERE id = 1')
+        expect(afterRestore.deleted_at).toBeNull()
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-AT-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'audit',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_audit_deleted_at'"
+        )
+        expect(indexExists.indexname).toBe('idx_audit_deleted_at')
       })
     }
   )

@@ -409,11 +409,18 @@ test.describe('Structured Data', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 10 @spec tests - covers: Organization, Person, LocalBusiness, Product,
+  // Article, BreadcrumbList, FAQPage, EducationEvent, multiple types, rich search results
+  // ============================================================================
+
   test(
-    'APP-PAGES-STRUCTUREDDATA-011: user can complete full structured data workflow',
+    'APP-PAGES-STRUCTUREDDATA-REGRESSION: user can complete full structured data workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with multiple structured data schemas', async () => {
+      await test.step('APP-PAGES-STRUCTUREDDATA-001: Include Organization structured data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -428,9 +435,144 @@ test.describe('Structured Data', () => {
                   organization: {
                     '@context': 'https://schema.org',
                     '@type': 'Organization',
-                    name: 'Complete Test Org',
+                    name: 'My Company',
                     url: 'https://example.com',
                   },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Organization"')
+      })
+
+      await test.step('APP-PAGES-STRUCTUREDDATA-002: Include Person structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Person"')
+      })
+
+      await test.step('APP-PAGES-STRUCTUREDDATA-003: Include LocalBusiness structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  localBusiness: {
+                    '@context': 'https://schema.org',
+                    '@type': 'LocalBusiness',
+                    name: 'Coffee Shop',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"LocalBusiness"')
+      })
+
+      await test.step('APP-PAGES-STRUCTUREDDATA-004: Include Product structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Product"')
+      })
+
+      await test.step('APP-PAGES-STRUCTUREDDATA-005: Include Article structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Amazing Article Title',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Article"')
+      })
+
+      await test.step('APP-PAGES-STRUCTUREDDATA-006: Include BreadcrumbList structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
                   breadcrumb: {
                     '@context': 'https://schema.org',
                     '@type': 'BreadcrumbList',
@@ -439,6 +581,7 @@ test.describe('Structured Data', () => {
                         '@type': 'ListItem',
                         position: 1,
                         name: 'Home',
+                        item: 'https://example.com',
                       },
                     ],
                   },
@@ -448,54 +591,133 @@ test.describe('Structured Data', () => {
             },
           ],
         })
-      })
-
-      let jsonLdSchemas: any[]
-      let allContent: (string | null)[]
-
-      await test.step('Navigate to page and parse JSON-LD scripts', async () => {
         await page.goto('/')
-        const scripts = await page.locator('script[type="application/ld+json"]').all()
-        expect(scripts.length).toBeGreaterThanOrEqual(2)
-
-        allContent = await Promise.all(scripts.map((script) => script.textContent()))
-        jsonLdSchemas = allContent
-          .filter((content) => content !== null)
-          .map((content) => JSON.parse(content!))
-
-        expect(jsonLdSchemas.length).toBeGreaterThanOrEqual(2)
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"BreadcrumbList"')
       })
 
-      await test.step('Verify Organization schema', async () => {
-        const orgSchema = jsonLdSchemas.find((schema) => schema['@type'] === 'Organization')
-        expect(orgSchema).toBeDefined()
-        expect(orgSchema).toMatchObject({
-          '@context': 'https://schema.org',
-          '@type': 'Organization',
-          name: 'Complete Test Org',
-          url: 'https://example.com',
+      await test.step('APP-PAGES-STRUCTUREDDATA-007: Include FAQPage structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"FAQPage"')
       })
 
-      await test.step('Verify BreadcrumbList schema', async () => {
-        const breadcrumbSchema = jsonLdSchemas.find(
-          (schema) => schema['@type'] === 'BreadcrumbList'
-        )
-        expect(breadcrumbSchema).toBeDefined()
-        expect(breadcrumbSchema).toMatchObject({
-          '@context': 'https://schema.org',
-          '@type': 'BreadcrumbList',
+      await test.step('APP-PAGES-STRUCTUREDDATA-008: Include EducationEvent structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
-        expect(Array.isArray(breadcrumbSchema!.itemListElement)).toBe(true)
-        expect(breadcrumbSchema!.itemListElement[0]).toMatchObject({
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Home',
-        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"EducationEvent"')
+      })
 
-        // Backwards compatibility: string containment check
-        const combinedContent = allContent.join(' ')
-        expect(combinedContent).toContain('schema.org')
+      await test.step('APP-PAGES-STRUCTUREDDATA-009: Support multiple Schema.org types on same page', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  organization: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Organization',
+                    name: 'My Company',
+                    url: 'https://example.com',
+                  },
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [],
+                  },
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptCount = await page.locator('script[type="application/ld+json"]').count()
+        expect(scriptCount).toBeGreaterThanOrEqual(3)
+      })
+
+      await test.step('APP-PAGES-STRUCTUREDDATA-010: Enable rich search results and enhanced SERP display', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  organization: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Organization',
+                    name: 'Tech Corp',
+                    url: 'https://example.com',
+                    logo: 'https://example.com/logo.png',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
       })
     }
   )

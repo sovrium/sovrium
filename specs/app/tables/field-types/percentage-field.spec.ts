@@ -225,70 +225,154 @@ test.describe('Percentage Field', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-PERCENTAGE-006: user can complete full percentage-field workflow',
+    'APP-TABLES-FIELD-TYPES-PERCENTAGE-REGRESSION: user can complete full percentage-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with percentage field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-001: Create PostgreSQL DECIMAL column for percentage storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'completion', type: 'percentage' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='completion'"
+        )
+        expect(columnInfo.column_name).toBe('completion')
+        expect(columnInfo.data_type).toMatch(/numeric|decimal/)
+        expect(columnInfo.is_nullable).toBe('YES')
+        const validInsert = await executeQuery(
+          'INSERT INTO tasks (completion) VALUES (75.5) RETURNING completion'
+        )
+        expect(parseFloat(validInsert.completion)).toBe(75.5)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-002: Enforce range via CHECK constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'progress', type: 'percentage', min: 0, max: 100 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const validInsert = await executeQuery(
+          'INSERT INTO projects (progress) VALUES (50.0) RETURNING progress'
+        )
+        expect(parseFloat(validInsert.progress)).toBe(50)
+        await expect(executeQuery('INSERT INTO projects (progress) VALUES (-0.1)')).rejects.toThrow(
+          /violates check constraint/
+        )
+        await expect(executeQuery('INSERT INTO projects (progress) VALUES (100.1)')).rejects.toThrow(
+          /violates check constraint/
+        )
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-003: Enforce NOT NULL and UNIQUE constraints', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'scores',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 {
                   id: 2,
-                  name: 'percentage_field',
+                  name: 'score',
                   type: 'percentage',
-                  required: true,
                   unique: true,
-                  indexed: true,
-                  min: 0,
-                  max: 100,
-                  default: 50.0,
+                  required: true,
                 },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Verify column setup and constraints', async () => {
-        const columnInfo = await executeQuery(
-          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='percentage_field'"
+        await executeQuery(['INSERT INTO scores (score) VALUES (95.5)'])
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='scores' AND column_name='score'"
         )
-        expect(columnInfo.data_type).toMatch(/numeric|decimal/)
-        expect(columnInfo.is_nullable).toBe('NO')
+        expect(notNullCheck.is_nullable).toBe('NO')
+        await expect(executeQuery('INSERT INTO scores (score) VALUES (95.5)')).rejects.toThrow(
+          /duplicate key value violates unique constraint/
+        )
+        await expect(executeQuery('INSERT INTO scores (score) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
-      await test.step('Test percentage value storage', async () => {
-        await executeQuery('INSERT INTO data (percentage_field) VALUES (75.25)')
-        const stored = await executeQuery('SELECT percentage_field FROM data WHERE id = 1')
-        expect(parseFloat(stored.percentage_field)).toBe(75.25)
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-004: Apply DEFAULT value', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'promotions',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'discount', type: 'percentage', default: 10.0 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const defaultInsert = await executeQuery(
+          'INSERT INTO promotions (id) VALUES (DEFAULT) RETURNING discount'
+        )
+        expect(parseFloat(defaultInsert.discount)).toBe(10)
+        const explicitInsert = await executeQuery(
+          'INSERT INTO promotions (discount) VALUES (25.0) RETURNING discount'
+        )
+        expect(parseFloat(explicitInsert.discount)).toBe(25)
       })
 
-      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (percentage_field) VALUES (150.0)')
-        ).rejects.toThrow(/violates check constraint/)
-      })
-
-      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (percentage_field) VALUES (75.25)')
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
-      })
-
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (percentage_field) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'reviews',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'rating',
+                  type: 'percentage',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const indexExists = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_reviews_rating'"
+        )
+        expect(indexExists.indexname).toBe('idx_reviews_rating')
+        expect(indexExists.tablename).toBe('reviews')
       })
     }
   )

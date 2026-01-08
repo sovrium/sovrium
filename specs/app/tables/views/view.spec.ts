@@ -200,80 +200,112 @@ test.describe('Table View', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-VIEW-005: user can complete full view workflow',
+    'APP-TABLES-VIEW-REGRESSION: user can complete full view workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with default view configuration', async () => {
+      await test.step('APP-TABLES-VIEW-001: Validate view schema with id, name, and type properties', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 4,
-              name: 'items',
+              id: 1,
+              name: 'example',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-                { id: 4, name: 'priority', type: 'integer' },
+                { id: 2, name: 'name', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               views: [
                 {
-                  id: 'default_view',
-                  name: 'Default View',
-                  isDefault: true,
-                  filters: {
-                    and: [
-                      {
-                        field: 'status',
-                        operator: 'equals',
-                        value: 'active',
-                      },
-                    ],
-                  },
-                  sorts: [
-                    {
-                      field: 'priority',
-                      direction: 'desc',
-                    },
-                  ],
+                  id: 'example_view',
+                  name: 'Example View',
                 },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Insert test data', async () => {
-        await executeQuery([
-          "INSERT INTO items (title, status, priority) VALUES ('Item 1', 'active', 1), ('Item 2', 'inactive', 2), ('Item 3', 'active', 3)",
-        ])
-      })
-
-      await test.step('Verify view filters and sorts records correctly', async () => {
-        const viewRecords = await executeQuery('SELECT title, status, priority FROM default_view')
-        expect(viewRecords.rows).toEqual([
-          { title: 'Item 3', status: 'active', priority: 3 },
-          { title: 'Item 1', status: 'active', priority: 1 },
-        ])
-      })
-
-      await test.step('Verify inactive items excluded from view', async () => {
-        const inactiveInView = await executeQuery(
-          "SELECT * FROM default_view WHERE status = 'inactive'"
+        const viewExists = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'example_view'"
         )
-        expect(inactiveInView.rows).toHaveLength(0)
+        expect(viewExists.count).toBe('1')
+        const viewRecords = await executeQuery('SELECT * FROM example_view')
+        expect(viewRecords.rows).toEqual([])
       })
 
-      await test.step('Error handling: duplicate view IDs rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
+      await test.step('APP-TABLES-VIEW-002: Fail with pattern mismatch error for invalid id format', async () => {
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
             tables: [
               {
-                id: 99,
-                name: 'invalid',
-                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                id: 2,
+                name: 'example',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                views: [
+                  {
+                    id: 'Invalid View ID',
+                    name: 'Example View',
+                  },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow('must be one of the allowed values')
+      })
+
+      await test.step('APP-TABLES-VIEW-003: Apply default view automatically when isDefault: true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'active_tasks',
+                  name: 'Active Tasks',
+                  isDefault: true,
+                  filters: {
+                    and: [{ field: 'status', operator: 'equals', value: 'active' }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO tasks (title, status) VALUES ('Task 1', 'active'), ('Task 2', 'completed'), ('Task 3', 'active')",
+        ])
+        const viewRecords = await executeQuery('SELECT title, status FROM active_tasks ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows).toEqual([
+          { title: 'Task 1', status: 'active' },
+          { title: 'Task 3', status: 'active' },
+        ])
+      })
+
+      await test.step('APP-TABLES-VIEW-004: Reject duplicate view IDs within the same table', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'tasks',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
                 views: [
                   { id: 'my_view', name: 'View 1' },
                   { id: 'my_view', name: 'View 2' },

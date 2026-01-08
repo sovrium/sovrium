@@ -734,13 +734,189 @@ test.describe('Font Configuration', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 12 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-THEME-FONTS-013: user can complete full fonts workflow',
+    'APP-THEME-FONTS-REGRESSION: user can complete full fonts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with font system', async () => {
+      await test.step('APP-THEME-FONTS-001: Validate font family as required property', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              body: {
+                family: 'Inter',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-body: Inter')
+        const body = page.locator('body')
+        const fontFamily = await body.evaluate((el) => window.getComputedStyle(el).fontFamily)
+        expect(fontFamily).toContain('Inter')
+      })
+
+      await test.step('APP-THEME-FONTS-002: Validate graceful fallback for missing fonts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              body: {
+                family: 'Inter',
+                fallback: 'system-ui, sans-serif',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-body: Inter, system-ui, sans-serif')
+      })
+
+      await test.step('APP-THEME-FONTS-003: Validate weight values from 100-900', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              body: {
+                family: 'Inter',
+                fallback: 'sans-serif',
+                weights: [300, 400, 500, 600, 700],
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'font-weights',
+                    className: 'flex flex-col gap-4 p-5',
+                  },
+                  children: [
+                    {
+                      type: 'div',
+                      props: { className: 'font-body font-light text-lg' },
+                      children: ['Font Weight 300 - Light'],
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'font-body font-bold text-lg' },
+                      children: ['Font Weight 700 - Bold'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-body: Inter, sans-serif')
+        const light = page.locator('[data-testid="font-weights"] > div').nth(0)
+        const bold = page.locator('[data-testid="font-weights"] > div').nth(1)
+        const lightWeight = await light.evaluate((el) => window.getComputedStyle(el).fontWeight)
+        const boldWeight = await bold.evaluate((el) => window.getComputedStyle(el).fontWeight)
+        expect(lightWeight).toBe('300')
+        expect(boldWeight).toBe('700')
+      })
+
+      await test.step('APP-THEME-FONTS-004: Validate italic style', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              title: {
+                family: 'Georgia',
+                style: 'italic',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'h1',
+                  props: {},
+                  children: ['Italic Heading'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-title: Georgia')
+        const heading = page.locator('h1')
+        const fontStyle = await heading.evaluate((el) => window.getComputedStyle(el).fontStyle)
+        expect(fontStyle).toBe('italic')
+      })
+
+      await test.step('APP-THEME-FONTS-005: Validate typography metrics for body text', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              body: {
+                family: 'Inter',
+                size: '16px',
+                lineHeight: '1.5',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const body = page.locator('body')
+        const fontSize = await body.evaluate((el) => window.getComputedStyle(el).fontSize)
+        const lineHeight = await body.evaluate((el) => window.getComputedStyle(el).lineHeight)
+        expect(fontSize).toBe('16px')
+        expect(lineHeight).toBe('24px')
+      })
+
+      await test.step('APP-THEME-FONTS-006: Validate character spacing', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -748,18 +924,194 @@ test.describe('Font Configuration', () => {
               title: {
                 family: 'Bely Display',
                 fallback: 'Georgia, serif',
-                size: '32px',
+                letterSpacing: '0.05em',
               },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'h1',
+                  props: {},
+                  children: ['Display Heading'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-title: Bely Display, Georgia, serif')
+        const heading = page.locator('h1')
+        const letterSpacing = await heading.evaluate(
+          (el) => window.getComputedStyle(el).letterSpacing
+        )
+        expect(letterSpacing).not.toBe('normal')
+        expect(letterSpacing).not.toBe('0px')
+      })
+
+      await test.step('APP-THEME-FONTS-007: Validate text transform', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              label: {
+                family: 'Inter',
+                fallback: 'sans-serif',
+                transform: 'uppercase',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'label',
+                    className: 'font-label text-sm p-2 uppercase',
+                  },
+                  children: ['Label Text'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-label: Inter, sans-serif')
+        const label = page.locator('[data-testid="label"]')
+        const textTransform = await label.evaluate(
+          (el) => window.getComputedStyle(el).textTransform
+        )
+        expect(textTransform).toBe('uppercase')
+      })
+
+      await test.step('APP-THEME-FONTS-008: Validate font URL for remote loading', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              body: {
+                family: 'Inter',
+                url: 'https://fonts.googleapis.com/css2?family=Inter:wght@300..700',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const linkTag = page.locator('link[href*="fonts.googleapis.com"]')
+        await expect(linkTag).toHaveAttribute('rel', 'stylesheet')
+      })
+
+      await test.step('APP-THEME-FONTS-009: Validate comprehensive typography settings', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              body: {
+                family: 'Inter',
+                fallback: 'system-ui, sans-serif',
+                weights: [400, 700],
+                style: 'normal',
+                size: '16px',
+                lineHeight: '1.5',
+                letterSpacing: '0',
+                transform: 'none',
+                url: 'https://fonts.googleapis.com/css2?family=Inter',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-body: Inter, system-ui, sans-serif')
+        const linkTag = page.locator('link[href*="fonts.googleapis.com"]')
+        await expect(linkTag).toHaveAttribute('rel', 'stylesheet')
+      })
+
+      await test.step('APP-THEME-FONTS-010: Validate semantic font system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              title: {
+                family: 'Bely Display',
+                fallback: 'Georgia, serif',
+              },
+              body: {
+                family: 'Inter',
+                fallback: 'system-ui, sans-serif',
+              },
+              mono: {
+                family: 'JetBrains Mono',
+                fallback: 'monospace',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'h1',
+                  props: {},
+                  children: ['Typography System'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-title: Bely Display, Georgia, serif')
+        expect(css).toContain('--font-body: Inter, system-ui, sans-serif')
+        expect(css).toContain('--font-mono: JetBrains Mono, monospace')
+      })
+
+      await test.step('APP-THEME-FONTS-011: Render with body font and metrics', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
               body: {
                 family: 'Inter',
                 fallback: 'sans-serif',
                 size: '16px',
                 lineHeight: '1.5',
-              },
-              mono: {
-                family: 'JetBrains Mono',
-                fallback: 'monospace',
-                size: '14px',
               },
             },
           },
@@ -769,70 +1121,65 @@ test.describe('Font Configuration', () => {
               path: '/',
               sections: [
                 {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'font-system',
-                    className: 'flex flex-col gap-6 p-5',
-                  },
-                  children: [
-                    {
-                      type: 'h1',
-                      props: {
-                        className: 'font-title text-3xl',
-                      },
-                      children: ['Welcome to Sovrium'],
-                    },
-                    {
-                      type: 'p',
-                      props: {
-                        className: 'font-body text-base',
-                      },
-                      children: [
-                        'This is body text using Inter font family with 16px size and 1.5 line-height for optimal readability.',
-                      ],
-                    },
-                    {
-                      type: 'code',
-                      props: {
-                        className: 'font-mono text-sm block p-3 bg-gray-100',
-                      },
-                      children: ['console.log("Hello, World!")'],
-                    },
-                  ],
+                  type: 'paragraph',
+                  content: 'Body text',
                 },
               ],
             },
           ],
         })
+        await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-body: Inter, sans-serif')
+        const paragraph = page.locator('p')
+        const fontFamily = await paragraph.evaluate((el) => window.getComputedStyle(el).fontFamily)
+        const fontSize = await paragraph.evaluate((el) => window.getComputedStyle(el).fontSize)
+        expect(fontFamily).toContain('Inter')
+        expect(fontSize).toBe('16px')
       })
 
-      await test.step('Navigate to page and verify CSS compilation', async () => {
+      await test.step('APP-THEME-FONTS-012: Render with title font and text transformation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              title: {
+                family: 'Bely Display',
+                fallback: 'Georgia, serif',
+                transform: 'lowercase',
+                letterSpacing: '0.05em',
+              },
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'heading',
+                  content: 'Our Mission',
+                },
+              ],
+            },
+          ],
+        })
         await page.goto('/')
-
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
         expect(css).toContain('--font-title: Bely Display, Georgia, serif')
-        expect(css).toContain('--font-body: Inter, sans-serif')
-        expect(css).toContain('--font-mono: JetBrains Mono, monospace')
-      })
-
-      await test.step('Verify font structure (ARIA snapshot)', async () => {
-        await expect(page.locator('[data-testid="font-system"]')).toMatchAriaSnapshot(`
-          - group:
-            - heading "Welcome to Sovrium" [level=1]
-            - paragraph: "This is body text using Inter font family with 16px size and 1.5 line-height for optimal readability."
-            - code: "console.log(\\"Hello, World!\\")"
-        `)
-      })
-
-      await test.step('Verify visual rendering (screenshot)', async () => {
-        await expect(page.locator('[data-testid="font-system"]')).toHaveScreenshot(
-          'font-regression-001-complete-system.png',
-          {
-            animations: 'disabled',
-          }
+        const heading = page.locator('h1')
+        const textTransform = await heading.evaluate(
+          (el) => window.getComputedStyle(el).textTransform
         )
+        const letterSpacing = await heading.evaluate(
+          (el) => window.getComputedStyle(el).letterSpacing
+        )
+        expect(textTransform).toBe('lowercase')
+        expect(letterSpacing).not.toBe('normal')
       })
     }
   )

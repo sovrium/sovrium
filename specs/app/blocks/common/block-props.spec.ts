@@ -665,25 +665,64 @@ test.describe('Block Props', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 14 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-BLOCKS-PROPS-015: user can complete full props workflow',
+    'APP-BLOCKS-PROPS-REGRESSION: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with block props', async () => {
+      await test.step('APP-BLOCKS-PROPS-001: Validate any valid JavaScript property name at build time', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
             {
-              name: 'feature-box',
+              name: 'props-block',
               type: 'div',
               props: {
-                className: 'box-$variant p-$padding rounded-$radius',
-                ariaLabel: '$label',
-                dataConfig: '$config',
+                className: 'text-blue',
+                id: 'main',
+                ariaLabel: 'Main content',
+                dataTestId: 'component-1',
               },
-              content: '$message',
+            },
+          ],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'props-block', vars: {} }] }],
+        })
+        await page.goto('/')
+        const block = page.locator('[data-testid="block-props-block"]')
+        await expect(block).toHaveClass(/text-blue/)
+        await expect(block).toHaveAttribute('id', 'main')
+        await expect(block).toHaveAttribute('aria-label', 'Main content')
+      })
+
+      await test.step('APP-BLOCKS-PROPS-002: Render as HTML attributes following camelCase convention', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'custom-button',
+              type: 'button',
+              props: { className: 'btn-primary', ariaLabel: 'Click me', dataTestId: 'submit-btn' },
+            },
+          ],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'custom-button', vars: {} }] }],
+        })
+        await page.goto('/')
+        const button = page.locator('[data-testid="block-custom-button"]')
+        await expect(button).toHaveClass(/btn-primary/)
+        await expect(button).toHaveAttribute('aria-label', 'Click me')
+        await expect(button).toHaveAttribute('data-test-id', 'submit-btn')
+      })
+
+      await test.step('APP-BLOCKS-PROPS-003: Render string value with variable substitution', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'styled-div',
+              type: 'div',
+              props: { className: 'text-$color', id: '$elementId', title: '$tooltipText' },
             },
           ],
           pages: [
@@ -692,45 +731,396 @@ test.describe('Block Props', () => {
               path: '/',
               sections: [
                 {
-                  block: 'feature-box',
+                  block: 'styled-div',
+                  vars: { color: 'blue', elementId: 'main-content', tooltipText: 'Hover for info' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const div = page.locator('[data-testid="block-styled-div"]')
+        await expect(div).toHaveClass(/text-blue/)
+        await expect(div).toHaveAttribute('id', 'main-content')
+        await expect(div).toHaveAttribute('title', 'Hover for info')
+      })
+
+      await test.step('APP-BLOCKS-PROPS-004: Render numeric value as HTML attribute', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'grid-layout',
+              type: 'div',
+              props: { columns: 3, gap: 4, maxWidth: 1200 },
+            },
+          ],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'grid-layout', vars: {} }] }],
+        })
+        await page.goto('/')
+        const grid = page.locator('[data-testid="block-grid-layout"]')
+        await expect(grid).toHaveAttribute('data-columns', '3')
+        await expect(grid).toHaveAttribute('data-gap', '4')
+        await expect(grid).toHaveAttribute('data-max-width', '1200')
+      })
+
+      await test.step('APP-BLOCKS-PROPS-005: Render boolean as HTML boolean attribute', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'form-input',
+              type: 'input',
+              props: { disabled: true, required: true, hidden: false },
+            },
+          ],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'form-input', vars: {} }] }],
+        })
+        await page.goto('/')
+        const input = page.locator('[data-testid="block-form-input"]')
+        await expect(input).toHaveAttribute('disabled', '')
+        await expect(input).toHaveAttribute('required', '')
+        await expect(input).not.toHaveAttribute('hidden')
+      })
+
+      await test.step('APP-BLOCKS-PROPS-006: Render object as JSON data attribute', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'chart-widget',
+              type: 'div',
+              props: {
+                chartConfig: {
+                  type: 'bar',
+                  data: [10, 20, 30],
+                  colors: { primary: 'blue', secondary: 'green' },
+                },
+              },
+            },
+          ],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'chart-widget', vars: {} }] }],
+        })
+        await page.goto('/')
+        const widget = page.locator('[data-testid="block-chart-widget"]')
+        await expect(widget).toHaveAttribute('data-chart-config')
+        const configAttr = await widget.getAttribute('data-chart-config')
+        const config = JSON.parse(configAttr!)
+        expect(config.type).toBe('bar')
+        expect(config.data).toEqual([10, 20, 30])
+      })
+
+      await test.step('APP-BLOCKS-PROPS-007: Render array as JSON data attribute', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'tag-list',
+              type: 'div',
+              props: { tags: ['react', 'typescript', 'tailwind'] },
+            },
+          ],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'tag-list', vars: {} }] }],
+        })
+        await page.goto('/')
+        const list = page.locator('[data-testid="block-tag-list"]')
+        await expect(list).toHaveAttribute('data-tags')
+        const tagsAttr = await list.getAttribute('data-tags')
+        const tags = JSON.parse(tagsAttr!)
+        expect(tags).toEqual(['react', 'typescript', 'tailwind'])
+      })
+
+      await test.step('APP-BLOCKS-PROPS-008: Render with all variables substituted in className', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'multi-var-box',
+              type: 'div',
+              props: { className: 'text-$color bg-$bgColor border-$borderColor' },
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'multi-var-box',
+                  vars: { color: 'blue', bgColor: 'gray-100', borderColor: 'gray-300' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const box = page.locator('[data-testid="block-multi-var-box"]')
+        await expect(box).toHaveClass(/text-blue/)
+        await expect(box).toHaveClass(/bg-gray-100/)
+        await expect(box).toHaveClass(/border-gray-300/)
+      })
+
+      await test.step('APP-BLOCKS-PROPS-009: Render combined static and dynamic className parts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'container',
+              type: 'div',
+              props: { className: 'container mx-auto max-w-$width px-$padding' },
+            },
+          ],
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              sections: [{ block: 'container', vars: { width: '7xl', padding: '4' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const container = page.locator('[data-testid="block-container"]')
+        await expect(container).toHaveClass(/container/)
+        await expect(container).toHaveClass(/mx-auto/)
+        await expect(container).toHaveClass(/max-w-7xl/)
+        await expect(container).toHaveClass(/px-4/)
+      })
+
+      await test.step('APP-BLOCKS-PROPS-010: Render complete component with all configuration applied', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'action-button',
+              type: 'button',
+              props: {
+                className: 'btn btn-$variant',
+                disabled: '$isDisabled',
+                ariaLabel: '$label',
+                dataAction: '$action',
+              },
+              content: '$buttonText',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'action-button',
                   vars: {
                     variant: 'primary',
-                    padding: '6',
-                    radius: 'lg',
-                    label: 'Feature 1',
-                    config: 'enabled',
-                    message: 'First feature',
-                  },
-                },
-                {
-                  block: 'feature-box',
-                  vars: {
-                    variant: 'secondary',
-                    padding: '4',
-                    radius: 'md',
-                    label: 'Feature 2',
-                    config: 'disabled',
-                    message: 'Second feature',
+                    isDisabled: false,
+                    label: 'Submit form',
+                    action: 'submit',
+                    buttonText: 'Submit',
                   },
                 },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify first box props', async () => {
         await page.goto('/')
-        const box1 = page.locator('[data-testid="block-feature-box-0"]')
-        await expect(box1).toHaveClass(/box-primary/)
-        await expect(box1).toHaveClass(/p-6/)
-        await expect(box1).toHaveAttribute('aria-label', 'Feature 1')
+        const button = page.locator('[data-testid="block-action-button"]')
+        await expect(button).toHaveClass(/btn-primary/)
+        await expect(button).toHaveAttribute('aria-label', 'Submit form')
+        await expect(button).toHaveAttribute('data-action', 'submit')
+        await expect(button).toHaveText('Submit')
       })
 
-      await test.step('Verify second box props', async () => {
-        const box2 = page.locator('[data-testid="block-feature-box-1"]')
-        await expect(box2).toHaveClass(/box-secondary/)
-        await expect(box2).toHaveClass(/rounded-md/)
+      await test.step('APP-BLOCKS-PROPS-011: Resolve translation tokens in block props during rendering', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            ],
+            translations: {
+              en: {
+                'close.label': 'Close',
+                'save.tooltip': 'Save changes',
+              },
+              fr: {
+                'close.label': 'Fermer',
+                'save.tooltip': 'Enregistrer les modifications',
+              },
+            },
+          },
+          blocks: [
+            {
+              name: 'action-button',
+              type: 'button',
+              props: {
+                'aria-label': '$t:close.label',
+                title: '$t:save.tooltip',
+                className: 'btn btn-$variant',
+              },
+              children: ['×'],
+            },
+          ],
+          pages: [
+            {
+              name: 'form',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'action-button', vars: { variant: 'primary' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const html = await page.content()
+        expect(html).not.toContain('$t:')
+        expect(html).toContain('aria-label="Close"')
+        expect(html).toContain('title="Save changes"')
+        const button = page.locator('[data-testid="block-action-button"]')
+        await expect(button).toHaveAttribute('aria-label', 'Close')
+        await expect(button).toHaveAttribute('title', 'Save changes')
+        await expect(button).toHaveClass(/btn-primary/)
+      })
+
+      await test.step('APP-BLOCKS-PROPS-012: Resolve translation tokens in block children during rendering', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
+            translations: {
+              en: {
+                'menu.home': 'Home',
+                'menu.products': 'Products',
+                'menu.contact': 'Contact',
+              },
+            },
+          },
+          blocks: [
+            {
+              name: 'nav-menu',
+              type: 'nav',
+              children: [
+                { type: 'a', children: ['$t:menu.home'] },
+                { type: 'a', children: ['$t:menu.products'] },
+                { type: 'a', children: ['$t:menu.contact'] },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'main',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'nav-menu' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const html = await page.content()
+        expect(html).not.toContain('$t:')
+        const nav = page.locator('[data-testid="block-nav-menu"]')
+        await expect(nav.locator('a').nth(0)).toHaveText('Home')
+        await expect(nav.locator('a').nth(1)).toHaveText('Products')
+        await expect(nav.locator('a').nth(2)).toHaveText('Contact')
+      })
+
+      await test.step('APP-BLOCKS-PROPS-013: Resolve translation tokens in block content during rendering', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
+            translations: {
+              en: {
+                'hero.tagline': 'Build your next great app',
+                'footer.copyright': '© 2025 All rights reserved',
+              },
+            },
+          },
+          blocks: [
+            { name: 'hero-heading', type: 'h1', content: '$t:hero.tagline' },
+            { name: 'footer-text', type: 'footer', content: '$t:footer.copyright' },
+          ],
+          pages: [
+            {
+              name: 'landing',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'hero-heading' }, { block: 'footer-text' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const html = await page.content()
+        expect(html).not.toContain('$t:')
+        await expect(page.locator('[data-testid="block-hero-heading"]')).toHaveText(
+          'Build your next great app'
+        )
+        await expect(page.locator('[data-testid="block-footer-text"]')).toHaveText(
+          '© 2025 All rights reserved'
+        )
+      })
+
+      await test.step('APP-BLOCKS-PROPS-014: Work with both translation tokens ($t:) and variable references ($variable)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
+            translations: {
+              en: {
+                'card.title': 'Product',
+                'card.price': 'Price:',
+                'card.action': 'Add to Cart',
+              },
+            },
+          },
+          blocks: [
+            {
+              name: 'product-card',
+              type: 'div',
+              props: {
+                className: 'card card-$variant',
+                'data-product-id': '$productId',
+              },
+              children: [
+                { type: 'h3', content: '$t:card.title' },
+                { type: 'p', content: '$t:card.price' },
+                { type: 'span', content: '$price' },
+                {
+                  type: 'button',
+                  props: { 'aria-label': '$t:card.action' },
+                  children: ['$t:card.action'],
+                },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'shop',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  block: 'product-card',
+                  vars: { variant: 'primary', productId: '12345', price: '$99.99' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const html = await page.content()
+        expect(html).not.toContain('$t:')
+        expect(html).not.toMatch(/\$(?!99\.99)[a-zA-Z]/)
+        const card = page.locator('[data-testid="block-product-card"]')
+        await expect(card).toHaveClass(/card-primary/)
+        await expect(card).toHaveAttribute('data-product-id', '12345')
+        await expect(card.locator('h3')).toHaveText('Product')
+        await expect(card.locator('p')).toHaveText('Price:')
+        await expect(card.locator('span')).toHaveText('$99.99')
+        await expect(card.locator('button')).toHaveText('Add to Cart')
+        await expect(card.locator('button')).toHaveAttribute('aria-label', 'Add to Cart')
       })
     }
   )

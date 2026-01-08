@@ -221,76 +221,144 @@ test.describe('View Fields', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-VIEW-FIELDS-005: user can complete full view-fields workflow',
+    'APP-TABLES-VIEW-FIELDS-REGRESSION: user can complete full view-fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with custom field configuration', async () => {
+      await test.step('APP-TABLES-VIEW-FIELDS-001: Show only configured fields', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 4,
-              name: 'data',
+              id: 1,
+              name: 'products',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-                { id: 4, name: 'secret', type: 'single-line-text' },
+                { id: 3, name: 'price', type: 'decimal' },
+                { id: 4, name: 'internal_notes', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               views: [
                 {
-                  id: 'custom_view',
-                  name: 'Custom View',
-                  fields: ['status', 'name', 'id'],
+                  id: 'public_view',
+                  name: 'Public View',
+                  fields: ['id', 'name', 'price'],
                 },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Insert test data', async () => {
         await executeQuery([
-          "INSERT INTO data (name, status, secret) VALUES ('Item 1', 'active', 'top_secret')",
+          "INSERT INTO products (name, price, internal_notes) VALUES ('Widget', 19.99, 'Internal note here')",
         ])
-      })
-
-      await test.step('Verify view columns in specified order with secret excluded', async () => {
         const viewColumns = await executeQuery(
-          "SELECT column_name FROM information_schema.columns WHERE table_name = 'custom_view' ORDER BY ordinal_position"
+          "SELECT column_name FROM information_schema.columns WHERE table_name = 'public_view' ORDER BY ordinal_position"
         )
         expect(viewColumns.rows).toEqual([
-          { column_name: 'status' },
+          { column_name: 'id' },
           { column_name: 'name' },
+          { column_name: 'price' },
+        ])
+        const viewRecords = await executeQuery('SELECT * FROM public_view')
+        expect(viewRecords).toHaveProperty('id')
+        expect(viewRecords).toHaveProperty('name')
+        expect(viewRecords).toHaveProperty('price')
+        expect(viewRecords).not.toHaveProperty('internal_notes')
+      })
+
+      await test.step('APP-TABLES-VIEW-FIELDS-002: Display fields in specified order', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'priority', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'ordered_view',
+                  name: 'Ordered View',
+                  fields: ['priority', 'status', 'title', 'id'],
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO tasks (title, status, priority) VALUES ('Task 1', 'active', 'high')",
+        ])
+        const viewColumns = await executeQuery(
+          "SELECT column_name FROM information_schema.columns WHERE table_name = 'ordered_view' ORDER BY ordinal_position"
+        )
+        expect(viewColumns.rows).toEqual([
+          { column_name: 'priority' },
+          { column_name: 'status' },
+          { column_name: 'title' },
           { column_name: 'id' },
         ])
       })
 
-      await test.step('Verify view record contains only visible fields', async () => {
-        const viewRecords = await executeQuery('SELECT * FROM custom_view')
-        expect(viewRecords).toHaveProperty('status')
-        expect(viewRecords).toHaveProperty('name')
-        expect(viewRecords).toHaveProperty('id')
-        expect(viewRecords).not.toHaveProperty('secret')
+      await test.step('APP-TABLES-VIEW-FIELDS-003: Not show field when excluded from fields array', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'username', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'single-line-text' },
+                { id: 4, name: 'password', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'safe_view',
+                  name: 'Safe View',
+                  fields: ['id', 'username', 'email'],
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO users (username, email, password) VALUES ('john_doe', 'john@example.com', 'secret_hash')",
+        ])
+        const viewColumns = await executeQuery(
+          "SELECT column_name FROM information_schema.columns WHERE table_name = 'safe_view' ORDER BY ordinal_position"
+        )
+        expect(viewColumns.rows).toEqual([
+          { column_name: 'id' },
+          { column_name: 'username' },
+          { column_name: 'email' },
+        ])
+        const viewRecords = await executeQuery('SELECT * FROM safe_view')
+        expect(viewRecords).not.toHaveProperty('password')
       })
 
-      await test.step('Error handling: fields array contains non-existent field', async () => {
+      await test.step('APP-TABLES-VIEW-FIELDS-004: Reject fields array containing non-existent field', async () => {
         await expect(
           startServerWithSchema({
-            name: 'test-app-error',
+            name: 'test-app',
             tables: [
               {
-                id: 99,
-                name: 'invalid',
+                id: 1,
+                name: 'products',
                 fields: [
                   { id: 1, name: 'id', type: 'integer', required: true },
                   { id: 2, name: 'name', type: 'single-line-text' },
                 ],
                 views: [
                   {
-                    id: 'bad_view',
-                    name: 'Bad View',
+                    id: 'custom_view',
+                    name: 'Custom View',
                     fields: ['id', 'name', 'description'],
                   },
                 ],

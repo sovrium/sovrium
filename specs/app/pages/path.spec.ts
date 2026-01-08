@@ -632,20 +632,59 @@ test.describe('URL Path', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-PATH-020: user can complete full path workflow',
+    'APP-PAGES-PATH-REGRESSION: user can complete full path workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with various path patterns', async () => {
+      await test.step('APP-PAGES-PATH-001: Validate as homepage path', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+        })
+        await page.goto('/')
+        await expect(page).toHaveURL('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PATH-002: Follow shared path pattern from common definitions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
-            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+          ],
+        })
+        await page.goto('/about')
+        await expect(page).toHaveURL('/about')
+      })
+
+      await test.step('APP-PAGES-PATH-003: Accept paths with leading slash', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
             {
-              name: 'About',
-              path: '/about',
-              meta: { lang: 'en-US', title: 'About' },
+              name: 'Pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing' },
               sections: [],
             },
+            {
+              name: 'Contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/about')
+        await expect(page).toHaveURL('/about')
+        await page.goto('/pricing')
+        await expect(page).toHaveURL('/pricing')
+      })
+
+      await test.step('APP-PAGES-PATH-004: Accept multi-level URL paths', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
             {
               name: 'Pricing',
               path: '/products/pricing',
@@ -653,33 +692,332 @@ test.describe('URL Path', () => {
               sections: [],
             },
             {
-              name: 'Team',
-              path: '/our-team',
-              meta: { lang: 'en-US', title: 'Team' },
+              name: 'Article',
+              path: '/blog/article',
+              meta: { lang: 'en-US', title: 'Article' },
               sections: [],
             },
           ],
         })
+        await page.goto('/products/pricing')
+        await expect(page).toHaveURL('/products/pricing')
+        await page.goto('/blog/article')
+        await expect(page).toHaveURL('/blog/article')
       })
 
-      await test.step('Verify root path navigation', async () => {
+      await test.step('APP-PAGES-PATH-005: Accept kebab-case URL segments', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Team',
+              path: '/our-team',
+              meta: { lang: 'en-US', title: 'Our Team' },
+              sections: [],
+            },
+            {
+              name: 'Contact',
+              path: '/contact-us',
+              meta: { lang: 'en-US', title: 'Contact Us' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/our-team')
+        await expect(page).toHaveURL('/our-team')
+        await page.goto('/contact-us')
+        await expect(page).toHaveURL('/contact-us')
+      })
+
+      await test.step('APP-PAGES-PATH-006: Provide examples for typical URL patterns', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'Pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing' },
+              sections: [],
+            },
+            {
+              name: 'Contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact' },
+              sections: [],
+            },
+          ],
+        })
         await page.goto('/')
         await expect(page).toHaveURL('/')
-      })
-
-      await test.step('Verify simple path navigation', async () => {
         await page.goto('/about')
         await expect(page).toHaveURL('/about')
       })
 
-      await test.step('Verify nested path navigation', async () => {
-        await page.goto('/products/pricing')
-        await expect(page).toHaveURL('/products/pricing')
+      await test.step('APP-PAGES-PATH-007: Fail validation when path is missing', async () => {
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            // @ts-expect-error - Testing that missing path causes validation to fail
+            pages: [{ name: 'About', meta: { lang: 'en-US', title: 'About' }, sections: [] }],
+          })
+        }).rejects.toThrow()
       })
 
-      await test.step('Verify hyphenated path navigation', async () => {
-        await page.goto('/our-team')
-        await expect(page).toHaveURL('/our-team')
+      await test.step('APP-PAGES-PATH-008: Ensure unique routing for all pages', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'Pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing' },
+              sections: [],
+            },
+            {
+              name: 'Contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+        await page.goto('/about')
+        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PATH-009: Map URL to page configuration for rendering', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing Plans' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/pricing')
+        await expect(page).toHaveURL('/pricing')
+        await expect(page).toHaveTitle('Pricing Plans')
+        await expect(page.locator('[data-testid="page-pricing"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PATH-010: Support dynamic route parameters', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Blog Post',
+              path: '/blog/:slug',
+              meta: { lang: 'en-US', title: 'Blog' },
+              sections: [],
+            },
+            {
+              name: 'Product',
+              path: '/products/:id',
+              meta: { lang: 'en-US', title: 'Product' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/blog/hello-world')
+        await expect(page).toHaveURL('/blog/hello-world')
+        await expect(page.locator('[data-slug="hello-world"]')).toBeVisible()
+        await page.goto('/products/123')
+        await expect(page).toHaveURL('/products/123')
+        await expect(page.locator('[data-product-id="123"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PATH-011: DefaultHomePage displays app name, version, description', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          version: '1.0.0',
+          description: 'My app description',
+          blocks: [
+            {
+              name: 'hero',
+              type: 'section',
+              children: [{ type: 'h1', content: 'Hero Block' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
+        await expect(page.locator('[data-testid="app-version-badge"]')).toHaveText('1.0.0')
+        await expect(page.locator('[data-testid="app-description"]')).toHaveText('My app description')
+        await expect(page.locator('[data-block="hero"]')).toBeHidden()
+      })
+
+      await test.step('APP-PAGES-PATH-012: DefaultHomePage displays when pages exist but no "/" path', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          pages: [
+            {
+              name: 'about',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About Us', description: 'About page' },
+              sections: [{ type: 'section', children: [{ type: 'heading', content: 'About Us' }] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
+        await page.goto('/about')
+        await expect(page).toHaveTitle('About Us')
+        await expect(page.locator('h1')).toHaveText('About Us')
+      })
+
+      await test.step('APP-PAGES-PATH-013: Custom page renders when "/" path exists', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          pages: [
+            {
+              name: 'custom_home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Custom Home', description: 'Custom home page' },
+              sections: [
+                {
+                  type: 'section',
+                  props: { id: 'hero' },
+                  children: [{ type: 'heading', content: 'Custom Homepage' }],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page).toHaveTitle('Custom Home')
+        await expect(page.locator('[data-testid="page-custom-home"]')).toBeVisible()
+        await expect(page.locator('section#hero h1')).toHaveText('Custom Homepage')
+        await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
+      })
+
+      await test.step('APP-PAGES-PATH-014: DefaultHomePage does NOT render blocks', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          version: '1.0.0',
+          description: 'App with blocks',
+          blocks: [
+            {
+              name: 'hero',
+              type: 'section',
+              children: [{ type: 'h1', content: 'Hero Block' }],
+            },
+            {
+              name: 'cta',
+              type: 'section',
+              children: [{ type: 'button', content: 'CTA Button' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
+        await expect(page.locator('[data-testid="app-version-badge"]')).toHaveText('1.0.0')
+        await expect(page.locator('[data-testid="app-description"]')).toHaveText('App with blocks')
+        await expect(page.locator('[data-block="hero"]')).toBeHidden()
+        await expect(page.locator('[data-block="cta"]')).toBeHidden()
+        await expect(page.locator('h1').filter({ hasText: 'Hero Block' })).toBeHidden()
+        await expect(page.locator('button').filter({ hasText: 'CTA Button' })).toBeHidden()
+      })
+
+      await test.step('APP-PAGES-PATH-015: Custom "/" page renders blocks from sections', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          blocks: [
+            {
+              name: 'hero',
+              type: 'section',
+              children: [{ type: 'heading', content: '$title' }],
+            },
+          ],
+          pages: [
+            {
+              name: 'custom_home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
+              sections: [{ block: 'hero', vars: { title: 'Welcome Home' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page).toHaveTitle('Home')
+        await expect(page.locator('[data-testid="page-custom-home"]')).toBeVisible()
+        await expect(page.locator('h1')).toHaveText('Welcome Home')
+        await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
+        await expect(page.locator('[data-block="hero"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PATH-016: Custom 404 page renders at /404 path', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+            {
+              name: 'Custom404',
+              path: '/404',
+              meta: { lang: 'en-US', title: 'Custom Not Found' },
+              sections: [
+                {
+                  type: 'section',
+                  children: [{ type: 'heading', content: 'Custom 404 Page' }],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/nonexistent')
+        await expect(page).toHaveTitle('Custom Not Found')
+        await expect(page.locator('h1')).toHaveText('Custom 404 Page')
+      })
+
+      await test.step('APP-PAGES-PATH-017: Default NotFoundPage renders when no custom 404 exists', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+        })
+        await page.goto('/nonexistent')
+        await expect(page).toHaveTitle('404 - Not Found')
+        await expect(page.locator('h1')).toHaveText('404')
+      })
+
+      await test.step('APP-PAGES-PATH-018: Custom 500 page renders at /500 path', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+            {
+              name: 'Custom500',
+              path: '/500',
+              meta: { lang: 'en-US', title: 'Custom Server Error' },
+              sections: [
+                {
+                  type: 'section',
+                  children: [{ type: 'heading', content: 'Custom 500 Page' }],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/500')
+        await expect(page).toHaveTitle('Custom Server Error')
+        await expect(page.locator('h1')).toHaveText('Custom 500 Page')
+      })
+
+      await test.step('APP-PAGES-PATH-019: Default ErrorPage renders when no custom 500 exists', async () => {
+        await startServerWithSchema({
+          name: 'my-app',
+          pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+        })
+        await page.goto('/test/error')
+        await expect(page).toHaveTitle('500 - Internal Server Error')
+        await expect(page.locator('h1')).toHaveText('500')
       })
     }
   )

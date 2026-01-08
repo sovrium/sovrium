@@ -270,53 +270,175 @@ test.describe('Indexed Field Property', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-INDEXED-006: user can complete full indexed-field workflow',
+    'APP-TABLES-FIELD-INDEXED-REGRESSION: user can complete full indexed-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with indexed and non-indexed fields', async () => {
+      await test.step('APP-TABLES-FIELD-INDEXED-001: Create btree index when field has indexed: true', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'email', type: 'email', indexed: true },
-                { id: 3, name: 'created_at', type: 'datetime', indexed: true },
-                { id: 4, name: 'notes', type: 'long-text', indexed: false },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
+        await executeQuery([
+          "INSERT INTO users (email) VALUES ('alice@example.com'), ('bob@example.com'), ('charlie@example.com')",
+        ])
+        const indexCheck = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'"
+        )
+        expect(indexCheck.indexname).toBe('idx_users_email')
+        expect(indexCheck.tablename).toBe('users')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_users_email'"
+        )
+        expect(indexDef.indexdef).toContain('USING btree (email)')
+        const lookup = await executeQuery(
+          "SELECT COUNT(*) as count FROM users WHERE email = 'alice@example.com'"
+        )
+        expect(lookup.count).toBe('1')
       })
 
-      await test.step('Insert test data', async () => {
+      await test.step('APP-TABLES-FIELD-INDEXED-002: Not create index when field has indexed: false (default)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'description', type: 'long-text', indexed: false },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
         await executeQuery([
-          "INSERT INTO data (email, created_at, notes) VALUES ('test@example.com', '2024-01-01 10:00:00', 'Some notes')",
+          "INSERT INTO products (name, description) VALUES ('Product 1', 'Description 1')",
+        ])
+        const noIndex = await executeQuery(
+          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='products' AND indexname LIKE '%description%'"
+        )
+        expect(noIndex.count).toBe('0')
+        const primaryKeyIndex = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE tablename='products' AND indexname = 'products_pkey'"
+        )
+        expect(primaryKeyIndex.indexname).toBe('products_pkey')
+        const sequentialScan = await executeQuery(
+          "SELECT name FROM products WHERE description LIKE '%Description%'"
+        )
+        expect(sequentialScan.name).toBe('Product 1')
+      })
+
+      await test.step('APP-TABLES-FIELD-INDEXED-003: Optimize date range queries when timestamp has indexed: true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'events',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'occurred_at', type: 'datetime', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO events (name, occurred_at) VALUES ('Event 1', '2024-01-01 10:00:00'), ('Event 2', '2024-01-02 10:00:00'), ('Event 3', '2024-01-03 10:00:00')",
+        ])
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_occurred_at'"
+        )
+        expect(indexExists.indexname).toBe('idx_events_occurred_at')
+        const rangeQuery = await executeQuery(
+          "SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'"
+        )
+        expect(rangeQuery.count).toBe('3')
+        const orderBy = await executeQuery(
+          'SELECT name FROM events ORDER BY occurred_at DESC LIMIT 1'
+        )
+        expect(orderBy.name).toBe('Event 3')
+      })
+
+      await test.step('APP-TABLES-FIELD-INDEXED-004: Use index for WHERE, JOIN, ORDER BY operations', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'customer_id', type: 'integer', indexed: true },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'total', type: 'decimal' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO orders (customer_id, status, total) VALUES (1, 'pending', 99.99), (1, 'completed', 149.99), (2, 'pending', 75.00)",
+        ])
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_orders_customer_id'"
+        )
+        expect(indexExists.indexname).toBe('idx_orders_customer_id')
+        const filterQuery = await executeQuery(
+          'SELECT COUNT(*) as count FROM orders WHERE customer_id = 1'
+        )
+        expect(filterQuery.count).toBe('2')
+        const groupedQuery = await executeQuery(
+          'SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id ORDER BY customer_id'
+        )
+        expect(groupedQuery.rows).toEqual([
+          { customer_id: 1, order_count: '2' },
+          { customer_id: 2, order_count: '1' },
         ])
       })
 
-      await test.step('Verify email field index exists', async () => {
-        const emailIndex = await executeQuery(
-          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%email%'"
+      await test.step('APP-TABLES-FIELD-INDEXED-005: Improve prefix searches for LIKE queries', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'companies',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO companies (name) VALUES ('Acme Corp'), ('Acme Industries'), ('Beta LLC'), ('Gamma Inc')",
+        ])
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_companies_name'"
         )
-        expect(Number(emailIndex.count)).toBeGreaterThan(0)
-      })
-
-      await test.step('Verify created_at field index exists', async () => {
-        const timestampIndex = await executeQuery(
-          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%created_at%'"
+        expect(indexExists.indexname).toBe('idx_companies_name')
+        const prefixSearch = await executeQuery(
+          "SELECT COUNT(*) as count FROM companies WHERE name LIKE 'Acme%'"
         )
-        expect(Number(timestampIndex.count)).toBeGreaterThan(0)
-      })
-
-      await test.step('Verify non-indexed field has no index', async () => {
-        const noNotesIndex = await executeQuery(
-          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%notes%'"
-        )
-        expect(noNotesIndex.count).toBe('0')
+        expect(prefixSearch.count).toBe('2')
+        const exactMatch = await executeQuery("SELECT name FROM companies WHERE name = 'Beta LLC'")
+        expect(exactMatch.name).toBe('Beta LLC')
+        const orderBy = await executeQuery('SELECT name FROM companies ORDER BY name LIMIT 1')
+        expect(orderBy.name).toBe('Acme Corp')
       })
     }
   )

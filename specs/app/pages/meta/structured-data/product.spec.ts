@@ -522,11 +522,19 @@ test.describe('Product Schema', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 12 @spec tests - covers: minimal Product, product identity, images,
+  // brand, SKU, GTIN, offers, price with currency, availability, star ratings,
+  // Google Shopping rich results, SERP display
+  // ============================================================================
+
   test(
-    'APP-PAGES-PRODUCT-013: user can complete full Product workflow',
+    'APP-PAGES-PRODUCT-REGRESSION: user can complete full Product workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with Product schema', async () => {
+      await test.step('APP-PAGES-PRODUCT-001: Validate minimal Product structured data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -541,26 +549,254 @@ test.describe('Product Schema', () => {
                   product: {
                     '@context': 'https://schema.org',
                     '@type': 'Product',
-                    name: 'Complete Product Test',
-                    description: 'Premium wireless headphones with active noise cancellation',
+                    name: 'Amazing Widget',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Product"')
+        expect(scriptContent).toContain('Amazing Widget')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-002: Provide product identity', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Premium Headphones',
+                    description: 'High-quality wireless headphones with noise cancellation',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Premium Headphones')
+        expect(scriptContent).toContain('noise cancellation')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-003: Support single or multiple product images', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
                     image: [
-                      'https://example.com/headphones-1.jpg',
-                      'https://example.com/headphones-2.jpg',
+                      'https://example.com/widget-front.jpg',
+                      'https://example.com/widget-back.jpg',
+                      'https://example.com/widget-side.jpg',
                     ],
-                    brand: { '@type': 'Brand', name: 'AudioTech' },
-                    sku: 'ATP-WH1000-BLK',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('widget-front.jpg')
+        expect(scriptContent).toContain('widget-back.jpg')
+        expect(scriptContent).toContain('widget-side.jpg')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-004: Identify product manufacturer', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
+                    brand: { '@type': 'Brand', name: 'TechBrand' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Brand"')
+        expect(scriptContent).toContain('TechBrand')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-005: Provide stock keeping unit', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
+                    sku: 'WDG-12345-BLU',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('WDG-12345-BLU')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-006: Provide standardized product identifier', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
                     gtin: '0123456789012',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('0123456789012')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-007: Provide pricing information', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
+                    offers: { '@type': 'Offer', price: '149.99', priceCurrency: 'USD' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Offer"')
+        expect(scriptContent).toContain('149.99')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-008: Specify product price with currency', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
+                    offers: { '@type': 'Offer', price: '29.99', priceCurrency: 'USD' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('29.99')
+        expect(scriptContent).toContain('USD')
+      })
+
+      await test.step('APP-PAGES-PRODUCT-009: Show product availability in search results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
                     offers: {
                       '@type': 'Offer',
-                      price: '299.99',
+                      price: '99',
                       priceCurrency: 'USD',
                       availability: 'https://schema.org/InStock',
-                      url: 'https://example.com/buy/headphones',
-                    },
-                    aggregateRating: {
-                      '@type': 'AggregateRating',
-                      ratingValue: 4.7,
-                      reviewCount: 543,
                     },
                   },
                 },
@@ -569,62 +805,128 @@ test.describe('Product Schema', () => {
             },
           ],
         })
-      })
-
-      let jsonLd: any
-      let scriptContent: string | null
-
-      await test.step('Navigate to page and parse JSON-LD', async () => {
         await page.goto('/')
-        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        jsonLd = JSON.parse(scriptContent!)
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('availability')
+        expect(scriptContent).toContain('InStock')
       })
 
-      await test.step('Verify Product structure', async () => {
-        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-        expect(jsonLd).toHaveProperty('@type', 'Product')
-        expect(jsonLd).toHaveProperty('name', 'Complete Product Test')
-        expect(jsonLd).toHaveProperty(
-          'description',
-          'Premium wireless headphones with active noise cancellation'
-        )
-        expect(jsonLd).toHaveProperty('sku', 'ATP-WH1000-BLK')
-        expect(jsonLd).toHaveProperty('gtin', '0123456789012')
-
-        // Validate product images
-        expect(Array.isArray(jsonLd.image)).toBe(true)
-        expect(jsonLd.image).toHaveLength(2)
-        expect(jsonLd.image).toContain('https://example.com/headphones-1.jpg')
-        expect(jsonLd.image).toContain('https://example.com/headphones-2.jpg')
-
-        // Validate brand structure
-        expect(jsonLd.brand).toMatchObject({
-          '@type': 'Brand',
-          name: 'AudioTech',
+      await test.step('APP-PAGES-PRODUCT-010: Display star ratings in search results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Widget',
+                    aggregateRating: {
+                      '@type': 'AggregateRating',
+                      ratingValue: 4.5,
+                      reviewCount: 127,
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"AggregateRating"')
+        expect(scriptContent).toContain('4.5')
+        expect(scriptContent).toContain('127')
+      })
 
-        // Validate offers structure
-        expect(jsonLd.offers).toMatchObject({
-          '@type': 'Offer',
-          price: '299.99',
-          priceCurrency: 'USD',
-          availability: 'https://schema.org/InStock',
-          url: 'https://example.com/buy/headphones',
+      await test.step('APP-PAGES-PRODUCT-011: Enable Google Shopping rich results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Complete Product',
+                    description: 'Full product details',
+                    image: 'https://example.com/product.jpg',
+                    brand: { '@type': 'Brand', name: 'BrandName' },
+                    offers: {
+                      '@type': 'Offer',
+                      price: '199.99',
+                      priceCurrency: 'USD',
+                      availability: 'https://schema.org/InStock',
+                    },
+                    aggregateRating: {
+                      '@type': 'AggregateRating',
+                      ratingValue: 4.8,
+                      reviewCount: 250,
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
 
-        // Validate aggregate rating structure
-        expect(jsonLd.aggregateRating).toMatchObject({
-          '@type': 'AggregateRating',
-          ratingValue: 4.7,
-          reviewCount: 543,
+      await test.step('APP-PAGES-PRODUCT-012: Display price, availability, and ratings in SERPs', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'SERP Optimized Product',
+                    offers: {
+                      '@type': 'Offer',
+                      price: '79.99',
+                      priceCurrency: 'EUR',
+                      availability: 'https://schema.org/InStock',
+                      url: 'https://example.com/buy',
+                    },
+                    aggregateRating: {
+                      '@type': 'AggregateRating',
+                      ratingValue: 4.3,
+                      reviewCount: 89,
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
-
-        // Backwards compatibility: string containment checks
-        expect(scriptContent).toContain('"@type":"Product"')
-        expect(scriptContent).toContain('Complete Product Test')
-        expect(scriptContent).toContain('AudioTech')
-        expect(scriptContent).toContain('299.99')
-        expect(scriptContent).toContain('4.7')
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Product')
+        expect(scriptContent).toContain('79.99')
+        expect(scriptContent).toContain('4.3')
       })
     }
   )

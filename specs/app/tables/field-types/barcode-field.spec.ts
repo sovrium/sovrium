@@ -139,34 +139,90 @@ test.describe('Barcode Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-BARCODE-006: user can complete full barcode-field workflow',
+    'APP-TABLES-FIELD-TYPES-BARCODE-REGRESSION: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with barcode field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-001: Create VARCHAR column for barcode storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'products',
+              fields: [{ id: 1, name: 'barcode', type: 'barcode' }],
+            },
+          ],
+        })
+        const column = await executeQuery(
+          "SELECT data_type FROM information_schema.columns WHERE table_name='products' AND column_name='barcode'"
+        )
+        expect(column.data_type).toBe('character varying')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-002: Enforce barcode format via CHECK constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'items',
+              fields: [{ id: 1, name: 'ean', type: 'barcode', format: 'EAN-13' }],
+            },
+          ],
+        })
+        await expect(executeQuery("INSERT INTO items (ean) VALUES ('invalid')")).rejects.toThrow(
+          /violates check constraint/
+        )
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-003: Store valid barcode values', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'inventory',
+              fields: [{ id: 1, name: 'code', type: 'barcode' }],
+            },
+          ],
+        })
+        await executeQuery("INSERT INTO inventory (code) VALUES ('1234567890123')")
+        const result = await executeQuery('SELECT code FROM inventory WHERE id = 1')
+        expect(result.code).toBe('1234567890123')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-004: Enforce UNIQUE constraint for barcode uniqueness', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'assets',
               fields: [{ id: 1, name: 'barcode', type: 'barcode', unique: true }],
             },
           ],
         })
-      })
-
-      await test.step('Insert and verify barcode value', async () => {
-        await executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
-        const result = await executeQuery(
-          "SELECT barcode FROM data WHERE barcode = '9876543210987'"
+        await executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")
+        await expect(executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")).rejects.toThrow(
+          /duplicate key/
         )
-        expect(result.barcode).toBe('9876543210987')
       })
 
-      await test.step('Error handling: unique constraint rejects duplicate barcode', async () => {
-        await expect(
-          executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-005: Create index on barcode for fast lookups', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'shipments',
+              fields: [{ id: 1, name: 'tracking', type: 'barcode', indexed: true }],
+            },
+          ],
+        })
+        const index = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_shipments_tracking'"
+        )
+        expect(index.indexname).toBe('idx_shipments_tracking')
       })
     }
   )

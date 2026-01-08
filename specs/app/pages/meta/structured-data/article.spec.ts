@@ -573,11 +573,19 @@ test.describe('Article Schema', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 14 @spec tests - covers: minimal Article, content type, headline,
+  // description, images, simple author, structured author, organization author,
+  // datePublished, dateModified, publisher, mainEntityOfPage, Google News, attribution
+  // ============================================================================
+
   test(
-    'APP-PAGES-ARTICLE-015: user can complete full Article workflow',
+    'APP-PAGES-ARTICLE-REGRESSION: user can complete full Article workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with Article schema', async () => {
+      await test.step('APP-PAGES-ARTICLE-001: Validate minimal Article structured data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -592,15 +600,310 @@ test.describe('Article Schema', () => {
                   article: {
                     '@context': 'https://schema.org',
                     '@type': 'Article',
-                    headline: 'Complete Article Test',
-                    description: 'Testing all article features',
-                    image: 'https://example.com/article-image.jpg',
-                    author: { '@type': 'Person', name: 'Test Author' },
+                    headline: 'Amazing Article Title',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Article"')
+        expect(scriptContent).toContain('Amazing Article Title')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-002: Categorize content type', async () => {
+        const types = ['Article', 'NewsArticle', 'BlogPosting']
+        for (const type of types) {
+          await startServerWithSchema({
+            name: 'test-app',
+            pages: [
+              {
+                name: 'test',
+                path: '/',
+                meta: {
+                  lang: 'en-US',
+                  title: 'Test',
+                  description: 'Test',
+                  schema: {
+                    article: {
+                      '@context': 'https://schema.org',
+                      '@type': type,
+                      headline: 'Test Article',
+                    },
+                  },
+                },
+                sections: [],
+              },
+            ],
+          })
+          await page.goto('/')
+          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          expect(scriptContent).toContain(`"@type":"${type}"`)
+        }
+      })
+
+      await test.step('APP-PAGES-ARTICLE-003: Provide article title for rich results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: '10 Tips for Better Productivity',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('10 Tips for Better Productivity')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-004: Provide article summary', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Article Title',
+                    description:
+                      'This article explores proven strategies for improving daily productivity',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('proven strategies for improving daily productivity')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-005: Support single or multiple article images', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
+                    image: ['https://example.com/image1.jpg', 'https://example.com/image2.jpg'],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('image1.jpg')
+        expect(scriptContent).toContain('image2.jpg')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-006: Provide simple author name', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
+                    author: 'John Doe',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('John Doe')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-007: Provide structured author information', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
+                    author: {
+                      '@type': 'Person',
+                      name: 'Jane Smith',
+                      url: 'https://example.com/jane',
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Person"')
+        expect(scriptContent).toContain('Jane Smith')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-008: Attribute content to organization', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
+                    author: { '@type': 'Organization', name: 'Tech Blog' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Organization"')
+        expect(scriptContent).toContain('Tech Blog')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-009: Provide publication date', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
+                    datePublished: '2025-01-15T09:00:00Z',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('2025-01-15T09:00:00Z')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-010: Indicate last update date', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
                     datePublished: '2025-01-15T09:00:00Z',
                     dateModified: '2025-01-20T14:30:00Z',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('2025-01-20T14:30:00Z')
+      })
+
+      await test.step('APP-PAGES-ARTICLE-011: Identify publishing organization', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
                     publisher: {
                       '@type': 'Organization',
-                      name: 'Test Publisher',
+                      name: 'Tech Media',
                       logo: { '@type': 'ImageObject', url: 'https://example.com/logo.png' },
                     },
                   },
@@ -610,49 +913,106 @@ test.describe('Article Schema', () => {
             },
           ],
         })
-      })
-
-      let jsonLd: any
-      let scriptContent: string | null
-
-      await test.step('Navigate to page and parse JSON-LD', async () => {
         await page.goto('/')
-        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        jsonLd = JSON.parse(scriptContent!)
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Tech Media')
+        expect(scriptContent).toContain('logo.png')
       })
 
-      await test.step('Verify Article structure', async () => {
-        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-        expect(jsonLd).toHaveProperty('@type', 'Article')
-        expect(jsonLd).toHaveProperty('headline', 'Complete Article Test')
-        expect(jsonLd).toHaveProperty('description', 'Testing all article features')
-        expect(jsonLd).toHaveProperty('image', 'https://example.com/article-image.jpg')
-
-        // Validate author structure
-        expect(jsonLd.author).toMatchObject({
-          '@type': 'Person',
-          name: 'Test Author',
+      await test.step("APP-PAGES-ARTICLE-012: Specify article's primary page URL", async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Test',
+                    mainEntityOfPage: 'https://example.com/articles/productivity-tips',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://example.com/articles/productivity-tips')
+      })
 
-        // Validate dates
-        expect(jsonLd).toHaveProperty('datePublished', '2025-01-15T09:00:00Z')
-        expect(jsonLd).toHaveProperty('dateModified', '2025-01-20T14:30:00Z')
-
-        // Validate publisher structure
-        expect(jsonLd.publisher).toMatchObject({
-          '@type': 'Organization',
-          name: 'Test Publisher',
-          logo: {
-            '@type': 'ImageObject',
-            url: 'https://example.com/logo.png',
-          },
+      await test.step('APP-PAGES-ARTICLE-013: Enable Google News and article rich results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'NewsArticle',
+                    headline: 'Breaking News Story',
+                    author: { '@type': 'Person', name: 'Reporter Name' },
+                    datePublished: '2025-01-15T09:00:00Z',
+                    publisher: {
+                      '@type': 'Organization',
+                      name: 'News Corp',
+                      logo: { '@type': 'ImageObject', url: 'https://example.com/logo.png' },
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
 
-        // Backwards compatibility: string containment checks
-        expect(scriptContent).toContain('"@type":"Article"')
-        expect(scriptContent).toContain('Complete Article Test')
-        expect(scriptContent).toContain('Test Author')
-        expect(scriptContent).toContain('Test Publisher')
+      await test.step('APP-PAGES-ARTICLE-014: Properly attribute content to authors and publishers', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BlogPosting',
+                    headline: 'Complete Blog Post',
+                    description: 'Comprehensive guide',
+                    author: { '@type': 'Person', name: 'John Doe', url: 'https://example.com/john' },
+                    datePublished: '2025-01-15T09:00:00Z',
+                    publisher: { '@type': 'Organization', name: 'Blog Network' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('John Doe')
+        expect(scriptContent).toContain('Blog Network')
       })
     }
   )

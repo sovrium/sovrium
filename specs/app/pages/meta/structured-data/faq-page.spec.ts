@@ -473,11 +473,42 @@ test.describe('FAQ Page Schema', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 10 @spec tests - covers: minimal FAQPage, Q&A pairs, question structure,
+  // question text, answer structure, answer content, comprehensive FAQ, rich results, support, CTR
+  // ============================================================================
+
   test(
-    'APP-PAGES-FAQPAGE-011: user can complete full FAQ Page workflow',
+    'APP-PAGES-FAQPAGE-REGRESSION: user can complete full FAQ Page workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with FAQPage schema', async () => {
+      await test.step('APP-PAGES-FAQPAGE-001: Validate minimal FAQPage structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: [] },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"FAQPage"')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-002: Contain list of Q&A pairs', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -496,25 +527,148 @@ test.describe('FAQ Page Schema', () => {
                       {
                         '@type': 'Question',
                         name: 'What is the refund policy?',
-                        acceptedAnswer: {
-                          '@type': 'Answer',
-                          text: 'We offer a 30-day money-back guarantee on all purchases',
-                        },
+                        acceptedAnswer: { '@type': 'Answer', text: 'We offer 30-day returns' },
                       },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('mainEntity')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-003: Define question structure', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
                       {
                         '@type': 'Question',
-                        name: 'How long is shipping?',
-                        acceptedAnswer: {
-                          '@type': 'Answer',
-                          text: 'Standard shipping takes 5-7 business days',
-                        },
+                        name: 'What is the refund policy?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'We offer 30-day returns' },
                       },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Question"')
+        expect(scriptContent).toContain('name')
+        expect(scriptContent).toContain('acceptedAnswer')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-004: Provide question text', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
                       {
                         '@type': 'Question',
-                        name: 'Do you ship internationally?',
+                        name: 'What is the refund policy?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'Answer text' },
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('What is the refund policy?')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-005: Provide answer structure', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      {
+                        '@type': 'Question',
+                        name: 'Test question?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'Test answer' },
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Answer"')
+        expect(scriptContent).toContain('text')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-006: Provide answer content', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      {
+                        '@type': 'Question',
+                        name: 'Question?',
                         acceptedAnswer: {
                           '@type': 'Answer',
-                          text: 'Yes, we ship to over 100 countries worldwide',
+                          text: 'We offer a 30-day money-back guarantee',
                         },
                       },
                     ],
@@ -525,58 +679,153 @@ test.describe('FAQ Page Schema', () => {
             },
           ],
         })
-      })
-
-      let jsonLd: any
-      let scriptContent: string | null
-
-      await test.step('Navigate to page and parse JSON-LD', async () => {
         await page.goto('/')
-        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        jsonLd = JSON.parse(scriptContent!)
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('30-day money-back guarantee')
       })
 
-      await test.step('Verify FAQPage structure', async () => {
-        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-        expect(jsonLd).toHaveProperty('@type', 'FAQPage')
-        expect(jsonLd).toHaveProperty('mainEntity')
-        expect(Array.isArray(jsonLd.mainEntity)).toBe(true)
-        expect(jsonLd.mainEntity).toHaveLength(3)
-
-        // Validate Question 1: Refund policy
-        expect(jsonLd.mainEntity[0]).toMatchObject({
-          '@type': 'Question',
-          name: 'What is the refund policy?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We offer a 30-day money-back guarantee on all purchases',
-          },
+      await test.step('APP-PAGES-FAQPAGE-007: Support comprehensive FAQ section', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      { '@type': 'Question', name: 'Q1?', acceptedAnswer: { '@type': 'Answer', text: 'A1' } },
+                      { '@type': 'Question', name: 'Q2?', acceptedAnswer: { '@type': 'Answer', text: 'A2' } },
+                      { '@type': 'Question', name: 'Q3?', acceptedAnswer: { '@type': 'Answer', text: 'A3' } },
+                      { '@type': 'Question', name: 'Q4?', acceptedAnswer: { '@type': 'Answer', text: 'A4' } },
+                      { '@type': 'Question', name: 'Q5?', acceptedAnswer: { '@type': 'Answer', text: 'A5' } },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        const questionCount = (scriptContent?.match(/"@type":"Question"/g) || []).length
+        expect(questionCount).toBeGreaterThanOrEqual(5)
+      })
 
-        // Validate Question 2: Shipping time
-        expect(jsonLd.mainEntity[1]).toMatchObject({
-          '@type': 'Question',
-          name: 'How long is shipping?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Standard shipping takes 5-7 business days',
-          },
+      await test.step('APP-PAGES-FAQPAGE-008: Display expandable Q&A in Google search results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      {
+                        '@type': 'Question',
+                        name: 'How do I return an item?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'Visit our returns page and follow the instructions',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
 
-        // Validate Question 3: International shipping
-        expect(jsonLd.mainEntity[2]).toMatchObject({
-          '@type': 'Question',
-          name: 'Do you ship internationally?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes, we ship to over 100 countries worldwide',
-          },
+      await test.step('APP-PAGES-FAQPAGE-009: Reduce support load by surfacing answers', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      {
+                        '@type': 'Question',
+                        name: 'Common support question?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'Detailed answer to reduce support tickets',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
 
-        // Backwards compatibility: string containment checks
-        expect(scriptContent).toContain('"@type":"FAQPage"')
-        expect(scriptContent).toContain('refund policy')
-        expect(scriptContent).toContain('shipping')
+      await test.step('APP-PAGES-FAQPAGE-010: Increase click-through rate from search results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  faqPage: {
+                    '@context': 'https://schema.org',
+                    '@type': 'FAQPage',
+                    mainEntity: [
+                      {
+                        '@type': 'Question',
+                        name: 'Why choose us?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'We offer the best service in the industry',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('FAQPage')
       })
     }
   )

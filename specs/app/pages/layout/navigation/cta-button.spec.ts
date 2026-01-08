@@ -391,27 +391,137 @@ test.describe('CTA Button', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-CTA-011: user can complete full CTA button workflow',
+    'APP-PAGES-CTA-REGRESSION: user can complete full CTA button workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with CTA button', async () => {
+      await test.step('APP-PAGES-CTA-001: Render call-to-action button', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
             {
-              name: 'Test',
+              name: 'test',
               path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: { logo: './logo.svg', cta: { text: 'Get Started', href: '/signup' } },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta).toContainText('Get Started')
+        await expect(cta).toHaveAttribute('href', '/signup')
+      })
+
+      await test.step('APP-PAGES-CTA-002: Apply primary button styling', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               layout: {
                 navigation: {
                   logo: './logo.svg',
-                  links: { desktop: [{ label: 'Features', href: '/features' }] },
+                  cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(/btn-primary/)
+      })
+
+      await test.step('APP-PAGES-CTA-003: Support all button style variants', async () => {
+        const variants = ['primary', 'secondary', 'outline', 'ghost', 'link'] as const
+        for (const variant of variants) {
+          await startServerWithSchema({
+            name: 'test-app',
+            pages: [
+              {
+                name: 'test',
+                path: '/',
+                meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+                layout: {
+                  navigation: { logo: './logo.svg', cta: { text: 'Button', href: '/test', variant } },
+                },
+                sections: [],
+              },
+            ],
+          })
+          await page.goto('/')
+          await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(
+            new RegExp(`btn-${variant}`)
+          )
+        }
+      })
+
+      await test.step('APP-PAGES-CTA-004: Apply size styling', async () => {
+        const sizes = ['sm', 'md', 'lg', 'xl'] as const
+        for (const size of sizes) {
+          await startServerWithSchema({
+            name: 'test-app',
+            pages: [
+              {
+                name: 'test',
+                path: '/',
+                meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+                layout: {
+                  navigation: { logo: './logo.svg', cta: { text: 'Button', href: '/test', size } },
+                },
+                sections: [],
+              },
+            ],
+          })
+          await page.goto('/')
+          await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(new RegExp(`btn-${size}`))
+        }
+      })
+
+      await test.step('APP-PAGES-CTA-005: Apply theme-based color', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
+                  cta: { text: 'Button', href: '/test', color: 'orange' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cta = page.locator('[data-testid="nav-cta"]')
+        const bgColor = await cta.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+        expect(bgColor).toMatch(/rgb/)
+      })
+
+      await test.step('APP-PAGES-CTA-006: Display icon on right side of text', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
                   cta: {
-                    text: 'Get Started',
-                    href: '/signup',
-                    variant: 'primary',
-                    size: 'lg',
-                    icon: 'arrow-right',
+                    text: 'Download',
+                    href: '/download',
+                    icon: 'download',
                     iconPosition: 'right',
                   },
                 },
@@ -420,27 +530,117 @@ test.describe('CTA Button', () => {
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify CTA visibility', async () => {
         await page.goto('/')
         const cta = page.locator('[data-testid="nav-cta"]')
-        await expect(cta).toBeVisible()
+        await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
+        const iconPosition = await getIconPosition(cta)
+        expect(iconPosition).toBe('right')
       })
 
-      await test.step('Verify CTA text, link, and styling', async () => {
+      await test.step('APP-PAGES-CTA-007: Display icon on left side of text', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
+                  cta: { text: 'Start', href: '/start', icon: 'rocket', iconPosition: 'left' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
+        const iconPosition = await getIconPosition(cta)
+        expect(iconPosition).toBe('left')
+      })
+
+      await test.step('APP-PAGES-CTA-008: Serve as prominent call-to-action in header', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
+                  links: { desktop: [{ label: 'About', href: '/about' }] },
+                  cta: { text: 'Sign Up', href: '/signup', variant: 'primary' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const nav = page.locator('[data-testid="navigation"]')
+        const cta = nav.locator('[data-testid="nav-cta"]')
+        await expect(cta).toBeVisible()
+        await expect(cta).toContainText('Sign Up')
+      })
+
+      await test.step('APP-PAGES-CTA-009: Validate as complete CTA configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: { logo: './logo.svg', cta: { text: 'Get Started', href: '/signup' } },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
         const cta = page.locator('[data-testid="nav-cta"]')
         await expect(cta).toContainText('Get Started')
         await expect(cta).toHaveAttribute('href', '/signup')
-        await expect(cta).toHaveClass(/btn-primary/)
-        await expect(cta).toHaveClass(/btn-lg/)
       })
 
-      await test.step('Verify CTA icon and navigation', async () => {
+      await test.step('APP-PAGES-CTA-010: Support fully customized button appearance', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
+                  cta: {
+                    text: 'Download',
+                    href: '/download',
+                    variant: 'outline',
+                    size: 'lg',
+                    color: 'blue',
+                    icon: 'download',
+                    iconPosition: 'right',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
         const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta).toContainText('Download')
+        await expect(cta).toHaveClass(/btn-outline/)
+        await expect(cta).toHaveClass(/btn-lg/)
         await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
-        await cta.click()
-        await expect(page).toHaveURL('/signup')
       })
     }
   )

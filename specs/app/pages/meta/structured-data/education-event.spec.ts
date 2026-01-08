@@ -589,11 +589,19 @@ test.describe('Education Event Schema', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 14 @spec tests - covers: minimal EducationEvent, event identity,
+  // start/end dates, attendance mode, event status, location, organizer, offers, price,
+  // availability, capacity, Google Events rich results, event discovery
+  // ============================================================================
+
   test(
-    'APP-PAGES-EDUCATIONEVENT-015: user can complete full Education Event workflow',
+    'APP-PAGES-EDUCATIONEVENT-REGRESSION: user can complete full Education Event workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with EducationEvent schema', async () => {
+      await test.step('APP-PAGES-EDUCATIONEVENT-001: Validate minimal EducationEvent structured data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -607,20 +615,185 @@ test.describe('Education Event Schema', () => {
                 schema: {
                   educationEvent: {
                     '@type': 'EducationEvent',
-                    name: 'Advanced React Workshop',
-                    description: 'Learn advanced React patterns and best practices',
+                    name: 'React Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"EducationEvent"')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-002: Provide event identity', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Advanced TypeScript Course',
+                    description: 'Learn advanced TypeScript patterns',
+                    startDate: '2025-06-01T09:00:00Z',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Advanced TypeScript Course')
+        expect(scriptContent).toContain('Learn advanced TypeScript patterns')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-003: Specify when event begins', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-15T14:00:00Z',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('2025-06-15T14:00:00Z')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-004: Specify when event ends', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
                     startDate: '2025-06-15T09:00:00Z',
                     endDate: '2025-06-15T17:00:00Z',
-                    eventAttendanceMode: 'https://schema.org/MixedEventAttendanceMode',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('2025-06-15T17:00:00Z')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-005: Specify attendance mode (in-person/online/hybrid)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://schema.org/OnlineEventAttendanceMode')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-006: Communicate event status', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
                     eventStatus: 'https://schema.org/EventScheduled',
-                    location: { '@type': 'Place', name: 'Tech Conference Center' },
-                    organizer: { '@type': 'Organization', name: 'Tech Education Inc' },
-                    offers: {
-                      '@type': 'Offer',
-                      price: '199',
-                      priceCurrency: 'USD',
-                      availability: 'https://schema.org/InStock',
-                      url: 'https://example.com/register',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://schema.org/EventScheduled')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-007: Provide event venue information', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    location: {
+                      '@type': 'Place',
+                      name: 'Convention Center',
+                      address: { '@type': 'PostalAddress', streetAddress: '123 Main St' },
                     },
                   },
                 },
@@ -629,57 +802,235 @@ test.describe('Education Event Schema', () => {
             },
           ],
         })
-      })
-
-      let jsonLd: any
-      let scriptContent: string | null
-
-      await test.step('Navigate to page and parse JSON-LD', async () => {
         await page.goto('/')
-        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        jsonLd = JSON.parse(scriptContent!)
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Place')
+        expect(scriptContent).toContain('Convention Center')
       })
 
-      await test.step('Verify EducationEvent structure', async () => {
-        expect(jsonLd).toHaveProperty('@type', 'EducationEvent')
-        expect(jsonLd).toHaveProperty('name', 'Advanced React Workshop')
-        expect(jsonLd).toHaveProperty(
-          'description',
-          'Learn advanced React patterns and best practices'
-        )
-        expect(jsonLd).toHaveProperty('startDate', '2025-06-15T09:00:00Z')
-        expect(jsonLd).toHaveProperty('endDate', '2025-06-15T17:00:00Z')
-        expect(jsonLd).toHaveProperty(
-          'eventAttendanceMode',
-          'https://schema.org/MixedEventAttendanceMode'
-        )
-        expect(jsonLd).toHaveProperty('eventStatus', 'https://schema.org/EventScheduled')
-
-        // Validate location structure
-        expect(jsonLd.location).toMatchObject({
-          '@type': 'Place',
-          name: 'Tech Conference Center',
+      await test.step('APP-PAGES-EDUCATIONEVENT-008: Identify event organizer', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    organizer: {
+                      '@type': 'Organization',
+                      name: 'Education Corp',
+                      url: 'https://example.com',
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Education Corp')
+      })
 
-        // Validate organizer structure
-        expect(jsonLd.organizer).toMatchObject({
-          '@type': 'Organization',
-          name: 'Tech Education Inc',
+      await test.step('APP-PAGES-EDUCATIONEVENT-009: Provide ticket pricing and availability', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    offers: {
+                      '@type': 'Offer',
+                      price: '29.99',
+                      priceCurrency: 'EUR',
+                      availability: 'https://schema.org/InStock',
+                      url: 'https://example.com/tickets',
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('29.99')
+        expect(scriptContent).toContain('EUR')
+      })
 
-        // Validate offers structure
-        expect(jsonLd.offers).toMatchObject({
-          '@type': 'Offer',
-          price: '199',
-          priceCurrency: 'USD',
-          availability: 'https://schema.org/InStock',
-          url: 'https://example.com/register',
+      await test.step('APP-PAGES-EDUCATIONEVENT-010: Specify event ticket price', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Free Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toMatch(/"price":\s*"0"/)
+        expect(scriptContent).toContain('EUR')
+      })
 
-        // Backwards compatibility: string containment checks
-        expect(scriptContent).toContain('"@type":"EducationEvent"')
-        expect(scriptContent).toContain('Advanced React Workshop')
-        expect(scriptContent).toContain('Tech Education Inc')
+      await test.step('APP-PAGES-EDUCATIONEVENT-011: Indicate ticket availability status', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    offers: {
+                      '@type': 'Offer',
+                      price: '0',
+                      priceCurrency: 'EUR',
+                      availability: 'https://schema.org/InStock',
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://schema.org/InStock')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-012: Specify event capacity limits', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    maximumAttendeeCapacity: 50,
+                    minimumAttendeeCapacity: 10,
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('50')
+        expect(scriptContent).toContain('10')
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-013: Enable Google Events rich results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Complete Workshop',
+                    description: 'Comprehensive training',
+                    startDate: '2025-06-01T09:00:00Z',
+                    endDate: '2025-06-01T17:00:00Z',
+                    location: { '@type': 'Place', name: 'Venue' },
+                    offers: { '@type': 'Offer', price: '99', priceCurrency: 'USD' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-EDUCATIONEVENT-014: Display event in Google Search and Maps', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Public Workshop',
+                    startDate: '2025-06-01T09:00:00Z',
+                    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+                    eventStatus: 'https://schema.org/EventScheduled',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('EducationEvent')
       })
     }
   )

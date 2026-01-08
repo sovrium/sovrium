@@ -559,10 +559,75 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-014: user can complete full Page Sections workflow',
+    'APP-PAGES-SECTIONS-REGRESSION: user can complete full Page Sections workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with sections', async () => {
+      await test.step('APP-PAGES-SECTIONS-001: Render direct component definition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'section',
+                  props: { id: 'hero', className: 'min-h-screen bg-gradient' },
+                  children: [{ type: 'single-line-text', content: 'Welcome' }],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const section = page.locator('section[id="hero"]')
+        await expect(section).toBeVisible()
+        await expect(section).toHaveClass(/min-h-screen/)
+        await expect(section.locator('text=Welcome')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-002: Support all component types', async () => {
+        const componentTypes = [
+          'section',
+          'container',
+          'flex',
+          'grid',
+          'card',
+          'text',
+          'icon',
+          'image',
+          'button',
+          'link',
+          'timeline',
+          'accordion',
+          'badge',
+          'customHTML',
+          'video',
+          'audio',
+          'iframe',
+          'form',
+          'input',
+        ]
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: componentTypes.map((type) => ({ type })),
+            },
+          ],
+        })
+        await page.goto('/')
+        for (const type of componentTypes) {
+          const element = page.locator(`[data-component-type="${type}"]`).first()
+          expect(element).toBeTruthy()
+        }
+      })
+
+      await test.step('APP-PAGES-SECTIONS-003: Accept generic component properties', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -574,55 +639,44 @@ test.describe('Page Sections', () => {
                 {
                   type: 'section',
                   props: {
-                    id: 'hero',
-                    className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100',
+                    id: 'hero-section',
+                    className: 'min-h-screen bg-gradient',
+                    style: { padding: '2rem' },
+                    'data-analytics': 'hero',
                   },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const section = page.locator('#hero-section')
+        await expect(section).toHaveAttribute('data-analytics', 'hero')
+        await expect(section).toHaveClass(/min-h-screen/)
+      })
+
+      await test.step('APP-PAGES-SECTIONS-004: Support unlimited nesting depth', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'section',
                   children: [
                     {
                       type: 'container',
-                      props: { className: 'max-w-7xl' },
                       children: [
                         {
-                          type: 'heading',
-                          props: { className: 'text-6xl font-bold' },
-                          content: 'Welcome to Our Platform',
-                        },
-                        {
-                          type: 'single-line-text',
-                          props: { 'data-testid': 'subtitle' },
-                          content: 'Build amazing applications with ease',
-                        },
-                      ],
-                    },
-                  ],
-                },
-                {
-                  type: 'section',
-                  props: { id: 'features' },
-                  children: [
-                    {
-                      type: 'grid',
-                      props: { className: 'grid-cols-3' },
-                      children: [
-                        {
-                          type: 'card',
+                          type: 'flex',
                           children: [
-                            { type: 'h3', content: 'Fast' },
-                            { type: 'single-line-text', content: 'Lightning-fast performance' },
-                          ],
-                        },
-                        {
-                          type: 'card',
-                          children: [
-                            { type: 'h3', content: 'Secure' },
-                            { type: 'single-line-text', content: 'Enterprise-grade security' },
-                          ],
-                        },
-                        {
-                          type: 'card',
-                          children: [
-                            { type: 'h3', content: 'Flexible' },
-                            { type: 'single-line-text', content: 'Highly customizable' },
+                            {
+                              type: 'card',
+                              children: [{ type: 'single-line-text', content: 'Deeply nested' }],
+                            },
                           ],
                         },
                       ],
@@ -633,17 +687,293 @@ test.describe('Page Sections', () => {
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify hero section', async () => {
         await page.goto('/')
-        await expect(page.locator('h1')).toHaveText('Welcome to Our Platform')
-        await expect(page.locator('[data-testid="subtitle"]')).toContainText('Build amazing')
+        await expect(page.locator('text=Deeply nested')).toBeVisible()
       })
 
-      await test.step('Verify features section with grid', async () => {
-        await expect(page.locator('h3').first()).toHaveText('Fast')
-        await expect(page.locator('section#features')).toBeVisible()
+      await test.step('APP-PAGES-SECTIONS-005: Render text content', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'heading',
+                  props: { className: 'text-6xl font-bold' },
+                  content: 'Welcome to Our Platform',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const heading = page.locator('h1')
+        await expect(heading).toHaveText('Welcome to Our Platform')
+        await expect(heading).toHaveClass(/text-6xl/)
+      })
+
+      await test.step('APP-PAGES-SECTIONS-006: Apply interactive behaviors', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  content: 'Click me',
+                  interactions: {
+                    hover: { scale: 1.05 },
+                    click: { action: 'navigate', url: '/contact' },
+                    entrance: { animation: 'fadeIn', duration: '500ms' },
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button:has-text("Click me")')
+        await expect(button).toBeVisible()
+        await button.hover()
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
+      })
+
+      await test.step('APP-PAGES-SECTIONS-007: Adapt component for different screen sizes', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'grid',
+                  props: { columns: 1 },
+                  responsive: {
+                    md: { props: { columns: 2 } },
+                    lg: { props: { columns: 3 } },
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const grid = page.locator('[data-component-type="grid"]')
+        await expect(grid).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-008: Reference and instantiate reusable block', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'section-header',
+              type: 'section',
+              children: [
+                { type: 'h2', content: '$title' },
+                { type: 'p', content: '$subtitle' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  block: 'section-header',
+                  vars: { title: 'Our Features', subtitle: 'Everything you need to succeed' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h2:has-text("Our Features")')).toBeVisible()
+        await expect(page.locator('p:has-text("Everything you need to succeed")')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-009: Support hybrid section composition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'cta-section',
+              type: 'section',
+              children: [{ type: 'button', content: '$buttonLabel' }],
+            },
+          ],
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'section',
+                  props: { id: 'hero' },
+                  children: [{ type: 'single-line-text', content: 'Welcome' }],
+                },
+                { block: 'cta-section', vars: { buttonLabel: 'Get Started' } },
+                { type: 'container', children: [{ type: 'single-line-text', content: 'Features' }] },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('text=Welcome')).toBeVisible()
+        await expect(page.locator('button:has-text("Get Started")')).toBeVisible()
+        await expect(page.locator('text=Features')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-010: Build complex layouts through composition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'section',
+                  props: { className: 'py-20' },
+                  children: [
+                    {
+                      type: 'container',
+                      children: [
+                        {
+                          type: 'flex',
+                          children: [
+                            {
+                              type: 'grid',
+                              children: [
+                                {
+                                  type: 'card',
+                                  children: [{ type: 'h3', content: 'Feature 1' }],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h3:has-text("Feature 1")')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-011: Combine interactive and responsive features', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  content: 'Click me',
+                  props: { className: 'px-6 py-3' },
+                  interactions: { hover: { scale: 1.05 } },
+                  responsive: { md: { props: { className: 'px-8 py-4' } } },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('button:has-text("Click me")')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-012: Support form building capabilities', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'form',
+                  props: { action: '/api/contact', method: 'POST' },
+                  children: [
+                    {
+                      type: 'input',
+                      props: {
+                        type: 'single-line-text',
+                        name: 'name',
+                        placeholder: 'Your name',
+                        required: true,
+                      },
+                    },
+                    {
+                      type: 'input',
+                      props: { type: 'email', name: 'email', placeholder: 'Your email' },
+                    },
+                    { type: 'button', props: { type: 'submit' }, content: 'Submit' },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const form = page.locator('form[action="/api/contact"]')
+        await expect(form).toBeVisible()
+        await expect(form.locator('input[name="name"]')).toBeVisible()
+        await expect(form.locator('input[type="email"]')).toBeVisible()
+        await expect(form.locator('button[type="submit"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SECTIONS-013: Support rich media content', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [
+                {
+                  type: 'image',
+                  props: { src: '/hero.jpg', alt: 'Hero image', width: 1200, height: 600 },
+                },
+                { type: 'video', props: { src: '/demo.mp4', controls: true, autoplay: false } },
+                { type: 'audio', props: { src: '/podcast.mp3', controls: true } },
+                {
+                  type: 'iframe',
+                  props: {
+                    src: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                    width: 560,
+                    height: 315,
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('img[src="/hero.jpg"]')).toBeVisible()
+        await expect(page.locator('video[src="/demo.mp4"]')).toBeVisible()
+        await expect(page.locator('audio[src="/podcast.mp3"]')).toBeVisible()
+        await expect(page.locator('iframe[src*="youtube.com"]')).toBeVisible()
       })
     }
   )

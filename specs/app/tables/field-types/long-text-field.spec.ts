@@ -233,21 +233,103 @@ test.describe('Long Text Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-LONG-TEXT-006: user can complete full long-text-field workflow',
+    'APP-TABLES-FIELD-LONG-TEXT-REGRESSION: user can complete full long-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with long-text field', async () => {
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-001: Create PostgreSQL TEXT column with unlimited length', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'articles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'description', type: 'long-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='articles' AND column_name='description'"
+        )
+        expect(columnInfo.column_name).toBe('description')
+        expect(columnInfo.data_type).toBe('text')
+        expect(columnInfo.character_maximum_length).toBeNull()
+        expect(columnInfo.is_nullable).toBe('YES')
+        const multiLineInsert = await executeQuery(
+          "INSERT INTO articles (description) VALUES ('Line 1\nLine 2\nLine 3') RETURNING description"
+        )
+        expect(multiLineInsert.description).toBe('Line 1\nLine 2\nLine 3')
+      })
+
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-002: Accept unlimited length without truncation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'long-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const dataTypeCheck = await executeQuery(
+          "SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
+        )
+        expect(dataTypeCheck.data_type).toBe('text')
+        expect(dataTypeCheck.character_maximum_length).toBeNull()
+        const largeTextInsert = await executeQuery(
+          "INSERT INTO posts (content) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.') RETURNING LENGTH(content) as length"
+        )
+        expect(largeTextInsert.length).toBe(445)
+      })
+
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-003: Reject NULL when required', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'comments',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'body', type: 'long-text', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='comments' AND column_name='body'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+        const validInsert = await executeQuery(
+          "INSERT INTO comments (body) VALUES ('Great article!') RETURNING body"
+        )
+        expect(validInsert.body).toBe('Great article!')
+        await expect(executeQuery('INSERT INTO comments (body) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
+
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-004: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'pages',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 {
                   id: 2,
-                  name: 'long_text_field',
+                  name: 'content',
                   type: 'long-text',
                   required: true,
                   indexed: true,
@@ -257,29 +339,46 @@ test.describe('Long Text Field', () => {
             },
           ],
         })
-      })
-
-      await test.step('Verify column setup and constraints', async () => {
-        const columnInfo = await executeQuery(
-          "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='long_text_field'"
+        const indexExists = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_content'"
         )
-        expect(columnInfo.data_type).toBe('text')
-        expect(columnInfo.character_maximum_length).toBeNull()
-        expect(columnInfo.is_nullable).toBe('NO')
-      })
-
-      await test.step('Test large text insertion', async () => {
-        const largeText = 'A'.repeat(1000)
-        const insertResult = await executeQuery(
-          `INSERT INTO data (long_text_field) VALUES ('${largeText}') RETURNING LENGTH(long_text_field) as length`
+        expect(indexExists.indexname).toBe('idx_pages_content')
+        expect(indexExists.tablename).toBe('pages')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pages_content'"
         )
-        expect(insertResult.length).toBe(1000)
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_pages_content ON public.pages USING btree (content)'
+        )
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (long_text_field) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-005: Apply DEFAULT value', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'notes', type: 'long-text', default: 'No notes' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const defaultCheck = await executeQuery(
+          "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='notes'"
+        )
+        expect(defaultCheck.column_default).toBe("'No notes'::text")
+        const defaultInsert = await executeQuery(
+          'INSERT INTO projects (id) VALUES (DEFAULT) RETURNING notes'
+        )
+        expect(defaultInsert.notes).toBe('No notes')
+        const explicitInsert = await executeQuery(
+          "INSERT INTO projects (notes) VALUES ('Custom notes here') RETURNING notes"
+        )
+        expect(explicitInsert.notes).toBe('Custom notes here')
       })
     }
   )

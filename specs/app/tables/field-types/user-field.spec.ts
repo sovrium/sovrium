@@ -273,78 +273,185 @@ test.describe('User Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-USER-006: user can complete full user-field workflow',
+    'APP-TABLES-FIELD-TYPES-USER-REGRESSION: user can complete full user-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      let alice: any
+      await test.step('APP-TABLES-FIELD-TYPES-USER-001: Create PostgreSQL TEXT column with FOREIGN KEY to Better Auth users', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'assigned_to', type: 'user', allowMultiple: false },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await createAuthenticatedUser({ name: 'Alice Johnson', email: 'alice@example.com' })
+        await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob@example.com' })
+        const usersCount = await executeQuery('SELECT COUNT(*) as count FROM _sovrium_auth_users')
+        expect(Number(usersCount.count)).toBeGreaterThanOrEqual(2)
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks' AND column_name='assigned_to'"
+        )
+        expect(columnInfo.column_name).toBe('assigned_to')
+        expect(columnInfo.data_type).toBe('text')
+        const fkCount = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='tasks' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%assigned_to%'"
+        )
+        expect(Number(fkCount.count)).toBe(1)
+        const referencedTable = await executeQuery(
+          "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='tasks' AND tc.constraint_type='FOREIGN KEY'"
+        )
+        expect(referencedTable.referenced_table).toBe('_sovrium_auth_users')
+      })
 
-      await test.step('Setup: Start server with user field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-USER-002: Enforce valid user foreign key references', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 2,
+              name: 'issues',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'reporter', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const user = await createAuthenticatedUser({ name: 'John Doe', email: 'john@example.com' })
+        const validInsert = await executeQuery(
+          `INSERT INTO issues (title, reporter) VALUES ('Bug report', '${user.user.id}') RETURNING reporter`
+        )
+        expect(validInsert.reporter).toBe(user.user.id)
+        await expect(
+          executeQuery(
+            "INSERT INTO issues (title, reporter) VALUES ('Feature request', 'invalid-uuid-999')"
+          )
+        ).rejects.toThrow(/violates foreign key constraint/)
+        const nullInsert = await executeQuery(
+          "INSERT INTO issues (title, reporter) VALUES ('Unassigned issue', NULL) RETURNING reporter IS NULL as is_null"
+        )
+        expect(nullInsert.is_null).toBe(true)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-USER-003: Support multiple user assignments via junction table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 999,
+              name: 'placeholder',
+              fields: [{ id: 1, name: 'id', type: 'integer' }],
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const charlie = await createAuthenticatedUser({
+          name: 'Charlie',
+          email: 'charlie@example.com',
+        })
+        await executeQuery([
+          'CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))',
+          "INSERT INTO projects (name) VALUES ('Website Redesign')",
+          'CREATE TABLE project_collaborators (project_id INTEGER REFERENCES projects(id), user_id TEXT REFERENCES _sovrium_auth_users(id), PRIMARY KEY (project_id, user_id))',
+          `INSERT INTO project_collaborators (project_id, user_id) VALUES (1, '${alice.user.id}'), (1, '${bob.user.id}'), (1, '${charlie.user.id}')`,
+        ])
+        const junctionTable = await executeQuery(
+          "SELECT table_name FROM information_schema.tables WHERE table_name = 'project_collaborators'"
+        )
+        expect(junctionTable.table_name).toBe('project_collaborators')
+        const collaboratorCount = await executeQuery(
+          'SELECT COUNT(*) as count FROM project_collaborators WHERE project_id = 1'
+        )
+        expect(Number(collaboratorCount.count)).toBe(3)
+        const collaborators = await executeQuery(
+          'SELECT p.name as project_name, u.name as user_name FROM projects p JOIN project_collaborators pc ON p.id = pc.project_id JOIN _sovrium_auth_users u ON pc.user_id = u.id WHERE p.id = 1 ORDER BY u.name'
+        )
+        expect(collaborators.rows).toEqual([
+          { project_name: 'Website Redesign', user_name: 'Alice' },
+          { project_name: 'Website Redesign', user_name: 'Bob' },
+          { project_name: 'Website Redesign', user_name: 'Charlie' },
+        ])
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-USER-004: Return user profile data via JOIN', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 3,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'owner', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const sarah = await createAuthenticatedUser({
+          name: 'Sarah Connor',
+          email: 'sarah@example.com',
+        })
+        await executeQuery([
+          `INSERT INTO documents (title, owner) VALUES ('Project Plan', '${sarah.user.id}'), ('Budget Report', '${sarah.user.id}')`,
+        ])
+        const ownerInfo = await executeQuery(
+          'SELECT d.id, d.title, u.name as owner_name, u.email as owner_email FROM documents d JOIN _sovrium_auth_users u ON d.owner = u.id WHERE d.id = 1'
+        )
+        expect(ownerInfo.id).toBe(1)
+        expect(ownerInfo.title).toBe('Project Plan')
+        expect(ownerInfo.owner_name).toBe('Sarah Connor')
+        expect(ownerInfo.owner_email).toBe('sarah@example.com')
+        const documentsByUser = await executeQuery(
+          "SELECT COUNT(*) as count FROM documents d JOIN _sovrium_auth_users u ON d.owner = u.id WHERE u.email = 'sarah@example.com'"
+        )
+        expect(Number(documentsByUser.count)).toBe(2)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-USER-005: Create btree index for fast user filtering when indexed=true', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: { emailAndPassword: true },
           tables: [
             {
               id: 4,
-              name: 'data',
+              name: 'pull_requests',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'assignee', type: 'user', required: true, indexed: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'reviewer', type: 'user', indexed: true },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Create authenticated users', async () => {
-        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
-      })
-
-      await test.step('Insert data with user reference', async () => {
-        await executeQuery(`INSERT INTO data (assignee) VALUES ('${alice.user.id}')`)
-        const assigned = await executeQuery('SELECT assignee FROM data WHERE id = 1')
-        expect(assigned.assignee).toBe(alice.user.id)
-      })
-
-      await test.step('Verify user info via JOIN', async () => {
-        const userInfo = await executeQuery(
-          'SELECT d.id, u.name, u.email FROM data d JOIN _sovrium_auth_users u ON d.assignee = u.id WHERE d.id = 1'
+        const indexInfo = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pull_requests_reviewer'"
         )
-        expect(userInfo.name).toBe('Alice')
-        expect(userInfo.email).toBe('alice@example.com')
-      })
-
-      await test.step('Error handling: foreign key constraint rejects invalid user ID', async () => {
-        await expect(
-          executeQuery("INSERT INTO data (assignee) VALUES ('invalid-user-id-999')")
-        ).rejects.toThrow(/violates foreign key constraint/)
-      })
-
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(executeQuery('INSERT INTO data (assignee) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
+        expect(indexInfo.indexname).toBe('idx_pull_requests_reviewer')
+        expect(indexInfo.tablename).toBe('pull_requests')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pull_requests_reviewer'"
         )
-      })
-
-      await test.step('Error handling: user field without auth config is rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            // No auth config!
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'assignee', type: 'user' },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_pull_requests_reviewer ON public.pull_requests USING btree (reviewer)'
+        )
       })
     }
   )

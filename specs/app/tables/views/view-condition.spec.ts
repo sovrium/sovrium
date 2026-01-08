@@ -270,32 +270,171 @@ test.describe('Filter Condition', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-VIEW-CONDITION-006: user can complete full filter-condition workflow',
+    'APP-TABLES-VIEW-CONDITION-REGRESSION: user can complete full filter-condition workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with filtered view', async () => {
+      await test.step('APP-TABLES-VIEW-CONDITION-001: Pass only records with exact field value match (equals)', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'status', type: 'single-line-text' },
-                { id: 3, name: 'value', type: 'integer' },
-                { id: 4, name: 'category', type: 'single-line-text' },
+                { id: 3, name: 'name', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               views: [
                 {
-                  id: 'filtered_view',
-                  name: 'Filtered View',
+                  id: 'active_users',
+                  name: 'Active Users',
+                  filters: {
+                    and: [{ field: 'status', operator: 'equals', value: 'active' }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO users (name, status) VALUES ('Alice', 'active'), ('Bob', 'inactive'), ('Charlie', 'active')",
+        ])
+        const viewRecords = await executeQuery('SELECT name, status FROM active_users ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows).toEqual([
+          { name: 'Alice', status: 'active' },
+          { name: 'Charlie', status: 'active' },
+        ])
+      })
+
+      await test.step('APP-TABLES-VIEW-CONDITION-002: Pass records with substring match (contains)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'test_products',
+                  name: 'Test Products',
+                  filters: {
+                    and: [{ field: 'name', operator: 'contains', value: 'test' }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO products (name) VALUES ('test product'), ('production item'), ('another test')",
+        ])
+        const viewRecords = await executeQuery('SELECT name FROM test_products ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows).toEqual([{ name: 'test product' }, { name: 'another test' }])
+      })
+
+      await test.step('APP-TABLES-VIEW-CONDITION-003: Pass only records with field value greater than specified (greaterThan)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'age', type: 'integer' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'adults',
+                  name: 'Adults',
+                  filters: {
+                    and: [{ field: 'age', operator: 'greaterThan', value: 18 }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO employees (name, age) VALUES ('Alice', 25), ('Bob', 17), ('Charlie', 30), ('Diana', 16)",
+        ])
+        const viewRecords = await executeQuery('SELECT name, age FROM adults ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows).toEqual([
+          { name: 'Alice', age: 25 },
+          { name: 'Charlie', age: 30 },
+        ])
+      })
+
+      await test.step('APP-TABLES-VIEW-CONDITION-004: Pass only records where field is null or empty (isEmpty)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'no_email',
+                  name: 'No Email',
+                  filters: {
+                    and: [{ field: 'email', operator: 'isEmpty', value: null }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO contacts (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', NULL), ('Charlie', ''), ('Diana', 'diana@example.com')",
+        ])
+        const viewRecords = await executeQuery('SELECT name, email FROM no_email ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows[0].name).toBe('Bob')
+        expect(viewRecords.rows[1].name).toBe('Charlie')
+      })
+
+      await test.step('APP-TABLES-VIEW-CONDITION-005: Pass records where field matches any value in array (in)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'category', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'tech_items',
+                  name: 'Tech Items',
                   filters: {
                     and: [
-                      { field: 'status', operator: 'equals', value: 'active' },
-                      { field: 'value', operator: 'greaterThan', value: 10 },
-                      { field: 'category', operator: 'in', value: ['A', 'B'] },
+                      {
+                        field: 'category',
+                        operator: 'in',
+                        value: ['electronics', 'computers', 'phones'],
+                      },
                     ],
                   },
                 },
@@ -303,22 +442,15 @@ test.describe('Filter Condition', () => {
             },
           ],
         })
-      })
-
-      await test.step('Insert test data', async () => {
         await executeQuery([
-          "INSERT INTO data (status, value, category) VALUES ('active', 15, 'A'), ('active', 5, 'B'), ('inactive', 20, 'A'), ('active', 12, 'B')",
+          "INSERT INTO items (name, category) VALUES ('Laptop', 'computers'), ('Chair', 'furniture'), ('Phone', 'phones'), ('Desk', 'furniture'), ('Tablet', 'electronics')",
         ])
-      })
-
-      await test.step('Verify view returns records matching all conditions', async () => {
-        const viewRecords = await executeQuery(
-          'SELECT status, value, category FROM filtered_view ORDER BY id'
-        )
-        expect(viewRecords.rows).toHaveLength(2)
+        const viewRecords = await executeQuery('SELECT name, category FROM tech_items ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(3)
         expect(viewRecords.rows).toEqual([
-          { status: 'active', value: 15, category: 'A' },
-          { status: 'active', value: 12, category: 'B' },
+          { name: 'Laptop', category: 'computers' },
+          { name: 'Phone', category: 'phones' },
+          { name: 'Tablet', category: 'electronics' },
         ])
       })
     }

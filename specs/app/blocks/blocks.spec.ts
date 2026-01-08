@@ -717,38 +717,126 @@ test.describe('Reusable Blocks', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 18 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-BLOCKS-019: user can complete full blocks workflow',
+    'APP-BLOCKS-REGRESSION: user can complete full blocks workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with blocks', async () => {
+      await test.step('APP-BLOCKS-001: Validate minimal block definition at build time', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [{ name: 'simple-block', type: 'div' }],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'simple-block' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-block="simple-block"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-002: Use URL-friendly naming convention for data-testid', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            { name: 'icon-badge', type: 'badge' },
+            { name: 'section-header', type: 'container' },
+            { name: 'feature-card', type: 'card' },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                { block: 'icon-badge' },
+                { block: 'section-header' },
+                { block: 'feature-card' },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-icon-badge"]')).toBeVisible()
+        await expect(page.locator('[data-testid="block-section-header"]')).toBeVisible()
+        await expect(page.locator('[data-testid="block-feature-card"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-003: Reject invalid block names at build time', async () => {
+        const validBlocks = [
+          { name: 'icon-badge', type: 'div' },
+          { name: 'cta', type: 'div' },
+          { name: 'section-header-2', type: 'div' },
+          { name: 'feature-list-item', type: 'div' },
+        ]
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: validBlocks,
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'icon-badge' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-block="icon-badge"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-004: Validate block naming uniqueness', async () => {
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            blocks: [
+              { name: 'duplicate-name', type: 'div' },
+              { name: 'duplicate-name', type: 'span' },
+            ],
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+                sections: [],
+              },
+            ],
+          })
+        }).rejects.toThrow(/duplicate.*name|unique/i)
+      })
+
+      await test.step('APP-BLOCKS-005: Validate blocks array structure', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [{ name: 'test-block', type: 'div' }],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
+              sections: [{ block: 'test-block' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-block="test-block"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-006: Make blocks available for reference in all page sections', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
             {
-              name: 'simple-text',
-              type: 'single-line-text',
-              props: { className: 'text-$color' },
-              content: '$message',
-            },
-            {
-              name: 'icon-badge',
-              type: 'badge',
-              props: { color: '$color' },
-              children: [
-                { type: 'icon', props: { name: '$icon' } },
-                { type: 'single-line-text', content: '$text' },
-              ],
-            },
-            {
-              name: 'feature-card',
-              type: 'card',
-              children: [
-                { type: 'heading', content: '$title' },
-                { type: 'single-line-text', content: '$description' },
-              ],
+              name: 'complex',
+              type: 'container',
+              props: { className: 'wrapper' },
+              children: [{ type: 'single-line-text', content: 'Nested' }],
             },
           ],
           pages: [
@@ -756,41 +844,388 @@ test.describe('Reusable Blocks', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
+              sections: [{ block: 'complex' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-block="complex"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-007: Render corresponding HTML element or component by type', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            { name: 'layout', type: 'container' },
+            { name: 'row', type: 'flex' },
+            { name: 'columns', type: 'grid' },
+            { name: 'panel', type: 'card' },
+            { name: 'heading', type: 'single-line-text' },
+            { name: 'cta', type: 'button' },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'layout' }, { block: 'row' }, { block: 'cta' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('[data-testid="block-layout"][data-type="container"]')
+        ).toBeVisible()
+        await expect(page.locator('[data-testid="block-row"][data-type="flex"]')).toBeVisible()
+        await expect(page.locator('[data-testid="block-cta"][data-type="button"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-008: Render with properties including variable substitution', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'styled-box',
+              type: 'div',
+              props: { className: 'box-$variant', id: '$boxId', ariaLabel: '$label' },
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
               sections: [
-                { block: 'simple-text', vars: { color: 'blue', message: 'Welcome' } },
-                { block: 'icon-badge', vars: { color: 'blue', icon: 'check', text: 'Success' } },
-                { block: 'feature-card', vars: { title: 'Feature', description: 'Description' } },
+                {
+                  block: 'styled-box',
+                  vars: { variant: 'primary', boxId: 'main-box', label: 'Main content' },
+                },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify text block', async () => {
         await page.goto('/')
-        const textBlock = page.locator('[data-testid="block-simple-text"]')
-        await expect(textBlock).toHaveText('Welcome')
-        await expect(textBlock).toHaveClass(/text-blue/)
+        const styledBox = page.locator('[data-testid="block-styled-box"]')
+        await expect(styledBox).toHaveClass(/box-primary/)
+        await expect(styledBox).toHaveAttribute('id', 'main-box')
+        await expect(styledBox).toHaveAttribute('aria-label', 'Main content')
       })
 
-      await test.step('Verify block structures with ARIA snapshots', async () => {
-        await expect(page.locator('[data-block="icon-badge"]')).toMatchAriaSnapshot(`
-          - group:
-            - img
-            - text: Success
-        `)
-        await expect(page.locator('[data-block="feature-card"]')).toMatchAriaSnapshot(`
-          - group:
-            - heading "Feature"
-            - text: Description
-        `)
+      await test.step('APP-BLOCKS-009: Render nested child components', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'card-header',
+              type: 'div',
+              children: [
+                { type: 'h3', content: '$title' },
+                { type: 'p', content: '$subtitle' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                { block: 'card-header', vars: { title: 'Card Title', subtitle: 'Card subtitle' } },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const block = page.locator('[data-testid="block-card-header"]')
+        await expect(block.locator('h3')).toHaveText('Card Title')
+        await expect(block.locator('p')).toHaveText('Card subtitle')
       })
 
-      await test.step('Verify variable substitution completed', async () => {
-        const iconBadgeHtml = await page.locator('[data-block="icon-badge"]').innerHTML()
-        expect(iconBadgeHtml).not.toContain('$')
-        const featureCardHtml = await page.locator('[data-block="feature-card"]').innerHTML()
-        expect(featureCardHtml).not.toContain('$')
+      await test.step('APP-BLOCKS-010: Render text content with substituted variables', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'alert-message',
+              type: 'div',
+              props: { className: 'alert' },
+              content: '$message',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [{ block: 'alert-message', vars: { message: 'Operation successful!' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-alert-message"]')).toHaveText(
+          'Operation successful!'
+        )
+        await expect(page.locator('[data-testid="block-alert-message"]')).toHaveClass(/alert/)
+      })
+
+      await test.step('APP-BLOCKS-011: Render same block definition across multiple locations', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [{ name: 'reusable', type: 'div', children: ['Reusable block'] }],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
+              sections: [{ block: 'reusable' }, { block: 'reusable' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-block="reusable"]')).toHaveCount(2)
+      })
+
+      await test.step('APP-BLOCKS-012: Render multiple instances with different data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'stat-card',
+              type: 'card',
+              children: [
+                { type: 'h4', content: '$value' },
+                { type: 'p', content: '$label' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                { block: 'stat-card', vars: { value: '1,234', label: 'Users' } },
+                { block: 'stat-card', vars: { value: '567', label: 'Projects' } },
+                { block: 'stat-card', vars: { value: '89%', label: 'Success Rate' } },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h4').nth(0)).toHaveText('1,234')
+        await expect(page.locator('h4').nth(1)).toHaveText('567')
+        await expect(page.locator('h4').nth(2)).toHaveText('89%')
+      })
+
+      await test.step('APP-BLOCKS-013: Provide consistent components across pages', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [{ name: 'shared-block', type: 'div' }],
+          pages: [
+            { name: 'Home', path: '/', sections: [{ block: 'shared-block' }] },
+            { name: 'About', path: '/about', sections: [{ block: 'shared-block' }] },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-block="shared-block"]')).toBeVisible()
+        await page.goto('/about')
+        await expect(page.locator('[data-block="shared-block"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-014: Render complete component with all aspects integrated', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'complete-card',
+              type: 'card',
+              props: { className: 'card-$variant p-6 rounded-lg' },
+              children: [
+                { type: 'h3', props: { className: 'mb-2' }, content: '$title' },
+                { type: 'p', content: '$description' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'complete-card',
+                  vars: {
+                    variant: 'primary',
+                    title: 'Premium Plan',
+                    description: 'Best value for teams',
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const card = page.locator('[data-testid="block-complete-card"]')
+        await expect(card).toHaveClass(/card-primary/)
+        await expect(card).toHaveClass(/p-6/)
+        await expect(card).toHaveClass(/rounded-lg/)
+        await expect(page.locator('h3')).toHaveText('Premium Plan')
+        await expect(page.locator('p')).toHaveText('Best value for teams')
+      })
+
+      await test.step('APP-BLOCKS-015: Transform template placeholders into concrete values in DOM', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'pricing-badge',
+              type: 'badge',
+              props: { className: 'badge-$color' },
+              content: '$price/month',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [{ block: 'pricing-badge', vars: { color: 'gold', price: '49' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const badge = page.locator('[data-testid="block-pricing-badge"]')
+        await expect(badge).toHaveClass(/badge-gold/)
+        await expect(badge).toHaveText('49/month')
+        const html = await badge.innerHTML()
+        expect(html).not.toContain('$')
+      })
+
+      await test.step('APP-BLOCKS-016: Render with design tokens applied from global theme', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            colors: { primary: '#007bff', secondary: '#6c757d' },
+            spacing: { sm: '8px', md: '16px' },
+            fonts: { body: { family: 'Arial', fallback: 'sans-serif' } },
+          },
+          blocks: [
+            {
+              name: 'themed-card',
+              type: 'card',
+              props: {
+                style: {
+                  backgroundColor: '$theme.colors.primary',
+                  padding: '$theme.spacing.md',
+                  fontFamily: '$theme.fonts.body.family',
+                },
+              },
+              content: 'Themed Content',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              sections: [{ block: 'themed-card' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const card = page.locator('[data-block="themed-card"]')
+        await expect(card).toBeVisible()
+        await expect(card).toHaveCSS('background-color', 'rgb(0, 123, 255)')
+      })
+
+      await test.step('APP-BLOCKS-017: Render blocks within page layout with full variable substitution', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'hero-cta',
+              type: 'button',
+              props: { className: '$buttonClass' },
+              content: '$buttonText',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              sections: [
+                {
+                  block: 'hero-cta',
+                  vars: { buttonClass: 'btn-primary', buttonText: 'Get Started' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button:has-text("Get Started")')
+        await expect(button).toBeVisible()
+        await expect(button).toHaveClass(/btn-primary/)
+        const buttonHtml = await button.evaluate((el) => el.outerHTML)
+        expect(buttonHtml).not.toContain('$buttonClass')
+        expect(buttonHtml).not.toContain('$buttonText')
+        expect(buttonHtml).not.toContain('$')
+      })
+
+      await test.step('APP-BLOCKS-018: Generate structured data and meta tags from block content', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'product-card',
+              type: 'article',
+              props: {
+                meta: {
+                  title: '$productName',
+                  description: '$productDescription',
+                  image: '$productImage',
+                  price: '$productPrice',
+                  currency: '$productCurrency',
+                  structuredData: {
+                    type: 'Product',
+                    fields: ['name', 'description', 'image', 'offers'],
+                  },
+                },
+              },
+            },
+          ],
+          pages: [
+            {
+              name: 'product',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Product', description: 'Product page' },
+              sections: [
+                {
+                  block: 'product-card',
+                  vars: {
+                    productName: 'Wireless Headphones',
+                    productDescription: 'Premium noise-cancelling headphones',
+                    productImage: '/images/headphones.jpg',
+                    productPrice: '299.99',
+                    productCurrency: 'USD',
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const productCard = page.locator('[data-testid="block-product-card"]')
+        await expect(productCard).toBeVisible()
+        const structuredData = page.locator('script[type="application/ld+json"]')
+        await expect(structuredData).toBeAttached()
+        const jsonLdContent = await structuredData.textContent()
+        const parsedData = JSON.parse(jsonLdContent || '{}')
+        expect(parsedData['@type']).toBe('Product')
+        expect(parsedData.name).toBe('Wireless Headphones')
+        expect(parsedData.description).toBe('Premium noise-cancelling headphones')
+        expect(parsedData.image).toBe('/images/headphones.jpg')
+        expect(parsedData.offers.price).toBe('299.99')
+        expect(parsedData.offers.priceCurrency).toBe('USD')
+        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+          'content',
+          '/images/headphones.jpg'
+        )
       })
     }
   )

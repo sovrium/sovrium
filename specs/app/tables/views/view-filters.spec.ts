@@ -299,30 +299,30 @@ test.describe('View Filters', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-VIEW-FILTERS-007: user can complete full view-filters workflow',
+    'APP-TABLES-VIEW-FILTERS-REGRESSION: user can complete full view-filters workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with filtered view', async () => {
+      await test.step('APP-TABLES-VIEW-FILTERS-001: Include only records matching all AND conditions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 4,
-              name: 'data',
+              id: 1,
+              name: 'products',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'category', type: 'single-line-text' },
-                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 2, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'age', type: 'integer' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               views: [
                 {
-                  id: 'filtered_view',
-                  name: 'Filtered View',
+                  id: 'active_adults',
+                  name: 'Active Adults',
                   filters: {
                     and: [
-                      { field: 'category', operator: 'equals', value: 'A' },
                       { field: 'status', operator: 'equals', value: 'active' },
+                      { field: 'age', operator: 'greaterThan', value: 18 },
                     ],
                   },
                 },
@@ -330,35 +330,99 @@ test.describe('View Filters', () => {
             },
           ],
         })
-      })
-
-      await test.step('Insert test data', async () => {
         await executeQuery([
-          "INSERT INTO data (category, status) VALUES ('A', 'active'), ('A', 'inactive'), ('B', 'active')",
+          "INSERT INTO products (status, age) VALUES ('active', 25), ('active', 15), ('inactive', 20)",
         ])
-      })
-
-      await test.step('Verify view returns only records matching all conditions', async () => {
-        const viewRecords = await executeQuery('SELECT * FROM filtered_view')
+        const viewRecords = await executeQuery('SELECT * FROM active_adults')
         expect(viewRecords.rows).toHaveLength(1)
-        expect(viewRecords.rows[0]).toEqual(
-          expect.objectContaining({ category: 'A', status: 'active' })
-        )
+        expect(viewRecords.rows[0]).toEqual(expect.objectContaining({ status: 'active', age: 25 }))
       })
 
-      await test.step('Error handling: filter references non-existent field', async () => {
+      await test.step('APP-TABLES-VIEW-FILTERS-002: Include records matching at least one OR condition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'priority', type: 'single-line-text' },
+                { id: 3, name: 'urgent', type: 'checkbox' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'important_tasks',
+                  name: 'Important Tasks',
+                  filters: {
+                    or: [
+                      { field: 'priority', operator: 'equals', value: 'high' },
+                      { field: 'urgent', operator: 'isTrue', value: true },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO tasks (priority, urgent) VALUES ('high', false), ('low', true), ('low', false)",
+        ])
+        const viewRecords = await executeQuery('SELECT * FROM important_tasks ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows[0].priority).toBe('high')
+        expect(viewRecords.rows[1].urgent).toBe(true)
+      })
+
+      await test.step('APP-TABLES-VIEW-FILTERS-003: Use AND operator by default', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'test_view',
+                  name: 'Test View',
+                  filters: {
+                    and: [{ field: 'name', operator: 'contains', value: 'test' }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO items (name) VALUES ('test item'), ('production item'), ('test case')",
+        ])
+        const viewRecords = await executeQuery('SELECT name FROM test_view ORDER BY id')
+        expect(viewRecords.rows).toHaveLength(2)
+        expect(viewRecords.rows).toEqual([{ name: 'test item' }, { name: 'test case' }])
+      })
+
+      await test.step('APP-TABLES-VIEW-FILTERS-004: Reject filter referencing non-existent field', async () => {
         await expect(
           startServerWithSchema({
-            name: 'test-app-error',
+            name: 'test-app',
             tables: [
               {
-                id: 99,
-                name: 'invalid',
-                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+                id: 1,
+                name: 'tasks',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                ],
                 views: [
                   {
-                    id: 'bad_view',
-                    name: 'Bad View',
+                    id: 'filtered_view',
+                    name: 'Filtered View',
                     filters: {
                       and: [{ field: 'status', operator: 'equals', value: 'active' }],
                     },
@@ -370,22 +434,22 @@ test.describe('View Filters', () => {
         ).rejects.toThrow(/field.*status.*not found|filter.*references.*non-existent.*field/i)
       })
 
-      await test.step('Error handling: invalid operator for field type', async () => {
+      await test.step('APP-TABLES-VIEW-FILTERS-005: Reject filter with invalid operator for field type', async () => {
         await expect(
           startServerWithSchema({
-            name: 'test-app-error2',
+            name: 'test-app',
             tables: [
               {
-                id: 98,
-                name: 'invalid2',
+                id: 1,
+                name: 'tasks',
                 fields: [
                   { id: 1, name: 'id', type: 'integer', required: true },
                   { id: 2, name: 'is_active', type: 'checkbox' },
                 ],
                 views: [
                   {
-                    id: 'bad_view2',
-                    name: 'Bad View 2',
+                    id: 'filtered_view',
+                    name: 'Filtered View',
                     filters: {
                       and: [{ field: 'is_active', operator: 'contains', value: 'test' }],
                     },
@@ -395,6 +459,45 @@ test.describe('View Filters', () => {
             ],
           })
         ).rejects.toThrow(/operator.*contains.*invalid.*checkbox|incompatible.*operator/i)
+      })
+
+      await test.step('APP-TABLES-VIEW-FILTERS-006: Filter deleted records when view filters by deleted_at', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'status', type: 'single-line-text', required: true },
+                { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'trash_view',
+                  name: 'Trash',
+                  filters: {
+                    and: [{ field: 'deleted_at', operator: 'isNotNull', value: null }],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery(`
+          INSERT INTO contacts (id, name, status) VALUES
+          (1, 'Alice', 'active'),
+          (2, 'Bob', 'active')
+        `)
+        await executeQuery('UPDATE contacts SET deleted_at = NOW() WHERE id = 2')
+        const viewRecords = await executeQuery('SELECT id, name FROM trash_view')
+        expect(viewRecords.id).toBe(2)
+        expect(viewRecords.name).toBe('Bob')
+        const allViewRecords = await executeQuery('SELECT COUNT(*) as count FROM trash_view')
+        expect(allViewRecords.count).toBe('1')
       })
     }
   )

@@ -294,63 +294,120 @@ test(
 
 // ============================================================================
 // REGRESSION TEST (@regression)
-// ONE consolidated test covering complete workflow
-// Run during: CI/CD, pre-release (bun test:e2e:regression)
+// ONE OPTIMIZED test verifying components work together efficiently
+// Generated from 12 @spec tests - see individual @spec tests for exhaustive criteria
 // ============================================================================
 
 test(
-  'APP-NAME-013: user can view app name with all display requirements across different configurations',
+  'APP-NAME-REGRESSION: user can complete full name workflow',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    const complexName = '@myorg-team.test/dashboard_v2.beta-prod'
-
-    await test.step('Setup: Start server with complex app name', async () => {
-      await startServerWithSchema({ name: complexName }, { useDatabase: false })
-    })
-
-    await test.step('Navigate to page and verify content display', async () => {
+    await test.step('APP-NAME-001: Display app name in h1 heading', async () => {
+      await startServerWithSchema({ name: 'test-app' }, { useDatabase: false })
       await page.goto('/')
-
       const heading = page.locator('h1')
-      await expect(heading).toHaveText(complexName)
-      await expect(heading).toHaveText(complexName)
+      await expect(heading).toHaveText('test-app')
     })
 
-    await test.step('Verify metadata integration', async () => {
-      await expect(page).toHaveTitle(`${complexName} - Powered by Sovrium`)
+    await test.step('APP-NAME-002: Show app name in page title with Sovrium branding', async () => {
+      await startServerWithSchema({ name: 'my-dashboard' }, { useDatabase: false })
+      await page.goto('/')
+      await expect(page).toHaveTitle('my-dashboard - Powered by Sovrium')
     })
 
-    await test.step('Verify special characters preserved', async () => {
+    await test.step('APP-NAME-003: Display single-character name in heading', async () => {
+      await startServerWithSchema({ name: 'a' }, { useDatabase: false })
+      await page.goto('/')
       const heading = page.locator('h1')
-      const textContent = await heading.textContent()
-      expect(textContent).toContain('@')
-      expect(textContent).toContain('/')
-      expect(textContent).toContain('_')
-      expect(textContent).toContain('-')
-      expect(textContent).toContain('.')
+      await expect(heading).toHaveText('a')
     })
 
-    await test.step('Verify accessibility standards', async () => {
-      const headingCount = await page.locator('h1').count()
-      expect(headingCount).toBe(1)
+    await test.step('APP-NAME-004: Display 214-character name without truncation', async () => {
+      const maxLengthName =
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      await startServerWithSchema({ name: maxLengthName }, { useDatabase: false })
+      await page.goto('/')
+      const heading = page.locator('h1')
+      await expect(heading).toHaveText(maxLengthName)
+    })
+
+    await test.step('APP-NAME-005: Have exactly one h1 element on page', async () => {
+      await startServerWithSchema({ name: 'accessibility-test' }, { useDatabase: false })
+      await page.goto('/')
+      const headings = page.locator('h1')
+      await expect(headings).toHaveCount(1)
+    })
+
+    await test.step('APP-NAME-006: Have h1 as the first heading level on page', async () => {
+      await startServerWithSchema({ name: 'semantic-html-test' }, { useDatabase: false })
+      await page.goto('/')
       const firstHeading = page.locator('h1, h2, h3, h4, h5, h6').first()
       const tagName = await firstHeading.evaluate((el) => el.tagName.toLowerCase())
       expect(tagName).toBe('h1')
     })
 
-    await test.step('Verify visual styling and visibility', async () => {
+    await test.step('APP-NAME-007: Center h1 heading horizontally', async () => {
+      await startServerWithSchema({ name: 'layout-test' }, { useDatabase: false })
+      await page.goto('/')
       const heading = page.locator('h1')
       const textAlign = await heading.evaluate((el) => window.getComputedStyle(el).textAlign)
       expect(textAlign).toBe('center')
-      const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
-      const fontSizeValue = parseFloat(fontSize)
-      expect(fontSizeValue).toBeGreaterThanOrEqual(32)
+    })
 
+    await test.step('APP-NAME-008: Ensure h1 heading is visible and not hidden', async () => {
+      await startServerWithSchema({ name: 'visibility-test' }, { useDatabase: false })
+      await page.goto('/')
+      const heading = page.locator('h1')
       await expect(heading).toBeVisible()
       const visibility = await heading.evaluate((el) => window.getComputedStyle(el).visibility)
       expect(visibility).toBe('visible')
       const display = await heading.evaluate((el) => window.getComputedStyle(el).display)
       expect(display).not.toBe('none')
+    })
+
+    await test.step('APP-NAME-009: Display text content that exactly matches input', async () => {
+      await startServerWithSchema({ name: 'my-app-2024' }, { useDatabase: false })
+      await page.goto('/')
+      const heading = page.locator('h1')
+      await expect(heading).toHaveText('my-app-2024')
+    })
+
+    await test.step('APP-NAME-010: Use TypographyH1 component styling with large font size', async () => {
+      await startServerWithSchema({ name: 'typography-test' }, { useDatabase: false })
+      await page.goto('/')
+      const heading = page.locator('h1')
+      const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
+      const fontSizeValue = parseFloat(fontSize)
+      expect(fontSizeValue).toBeGreaterThanOrEqual(32)
+    })
+
+    await test.step('APP-NAME-011: Display different app names in independent test runs', async () => {
+      await startServerWithSchema({ name: 'first-app' }, { useDatabase: false })
+      await page.goto('/')
+      let heading = page.locator('h1')
+      await expect(heading).toHaveText('first-app')
+
+      await startServerWithSchema({ name: 'second-app' }, { useDatabase: false })
+      await page.goto('/')
+      heading = page.locator('h1')
+      await expect(heading).toHaveText('second-app')
+      await expect(heading).not.toHaveText('first-app')
+    })
+
+    await test.step('APP-NAME-012: Meet all name display requirements with complex name', async () => {
+      const complexName = '@myorg-team.test/dashboard_v2.beta-prod'
+      await startServerWithSchema({ name: complexName }, { useDatabase: false })
+      await page.goto('/')
+      const heading = page.locator('h1')
+      await expect(heading).toHaveText(complexName)
+      await expect(page).toHaveTitle(`${complexName} - Powered by Sovrium`)
+      const textContent = await heading.textContent()
+      expect(textContent).toContain('@')
+      expect(textContent).toContain('/')
+      expect(textContent).toContain('_')
+      const headingCount = await page.locator('h1').count()
+      expect(headingCount).toBe(1)
+      await expect(heading).toBeVisible()
     })
   }
 )

@@ -225,58 +225,138 @@ test.describe('Required Field Property', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-REQUIRED-005: user can complete full required-field workflow',
+    'APP-TABLES-FIELD-REQUIRED-REGRESSION: user can complete full required-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with required and optional fields', async () => {
+      await test.step('APP-TABLES-FIELD-REQUIRED-001: Reject NULL values when field has required: true', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 4,
-              name: 'data',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'required_field',
-                  type: 'single-line-text',
-                  required: true,
-                },
-                {
-                  id: 3,
-                  name: 'optional_field',
-                  type: 'single-line-text',
-                  required: false,
-                },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'email', type: 'email' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Verify nullable constraints', async () => {
-        const constraints = await executeQuery(
-          "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name IN ('required_field', 'optional_field') ORDER BY column_name"
+        await executeQuery(["INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"])
+        const notNullConstraint = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'"
         )
-        expect(constraints.rows).toEqual([
-          { column_name: 'optional_field', is_nullable: 'YES' },
-          { column_name: 'required_field', is_nullable: 'NO' },
-        ])
-      })
-
-      await test.step('Test required field enforcement', async () => {
+        expect(notNullConstraint.is_nullable).toBe('NO')
         await expect(
-          executeQuery("INSERT INTO data (optional_field) VALUES ('test')")
-        ).rejects.toThrow(/null value in column "required_field".*violates not-null constraint/)
+          executeQuery("INSERT INTO users (name, email) VALUES (NULL, 'null@example.com')")
+        ).rejects.toThrow(/null value in column "name".*violates not-null constraint/)
+        const validInsert = await executeQuery(
+          "INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com') RETURNING name"
+        )
+        expect(validInsert.name).toBe('Bob')
       })
 
-      await test.step('Test optional field allows NULL', async () => {
-        const validInsert = await executeQuery(
-          "INSERT INTO data (required_field, optional_field) VALUES ('value', NULL) RETURNING id"
+      await test.step('APP-TABLES-FIELD-REQUIRED-002: Allow NULL values when field has required: false (default)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'description', type: 'long-text', required: false },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO products (name, description) VALUES ('Product 1', 'Description 1')",
+        ])
+        const nullable = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='description'"
         )
-        expect(typeof validInsert.id).toBe('number')
+        expect(nullable.is_nullable).toBe('YES')
+        const nullInsert = await executeQuery(
+          "INSERT INTO products (name, description) VALUES ('Product 2', NULL) RETURNING id"
+        )
+        expect(nullInsert.id).toBe(2)
+        const nonNullInsert = await executeQuery(
+          "INSERT INTO products (name, description) VALUES ('Product 3', 'Some description') RETURNING description"
+        )
+        expect(nonNullInsert.description).toBe('Some description')
+      })
+
+      await test.step('APP-TABLES-FIELD-REQUIRED-003: Fail migration when adding NOT NULL with existing NULLs', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 999,
+              name: 'placeholder',
+              fields: [{ id: 1, name: 'id', type: 'integer' }],
+            },
+          ],
+        })
+        await executeQuery([
+          'CREATE TABLE items (id SERIAL PRIMARY KEY, title VARCHAR(255))',
+          "INSERT INTO items (title) VALUES ('Item 1'), (NULL), ('Item 3')",
+        ])
+        const currentlyNullable = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='title'"
+        )
+        expect(currentlyNullable.is_nullable).toBe('YES')
+        const nullsExist = await executeQuery(
+          'SELECT COUNT(*) as count FROM items WHERE title IS NULL'
+        )
+        expect(nullsExist.count).toBe('1')
+        await expect(
+          executeQuery('ALTER TABLE items ALTER COLUMN title SET NOT NULL')
+        ).rejects.toThrow(/column "title" of relation "items" contains null values/)
+      })
+
+      await test.step('APP-TABLES-FIELD-REQUIRED-004: Reject INSERT/UPDATE missing any required field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'first_name', type: 'single-line-text', required: true },
+                { id: 3, name: 'last_name', type: 'single-line-text', required: true },
+                { id: 4, name: 'email', type: 'email' },
+                { id: 5, name: 'phone', type: 'phone-number' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO employees (first_name, last_name, email) VALUES ('Alice', 'Smith', 'alice@example.com')",
+        ])
+        const bothNotNull = await executeQuery(
+          "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='employees' AND column_name IN ('first_name', 'last_name') ORDER BY column_name"
+        )
+        expect(bothNotNull.rows).toEqual([
+          { column_name: 'first_name', is_nullable: 'NO' },
+          { column_name: 'last_name', is_nullable: 'NO' },
+        ])
+        await expect(
+          executeQuery("INSERT INTO employees (last_name) VALUES ('Jones')")
+        ).rejects.toThrow(/null value in column "first_name".*violates not-null constraint/)
+        await expect(
+          executeQuery("INSERT INTO employees (first_name) VALUES ('Bob')")
+        ).rejects.toThrow(/null value in column "last_name".*violates not-null constraint/)
+        const validInsert = await executeQuery(
+          "INSERT INTO employees (first_name, last_name) VALUES ('Bob', 'Jones') RETURNING first_name, last_name"
+        )
+        expect(validInsert).toMatchObject({ first_name: 'Bob', last_name: 'Jones' })
       })
     }
   )

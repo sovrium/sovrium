@@ -449,15 +449,15 @@ test.describe('Unique Constraints', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-UNIQUECONSTRAINTS-010: user can complete full Unique Constraints workflow',
+    'APP-TABLES-UNIQUECONSTRAINTS-REGRESSION: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create tables with unique constraint configurations', async () => {
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-001: Reject duplicate combination with unique constraint violation', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 8,
+              id: 1,
               name: 'users',
               fields: [
                 { id: 1, name: 'email', type: 'email' },
@@ -470,57 +470,234 @@ test.describe('Unique Constraints', () => {
                 },
               ],
             },
+          ],
+        })
+        await executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
+        await expect(
+          executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
+        ).rejects.toThrow(/duplicate key value violates unique constraint "uq_user_email_tenant"/)
+        const result = await executeQuery(
+          `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
+        )
+        expect(result.rows[0]).toMatchObject({ id: 3 })
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-002: Allow duplicates without constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
             {
-              id: 9,
+              id: 2,
               name: 'products',
               fields: [
                 { id: 1, name: 'sku', type: 'single-line-text' },
-                { id: 2, name: 'variant_id', type: 'integer' },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              uniqueConstraints: [],
+            },
+          ],
+        })
+        await executeQuery(`INSERT INTO products (sku, name) VALUES ('ABC123', 'Widget')`)
+        const result = await executeQuery(
+          `INSERT INTO products (sku, name) VALUES ('ABC123', 'Different Widget') RETURNING id`
+        )
+        expect(result.rows[0]).toMatchObject({ id: 2 })
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-003: Create composite unique index with 2 fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'first_name', type: 'single-line-text' },
+                { id: 2, name: 'last_name', type: 'single-line-text' },
               ],
               uniqueConstraints: [
                 {
-                  name: 'uq_product_sku_variant',
-                  fields: ['sku', 'variant_id'],
+                  name: 'uq_contacts_name',
+                  fields: ['last_name', 'first_name'],
                 },
               ],
             },
           ],
         })
+        const constraint = await executeQuery(
+          `SELECT conname, contype FROM pg_constraint WHERE conname = 'uq_contacts_name'`
+        )
+        expect(constraint.rows[0]).toMatchObject({ conname: 'uq_contacts_name', contype: 'u' })
+        const insert = await executeQuery(
+          `INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('John', 'Smith'), ('Jane', 'Doe') RETURNING id`
+        )
+        expect(insert.rows[2]).toMatchObject({ id: 3 })
       })
 
-      await test.step('Verify composite unique constraints enforce uniqueness', async () => {
-        await executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-004: Create multi-column unique index with 3+ fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'locations',
+              fields: [
+                { id: 1, name: 'country', type: 'single-line-text' },
+                { id: 2, name: 'state', type: 'single-line-text' },
+                { id: 3, name: 'city', type: 'single-line-text' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_location',
+                  fields: ['country', 'state', 'city'],
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery(
+          `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'San Francisco')`
+        )
         await expect(
-          executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
-        ).rejects.toThrow(/unique constraint/)
-      })
-
-      await test.step('Verify same value allowed in different combination', async () => {
-        const user2 = await executeQuery(
-          `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
+          executeQuery(
+            `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'San Francisco')`
+          )
+        ).rejects.toThrow(/duplicate key value violates unique constraint "uq_location"/)
+        const result = await executeQuery(
+          `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'Los Angeles') RETURNING id`
         )
-        // Note: id=3 because SERIAL sequences increment even when INSERTs fail (PostgreSQL standard behavior)
-        expect(user2.rows[0]).toMatchObject({ id: 3 })
+        expect(result.rows[0]).toMatchObject({ id: 3 })
       })
 
-      await test.step('Verify unique constraints on multiple tables', async () => {
-        await executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-005: Accept constraint name matching pattern', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'code', type: 'single-line-text' },
+                { id: 2, name: 'category', type: 'single-line-text' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_item_code_category',
+                  fields: ['code', 'category'],
+                },
+              ],
+            },
+          ],
+        })
+        const constraint = await executeQuery(
+          `SELECT conname FROM pg_constraint WHERE conname = 'uq_item_code_category'`
+        )
+        expect(constraint.rows[0]).toMatchObject({ conname: 'uq_item_code_category' })
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-006: Accept but lowercase invalid constraint name', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'test_items',
+              fields: [
+                { id: 1, name: 'field1', type: 'single-line-text' },
+                { id: 2, name: 'field2', type: 'single-line-text' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'UQ_TEST',
+                  fields: ['field1', 'field2'],
+                },
+              ],
+            },
+          ],
+        })
+        const constraint = await executeQuery(
+          `SELECT conname FROM pg_constraint WHERE conname = 'UQ_TEST' OR conname = 'uq_test'`
+        )
+        expect(constraint.rows[0]).toMatchObject({ conname: 'uq_test' })
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-007: Preserve constraint name exactly as created', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 7,
+              name: 'preserved_names',
+              fields: [
+                { id: 1, name: 'col1', type: 'single-line-text' },
+                { id: 2, name: 'col2', type: 'single-line-text' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_preserved_test',
+                  fields: ['col1', 'col2'],
+                },
+              ],
+            },
+          ],
+        })
+        const constraint = await executeQuery(
+          `SELECT conname FROM pg_constraint WHERE conrelid = 'preserved_names'::regclass AND contype = 'u'`
+        )
+        expect(constraint.rows[0]).toMatchObject({ conname: 'uq_preserved_test' })
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-008: Reject unique constraint referencing non-existent field', async () => {
         await expect(
-          executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
-        ).rejects.toThrow(/unique constraint/)
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'users',
+                fields: [
+                  { id: 1, name: 'name', type: 'single-line-text' },
+                  { id: 2, name: 'email', type: 'email' },
+                ],
+                uniqueConstraints: [
+                  {
+                    name: 'uq_users_tenant_email',
+                    fields: ['tenant_id', 'email'],
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/column.*tenant_id.*does not exist|named in key does not exist/i)
       })
 
-      await test.step('Verify constraint names are retrievable', async () => {
-        const constraints = await executeQuery(
-          `SELECT conname FROM pg_constraint WHERE conname LIKE 'uq_%' ORDER BY conname`
-        )
-        expect(constraints.rows).toHaveLength(2)
-        expect(constraints.rows).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ conname: 'uq_user_email_tenant' }),
-            expect.objectContaining({ conname: 'uq_product_sku_variant' }),
-          ])
-        )
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-009: Reject duplicate unique constraint names', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'users',
+                fields: [
+                  { id: 1, name: 'name', type: 'single-line-text' },
+                  { id: 2, name: 'email', type: 'email' },
+                  { id: 3, name: 'phone', type: 'phone-number' },
+                ],
+                uniqueConstraints: [
+                  {
+                    name: 'uq_users_contact',
+                    fields: ['name', 'email'],
+                  },
+                  {
+                    name: 'uq_users_contact',
+                    fields: ['name', 'phone'],
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*constraint.*name|constraint name.*must be unique/i)
       })
     }
   )

@@ -275,65 +275,177 @@ test.describe('Unique Field Property', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-UNIQUE-006: user can complete full unique-field workflow',
+    'APP-TABLES-FIELD-UNIQUE-REGRESSION: user can complete full unique-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with unique and non-unique fields', async () => {
+      await test.step('APP-TABLES-FIELD-UNIQUE-001: Prevent duplicate values when field has unique: true', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 5,
-              name: 'data',
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true, required: true },
+                { id: 3, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery(["INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice')"])
+        const uniqueConstraint = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'"
+        )
+        expect(uniqueConstraint.count).toBe('1')
+        await expect(
+          executeQuery(
+            "INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice Duplicate')"
+          )
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        const validInsert = await executeQuery(
+          "INSERT INTO users (email, name) VALUES ('bob@example.com', 'Bob') RETURNING email"
+        )
+        expect(validInsert.email).toBe('bob@example.com')
+      })
+
+      await test.step('APP-TABLES-FIELD-UNIQUE-002: Allow duplicate values when field has unique: false (default)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'category', type: 'single-line-text', unique: false },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO products (name, category) VALUES ('Product 1', 'Electronics'), ('Product 2', 'Electronics')",
+        ])
+        const noUniqueConstraint = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%category%'"
+        )
+        expect(noUniqueConstraint.count).toBe('0')
+        const duplicatesExist = await executeQuery(
+          "SELECT COUNT(*) as count FROM products WHERE category = 'Electronics'"
+        )
+        expect(duplicatesExist.count).toBe('2')
+        const additionalDuplicate = await executeQuery(
+          "INSERT INTO products (name, category) VALUES ('Product 3', 'Electronics') RETURNING id"
+        )
+        expect(additionalDuplicate.id).toBe(3)
+      })
+
+      await test.step('APP-TABLES-FIELD-UNIQUE-003: Fail migration when adding UNIQUE with existing duplicates', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 999,
+              name: 'placeholder',
+              fields: [{ id: 1, name: 'id', type: 'integer' }],
+            },
+          ],
+        })
+        await executeQuery([
+          'DROP TABLE IF EXISTS accounts',
+          'CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255))',
+          "INSERT INTO accounts (username) VALUES ('alice'), ('bob'), ('alice')",
+        ])
+        const currentlyNonUnique = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='accounts' AND constraint_type='UNIQUE'"
+        )
+        expect(currentlyNonUnique.count).toBe('0')
+        const duplicatesExist = await executeQuery(
+          'SELECT username, COUNT(*) as count FROM accounts GROUP BY username HAVING COUNT(*) > 1'
+        )
+        expect(duplicatesExist.username).toBe('alice')
+        expect(duplicatesExist.count).toBe('2')
+        await expect(
+          executeQuery(
+            'ALTER TABLE accounts ADD CONSTRAINT accounts_username_unique UNIQUE (username)'
+          )
+        ).rejects.toThrow(/could not create unique index/)
+      })
+
+      await test.step('APP-TABLES-FIELD-UNIQUE-004: Auto-create index for efficient lookups with UNIQUE constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'sessions',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 {
                   id: 2,
-                  name: 'unique_field',
+                  name: 'token',
                   type: 'single-line-text',
                   unique: true,
                   required: true,
-                },
-                {
-                  id: 3,
-                  name: 'non_unique_field',
-                  type: 'single-line-text',
-                  unique: false,
                 },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Verify unique constraint exists', async () => {
+        await executeQuery(["INSERT INTO sessions (token) VALUES ('abc123'), ('def456')"])
         const uniqueConstraint = await executeQuery(
-          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='data' AND constraint_type='UNIQUE' AND constraint_name LIKE '%unique_field%'"
+          "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='sessions' AND constraint_type='UNIQUE'"
         )
-        expect(uniqueConstraint.count).toBe('1')
+        expect(uniqueConstraint.constraint_name).toBe('sessions_token_key')
+        const automaticIndex = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE tablename='sessions' AND indexname LIKE '%token%'"
+        )
+        expect(automaticIndex.indexname).toBe('sessions_token_key')
+        const fastLookup = await executeQuery("SELECT id FROM sessions WHERE token = 'abc123'")
+        expect(fastLookup.id).toBe(1)
       })
 
-      await test.step('Insert initial unique value', async () => {
-        await executeQuery(
-          "INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'duplicate')"
+      await test.step('APP-TABLES-FIELD-UNIQUE-005: Allow multiple NULLs when unique field allows NULL (SQL standard)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'phone',
+                  type: 'phone-number',
+                  unique: true,
+                  required: false,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery(["INSERT INTO contacts (phone) VALUES (NULL), (NULL), ('555-1234')"])
+        const uniqueConstraintExists = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='contacts' AND constraint_type='UNIQUE'"
         )
-      })
-
-      await test.step('Test unique constraint enforcement', async () => {
+        expect(uniqueConstraintExists.count).toBe('1')
+        const multipleNulls = await executeQuery(
+          'SELECT COUNT(*) as count FROM contacts WHERE phone IS NULL'
+        )
+        expect(multipleNulls.count).toBe('2')
+        const additionalNull = await executeQuery(
+          'INSERT INTO contacts (phone) VALUES (NULL) RETURNING id'
+        )
+        expect(additionalNull.id).toBe(4)
         await expect(
-          executeQuery(
-            "INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'other')"
-          )
+          executeQuery("INSERT INTO contacts (phone) VALUES ('555-1234')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
-      })
-
-      await test.step('Test non-unique field allows duplicates', async () => {
-        const validDuplicate = await executeQuery(
-          "INSERT INTO data (unique_field, non_unique_field) VALUES ('value2', 'duplicate') RETURNING id"
-        )
-        // Note: ID is 3 because failed INSERT consumed sequence value 2 (PostgreSQL behavior)
-        expect(validDuplicate.id).toBe(3)
       })
     }
   )

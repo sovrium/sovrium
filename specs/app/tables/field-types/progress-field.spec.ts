@@ -96,46 +96,67 @@ test.describe('Progress Field', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 2 @spec tests - see individual @spec tests for exhaustive criteria
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-PROGRESS-003: user can complete full progress-field workflow',
+    'APP-TABLES-FIELD-TYPES-PROGRESS-REGRESSION: user can complete full progress-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with progress field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-PROGRESS-001: Create PostgreSQL INTEGER column for progress percentage storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 3,
-              name: 'data',
+              id: 1,
+              name: 'tasks',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'progress_field',
-                  type: 'progress',
-                  required: true,
-                  default: 0,
-                },
+                { id: 2, name: 'progress', type: 'progress' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='progress'"
+        )
+        expect(columnInfo.data_type).toBe('integer')
+        expect(columnInfo.is_nullable).toBe('YES')
+        const validInsert = await executeQuery(
+          'INSERT INTO tasks (progress) VALUES (75) RETURNING progress'
+        )
+        expect(validInsert.progress).toBe(75)
       })
 
-      await test.step('Insert progress values', async () => {
-        await executeQuery('INSERT INTO data (progress_field) VALUES (25), (50), (100)')
-      })
-
-      await test.step('Verify average calculation', async () => {
-        const results = await executeQuery('SELECT AVG(progress_field) as avg FROM data')
-        expect(parseFloat(results.avg)).toBeCloseTo(58.33, 1)
-      })
-
-      await test.step('Error handling: CHECK constraint rejects values outside 0-100 range', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (progress_field) VALUES (101)')
-        ).rejects.toThrow(/violates check constraint/)
+      await test.step('APP-TABLES-FIELD-TYPES-PROGRESS-002: Enforce 0-100 range constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'completion', type: 'progress' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const validInsert = await executeQuery(
+          'INSERT INTO projects (completion) VALUES (50) RETURNING completion'
+        )
+        expect(validInsert.completion).toBe(50)
+        await expect(executeQuery('INSERT INTO projects (completion) VALUES (-1)')).rejects.toThrow(
+          /violates check constraint/
+        )
+        await expect(executeQuery('INSERT INTO projects (completion) VALUES (101)')).rejects.toThrow(
+          /violates check constraint/
+        )
       })
     }
   )

@@ -210,97 +210,82 @@ test(
 
 // ============================================================================
 // REGRESSION TEST (@regression)
-// ONE consolidated test covering complete workflow
-// Run during: CI/CD, pre-release (bun test:e2e:regression)
+// ONE OPTIMIZED test verifying components work together efficiently
+// Generated from 7 @spec tests - see individual @spec tests for exhaustive criteria
 // ============================================================================
 
 test(
-  'APP-VERSION-008: user can view version badge with all SemVer variations',
+  'APP-VERSION-REGRESSION: user can complete full version workflow',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    const testVersionDisplay = async (version: string) => {
+    await test.step('APP-VERSION-001: Display version badge with correct version text for simple SemVer', async () => {
+      await startServerWithSchema({ name: 'test-app', version: '1.0.0' }, { useDatabase: false })
+      await page.goto('/')
       const versionBadge = page.locator('[data-testid="app-version-badge"]')
       await expect(versionBadge).toBeVisible()
-      await expect(versionBadge).toHaveText(version)
-    }
-
-    await test.step('Setup: Start server with simple SemVer version', async () => {
-      await startServerWithSchema(
-        {
-          name: 'test-app',
-          version: '1.0.0',
-        },
-        { useDatabase: false }
-      )
+      await expect(versionBadge).toHaveText('1.0.0')
     })
 
-    await test.step('Verify version display, positioning, and accessibility', async () => {
+    await test.step('APP-VERSION-002: NOT render version badge when version property is missing', async () => {
+      await startServerWithSchema({ name: 'test-app' }, { useDatabase: false })
       await page.goto('/')
+      const versionBadge = page.locator('[data-testid="app-version-badge"]')
+      await expect(versionBadge).toBeHidden()
+    })
 
-      await testVersionDisplay('1.0.0')
+    await test.step('APP-VERSION-003: Display pre-release version exactly as specified', async () => {
+      await startServerWithSchema(
+        { name: 'test-app', version: '2.0.0-beta.1' },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const versionBadge = page.locator('[data-testid="app-version-badge"]')
+      await expect(versionBadge).toBeVisible()
+      await expect(versionBadge).toHaveText('2.0.0-beta.1')
+    })
 
+    await test.step('APP-VERSION-004: Display version with build metadata intact', async () => {
+      await startServerWithSchema(
+        { name: 'test-app', version: '1.0.0+build.123' },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const versionBadge = page.locator('[data-testid="app-version-badge"]')
+      await expect(versionBadge).toBeVisible()
+      await expect(versionBadge).toHaveText('1.0.0+build.123')
+    })
+
+    await test.step('APP-VERSION-005: Display complete version string with pre-release and build metadata', async () => {
+      await startServerWithSchema(
+        { name: 'test-app', version: '1.0.0-alpha+001' },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+      const versionBadge = page.locator('[data-testid="app-version-badge"]')
+      await expect(versionBadge).toBeVisible()
+      await expect(versionBadge).toHaveText('1.0.0-alpha+001')
+    })
+
+    await test.step('APP-VERSION-006: Display badge before (above) the app name heading', async () => {
+      await startServerWithSchema({ name: 'test-app', version: '1.0.0' }, { useDatabase: false })
+      await page.goto('/')
       const versionBadge = page.locator('[data-testid="app-version-badge"]')
       const appNameHeading = page.locator('[data-testid="app-name-heading"]')
+      await expect(versionBadge).toBeVisible()
       await expect(appNameHeading).toBeVisible()
-
       const versionBox = await versionBadge.boundingBox()
       const nameBox = await appNameHeading.boundingBox()
       expect(versionBox).not.toBeNull()
       expect(nameBox).not.toBeNull()
       expect(versionBox!.y).toBeLessThan(nameBox!.y)
+    })
 
+    await test.step('APP-VERSION-007: Have proper accessibility attributes', async () => {
+      await startServerWithSchema({ name: 'test-app', version: '1.0.0' }, { useDatabase: false })
+      await page.goto('/')
+      const versionBadge = page.locator('[data-testid="app-version-badge"]')
+      await expect(versionBadge).toBeVisible()
       await expect(versionBadge).toHaveAttribute('data-testid', 'app-version-badge')
-    })
-
-    await test.step('Verify missing version property handling', async () => {
-      await startServerWithSchema(
-        {
-          name: 'test-app',
-        },
-        { useDatabase: false }
-      )
-      await page.goto('/')
-
-      await expect(page.locator('[data-testid="app-version-badge"]')).toBeHidden()
-    })
-
-    await test.step('Verify pre-release version display', async () => {
-      await startServerWithSchema(
-        {
-          name: 'test-app',
-          version: '2.0.0-beta.1',
-        },
-        { useDatabase: false }
-      )
-      await page.goto('/')
-
-      await testVersionDisplay('2.0.0-beta.1')
-    })
-
-    await test.step('Verify build metadata display', async () => {
-      await startServerWithSchema(
-        {
-          name: 'test-app',
-          version: '1.0.0+build.123',
-        },
-        { useDatabase: false }
-      )
-      await page.goto('/')
-
-      await testVersionDisplay('1.0.0+build.123')
-    })
-
-    await test.step('Verify pre-release with build metadata', async () => {
-      await startServerWithSchema(
-        {
-          name: 'test-app',
-          version: '1.0.0-alpha+001',
-        },
-        { useDatabase: false }
-      )
-      await page.goto('/')
-
-      await testVersionDisplay('1.0.0-alpha+001')
     })
   }
 )

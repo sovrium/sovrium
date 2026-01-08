@@ -359,19 +359,65 @@ test.describe('Page Layout', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-LAYOUT-009: user can complete full layout workflow',
+    'APP-PAGES-LAYOUT-REGRESSION: user can complete full layout workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with layout system', async () => {
+      await test.step('APP-PAGES-LAYOUT-001: Orchestrate global page layout', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
             {
-              name: 'Home',
+              name: 'test',
               path: '/',
-              meta: { lang: 'en-US', title: 'Home' },
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page description' },
               layout: {
-                banner: { enabled: true, text: 'Welcome Sale!', backgroundColor: '#10B981' },
+                banner: { enabled: true, text: 'Sale - 50% off' },
+                navigation: { logo: '/logo.svg', links: { desktop: [{ label: 'Home', href: '/' }] } },
+                footer: { enabled: true },
+                sidebar: { enabled: true, links: [{ label: 'Docs', href: '/docs' }] },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="banner"]')).toBeVisible()
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
+        await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-LAYOUT-002: Support minimal layout with navigation only', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: { logo: '/logo.svg', links: { desktop: [{ label: 'Home', href: '/' }] } },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="banner"]')).toBeHidden()
+        await expect(page.locator('[data-testid="footer"]')).toBeHidden()
+        await expect(page.locator('[data-testid="sidebar-left"]')).toBeHidden()
+      })
+
+      await test.step('APP-PAGES-LAYOUT-003: Provide header and footer structure', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
                 navigation: {
                   logo: '/logo.svg',
                   links: {
@@ -381,8 +427,150 @@ test.describe('Page Layout', () => {
                     ],
                   },
                 },
-                footer: { enabled: true, copyright: '© 2025 Company' },
+                footer: { enabled: true },
               },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
+        const navLinks = page.locator('[data-testid="navigation"] a')
+        await expect(navLinks).toHaveCount(3)
+      })
+
+      await test.step('APP-PAGES-LAYOUT-004: Support sidebar-based layouts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: { logo: '/logo.svg' },
+                sidebar: {
+                  enabled: true,
+                  position: 'left',
+                  width: '250px',
+                  links: [
+                    { label: 'Introduction', href: '/docs/intro' },
+                    { label: 'Getting Started', href: '/docs/getting-started' },
+                    { label: 'API Reference', href: '/docs/api' },
+                  ],
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await expect(sidebar).toBeVisible()
+        await expect(sidebar).toHaveCSS('width', '250px')
+        await expect(sidebar).toHaveCSS('position', 'sticky')
+        const sidebarLinks = sidebar.locator('a')
+        await expect(sidebarLinks).toHaveCount(3)
+      })
+
+      await test.step('APP-PAGES-LAYOUT-005: Display top banner above navigation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                banner: {
+                  enabled: true,
+                  text: '🎉 Limited time offer - 50% off all plans!',
+                  backgroundColor: '#FF6B6B',
+                  textColor: '#FFFFFF',
+                  link: { href: '/pricing', label: 'View Pricing' },
+                  dismissible: true,
+                },
+                navigation: { logo: '/logo.svg' },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toBeVisible()
+        await expect(banner).toHaveCSS('background-color', 'rgb(255, 107, 107)')
+        await expect(banner).toContainText('🎉 Limited time offer - 50% off all plans!')
+        const bannerBox = await banner.boundingBox()
+        const navBox = await page.locator('[data-testid="navigation"]').boundingBox()
+        expect(bannerBox!.y).toBeLessThan(navBox!.y)
+      })
+
+      await test.step('APP-PAGES-LAYOUT-006: Allow pages without global layout', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {},
+              sections: [{ type: 'div', props: {}, children: ['Content Only'] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="banner"]')).toBeHidden()
+        await expect(page.locator('[data-testid="navigation"]')).toBeHidden()
+        await expect(page.locator('[data-testid="footer"]')).toBeHidden()
+        await expect(page.locator('[data-testid="sidebar-left"]')).toBeHidden()
+        await expect(page.locator('[data-testid="page-test"]')).toContainText('Content Only')
+      })
+
+      await test.step('APP-PAGES-LAYOUT-007: Enable cohesive visual design across layout', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                banner: {
+                  enabled: true,
+                  text: 'New Feature Launch',
+                  gradient: 'linear-gradient(90deg, #FF6B6B 0%, #4ECDC4 100%)',
+                },
+                navigation: { logo: '/logo.svg', backgroundColor: '#FF6B6B', textColor: '#FFFFFF' },
+                footer: { enabled: true, backgroundColor: '#2C3E50', textColor: '#FFFFFF' },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toHaveCSS('background', /linear-gradient/)
+        const navigation = page.locator('[data-testid="navigation"]')
+        await expect(navigation).toHaveCSS('background-color', 'rgb(255, 107, 107)')
+        const footer = page.locator('[data-testid="footer"]')
+        await expect(footer).toHaveCSS('background-color', 'rgb(44, 62, 80)')
+      })
+
+      await test.step('APP-PAGES-LAYOUT-008: Override or extend default layout per page', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          defaultLayout: {
+            navigation: { logo: '/logo.svg', links: { desktop: [{ label: 'Home', href: '/' }] } },
+            footer: { enabled: true },
+          },
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              layout: null,
               sections: [],
             },
             {
@@ -392,22 +580,23 @@ test.describe('Page Layout', () => {
               layout: { navigation: { logo: '/logo.svg' } },
               sections: [],
             },
+            {
+              name: 'Docs',
+              path: '/docs',
+              meta: { lang: 'en-US', title: 'Docs' },
+              layout: { sidebar: { enabled: true } },
+              sections: [],
+            },
           ],
         })
-      })
-
-      await test.step('Navigate to home and verify full layout', async () => {
         await page.goto('/')
-        await expect(page.locator('[data-testid="banner"]')).toContainText('Welcome Sale!')
+        await expect(page.locator('[data-testid="navigation"]')).toBeHidden()
+        await expect(page.locator('[data-testid="footer"]')).toBeHidden()
+        await page.goto('/about')
         await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer"]')).toContainText('© 2025 Company')
-      })
-
-      await test.step('Navigate to about and verify layout changes', async () => {
-        await page.click('a[href="/about"]')
-        await expect(page).toHaveURL('/about')
-        await expect(page.locator('[data-testid="banner"]')).toBeHidden()
-        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer"]')).toBeHidden()
+        await page.goto('/docs')
+        await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
       })
     }
   )

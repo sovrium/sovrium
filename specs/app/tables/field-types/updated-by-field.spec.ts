@@ -294,77 +294,194 @@ test.describe('Updated By Field', () => {
     }
   )
 
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-UPDATED-BY-006: user can complete full updated-by-field workflow',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-REGRESSION: user can complete full updated-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      let alice: any
-      let bob: any
-
-      await test.step('Setup: Start server with updated-by field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-001: Create PostgreSQL TEXT NOT NULL column with FOREIGN KEY and trigger', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: { emailAndPassword: true },
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'products',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'value', type: 'single-line-text' },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'updated_by', type: 'updated-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='updated_by'"
+        )
+        expect(columnInfo.column_name).toBe('updated_by')
+        expect(columnInfo.data_type).toBe('text')
+        expect(columnInfo.is_nullable).toBe('NO')
+        const triggerCount = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='products' AND trigger_name='set_updated_by'"
+        )
+        expect(Number(triggerCount.count)).toBe(1)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-002: Reflect the most recent editor user ID', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 2,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'updated_by', type: 'updated-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const charlie = await createAuthenticatedUser({
+          name: 'Charlie',
+          email: 'charlie@example.com',
+        })
+        await executeQuery(
+          `INSERT INTO documents (title, updated_by) VALUES ('Initial Doc', '${alice.user.id}')`
+        )
+        const initial = await executeQuery('SELECT updated_by FROM documents WHERE id = 1')
+        expect(initial.updated_by).toBe(alice.user.id)
+        const bobUpdate = await executeQuery(
+          `UPDATE documents SET title = 'Updated by Bob', updated_by = '${bob.user.id}' WHERE id = 1 RETURNING updated_by`
+        )
+        expect(bobUpdate.updated_by).toBe(bob.user.id)
+        const charlieUpdate = await executeQuery(
+          `UPDATE documents SET title = 'Updated by Charlie', updated_by = '${charlie.user.id}' WHERE id = 1 RETURNING updated_by`
+        )
+        expect(charlieUpdate.updated_by).toBe(charlie.user.id)
+        const lastEditor = await executeQuery(
+          'SELECT d.title, u.name as last_editor FROM documents d JOIN _sovrium_auth_users u ON d.updated_by = u.id WHERE d.id = 1'
+        )
+        expect(lastEditor.title).toBe('Updated by Charlie')
+        expect(lastEditor.last_editor).toBe('Charlie')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-003: Support efficient filtering by last editor', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'updated_by', type: 'updated-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        await executeQuery([
+          `INSERT INTO tasks (title, status, updated_by) VALUES ('Task 1', 'open', '${alice.user.id}'), ('Task 2', 'open', '${bob.user.id}'), ('Task 3', 'open', '${alice.user.id}')`,
+          `UPDATE tasks SET status = 'closed', updated_by = '${bob.user.id}' WHERE id = 1`,
+          `UPDATE tasks SET status = 'closed', updated_by = '${bob.user.id}' WHERE id = 3`,
+        ])
+        const bobEdits = await executeQuery(
+          `SELECT COUNT(*) as count FROM tasks WHERE updated_by = '${bob.user.id}'`
+        )
+        expect(Number(bobEdits.count)).toBe(3)
+        const aliceEdits = await executeQuery(
+          `SELECT COUNT(*) as count FROM tasks WHERE updated_by = '${alice.user.id}'`
+        )
+        expect(Number(aliceEdits.count)).toBe(0)
+        const closedByBob = await executeQuery(
+          "SELECT t.title, t.status, u.name as last_editor FROM tasks t JOIN _sovrium_auth_users u ON t.updated_by = u.id WHERE t.status = 'closed' ORDER BY t.id"
+        )
+        expect(closedByBob.rows).toEqual([
+          { title: 'Task 1', status: 'closed', last_editor: 'Bob' },
+          { title: 'Task 3', status: 'closed', last_editor: 'Bob' },
+        ])
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-004: Support dual audit trail with created_by', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 4,
+              name: 'pages',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' },
+                { id: 4, name: 'updated_by', type: 'updated-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        await executeQuery(
+          `INSERT INTO pages (title, created_by, updated_by) VALUES ('Page 1', '${alice.user.id}', '${alice.user.id}')`
+        )
+        await executeQuery(
+          `UPDATE pages SET title = 'Page 1 Edited', updated_by = '${bob.user.id}' WHERE id = 1`
+        )
+        const auditTrail = await executeQuery(
+          'SELECT p.title, uc.name as creator, ue.name as editor FROM pages p JOIN _sovrium_auth_users uc ON p.created_by = uc.id JOIN _sovrium_auth_users ue ON p.updated_by = ue.id WHERE p.id = 1'
+        )
+        expect(auditTrail.title).toBe('Page 1 Edited')
+        expect(auditTrail.creator).toBe('Alice')
+        expect(auditTrail.editor).toBe('Bob')
+        const createdBy = await executeQuery('SELECT created_by FROM pages WHERE id = 1')
+        expect(createdBy.created_by).toBe(alice.user.id)
+        const updatedBy = await executeQuery('SELECT updated_by FROM pages WHERE id = 1')
+        expect(updatedBy.updated_by).toBe(bob.user.id)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 5,
+              name: 'articles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'long-text' },
                 { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Create authenticated users', async () => {
-        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
-      })
-
-      await test.step('Insert data with initial updater', async () => {
-        await executeQuery(`INSERT INTO data (value, updated_by) VALUES ('v1', '${alice.user.id}')`)
-      })
-
-      await test.step('Update data with different user', async () => {
-        await executeQuery(
-          `UPDATE data SET value = 'v2', updated_by = '${bob.user.id}' WHERE id = 1`
+        const indexInfo = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_updated_by'"
         )
-      })
-
-      await test.step('Verify updated_by field changed', async () => {
-        const final = await executeQuery('SELECT updated_by FROM data WHERE id = 1')
-        expect(final.updated_by).toBe(bob.user.id)
-      })
-
-      await test.step('Verify updater info via JOIN', async () => {
-        const editor = await executeQuery(
-          'SELECT d.value, u.name FROM data d JOIN _sovrium_auth_users u ON d.updated_by = u.id WHERE d.id = 1'
+        expect(indexInfo.indexname).toBe('idx_articles_updated_by')
+        expect(indexInfo.tablename).toBe('articles')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_updated_by'"
         )
-        expect(editor.name).toBe('Bob')
-      })
-
-      await test.step('Error handling: updated-by without auth config is rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            // No auth config!
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'editor', type: 'updated-by' },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_articles_updated_by ON public.articles USING btree (updated_by)'
+        )
       })
     }
   )

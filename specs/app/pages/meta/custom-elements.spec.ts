@@ -302,18 +302,20 @@ test.describe('Custom Head Elements', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 8 @spec tests - covers: meta tag, link element, script, inline style,
+  // attributes, inner content, theme-color, viewport
   // ============================================================================
 
   test(
-    'APP-PAGES-CUSTOM-009: user can complete full custom elements workflow',
+    'APP-PAGES-CUSTOM-REGRESSION: user can complete full custom elements workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with custom elements', async () => {
+      await test.step('APP-PAGES-CUSTOM-001: Add custom meta tag to head', async () => {
         await startServerWithSchema({
-          name: 'test-app',
+          name: 'test_app',
           pages: [
             {
-              name: 'Test',
+              name: 'test_page',
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -321,38 +323,194 @@ test.describe('Custom Head Elements', () => {
                 description: 'Test',
                 customElements: [
                   { type: 'meta', attrs: { name: 'theme-color', content: '#FFAF00' } },
-                  {
-                    type: 'meta',
-                    attrs: { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-                  },
-                  { type: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com' } },
-                  { type: 'style', content: 'body { margin: 0; }' },
                 ],
               },
               sections: [],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify meta tags', async () => {
         await page.goto('/')
         await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#FFAF00')
-        await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
-          'content',
-          'width=device-width, initial-scale=1'
-        )
       })
 
-      await test.step('Verify custom link element', async () => {
+      await test.step('APP-PAGES-CUSTOM-002: Add custom link element to head', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  { type: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com' } },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
         await expect(
           page.locator('link[rel="preconnect"][href="https://fonts.gstatic.com"]')
         ).toBeAttached()
       })
 
-      await test.step('Verify custom style element', async () => {
+      await test.step('APP-PAGES-CUSTOM-003: Add custom script to head', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  { type: 'script', attrs: { src: 'https://example.com/script.js', async: 'true' } },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[src="https://example.com/script.js"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-CUSTOM-004: Add inline style to head', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [{ type: 'style', content: 'body { background-color: red; }' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
         const styleContent = await page.locator('style').first().textContent()
-        expect(styleContent).toContain('body { margin: 0; }')
+        expect(styleContent).toContain('body { background-color: red; }')
+      })
+
+      await test.step('APP-PAGES-CUSTOM-005: Apply attributes to element', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  {
+                    type: 'meta',
+                    attrs: {
+                      name: 'robots',
+                      content: 'noindex, nofollow',
+                      'data-testid': 'robots-meta',
+                    },
+                  },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="robots-meta"]')).toHaveAttribute('name', 'robots')
+        await expect(page.locator('[data-testid="robots-meta"]')).toHaveAttribute(
+          'content',
+          'noindex, nofollow'
+        )
+      })
+
+      await test.step('APP-PAGES-CUSTOM-006: Set element inner content', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  { type: 'script', content: 'console.log("Hello from inline script");' },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script:not([src])').first().textContent()
+        expect(scriptContent).toContain('console.log("Hello from inline script");')
+      })
+
+      await test.step('APP-PAGES-CUSTOM-007: Customize browser chrome color', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  { type: 'meta', attrs: { name: 'theme-color', content: '#4285f4' } },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#4285f4')
+      })
+
+      await test.step('APP-PAGES-CUSTOM-008: Configure mobile viewport', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  {
+                    type: 'meta',
+                    attrs: { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+                  },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+          'content',
+          'width=device-width, initial-scale=1'
+        )
       })
     }
   )

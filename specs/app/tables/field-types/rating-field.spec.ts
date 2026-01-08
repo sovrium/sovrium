@@ -187,56 +187,133 @@ test.describe('Rating Field', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - see individual @spec tests for exhaustive criteria
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-RATING-006: user can complete full rating-field workflow',
+    'APP-TABLES-FIELD-TYPES-RATING-REGRESSION: user can complete full rating-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with rating field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RATING-001: Create PostgreSQL INTEGER column for rating storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'reviews',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'rating_field',
-                  type: 'rating',
-                  required: true,
-                  indexed: true,
-                  max: 5,
-                  default: 3,
-                },
+                { id: 2, name: 'rating', type: 'rating' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='reviews' AND column_name='rating'"
+        )
+        expect(columnInfo.data_type).toBe('integer')
+        expect(columnInfo.is_nullable).toBe('YES')
+        const validInsert = await executeQuery(
+          'INSERT INTO reviews (rating) VALUES (5) RETURNING rating'
+        )
+        expect(validInsert.rating).toBe(5)
       })
 
-      await test.step('Insert and verify rating value', async () => {
-        await executeQuery('INSERT INTO data (rating_field) VALUES (4)')
-        const stored = await executeQuery('SELECT rating_field FROM data WHERE id = 1')
-        expect(stored.rating_field).toBe(4)
-      })
-
-      await test.step('Test aggregate functions', async () => {
-        const avgRating = await executeQuery('SELECT AVG(rating_field) as avg FROM data')
-        expect(avgRating.avg).toBeTruthy()
-      })
-
-      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
-        await expect(executeQuery('INSERT INTO data (rating_field) VALUES (6)')).rejects.toThrow(
+      await test.step('APP-TABLES-FIELD-TYPES-RATING-002: Enforce range constraint for rating values', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'rating', type: 'rating', max: 5 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const validInsert = await executeQuery(
+          'INSERT INTO products (rating) VALUES (3) RETURNING rating'
+        )
+        expect(validInsert.rating).toBe(3)
+        await expect(executeQuery('INSERT INTO products (rating) VALUES (0)')).rejects.toThrow(
+          /violates check constraint/
+        )
+        await expect(executeQuery('INSERT INTO products (rating) VALUES (6)')).rejects.toThrow(
           /violates check constraint/
         )
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(executeQuery('INSERT INTO data (rating_field) VALUES (NULL)')).rejects.toThrow(
+      await test.step('APP-TABLES-FIELD-TYPES-RATING-003: Reject NULL when required', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'feedback',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'rating', type: 'rating', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='feedback' AND column_name='rating'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+        await expect(executeQuery('INSERT INTO feedback (rating) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-RATING-004: Apply DEFAULT value', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'rating', type: 'rating', default: 3 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const defaultInsert = await executeQuery(
+          'INSERT INTO items (id) VALUES (DEFAULT) RETURNING rating'
+        )
+        expect(defaultInsert.rating).toBe(3)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-RATING-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'movies',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'rating', type: 'rating', required: true, indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_movies_rating'"
+        )
+        expect(indexExists.indexname).toBe('idx_movies_rating')
       })
     }
   )

@@ -255,24 +255,161 @@ test.describe('Deleted By Field', () => {
     }
   )
 
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-DELETED-BY-006: user can complete full deleted-by-field workflow',
+    'APP-TABLES-FIELD-TYPES-DELETED-BY-REGRESSION: user can complete full deleted-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      let alice: Awaited<ReturnType<typeof createAuthenticatedUser>>
-      let bob: Awaited<ReturnType<typeof createAuthenticatedUser>>
-
-      await test.step('Setup: Start server with deleted-by field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-001: Create PostgreSQL TEXT NULL column with FOREIGN KEY', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: { emailAndPassword: true },
           tables: [
             {
-              id: 6,
-              name: 'projects',
+              id: 1,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at' },
+                { id: 4, name: 'deleted_by', type: 'deleted-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='deleted_by'"
+        )
+        expect(columnInfo.column_name).toBe('deleted_by')
+        expect(columnInfo.data_type).toBe('text')
+        expect(columnInfo.is_nullable).toBe('YES')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-002: Store the deleting user reference when soft-deleted', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 2,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at' },
+                { id: 4, name: 'deleted_by', type: 'deleted-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        await executeQuery("INSERT INTO documents (title) VALUES ('Important Doc')")
+        const beforeDelete = await executeQuery(
+          'SELECT deleted_at, deleted_by FROM documents WHERE id = 1'
+        )
+        expect(beforeDelete.deleted_at).toBeNull()
+        expect(beforeDelete.deleted_by).toBeNull()
+        await executeQuery(
+          `UPDATE documents SET deleted_at = NOW(), deleted_by = '${alice.user.id}' WHERE id = 1`
+        )
+        const afterDelete = await executeQuery(
+          'SELECT deleted_at, deleted_by FROM documents WHERE id = 1'
+        )
+        expect(afterDelete.deleted_at).not.toBeNull()
+        expect(afterDelete.deleted_by).toBe(alice.user.id)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-003: Clear deleted_by when record is restored', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at' },
+                { id: 4, name: 'deleted_by', type: 'deleted-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        await executeQuery("INSERT INTO tasks (title) VALUES ('Deleted Task')")
+        await executeQuery(
+          `UPDATE tasks SET deleted_at = NOW(), deleted_by = '${bob.user.id}' WHERE id = 1`
+        )
+        await executeQuery('UPDATE tasks SET deleted_at = NULL, deleted_by = NULL WHERE id = 1')
+        const restored = await executeQuery('SELECT deleted_at, deleted_by FROM tasks WHERE id = 1')
+        expect(restored.deleted_at).toBeNull()
+        expect(restored.deleted_by).toBeNull()
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-004: Support querying who deleted records via JOIN', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 4,
+              name: 'items',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at' },
+                { id: 4, name: 'deleted_by', type: 'deleted-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        await executeQuery(`
+          INSERT INTO items (name) VALUES ('Item 1'), ('Item 2'), ('Item 3')
+        `)
+        await executeQuery(
+          `UPDATE items SET deleted_at = NOW(), deleted_by = '${alice.user.id}' WHERE id = 1`
+        )
+        await executeQuery(
+          `UPDATE items SET deleted_at = NOW(), deleted_by = '${bob.user.id}' WHERE id = 2`
+        )
+        const deletedItems = await executeQuery(`
+          SELECT i.name, u.name as deleted_by_name
+          FROM items i
+          JOIN _sovrium_auth_users u ON i.deleted_by = u.id
+          WHERE i.deleted_at IS NOT NULL
+          ORDER BY i.id
+        `)
+        expect(deletedItems.rows).toEqual([
+          { name: 'Item 1', deleted_by_name: 'Alice' },
+          { name: 'Item 2', deleted_by_name: 'Bob' },
+        ])
+        const aliceDeletions = await executeQuery(
+          `SELECT COUNT(*) as count FROM items WHERE deleted_by = '${alice.user.id}'`
+        )
+        expect(Number(aliceDeletions.count)).toBe(1)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 5,
+              name: 'audit_records',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'single-line-text' },
                 { id: 3, name: 'deleted_at', type: 'deleted-at' },
                 { id: 4, name: 'deleted_by', type: 'deleted-by', indexed: true },
               ],
@@ -280,90 +417,17 @@ test.describe('Deleted By Field', () => {
             },
           ],
         })
-      })
-
-      await test.step('Create authenticated users', async () => {
-        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
-      })
-
-      await test.step('Insert active projects', async () => {
-        await executeQuery(`
-          INSERT INTO projects (name) VALUES ('Project Alpha'), ('Project Beta'), ('Project Gamma')
-        `)
-      })
-
-      await test.step('Verify deleted_by is NULL for active records', async () => {
-        const activeProject = await executeQuery(
-          'SELECT deleted_at, deleted_by FROM projects WHERE id = 1'
+        const indexInfo = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_audit_records_deleted_by'"
         )
-        expect(activeProject.deleted_at).toBeNull()
-        expect(activeProject.deleted_by).toBeNull()
-      })
-
-      await test.step('Soft-delete projects by different users', async () => {
-        await executeQuery(
-          `UPDATE projects SET deleted_at = NOW(), deleted_by = '${alice.user.id}' WHERE id = 1`
+        expect(indexInfo.indexname).toBe('idx_audit_records_deleted_by')
+        expect(indexInfo.tablename).toBe('audit_records')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_audit_records_deleted_by'"
         )
-        await executeQuery(
-          `UPDATE projects SET deleted_at = NOW(), deleted_by = '${bob.user.id}' WHERE id = 2`
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_audit_records_deleted_by ON public.audit_records USING btree (deleted_by)'
         )
-      })
-
-      await test.step('Verify deleted_by captures who deleted', async () => {
-        const deletedByAlice = await executeQuery(
-          'SELECT name, deleted_by FROM projects WHERE id = 1'
-        )
-        expect(deletedByAlice.deleted_by).toBe(alice.user.id)
-
-        const deletedByBob = await executeQuery(
-          'SELECT name, deleted_by FROM projects WHERE id = 2'
-        )
-        expect(deletedByBob.deleted_by).toBe(bob.user.id)
-      })
-
-      await test.step('Query deletion audit via JOIN', async () => {
-        const auditTrail = await executeQuery(`
-          SELECT p.name, u.name as deleted_by_name
-          FROM projects p
-          JOIN _sovrium_auth_users u ON p.deleted_by = u.id
-          WHERE p.deleted_at IS NOT NULL
-          ORDER BY p.id
-        `)
-        expect(auditTrail.rows).toEqual([
-          { name: 'Project Alpha', deleted_by_name: 'Alice' },
-          { name: 'Project Beta', deleted_by_name: 'Bob' },
-        ])
-      })
-
-      await test.step('Restore project and verify deleted_by cleared', async () => {
-        await executeQuery('UPDATE projects SET deleted_at = NULL, deleted_by = NULL WHERE id = 1')
-
-        const restored = await executeQuery(
-          'SELECT deleted_at, deleted_by FROM projects WHERE id = 1'
-        )
-        expect(restored.deleted_at).toBeNull()
-        expect(restored.deleted_by).toBeNull()
-      })
-
-      await test.step('Error handling: deleted-by without auth config is rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            // No auth config!
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'deleted_by', type: 'deleted-by' },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
       })
     }
   )

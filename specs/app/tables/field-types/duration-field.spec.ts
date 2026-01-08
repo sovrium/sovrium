@@ -201,21 +201,114 @@ test.describe('Duration Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-DURATION-006: user can complete full duration-field workflow',
+    'APP-TABLES-FIELD-TYPES-DURATION-REGRESSION: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with duration field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DURATION-001: Create PostgreSQL INTERVAL column', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'duration', type: 'duration' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='duration'"
+        )
+        expect(columnInfo.data_type).toBe('interval')
+        expect(columnInfo.is_nullable).toBe('YES')
+        const validInsert = await executeQuery(
+          "INSERT INTO tasks (duration) VALUES ('2 hours 30 minutes') RETURNING duration"
+        )
+        expect(validInsert.duration).toBeTruthy()
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DURATION-002: Store various duration formats', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'estimated_time', type: 'duration' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          "INSERT INTO projects (estimated_time) VALUES ('1 day'), ('3 hours'), ('45 minutes')",
+        ])
+        const results = await executeQuery('SELECT estimated_time FROM projects ORDER BY id')
+        expect(results.rows.length).toBe(3)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DURATION-003: Reject NULL when required', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'meetings',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'length', type: 'duration', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='meetings' AND column_name='length'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+        await expect(executeQuery('INSERT INTO meetings (length) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DURATION-004: Apply DEFAULT value', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'sessions',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'timeout', type: 'duration', default: 1800 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const defaultInsert = await executeQuery(
+          'INSERT INTO sessions (id) VALUES (DEFAULT) RETURNING timeout'
+        )
+        expect(defaultInsert.timeout).toBeTruthy()
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DURATION-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'videos',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 {
                   id: 2,
-                  name: 'duration_field',
+                  name: 'length',
                   type: 'duration',
                   required: true,
                   indexed: true,
@@ -225,18 +318,10 @@ test.describe('Duration Field', () => {
             },
           ],
         })
-      })
-
-      await test.step('Insert and verify duration value', async () => {
-        await executeQuery("INSERT INTO data (duration_field) VALUES ('2 hours 15 minutes')")
-        const stored = await executeQuery('SELECT duration_field FROM data WHERE id = 1')
-        expect(stored.duration_field).toBeTruthy()
-      })
-
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (duration_field) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_videos_length'"
+        )
+        expect(indexExists.indexname).toBe('idx_videos_length')
       })
     }
   )

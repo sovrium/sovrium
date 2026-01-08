@@ -275,41 +275,103 @@ test.describe('Special Fields in Formulas', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-SPECIAL-FIELDS-007: user can use all special fields in formulas without explicit definitions',
+    'APP-TABLES-SPECIAL-FIELDS-REGRESSION: user can use all special fields in formulas without explicit definitions',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create table using all special fields in formulas', async () => {
+      await test.step('APP-TABLES-SPECIAL-FIELDS-001: Allow formula to reference id without explicit field definition', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'products',
+              id: 1,
+              name: 'records',
               fields: [
-                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 1, name: 'title', type: 'single-line-text', required: true },
                 {
                   id: 2,
-                  name: 'record_id',
+                  name: 'record_number',
                   type: 'formula',
                   formula: 'id',
                   resultType: 'integer',
                 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery("INSERT INTO records (id, title) VALUES (1, 'First'), (2, 'Second')")
+        const result1 = await executeQuery('SELECT record_number FROM records WHERE id = 1')
+        expect(result1.record_number).toBe(1)
+        const result2 = await executeQuery('SELECT record_number FROM records WHERE id = 2')
+        expect(result2.record_number).toBe(2)
+      })
+
+      await test.step('APP-TABLES-SPECIAL-FIELDS-002: Allow formula to reference created_at without explicit field definition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text', required: true },
+                { id: 2, name: 'created_at', type: 'created-at' },
                 {
                   id: 3,
-                  name: 'created_year',
+                  name: 'creation_year',
                   type: 'formula',
                   formula: 'EXTRACT(YEAR FROM created_at)',
                   resultType: 'integer',
                 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery("INSERT INTO posts (id, title) VALUES (1, 'My Post')")
+        const result = await executeQuery('SELECT creation_year FROM posts WHERE id = 1')
+        expect(result.creation_year).toBeGreaterThanOrEqual(2025)
+      })
+
+      await test.step('APP-TABLES-SPECIAL-FIELDS-003: Allow formula to reference updated_at without explicit field definition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'content', type: 'long-text', required: true },
+                { id: 2, name: 'updated_at', type: 'updated-at' },
                 {
-                  id: 4,
-                  name: 'updated_year',
+                  id: 3,
+                  name: 'last_modified_year',
                   type: 'formula',
                   formula: 'EXTRACT(YEAR FROM updated_at)',
                   resultType: 'integer',
                 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery("INSERT INTO documents (id, content) VALUES (1, 'Initial content')")
+        await executeQuery("UPDATE documents SET content = 'Updated content' WHERE id = 1")
+        const result = await executeQuery('SELECT last_modified_year FROM documents WHERE id = 1')
+        expect(result.last_modified_year).toBeGreaterThanOrEqual(2025)
+      })
+
+      await test.step('APP-TABLES-SPECIAL-FIELDS-004: Allow formula to reference deleted_at without explicit field definition', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text', required: true },
                 {
-                  id: 5,
+                  id: 2,
                   name: 'is_deleted',
                   type: 'formula',
                   formula: 'deleted_at IS NOT NULL',
@@ -320,53 +382,65 @@ test.describe('Special Fields in Formulas', () => {
             },
           ],
         })
+        await executeQuery("INSERT INTO items (id, title) VALUES (1, 'Active Item')")
+        const activeResult = await executeQuery('SELECT is_deleted FROM items WHERE id = 1')
+        expect(activeResult.is_deleted).toBe(false)
+        await executeQuery('UPDATE items SET deleted_at = NOW() WHERE id = 1')
+        const deletedResult = await executeQuery('SELECT is_deleted FROM items WHERE id = 1')
+        expect(deletedResult.is_deleted).toBe(true)
       })
 
-      await test.step('Insert active record and verify all special field formulas', async () => {
-        await executeQuery("INSERT INTO products (id, name) VALUES (1, 'Laptop')")
-
-        const result = await executeQuery(
-          'SELECT record_id, created_year, updated_year, is_deleted FROM products WHERE id = 1'
-        )
-
-        // All special fields work in formulas without explicit definitions
-        expect(result.record_id).toBe(1)
-        expect(result.created_year).toBeGreaterThanOrEqual(2025)
-        expect(result.updated_year).toBeGreaterThanOrEqual(2025)
-        expect(result.is_deleted).toBe(false) // Record is not soft-deleted
-      })
-
-      await test.step('Update record and verify updated_at changes', async () => {
-        await executeQuery("UPDATE products SET name = 'Gaming Laptop' WHERE id = 1")
-
-        const result = await executeQuery('SELECT updated_year FROM products WHERE id = 1')
-        expect(result.updated_year).toBeGreaterThanOrEqual(2025)
-      })
-
-      await test.step('Soft delete record and verify deleted_at formula', async () => {
-        await executeQuery('UPDATE products SET deleted_at = NOW() WHERE id = 1')
-
-        const result = await executeQuery('SELECT is_deleted FROM products WHERE id = 1')
-        expect(result.is_deleted).toBe(true) // Record is now soft-deleted
-      })
-
-      await test.step('Verify deleted_at column and index exist automatically', async () => {
-        // Check deleted_at column exists
-        const column = await executeQuery(`
-          SELECT column_name, data_type
+      await test.step('APP-TABLES-SPECIAL-FIELDS-005: Automatically create deleted_at column on all tables', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'price', type: 'integer', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columns = await executeQuery(`
+          SELECT column_name, data_type, is_nullable
           FROM information_schema.columns
           WHERE table_name = 'products' AND column_name = 'deleted_at'
         `)
-        expect(column.column_name).toBe('deleted_at')
-        expect(column.data_type).toBe('timestamp with time zone')
+        expect(columns.column_name).toBe('deleted_at')
+        expect(columns.data_type).toBe('timestamp with time zone')
+        expect(columns.is_nullable).toBe('YES')
+        await executeQuery("INSERT INTO products (id, name, price) VALUES (1, 'Laptop', 999)")
+        await executeQuery('UPDATE products SET deleted_at = NOW() WHERE id = 1')
+        const result = await executeQuery('SELECT deleted_at FROM products WHERE id = 1')
+        expect(result.deleted_at).not.toBeNull()
+      })
 
-        // Check deleted_at index exists
+      await test.step('APP-TABLES-SPECIAL-FIELDS-006: Automatically create index on deleted_at column', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'order_number', type: 'single-line-text', required: true },
+                { id: 2, name: 'total', type: 'integer', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
         const index = await executeQuery(`
-          SELECT indexname
+          SELECT indexname, indexdef
           FROM pg_indexes
-          WHERE tablename = 'products' AND indexname LIKE '%deleted_at%'
+          WHERE tablename = 'orders' AND indexname LIKE '%deleted_at%'
         `)
-        expect(index.indexname).toMatch(/products.*deleted_at/)
+        expect(index.indexname).toMatch(/orders.*deleted_at/)
+        expect(index.indexdef).toContain('deleted_at')
       })
     }
   )

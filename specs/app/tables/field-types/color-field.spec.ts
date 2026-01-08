@@ -140,37 +140,93 @@ test.describe('Color Field', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - see individual @spec tests for exhaustive criteria
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-COLOR-006: user can complete full color-field workflow',
+    'APP-TABLES-FIELD-TYPES-COLOR-REGRESSION: user can complete full color-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with color field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-COLOR-001: Create VARCHAR(7) column for hex color storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
-              fields: [{ id: 1, name: 'color', type: 'color', required: true }],
+              id: 1,
+              name: 'themes',
+              fields: [{ id: 1, name: 'primary_color', type: 'color' }],
             },
           ],
         })
+        const column = await executeQuery(
+          "SELECT character_maximum_length FROM information_schema.columns WHERE table_name='themes' AND column_name='primary_color'"
+        )
+        expect(column.character_maximum_length).toBe(7)
       })
 
-      await test.step('Insert and verify color value', async () => {
-        await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")
-        const result = await executeQuery('SELECT color FROM data WHERE id = 1')
-        expect(result.color).toBe('#ABCDEF')
-      })
-
-      await test.step('Error handling: CHECK constraint rejects invalid hex color', async () => {
-        await expect(executeQuery("INSERT INTO data (color) VALUES ('invalid')")).rejects.toThrow(
+      await test.step('APP-TABLES-FIELD-TYPES-COLOR-002: Enforce hex color format via CHECK constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'colors',
+              fields: [{ id: 1, name: 'value', type: 'color' }],
+            },
+          ],
+        })
+        await expect(executeQuery("INSERT INTO colors (value) VALUES ('invalid')")).rejects.toThrow(
           /violates check constraint/
         )
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(executeQuery('INSERT INTO data (color) VALUES (NULL)')).rejects.toThrow(
+      await test.step('APP-TABLES-FIELD-TYPES-COLOR-003: Store valid hex color values', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'palettes',
+              fields: [{ id: 1, name: 'color', type: 'color' }],
+            },
+          ],
+        })
+        await executeQuery("INSERT INTO palettes (color) VALUES ('#FF5733'), ('#3498DB')")
+        const colors = await executeQuery('SELECT color FROM palettes ORDER BY id')
+        expect(colors.rows).toEqual([{ color: '#FF5733' }, { color: '#3498DB' }])
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-COLOR-004: Support NULL for optional colors', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [{ id: 1, name: 'accent_color', type: 'color' }],
+            },
+          ],
+        })
+        await executeQuery('INSERT INTO items (accent_color) VALUES (NULL)')
+        const result = await executeQuery('SELECT accent_color FROM items WHERE id = 1')
+        expect(result.accent_color).toBeNull()
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-COLOR-005: Require NOT NULL when color is required', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'brands',
+              fields: [{ id: 1, name: 'brand_color', type: 'color', required: true }],
+            },
+          ],
+        })
+        await expect(executeQuery('INSERT INTO brands (brand_color) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )
       })

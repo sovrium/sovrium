@@ -501,32 +501,91 @@ test.describe('Block Reference', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 12 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-BLOCKS-REFERENCE-013: user can complete full reference workflow',
+    'APP-BLOCKS-REFERENCE-REGRESSION: user can complete full reference workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with block references', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-001: Validate minimal block reference structure at build time', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [{ name: 'my-block', type: 'div', props: { className: 'text-$color' } }],
+          pages: [
+            { name: 'Home', path: '/', sections: [{ block: 'my-block', vars: { color: 'blue' } }] },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-my-block"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-002: Look up and instantiate matching block template', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            { name: 'icon-badge', type: 'badge', content: '$text' },
+            { name: 'cta-button', type: 'button', content: '$label' },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                { block: 'icon-badge', vars: { text: 'New' } },
+                { block: 'cta-button', vars: { label: 'Click' } },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-icon-badge"]')).toHaveText('New')
+        await expect(page.locator('[data-testid="block-cta-button"]')).toHaveText('Click')
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-003: Validate kebab-case naming at build time', async () => {
+        const validBlocks = [
+          { name: 'icon-badge', type: 'div' },
+          { name: 'cta', type: 'div' },
+          { name: 'section-header-2', type: 'div' },
+          { name: 'my-component', type: 'div' },
+        ]
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: validBlocks,
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              sections: validBlocks.map((b) => ({ block: b.name, vars: {} })),
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-icon-badge"]')).toBeVisible()
+      })
+
+      await test.step("APP-BLOCKS-REFERENCE-004: Fail validation if referenced block doesn't exist", async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [{ name: 'icon-badge', type: 'badge' }],
+          pages: [{ name: 'Home', path: '/', sections: [{ block: 'icon-badge', vars: {} }] }],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-icon-badge"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-005: Provide all data needed for template substitution', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
             {
-              name: 'hero-block',
-              type: 'section',
-              props: { id: 'hero', className: 'bg-blue-500' },
-              children: [
-                { type: 'heading', content: 'Welcome' },
-                { type: 'single-line-text', content: 'This is a block template' },
-              ],
-            },
-            {
-              name: 'feature-card',
+              name: 'user-card',
               type: 'card',
-              props: { className: 'p-4' },
               children: [
-                { type: 'h3', content: 'Feature Title' },
-                { type: 'single-line-text', content: 'Feature description goes here' },
+                { type: 'h3', content: '$name' },
+                { type: 'text', props: { 'data-testid': 'role' }, content: '$role' },
+                { type: 'text', props: { 'data-testid': 'email' }, content: '$email' },
               ],
             },
           ],
@@ -535,36 +594,285 @@ test.describe('Block Reference', () => {
               name: 'home',
               path: '/',
               sections: [
-                { type: 'heading', content: 'Block Reference Test' },
                 {
-                  type: 'section',
-                  props: { id: 'features' },
-                  children: [
-                    { type: 'h2', content: 'Features' },
-                    {
-                      type: 'grid',
-                      props: { className: 'grid-cols-2' },
-                      children: [
-                        { type: 'card', children: [{ type: 'h3', content: 'Fast' }] },
-                        { type: 'card', children: [{ type: 'h3', content: 'Secure' }] },
-                      ],
-                    },
-                  ],
+                  block: 'user-card',
+                  vars: { name: 'John Doe', role: 'Developer', email: 'john@example.com' },
                 },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify page structure', async () => {
         await page.goto('/')
-        await expect(page.locator('h1')).toHaveText('Block Reference Test')
+        const card = page.locator('[data-testid="block-user-card"]')
+        await expect(card.locator('h3')).toHaveText('John Doe')
+        await expect(page.locator('[data-testid="role"]')).toHaveText('Developer')
+        await expect(page.locator('[data-testid="email"]')).toHaveText('john@example.com')
       })
 
-      await test.step('Verify features section', async () => {
-        await expect(page.locator('section#features h2')).toHaveText('Features')
-        await expect(page.locator('h3').first()).toHaveText('Fast')
+      await test.step('APP-BLOCKS-REFERENCE-006: Validate JavaScript naming convention for variables', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'test-block',
+              type: 'div',
+              props: { className: '$color' },
+              content: '$titleText',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'test-block',
+                  vars: { color: 'blue', titleText: 'Hello', isActive: true },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-test-block"]')).toBeVisible()
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-007: Substitute primitive data types into template', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'settings-toggle',
+              type: 'div',
+              props: { className: 'setting-$priority' },
+              children: [
+                { type: 'text', props: { 'data-testid': 'label' }, content: '$label' },
+                { type: 'input', props: { type: 'checkbox' } },
+                { type: 'text', props: { 'data-testid': 'max' }, content: 'Max: $maxValue' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'settings-toggle',
+                  vars: { priority: 'high', label: 'Enable feature', maxValue: 100 },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const toggle = page.locator('[data-testid="block-settings-toggle"]')
+        await expect(toggle).toHaveClass(/setting-high/)
+        await expect(page.locator('[data-testid="label"]')).toHaveText('Enable feature')
+        await expect(page.locator('[data-testid="max"]')).toHaveText('Max: 100')
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-008: Render badge with orange color, users icon, and French text', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'icon-badge',
+              type: 'badge',
+              props: { className: 'bg-$color-500' },
+              children: [
+                { type: 'icon', props: { name: '$icon' } },
+                { type: 'text', props: { 'data-testid': 'badge-text' }, content: '$text' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'icon-badge',
+                  vars: { color: 'orange', icon: 'users', text: '6 à 15 personnes' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const badge = page.locator('[data-testid="block-icon-badge"]')
+        await expect(badge).toHaveClass(/bg-orange/)
+        await expect(page.locator('[data-testid="badge-text"]')).toHaveText('6 à 15 personnes')
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-009: Render section header with purple title and French content', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'section-header',
+              type: 'container',
+              props: { className: 'text-center mb-12' },
+              children: [
+                {
+                  type: 'h2',
+                  props: { className: 'text-$titleColor-500 text-4xl mb-4' },
+                  content: '$title',
+                },
+                { type: 'p', content: '$subtitle' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'section-header',
+                  vars: {
+                    titleColor: 'purple',
+                    title: 'notre mission',
+                    subtitle: 'Rendre la culture du consentement accessible à tous',
+                  },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const header = page.locator('[data-testid="block-section-header"]')
+        await expect(header).toHaveClass(/text-center/)
+        await expect(header.locator('h2')).toHaveClass(/text-purple/)
+        await expect(header.locator('h2')).toHaveText('notre mission')
+        await expect(header.locator('p')).toHaveText(
+          'Rendre la culture du consentement accessible à tous'
+        )
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-010: Transform abstract template into concrete rendered component', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'alert',
+              type: 'div',
+              props: { className: 'alert alert-$variant' },
+              content: '$message',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                { block: 'alert', vars: { variant: 'success', message: 'Saved successfully!' } },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const alert = page.locator('[data-testid="block-alert"]')
+        await expect(alert).toHaveClass(/alert-success/)
+        await expect(alert).toHaveText('Saved successfully!')
+        const html = await alert.innerHTML()
+        expect(html).not.toContain('$')
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-011: Enable same template to generate different instances', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'team-member',
+              type: 'card',
+              children: [
+                { type: 'img', props: { src: '$photo', alt: '$name' } },
+                { type: 'h4', content: '$name' },
+                { type: 'text', content: '$position' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'team-member',
+                  vars: { photo: '/alice.jpg', name: 'Alice', position: 'CEO' },
+                },
+                {
+                  block: 'team-member',
+                  vars: { photo: '/bob.jpg', name: 'Bob', position: 'CTO' },
+                },
+                {
+                  block: 'team-member',
+                  vars: { photo: '/carol.jpg', name: 'Carol', position: 'Designer' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-team-member-0"] h4')).toHaveText('Alice')
+        await expect(page.locator('[data-testid="block-team-member-0"] img')).toHaveAttribute(
+          'src',
+          '/alice.jpg'
+        )
+        await expect(page.locator('[data-testid="block-team-member-1"] h4')).toHaveText('Bob')
+        await expect(page.locator('[data-testid="block-team-member-2"] h4')).toHaveText('Carol')
+      })
+
+      await test.step('APP-BLOCKS-REFERENCE-012: Maintain structural consistency while varying data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'feature-item',
+              type: 'div',
+              props: { className: 'feature flex gap-4' },
+              children: [
+                { type: 'icon', props: { name: '$icon', className: 'text-blue-500' } },
+                {
+                  type: 'div',
+                  children: [
+                    { type: 'h5', content: '$title' },
+                    { type: 'text', content: '$description' },
+                  ],
+                },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'feature-item',
+                  vars: { icon: 'check', title: 'Feature 1', description: 'Description 1' },
+                },
+                {
+                  block: 'feature-item',
+                  vars: { icon: 'star', title: 'Feature 2', description: 'Description 2' },
+                },
+                {
+                  block: 'feature-item',
+                  vars: { icon: 'heart', title: 'Feature 3', description: 'Description 3' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        for (let i = 0; i < 3; i++) {
+          const feature = page.locator(`[data-testid="block-feature-item-${i}"]`)
+          await expect(feature).toHaveClass(/feature/)
+          await expect(feature).toHaveClass(/flex/)
+          await expect(feature).toHaveClass(/gap-4/)
+          await expect(feature.locator('h5')).toBeVisible()
+        }
       })
     }
   )

@@ -466,23 +466,219 @@ test.describe('Navigation Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-NAV-013: user can complete full navigation workflow',
+    'APP-PAGES-NAV-REGRESSION: user can complete full navigation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with navigation', async () => {
+      await test.step('APP-PAGES-NAV-001: Display logo image', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
             {
-              name: 'Home',
+              name: 'test',
               path: '/',
-              meta: { lang: 'en-US', title: 'Home' },
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              layout: { navigation: { logo: './public/logo.svg' } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="nav-logo"]')).toHaveAttribute(
+          'src',
+          './public/logo.svg'
+        )
+        await expect(page.locator('[data-testid="nav-logo-link"]')).toHaveAttribute('href', '/')
+      })
+
+      await test.step('APP-PAGES-NAV-002: Use alternative logo for mobile devices', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: { logo: './public/logo.svg', logoMobile: './public/logo-mobile.svg' },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="nav-logo-mobile"]')).toHaveAttribute(
+          'src',
+          './public/logo-mobile.svg'
+        )
+        await page.setViewportSize({ width: 1024, height: 768 })
+        await expect(page.locator('[data-testid="nav-logo"]')).toHaveAttribute(
+          'src',
+          './public/logo.svg'
+        )
+      })
+
+      await test.step('APP-PAGES-NAV-003: Provide accessible alt text for logo', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: { logo: './public/logo.svg', logoAlt: 'Acme Inc - Building the Future' },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="nav-logo"]')).toHaveAttribute(
+          'alt',
+          'Acme Inc - Building the Future'
+        )
+      })
+
+      await test.step('APP-PAGES-NAV-004: Stick to top on scroll', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
               layout: {
                 navigation: {
                   logo: './public/logo.svg',
-                  logoAlt: 'Acme Inc',
                   sticky: true,
+                  links: { desktop: [{ label: 'Products', href: '/products' }] },
+                },
+              },
+              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const nav = page.locator('[data-testid="navigation"]')
+        await expect(nav).toHaveCSS('position', 'sticky')
+        await page.evaluate(() => window.scrollTo(0, 1000))
+        await expect(nav).toBeInViewport()
+      })
+
+      await test.step('APP-PAGES-NAV-005: Have transparent background (becomes opaque on scroll)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
                   transparent: true,
+                  sticky: true,
+                  links: { desktop: [{ label: 'Features', href: '/features' }] },
+                },
+              },
+              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const nav = page.locator('[data-testid="navigation"]')
+        const initialBg = await nav.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+        expect(initialBg).toMatch(/rgba?\(.*,\s*0\)|transparent/)
+        await page.evaluate(() => window.scrollTo(0, 150))
+        await page.waitForTimeout(100)
+        const scrolledBg = await nav.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+        expect(scrolledBg).not.toMatch(/rgba?\(.*,\s*0\)|transparent/)
+      })
+
+      await test.step('APP-PAGES-NAV-006: Render desktop navigation menu', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  links: {
+                    desktop: [
+                      { label: 'Products', href: '/products' },
+                      { label: 'Pricing', href: '/pricing' },
+                      { label: 'About', href: '/about' },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
+          - navigation "Main navigation":
+            - link:
+              - img "Logo"
+            - link "Products"
+            - link "Pricing"
+            - link "About"
+        `)
+      })
+
+      await test.step('APP-PAGES-NAV-007: Render different links for mobile menu', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  links: {
+                    desktop: [
+                      { label: 'Products', href: '/products' },
+                      { label: 'Pricing', href: '/pricing' },
+                      { label: 'About', href: '/about' },
+                    ],
+                    mobile: [
+                      { label: 'Home', href: '/' },
+                      { label: 'Products', href: '/products' },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await page.setViewportSize({ width: 375, height: 667 })
+        await page.click('[data-testid="mobile-menu-toggle"]')
+        const mobileLinks = page.locator('[data-testid="mobile-menu"] a')
+        await expect(mobileLinks).toHaveCount(2)
+        await expect(mobileLinks.nth(0)).toContainText('Home')
+        await expect(mobileLinks.nth(1)).toContainText('Products')
+      })
+
+      await test.step('APP-PAGES-NAV-008: Render prominent call-to-action button', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
                   links: {
                     desktop: [
                       { label: 'Features', href: '/features' },
@@ -490,53 +686,109 @@ test.describe('Navigation Configuration', () => {
                     ],
                   },
                   cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
-                  search: { enabled: true, placeholder: 'Search...' },
-                  user: { enabled: true, loginUrl: '/login', signupUrl: '/signup' },
                 },
               },
-              sections: [
-                { type: 'div', props: { style: { height: '2000px' } }, children: ['Content'] },
-              ],
+              sections: [],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page', async () => {
         await page.goto('/')
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta).toContainText('Get Started')
+        await expect(cta).toHaveAttribute('href', '/signup')
+        await expect(cta).toHaveClass(/btn-primary/)
       })
 
-      await test.step('Verify navigation structure (ARIA snapshot)', async () => {
-        await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
-          - navigation "Main navigation":
-            - link:
-              - img "Acme Inc"
-            - link "Features"
-            - link "Pricing"
-            - button "Get Started"
-            - searchbox "Search..."
-            - link "Login"
-            - link "Sign Up"
-        `)
+      await test.step('APP-PAGES-NAV-009: Display search input in navigation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  links: { desktop: [{ label: 'Docs', href: '/docs' }] },
+                  search: { enabled: true, placeholder: 'Search documentation...' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const search = page.locator('[data-testid="nav-search"] input')
+        await expect(search).toBeVisible()
+        await expect(search).toHaveAttribute('placeholder', 'Search documentation...')
       })
 
-      await test.step('Verify transparent state (before scroll)', async () => {
-        await expect(page.locator('[data-testid="navigation"]')).toHaveScreenshot(
-          'navigation-regression-001-transparent.png',
-          {
-            animations: 'disabled',
-          }
-        )
+      await test.step('APP-PAGES-NAV-010: Show user account menu with login/signup links', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  links: { desktop: [{ label: 'Features', href: '/features' }] },
+                  user: { enabled: true, loginUrl: '/login', signupUrl: '/signup' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="login-link"]')).toHaveAttribute('href', '/login')
+        await expect(page.locator('[data-testid="signup-link"]')).toHaveAttribute('href', '/signup')
       })
 
-      await test.step('Verify sticky opaque state (after scroll)', async () => {
-        await page.evaluate(() => window.scrollTo(0, 150))
-        await expect(page.locator('[data-testid="navigation"]')).toHaveScreenshot(
-          'navigation-regression-001-scrolled.png',
-          {
-            animations: 'disabled',
-          }
-        )
+      await test.step('APP-PAGES-NAV-011: Render minimal navigation with logo', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: { navigation: { logo: './public/logo.svg' } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="nav-logo"]')).toBeVisible()
+        await expect(page.locator('[data-testid="nav-link"]')).toHaveCount(0)
+      })
+
+      await test.step('APP-PAGES-NAV-012: Compose navigation from modular schemas', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  links: { desktop: [{ label: 'Products', href: '/products' }] },
+                  cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="nav-link"]')).toContainText('Products')
+        await expect(page.locator('[data-testid="nav-cta"]')).toContainText('Get Started')
       })
     }
   )

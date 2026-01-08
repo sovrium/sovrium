@@ -205,53 +205,126 @@ test.describe('Rich Text Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-RICH-TEXT-006: user can complete full rich-text-field workflow',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-REGRESSION: user can complete full rich-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with rich-text field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RICH-TEXT-001: Create PostgreSQL TEXT column for markdown/rich text', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'description', type: 'rich-text', required: true, unique: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
+              id: 1,
+              name: 'posts',
+              fields: [{ id: 1, name: 'content', type: 'rich-text' }],
             },
           ],
         })
-      })
-
-      await test.step('Insert and verify rich-text value', async () => {
-        await executeQuery(
-          "INSERT INTO data (description) VALUES ('# Title\n\nThis is **important** content')"
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
         )
-        const stored = await executeQuery('SELECT description FROM data WHERE id = 1')
-        expect(stored.description).toBe('# Title\n\nThis is **important** content')
-      })
-
-      await test.step('Test full-text search', async () => {
-        const searchResult = await executeQuery(
-          "SELECT COUNT(*) as count FROM data WHERE to_tsvector('english', description) @@ to_tsquery('english', 'important')"
+        expect(columnInfo.column_name).toBe('content')
+        expect(columnInfo.data_type).toBe('text')
+        const markdownText = await executeQuery(
+          "INSERT INTO posts (content) VALUES ('# Heading\n\n**Bold** and *italic* text') RETURNING content"
         )
-        expect(searchResult.count).toBe('1')
+        expect(markdownText.content).toBe('# Heading\n\n**Bold** and *italic* text')
+        const longText = await executeQuery(
+          "INSERT INTO posts (content) VALUES (REPEAT('Lorem ipsum ', 1000)) RETURNING LENGTH(content) as length"
+        )
+        expect(longText.length).toBe(12_000)
       })
 
-      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RICH-TEXT-002: Enforce maximum length via CHECK constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'articles',
+              fields: [{ id: 1, name: 'summary', type: 'rich-text', maxLength: 500 }],
+            },
+          ],
+        })
+        const withinLimit = await executeQuery(
+          "INSERT INTO articles (summary) VALUES (REPEAT('a', 500)) RETURNING LENGTH(summary) as length"
+        )
+        expect(withinLimit.length).toBe(500)
         await expect(
-          executeQuery(
-            "INSERT INTO data (description) VALUES ('# Title\n\nThis is **important** content')"
-          )
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+          executeQuery("INSERT INTO articles (summary) VALUES (REPEAT('a', 501))")
+        ).rejects.toThrow(/violates check constraint/)
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(executeQuery('INSERT INTO data (description) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
+      await test.step('APP-TABLES-FIELD-TYPES-RICH-TEXT-003: Support full-text search with GIN index', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'pages',
+              fields: [{ id: 1, name: 'body', type: 'rich-text', fullTextSearch: true }],
+            },
+          ],
+        })
+        const indexInfo = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_body_fulltext'"
         )
+        expect(indexInfo.indexname).toBe('idx_pages_body_fulltext')
+        expect(indexInfo.tablename).toBe('pages')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pages_body_fulltext'"
+        )
+        expect(indexDef.indexdef).toBe(
+          "CREATE INDEX idx_pages_body_fulltext ON public.pages USING gin (to_tsvector('english'::regconfig, body))"
+        )
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-RICH-TEXT-004: Enable full-text search with to_tsvector and to_tsquery', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'comments',
+              fields: [{ id: 1, name: 'message', type: 'rich-text' }],
+            },
+          ],
+        })
+        await executeQuery(
+          "INSERT INTO comments (message) VALUES ('This is a great product!'), ('I love the design and features'), ('Not happy with the service')"
+        )
+        const productSearch = await executeQuery(
+          "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'product')"
+        )
+        expect(productSearch.count).toBe('1')
+        const orSearch = await executeQuery(
+          "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'design | service')"
+        )
+        expect(orSearch.count).toBe('2')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-RICH-TEXT-005: Enforce NOT NULL and UNIQUE constraints', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'documents',
+              fields: [{ id: 1, name: 'slug', type: 'rich-text', required: true, unique: true }],
+            },
+          ],
+        })
+        await executeQuery("INSERT INTO documents (slug) VALUES ('my-first-document')")
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='documents' AND column_name='slug'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+        const uniqueCount = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='documents' AND constraint_type='UNIQUE' AND constraint_name LIKE '%slug%'"
+        )
+        expect(uniqueCount.count).toBe('1')
+        await expect(
+          executeQuery("INSERT INTO documents (slug) VALUES ('my-first-document')")
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
     }
   )

@@ -236,102 +236,165 @@ test.describe('Currency Field', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
-  // NOTE: Display formatting tests (EUR symbol, symbol position, precision, negative format,
-  // thousands separator) have been moved to:
-  // specs/api/tables/{tableId}/records/format.spec.ts
-  // These tests now validate API response formatting rather than UI display.
-
   test(
-    'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-REGRESSION: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with currency field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-001: Create PostgreSQL DECIMAL column for currency storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'price', type: 'currency', currency: 'USD' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='price'"
+        )
+        expect(columnInfo.column_name).toBe('price')
+        expect(columnInfo.data_type).toMatch(/numeric|decimal/)
+        expect(columnInfo.is_nullable).toBe('YES')
+        const validInsert = await executeQuery(
+          'INSERT INTO products (price) VALUES (19.99) RETURNING price'
+        )
+        expect(parseFloat(validInsert.price)).toBe(19.99)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-002: Enforce range via CHECK constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'projects',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 {
                   id: 2,
-                  name: 'currency_field',
+                  name: 'budget',
                   type: 'currency',
                   currency: 'USD',
-                  required: true,
-                  unique: true,
-                  indexed: true,
                   min: 0,
-                  max: 1000,
-                  default: 99.99,
+                  max: 10_000,
                 },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Verify column setup and constraints', async () => {
-        const columnInfo = await executeQuery(
-          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='currency_field'"
+        const validInsert = await executeQuery(
+          'INSERT INTO projects (budget) VALUES (5000.00) RETURNING budget'
         )
-        expect(columnInfo.data_type).toMatch(/numeric|decimal/)
-        expect(columnInfo.is_nullable).toBe('NO')
+        expect(parseFloat(validInsert.budget)).toBe(5000)
+        await expect(executeQuery('INSERT INTO projects (budget) VALUES (-0.01)')).rejects.toThrow(
+          /violates check constraint/
+        )
+        await expect(executeQuery('INSERT INTO projects (budget) VALUES (10000.01)')).rejects.toThrow(
+          /violates check constraint/
+        )
       })
 
-      await test.step('Test currency precision storage', async () => {
-        await executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
-        const stored = await executeQuery('SELECT currency_field FROM data WHERE id = 1')
-        expect(parseFloat(stored.currency_field)).toBe(499.99)
-      })
-
-      await test.step('Error handling: CHECK constraint rejects values outside range', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-003: Enforce NOT NULL and UNIQUE constraints', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'transactions',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'amount',
+                  type: 'currency',
+                  currency: 'USD',
+                  unique: true,
+                  required: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery(['INSERT INTO transactions (amount) VALUES (100.50)'])
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='transactions' AND column_name='amount'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
         await expect(
-          executeQuery('INSERT INTO data (currency_field) VALUES (1001)')
-        ).rejects.toThrow(/violates check constraint/)
-      })
-
-      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
+          executeQuery('INSERT INTO transactions (amount) VALUES (100.50)')
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        await expect(executeQuery('INSERT INTO transactions (amount) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(
-          executeQuery('INSERT INTO data (currency_field) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+      await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-004: Apply DEFAULT value', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'subscriptions',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'fee', type: 'currency', currency: 'USD', default: 9.99 },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const defaultInsert = await executeQuery(
+          'INSERT INTO subscriptions (id) VALUES (DEFAULT) RETURNING fee'
+        )
+        expect(parseFloat(defaultInsert.fee)).toBe(9.99)
+        const explicitInsert = await executeQuery(
+          'INSERT INTO subscriptions (fee) VALUES (14.99) RETURNING fee'
+        )
+        expect(parseFloat(explicitInsert.fee)).toBe(14.99)
       })
 
-      await test.step('Error handling: min > max is rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  // min > max is rejected (runtime validation)
-                  {
-                    id: 2,
-                    name: 'bad_currency',
-                    type: 'currency',
-                    min: 1000,
-                    max: 100, // min > max!
-                  },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
+      await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'total',
+                  type: 'currency',
+                  currency: 'USD',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const indexExists = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_orders_total'"
+        )
+        expect(indexExists).toMatchObject({
+          indexname: 'idx_orders_total',
+          tablename: 'orders',
+        })
       })
     }
   )

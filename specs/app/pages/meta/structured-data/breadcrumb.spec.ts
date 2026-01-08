@@ -452,11 +452,47 @@ test.describe('Breadcrumb Schema', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 10 @spec tests - covers: minimal BreadcrumbList, navigation path,
+  // item structure, ordering, human-readable labels, clickable links, multi-level paths,
+  // site architecture, Google search results, navigation UX
+  // ============================================================================
+
   test(
-    'APP-PAGES-BREADCRUMB-011: user can complete full Breadcrumb workflow',
+    'APP-PAGES-BREADCRUMB-REGRESSION: user can complete full Breadcrumb workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with BreadcrumbList schema', async () => {
+      await test.step('APP-PAGES-BREADCRUMB-001: Validate minimal BreadcrumbList structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Home' }],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"BreadcrumbList"')
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-002: Define navigation path', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -472,23 +508,141 @@ test.describe('Breadcrumb Schema', () => {
                     '@context': 'https://schema.org',
                     '@type': 'BreadcrumbList',
                     itemListElement: [
-                      {
-                        '@type': 'ListItem',
-                        position: 1,
-                        name: 'Home',
-                        item: 'https://example.com',
-                      },
+                      { '@type': 'ListItem', position: 1, name: 'Home' },
+                      { '@type': 'ListItem', position: 2, name: 'Products' },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('itemListElement')
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-003: Define breadcrumb item structure', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Home' }],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"ListItem"')
+        expect(scriptContent).toContain('position')
+        expect(scriptContent).toContain('name')
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-004: Order breadcrumb trail', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home' },
+                      { '@type': 'ListItem', position: 2, name: 'Products' },
+                      { '@type': 'ListItem', position: 3, name: 'Widget' },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toMatch(/"position":\s*1/)
+        expect(scriptContent).toMatch(/"position":\s*2/)
+        expect(scriptContent).toMatch(/"position":\s*3/)
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-005: Provide human-readable breadcrumb label', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home' },
+                      { '@type': 'ListItem', position: 2, name: 'Products' },
+                      { '@type': 'ListItem', position: 3, name: 'Widget' },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Home')
+        expect(scriptContent).toContain('Products')
+        expect(scriptContent).toContain('Widget')
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-006: Provide clickable breadcrumb link', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
                       {
                         '@type': 'ListItem',
                         position: 2,
                         name: 'Products',
                         item: 'https://example.com/products',
-                      },
-                      {
-                        '@type': 'ListItem',
-                        position: 3,
-                        name: 'Widget',
-                        item: 'https://example.com/products/widget',
                       },
                     ],
                   },
@@ -498,49 +652,159 @@ test.describe('Breadcrumb Schema', () => {
             },
           ],
         })
-      })
-
-      let jsonLd: any
-
-      await test.step('Navigate to page and parse JSON-LD', async () => {
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        jsonLd = JSON.parse(scriptContent!)
+        expect(scriptContent).toContain('https://example.com/products')
       })
 
-      await test.step('Verify BreadcrumbList structure', async () => {
-        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-        expect(jsonLd).toHaveProperty('@type', 'BreadcrumbList')
-        expect(jsonLd).toHaveProperty('itemListElement')
-        expect(Array.isArray(jsonLd.itemListElement)).toBe(true)
-        expect(jsonLd.itemListElement).toHaveLength(3)
-
-        // Validate breadcrumb items structure
-        expect(jsonLd.itemListElement[0]).toMatchObject({
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Home',
-          item: 'https://example.com',
+      await test.step('APP-PAGES-BREADCRUMB-007: Represent multi-level navigation path', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
+                      {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: 'Products',
+                        item: 'https://example.com/products',
+                      },
+                      {
+                        '@type': 'ListItem',
+                        position: 3,
+                        name: 'Widgets',
+                        item: 'https://example.com/products/widgets',
+                      },
+                      {
+                        '@type': 'ListItem',
+                        position: 4,
+                        name: 'Blue Widget',
+                        item: 'https://example.com/products/widgets/blue',
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
-        expect(jsonLd.itemListElement[1]).toMatchObject({
-          '@type': 'ListItem',
-          position: 2,
-          name: 'Products',
-          item: 'https://example.com/products',
-        })
-        expect(jsonLd.itemListElement[2]).toMatchObject({
-          '@type': 'ListItem',
-          position: 3,
-          name: 'Widget',
-          item: 'https://example.com/products/widget',
-        })
-
-        // Backwards compatibility: string containment checks
+        await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"BreadcrumbList"')
-        expect(scriptContent).toContain('Home')
-        expect(scriptContent).toContain('Products')
-        expect(scriptContent).toContain('Widget')
+        const positions = (scriptContent?.match(/"position":\s*\d+/g) || []).length
+        expect(positions).toBeGreaterThanOrEqual(3)
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-008: Help search engines understand site architecture', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
+                      {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: 'Category',
+                        item: 'https://example.com/category',
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-009: Display breadcrumb trail in Google search results', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
+                      {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: 'Products',
+                        item: 'https://example.com/products',
+                      },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('schema.org')
+      })
+
+      await test.step('APP-PAGES-BREADCRUMB-010: Improve navigation and reduce bounce rate', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home' },
+                      { '@type': 'ListItem', position: 2, name: 'Current Page' },
+                    ],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
       })
     }
   )

@@ -220,61 +220,146 @@ test.describe('Email Field', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-EMAIL-006: user can complete full email-field workflow',
+    'APP-TABLES-FIELD-EMAIL-REGRESSION: user can complete full email-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with email field', async () => {
+      await test.step('APP-TABLES-FIELD-EMAIL-001: Create PostgreSQL VARCHAR(255) column for email storage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'email_field',
-                  type: 'email',
-                  required: true,
-                  unique: true,
-                  indexed: true,
-                },
+                { id: 2, name: 'email', type: 'email' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Verify column setup and constraints', async () => {
         const columnInfo = await executeQuery(
-          "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='email_field'"
+          "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='email'"
         )
+        expect(columnInfo.column_name).toBe('email')
         expect(columnInfo.data_type).toBe('character varying')
         expect(columnInfo.character_maximum_length).toBe(255)
-        expect(columnInfo.is_nullable).toBe('NO')
+        expect(columnInfo.is_nullable).toBe('YES')
+        const validInsert = await executeQuery(
+          "INSERT INTO users (email) VALUES ('john.doe@example.com') RETURNING email"
+        )
+        expect(validInsert.email).toBe('john.doe@example.com')
       })
 
-      await test.step('Test email normalization', async () => {
-        await executeQuery("INSERT INTO data (email_field) VALUES (LOWER('Test@Example.COM'))")
-        const stored = await executeQuery('SELECT email_field FROM data WHERE id = 1')
-        expect(stored.email_field).toBe('test@example.com')
+      await test.step('APP-TABLES-FIELD-EMAIL-002: Store email as lowercase', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const normalizedInsert = await executeQuery(
+          "INSERT INTO contacts (email) VALUES (LOWER('John.Doe@EXAMPLE.COM')) RETURNING email"
+        )
+        expect(normalizedInsert.email).toBe('john.doe@example.com')
+        const storedValue = await executeQuery('SELECT email FROM contacts WHERE id = 1')
+        expect(storedValue.email).toBe('john.doe@example.com')
       })
 
-      await test.step('Error handling: unique constraint rejects duplicate email', async () => {
+      await test.step('APP-TABLES-FIELD-EMAIL-003: Reject duplicate email with unique constraint', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'members',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true, required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery(["INSERT INTO members (email) VALUES ('john@example.com')"])
+        const uniqueConstraint = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='members' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'"
+        )
+        expect(uniqueConstraint.count).toBe('1')
         await expect(
-          executeQuery("INSERT INTO data (email_field) VALUES ('test@example.com')")
+          executeQuery("INSERT INTO members (email) VALUES ('john@example.com')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        const rowCount = await executeQuery('SELECT COUNT(*) as count FROM members')
+        expect(rowCount.count).toBe('1')
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
-        await expect(executeQuery('INSERT INTO data (email_field) VALUES (NULL)')).rejects.toThrow(
+      await test.step('APP-TABLES-FIELD-EMAIL-004: Reject NULL when required', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'subscribers',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='subscribers' AND column_name='email'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+        const validInsert = await executeQuery(
+          "INSERT INTO subscribers (email) VALUES ('jane@example.com') RETURNING email"
+        )
+        expect(validInsert.email).toBe('jane@example.com')
+        await expect(executeQuery('INSERT INTO subscribers (email) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
+        )
+      })
+
+      await test.step('APP-TABLES-FIELD-EMAIL-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true, indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const indexExists = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_customers_email'"
+        )
+        expect(indexExists.indexname).toBe('idx_customers_email')
+        expect(indexExists.tablename).toBe('customers')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_customers_email'"
+        )
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_customers_email ON public.customers USING btree (email)'
         )
       })
     }

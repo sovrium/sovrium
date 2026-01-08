@@ -486,11 +486,68 @@ test.describe('Person Schema', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 12 @spec tests - covers: minimal Person, full name, given/family name,
+  // contact info, web presence, image, job title, employer, social profiles,
+  // postal address, author attribution, Knowledge Graph panel
+  // ============================================================================
+
   test(
-    'APP-PAGES-PERSON-013: user can complete full Person workflow',
+    'APP-PAGES-PERSON-REGRESSION: user can complete full Person workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with Person schema', async () => {
+      await test.step('APP-PAGES-PERSON-001: Validate minimal Person structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: { '@context': 'https://schema.org', '@type': 'Person', name: 'John Doe' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Person"')
+        expect(scriptContent).toContain('John Doe')
+      })
+
+      await test.step("APP-PAGES-PERSON-002: Provide person's full name", async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: { '@context': 'https://schema.org', '@type': 'Person', name: 'John Doe' },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('John Doe')
+      })
+
+      await test.step('APP-PAGES-PERSON-003: Provide structured first and last names', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -505,19 +562,195 @@ test.describe('Person Schema', () => {
                   person: {
                     '@context': 'https://schema.org',
                     '@type': 'Person',
-                    name: 'Complete Person Profile',
+                    name: 'John Doe',
                     givenName: 'John',
-                    familyName: 'Smith',
-                    email: 'john.smith@example.com',
-                    telephone: '+1-555-987-6543',
-                    url: 'https://johnsmith.com',
-                    image: 'https://example.com/john.jpg',
-                    jobTitle: 'Senior Software Engineer',
-                    worksFor: { '@type': 'Organization', name: 'Tech Innovations Inc' },
+                    familyName: 'Doe',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('givenName')
+        expect(scriptContent).toContain('John')
+        expect(scriptContent).toContain('familyName')
+        expect(scriptContent).toContain('Doe')
+      })
+
+      await test.step('APP-PAGES-PERSON-004: Provide person contact information', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
+                    email: 'john@example.com',
+                    telephone: '+1-555-123-4567',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('john@example.com')
+        expect(scriptContent).toContain('+1-555-123-4567')
+      })
+
+      await test.step("APP-PAGES-PERSON-005: Link to person's web presence", async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
+                    url: 'https://johndoe.com',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://johndoe.com')
+      })
+
+      await test.step('APP-PAGES-PERSON-006: Provide visual representation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
+                    image: 'https://example.com/john-photo.jpg',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('john-photo.jpg')
+      })
+
+      await test.step("APP-PAGES-PERSON-007: Indicate person's professional role", async () => {
+        const jobTitles = ['CEO', 'Software Engineer', 'Product Manager', 'Designer']
+        for (const jobTitle of jobTitles) {
+          await startServerWithSchema({
+            name: 'test-app',
+            pages: [
+              {
+                name: 'Test',
+                path: '/',
+                meta: {
+                  lang: 'en-US',
+                  title: 'Test',
+                  description: 'Test',
+                  schema: {
+                    person: {
+                      '@context': 'https://schema.org',
+                      '@type': 'Person',
+                      name: 'John Doe',
+                      jobTitle,
+                    },
+                  },
+                },
+                sections: [],
+              },
+            ],
+          })
+          await page.goto('/')
+          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          expect(scriptContent).toContain(jobTitle)
+        }
+      })
+
+      await test.step('APP-PAGES-PERSON-008: Link person to their employer', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
+                    worksFor: { '@type': 'Organization', name: 'Tech Corp' },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Organization"')
+        expect(scriptContent).toContain('Tech Corp')
+      })
+
+      await test.step('APP-PAGES-PERSON-009: Link person to their social profiles', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
                     sameAs: [
-                      'https://twitter.com/johnsmith',
-                      'https://linkedin.com/in/johnsmith',
-                      'https://github.com/johnsmith',
+                      'https://twitter.com/johndoe',
+                      'https://linkedin.com/in/johndoe',
+                      'https://github.com/johndoe',
                     ],
                   },
                 },
@@ -526,46 +759,108 @@ test.describe('Person Schema', () => {
             },
           ],
         })
-      })
-
-      let jsonLd: any
-
-      await test.step('Navigate to page and parse JSON-LD', async () => {
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        jsonLd = JSON.parse(scriptContent!)
+        expect(scriptContent).toContain('twitter.com/johndoe')
+        expect(scriptContent).toContain('linkedin.com/in/johndoe')
+        expect(scriptContent).toContain('github.com/johndoe')
       })
 
-      await test.step('Verify Person schema structure', async () => {
-        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-        expect(jsonLd).toHaveProperty('@type', 'Person')
-        expect(jsonLd).toHaveProperty('name', 'Complete Person Profile')
-        expect(jsonLd).toHaveProperty('givenName', 'John')
-        expect(jsonLd).toHaveProperty('familyName', 'Smith')
-        expect(jsonLd).toHaveProperty('email', 'john.smith@example.com')
-        expect(jsonLd).toHaveProperty('telephone', '+1-555-987-6543')
-        expect(jsonLd).toHaveProperty('url', 'https://johnsmith.com')
-        expect(jsonLd).toHaveProperty('image', 'https://example.com/john.jpg')
-        expect(jsonLd).toHaveProperty('jobTitle', 'Senior Software Engineer')
-
-        // Validate worksFor structure
-        expect(jsonLd.worksFor).toMatchObject({
-          '@type': 'Organization',
-          name: 'Tech Innovations Inc',
+      await test.step('APP-PAGES-PERSON-010: Include PostalAddress structured data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'John Doe',
+                    address: {
+                      '@type': 'PostalAddress',
+                      addressLocality: 'New York',
+                      addressRegion: 'NY',
+                      addressCountry: 'US',
+                    },
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
         })
-
-        // Validate social media links
-        expect(Array.isArray(jsonLd.sameAs)).toBe(true)
-        expect(jsonLd.sameAs).toHaveLength(3)
-        expect(jsonLd.sameAs).toContain('https://twitter.com/johnsmith')
-        expect(jsonLd.sameAs).toContain('https://linkedin.com/in/johnsmith')
-        expect(jsonLd.sameAs).toContain('https://github.com/johnsmith')
-
-        // Backwards compatibility: string containment checks
+        await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"Person"')
-        expect(scriptContent).toContain('Complete Person Profile')
-        expect(scriptContent).toContain('Tech Innovations Inc')
+        expect(scriptContent).toContain('PostalAddress')
+        expect(scriptContent).toContain('New York')
+      })
+
+      await test.step('APP-PAGES-PERSON-011: Attribute content to specific author', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'Jane Author',
+                    jobTitle: 'Writer',
+                    url: 'https://janeauthor.com',
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Jane Author')
+        expect(scriptContent).toContain('Writer')
+      })
+
+      await test.step('APP-PAGES-PERSON-012: Enable Google Knowledge Graph panel for notable persons', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'Notable Person',
+                    jobTitle: 'Industry Leader',
+                    url: 'https://notableperson.com',
+                    image: 'https://example.com/photo.jpg',
+                    sameAs: ['https://twitter.com/notable', 'https://linkedin.com/in/notable'],
+                  },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
       })
     }
   )

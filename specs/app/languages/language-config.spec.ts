@@ -381,13 +381,14 @@ test.describe('Language Configuration', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 8 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-LANGUAGES-CONFIG-009: user can complete full language-config workflow',
+    'APP-LANGUAGES-CONFIG-REGRESSION: user can complete full language-config workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with multi-language configuration', async () => {
+      await test.step('APP-LANGUAGES-CONFIG-001: Valid with LTR direction by default', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -397,22 +398,6 @@ test.describe('Language Configuration', () => {
                 code: 'en',
                 locale: 'en-US',
                 label: 'English',
-                direction: 'ltr',
-                flag: '🇺🇸',
-              },
-              {
-                code: 'fr',
-                locale: 'fr-FR',
-                label: 'Français',
-                direction: 'ltr',
-                flag: '🇫🇷',
-              },
-              {
-                code: 'ar',
-                locale: 'ar-SA',
-                label: 'العربية',
-                direction: 'rtl',
-                flag: '🇸🇦',
               },
             ],
           },
@@ -420,9 +405,6 @@ test.describe('Language Configuration', () => {
             {
               name: 'language-switcher',
               type: 'language-switcher',
-              props: {
-                showFlags: true,
-              },
             },
           ],
           pages: [
@@ -434,32 +416,259 @@ test.describe('Language Configuration', () => {
             },
           ],
         })
-      })
-
-      await test.step('Verify default language and flags', async () => {
         await page.goto('/')
-
         await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
+      })
 
+      await test.step('APP-LANGUAGES-CONFIG-002: Support right-to-left text rendering', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'ar',
+            supported: [
+              {
+                code: 'ar',
+                locale: 'ar-SA',
+                label: 'العربية',
+                direction: 'rtl',
+              },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'ar-SA', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
+        await expect(page.locator('body')).toHaveCSS('direction', 'rtl')
+      })
+
+      await test.step('APP-LANGUAGES-CONFIG-003: Valid with 2-letter code', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              {
+                code: 'en',
+                label: 'English',
+              },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="language-code"]')).toHaveText('en')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
+      })
+
+      await test.step('APP-LANGUAGES-CONFIG-004: Valid with country-specific format', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              {
+                code: 'en',
+                locale: 'en-US',
+                label: 'English (United States)',
+              },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="language-code"]')).toHaveText('en-US')
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+      })
+
+      await test.step('APP-LANGUAGES-CONFIG-005: Display flag in language switcher', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'fr',
+            supported: [
+              {
+                code: 'fr',
+                locale: 'fr-FR',
+                label: 'Français',
+                direction: 'ltr',
+                flag: '🇫🇷',
+              },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
         await page.locator('[data-testid="language-switcher"]').click()
-        await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
-
-        await expect(page.locator('[data-testid="language-option-en-US"]')).toContainText('🇺🇸')
+        await expect(page.locator('[data-testid="language-flag"]')).toHaveText('🇫🇷')
         await expect(page.locator('[data-testid="language-option-fr-FR"]')).toContainText('🇫🇷')
       })
 
-      await test.step('Switch to French and verify', async () => {
-        await page.locator('[data-testid="language-option-fr-FR"]').click()
-        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
-        await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
+      await test.step('APP-LANGUAGES-CONFIG-006: Load flag image from path', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'es',
+            supported: [
+              {
+                code: 'es',
+                locale: 'es-ES',
+                label: 'Español',
+                direction: 'ltr',
+                flag: '/flags/es.svg',
+              },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await page.locator('[data-testid="language-switcher"]').click()
+        await expect(page.locator('[data-testid="language-flag-img"]')).toHaveAttribute(
+          'src',
+          '/flags/es.svg'
+        )
+        await expect(page.locator('[data-testid="language-flag-img"]')).toBeVisible()
       })
 
-      await test.step('Switch to Arabic (RTL) and verify', async () => {
+      await test.step('APP-LANGUAGES-CONFIG-007: Display correctly in all character sets', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français' },
+              { code: 'es', locale: 'es-ES', label: 'Español' },
+              { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl' },
+              { code: 'zh', locale: 'zh-CN', label: '中文' },
+              { code: 'ja', locale: 'ja-JP', label: '日本語' },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
         await page.locator('[data-testid="language-switcher"]').click()
-        await page.locator('[data-testid="language-option-ar-SA"]').click()
-        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-        await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
+        await expect(page.locator('[data-testid="language-option-fr-FR"]')).toContainText(
+          'Français'
+        )
+        await expect(page.locator('[data-testid="language-option-es-ES"]')).toContainText('Español')
+        await expect(page.locator('[data-testid="language-option-ar-SA"]')).toContainText('العربية')
+        await expect(page.locator('[data-testid="language-option-zh-CN"]')).toContainText('中文')
+        await expect(page.locator('[data-testid="language-option-ja-JP"]')).toContainText('日本語')
+      })
+
+      await test.step('APP-LANGUAGES-CONFIG-008: Use default LTR direction and no flag', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              {
+                code: 'en',
+                locale: 'en-US',
+                label: 'English',
+              },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await page.locator('[data-testid="language-switcher"]').click()
+        await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
+        await expect(page.locator('[data-testid="language-flag"]')).toBeHidden()
+        await expect(page.locator('[data-testid="language-option-en-US"]')).toContainText('English')
       })
     }
   )

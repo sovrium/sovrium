@@ -175,33 +175,30 @@ test.describe('Language Switcher Block', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE comprehensive test - validates end-to-end workflow efficiently
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 3 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'APP-BLOCKS-LANGUAGE-SWITCHER-004: user can complete full language-switcher workflow',
+    'APP-BLOCKS-LANGUAGE-SWITCHER-REGRESSION: user can complete full language-switcher workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with language-switcher', async () => {
+      await test.step('APP-BLOCKS-LANGUAGE-SWITCHER-001: Render dropdown menu with all supported languages', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
             default: 'en',
-            persistSelection: true,
             supported: [
-              { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
-              { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
-              { code: 'es', locale: 'es-ES', label: 'Español', flag: '🇪🇸' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français' },
+              { code: 'es', locale: 'es-ES', label: 'Español' },
             ],
           },
           blocks: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
-              props: {
-                variant: 'dropdown',
-                showFlags: true,
-              },
+              props: { variant: 'dropdown' },
             },
           ],
           pages: [
@@ -213,24 +210,82 @@ test.describe('Language Switcher Block', () => {
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify initial state', async () => {
         await page.goto('/')
-        const htmlLang = page.locator('html')
-        await expect(htmlLang).toHaveAttribute('lang', 'en-US')
         const switcher = page.locator('[data-testid="language-switcher"]')
         await expect(switcher).toBeVisible()
+        await page.locator('[data-testid="language-switcher-button"]').click()
+        await expect(page.locator('[data-testid="language-option-en-US"]')).toBeVisible()
+        await expect(page.locator('[data-testid="language-option-fr-FR"]')).toBeVisible()
+        await expect(page.locator('[data-testid="language-option-es-ES"]')).toBeVisible()
       })
 
-      await test.step('Switch language to French and verify', async () => {
+      await test.step('APP-BLOCKS-LANGUAGE-SWITCHER-002: Display flag emojis next to language labels', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+              props: { variant: 'inline', showFlags: true },
+            },
+          ],
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const enOption = page.locator('[data-testid="language-option-en-US"]')
+        await expect(enOption).toContainText('🇺🇸')
+        await expect(enOption).toContainText('English')
+        const frOption = page.locator('[data-testid="language-option-fr-FR"]')
+        await expect(frOption).toContainText('🇫🇷')
+        await expect(frOption).toContainText('Français')
+      })
+
+      await test.step('APP-BLOCKS-LANGUAGE-SWITCHER-003: Use default variant (dropdown) and no flags', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français' },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+            },
+          ],
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
+        await page.goto('/')
         const switcher = page.locator('[data-testid="language-switcher"]')
-        await switcher.click()
-        await page.locator('[data-testid="language-option-fr-FR"]').click()
-        const newHtmlLang = page.locator('html')
-        await expect(newHtmlLang).toHaveAttribute('lang', 'fr-FR')
-        const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-        expect(storedLanguage).toBe('fr')
+        await expect(switcher).toBeVisible()
+        await expect(switcher).toHaveAttribute('data-variant', 'dropdown')
+        const enOption = page.locator('[data-testid="language-option-en-US"]')
+        await expect(enOption).toContainText('English')
+        await expect(enOption).not.toContainText('🇺🇸')
       })
     }
   )

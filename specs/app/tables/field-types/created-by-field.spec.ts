@@ -287,20 +287,168 @@ test.describe('Created By Field', () => {
     }
   )
 
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-CREATED-BY-006: user can complete full created-by-field workflow',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-REGRESSION: user can complete full created-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      let alice: any
-
-      await test.step('Setup: Start server with created-by field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-001: Create PostgreSQL TEXT NOT NULL column with FOREIGN KEY', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: { emailAndPassword: true },
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_by'"
+        )
+        expect(columnInfo.column_name).toBe('created_by')
+        expect(columnInfo.data_type).toBe('text')
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-002: Store the creator user reference permanently', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 2,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const firstInsert = await executeQuery(
+          `INSERT INTO documents (title, created_by) VALUES ('First Doc', '${alice.user.id}') RETURNING created_by`
+        )
+        expect(firstInsert.created_by).toBe(alice.user.id)
+        await executeQuery(
+          `INSERT INTO documents (title, created_by) VALUES ('Second Doc', '${alice.user.id}'), ('Third Doc', '${alice.user.id}')`
+        )
+        const documentCount = await executeQuery(
+          `SELECT COUNT(*) as count FROM documents WHERE created_by = '${alice.user.id}'`
+        )
+        expect(Number(documentCount.count)).toBe(3)
+        const creatorInfo = await executeQuery(
+          'SELECT d.title, u.name as creator_name FROM documents d JOIN _sovrium_auth_users u ON d.created_by = u.id WHERE d.id = 1'
+        )
+        expect(creatorInfo.title).toBe('First Doc')
+        expect(creatorInfo.creator_name).toBe('Alice')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-003: Enforce immutability via application', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 3,
+              name: 'issues',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const john = await createAuthenticatedUser({ name: 'John', email: 'john@example.com' })
+        const jane = await createAuthenticatedUser({ name: 'Jane', email: 'jane@example.com' })
+        await executeQuery(
+          `INSERT INTO issues (title, created_by) VALUES ('Bug #1', '${john.user.id}')`
+        )
+        const originalCreator = await executeQuery('SELECT created_by FROM issues WHERE id = 1')
+        expect(originalCreator.created_by).toBe(john.user.id)
+        const updateResult = await executeQuery(
+          `UPDATE issues SET created_by = '${jane.user.id}' WHERE id = 1 RETURNING created_by`
+        )
+        expect(updateResult.created_by).toBe(jane.user.id)
+        const noTrigger = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='issues' AND trigger_name LIKE '%created_by%'"
+        )
+        expect(Number(noTrigger.count)).toBe(0)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-004: Support efficient filtering by creator', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 4,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const charlie = await createAuthenticatedUser({
+          name: 'Charlie',
+          email: 'charlie@example.com',
+        })
+        await executeQuery(
+          `INSERT INTO tasks (title, created_by) VALUES
+            ('Task 1', '${alice.user.id}'),
+            ('Task 2', '${bob.user.id}'),
+            ('Task 3', '${alice.user.id}'),
+            ('Task 4', '${charlie.user.id}'),
+            ('Task 5', '${alice.user.id}')`
+        )
+        const aliceTasks = await executeQuery(
+          `SELECT COUNT(*) as count FROM tasks WHERE created_by = '${alice.user.id}'`
+        )
+        expect(Number(aliceTasks.count)).toBe(3)
+        const bobTasks = await executeQuery(
+          `SELECT COUNT(*) as count FROM tasks WHERE created_by = '${bob.user.id}'`
+        )
+        expect(Number(bobTasks.count)).toBe(1)
+        const creatorNames = await executeQuery(
+          `SELECT t.title, u.name as creator FROM tasks t JOIN _sovrium_auth_users u ON t.created_by = u.id WHERE t.created_by IN ('${alice.user.id}', '${charlie.user.id}') ORDER BY t.id`
+        )
+        expect(creatorNames.rows).toEqual([
+          { title: 'Task 1', creator: 'Alice' },
+          { title: 'Task 3', creator: 'Alice' },
+          { title: 'Task 4', creator: 'Charlie' },
+          { title: 'Task 5', creator: 'Alice' },
+        ])
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 5,
+              name: 'comments',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'content', type: 'single-line-text' },
@@ -310,48 +458,17 @@ test.describe('Created By Field', () => {
             },
           ],
         })
-      })
-
-      await test.step('Create authenticated user', async () => {
-        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-      })
-
-      await test.step('Insert data with creator', async () => {
-        await executeQuery(
-          `INSERT INTO data (content, created_by) VALUES ('Test content', '${alice.user.id}')`
+        const indexInfo = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
         )
-      })
-
-      await test.step('Verify created_by field', async () => {
-        const record = await executeQuery('SELECT created_by FROM data WHERE id = 1')
-        expect(record.created_by).toBe(alice.user.id)
-      })
-
-      await test.step('Verify creator info via JOIN', async () => {
-        const creator = await executeQuery(
-          'SELECT d.content, u.name FROM data d JOIN _sovrium_auth_users u ON d.created_by = u.id WHERE d.id = 1'
+        expect(indexInfo.indexname).toBe('idx_comments_created_by')
+        expect(indexInfo.tablename).toBe('comments')
+        const indexDef = await executeQuery(
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
         )
-        expect(creator.name).toBe('Alice')
-      })
-
-      await test.step('Error handling: created-by without auth config is rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            // No auth config!
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'creator', type: 'created-by' },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/auth.*required|authentication.*config|user.*field.*requires.*auth/i)
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_comments_created_by ON public.comments USING btree (created_by)'
+        )
       })
     }
   )

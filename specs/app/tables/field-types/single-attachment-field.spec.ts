@@ -240,49 +240,154 @@ test.describe('Single Attachment Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-008: user can complete full single-attachment-field workflow',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-REGRESSION: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with single-attachment field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-001: Create VARCHAR column for file URL', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'files',
+              id: 1,
+              name: 'documents',
+              fields: [{ id: 1, name: 'file_url', type: 'single-attachment' }],
+            },
+          ],
+        })
+        const column = await executeQuery(
+          "SELECT data_type FROM information_schema.columns WHERE table_name='documents' AND column_name='file_url'"
+        )
+        expect(column.data_type).toBe('character varying')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-002: Store file metadata as JSONB', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'attachments',
+              fields: [{ id: 1, name: 'file_meta', type: 'json' }],
+            },
+          ],
+        })
+        await executeQuery(
+          'INSERT INTO attachments (file_meta) VALUES (\'{"name": "document.pdf", "size": 1024, "type": "application/pdf"}\')'
+        )
+        const meta = await executeQuery('SELECT file_meta FROM attachments WHERE id = 1')
+        expect(meta.file_meta.name).toBe('document.pdf')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-003: Enforce file type validation via CHECK', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'images',
               fields: [
-                { id: 1, name: 'url', type: 'single-attachment' },
-                { id: 2, name: 'metadata', type: 'json' },
+                {
+                  id: 1,
+                  name: 'file_type',
+                  type: 'single-select',
+                  options: ['image/png', 'image/jpeg', 'image/gif'],
+                },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Insert and verify attachment', async () => {
-        await executeQuery(
-          "INSERT INTO files (url, metadata) VALUES ('https://example.com/file.pdf', '{\"size\": 1024}')"
-        )
-        const file = await executeQuery('SELECT url, metadata FROM files WHERE id = 1')
-        expect(file.url).toBe('https://example.com/file.pdf')
-      })
-
-      await test.step('Error handling: duplicate field IDs are rejected', async () => {
         await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'file_a', type: 'single-attachment' },
-                  { id: 1, name: 'file_b', type: 'single-attachment' }, // Duplicate ID!
-                ],
-              },
-            ],
-          })
-        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+          executeQuery("INSERT INTO images (file_type) VALUES ('video/mp4')")
+        ).rejects.toThrow(/violates check constraint/)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-004: Enforce file size limit via CHECK', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'uploads',
+              fields: [{ id: 1, name: 'file_size', type: 'integer', max: 10_485_760 }],
+            },
+          ],
+        })
+        await expect(
+          executeQuery('INSERT INTO uploads (file_size) VALUES (20000000)')
+        ).rejects.toThrow(/violates check constraint/)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-005: Support NULL for optional attachments', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'records',
+              fields: [{ id: 1, name: 'attachment', type: 'single-attachment' }],
+            },
+          ],
+        })
+        await executeQuery('INSERT INTO records (attachment) VALUES (NULL)')
+        const result = await executeQuery('SELECT attachment FROM records WHERE id = 1')
+        expect(result.attachment).toBeNull()
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: Store image dimensions in metadata', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 10,
+              name: 'images',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'photo',
+                  type: 'single-attachment',
+                  storeMetadata: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery(
+          'INSERT INTO images (photo) VALUES (\'{"url": "image.jpg", "width": 1920, "height": 1080}\')'
+        )
+        const metadata = await executeQuery('SELECT photo FROM images WHERE id = 1')
+        const photoData = JSON.parse(metadata.photo)
+        expect(photoData.width).toBe(1920)
+        expect(photoData.height).toBe(1080)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-007: Store video duration in metadata', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 11,
+              name: 'videos',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'video_file',
+                  type: 'single-attachment',
+                  storeMetadata: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery(
+          'INSERT INTO videos (video_file) VALUES (\'{"url": "video.mp4", "duration": 120.5}\')'
+        )
+        const metadata = await executeQuery('SELECT video_file FROM videos WHERE id = 1')
+        const videoData = JSON.parse(metadata.video_file)
+        expect(videoData.duration).toBe(120.5)
       })
     }
   )

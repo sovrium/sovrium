@@ -181,63 +181,127 @@ test.describe('Updated At Field', () => {
     }
   )
 
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
   test(
-    'APP-TABLES-FIELD-TYPES-UPDATED-AT-006: user can complete full updated-at-field workflow',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-REGRESSION: user can complete full updated-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      let insertId: number
-      let initial: string
-
-      await test.step('Setup: Start server with updated-at field', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-AT-001: Create PostgreSQL TIMESTAMP column with DEFAULT CURRENT_TIMESTAMP', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'records',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'value', type: 'single-line-text' },
-                { id: 3, name: 'updated_at', type: 'updated-at', indexed: true },
+                { id: 2, name: 'updated_at', type: 'updated-at' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      })
-
-      await test.step('Insert initial record', async () => {
-        const insert = await executeQuery(
-          "INSERT INTO data (value) VALUES ('v1') RETURNING id, updated_at"
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='records' AND column_name='updated_at'"
         )
-        insertId = insert.id
-        initial = insert.updated_at
+        expect(columnInfo.data_type).toMatch(/timestamp/)
+        expect(columnInfo.column_default).toMatch(/now|CURRENT_TIMESTAMP/i)
       })
 
-      await test.step('Update record and verify timestamp changes', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-AT-002: Automatically update timestamp when row is modified', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'updated_at', type: 'updated-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const insert = await executeQuery(
+          "INSERT INTO posts (title) VALUES ('Initial') RETURNING id, updated_at"
+        )
+        const initialTimestamp = insert.updated_at
         await new Promise((resolve) => setTimeout(resolve, 100))
-        await executeQuery(`UPDATE data SET value = 'v2' WHERE id = ${insertId}`)
-
-        const final = await executeQuery(`SELECT updated_at FROM data WHERE id = ${insertId}`)
-        expect(new Date(final.updated_at).getTime()).toBeGreaterThan(new Date(initial).getTime())
+        await executeQuery(`UPDATE posts SET title = 'Updated' WHERE id = ${insert.id}`)
+        const updated = await executeQuery(`SELECT updated_at FROM posts WHERE id = ${insert.id}`)
+        expect(new Date(updated.updated_at).getTime()).toBeGreaterThan(
+          new Date(initialTimestamp).getTime()
+        )
       })
 
-      await test.step('Error handling: duplicate field IDs are rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'updated_at_a', type: 'updated-at' },
-                  { id: 1, name: 'updated_at_b', type: 'updated-at' }, // Duplicate ID!
-                ],
-              },
-            ],
-          })
-        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-AT-003: Set initial timestamp on creation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'updated_at', type: 'updated-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const insert = await executeQuery(
+          'INSERT INTO items (id) VALUES (DEFAULT) RETURNING updated_at'
+        )
+        expect(insert.updated_at).toBeTruthy()
+        const created = new Date(insert.updated_at)
+        expect(created.getFullYear()).toBeGreaterThan(2020)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-AT-004: Reject NULL values (always required)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'events',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'updated_at', type: 'updated-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='events' AND column_name='updated_at'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-AT-005: Create btree index when indexed=true', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'audit',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'updated_at', type: 'updated-at', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_audit_updated_at'"
+        )
+        expect(indexExists.indexname).toBe('idx_audit_updated_at')
       })
     }
   )

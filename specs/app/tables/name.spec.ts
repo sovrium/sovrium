@@ -158,80 +158,107 @@ test.describe('Table Name', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-NAME-003: user can complete full Table Name workflow',
+    'APP-TABLES-NAME-REGRESSION: user can complete full Table Name workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with representative table name configurations
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'users',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-          {
-            id: 8,
-            name: 'orders_2024',
-            fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
-          },
-        ],
-      })
-
-      // WHEN/THEN: Execute representative workflow
-
-      await test.step('Valid names create tables correctly', async () => {
-        const usersTable = await executeQuery(
-          `SELECT tablename FROM pg_tables WHERE tablename = 'users'`
-        )
-        expect(usersTable.rows[0]).toMatchObject({ tablename: 'users' })
-
-        const ordersTable = await executeQuery(
-          `SELECT tablename FROM pg_tables WHERE tablename = 'orders_2024'`
-        )
-        expect(ordersTable.rows[0]).toMatchObject({ tablename: 'orders_2024' })
-      })
-
-      await test.step('Names follow schema pattern', async () => {
-        const allTables = await executeQuery(
-          `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('users', 'orders_2024') ORDER BY tablename`
-        )
-        expect(allTables.rows).toHaveLength(2)
-        expect(allTables.rows[0].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
-        expect(allTables.rows[1].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
-      })
-
-      await test.step('Error handling: invalid table names are rejected', async () => {
-        // Invalid: uppercase letters
+      await test.step('APP-TABLES-NAME-001: Meet schema requirements when validating input', async () => {
+        // Valid table names (lowercase, underscores, starts with letter)
         await expect(
           startServerWithSchema({
-            name: 'test-app-error',
+            name: 'test-app',
             tables: [
               {
-                id: 99,
-                name: 'InvalidUppercase',
-                fields: [{ id: 1, name: 'field', type: 'single-line-text' }],
+                id: 1,
+                name: 'users',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              },
+            ],
+          })
+        ).resolves.not.toThrow()
+
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 2,
+                name: 'products_123',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              },
+            ],
+          })
+        ).resolves.not.toThrow()
+
+        // Invalid table names
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 3,
+                name: 'InvalidTable',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
               },
             ],
           })
         ).rejects.toThrow(/AppValidationError|ParseError/)
 
-        // Invalid: starts with number
         await expect(
           startServerWithSchema({
-            name: 'test-app-error2',
+            name: 'test-app',
             tables: [
               {
-                id: 98,
-                name: '123_invalid',
-                fields: [{ id: 1, name: 'field', type: 'single-line-text' }],
+                id: 4,
+                name: '123_table',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/AppValidationError|ParseError/)
+
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 5,
+                name: 'table with spaces',
+                fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
               },
             ],
           })
         ).rejects.toThrow(/AppValidationError|ParseError/)
       })
 
-      // Workflow completes successfully with proper validation
+      await test.step('APP-TABLES-NAME-002: Use name correctly when processing configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'customers',
+              fields: [
+                {
+                  id: 1,
+                  name: 'email',
+                  type: 'email',
+                  required: true,
+                },
+              ],
+            },
+          ],
+        })
+
+        const tableExists = await executeQuery(
+          `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'customers'`
+        )
+        expect(tableExists.rows[0]).toMatchObject({ tablename: 'customers' })
+
+        const tableInfo = await executeQuery(
+          `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'customers'`
+        )
+        expect(tableInfo.rows[0]).toMatchObject({ table_name: 'customers' })
+      })
     }
   )
 })
