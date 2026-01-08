@@ -370,7 +370,10 @@ test.describe('Custom Head Elements', () => {
                 title: 'Test',
                 description: 'Test',
                 customElements: [
-                  { type: 'script', attrs: { src: 'https://example.com/script.js', async: 'true' } },
+                  {
+                    type: 'script',
+                    attrs: { src: 'https://example.com/script.js', async: 'true' },
+                  },
                 ],
               },
               sections: [],

@@ -824,7 +824,10 @@ test.describe('Page Sections', () => {
                   children: [{ type: 'single-line-text', content: 'Welcome' }],
                 },
                 { block: 'cta-section', vars: { buttonLabel: 'Get Started' } },
-                { type: 'container', children: [{ type: 'single-line-text', content: 'Features' }] },
+                {
+                  type: 'container',
+                  children: [{ type: 'single-line-text', content: 'Features' }],
+                },
               ],
             },
           ],

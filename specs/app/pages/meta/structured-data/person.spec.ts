@@ -696,7 +696,9 @@ test.describe('Person Schema', () => {
             ],
           })
           await page.goto('/')
-          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          const scriptContent = await page
+            .locator('script[type="application/ld+json"]')
+            .textContent()
           expect(scriptContent).toContain(jobTitle)
         }
       })

@@ -925,7 +925,9 @@ test.describe('Footer Configuration', () => {
                   enabled: true,
                   logo: './logo.svg',
                   description: 'Building the future',
-                  columns: [{ title: 'Product', links: [{ label: 'Features', href: '/features' }] }],
+                  columns: [
+                    { title: 'Product', links: [{ label: 'Features', href: '/features' }] },
+                  ],
                   social: { links: [{ platform: 'twitter', url: 'https://twitter.com/acme' }] },
                   newsletter: { enabled: true, title: 'Stay updated' },
                   copyright: '© 2024 Acme Corp.',

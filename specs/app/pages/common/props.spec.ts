@@ -321,24 +321,67 @@ test.describe('Component Props', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
   // ============================================================================
 
   test(
-    'APP-PAGES-PROPS-011: user can complete full props workflow',
+    'APP-PAGES-PROPS-REGRESSION: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with various prop types', async () => {
+      await test.step('APP-PAGES-PROPS-001: Accept string property', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          blocks: [
+          pages: [
             {
-              name: 'feature-card',
-              type: 'div',
-              props: { className: 'card p-$padding', color: '$cardColor', enabled: true, size: 20 },
-              children: [{ type: 'h3', props: { text: '$title' }, children: [] }],
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                { type: 'div', props: { className: 'text-center mb-4' }, children: ['Content'] },
+              ],
             },
           ],
+        })
+        await page.goto('/')
+        await expect(page.locator('div.text-center')).toBeVisible()
+        await expect(page.locator('div.mb-4')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PROPS-002: Accept numeric property', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [{ type: 'div', props: { size: 16 }, children: ['Content'] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('div[data-size="16"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PROPS-003: Accept boolean property', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [{ type: 'button', props: { enabled: true }, children: ['Click'] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('button[data-enabled="true"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PROPS-004: Accept nested object property', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
           pages: [
             {
               name: 'Test',
@@ -346,23 +389,148 @@ test.describe('Component Props', () => {
               meta: { lang: 'en-US', title: 'Test' },
               sections: [
                 {
-                  block: 'feature-card',
-                  vars: { padding: '6', cardColor: 'primary', title: 'Feature Title' },
+                  type: 'div',
+                  props: { style: { padding: '1rem', margin: '2rem' } },
+                  children: ['Content'],
                 },
               ],
             },
           ],
         })
+        await page.goto('/')
+        const div = page.locator('div').first()
+        await expect(div).toHaveCSS('padding', '16px')
+        await expect(div).toHaveCSS('margin', '32px')
       })
 
-      await test.step('Navigate and verify all prop types', async () => {
+      await test.step('APP-PAGES-PROPS-005: Accept array property', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                { type: 'div', props: { items: ['one', 'two', 'three'] }, children: ['List'] },
+              ],
+            },
+          ],
+        })
         await page.goto('/')
+        const dataItems = await page.locator('div').first().getAttribute('data-items')
+        expect(JSON.parse(dataItems!)).toEqual(['one', 'two', 'three'])
+      })
 
-        const card = page.locator('div.card')
-        await expect(card).toHaveClass(/p-6/)
-        await expect(card).toHaveAttribute('data-color', 'primary')
-        await expect(card).toHaveAttribute('data-enabled', 'true')
-        await expect(card).toHaveAttribute('data-size', '20')
+      await test.step('APP-PAGES-PROPS-006: Accept string with $variable syntax', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            { name: 'welcome', type: 'div', props: { text: 'Welcome to $siteName' }, children: [] },
+          ],
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('div[data-text="Welcome to My Site"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-PROPS-007: Support mixed property types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { className: 'container', size: 24, enabled: true },
+                  children: ['Mixed'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const div = page.locator('div.container')
+        await expect(div).toHaveClass(/container/)
+        await expect(div).toHaveAttribute('data-size', '24')
+        await expect(div).toHaveAttribute('data-enabled', 'true')
+      })
+
+      await test.step('APP-PAGES-PROPS-008: Validate camelCase naming convention', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { maxWidth: '1200px', minHeight: '400px', backgroundColor: '#f0f0f0' },
+                  children: ['Styled'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const div = page.locator('div').first()
+        await expect(div).toHaveCSS('max-width', '1200px')
+        await expect(div).toHaveCSS('min-height', '400px')
+        await expect(div).toHaveCSS('background-color', 'rgb(240, 240, 240)')
+      })
+
+      await test.step('APP-PAGES-PROPS-009: Support multiple variable references', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'greeting',
+              type: 'div',
+              props: { color: '$primaryColor', text: 'Hello $userName' },
+              children: [],
+            },
+          ],
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [{ block: 'greeting', vars: { primaryColor: 'blue', userName: 'John' } }],
+            },
+          ],
+        })
+        await page.goto('/')
+        const div = page.locator('div[data-testid="block-greeting"]')
+        await expect(div).toHaveAttribute('data-color', 'blue')
+        await expect(div).toHaveAttribute('data-text', 'Hello John')
+      })
+
+      await test.step('APP-PAGES-PROPS-010: Accept empty object for no props', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [{ type: 'div', props: {}, children: ['No Props'] }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('div')).toContainText('No Props')
       })
     }
   )

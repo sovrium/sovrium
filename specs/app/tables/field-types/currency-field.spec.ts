@@ -301,9 +301,9 @@ test.describe('Currency Field', () => {
         await expect(executeQuery('INSERT INTO projects (budget) VALUES (-0.01)')).rejects.toThrow(
           /violates check constraint/
         )
-        await expect(executeQuery('INSERT INTO projects (budget) VALUES (10000.01)')).rejects.toThrow(
-          /violates check constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO projects (budget) VALUES (10000.01)')
+        ).rejects.toThrow(/violates check constraint/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-003: Enforce NOT NULL and UNIQUE constraints', async () => {
@@ -336,9 +336,9 @@ test.describe('Currency Field', () => {
         await expect(
           executeQuery('INSERT INTO transactions (amount) VALUES (100.50)')
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
-        await expect(executeQuery('INSERT INTO transactions (amount) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO transactions (amount) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-004: Apply DEFAULT value', async () => {

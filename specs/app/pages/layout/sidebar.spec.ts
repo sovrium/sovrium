@@ -602,7 +602,9 @@ test.describe('Sidebar Configuration', () => {
                   items: [{ type: 'link', label: 'Section 1', href: '#section1' }],
                 },
               },
-              sections: [{ type: 'div', props: { style: 'height: 3000px' }, children: ['Content'] }],
+              sections: [
+                { type: 'div', props: { style: 'height: 3000px' }, children: ['Content'] },
+              ],
             },
           ],
         })

@@ -283,9 +283,9 @@ test.describe('Percentage Field', () => {
         await expect(executeQuery('INSERT INTO projects (progress) VALUES (-0.1)')).rejects.toThrow(
           /violates check constraint/
         )
-        await expect(executeQuery('INSERT INTO projects (progress) VALUES (100.1)')).rejects.toThrow(
-          /violates check constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO projects (progress) VALUES (100.1)')
+        ).rejects.toThrow(/violates check constraint/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-003: Enforce NOT NULL and UNIQUE constraints', async () => {

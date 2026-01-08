@@ -452,7 +452,9 @@ test.describe('Banner Configuration', () => {
               name: 'test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { banner: { enabled: true, text: 'Announcement', backgroundColor: '#FF5733' } },
+              layout: {
+                banner: { enabled: true, text: 'Announcement', backgroundColor: '#FF5733' },
+              },
               sections: [],
             },
           ],

@@ -358,11 +358,189 @@ test.describe('DNS Prefetch', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
+  // ============================================================================
+
   test(
-    'APP-PAGES-DNS-011: user can complete full DNS prefetch workflow',
+    'APP-PAGES-DNS-REGRESSION: user can complete full dns-prefetch workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with DNS prefetch', async () => {
+      await test.step('APP-PAGES-DNS-001: Prefetch DNS for listed domains', async () => {
+        await startServerWithSchema({
+          name: 'test_app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://fonts.googleapis.com', 'https://www.google-analytics.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
+        ).toBeAttached()
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-DNS-002: Optimize Google Fonts loading', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
+        ).toBeAttached()
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://fonts.gstatic.com"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-DNS-003: Optimize analytics script loading', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://www.google-analytics.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-DNS-004: Optimize CDN resource loading', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://unpkg.com', 'https://cdn.jsdelivr.net'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://unpkg.com"]')
+        ).toBeAttached()
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://cdn.jsdelivr.net"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-DNS-005: Optimize API request latency', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://api.example.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://api.example.com"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-DNS-006: Validate protocol in URL pattern', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://example.com', 'http://example.org'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const prefetchLinks = await page.locator('link[rel="dns-prefetch"]').all()
+        for (const link of prefetchLinks) {
+          const href = await link.getAttribute('href')
+          expect(href).toMatch(/^https?:\/\//)
+        }
+      })
+
+      await test.step('APP-PAGES-DNS-007: Prevent duplicate domain entries', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://fonts.googleapis.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const count = await page
+          .locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
+          .count()
+        expect(count).toBe(1)
+      })
+
+      await test.step('APP-PAGES-DNS-008: Optimize multiple external connections', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -375,26 +553,62 @@ test.describe('DNS Prefetch', () => {
                 description: 'Test',
                 dnsPrefetch: [
                   'https://fonts.googleapis.com',
-                  'https://fonts.gstatic.com',
                   'https://www.google-analytics.com',
                   'https://cdn.jsdelivr.net',
+                  'https://platform.twitter.com',
                 ],
               },
               sections: [],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify DNS prefetch links', async () => {
         await page.goto('/')
         await expect(page.locator('link[rel="dns-prefetch"]')).toHaveCount(4)
+      })
+
+      await test.step('APP-PAGES-DNS-009: Reduce connection latency', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://fonts.googleapis.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
         await expect(
           page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
         ).toBeAttached()
-        await expect(
-          page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
-        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-DNS-010: Improve perceived page load speed', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: ['https://fonts.googleapis.com', 'https://www.google-analytics.com'],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const prefetchCount = await page.locator('link[rel="dns-prefetch"]').count()
+        expect(prefetchCount).toBeGreaterThan(0)
       })
     }
   )

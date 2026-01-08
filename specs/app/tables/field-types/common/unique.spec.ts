@@ -294,7 +294,9 @@ test.describe('Unique Field Property', () => {
             },
           ],
         })
-        await executeQuery(["INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice')"])
+        await executeQuery([
+          "INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice')",
+        ])
         const uniqueConstraint = await executeQuery(
           "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'"
         )

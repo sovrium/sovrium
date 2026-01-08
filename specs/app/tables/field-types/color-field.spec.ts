@@ -226,9 +226,9 @@ test.describe('Color Field', () => {
             },
           ],
         })
-        await expect(executeQuery('INSERT INTO brands (brand_color) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO brands (brand_color) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
     }
   )

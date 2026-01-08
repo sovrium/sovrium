@@ -448,7 +448,10 @@ test.describe('CTA Button', () => {
                 path: '/',
                 meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
                 layout: {
-                  navigation: { logo: './logo.svg', cta: { text: 'Button', href: '/test', variant } },
+                  navigation: {
+                    logo: './logo.svg',
+                    cta: { text: 'Button', href: '/test', variant },
+                  },
                 },
                 sections: [],
               },
@@ -479,7 +482,9 @@ test.describe('CTA Button', () => {
             ],
           })
           await page.goto('/')
-          await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(new RegExp(`btn-${size}`))
+          await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(
+            new RegExp(`btn-${size}`)
+          )
         }
       })
 

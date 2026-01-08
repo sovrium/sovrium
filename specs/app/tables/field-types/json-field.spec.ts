@@ -357,7 +357,9 @@ test.describe('JSON Field', () => {
             },
           ],
         })
-        await executeQuery('INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')')
+        await executeQuery(
+          'INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')'
+        )
         const initialValue = await executeQuery('SELECT payload FROM events WHERE id = 1')
         expect(initialValue.payload).toEqual({ type: 'click', count: 1 })
         const updateCount = await executeQuery(

@@ -154,9 +154,9 @@ test.describe('Progress Field', () => {
         await expect(executeQuery('INSERT INTO projects (completion) VALUES (-1)')).rejects.toThrow(
           /violates check constraint/
         )
-        await expect(executeQuery('INSERT INTO projects (completion) VALUES (101)')).rejects.toThrow(
-          /violates check constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO projects (completion) VALUES (101)')
+        ).rejects.toThrow(/violates check constraint/)
       })
     }
   )

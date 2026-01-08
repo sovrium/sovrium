@@ -638,7 +638,9 @@ test.describe('URL Path', () => {
       await test.step('APP-PAGES-PATH-001: Validate as homepage path', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+          ],
         })
         await page.goto('/')
         await expect(page).toHaveURL('/')
@@ -649,7 +651,12 @@ test.describe('URL Path', () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
-            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              sections: [],
+            },
           ],
         })
         await page.goto('/about')
@@ -660,7 +667,12 @@ test.describe('URL Path', () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
-            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              sections: [],
+            },
             {
               name: 'Pricing',
               path: '/pricing',
@@ -734,7 +746,12 @@ test.describe('URL Path', () => {
           name: 'test-app',
           pages: [
             { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
-            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              sections: [],
+            },
             {
               name: 'Pricing',
               path: '/pricing',
@@ -770,7 +787,12 @@ test.describe('URL Path', () => {
           name: 'test-app',
           pages: [
             { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
-            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              sections: [],
+            },
             {
               name: 'Pricing',
               path: '/pricing',
@@ -851,7 +873,9 @@ test.describe('URL Path', () => {
         await page.goto('/')
         await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
         await expect(page.locator('[data-testid="app-version-badge"]')).toHaveText('1.0.0')
-        await expect(page.locator('[data-testid="app-description"]')).toHaveText('My app description')
+        await expect(page.locator('[data-testid="app-description"]')).toHaveText(
+          'My app description'
+        )
         await expect(page.locator('[data-block="hero"]')).toBeHidden()
       })
 
@@ -980,7 +1004,9 @@ test.describe('URL Path', () => {
       await test.step('APP-PAGES-PATH-017: Default NotFoundPage renders when no custom 404 exists', async () => {
         await startServerWithSchema({
           name: 'my-app',
-          pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+          ],
         })
         await page.goto('/nonexistent')
         await expect(page).toHaveTitle('404 - Not Found')
@@ -1013,7 +1039,9 @@ test.describe('URL Path', () => {
       await test.step('APP-PAGES-PATH-019: Default ErrorPage renders when no custom 500 exists', async () => {
         await startServerWithSchema({
           name: 'my-app',
-          pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+          ],
         })
         await page.goto('/test/error')
         await expect(page).toHaveTitle('500 - Internal Server Error')

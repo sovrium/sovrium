@@ -244,7 +244,9 @@ test.describe('Required Field Property', () => {
             },
           ],
         })
-        await executeQuery(["INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"])
+        await executeQuery([
+          "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')",
+        ])
         const notNullConstraint = await executeQuery(
           "SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'"
         )

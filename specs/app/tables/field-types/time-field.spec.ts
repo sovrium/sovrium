@@ -268,9 +268,9 @@ test.describe('Time Field', () => {
           "SELECT is_nullable FROM information_schema.columns WHERE table_name='shifts' AND column_name='shift_start'"
         )
         expect(notNullCheck.is_nullable).toBe('NO')
-        await expect(executeQuery('INSERT INTO shifts (shift_start) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO shifts (shift_start) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-TIME-004: Apply DEFAULT value', async () => {

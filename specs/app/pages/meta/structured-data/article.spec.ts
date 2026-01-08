@@ -640,7 +640,9 @@ test.describe('Article Schema', () => {
             ],
           })
           await page.goto('/')
-          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          const scriptContent = await page
+            .locator('script[type="application/ld+json"]')
+            .textContent()
           expect(scriptContent).toContain(`"@type":"${type}"`)
         }
       })
@@ -999,7 +1001,11 @@ test.describe('Article Schema', () => {
                     '@type': 'BlogPosting',
                     headline: 'Complete Blog Post',
                     description: 'Comprehensive guide',
-                    author: { '@type': 'Person', name: 'John Doe', url: 'https://example.com/john' },
+                    author: {
+                      '@type': 'Person',
+                      name: 'John Doe',
+                      url: 'https://example.com/john',
+                    },
                     datePublished: '2025-01-15T09:00:00Z',
                     publisher: { '@type': 'Organization', name: 'Blog Network' },
                   },

@@ -640,7 +640,9 @@ test.describe('Count Field', () => {
         await executeQuery("INSERT INTO books (title, author_id) VALUES ('Pride and Prejudice', 1)")
         const initialCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
         expect(initialCount.book_count).toBe('1')
-        await executeQuery("INSERT INTO books (title, author_id) VALUES ('Sense and Sensibility', 1)")
+        await executeQuery(
+          "INSERT INTO books (title, author_id) VALUES ('Sense and Sensibility', 1)"
+        )
         const updatedCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
         expect(updatedCount.book_count).toBe('2')
         await executeQuery('DELETE FROM books WHERE id = 1')

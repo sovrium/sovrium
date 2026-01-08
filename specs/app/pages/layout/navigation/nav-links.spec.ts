@@ -468,7 +468,9 @@ test.describe('Navigation Links', () => {
               layout: {
                 navigation: {
                   logo: './logo.svg',
-                  links: { desktop: [{ label: 'Products', href: '/products', icon: 'arrow-right' }] },
+                  links: {
+                    desktop: [{ label: 'Products', href: '/products', icon: 'arrow-right' }],
+                  },
                 },
               },
               sections: [],
@@ -492,7 +494,9 @@ test.describe('Navigation Links', () => {
               layout: {
                 navigation: {
                   logo: './logo.svg',
-                  links: { desktop: [{ label: 'New Feature', href: '/new-feature', badge: 'New' }] },
+                  links: {
+                    desktop: [{ label: 'New Feature', href: '/new-feature', badge: 'New' }],
+                  },
                 },
               },
               sections: [],

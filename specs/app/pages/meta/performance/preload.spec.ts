@@ -341,11 +341,223 @@ test.describe('Resource Preloading', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
+  // ============================================================================
+
   test(
-    'APP-PAGES-PRELOAD-011: user can complete full preload workflow',
+    'APP-PAGES-PRELOAD-REGRESSION: user can complete full preload workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with preload resources', async () => {
+      await test.step('APP-PAGES-PRELOAD-001: Preload critical resource', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [{ href: './output.css', as: 'style' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="preload"][href="./output.css"][as="style"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-002: Preload critical stylesheet', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [{ href: './styles/main.css', as: 'style' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][as="style"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-003: Preload critical scripts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [{ href: './scripts/app.js', as: 'script' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][as="script"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-004: Preload web fonts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [
+                  { href: './fonts/MyFont.woff2', as: 'font', type: 'font/woff2', crossorigin: true },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const preload = page.locator('link[rel="preload"][as="font"]')
+        await expect(preload).toHaveAttribute('type', 'font/woff2')
+        await expect(preload).toHaveAttribute('crossorigin', '')
+      })
+
+      await test.step('APP-PAGES-PRELOAD-005: Preload hero images', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [{ href: './images/hero.jpg', as: 'image' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][as="image"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-006: Prefetch critical API responses', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [{ href: '/api/data.json', as: 'fetch' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][as="fetch"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-007: Set CORS for cross-origin fonts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [
+                  {
+                    href: './fonts/font.woff2',
+                    as: 'font',
+                    type: 'font/woff2',
+                    crossorigin: 'anonymous',
+                  },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][as="font"]')).toHaveAttribute(
+          'crossorigin',
+          'anonymous'
+        )
+      })
+
+      await test.step('APP-PAGES-PRELOAD-008: Help browser prioritize resource', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [{ href: './fonts/font.woff2', as: 'font', type: 'font/woff2' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][type="font/woff2"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-009: Preload only when media query matches', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [
+                  { href: './images/hero-mobile.jpg', as: 'image', media: '(max-width: 768px)' },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"][media="(max-width: 768px)"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-PRELOAD-010: Optimize First Contentful Paint (FCP)', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -358,29 +570,16 @@ test.describe('Resource Preloading', () => {
                 description: 'Test',
                 preload: [
                   { href: './output.css', as: 'style' },
-                  {
-                    href: './fonts/Inter-Regular.woff2',
-                    as: 'font',
-                    type: 'font/woff2',
-                    crossorigin: true,
-                  },
+                  { href: './fonts/font.woff2', as: 'font', type: 'font/woff2', crossorigin: true },
                   { href: './images/hero.jpg', as: 'image' },
-                  { href: '/api/data.json', as: 'fetch' },
                 ],
               },
               sections: [],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify all preload links', async () => {
         await page.goto('/')
-        await expect(page.locator('link[rel="preload"]')).toHaveCount(4)
-        await expect(page.locator('link[rel="preload"][as="style"]')).toBeAttached()
-        await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()
-        await expect(page.locator('link[rel="preload"][as="image"]')).toBeAttached()
-        await expect(page.locator('link[rel="preload"][as="fetch"]')).toBeAttached()
+        await expect(page.locator('link[rel="preload"]')).toHaveCount(3)
       })
     }
   )

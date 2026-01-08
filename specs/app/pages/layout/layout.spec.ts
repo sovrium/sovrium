@@ -372,7 +372,10 @@ test.describe('Page Layout', () => {
               meta: { lang: 'en-US', title: 'Test', description: 'Test page description' },
               layout: {
                 banner: { enabled: true, text: 'Sale - 50% off' },
-                navigation: { logo: '/logo.svg', links: { desktop: [{ label: 'Home', href: '/' }] } },
+                navigation: {
+                  logo: '/logo.svg',
+                  links: { desktop: [{ label: 'Home', href: '/' }] },
+                },
                 footer: { enabled: true },
                 sidebar: { enabled: true, links: [{ label: 'Docs', href: '/docs' }] },
               },
@@ -396,7 +399,10 @@ test.describe('Page Layout', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
               layout: {
-                navigation: { logo: '/logo.svg', links: { desktop: [{ label: 'Home', href: '/' }] } },
+                navigation: {
+                  logo: '/logo.svg',
+                  links: { desktop: [{ label: 'Home', href: '/' }] },
+                },
               },
               sections: [],
             },

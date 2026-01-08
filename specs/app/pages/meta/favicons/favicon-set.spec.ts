@@ -295,7 +295,10 @@ test.describe('Favicon Set', () => {
           ],
         })
         await page.goto('/')
-        await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('sizes', '180x180')
+        await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
+          'sizes',
+          '180x180'
+        )
       })
 
       await test.step('APP-PAGES-FAVICONSET-003: Define Safari mask icon with color', async () => {

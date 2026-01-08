@@ -354,12 +354,12 @@ test.describe('Integer Field', () => {
           "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'"
         )
         expect(uniqueConstraint.count).toBe('1')
-        await expect(executeQuery('INSERT INTO orders (order_number) VALUES (1001)')).rejects.toThrow(
-          /duplicate key value violates unique constraint/
-        )
-        await expect(executeQuery('INSERT INTO orders (order_number) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
-        )
+        await expect(
+          executeQuery('INSERT INTO orders (order_number) VALUES (1001)')
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        await expect(
+          executeQuery('INSERT INTO orders (order_number) VALUES (NULL)')
+        ).rejects.toThrow(/violates not-null constraint/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-INTEGER-004: Apply DEFAULT value', async () => {

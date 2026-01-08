@@ -540,7 +540,8 @@ test.describe('Open Graph Metadata', () => {
                 title: 'Test',
                 description: 'Test',
                 openGraph: {
-                  title: 'Transform Your Business with AI-Powered Analytics - Start Free Trial Today',
+                  title:
+                    'Transform Your Business with AI-Powered Analytics - Start Free Trial Today',
                   description: 'Test',
                   type: 'website',
                   url: 'https://example.com',
@@ -594,7 +595,12 @@ test.describe('Open Graph Metadata', () => {
                 lang: 'en-US',
                 title: 'Test',
                 description: 'Test',
-                openGraph: { title: 'Test', description: 'Test', type: 'article', url: 'https://example.com' },
+                openGraph: {
+                  title: 'Test',
+                  description: 'Test',
+                  type: 'article',
+                  url: 'https://example.com',
+                },
               },
               sections: [],
             },
@@ -651,7 +657,8 @@ test.describe('Open Graph Metadata', () => {
                   type: 'website',
                   url: 'https://example.com',
                   image: 'https://example.com/og-image.jpg',
-                  imageAlt: 'Product screenshot showing dashboard with analytics graphs and metrics',
+                  imageAlt:
+                    'Product screenshot showing dashboard with analytics graphs and metrics',
                 },
               },
               sections: [],
@@ -747,7 +754,10 @@ test.describe('Open Graph Metadata', () => {
           ],
         })
         await page.goto('/')
-        await expect(page.locator('meta[property="og:determiner"]')).toHaveAttribute('content', 'the')
+        await expect(page.locator('meta[property="og:determiner"]')).toHaveAttribute(
+          'content',
+          'the'
+        )
       })
 
       await test.step('APP-PAGES-OG-010: Enable video content sharing', async () => {

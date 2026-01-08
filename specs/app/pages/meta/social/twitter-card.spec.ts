@@ -526,7 +526,10 @@ test.describe('Twitter Card Metadata', () => {
           ],
         })
         await page.goto('/')
-        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary')
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+          'content',
+          'summary'
+        )
       })
 
       await test.step('APP-PAGES-TWITTER-003: Display large rectangular image card', async () => {
@@ -575,7 +578,11 @@ test.describe('Twitter Card Metadata', () => {
                   description: 'Get the best experience on mobile',
                   image: 'https://example.com/app-icon.jpg',
                   appName: { iPhone: 'MyApp', iPad: 'MyApp for iPad', googlePlay: 'MyApp' },
-                  appId: { iPhone: '123456789', iPad: '123456789', googlePlay: 'com.example.myapp' },
+                  appId: {
+                    iPhone: '123456789',
+                    iPad: '123456789',
+                    googlePlay: 'com.example.myapp',
+                  },
                 },
               },
               sections: [],
@@ -640,7 +647,9 @@ test.describe('Twitter Card Metadata', () => {
           ],
         })
         await page.goto('/')
-        const twitterTitle = await page.locator('meta[name="twitter:title"]').getAttribute('content')
+        const twitterTitle = await page
+          .locator('meta[name="twitter:title"]')
+          .getAttribute('content')
         expect(twitterTitle?.length).toBeLessThanOrEqual(70)
       })
 
@@ -783,7 +792,9 @@ test.describe('Twitter Card Metadata', () => {
           ],
         })
         await page.goto('/')
-        const imageAlt = await page.locator('meta[name="twitter:image:alt"]').getAttribute('content')
+        const imageAlt = await page
+          .locator('meta[name="twitter:image:alt"]')
+          .getAttribute('content')
         expect(imageAlt?.length).toBeLessThanOrEqual(420)
       })
 

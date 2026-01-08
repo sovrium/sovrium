@@ -527,7 +527,10 @@ test.describe('Navigation Configuration', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
               layout: {
-                navigation: { logo: './public/logo.svg', logoAlt: 'Acme Inc - Building the Future' },
+                navigation: {
+                  logo: './public/logo.svg',
+                  logoAlt: 'Acme Inc - Building the Future',
+                },
               },
               sections: [],
             },
@@ -555,7 +558,9 @@ test.describe('Navigation Configuration', () => {
                   links: { desktop: [{ label: 'Products', href: '/products' }] },
                 },
               },
-              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
+              sections: [
+                { type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] },
+              ],
             },
           ],
         })
@@ -582,7 +587,9 @@ test.describe('Navigation Configuration', () => {
                   links: { desktop: [{ label: 'Features', href: '/features' }] },
                 },
               },
-              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
+              sections: [
+                { type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] },
+              ],
             },
           ],
         })

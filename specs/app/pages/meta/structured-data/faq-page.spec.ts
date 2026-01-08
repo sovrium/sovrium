@@ -700,11 +700,31 @@ test.describe('FAQ Page Schema', () => {
                     '@context': 'https://schema.org',
                     '@type': 'FAQPage',
                     mainEntity: [
-                      { '@type': 'Question', name: 'Q1?', acceptedAnswer: { '@type': 'Answer', text: 'A1' } },
-                      { '@type': 'Question', name: 'Q2?', acceptedAnswer: { '@type': 'Answer', text: 'A2' } },
-                      { '@type': 'Question', name: 'Q3?', acceptedAnswer: { '@type': 'Answer', text: 'A3' } },
-                      { '@type': 'Question', name: 'Q4?', acceptedAnswer: { '@type': 'Answer', text: 'A4' } },
-                      { '@type': 'Question', name: 'Q5?', acceptedAnswer: { '@type': 'Answer', text: 'A5' } },
+                      {
+                        '@type': 'Question',
+                        name: 'Q1?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'A1' },
+                      },
+                      {
+                        '@type': 'Question',
+                        name: 'Q2?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'A2' },
+                      },
+                      {
+                        '@type': 'Question',
+                        name: 'Q3?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'A3' },
+                      },
+                      {
+                        '@type': 'Question',
+                        name: 'Q4?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'A4' },
+                      },
+                      {
+                        '@type': 'Question',
+                        name: 'Q5?',
+                        acceptedAnswer: { '@type': 'Answer', text: 'A5' },
+                      },
                     ],
                   },
                 },

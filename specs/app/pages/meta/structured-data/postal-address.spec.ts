@@ -531,7 +531,9 @@ test.describe('Postal Address', () => {
             ],
           })
           await page.goto('/')
-          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          const scriptContent = await page
+            .locator('script[type="application/ld+json"]')
+            .textContent()
           expect(scriptContent).toContain(locality)
         }
       })
@@ -563,7 +565,9 @@ test.describe('Postal Address', () => {
             ],
           })
           await page.goto('/')
-          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          const scriptContent = await page
+            .locator('script[type="application/ld+json"]')
+            .textContent()
           expect(scriptContent).toContain(region)
         }
       })
@@ -595,7 +599,9 @@ test.describe('Postal Address', () => {
             ],
           })
           await page.goto('/')
-          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          const scriptContent = await page
+            .locator('script[type="application/ld+json"]')
+            .textContent()
           expect(scriptContent).toContain(postalCode)
         }
       })
@@ -627,7 +633,9 @@ test.describe('Postal Address', () => {
             ],
           })
           await page.goto('/')
-          const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+          const scriptContent = await page
+            .locator('script[type="application/ld+json"]')
+            .textContent()
           expect(scriptContent).toContain(country)
         }
       })

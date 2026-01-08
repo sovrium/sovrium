@@ -203,9 +203,9 @@ test.describe('Barcode Field', () => {
           ],
         })
         await executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")
-        await expect(executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")).rejects.toThrow(
-          /duplicate key/
-        )
+        await expect(
+          executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")
+        ).rejects.toThrow(/duplicate key/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-BARCODE-005: Create index on barcode for fast lookups', async () => {
