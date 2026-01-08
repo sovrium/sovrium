@@ -302,23 +302,67 @@ test.describe('Updated By Field', () => {
     'APP-TABLES-FIELD-TYPES-UPDATED-BY-REGRESSION: user can complete full updated-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // Setup: Start server with comprehensive schema covering ALL test scenarios
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'updated_by', type: 'updated-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 4,
+            name: 'pages',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
+              { id: 4, name: 'updated_by', type: 'updated-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 5,
+            name: 'articles',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'long-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
       await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-001: Create PostgreSQL TEXT NOT NULL column with FOREIGN KEY and trigger', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'updated_by', type: 'updated-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='updated_by'"
         )
@@ -332,27 +376,14 @@ test.describe('Updated By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-002: Reflect the most recent editor user ID', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 2,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'updated_by', type: 'updated-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step2@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step2@example.com' })
         const charlie = await createAuthenticatedUser({
           name: 'Charlie',
-          email: 'charlie@example.com',
+          email: 'charlie-step2@example.com',
         })
         await executeQuery(
           `INSERT INTO documents (title, updated_by) VALUES ('Initial Doc', '${alice.user.id}')`
@@ -375,25 +406,11 @@ test.describe('Updated By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-003: Support efficient filtering by last editor', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 3,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-                { id: 4, name: 'updated_by', type: 'updated-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step3@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step3@example.com' })
         await executeQuery([
           `INSERT INTO tasks (title, status, updated_by) VALUES ('Task 1', 'open', '${alice.user.id}'), ('Task 2', 'open', '${bob.user.id}'), ('Task 3', 'open', '${alice.user.id}')`,
           `UPDATE tasks SET status = 'closed', updated_by = '${bob.user.id}' WHERE id = 1`,
@@ -417,25 +434,11 @@ test.describe('Updated By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-004: Support dual audit trail with created_by', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 4,
-              name: 'pages',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by' },
-                { id: 4, name: 'updated_by', type: 'updated-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step4@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step4@example.com' })
         await executeQuery(
           `INSERT INTO pages (title, created_by, updated_by) VALUES ('Page 1', '${alice.user.id}', '${alice.user.id}')`
         )
@@ -455,22 +458,6 @@ test.describe('Updated By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 5,
-              name: 'articles',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_updated_by'"
         )

@@ -488,51 +488,197 @@ test.describe('Count Field', () => {
     'APP-TABLES-FIELD-TYPES-COUNT-REGRESSION: user can complete full count-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // Setup: Create unified schema that supports ALL test steps
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'project_id',
+              },
+              {
+                id: 4,
+                name: 'task_count',
+                type: 'count',
+                relationshipField: 'tasks',
+              },
+              {
+                id: 5,
+                name: 'completed_task_count',
+                type: 'count',
+                relationshipField: 'tasks',
+                conditions: [{ field: 'status', operator: 'equals', value: 'completed' }],
+              },
+              {
+                id: 6,
+                name: 'pending_task_count',
+                type: 'count',
+                relationshipField: 'tasks',
+                conditions: [{ field: 'status', operator: 'equals', value: 'pending' }],
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'categories',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'products',
+                type: 'relationship',
+                relatedTable: 'products',
+                relationType: 'one-to-many',
+                foreignKey: 'category_id',
+              },
+              {
+                id: 4,
+                name: 'product_count',
+                type: 'count',
+                relationshipField: 'products',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'category_id',
+                type: 'relationship',
+                relatedTable: 'categories',
+                relationType: 'many-to-one',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 4,
+            name: 'authors',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'books',
+                type: 'relationship',
+                relatedTable: 'books',
+                relationType: 'one-to-many',
+                foreignKey: 'author_id',
+              },
+              {
+                id: 4,
+                name: 'book_count',
+                type: 'count',
+                relationshipField: 'books',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 5,
+            name: 'books',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'author_id',
+                type: 'relationship',
+                relatedTable: 'authors',
+                relationType: 'many-to-one',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 6,
+            name: 'team_members',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'created_tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'created_by',
+              },
+              {
+                id: 4,
+                name: 'assigned_tasks',
+                type: 'relationship',
+                relatedTable: 'tasks',
+                relationType: 'one-to-many',
+                foreignKey: 'assigned_to',
+              },
+              {
+                id: 5,
+                name: 'created_task_count',
+                type: 'count',
+                relationshipField: 'created_tasks',
+              },
+              {
+                id: 6,
+                name: 'assigned_task_count',
+                type: 'count',
+                relationshipField: 'assigned_tasks',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 7,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              {
+                id: 4,
+                name: 'project_id',
+                type: 'relationship',
+                relatedTable: 'projects',
+                relationType: 'many-to-one',
+              },
+              {
+                id: 5,
+                name: 'created_by',
+                type: 'relationship',
+                relatedTable: 'team_members',
+                relationType: 'many-to-one',
+              },
+              {
+                id: 6,
+                name: 'assigned_to',
+                type: 'relationship',
+                relatedTable: 'team_members',
+                relationType: 'many-to-one',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
       await test.step('APP-TABLES-FIELD-TYPES-COUNT-001: Count number of linked records', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'tasks',
-                  type: 'relationship',
-                  relatedTable: 'tasks',
-                  relationType: 'one-to-many',
-                  foreignKey: 'project_id',
-                },
-                {
-                  id: 4,
-                  name: 'task_count',
-                  type: 'count',
-                  relationshipField: 'tasks',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'project_id',
-                  type: 'relationship',
-                  relatedTable: 'projects',
-                  relationType: 'many-to-one',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         await executeQuery("INSERT INTO projects (name) VALUES ('Website Redesign')")
         await executeQuery(
           "INSERT INTO tasks (title, project_id) VALUES ('Design mockups', 1), ('Write code', 1), ('Test', 1)"
@@ -542,100 +688,12 @@ test.describe('Count Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-COUNT-002: Return zero when no records are linked', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'categories',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'products',
-                  type: 'relationship',
-                  relatedTable: 'products',
-                  relationType: 'one-to-many',
-                  foreignKey: 'category_id',
-                },
-                {
-                  id: 4,
-                  name: 'product_count',
-                  type: 'count',
-                  relationshipField: 'products',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'category_id',
-                  type: 'relationship',
-                  relatedTable: 'categories',
-                  relationType: 'many-to-one',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         await executeQuery("INSERT INTO categories (name) VALUES ('Empty Category')")
         const emptyCategory = await executeQuery('SELECT * FROM categories WHERE id = 1')
         expect(emptyCategory.product_count).toBe('0')
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-COUNT-003: Auto-update when linked records change', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'authors',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'books',
-                  type: 'relationship',
-                  relatedTable: 'books',
-                  relationType: 'one-to-many',
-                  foreignKey: 'author_id',
-                },
-                {
-                  id: 4,
-                  name: 'book_count',
-                  type: 'count',
-                  relationshipField: 'books',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'books',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'author_id',
-                  type: 'relationship',
-                  relatedTable: 'authors',
-                  relationType: 'many-to-one',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         await executeQuery("INSERT INTO authors (name) VALUES ('Jane Austen')")
         await executeQuery("INSERT INTO books (title, author_id) VALUES ('Pride and Prejudice', 1)")
         const initialCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
@@ -651,71 +709,6 @@ test.describe('Count Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-COUNT-004: Count records for multiple relationship fields', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'team_members',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'created_tasks',
-                  type: 'relationship',
-                  relatedTable: 'tasks',
-                  relationType: 'one-to-many',
-                  foreignKey: 'created_by',
-                },
-                {
-                  id: 4,
-                  name: 'assigned_tasks',
-                  type: 'relationship',
-                  relatedTable: 'tasks',
-                  relationType: 'one-to-many',
-                  foreignKey: 'assigned_to',
-                },
-                {
-                  id: 5,
-                  name: 'created_task_count',
-                  type: 'count',
-                  relationshipField: 'created_tasks',
-                },
-                {
-                  id: 6,
-                  name: 'assigned_task_count',
-                  type: 'count',
-                  relationshipField: 'assigned_tasks',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'created_by',
-                  type: 'relationship',
-                  relatedTable: 'team_members',
-                  relationType: 'many-to-one',
-                },
-                {
-                  id: 4,
-                  name: 'assigned_to',
-                  type: 'relationship',
-                  relatedTable: 'team_members',
-                  relationType: 'many-to-one',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         await executeQuery("INSERT INTO team_members (name) VALUES ('Alice'), ('Bob')")
         await executeQuery(
           "INSERT INTO tasks (title, created_by, assigned_to) VALUES ('Task 1', 1, 2), ('Task 2', 1, 1), ('Task 3', 2, 1)"
@@ -729,154 +722,18 @@ test.describe('Count Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-COUNT-005: Apply conditions to filter counted records', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'tasks',
-                  type: 'relationship',
-                  relatedTable: 'tasks',
-                  relationType: 'one-to-many',
-                  foreignKey: 'project_id',
-                },
-                {
-                  id: 4,
-                  name: 'completed_task_count',
-                  type: 'count',
-                  relationshipField: 'tasks',
-                  conditions: [{ field: 'status', operator: 'equals', value: 'completed' }],
-                },
-                {
-                  id: 5,
-                  name: 'pending_task_count',
-                  type: 'count',
-                  relationshipField: 'tasks',
-                  conditions: [{ field: 'status', operator: 'equals', value: 'pending' }],
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-                {
-                  id: 4,
-                  name: 'project_id',
-                  type: 'relationship',
-                  relatedTable: 'projects',
-                  relationType: 'many-to-one',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         await executeQuery("INSERT INTO projects (name) VALUES ('Website')")
         await executeQuery(`
           INSERT INTO tasks (title, status, project_id) VALUES
-          ('Design', 'completed', 1),
-          ('Code', 'completed', 1),
-          ('Test', 'pending', 1),
-          ('Deploy', 'pending', 1),
-          ('Review', 'pending', 1)
+          ('Design', 'completed', 2),
+          ('Code', 'completed', 2),
+          ('Test', 'pending', 2),
+          ('Deploy', 'pending', 2),
+          ('Review', 'pending', 2)
         `)
-        const projectCounts = await executeQuery('SELECT * FROM projects WHERE id = 1')
+        const projectCounts = await executeQuery('SELECT * FROM projects WHERE id = 2')
         expect(projectCounts.completed_task_count).toBe('2')
         expect(projectCounts.pending_task_count).toBe('3')
-      })
-
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-006: Reject count field when relationshipField does not exist', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app',
-            tables: [
-              {
-                id: 1,
-                name: 'projects',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'name', type: 'single-line-text' },
-                  {
-                    id: 3,
-                    name: 'task_count',
-                    type: 'count',
-                    relationshipField: 'tasks',
-                  },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-              {
-                id: 2,
-                name: 'tasks',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'title', type: 'single-line-text' },
-                  {
-                    id: 3,
-                    name: 'project_id',
-                    type: 'relationship',
-                    relatedTable: 'projects',
-                    relationType: 'many-to-one',
-                  },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/relationshipField.*tasks.*not found|invalid.*relationship/i)
-      })
-
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-007: Reject count field when relationshipField is not a relationship type', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app',
-            tables: [
-              {
-                id: 1,
-                name: 'projects',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'name', type: 'single-line-text' },
-                  { id: 3, name: 'description', type: 'long-text' },
-                  {
-                    id: 4,
-                    name: 'task_count',
-                    type: 'count',
-                    relationshipField: 'description',
-                  },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-              {
-                id: 2,
-                name: 'tasks',
-                fields: [
-                  { id: 1, name: 'id', type: 'integer', required: true },
-                  { id: 2, name: 'title', type: 'single-line-text' },
-                  {
-                    id: 3,
-                    name: 'project_id',
-                    type: 'relationship',
-                    relatedTable: 'projects',
-                    relationType: 'many-to-one',
-                  },
-                ],
-                primaryKey: { type: 'composite', fields: ['id'] },
-              },
-            ],
-          })
-        ).rejects.toThrow(/relationshipField.*must.*relationship|description.*not.*relationship/i)
       })
     }
   )

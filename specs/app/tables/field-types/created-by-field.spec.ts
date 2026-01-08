@@ -295,23 +295,65 @@ test.describe('Created By Field', () => {
     'APP-TABLES-FIELD-TYPES-CREATED-BY-REGRESSION: user can complete full created-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // Setup: Create unified schema with all tables at once
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'posts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'issues',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 4,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 5,
+            name: 'comments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
       await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-001: Create PostgreSQL TEXT NOT NULL column with FOREIGN KEY', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_by'"
         )
@@ -321,24 +363,11 @@ test.describe('Created By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-002: Store the creator user reference permanently', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 2,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step2@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        await createAuthenticatedUser({ name: 'Bob', email: 'bob-step2@example.com' })
         const firstInsert = await executeQuery(
           `INSERT INTO documents (title, created_by) VALUES ('First Doc', '${alice.user.id}') RETURNING created_by`
         )
@@ -358,24 +387,14 @@ test.describe('Created By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-003: Enforce immutability via application', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 3,
-              name: 'issues',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const john = await createAuthenticatedUser({
+          name: 'John',
+          email: 'john-step3@example.com',
         })
-        const john = await createAuthenticatedUser({ name: 'John', email: 'john@example.com' })
-        const jane = await createAuthenticatedUser({ name: 'Jane', email: 'jane@example.com' })
+        const jane = await createAuthenticatedUser({
+          name: 'Jane',
+          email: 'jane-step3@example.com',
+        })
         await executeQuery(
           `INSERT INTO issues (title, created_by) VALUES ('Bug #1', '${john.user.id}')`
         )
@@ -392,27 +411,14 @@ test.describe('Created By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-004: Support efficient filtering by creator', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 4,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step4@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step4@example.com' })
         const charlie = await createAuthenticatedUser({
           name: 'Charlie',
-          email: 'charlie@example.com',
+          email: 'charlie-step4@example.com',
         })
         await executeQuery(
           `INSERT INTO tasks (title, created_by) VALUES
@@ -442,22 +448,6 @@ test.describe('Created By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 5,
-              name: 'comments',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by', indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
         )

@@ -263,24 +263,70 @@ test.describe('Deleted By Field', () => {
     'APP-TABLES-FIELD-TYPES-DELETED-BY-REGRESSION: user can complete full deleted-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // Setup: Start server with comprehensive schema covering ALL test scenarios
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'posts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at' },
+              { id: 4, name: 'deleted_by', type: 'deleted-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at' },
+              { id: 4, name: 'deleted_by', type: 'deleted-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at' },
+              { id: 4, name: 'deleted_by', type: 'deleted-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 4,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at' },
+              { id: 4, name: 'deleted_by', type: 'deleted-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 5,
+            name: 'audit_records',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at' },
+              { id: 4, name: 'deleted_by', type: 'deleted-by', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
       await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-001: Create PostgreSQL TEXT NULL column with FOREIGN KEY', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at' },
-                { id: 4, name: 'deleted_by', type: 'deleted-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='deleted_by'"
         )
@@ -290,24 +336,10 @@ test.describe('Deleted By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-002: Store the deleting user reference when soft-deleted', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 2,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at' },
-                { id: 4, name: 'deleted_by', type: 'deleted-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step2@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
         await executeQuery("INSERT INTO documents (title) VALUES ('Important Doc')")
         const beforeDelete = await executeQuery(
           'SELECT deleted_at, deleted_by FROM documents WHERE id = 1'
@@ -325,24 +357,7 @@ test.describe('Deleted By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-003: Clear deleted_by when record is restored', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 3,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at' },
-                { id: 4, name: 'deleted_by', type: 'deleted-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step3@example.com' })
         await executeQuery("INSERT INTO tasks (title) VALUES ('Deleted Task')")
         await executeQuery(
           `UPDATE tasks SET deleted_at = NOW(), deleted_by = '${bob.user.id}' WHERE id = 1`
@@ -354,25 +369,11 @@ test.describe('Deleted By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-004: Support querying who deleted records via JOIN', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 4,
-              name: 'items',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at' },
-                { id: 4, name: 'deleted_by', type: 'deleted-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step4@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step4@example.com' })
         await executeQuery(`
           INSERT INTO items (name) VALUES ('Item 1'), ('Item 2'), ('Item 3')
         `)
@@ -400,23 +401,6 @@ test.describe('Deleted By Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 5,
-              name: 'audit_records',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at' },
-                { id: 4, name: 'deleted_by', type: 'deleted-by', indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_audit_records_deleted_by'"
         )

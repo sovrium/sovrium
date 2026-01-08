@@ -276,25 +276,57 @@ test.describe('User Field', () => {
     'APP-TABLES-FIELD-TYPES-USER-REGRESSION: user can complete full user-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // Setup: Start server with comprehensive schema covering ALL test scenarios (except junction table)
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'assigned_to', type: 'user', allowMultiple: false },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'issues',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'reporter', type: 'user' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'owner', type: 'user' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 4,
+            name: 'pull_requests',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'reviewer', type: 'user', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
       await test.step('APP-TABLES-FIELD-TYPES-USER-001: Create PostgreSQL TEXT column with FOREIGN KEY to Better Auth users', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'assigned_to', type: 'user', allowMultiple: false },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-        await createAuthenticatedUser({ name: 'Alice Johnson', email: 'alice@example.com' })
-        await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob@example.com' })
+        await createAuthenticatedUser({ name: 'Alice Johnson', email: 'alice-step1@example.com' })
+        await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob-step1@example.com' })
         const usersCount = await executeQuery('SELECT COUNT(*) as count FROM _sovrium_auth_users')
         expect(Number(usersCount.count)).toBeGreaterThanOrEqual(2)
         const columnInfo = await executeQuery(
@@ -313,23 +345,10 @@ test.describe('User Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-USER-002: Enforce valid user foreign key references', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 2,
-              name: 'issues',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'reporter', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
+        const user = await createAuthenticatedUser({
+          name: 'John Doe',
+          email: 'john-step2@example.com',
         })
-        const user = await createAuthenticatedUser({ name: 'John Doe', email: 'john@example.com' })
         const validInsert = await executeQuery(
           `INSERT INTO issues (title, reporter) VALUES ('Bug report', '${user.user.id}') RETURNING reporter`
         )
@@ -346,22 +365,14 @@ test.describe('User Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-USER-003: Support multiple user assignments via junction table', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 999,
-              name: 'placeholder',
-              fields: [{ id: 1, name: 'id', type: 'integer' }],
-            },
-          ],
+        const alice = await createAuthenticatedUser({
+          name: 'Alice',
+          email: 'alice-step3@example.com',
         })
-        const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step3@example.com' })
         const charlie = await createAuthenticatedUser({
           name: 'Charlie',
-          email: 'charlie@example.com',
+          email: 'charlie-step3@example.com',
         })
         await executeQuery([
           'CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -388,25 +399,9 @@ test.describe('User Field', () => {
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-USER-004: Return user profile data via JOIN', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 3,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'owner', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const sarah = await createAuthenticatedUser({
           name: 'Sarah Connor',
-          email: 'sarah@example.com',
+          email: 'sarah-step4@example.com',
         })
         await executeQuery([
           `INSERT INTO documents (title, owner) VALUES ('Project Plan', '${sarah.user.id}'), ('Budget Report', '${sarah.user.id}')`,
@@ -417,30 +412,14 @@ test.describe('User Field', () => {
         expect(ownerInfo.id).toBe(1)
         expect(ownerInfo.title).toBe('Project Plan')
         expect(ownerInfo.owner_name).toBe('Sarah Connor')
-        expect(ownerInfo.owner_email).toBe('sarah@example.com')
+        expect(ownerInfo.owner_email).toBe('sarah-step4@example.com')
         const documentsByUser = await executeQuery(
-          "SELECT COUNT(*) as count FROM documents d JOIN _sovrium_auth_users u ON d.owner = u.id WHERE u.email = 'sarah@example.com'"
+          "SELECT COUNT(*) as count FROM documents d JOIN _sovrium_auth_users u ON d.owner = u.id WHERE u.email = 'sarah-step4@example.com'"
         )
         expect(Number(documentsByUser.count)).toBe(2)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-USER-005: Create btree index for fast user filtering when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 4,
-              name: 'pull_requests',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'reviewer', type: 'user', indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pull_requests_reviewer'"
         )

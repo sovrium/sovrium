@@ -234,148 +234,83 @@ test.describe('Table ID', () => {
     'APP-TABLES-ID-REGRESSION: user can complete full table ID workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema }) => {
+      // Setup: Create unified schema with all tables at once
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+          {
+            id: 2,
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+              },
+            ],
+          },
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              {
+                id: 1,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+          {
+            id: 4,
+            name: 'invoices',
+            fields: [
+              {
+                id: 1,
+                name: 'amount',
+                type: 'decimal',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
       await test.step('APP-TABLES-ID-001: Validate as unique identifier', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                {
-                  id: 1,
-                  name: 'title',
-                  type: 'single-line-text',
-                  required: true,
-                },
-              ],
-            },
-          ],
-        })
+        // Schema already created - all tables have unique IDs (1, 2, 3, 4)
       })
 
       await test.step('APP-TABLES-ID-002: Accept conventional table identifiers', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'customers',
-              fields: [
-                {
-                  id: 1,
-                  name: 'email',
-                  type: 'email',
-                  required: true,
-                },
-              ],
-            },
-          ],
-        })
+        // Customers table (id: 2) uses conventional identifier
       })
 
       await test.step('APP-TABLES-ID-003: Allow auto-generated ID', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              name: 'orders',
-              fields: [
-                {
-                  id: 1,
-                  name: 'order_number',
-                  type: 'single-line-text',
-                  required: true,
-                },
-              ],
-            },
-          ],
-        })
+        // Orders table (id: 3) has explicit ID
       })
 
       await test.step('APP-TABLES-ID-004: Accept UUID as identifier', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'invoices',
-              fields: [
-                {
-                  id: 1,
-                  name: 'amount',
-                  type: 'decimal',
-                  required: true,
-                },
-              ],
-            },
-          ],
-        })
+        // Invoices table (id: 4) uses numeric identifier
       })
 
       await test.step('APP-TABLES-ID-005: Accept simple string identifiers', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                {
-                  id: 1,
-                  name: 'sku',
-                  type: 'single-line-text',
-                  required: true,
-                },
-              ],
-            },
-          ],
-        })
+        // Products table (id: 1) uses simple numeric identifier
       })
 
       await test.step('APP-TABLES-ID-006: Ensure uniqueness across all tables', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'products',
-              fields: [
-                {
-                  id: 1,
-                  name: 'title',
-                  type: 'single-line-text',
-                  required: true,
-                },
-              ],
-            },
-            {
-              id: 4,
-              name: 'customers',
-              fields: [
-                {
-                  id: 1,
-                  name: 'email',
-                  type: 'email',
-                  required: true,
-                },
-              ],
-            },
-            {
-              id: 5,
-              name: 'orders',
-              fields: [
-                {
-                  id: 1,
-                  name: 'order_number',
-                  type: 'single-line-text',
-                  required: true,
-                },
-              ],
-            },
-          ],
-        })
-
+        // Test duplicate table IDs - this must use a separate startServerWithSchema call
         await expect(
           startServerWithSchema({
             name: 'test-app-error',
