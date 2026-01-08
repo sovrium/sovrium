@@ -349,11 +349,199 @@ test.describe('Inline Scripts', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
+  // ============================================================================
+
   test(
-    'APP-PAGES-INLINE-011: user can complete full Inline Scripts workflow',
+    'APP-PAGES-INLINE-REGRESSION: user can complete full inline scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with inline scripts', async () => {
+      await test.step('APP-PAGES-INLINE-001: Inject inline JavaScript code', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { inlineScripts: [{ code: "console.log('Page loaded');" }] },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scripts = await page.locator('script:not([src])').all()
+        const scriptContents = await Promise.all(scripts.map((s) => s.innerHTML()))
+        const hasExpectedScript = scriptContents.some((content) =>
+          content.includes("console.log('Page loaded');")
+        )
+        expect(hasExpectedScript).toBeTruthy()
+      })
+
+      await test.step('APP-PAGES-INLINE-002: Insert code at end of body', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                inlineScripts: [{ code: "console.log('body-end');", position: 'body-end' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scripts = await page.locator('script:not([src])').all()
+        const scriptContents = await Promise.all(scripts.map((s) => s.innerHTML()))
+        const hasExpectedScript = scriptContents.some((content) =>
+          content.includes("console.log('body-end');")
+        )
+        expect(hasExpectedScript).toBeTruthy()
+      })
+
+      await test.step('APP-PAGES-INLINE-003: Insert code in document head', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { inlineScripts: [{ code: "console.log('head');", position: 'head' }] },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const headScripts = await page.locator('head script').all()
+        const headScriptContents = await Promise.all(headScripts.map((s) => s.innerHTML()))
+        const hasExpectedScript = headScriptContents.some((content) =>
+          content.includes("console.log('head');")
+        )
+        expect(hasExpectedScript).toBeTruthy()
+      })
+
+      await test.step('APP-PAGES-INLINE-004: Insert code at start of body', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                inlineScripts: [{ code: "console.log('body-start');", position: 'body-start' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const bodyScripts = await page.locator('body script').all()
+        const bodyScriptContents = await Promise.all(bodyScripts.map((s) => s.innerHTML()))
+        const hasExpectedScript = bodyScriptContents.some((content) =>
+          content.includes("console.log('body-start');")
+        )
+        expect(hasExpectedScript).toBeTruthy()
+      })
+
+      await test.step('APP-PAGES-INLINE-005: Wrap code in async IIFE', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { inlineScripts: [{ code: "await fetch('/api/data')", async: true }] },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scripts = await page.locator('script:not([src])').all()
+        const scriptContents = await Promise.all(scripts.map((s) => s.innerHTML()))
+        const asyncScript = scriptContents.find((content) => content.includes('await fetch'))
+        expect(asyncScript).toContain('(async () => {')
+      })
+
+      await test.step('APP-PAGES-INLINE-006: Inject global configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                inlineScripts: [{ code: "window.config = { apiUrl: 'https://api.example.com' };" }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const config = await page.evaluate(() => (window as any).config)
+        expect(config?.apiUrl).toBe('https://api.example.com')
+      })
+
+      await test.step('APP-PAGES-INLINE-007: Inject multiple inline scripts in order', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                inlineScripts: [
+                  { code: "console.log('first');" },
+                  { code: 'window.config = { ready: true };' },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scripts = await page.locator('script:not([src])').all()
+        const scriptContents = await Promise.all(scripts.map((s) => s.innerHTML()))
+        const hasFirstScript = scriptContents.some((content) =>
+          content.includes("console.log('first');")
+        )
+        expect(hasFirstScript).toBeTruthy()
+        const config = await page.evaluate(() => (window as any).config)
+        expect(config?.ready).toBe(true)
+      })
+
+      await test.step('APP-PAGES-INLINE-008: Inject code with default settings', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { inlineScripts: [{ code: "console.log('default');" }] },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scripts = await page.locator('script:not([src])').all()
+        const scriptContents = await Promise.all(scripts.map((s) => s.innerHTML()))
+        const hasExpectedScript = scriptContents.some((content) =>
+          content.includes("console.log('default');")
+        )
+        expect(hasExpectedScript).toBeTruthy()
+      })
+
+      await test.step('APP-PAGES-INLINE-009: Enable custom tracking code', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -364,15 +552,7 @@ test.describe('Inline Scripts', () => {
               scripts: {
                 inlineScripts: [
                   {
-                    code: "window.APP_CONFIG = { apiUrl: 'https://api.example.com', debug: false };",
-                    position: 'head',
-                  },
-                  {
-                    code: "document.addEventListener('DOMContentLoaded', () => { console.log('App ready'); });",
-                  },
-                  {
-                    code: "if (localStorage.getItem('theme') === 'dark') { document.documentElement.classList.add('dark'); }",
-                    position: 'head',
+                    code: 'window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);}',
                   },
                 ],
               },
@@ -380,13 +560,33 @@ test.describe('Inline Scripts', () => {
             },
           ],
         })
+        await page.goto('/')
+        const gtag = await page.evaluate(() => typeof (window as any).gtag)
+        expect(gtag).toBe('function')
       })
 
-      await test.step('Navigate and verify inline scripts execution', async () => {
+      await test.step('APP-PAGES-INLINE-010: Execute scripts in document order', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                inlineScripts: [
+                  { code: 'window.order = [];', position: 'head' },
+                  { code: "window.order.push('body-start');", position: 'body-start' },
+                  { code: "window.order.push('body-end');", position: 'body-end' },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
         await page.goto('/')
-        const config = await page.evaluate(() => (window as any).APP_CONFIG)
-        expect(config?.apiUrl).toBe('https://api.example.com')
-        expect(config?.debug).toBe(false)
+        const order = await page.evaluate(() => (window as any).order)
+        expect(order).toEqual(['body-start', 'body-end'])
       })
     }
   )

@@ -331,14 +331,119 @@ test.describe('Component Interactions', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // ONE OPTIMIZED test covering all 8 @spec scenarios via multi-server steps
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTION-MAIN-009: user can complete full interactions workflow',
+    'APP-PAGES-INTERACTION-MAIN-REGRESSION: user can complete full interactions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with interaction system', async () => {
+      await test.step('APP-PAGES-INTERACTION-MAIN-001: Support hover effects without other types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { transform: 'scale(1.05)', duration: '200ms' } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-002: Support click actions without other types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'pulse', navigate: '/contact' } },
+                  children: ['Click Me'],
+                },
+              ],
+            },
+            {
+              name: 'Contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(page).toHaveURL('/contact')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-003: Support scroll animations without other types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeInUp', threshold: 0.1 } },
+                  children: ['Scroll to see me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeInUp/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-004: Support entrance animations without other types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'fadeIn', delay: '100ms' } },
+                  children: ['Entrance Animation'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-005: Support both hover and click actions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -352,15 +457,101 @@ test.describe('Component Interactions', () => {
                   props: {},
                   interactions: {
                     hover: { transform: 'scale(1.05)' },
-                    click: { navigate: '/about' },
+                    click: { animation: 'pulse' },
                   },
-                  children: ['Navigate'],
+                  children: ['Interactive Button'],
                 },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
+        await button.click()
+        await expect(button).toHaveClass(/animate-pulse/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-006: Play entrance and scroll animations', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
                 {
                   type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: {
+                    entrance: { animation: 'fadeIn' },
+                    scroll: { animation: 'fadeInUp' },
+                  },
+                  children: ['Dual Animation'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeInUp/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-007: All interactions work independently', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
                   props: {},
-                  interactions: { entrance: { animation: 'fadeIn' } },
-                  children: ['Entrance'],
+                  interactions: {
+                    entrance: { animation: 'fadeIn' },
+                    hover: { transform: 'scale(1.05)' },
+                    click: { animation: 'pulse' },
+                    scroll: { animation: 'fadeInUp' },
+                  },
+                  children: ['All Interactions'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await expect(button).toHaveClass(/animate-fadeIn/)
+        await button.hover()
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
+        await button.click()
+        await expect(button).toHaveClass(/animate-pulse/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-MAIN-008: Hover applies immediately, click navigates after', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: {
+                    hover: { transform: 'scale(1.05)', duration: '200ms' },
+                    click: { animation: 'pulse', navigate: '/about' },
+                  },
+                  children: ['Navigate'],
                 },
               ],
             },
@@ -372,17 +563,9 @@ test.describe('Component Interactions', () => {
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify entrance animation', async () => {
         await page.goto('/')
-        await expect(page.locator('div')).toHaveClass(/animate-fadeIn/)
-      })
-
-      await test.step('Verify hover and click interactions', async () => {
         const button = page.locator('button')
         await button.hover()
-        // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
         await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
         await button.click()
         await expect(page).toHaveURL('/about')

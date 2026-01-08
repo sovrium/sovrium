@@ -345,14 +345,14 @@ test.describe('Entrance Animation', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // ONE OPTIMIZED test covering all 8 @spec scenarios via multi-server steps
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTION-ENTRANCE-009: user can complete full entrance animation workflow',
+    'APP-PAGES-INTERACTION-ENTRANCE-REGRESSION: user can complete full entrance animation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with entrance animations', async () => {
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-001: Fade in smoothly', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -364,9 +364,167 @@ test.describe('Entrance Animation', () => {
                 {
                   type: 'div',
                   props: {},
-                  interactions: { entrance: { animation: 'fadeIn', duration: '600ms' } },
-                  children: ['Hero'],
+                  interactions: { entrance: { animation: 'fadeIn' } },
+                  children: ['Fade In'],
                 },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-002: Fade in while moving up', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'fadeInUp' } },
+                  children: ['Fade In Up'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveClass(/animate-fadeInUp/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-003: Zoom in from small to normal', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'zoomIn' } },
+                  children: ['Zoom In'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveClass(/animate-zoomIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-004: Wait 500ms before animating', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'fadeIn', delay: '500ms' } },
+                  children: ['Delayed'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveCSS('animation-delay', '0.5s')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-005: Complete animation in 1 second', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'fadeIn', duration: '1000ms' } },
+                  children: ['Long Duration'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveCSS('animation-duration', '1s')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-006: Stagger 100ms per sibling', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  children: [
+                    {
+                      type: 'div',
+                      props: {},
+                      interactions: { entrance: { animation: 'fadeIn', stagger: '100ms' } },
+                      children: ['Item 1'],
+                    },
+                    {
+                      type: 'div',
+                      props: {},
+                      interactions: { entrance: { animation: 'fadeIn', stagger: '100ms' } },
+                      children: ['Item 2'],
+                    },
+                    {
+                      type: 'div',
+                      props: {},
+                      interactions: { entrance: { animation: 'fadeIn', stagger: '100ms' } },
+                      children: ['Item 3'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const items = page.locator('div > div')
+        await expect(items.nth(0)).toHaveCSS('animation-delay', '0s')
+        await expect(items.nth(1)).toHaveCSS('animation-delay', '0.1s')
+        await expect(items.nth(2)).toHaveCSS('animation-delay', '0.2s')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-007: Wait 200ms base plus 50ms per index', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
                 {
                   type: 'div',
                   props: {},
@@ -375,25 +533,17 @@ test.describe('Entrance Animation', () => {
                       type: 'div',
                       props: {},
                       interactions: {
-                        entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                        entrance: { animation: 'fadeIn', delay: '200ms', stagger: '50ms' },
                       },
-                      children: ['Feature 1'],
+                      children: ['Item 1'],
                     },
                     {
                       type: 'div',
                       props: {},
                       interactions: {
-                        entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                        entrance: { animation: 'fadeIn', delay: '200ms', stagger: '50ms' },
                       },
-                      children: ['Feature 2'],
-                    },
-                    {
-                      type: 'div',
-                      props: {},
-                      interactions: {
-                        entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
-                      },
-                      children: ['Feature 3'],
+                      children: ['Item 2'],
                     },
                   ],
                 },
@@ -401,22 +551,38 @@ test.describe('Entrance Animation', () => {
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify hero animation', async () => {
         await page.goto('/')
-        const hero = page.locator('div').filter({ hasText: 'Hero' }).first()
-        await expect(hero).toHaveClass(/animate-fadeIn/)
+        const items = page.locator('div > div')
+        await expect(items.nth(0)).toHaveCSS('animation-delay', '0.2s')
+        await expect(items.nth(1)).toHaveCSS('animation-delay', '0.25s')
       })
 
-      await test.step('Verify staggered list animations', async () => {
-        const featuresContainer = page
-          .locator('div')
-          .filter({ hasText: 'Feature 1Feature 2Feature 3' })
-        const features = featuresContainer.locator('> div')
-        // Note: Browsers may normalize 100ms to 0.1s and 200ms to 0.2s, both are equivalent
-        await expect(features.nth(0)).toHaveCSS('animation-delay', '0.1s')
-        await expect(features.nth(1)).toHaveCSS('animation-delay', '0.2s')
+      await test.step('APP-PAGES-INTERACTION-ENTRANCE-008: Wait delay then animate for duration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: {
+                    entrance: { animation: 'fadeInUp', delay: '300ms', duration: '800ms' },
+                  },
+                  children: ['Complete Config'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await expect(element).toHaveClass(/animate-fadeInUp/)
+        await expect(element).toHaveCSS('animation-delay', '0.3s')
+        await expect(element).toHaveCSS('animation-duration', '0.8s')
       })
     }
   )

@@ -383,14 +383,143 @@ test.describe('Hover Interaction', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTION-HOVER-011: user can complete full hover interaction workflow',
+    'APP-PAGES-INTERACTION-HOVER-REGRESSION: user can complete full hover interaction workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with hover interactions', async () => {
+      await test.step('APP-PAGES-INTERACTION-HOVER-001: Scale up by 5%', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { transform: 'scale(1.05)' } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05,.*\)/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-002: Fade to 80% opacity', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { opacity: 0.8 } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('opacity', '0.8')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-003: Change background and text colors', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { backgroundColor: '#007bff', color: '#ffffff' } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('background-color', 'rgb(0, 123, 255)')
+        await expect(button).toHaveCSS('color', 'rgb(255, 255, 255)')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-004: Apply box shadow effect', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { shadow: '0 10px 25px rgba(0,0,0,0.1)' } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('box-shadow', /rgba/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-005: Use specified duration and easing', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: {
+                    hover: { transform: 'scale(1.1)', duration: '500ms', easing: 'ease-in-out' },
+                  },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('transition-duration', /0\.5s|500ms/)
+        await expect(button).toHaveCSS('transition-timing-function', /ease-in-out/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-006: All effects apply simultaneously', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -406,39 +535,122 @@ test.describe('Hover Interaction', () => {
                     hover: {
                       transform: 'scale(1.05)',
                       shadow: '0 10px 25px rgba(0,0,0,0.15)',
-                      duration: '200ms',
-                      easing: 'ease-out',
+                      duration: '300ms',
                     },
                   },
-                  children: ['Button 1'],
-                },
-                {
-                  type: 'button',
-                  props: {},
-                  interactions: {
-                    hover: { backgroundColor: '#007bff', color: '#ffffff', duration: '300ms' },
-                  },
-                  children: ['Button 2'],
+                  children: ['Hover Me'],
                 },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify transform hover', async () => {
         await page.goto('/')
-        const button1 = page.locator('button').filter({ hasText: 'Button 1' })
-        await button1.hover()
-        // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
-        await expect(button1).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
-        await expect(button1).toHaveCSS('box-shadow', /rgba/)
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05,.*\)/)
+        await expect(button).toHaveCSS('box-shadow', /rgba/)
+        await expect(button).toHaveCSS('transition-duration', /300ms|0\.3s/)
       })
 
-      await test.step('Verify color change hover', async () => {
-        const button2 = page.locator('button').filter({ hasText: 'Button 2' })
-        await button2.hover()
-        await expect(button2).toHaveCSS('background-color', 'rgb(0, 123, 255)')
+      await test.step('APP-PAGES-INTERACTION-HOVER-007: Change border color smoothly', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: { style: 'border: 2px solid #ccc' },
+                  interactions: { hover: { borderColor: '#007bff' } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('border-color', 'rgb(0, 123, 255)')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-008: Apply effects instantly with 0ms duration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { transform: 'scale(1.1)', duration: '0ms' } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('transition-duration', '0s')
+        await expect(button).toHaveCSS('transform', /matrix\(1\.1,.*\)/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-009: Display at full opacity', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: { style: 'opacity: 0.5' },
+                  interactions: { hover: { opacity: 1.0 } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('opacity', '1')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-HOVER-010: Become completely transparent', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { hover: { opacity: 0.0 } },
+                  children: ['Hover Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.hover()
+        await expect(button).toHaveCSS('opacity', '0')
       })
     }
   )

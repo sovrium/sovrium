@@ -427,7 +427,12 @@ test.describe('Resource Preloading', () => {
                 title: 'Test',
                 description: 'Test',
                 preload: [
-                  { href: './fonts/MyFont.woff2', as: 'font', type: 'font/woff2', crossorigin: true },
+                  {
+                    href: './fonts/MyFont.woff2',
+                    as: 'font',
+                    type: 'font/woff2',
+                    crossorigin: true,
+                  },
                 ],
               },
               sections: [],

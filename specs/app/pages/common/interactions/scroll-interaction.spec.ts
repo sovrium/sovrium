@@ -465,14 +465,14 @@ test.describe('Scroll Interaction', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // ONE OPTIMIZED test covering all 12 @spec scenarios via multi-server steps
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTION-SCROLL-013: user can complete full scroll interaction workflow',
+    'APP-PAGES-INTERACTION-SCROLL-REGRESSION: user can complete full scroll interaction workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with scroll interactions', async () => {
+      await test.step('APP-PAGES-INTERACTION-SCROLL-001: Fade in while moving up', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -483,43 +483,309 @@ test.describe('Scroll Interaction', () => {
               sections: [
                 {
                   type: 'div',
-                  props: { style: 'margin-top: 1000px' },
-                  interactions: { scroll: { animation: 'fadeIn', threshold: 0.1, once: true } },
-                  children: ['Section 1'],
-                },
-                {
-                  type: 'div',
-                  props: { style: 'margin-top: 1000px' },
-                  interactions: {
-                    scroll: { animation: 'fadeInUp', delay: '200ms', duration: '600ms' },
-                  },
-                  children: ['Section 2'],
-                },
-                {
-                  type: 'div',
-                  props: { style: 'margin-top: 1000px' },
-                  interactions: { scroll: { animation: 'zoomIn', threshold: 0.5 } },
-                  children: ['Section 3'],
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeInUp' } },
+                  children: ['Scroll to see'],
                 },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify first animation', async () => {
         await page.goto('/')
-        const section1 = page.locator('div').filter({ hasText: 'Section 1' })
-        await section1.scrollIntoViewIfNeeded()
-        await expect(section1).toHaveClass(/animate-fadeIn/)
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeInUp/)
       })
 
-      await test.step('Verify delayed scroll animation', async () => {
-        const section2 = page.locator('div').filter({ hasText: 'Section 2' })
-        await section2.scrollIntoViewIfNeeded()
-        await expect(section2).toHaveClass(/animate-fadeInUp/)
-        // Note: Browsers may normalize 200ms to 0.2s, both are equivalent
-        await expect(section2).toHaveCSS('animation-delay', '0.2s')
+      await test.step('APP-PAGES-INTERACTION-SCROLL-002: Fade in smoothly', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeIn' } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-003: Zoom in from small', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'zoomIn' } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-zoomIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-004: Fade in from left', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeInLeft' } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeInLeft/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-005: Trigger at 10% threshold', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px; height: 1000px' },
+                  interactions: { scroll: { animation: 'fadeIn', threshold: 0.1 } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-006: Trigger at 50% threshold', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px; height: 1000px' },
+                  interactions: { scroll: { animation: 'fadeIn', threshold: 0.5 } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded({ timeout: 5000 })
+        await expect(element).toHaveClass(/animate-fadeIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-007: Trigger at 100% threshold', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px; height: 300px' },
+                  interactions: { scroll: { animation: 'fadeIn', threshold: 1.0 } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded({ timeout: 5000 })
+        await expect(element).toHaveClass(/animate-fadeIn/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-008: Wait 200ms before animating', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeIn', delay: '200ms' } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveCSS('animation-delay', '0.2s')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-009: Complete animation in 1 second', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeIn', duration: '1000ms' } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveCSS('animation-duration', '1s')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-010: Animate only on first entry', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeIn', once: true } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+        await page.evaluate(() => window.scrollTo(0, 0))
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveAttribute('data-scroll-once', 'true')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-011: Animate every time', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: { scroll: { animation: 'fadeIn', once: false } },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeIn/)
+        await page.evaluate(() => window.scrollTo(0, 0))
+        await page.waitForTimeout(500)
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).not.toHaveAttribute('data-scroll-once')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-SCROLL-012: Apply all settings in sequence', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 2000px' },
+                  interactions: {
+                    scroll: {
+                      animation: 'fadeInUp',
+                      threshold: 0.2,
+                      delay: '300ms',
+                      duration: '800ms',
+                    },
+                  },
+                  children: ['Scroll to see'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const element = page.locator('div').first()
+        await element.scrollIntoViewIfNeeded()
+        await expect(element).toHaveClass(/animate-fadeInUp/)
+        await expect(element).toHaveCSS('animation-delay', '0.3s')
+        await expect(element).toHaveCSS('animation-duration', '0.8s')
       })
     }
   )

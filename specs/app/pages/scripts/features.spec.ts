@@ -322,11 +322,183 @@ test.describe('Feature Flags', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
+  // ============================================================================
+
   test(
-    'APP-PAGES-FEATURES-011: user can complete full Feature Flags workflow',
+    'APP-PAGES-FEATURES-REGRESSION: user can complete full feature flags workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with feature flags', async () => {
+      await test.step('APP-PAGES-FEATURES-001: Enable simple feature flag', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { darkMode: true } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const features = await page.evaluate(() => (window as any).FEATURES)
+        expect(features?.darkMode).toBe(true)
+      })
+
+      await test.step('APP-PAGES-FEATURES-002: Disable feature', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { cookieConsent: false } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const features = await page.evaluate(() => (window as any).FEATURES)
+        expect(features?.cookieConsent).toBe(false)
+      })
+
+      await test.step('APP-PAGES-FEATURES-003: Provide feature with configuration data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: {
+                  animations: { enabled: true },
+                },
+              },
+              sections: [{ type: 'heading', content: 'Test Page' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Test Page')
+        const html = page.locator('html')
+        await expect(html).toHaveAttribute('data-features')
+      })
+
+      await test.step('APP-PAGES-FEATURES-004: Toggle feature via enabled boolean', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { liveChat: { enabled: true } } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const features = await page.evaluate(() => (window as any).FEATURES)
+        expect(features?.liveChat?.enabled).toBe(true)
+      })
+
+      await test.step('APP-PAGES-FEATURES-005: Pass configuration to feature implementation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: {
+                  liveChat: { enabled: true },
+                },
+              },
+              sections: [{ type: 'heading', content: 'Live Chat Page' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Live Chat Page')
+        const html = page.locator('html')
+        await expect(html).toHaveAttribute('data-features')
+      })
+
+      await test.step('APP-PAGES-FEATURES-006: Validate camelCase naming convention', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { darkMode: true, liveChat: true, cookieConsent: false } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const features = await page.evaluate(() => (window as any).FEATURES)
+        expect(features).toHaveProperty('darkMode')
+        expect(features).toHaveProperty('liveChat')
+        expect(features).toHaveProperty('cookieConsent')
+      })
+
+      await test.step('APP-PAGES-FEATURES-007: Support both simple and complex feature definitions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: {
+                  darkMode: true,
+                  animations: { enabled: true },
+                },
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const features = await page.evaluate(() => (window as any).FEATURES)
+        expect(typeof features?.darkMode).toBe('boolean')
+        expect(typeof features?.animations).toBe('object')
+      })
+
+      await test.step('APP-PAGES-FEATURES-008: Support flexible feature configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: {
+                  analytics: { enabled: true },
+                },
+              },
+              sections: [{ type: 'heading', content: 'Analytics Page' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Analytics Page')
+        const html = page.locator('html')
+        await expect(html).toHaveAttribute('data-features')
+      })
+
+      await test.step('APP-PAGES-FEATURES-009: Enable/disable UI features dynamically', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -340,22 +512,36 @@ test.describe('Feature Flags', () => {
                   animations: { enabled: true },
                   cookieConsent: false,
                   liveChat: { enabled: true },
-                  analytics: { enabled: true },
                 },
               },
-              sections: [{ type: 'heading', content: 'Feature Flags Test' }],
+              sections: [],
             },
           ],
         })
+        await page.goto('/')
+        const features = await page.evaluate(() => (window as any).FEATURES)
+        expect(features?.darkMode).toBe(true)
+        expect(features?.animations?.enabled).toBe(true)
+        expect(features?.cookieConsent).toBe(false)
+        expect(features?.liveChat?.enabled).toBe(true)
       })
 
-      await test.step('Navigate and verify feature flags', async () => {
+      await test.step('APP-PAGES-FEATURES-010: Provide runtime feature detection', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { darkMode: true, analytics: true } },
+              sections: [],
+            },
+          ],
+        })
         await page.goto('/')
-
-        await expect(page.locator('h1')).toHaveText('Feature Flags Test')
-
-        const html = page.locator('html')
-        await expect(html).toHaveAttribute('data-features')
+        const hasFeatures = await page.evaluate(() => typeof (window as any).FEATURES === 'object')
+        expect(hasFeatures).toBe(true)
       })
     }
   )

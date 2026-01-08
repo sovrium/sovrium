@@ -325,11 +325,16 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
+  // ============================================================================
+
   test(
-    'APP-PAGES-SCRIPTS-011: user can complete full Client Scripts workflow',
+    'APP-PAGES-SCRIPTS-REGRESSION: user can complete full client scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with scripts configuration', async () => {
+      await test.step('APP-PAGES-SCRIPTS-001: Orchestrate client-side script management', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -338,35 +343,207 @@ test.describe('Client Scripts Configuration', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test' },
               scripts: {
-                features: { darkMode: true, animations: true },
-                externalScripts: [
-                  {
-                    src: 'https://cdn.example.com/lib.js',
-                    async: true,
-                    defer: true,
-                  },
-                ],
+                features: { darkMode: true },
+                externalScripts: [{ src: 'https://cdn.example.com/lib.js', async: true }],
                 inlineScripts: [{ code: 'console.log("ready")' }],
               },
-              sections: [{ type: 'heading', content: 'Scripts Test' }],
+              sections: [],
             },
           ],
         })
-      })
-
-      await test.step('Navigate and verify scripts', async () => {
         await page.goto('/')
-
-        await expect(page.locator('h1')).toHaveText('Scripts Test')
-
         await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
-
         const scriptContent = await page.evaluate(() => {
           const scripts = Array.from(document.querySelectorAll('script'))
-          const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log'))
+          const inlineScript = scripts.find(
+            (s) => !s.src && s.innerHTML.includes('console.log("ready")')
+          )
           return inlineScript?.innerHTML
         })
-        expect(scriptContent).toContain('console.log')
+        expect(scriptContent).toContain('console.log("ready")')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-002: Enable client-side feature toggles', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { darkMode: true, animations: true, analytics: false } },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const html = page.locator('html')
+        await expect(html).toHaveAttribute('data-features')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-003: Include external JavaScript dependencies', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                externalScripts: [
+                  { src: 'https://cdn.example.com/script.js', async: true, defer: false },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[src="https://cdn.example.com/script.js"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-004: Inject inline JavaScript code', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { inlineScripts: [{ code: 'console.log("Hello")' }] },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptContent = await page.evaluate(() => {
+          const scripts = Array.from(document.querySelectorAll('script'))
+          const inlineScript = scripts.find(
+            (s) => !s.src && s.innerHTML.includes('console.log("Hello")')
+          )
+          return inlineScript?.innerHTML
+        })
+        expect(scriptContent).toContain('console.log("Hello")')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-005: Provide client-side configuration data', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {},
+              sections: [{ type: 'heading', content: 'Config Test' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Config Test')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-006: Allow pages without client-side scripts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {},
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const scriptTags = await page.locator('script[src]').count()
+        expect(scriptTags).toBe(0)
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-007: Support flexible client configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {},
+              sections: [{ type: 'heading', content: 'Flexible Config Test' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Flexible Config Test')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-008: Enable feature-driven configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { features: { analytics: true } },
+              sections: [{ type: 'heading', content: 'Feature Config Test' }],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Feature Config Test')
+        const html = page.locator('html')
+        await expect(html).toHaveAttribute('data-features')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-009: Support per-page script customization', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              scripts: { features: { analytics: true } },
+              sections: [],
+            },
+            {
+              name: 'Blog',
+              path: '/blog',
+              meta: { lang: 'en-US', title: 'Blog', description: 'Blog' },
+              scripts: {},
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const homeHtml = page.locator('html')
+        await expect(homeHtml).toHaveAttribute('data-features')
+        await page.goto('/blog')
+        const blogHtml = page.locator('html')
+        await expect(blogHtml).toHaveAttribute('data-features')
+      })
+
+      await test.step('APP-PAGES-SCRIPTS-010: Compose scripts from modular schemas', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: { darkMode: true },
+                externalScripts: [{ src: 'https://cdn.example.com/lib.js' }],
+                inlineScripts: [{ code: 'console.log("ready")' }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
       })
     }
   )

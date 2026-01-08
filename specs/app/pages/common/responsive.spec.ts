@@ -684,7 +684,9 @@ test.describe('Responsive Variants', () => {
         const visibleMobileButtons = await page.locator('button').evaluateAll((buttons) =>
           buttons.filter((btn) => {
             const style = window.getComputedStyle(btn)
-            return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+            return (
+              style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+            )
           })
         )
         expect(visibleMobileButtons.length).toBe(1)
@@ -692,7 +694,9 @@ test.describe('Responsive Variants', () => {
         const visibleDesktopButtons = await page.locator('button').evaluateAll((buttons) =>
           buttons.filter((btn) => {
             const style = window.getComputedStyle(btn)
-            return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+            return (
+              style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+            )
           })
         )
         expect(visibleDesktopButtons.length).toBe(2)

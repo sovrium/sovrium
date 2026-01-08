@@ -480,14 +480,64 @@ test.describe('Click Interaction', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // ONE OPTIMIZED test covering all 12 @spec scenarios via multi-server steps
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTION-CLICK-013: user can complete full click interaction workflow',
+    'APP-PAGES-INTERACTION-CLICK-REGRESSION: user can complete full click interaction workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with click interactions', async () => {
+    async ({ page, startServerWithSchema, context }) => {
+      await test.step('APP-PAGES-INTERACTION-CLICK-001: Play pulse animation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'pulse' } },
+                  children: ['Click Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(button).toHaveClass(/animate-pulse/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-002: Play ripple animation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'ripple' } },
+                  children: ['Click Me'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(button).toHaveClass(/animate-ripple/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-003: Navigate to contact page', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -499,19 +549,8 @@ test.describe('Click Interaction', () => {
                 {
                   type: 'button',
                   props: {},
-                  interactions: { click: { animation: 'pulse', navigate: '/contact' } },
-                  children: ['Contact'],
-                },
-                {
-                  type: 'button',
-                  props: {},
-                  interactions: { click: { scrollTo: '#footer' } },
-                  children: ['Scroll Down'],
-                },
-                {
-                  type: 'section',
-                  props: { id: 'footer', style: 'margin-top: 2000px' },
-                  children: ['Footer Content'],
+                  interactions: { click: { navigate: '/contact' } },
+                  children: ['Contact Us'],
                 },
               ],
             },
@@ -523,20 +562,274 @@ test.describe('Click Interaction', () => {
             },
           ],
         })
-      })
-
-      await test.step('Navigate to page and verify scroll interaction', async () => {
         await page.goto('/')
-        const scrollButton = page.locator('button').filter({ hasText: 'Scroll Down' })
-        await scrollButton.click()
-        await expect(page.locator('#footer')).toBeInViewport()
+        const button = page.locator('button')
+        await button.click()
+        await expect(page).toHaveURL('/contact')
       })
 
-      await test.step('Verify animation and navigation interaction', async () => {
-        const navButton = page.locator('button').filter({ hasText: 'Contact' })
-        await navButton.click()
-        await expect(navButton).toHaveClass(/animate-pulse/)
-        await expect(page).toHaveURL('/contact')
+      await test.step('APP-PAGES-INTERACTION-CLICK-004: Navigate to anchor', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { navigate: '#pricing-section' } },
+                  children: ['See Pricing'],
+                },
+                {
+                  type: 'section',
+                  props: { id: 'pricing-section' },
+                  children: ['Pricing Content'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(page).toHaveURL('/#pricing-section')
+        await expect(page.locator('#pricing-section')).toBeInViewport()
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-005: Open URL in same tab', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { openUrl: 'https://example.com' } },
+                  children: ['Visit Example'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        const navigationPromise = page.waitForURL('https://example.com')
+        await button.click()
+        await navigationPromise
+        await expect(page).toHaveURL('https://example.com')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-006: Open URL in new tab', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { openUrl: 'https://example.com', openInNewTab: true } },
+                  children: ['Visit Example'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        const newPagePromise = context.waitForEvent('page')
+        await button.click()
+        const newPage = await newPagePromise
+        await expect(newPage).toHaveURL('https://example.com')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-007: Scroll to hero section', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { scrollTo: '#hero-section' } },
+                  children: ['Scroll to Hero'],
+                },
+                {
+                  type: 'section',
+                  props: { id: 'hero-section', style: 'margin-top: 2000px' },
+                  children: ['Hero Content'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(page.locator('#hero-section')).toBeInViewport()
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-008: Toggle mobile menu', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { toggleElement: '#mobile-menu' } },
+                  children: ['Toggle Menu'],
+                },
+                {
+                  type: 'nav',
+                  props: { id: 'mobile-menu', style: 'display: none' },
+                  children: ['Menu Items'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        const menu = page.locator('#mobile-menu')
+        await expect(menu).toBeHidden()
+        await button.click()
+        await expect(menu).toBeVisible()
+        await button.click()
+        await expect(menu).toBeHidden()
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-009: Submit contact form', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'form',
+                  props: { id: 'contact-form', action: '/submit' },
+                  children: [
+                    { type: 'input', props: { name: 'email' } },
+                    {
+                      type: 'button',
+                      props: {},
+                      interactions: { click: { submitForm: '#contact-form' } },
+                      children: ['Submit'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        const submitPromise = page.waitForRequest((request) => request.url().includes('/submit'))
+        await button.click()
+        await submitPromise
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-010: Play pulse then navigate', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'pulse', navigate: '/signup' } },
+                  children: ['Sign Up'],
+                },
+              ],
+            },
+            {
+              name: 'Signup',
+              path: '/signup',
+              meta: { lang: 'en-US', title: 'Signup' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(button).toHaveClass(/animate-pulse/)
+        await expect(page).toHaveURL('/signup')
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-011: Play bounce animation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'bounce' } },
+                  children: ['Bounce'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(button).toHaveClass(/animate-bounce/)
+      })
+
+      await test.step('APP-PAGES-INTERACTION-CLICK-012: No animation with none', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'none' } },
+                  children: ['No Animation'],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        const button = page.locator('button')
+        await button.click()
+        await expect(button).not.toHaveClass(/animate-/)
       })
     }
   )
