@@ -457,59 +457,64 @@ test.describe('Timezone Handling', () => {
     'APP-TABLES-TIMEZONE-REGRESSION: user can complete full timezone-handling workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create tables with timezone-aware and zoneless timestamps', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'events',
-              fields: [
-                { id: 1, name: 'title', type: 'single-line-text' },
-                { id: 2, name: 'created_at', type: 'created-at' }, // Zoneless
-                { id: 3, name: 'scheduled_at', type: 'datetime', timezone: 'UTC' }, // Timezone-aware
-              ],
-            },
-          ],
-        })
+      // Setup: Create tables with timezone-aware and zoneless timestamps
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'created_at', type: 'created-at' }, // Zoneless
+              { id: 3, name: 'scheduled_at', type: 'datetime', timezone: 'UTC' }, // Timezone-aware
+            ],
+          },
+        ],
       })
 
-      await test.step('Verify TIMESTAMP vs TIMESTAMPTZ column types', async () => {
+      await test.step('APP-TABLES-TIMEZONE-001: Stores created-at as TIMESTAMP WITHOUT TIME ZONE', async () => {
+        // WHEN: Querying column types
         const columns = await executeQuery(
           `SELECT column_name, data_type FROM information_schema.columns
            WHERE table_name = 'events' AND column_name IN ('created_at', 'scheduled_at')
            ORDER BY column_name`
         )
+        // THEN: created_at is TIMESTAMP WITHOUT TIME ZONE
         expect(columns.rows[0]).toMatchObject({
           column_name: 'created_at',
           data_type: 'timestamp without time zone',
         })
-        expect(columns.rows[1]).toMatchObject({
+      })
+
+      await test.step('APP-TABLES-TIMEZONE-002: Uses TIMESTAMP WITH TIME ZONE for timezone-aware fields', async () => {
+        // WHEN: Querying column type for scheduled_at
+        const columns = await executeQuery(
+          `SELECT column_name, data_type FROM information_schema.columns
+           WHERE table_name = 'events' AND column_name = 'scheduled_at'`
+        )
+        // THEN: scheduled_at is TIMESTAMP WITH TIME ZONE
+        expect(columns.rows[0]).toMatchObject({
           column_name: 'scheduled_at',
           data_type: 'timestamp with time zone',
         })
       })
 
-      await test.step('Verify timezone conversion behavior', async () => {
+      await test.step('APP-TABLES-TIMEZONE-003: Preserves UTC offset when inserting TIMESTAMPTZ values', async () => {
+        // WHEN: Inserting timestamp with EST offset
         await executeQuery(
           `INSERT INTO events (title, created_at, scheduled_at)
            VALUES ('Test', '2024-01-15 10:00:00', '2024-01-15 10:00:00-05:00')`
         )
 
+        // THEN: PostgreSQL normalizes to UTC (10:00 EST = 15:00 UTC)
         await executeQuery(`SET TIME ZONE 'UTC'`)
         const utc = await executeQuery(`SELECT scheduled_at FROM events WHERE id = 1`)
-        // 10:00 EST = 15:00 UTC
         expect(utc.rows[0].scheduled_at.toISOString()).toMatch(/15:00:00/)
-
-        const est = await executeQuery([
-          `SET TIME ZONE 'America/New_York'`,
-          `SELECT scheduled_at::TEXT as scheduled_text FROM events WHERE id = 1`,
-        ])
-        // Returns original timezone when formatted as text (10:00 EST)
-        expect(est.scheduled_text).toMatch(/10:00:00/)
       })
 
-      await test.step('Verify zoneless timestamp is not converted', async () => {
+      await test.step('APP-TABLES-TIMEZONE-004: Does NOT convert TIMESTAMP WITHOUT TIME ZONE on session timezone change', async () => {
+        // WHEN: Retrieving zoneless timestamp with different session timezones
         const utcCreated = await executeQuery([
           `SET TIME ZONE 'UTC'`,
           `SELECT created_at FROM events WHERE id = 1`,
@@ -520,10 +525,20 @@ test.describe('Timezone Handling', () => {
           `SELECT created_at FROM events WHERE id = 1`,
         ])
 
-        // Same value regardless of session timezone (compare ISO strings)
+        // THEN: Same value regardless of session timezone
         expect(utcCreated.rows[0].created_at.toISOString()).toBe(
           estCreated.rows[0].created_at.toISOString()
         )
+      })
+
+      await test.step('APP-TABLES-TIMEZONE-005: Converts TIMESTAMP WITH TIME ZONE to session timezone on retrieval', async () => {
+        // WHEN: Setting session timezone to EST and retrieving
+        const est = await executeQuery([
+          `SET TIME ZONE 'America/New_York'`,
+          `SELECT scheduled_at::TEXT as scheduled_text FROM events WHERE id = 1`,
+        ])
+        // THEN: Returns original timezone when formatted as text (10:00 EST)
+        expect(est.scheduled_text).toMatch(/10:00:00/)
       })
     }
   )

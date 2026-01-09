@@ -362,7 +362,7 @@ test.describe('Updated By Field', () => {
         ],
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-001: Create PostgreSQL TEXT NOT NULL column with FOREIGN KEY and trigger', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-001: Creates PostgreSQL TEXT NOT NULL column with FOREIGN KEY and trigger', async () => {
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='updated_by'"
         )
@@ -375,7 +375,7 @@ test.describe('Updated By Field', () => {
         expect(Number(triggerCount.count)).toBe(1)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-002: Reflect the most recent editor user ID', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-002: Reflects the most recent editor user ID', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step2@example.com',
@@ -405,7 +405,7 @@ test.describe('Updated By Field', () => {
         expect(lastEditor.last_editor).toBe('Charlie')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-003: Support efficient filtering by last editor', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-003: Supports efficient filtering by last editor', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step3@example.com',
@@ -433,7 +433,7 @@ test.describe('Updated By Field', () => {
         ])
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-004: Support dual audit trail with created_by', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-004: Supports dual audit trail with created_by', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step4@example.com',
@@ -457,7 +457,7 @@ test.describe('Updated By Field', () => {
         expect(updatedBy.updated_by).toBe(bob.user.id)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-005: Create btree index when indexed=true', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-005: Creates btree index when indexed=true', async () => {
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_updated_by'"
         )

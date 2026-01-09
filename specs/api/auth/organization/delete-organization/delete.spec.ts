@@ -288,53 +288,172 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-REGRESSION: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // Shared state across steps
+      let orgId: string
+      let orgBId: string
+
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
+      })
+
+      await test.step('API-AUTH-ORG-DELETE-ORGANIZATION-003: should return 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to delete organization
+        const response = await page.request.delete('/api/auth/organization/delete', {
+          data: {
+            organizationId: '1',
           },
         })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Verify delete organization fails without auth', async () => {
-        const noAuthResponse = await page.request.delete('/api/auth/organization/delete', {
-          data: { organizationId: '1' },
+      // Setup: Create and authenticate owner
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+
+      await test.step('API-AUTH-ORG-DELETE-ORGANIZATION-002: should return 400 Bad Request with validation error', async () => {
+        // WHEN: Owner submits request without organizationId
+        const response = await page.request.delete('/api/auth/organization/delete', {
+          data: {},
         })
-        expect(noAuthResponse.status()).toBe(401)
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      let orgId: string
+      await test.step('API-AUTH-ORG-DELETE-ORGANIZATION-005: should return 404 Not Found', async () => {
+        // WHEN: User attempts to delete non-existent organization
+        const response = await page.request.delete('/api/auth/organization/delete', {
+          data: {
+            organizationId: 'nonexistent-id',
+          },
+        })
 
-      await test.step('Setup: Create and authenticate user', async () => {
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      // Setup: Owner creates organization for remaining tests
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+      orgId = org.id
+
+      await test.step('API-AUTH-ORG-DELETE-ORGANIZATION-004: should return 403 Forbidden', async () => {
+        // Create member and invite them
         await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        // Sign back in as owner to invite member
+        await signIn({
           email: 'owner@example.com',
           password: 'OwnerPass123!',
-          name: 'Owner User',
         })
+
+        await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: orgId,
+            email: 'member@example.com',
+            role: 'member',
+          },
+        })
+
+        // Sign in as member
+        await signIn({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+        })
+
+        // WHEN: Member attempts to delete organization
+        const response = await page.request.delete('/api/auth/organization/delete', {
+          data: {
+            organizationId: orgId,
+          },
+        })
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Setup: Create organization', async () => {
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
+      await test.step('API-AUTH-ORG-DELETE-ORGANIZATION-006: should return 404 Not Found (not 403 to prevent organization enumeration)', async () => {
+        // Owner 2 creates organization
+        await signUp({
+          email: 'owner2@example.com',
+          password: 'Owner2Pass123!',
+          name: 'Owner 2',
         })
-        const org = await createResponse.json()
-        orgId = org.id
+
+        const createOrgBResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Org B', slug: 'org-b' },
+        })
+        const orgB = await createOrgBResponse.json()
+        orgBId = orgB.id
+
+        // Sign back in as Owner 1
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+        })
+
+        // WHEN: Owner 1 attempts to delete Organization B
+        const response = await page.request.delete('/api/auth/organization/delete', {
+          data: {
+            organizationId: orgBId,
+          },
+        })
+
+        // THEN: Returns 404 Not Found (not 403 to prevent organization enumeration)
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Delete organization', async () => {
-        const deleteResponse = await page.request.delete('/api/auth/organization/delete', {
-          data: { organizationId: orgId },
+      await test.step('API-AUTH-ORG-DELETE-ORGANIZATION-001: should return 200 OK and permanently delete organization', async () => {
+        // Sign in as owner
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
         })
-        expect(deleteResponse.status()).toBe(200)
-      })
 
-      await test.step('Verify organization is deleted', async () => {
+        // WHEN: Owner deletes the organization
+        const response = await page.request.delete('/api/auth/organization/delete', {
+          data: {
+            organizationId: orgId,
+          },
+        })
+
+        // THEN: Returns 200 OK and permanently deletes organization
+        expect(response.status()).toBe(200)
+
+        // Verify organization no longer exists
         const listResponse = await page.request.get('/api/auth/organization/list')
         const orgs = await listResponse.json()
-        expect(orgs.length).toBe(0)
+        const deletedOrg = orgs.find((o: { id: string }) => o.id === orgId)
+        expect(deletedOrg).toBeUndefined()
       })
     }
   )

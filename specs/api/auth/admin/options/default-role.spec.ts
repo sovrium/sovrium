@@ -64,34 +64,38 @@ test.describe('Admin Default User Role', () => {
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-REGRESSION: admin default role assignment workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp }) => {
-      let user1: Awaited<ReturnType<typeof signUp>>
-      let user2: Awaited<ReturnType<typeof signUp>>
-
-      await test.step('Setup: Start server with admin default role configured', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            admin: { defaultRole: 'user' },
-          },
-        })
+      // Setup: Start server with admin default role configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          admin: { defaultRole: 'user' },
+        },
       })
 
-      await test.step('API-AUTH-ADMIN-OPT-DEFAULT-ROLE-001: assign default role to new users', async () => {
+      let user1: Awaited<ReturnType<typeof signUp>>
+
+      await test.step('API-AUTH-ADMIN-OPT-DEFAULT-ROLE-001: Assigns default role to new users', async () => {
+        // WHEN: New user signs up
         user1 = await signUp({
           email: 'user1@example.com',
           password: 'Pass123!',
           name: 'User 1',
         })
+
+        // THEN: User has default role assigned
         expect((user1.user as { role?: string }).role).toBe('user')
       })
 
-      await test.step('API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: verify consistent role assignment', async () => {
-        user2 = await signUp({
+      await test.step('API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: Falls back to user role when not configured', async () => {
+        // WHEN: Another new user signs up
+        const user2 = await signUp({
           email: 'user2@example.com',
           password: 'Pass123!',
           name: 'User 2',
         })
+
+        // THEN: Falls back to user role (consistent assignment)
         expect((user2.user as { role?: string }).role).toBe('user')
         expect((user1!.user as { role?: string }).role).toBe((user2.user as { role?: string }).role)
       })

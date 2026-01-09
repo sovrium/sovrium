@@ -211,37 +211,59 @@ test.describe('List all tables', () => {
     'API-TABLES-LIST-REGRESSION: user can complete full tables list workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, signOut }) => {
-      await test.step('Setup: Start server with tables and auth', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'projects',
-              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
-            },
-            {
-              id: 2,
-              name: 'tasks',
-              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
-            },
-          ],
-        })
-        await createAuthenticatedUser()
+      // Setup: Start server with tables and auth
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
+          {
+            id: 2,
+            name: 'tasks',
+            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+          },
+        ],
       })
 
-      await test.step('Verify authenticated access returns tables list', async () => {
-        const authResponse = await request.get('/api/tables', {})
-        expect(authResponse.status()).toBe(200)
-        const tables = await authResponse.json()
-        expect(Array.isArray(tables)).toBe(true)
+      await test.step('API-TABLES-LIST-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user requests list of tables
+        const response = await request.get('/api/tables')
+
+        // THEN: Response should be 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Verify unauthenticated access returns 401', async () => {
-        await signOut()
-        const unauthResponse = await request.get('/api/tables')
-        expect(unauthResponse.status()).toBe(401)
+      // Setup: Create authenticated user
+      await createAuthenticatedUser()
+
+      await test.step('API-TABLES-LIST-001: Returns 200 OK with array of tables', async () => {
+        // WHEN: User requests list of all tables
+        const response = await request.get('/api/tables', {})
+
+        // THEN: Response should be 200 OK with array of tables
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data.length).toBeGreaterThanOrEqual(2)
+
+        // Validate schema structure
+        for (const table of data) {
+          expect(table).toHaveProperty('id')
+          expect(table).toHaveProperty('name')
+          expect(table).toHaveProperty('fields')
+          expect(typeof table.id).toBe('number')
+          expect(typeof table.name).toBe('string')
+          expect(Array.isArray(table.fields)).toBe(true)
+        }
       })
     }
   )

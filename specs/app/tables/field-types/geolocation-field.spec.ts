@@ -235,37 +235,31 @@ test.describe('Geolocation Field', () => {
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-REGRESSION: user can complete full geolocation-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with geolocation field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'position', type: 'geolocation', required: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with geolocation field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'position', type: 'geolocation', required: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Insert and verify geolocation value', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-GEOLOCATION-001: Creates PostgreSQL POINT type for latitude/longitude storage', async () => {
+        // WHEN: inserting geolocation value
         await executeQuery('INSERT INTO data (position) VALUES (POINT(48.8566, 2.3522))')
+
+        // THEN: value is stored as POINT with x/y coordinates
         const stored = await executeQuery('SELECT position FROM data WHERE id = 1')
-        expect(stored.position).toEqual({ x: 48.8566, y: 2.3522 })
-      })
+        expect(stored.position).toMatchObject({ x: 48.8566, y: 2.3522 })
 
-      await test.step('Test distance calculation', async () => {
-        const distance = await executeQuery(
-          'SELECT position <-> POINT(48.8566, 2.3522) as dist FROM data WHERE id = 1'
-        )
-        expect(distance.dist).toBe(0)
-      })
-
-      await test.step('Extract coordinates', async () => {
+        // THEN: coordinates can be extracted individually
         const coordinates = await executeQuery(
           'SELECT position[0] as lat, position[1] as lng FROM data WHERE id = 1'
         )
@@ -273,7 +267,19 @@ test.describe('Geolocation Field', () => {
         expect(coordinates.lng).toBe(2.3522)
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-GEOLOCATION-002: Supports distance calculations with <-> operator', async () => {
+        // WHEN: calculating distance to same point
+        const distance = await executeQuery(
+          'SELECT position <-> POINT(48.8566, 2.3522) as dist FROM data WHERE id = 1'
+        )
+
+        // THEN: distance is zero for same coordinates
+        expect(distance.dist).toBe(0)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-GEOLOCATION-005: Enforces NOT NULL constraint on POINT column', async () => {
+        // WHEN: attempting to insert NULL value for required geolocation field
+        // THEN: PostgreSQL NOT NULL constraint rejects insertion
         await expect(executeQuery('INSERT INTO data (position) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )

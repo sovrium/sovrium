@@ -201,67 +201,107 @@ test.describe('Send Magic Link', () => {
     'API-AUTH-MAGIC-LINK-SEND-REGRESSION: user can complete full magic link send workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      let existingUserEmail: string
-      let newUserEmail: string
-
-      await test.step('Setup: Start server with magic link auth', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            magicLink: true,
-            emailAndPassword: true,
+      // Setup: Start server with magic link auth and custom templates
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          magicLink: true,
+          emailAndPassword: true,
+          emailTemplates: {
+            magicLink: {
+              subject: 'Sign in to TestApp with magic link',
+              text: 'Hi $name, click here to sign in: $url',
+            },
           },
-        })
-
-        existingUserEmail = mailpit.email('existing')
-        newUserEmail = mailpit.email('newuser')
+        },
       })
 
-      await test.step('Setup: Sign up existing user', async () => {
-        await signUp({
-          name: 'Existing User',
-          email: existingUserEmail,
-          password: 'ValidPassword123!',
-        })
+      const registeredUserEmail = mailpit.email('registered')
+      const newUserEmail = mailpit.email('newuser')
+
+      // Setup: Register a user for testing
+      await signUp({
+        name: 'Test User',
+        email: registeredUserEmail,
+        password: 'ValidPassword123!',
       })
 
-      await test.step('Send magic link to existing user', async () => {
-        const existingUserResponse = await page.request.post('/api/auth/magic-link/send', {
+      await test.step('API-AUTH-MAGIC-LINK-SEND-001: should send magic link email to registered user with custom template', async () => {
+        // WHEN: User requests magic link
+        const response = await page.request.post('/api/auth/magic-link/send', {
           data: {
-            email: existingUserEmail,
+            email: registeredUserEmail,
             callbackUrl: '/dashboard',
           },
         })
 
-        expect(existingUserResponse.status()).toBe(200)
-        const existingEmail = await mailpit.waitForEmail(
-          (e) => e.To[0]?.Address === existingUserEmail
+        // THEN: Returns 200 OK
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('sent')
+        expect(data.sent).toBe(true)
+
+        // THEN: Magic link email is sent with custom template
+        const email = await mailpit.waitForEmail(
+          (e) => e.To[0]?.Address === registeredUserEmail && e.Subject.includes('TestApp')
         )
-        expect(existingEmail).toBeDefined()
+        expect(email).toBeDefined()
+        expect(email.Subject).toBe('Sign in to TestApp with magic link')
+        const body = email.HTML || email.Text
+        expect(body).toContain('click here to sign in')
       })
 
-      await test.step('Send magic link to new user for signup', async () => {
-        const newUserResponse = await page.request.post('/api/auth/magic-link/send', {
+      await test.step('API-AUTH-MAGIC-LINK-SEND-002: should send magic link to unregistered user for signup', async () => {
+        // WHEN: New user requests magic link
+        const response = await page.request.post('/api/auth/magic-link/send', {
           data: {
             email: newUserEmail,
             callbackUrl: '/dashboard',
           },
         })
 
-        expect(newUserResponse.status()).toBe(200)
-        const newEmail = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
-        expect(newEmail).toBeDefined()
+        // THEN: Returns 200 OK (no user enumeration)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('sent')
+        expect(data.sent).toBe(true)
+
+        // THEN: Magic link email is sent for signup
+        const email = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
+        expect(email).toBeDefined()
       })
 
-      await test.step('Verify send fails with invalid email', async () => {
-        const invalidResponse = await page.request.post('/api/auth/magic-link/send', {
+      await test.step('API-AUTH-MAGIC-LINK-SEND-003: should return 400 when email is missing', async () => {
+        // WHEN: User submits request without email
+        const response = await page.request.post('/api/auth/magic-link/send', {
           data: {
-            email: 'invalid-email',
             callbackUrl: '/dashboard',
           },
         })
 
-        expect(invalidResponse.status()).toBe(400)
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-MAGIC-LINK-SEND-004: should return 400 with invalid email format', async () => {
+        // WHEN: User submits request with invalid email
+        const response = await page.request.post('/api/auth/magic-link/send', {
+          data: {
+            email: 'not-an-email',
+            callbackUrl: '/dashboard',
+          },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

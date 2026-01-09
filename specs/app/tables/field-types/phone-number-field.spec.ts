@@ -250,56 +250,92 @@ test.describe('Phone Number Field', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-PHONE-NUMBER-REGRESSION: user can complete full phone-number-field workflow',
+    'APP-TABLES-FIELD-PHONE-NUMBER-REGRESSION: phone number field works correctly',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with phone-number field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'phone_field',
-                  type: 'phone-number',
-                  required: true,
-                  unique: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with phone-number field configured with all constraints
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'phone_field',
+                type: 'phone-number',
+                required: true,
+                unique: true,
+                indexed: true,
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Verify column setup and constraints', async () => {
+      await test.step('APP-TABLES-FIELD-PHONE-NUMBER-001: Creates PostgreSQL VARCHAR(255) column for phone number storage', async () => {
+        // WHEN: field migration creates column
+        // THEN: PostgreSQL VARCHAR(255) column is created for phone number storage
         const columnInfo = await executeQuery(
-          "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='phone_field'"
+          "SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name='data' AND column_name='phone_field'"
         )
+        expect(columnInfo.column_name).toBe('phone_field')
         expect(columnInfo.data_type).toBe('character varying')
         expect(columnInfo.character_maximum_length).toBe(255)
-        expect(columnInfo.is_nullable).toBe('NO')
+
+        // THEN: Valid phone number can be inserted
+        const validInsert = await executeQuery(
+          "INSERT INTO data (phone_field) VALUES ('+1-555-123-4567') RETURNING phone_field"
+        )
+        expect(validInsert.phone_field).toBe('+1-555-123-4567')
       })
 
-      await test.step('Test international format insertion', async () => {
-        await executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
+      await test.step('APP-TABLES-FIELD-PHONE-NUMBER-002: Stores all formats as-is without validation', async () => {
+        // WHEN: insert international phone numbers with different formats
+        // THEN: all formats are stored as-is without validation (VARCHAR accepts any text)
+        const frenchInsert = await executeQuery(
+          "INSERT INTO data (phone_field) VALUES ('+33 1 23 45 67 89') RETURNING phone_field"
+        )
+        expect(frenchInsert.phone_field).toBe('+33 1 23 45 67 89')
+
+        const ukInsert = await executeQuery(
+          "INSERT INTO data (phone_field) VALUES ('+44 20 7123 4567') RETURNING phone_field"
+        )
+        expect(ukInsert.phone_field).toBe('+44 20 7123 4567')
       })
 
-      await test.step('Error handling: unique constraint rejects duplicate phone number', async () => {
+      await test.step('APP-TABLES-FIELD-PHONE-NUMBER-003: Rejects duplicate phone number with unique constraint', async () => {
+        // WHEN: attempt to insert duplicate phone number
+        // THEN: PostgreSQL UNIQUE constraint rejects insertion
         await expect(
-          executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
+          executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-123-4567')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+      await test.step('APP-TABLES-FIELD-PHONE-NUMBER-004: Rejects NULL value with required constraint', async () => {
+        // WHEN: attempt to insert NULL value for required phone_field
+        // THEN: PostgreSQL NOT NULL constraint rejects insertion
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='phone_field'"
+        )
+        expect(notNullCheck.is_nullable).toBe('NO')
+
         await expect(executeQuery('INSERT INTO data (phone_field) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )
+      })
+
+      await test.step('APP-TABLES-FIELD-PHONE-NUMBER-005: Creates btree index for fast lookups', async () => {
+        // WHEN: index is created on the phone field
+        // THEN: PostgreSQL btree index exists for fast phone number lookups
+        const indexExists = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_phone_field'"
+        )
+        expect(indexExists.indexname).toBe('idx_data_phone_field')
+        expect(indexExists.tablename).toBe('data')
       })
     }
   )

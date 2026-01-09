@@ -28,13 +28,13 @@ test(
   'API-HEALTH-REGRESSION: health endpoint returns complete status information',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    await test.step('Setup: Start server with app name', async () => {
+    await test.step('1: Start server with app name', async () => {
       await startServerWithSchema({
         name: 'health-test-app',
       })
     })
 
-    await test.step('Verify: Returns 200 OK with JSON content type', async () => {
+    await test.step('2: Returns 200 OK with JSON content type', async () => {
       const response = await page.goto('/api/health')
 
       expect(response?.status()).toBe(200)
@@ -43,7 +43,7 @@ test(
       expect(contentType).toContain('application/json')
     })
 
-    await test.step('Verify: JSON structure has status, timestamp, and app name', async () => {
+    await test.step('3: JSON structure has status, timestamp, and app name', async () => {
       const response = await page.goto('/api/health')
       const json = await response?.json()
 
@@ -59,7 +59,7 @@ test(
       expect(json.app).toHaveProperty('name', 'health-test-app')
     })
 
-    await test.step('Verify: Timestamp is current', async () => {
+    await test.step('4: Timestamp is current', async () => {
       const beforeRequest = new Date()
       const response = await page.goto('/api/health')
       const afterRequest = new Date()
@@ -70,7 +70,7 @@ test(
       expect(timestamp.getTime()).toBeLessThanOrEqual(afterRequest.getTime() + 1000)
     })
 
-    await test.step('Verify: Handles scoped package names', async () => {
+    await test.step('5: Handles scoped package names', async () => {
       await startServerWithSchema({
         name: '@myorg/dashboard',
       })

@@ -369,59 +369,194 @@ test.describe('Admin: Create user', () => {
     'API-AUTH-ADMIN-CREATE-USER-REGRESSION: admin can complete full create-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with admin plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            admin: true,
-          },
-        })
+      // Setup: Start server with admin plugin enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          admin: true,
+        },
       })
 
-      await test.step('Verify create user fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/admin/create-user', {
+      await test.step('API-AUTH-ADMIN-CREATE-USER-006: Returns 401 without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to create user
+        const response = await page.request.post('/api/auth/admin/create-user', {
           data: {
-            email: 'test@example.com',
+            email: 'newuser@example.com',
             name: 'Test User',
             password: 'SecurePass123!',
           },
         })
-        expect(noAuthResponse.status()).toBe(401)
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create admin and regular user', async () => {
-        await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      // Setup: Create admin user and regular user
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      await signUp({
+        email: 'existing@example.com',
+        password: 'ExistingPass123!',
+        name: 'Existing User',
       })
 
-      await test.step('Verify create user fails for non-admin', async () => {
+      await test.step('API-AUTH-ADMIN-CREATE-USER-007: Returns 403 for non-admin user', async () => {
+        // GIVEN: An authenticated regular user (non-admin)
         await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-        const nonAdminResponse = await page.request.post('/api/auth/admin/create-user', {
+
+        // WHEN: Regular user attempts to create user
+        const response = await page.request.post('/api/auth/admin/create-user', {
           data: {
-            email: 'test@example.com',
+            email: 'newuser@example.com',
             name: 'Test User',
             password: 'SecurePass123!',
           },
         })
-        expect(nonAdminResponse.status()).toBe(403)
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
       })
 
-      await test.step('Create user as admin', async () => {
-        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-        const adminResponse = await page.request.post('/api/auth/admin/create-user', {
+      // Sign in as admin for remaining tests
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-003: Returns 400 without required fields', async () => {
+        // WHEN: Admin submits request without required fields
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request with validation errors
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-004: Returns 400 with invalid email format', async () => {
+        // WHEN: Admin submits request with invalid email format
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {
+            email: 'not-an-email',
+            name: 'Test User',
+            password: 'SecurePass123!',
+          },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-005: Returns 400 with short password', async () => {
+        // WHEN: Admin submits request with password shorter than 8 characters
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {
+            email: 'newuser@example.com',
+            name: 'Test User',
+            password: 'short',
+          },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-008: Returns 409 for duplicate email', async () => {
+        // WHEN: Admin attempts to create user with existing email
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {
+            email: 'existing@example.com',
+            name: 'Another User',
+            password: 'SecurePass123!',
+          },
+        })
+
+        // THEN: Returns 409 Conflict
+        expect(response.status()).toBe(409)
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-001: Returns 201 with user data', async () => {
+        // WHEN: Admin creates a new user with valid data
+        const response = await page.request.post('/api/auth/admin/create-user', {
           data: {
             email: 'newuser@example.com',
             name: 'New User',
             password: 'SecurePass123!',
+          },
+        })
+
+        // THEN: Returns 201 Created with user data
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('email', 'newuser@example.com')
+        expect(data.user).toHaveProperty('name', 'New User')
+        // Password should not be exposed
+        expect(data.user).not.toHaveProperty('password')
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-002: Returns 201 with email pre-verified', async () => {
+        // WHEN: Admin creates user with emailVerified: true
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {
+            email: 'verified@example.com',
+            name: 'Verified User',
+            password: 'SecurePass123!',
             emailVerified: true,
           },
         })
-        expect(adminResponse.status()).toBe(201)
 
-        const data = await adminResponse.json()
+        // THEN: Returns 201 Created with email pre-verified
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
         expect(data).toHaveProperty('user')
-        expect(data.user).toHaveProperty('email', 'newuser@example.com')
+        expect(data.user).toHaveProperty('emailVerified', true)
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-009: Returns 201 with XSS payload sanitized', async () => {
+        // WHEN: Admin submits name with XSS payload
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {
+            email: 'xsstest@example.com',
+            name: "<script>alert('xss')</script>Malicious",
+            password: 'SecurePass123!',
+          },
+        })
+
+        // THEN: Returns 201 Created with sanitized name
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        // Name should be sanitized (no script tags)
+        expect(data.user.name).not.toContain('<script>')
+      })
+
+      await test.step('API-AUTH-ADMIN-CREATE-USER-010: Returns 201 with Unicode name preserved', async () => {
+        // WHEN: Admin creates user with Unicode characters in name
+        const response = await page.request.post('/api/auth/admin/create-user', {
+          data: {
+            email: 'unicode@example.com',
+            name: 'José García 日本語',
+            password: 'SecurePass123!',
+          },
+        })
+
+        // THEN: Returns 201 Created with Unicode name preserved
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user.name).toBe('José García 日本語')
       })
     }
   )

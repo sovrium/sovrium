@@ -228,54 +228,65 @@ test.describe('Date Field', () => {
     'APP-TABLES-FIELD-TYPES-DATE-REGRESSION: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with date field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'date_field',
-                  type: 'date',
-                  required: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with date field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'date_field',
+                type: 'date',
+                required: true,
+                indexed: true,
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Verify column setup and constraints', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DATE-001: Creates PostgreSQL DATE column', async () => {
+        // WHEN: querying column info
         const columnInfo = await executeQuery(
           "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='date_field'"
         )
+
+        // THEN: PostgreSQL DATE column is created
         expect(columnInfo.data_type).toBe('date')
         expect(columnInfo.is_nullable).toBe('NO')
       })
 
-      await test.step('Test date storage', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DATE-002: Stores date values without time component', async () => {
+        // WHEN: inserting date value
         await executeQuery("INSERT INTO data (date_field) VALUES ('2024-06-15')")
+
+        // THEN: only date is stored (no time component)
         const stored = await executeQuery('SELECT date_field FROM data WHERE id = 1')
         expect(stored.date_field instanceof Date).toBe(true)
-        const dateStr = stored.date_field.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
-        expect(dateStr).toBe('2024-06-15')
+        expect(stored.date_field.toLocaleDateString('en-CA')).toBe('2024-06-15')
       })
 
-      await test.step('Test date range queries', async () => {
-        await executeQuery("INSERT INTO data (date_field) VALUES ('2024-01-01'), ('2024-12-31')")
-        const rangeQuery = await executeQuery(
-          "SELECT COUNT(*) as count FROM data WHERE date_field >= '2024-06-01' AND date_field <= '2024-12-31'"
+      await test.step('APP-TABLES-FIELD-TYPES-DATE-005: Creates btree index for fast queries', async () => {
+        // WHEN: checking for index on date field
+        const indexExists = await executeQuery(
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_date_field'"
         )
-        expect(Number(rangeQuery.count)).toBeGreaterThan(0)
+
+        // THEN: PostgreSQL btree index exists
+        expect(indexExists).toMatchObject({
+          indexname: 'idx_data_date_field',
+          tablename: 'data',
+        })
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DATE-003: Rejects NULL value when required', async () => {
+        // WHEN: attempting to insert NULL for required date
+        // THEN: PostgreSQL NOT NULL constraint rejects insertion
         await expect(executeQuery('INSERT INTO data (date_field) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )

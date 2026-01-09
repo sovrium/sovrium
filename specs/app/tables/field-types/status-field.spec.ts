@@ -381,53 +381,60 @@ test.describe('Status Field', () => {
     'APP-TABLES-FIELD-TYPES-STATUS-REGRESSION: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with status field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'status',
-                  type: 'status',
-                  options: [{ value: 'Draft' }, { value: 'Published' }, { value: 'Archived' }],
-                  required: true,
-                  indexed: true,
-                  default: 'Draft',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with status field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'status',
+                type: 'status',
+                options: [{ value: 'Draft' }, { value: 'Published' }, { value: 'Archived' }],
+                required: true,
+                indexed: true,
+                default: 'Draft',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Insert record with default status', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-STATUS-004: Applies DEFAULT value when row inserted without providing value', async () => {
+        // WHEN: inserting record without providing status value
         const defaultRecord = await executeQuery(
           'INSERT INTO data (id) VALUES (DEFAULT) RETURNING status'
         )
+
+        // THEN: default value is applied
         expect(defaultRecord.status).toBe('Draft')
       })
 
-      await test.step('Insert record with explicit status', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-STATUS-001: Creates PostgreSQL VARCHAR column with CHECK constraint', async () => {
+        // WHEN: inserting valid status value
         await executeQuery("INSERT INTO data (status) VALUES ('Published')")
+
+        // THEN: value is stored correctly
         const publishedRecord = await executeQuery('SELECT status FROM data WHERE id = 2')
         expect(publishedRecord.status).toBe('Published')
       })
 
-      await test.step('Verify status grouping and counts', async () => {
-        const statusCounts = await executeQuery(
-          'SELECT status, COUNT(*) as count FROM data GROUP BY status ORDER BY status'
-        )
-        expect(statusCounts.rows).toContainEqual({ status: 'Draft', count: '1' })
-        expect(statusCounts.rows).toContainEqual({ status: 'Published', count: '1' })
+      await test.step('APP-TABLES-FIELD-TYPES-STATUS-002: Rejects value not in status options via CHECK constraint', async () => {
+        // WHEN: attempting to insert invalid status value
+        // THEN: CHECK constraint rejects the value
+        await expect(
+          executeQuery("INSERT INTO data (status) VALUES ('InvalidStatus')")
+        ).rejects.toThrow(/violates check constraint/)
       })
 
-      await test.step('Error handling: empty options array is rejected', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-STATUS-006: Rejects status field with empty options array', async () => {
+        // WHEN: attempting to start server with empty options array
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app-error',

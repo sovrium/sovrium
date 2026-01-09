@@ -473,59 +473,76 @@ test.describe('Invite member to organization', () => {
     'API-AUTH-ORG-INVITE-MEMBER-REGRESSION: user can complete full inviteMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
+      })
+
+      await test.step('API-AUTH-ORG-INVITE-MEMBER-004: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to invite member
+        const response = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: '1',
+            email: 'newuser@example.com',
+            role: 'member',
           },
         })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Verify invite member fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/organization/invite-member', {
-          data: { organizationId: '1', email: 'new@example.com', role: 'member' },
-        })
-        expect(noAuthResponse.status()).toBe(401)
+      // Setup: Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
       })
 
-      let orgId: string
-
-      await test.step('Setup: Create owner and organization', async () => {
-        await signUp({
-          email: 'owner@example.com',
-          password: 'OwnerPass123!',
-          name: 'Owner User',
-        })
-
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
-        const org = await createResponse.json()
-        orgId = org.id
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
       })
+      const org = await createResponse.json()
 
-      await test.step('Invite member to organization', async () => {
-        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+      await test.step('API-AUTH-ORG-INVITE-MEMBER-001: Returns 200 OK with invitation data', async () => {
+        // WHEN: Owner invites new user by email
+        const response = await page.request.post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: orgId,
+            organizationId: org.id,
             email: 'newmember@example.com',
             role: 'member',
           },
         })
-        expect(inviteResponse.status()).toBe(200)
+
+        // THEN: Returns 200 OK with invitation data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('email', 'newmember@example.com')
+        expect(data).toHaveProperty('organizationId', org.id)
+        expect(data).toHaveProperty('status', 'pending')
       })
 
-      await test.step('Verify duplicate invite fails', async () => {
-        const duplicateResponse = await page.request.post('/api/auth/organization/invite-member', {
+      await test.step('API-AUTH-ORG-INVITE-MEMBER-008: Returns 409 Conflict for pending invitation', async () => {
+        // WHEN: Owner attempts to invite user with pending invitation
+        const response = await page.request.post('/api/auth/organization/invite-member', {
           data: {
-            organizationId: orgId,
+            organizationId: org.id,
             email: 'newmember@example.com',
             role: 'member',
           },
         })
-        expect(duplicateResponse.status()).toBe(409)
+
+        // THEN: Returns 409 Conflict
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

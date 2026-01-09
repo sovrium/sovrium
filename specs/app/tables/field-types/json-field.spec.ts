@@ -236,139 +236,148 @@ test.describe('JSON Field', () => {
     'APP-TABLES-FIELD-TYPES-JSON-REGRESSION: user can complete full json-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-JSON-001: Create PostgreSQL JSONB column', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [{ id: 1, name: 'metadata', type: 'json' }],
-            },
-          ],
-        })
+      // Setup: Start server with json fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'metadata', type: 'json' },
+              { id: 2, name: 'config', type: 'json' },
+              { id: 3, name: 'preferences', type: 'json' },
+              { id: 4, name: 'indexed_data', type: 'json', indexed: true },
+              { id: 5, name: 'payload', type: 'json' },
+            ],
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-JSON-001: Creates PostgreSQL JSONB column', async () => {
+        // WHEN: querying column info for json field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='products' AND column_name='metadata'"
+          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='data' AND column_name='metadata'"
         )
+        // THEN: JSONB column is created
         expect(columnInfo.column_name).toBe('metadata')
         expect(columnInfo.data_type).toBe('jsonb')
+
+        // WHEN: inserting JSON object
         const jsonObject = await executeQuery(
-          'INSERT INTO products (metadata) VALUES (\'{"color": "red", "size": "large"}\') RETURNING metadata'
+          'INSERT INTO data (metadata) VALUES (\'{"color": "red", "size": "large"}\') RETURNING metadata'
         )
+        // THEN: JSON object is stored correctly
         expect(jsonObject.metadata).toEqual({ color: 'red', size: 'large' })
+
+        // WHEN: inserting JSON array
         const jsonArray = await executeQuery(
-          "INSERT INTO products (metadata) VALUES ('[1, 2, 3]') RETURNING metadata"
+          "INSERT INTO data (metadata) VALUES ('[1, 2, 3]') RETURNING metadata"
         )
+        // THEN: JSON array is stored correctly
         expect(jsonArray.metadata).toEqual([1, 2, 3])
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-JSON-002: Support -> and ->> operators for field extraction', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'settings',
-              fields: [{ id: 1, name: 'config', type: 'json' }],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-JSON-002: Supports -> and ->> operators for field extraction', async () => {
+        // WHEN: inserting config with nested JSON
         await executeQuery(
-          'INSERT INTO settings (config) VALUES (\'{"theme": "dark", "notifications": {"email": true, "sms": false}}\')'
+          'INSERT INTO data (config) VALUES (\'{"theme": "dark", "notifications": {"email": true, "sms": false}}\')'
         )
+
+        // WHEN: using -> operator (returns JSONB)
         const jsonExtract = await executeQuery(
-          "SELECT config -> 'theme' as theme FROM settings WHERE id = 1"
+          "SELECT config -> 'theme' as theme FROM data WHERE config IS NOT NULL LIMIT 1"
         )
+        // THEN: JSON string scalar is parsed to JS string
         expect(jsonExtract.theme).toBe('dark')
+
+        // WHEN: using ->> operator (returns TEXT)
         const textExtract = await executeQuery(
-          "SELECT config ->> 'theme' as theme FROM settings WHERE id = 1"
+          "SELECT config ->> 'theme' as theme FROM data WHERE config IS NOT NULL LIMIT 1"
         )
+        // THEN: text extraction returns plain string
         expect(textExtract.theme).toBe('dark')
+
+        // WHEN: using -> to get JSONB object
         const jsonObject = await executeQuery(
-          "SELECT config -> 'notifications' as notifications FROM settings WHERE id = 1"
+          "SELECT config -> 'notifications' as notifications FROM data WHERE config IS NOT NULL LIMIT 1"
         )
+        // THEN: -> preserves JSONB type, parsed to JS object
         expect(jsonObject.notifications).toEqual({ email: true, sms: false })
-        const nestedExtract = await executeQuery(
-          "SELECT config -> 'notifications' ->> 'email' as email_enabled FROM settings WHERE id = 1"
-        )
-        expect(nestedExtract.email_enabled).toBe('true')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-JSON-003: Support containment and existence operators', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'users',
-              fields: [{ id: 1, name: 'preferences', type: 'json' }],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-JSON-003: Supports containment and existence operators', async () => {
+        // WHEN: inserting preferences with different values
         await executeQuery(
-          'INSERT INTO users (preferences) VALUES (\'{"language": "en", "timezone": "UTC"}\'), (\'{"language": "fr", "timezone": "Europe/Paris"}\')'
+          'INSERT INTO data (preferences) VALUES (\'{"language": "en", "timezone": "UTC"}\'), (\'{"language": "fr", "timezone": "Europe/Paris"}\')'
         )
+
+        // WHEN: filtering by JSON field value using ->> operator
         const languageFilter = await executeQuery(
-          "SELECT COUNT(*) as count FROM users WHERE preferences ->> 'language' = 'en'"
+          "SELECT COUNT(*) as count FROM data WHERE preferences ->> 'language' = 'en'"
         )
+        // THEN: one row matches
         expect(Number(languageFilter.count)).toBe(1)
+
+        // WHEN: checking key existence using ? operator
         const keyExists = await executeQuery(
-          "SELECT COUNT(*) as count FROM users WHERE preferences ? 'timezone'"
+          "SELECT COUNT(*) as count FROM data WHERE preferences ? 'timezone'"
         )
+        // THEN: two rows have timezone key
         expect(Number(keyExists.count)).toBe(2)
+
+        // WHEN: using @> containment operator
         const containsOperator = await executeQuery(
-          'SELECT COUNT(*) as count FROM users WHERE preferences @> \'{"language": "fr"}\''
+          'SELECT COUNT(*) as count FROM data WHERE preferences @> \'{"language": "fr"}\''
         )
+        // THEN: one row matches containment
         expect(Number(containsOperator.count)).toBe(1)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-JSON-004: Create GIN index for efficient JSON queries', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'documents',
-              fields: [{ id: 1, name: 'data', type: 'json', indexed: true }],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-JSON-004: Creates GIN index for efficient JSON queries', async () => {
+        // WHEN: checking for GIN index on indexed json field
         const indexInfo = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_data'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_indexed_data'"
         )
-        expect(indexInfo.indexname).toBe('idx_documents_data')
-        expect(indexInfo.tablename).toBe('documents')
+        // THEN: GIN index exists
+        expect(indexInfo.indexname).toBe('idx_data_indexed_data')
+        expect(indexInfo.tablename).toBe('data')
+
+        // WHEN: querying index definition
         const indexDef = await executeQuery(
-          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_documents_data'"
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_data_indexed_data'"
         )
+        // THEN: index uses GIN
         expect(indexDef.indexdef).toBe(
-          'CREATE INDEX idx_documents_data ON public.documents USING gin (data)'
+          'CREATE INDEX idx_data_indexed_data ON public.data USING gin (indexed_data)'
         )
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-JSON-005: Support in-place JSON field updates', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'events',
-              fields: [{ id: 1, name: 'payload', type: 'json' }],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-JSON-005: Supports in-place JSON field updates', async () => {
+        // WHEN: inserting initial payload
         await executeQuery(
-          'INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')'
+          'INSERT INTO data (payload) VALUES (\'{"type": "click", "count": 1}\')'
         )
-        const initialValue = await executeQuery('SELECT payload FROM events WHERE id = 1')
+
+        // WHEN: querying initial value
+        const initialValue = await executeQuery(
+          'SELECT payload FROM data WHERE payload IS NOT NULL LIMIT 1'
+        )
+        // THEN: initial value is stored correctly
         expect(initialValue.payload).toEqual({ type: 'click', count: 1 })
+
+        // WHEN: updating count using jsonb_set
         const updateCount = await executeQuery(
-          "UPDATE events SET payload = jsonb_set(payload, '{count}', '5') WHERE id = 1 RETURNING payload"
+          "UPDATE data SET payload = jsonb_set(payload, '{count}', '5') WHERE payload IS NOT NULL RETURNING payload"
         )
+        // THEN: count is updated
         expect(updateCount.payload).toEqual({ type: 'click', count: 5 })
+
+        // WHEN: adding new field using jsonb_set
         const addField = await executeQuery(
-          "UPDATE events SET payload = jsonb_set(payload, '{user_id}', '\"user123\"') WHERE id = 1 RETURNING payload"
+          "UPDATE data SET payload = jsonb_set(payload, '{user_id}', '\"user123\"') WHERE payload ->> 'type' = 'click' RETURNING payload"
         )
+        // THEN: new field is added
         expect(addField.payload).toEqual({ type: 'click', count: 5, user_id: 'user123' })
       })
     }

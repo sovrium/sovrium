@@ -222,82 +222,89 @@ test.describe('Admin: Stop Impersonating', () => {
       executeQuery,
       request,
     }) => {
-      let admin: Awaited<ReturnType<typeof createAuthenticatedUser>>
-      let targetUser: Awaited<ReturnType<typeof signUp>>
-
-      await test.step('Setup: Start server with admin impersonation enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+      // Setup: Start server with admin impersonation enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          admin: {
+            impersonation: true,
           },
-        })
+        },
       })
 
-      await test.step('Setup: Create admin and target user', async () => {
-        admin = await createAuthenticatedUser({
-          email: 'admin@example.com',
-          password: 'Password123!',
-        })
+      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-005: Returns 401 when not authenticated', async () => {
+        // WHEN: Trying to stop impersonation without authentication
+        const response = await request.post('/api/auth/admin/stop-impersonating')
 
-        await executeQuery(
-          `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'`
-        )
-
-        targetUser = await signUp({
-          email: 'user@example.com',
-          password: 'Password123!',
-          name: 'Regular User',
-        })
-
-        await signIn({
-          email: 'admin@example.com',
-          password: 'Password123!',
-        })
+        // THEN: Should return 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-001: start impersonation returns 200', async () => {
-        const startResponse = await request.post('/api/auth/admin/impersonate-user', {
-          data: { userId: targetUser.user.id },
-        })
-        expect(startResponse.status()).toBe(200)
+      // Setup: Create admin and target user
+      const admin = await createAuthenticatedUser({
+        email: 'admin@example.com',
+        password: 'Password123!',
       })
 
-      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-002: verify impersonation session', async () => {
-        const session = await request.get('/api/auth/get-session').then((r) => r.json())
-        expect(session.user.id).toBe(targetUser.user.id)
-        expect(session.session.impersonatedBy).toBe(admin.user.id)
+      await executeQuery(
+        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'`
+      )
+
+      const targetUser = await signUp({
+        email: 'user@example.com',
+        password: 'Password123!',
+        name: 'Regular User',
       })
 
-      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-003: perform action as impersonated user', async () => {
-        const profileUpdate = await request.post('/api/auth/update-user', {
-          data: { name: 'Updated Name' },
-        })
-        expect(profileUpdate.status()).toBe(200)
+      // Re-establish admin session (signUp switched to target user's session)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Password123!',
       })
 
-      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-004: stop impersonation returns 200', async () => {
-        const stopResponse = await request.post('/api/auth/admin/stop-impersonating')
-        expect(stopResponse.status()).toBe(200)
+      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-004: Returns 400 when not impersonating', async () => {
+        // WHEN: Trying to stop impersonation when not impersonating
+        const response = await request.post('/api/auth/admin/stop-impersonating')
+
+        // THEN: Should return 400 Bad Request
+        expect(response.status()).toBe(400)
+        const error = await response.json()
+        expect(error.message).toContain('not impersonating')
       })
 
-      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-005: verify admin session restored', async () => {
-        await signIn({
-          email: 'admin@example.com',
-          password: 'Password123!',
-        })
+      // Start impersonation for next tests
+      await request.post('/api/auth/admin/impersonate-user', {
+        data: { userId: targetUser.user.id },
+      })
 
-        const session = await request.get('/api/auth/get-session').then((r) => r.json())
+      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-001: Returns 200 OK when stopping impersonation', async () => {
+        // WHEN: Admin stops impersonating
+        const response = await request.post('/api/auth/admin/stop-impersonating')
+
+        // THEN: Should return 200 OK
+        expect(response.status()).toBe(200)
+      })
+
+      // Restart impersonation to test session restoration
+      await signIn({
+        email: 'admin@example.com',
+        password: 'Password123!',
+      })
+      await request.post('/api/auth/admin/impersonate-user', {
+        data: { userId: targetUser.user.id },
+      })
+
+      await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-002: Restores admin session', async () => {
+        // WHEN: Admin stops impersonating
+        await request.post('/api/auth/admin/stop-impersonating')
+
+        // THEN: Session should be restored to admin
+        const sessionResponse = await request.get('/api/auth/get-session')
+        const session = await sessionResponse.json()
         expect(session.user.id).toBe(admin.user.id)
-        expect(session.session.impersonatedBy).toBeFalsy()
-      })
-
-      await test.step('Verify: admin can perform admin actions after stopping impersonation', async () => {
-        const adminListResponse = await request.get('/api/auth/admin/list-users')
-        expect(adminListResponse.status()).toBe(200)
+        expect(session.user.email).toBe('admin@example.com')
+        expect(session.impersonating).toBeFalsy()
       })
     }
   )

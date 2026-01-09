@@ -221,7 +221,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
     'CLI-START-JSON-REGRESSION: user can start server from JSON config and navigate app',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
-      await test.step('Start server with multi-page JSON config', async () => {
+      await test.step('CLI-START-JSON-001: Start server with multi-page JSON config', async () => {
         await startCliServerWithConfig({
           format: 'json',
           config: {
@@ -268,14 +268,14 @@ test.describe('CLI Start Command - JSON Configuration', () => {
         })
       })
 
-      await test.step('Verify home page renders correctly', async () => {
+      await test.step('CLI-START-JSON-005: Verify home page renders correctly', async () => {
         // Note: Custom pages bypass default layout - header elements not rendered
         await page.goto('/')
         await expect(page.locator('h1')).toHaveText('Home Page')
         await expect(page.locator('p')).toHaveText('Welcome to the app')
       })
 
-      await test.step('Navigate to about page', async () => {
+      await test.step('CLI-START-JSON-005: Navigate to about page', async () => {
         await page.goto('/about')
         await expect(page.locator('h1')).toHaveText('About Us')
       })

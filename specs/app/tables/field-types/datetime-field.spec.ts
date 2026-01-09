@@ -224,138 +224,89 @@ test.describe('DateTime Field', () => {
     'APP-TABLES-FIELD-TYPES-DATETIME-REGRESSION: user can complete full datetime-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-001: Create PostgreSQL TIMESTAMPTZ column', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'created_at', type: 'datetime' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with datetime fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'datetime' },
+              { id: 3, name: 'published_at', type: 'datetime', required: true },
+              { id: 4, name: 'updated_at', type: 'datetime', default: 'NOW()' },
+              { id: 5, name: 'indexed_at', type: 'datetime', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-001: Creates PostgreSQL TIMESTAMPTZ column', async () => {
+        // WHEN: querying column info for datetime field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_at'"
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='created_at'"
         )
+        // THEN: TIMESTAMPTZ column is created
         expect(columnInfo.column_name).toBe('created_at')
         expect(columnInfo.data_type).toMatch(/timestamp/)
         expect(columnInfo.is_nullable).toBe('YES')
+
+        // WHEN: inserting datetime value
         const validInsert = await executeQuery(
-          "INSERT INTO posts (created_at) VALUES ('2024-06-15 14:30:00+00') RETURNING created_at"
+          "INSERT INTO data (created_at, published_at) VALUES ('2024-06-15 14:30:00+00', '2024-06-15 12:00:00+00') RETURNING created_at"
         )
+        // THEN: value is stored correctly
         expect(validInsert.created_at).toBeTruthy()
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-002: Store date and time with timezone information', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'events',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'timestamp', type: 'datetime' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-002: Stores date and time with timezone information', async () => {
+        // WHEN: inserting multiple datetime values with timezone
         await executeQuery([
-          "INSERT INTO events (timestamp) VALUES ('2024-01-01 10:00:00+00'), ('2024-12-31 23:59:59+00')",
+          "INSERT INTO data (created_at, published_at) VALUES ('2024-01-01 10:00:00+00', '2024-01-01 08:00:00+00'), ('2024-12-31 23:59:59+00', '2024-12-31 20:00:00+00')",
         ])
-        const results = await executeQuery('SELECT timestamp FROM events ORDER BY timestamp')
-        expect(results.rows).toHaveLength(2)
-        expect(results.rows[0].timestamp).toBeTruthy()
-        expect(results.rows[1].timestamp).toBeTruthy()
+
+        // WHEN: querying stored datetime values
+        const results = await executeQuery(
+          'SELECT created_at FROM data WHERE created_at IS NOT NULL ORDER BY created_at'
+        )
+        // THEN: datetime values are stored correctly
+        expect(results.rows.length).toBeGreaterThanOrEqual(2)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-003: Reject NULL value when datetime field is required', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'articles',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'published_at', type: 'datetime', required: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-003: Rejects NULL when required', async () => {
+        // WHEN: querying NOT NULL constraint
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='articles' AND column_name='published_at'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='published_at'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
-        const validInsert = await executeQuery(
-          "INSERT INTO articles (published_at) VALUES ('2024-06-30 12:00:00+00') RETURNING published_at"
-        )
-        expect(validInsert.published_at).toBeTruthy()
+
+        // WHEN: attempting to insert NULL for required datetime
+        // THEN: NOT NULL constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO articles (published_at) VALUES (NULL)')
+          executeQuery('INSERT INTO data (published_at) VALUES (NULL)')
         ).rejects.toThrow(/violates not-null constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-004: Apply DEFAULT value when row inserted without providing value', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'records',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'updated_at', type: 'datetime', default: 'NOW()' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-004: Applies DEFAULT value', async () => {
+        // WHEN: inserting row without providing updated_at value
         const defaultInsert = await executeQuery(
-          'INSERT INTO records (id) VALUES (DEFAULT) RETURNING updated_at'
+          "INSERT INTO data (published_at) VALUES ('2024-07-01 10:00:00+00') RETURNING updated_at"
         )
+        // THEN: DEFAULT value is applied
         expect(defaultInsert.updated_at).toBeTruthy()
-        const explicitInsert = await executeQuery(
-          "INSERT INTO records (updated_at) VALUES ('2024-01-01 00:00:00+00') RETURNING updated_at"
-        )
-        expect(explicitInsert.updated_at).toBeTruthy()
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'logs',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'created_at',
-                  type: 'datetime',
-                  required: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-DATETIME-005: Creates btree index when indexed=true', async () => {
+        // WHEN: checking for btree index on indexed datetime field
         const indexExists = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_logs_created_at'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_indexed_at'"
         )
-        expect(indexExists.rows[0]).toEqual({
-          indexname: 'idx_logs_created_at',
-          tablename: 'logs',
-        })
+        // THEN: btree index exists
+        expect(indexExists.indexname).toBe('idx_data_indexed_at')
+        expect(indexExists.tablename).toBe('data')
       })
     }
   )

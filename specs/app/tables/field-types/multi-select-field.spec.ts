@@ -315,153 +315,124 @@ test.describe('Multi Select Field', () => {
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-REGRESSION: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-001: Create PostgreSQL TEXT ARRAY column', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'tags',
-                  type: 'multi-select',
-                  options: ['new', 'sale', 'featured', 'limited'],
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with multi-select fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              {
+                id: 1,
+                name: 'tags',
+                type: 'multi-select',
+                options: ['new', 'sale', 'featured', 'limited'],
+              },
+              {
+                id: 2,
+                name: 'categories',
+                type: 'multi-select',
+                options: ['tech', 'business', 'health', 'sports'],
+              },
+              {
+                id: 3,
+                name: 'skills',
+                type: 'multi-select',
+                options: ['python', 'javascript', 'rust'],
+                required: true,
+              },
+              {
+                id: 4,
+                name: 'roles',
+                type: 'multi-select',
+                options: ['user', 'admin', 'moderator'],
+                default: ['user'],
+              },
+              {
+                id: 5,
+                name: 'indexed_tags',
+                type: 'multi-select',
+                options: ['tag1', 'tag2', 'tag3'],
+                required: true,
+                indexed: true,
+              },
+            ],
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-001: Creates PostgreSQL TEXT ARRAY column', async () => {
+        // WHEN: querying column info for multi-select field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='tags'"
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='tags'"
         )
+        // THEN: TEXT ARRAY column is created and is nullable
         expect(columnInfo.data_type).toMatch(/ARRAY|array/)
         expect(columnInfo.is_nullable).toBe('YES')
+
+        // WHEN: inserting multiple values
         const validInsert = await executeQuery(
-          "INSERT INTO products (tags) VALUES (ARRAY['new', 'sale']) RETURNING tags"
+          "INSERT INTO data (tags, skills, indexed_tags) VALUES (ARRAY['new', 'sale'], ARRAY['python'], ARRAY['tag1']) RETURNING tags"
         )
+        // THEN: array values are stored correctly
         expect(validInsert.tags).toContain('new')
         expect(validInsert.tags).toContain('sale')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-002: Store multiple values from predefined options', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'articles',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'categories',
-                  type: 'multi-select',
-                  options: ['tech', 'business', 'health', 'sports'],
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-002: Stores multiple values from predefined options', async () => {
+        // WHEN: inserting rows with varying numbers of selected options
         await executeQuery([
-          "INSERT INTO articles (categories) VALUES (ARRAY['tech', 'business']), (ARRAY['health']), (ARRAY['tech', 'sports', 'business'])",
+          "INSERT INTO data (categories, skills, indexed_tags) VALUES (ARRAY['tech', 'business'], ARRAY['python'], ARRAY['tag1']), (ARRAY['health'], ARRAY['javascript'], ARRAY['tag2']), (ARRAY['tech', 'sports', 'business'], ARRAY['rust'], ARRAY['tag3'])",
         ])
-        const results = await executeQuery('SELECT categories FROM articles ORDER BY id')
+        // WHEN: querying the inserted rows
+        const results = await executeQuery(
+          'SELECT categories FROM data WHERE categories IS NOT NULL ORDER BY id'
+        )
+        // THEN: multiple values are stored per row
         expect(results.rows.length).toBe(3)
         expect(results.rows[0].categories.length).toBe(2)
         expect(results.rows[2].categories.length).toBe(3)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-003: Reject NULL when required', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'skills',
-                  type: 'multi-select',
-                  options: ['python', 'javascript', 'rust'],
-                  required: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-003: Rejects NULL when required', async () => {
+        // WHEN: checking NOT NULL constraint on required field
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='projects' AND column_name='skills'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='skills'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
-        await expect(executeQuery('INSERT INTO projects (skills) VALUES (NULL)')).rejects.toThrow(
-          /violates not-null constraint/
-        )
+
+        // WHEN: attempting to insert NULL into required field
+        // THEN: constraint violation error is thrown
+        await expect(
+          executeQuery(
+            "INSERT INTO data (tags, skills, indexed_tags) VALUES (ARRAY['new'], NULL, ARRAY['tag1'])"
+          )
+        ).rejects.toThrow(/violates not-null constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-004: Apply DEFAULT value', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'users',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'roles',
-                  type: 'multi-select',
-                  options: ['user', 'admin', 'moderator'],
-                  default: ['user'],
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-004: Applies DEFAULT value', async () => {
+        // WHEN: inserting row without providing optional field with default
         const defaultInsert = await executeQuery(
-          'INSERT INTO users (id) VALUES (DEFAULT) RETURNING roles'
+          "INSERT INTO data (skills, indexed_tags) VALUES (ARRAY['python'], ARRAY['tag1']) RETURNING roles"
         )
+        // THEN: default value is applied
         expect(defaultInsert.roles).toContain('user')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-005: Create GIN index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'tags',
-                  type: 'multi-select',
-                  options: ['tag1', 'tag2', 'tag3'],
-                  required: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-005: Creates GIN index when indexed=true', async () => {
+        // WHEN: checking for GIN index on indexed multi-select field
         const indexExists = await executeQuery(
-          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_posts_tags'"
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_data_indexed_tags'"
         )
-        expect(indexExists.indexname).toBe('idx_posts_tags')
+        // THEN: GIN index exists
+        expect(indexExists.indexname).toBe('idx_data_indexed_tags')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: Reject empty options array', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: Rejects empty options array', async () => {
+        // WHEN: attempting to create multi-select with empty options
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app',
@@ -485,7 +456,9 @@ test.describe('Multi Select Field', () => {
         ).rejects.toThrow(/options.*empty|at least one option.*required/i)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-007: Reject duplicate option values', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-007: Rejects duplicate option values', async () => {
+        // WHEN: attempting to create multi-select with duplicate options
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app',
@@ -509,7 +482,9 @@ test.describe('Multi Select Field', () => {
         ).rejects.toThrow(/duplicate.*option|options.*unique/i)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-008: Reject maxSelections exceeding options length', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-008: Rejects maxSelections exceeding options length', async () => {
+        // WHEN: attempting to create multi-select with maxSelections > options.length
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app',

@@ -878,63 +878,131 @@ test.describe('Record Display Formatting', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-FORMAT-REGRESSION: user can retrieve records with all formatting options',
+    'API-TABLES-RECORDS-FORMAT-REGRESSION: record display formatting works across field types',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, request }) => {
-      await test.step('Setup: Start server with multiple formatted fields', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'price', type: 'currency', currency: 'EUR' },
-                { id: 3, name: 'event_date', type: 'date', dateFormat: 'European' },
-                { id: 4, name: 'scheduled_time', type: 'datetime', timeFormat: '24-hour' },
-                { id: 5, name: 'duration', type: 'duration', displayFormat: 'h:mm' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Create tables with various formatted field types
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'price', type: 'currency', currency: 'EUR' },
+              {
+                id: 3,
+                name: 'balance',
+                type: 'currency',
+                currency: 'USD',
+                negativeFormat: 'parentheses',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'events',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'event_date', type: 'date', dateFormat: 'US' },
+              { id: 3, name: 'event_time', type: 'datetime' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'time_spent', type: 'duration', displayFormat: 'h:mm' },
+              { id: 3, name: 'scheduled_time', type: 'datetime', timeFormat: '12-hour' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Insert test data', async () => {
-        await executeQuery(`
-          INSERT INTO data (id, price, event_date, scheduled_time, duration)
-          VALUES (1, 1234.56, '2024-06-15', '2024-06-15 14:30:00+00', '2 hours 30 minutes')
-        `)
-      })
+      // Setup: Seed test data
+      await executeQuery('INSERT INTO products (id, price, balance) VALUES (1, 99.99, -100.00)')
+      await executeQuery("INSERT INTO events (id, event_date, event_time) VALUES (1, '2024-06-15', '2024-06-15 14:30:00+00')")
+      await executeQuery("INSERT INTO tasks (id, time_spent, scheduled_time) VALUES (1, '1 hour 30 minutes', '2024-06-15 14:30:00+00')")
 
-      await test.step('Verify formatted response', async () => {
+      await test.step('API-TABLES-RECORDS-FORMAT-001: Formats currency with EUR symbol', async () => {
+        // WHEN: requesting record with display formatting
         const response = await request.get('/api/tables/1/records?format=display')
+
+        // THEN: currency is formatted with EUR symbol (€)
         expect(response.status()).toBe(200)
-
         const data = await response.json()
-        const record = data.records[0]
-
-        // Currency formatting
-        expect(record.fields.price.displayValue).toBe('€1.234,56')
-
-        // Date formatting (European)
-        expect(record.fields.event_date.displayValue).toBe('15/6/2024')
-
-        // Datetime formatting (24-hour)
-        expect(record.fields.scheduled_time.displayValue).toMatch(/14:30/)
-
-        // Duration formatting (h:mm)
-        expect(record.fields.duration.displayValue).toBe('2:30')
+        expect(data.records[0].fields.price.value).toBe(99.99)
+        expect(data.records[0].fields.price.displayValue).toBe('€99.99')
       })
 
-      await test.step('Verify raw values are also available', async () => {
+      await test.step('API-TABLES-RECORDS-FORMAT-004: Formats negative currency in parentheses', async () => {
+        // WHEN: requesting record with display formatting
         const response = await request.get('/api/tables/1/records?format=display')
-        const data = await response.json()
-        const record = data.records[0]
 
-        expect(record.fields.price.value).toBe(1234.56)
-        expect(record.fields.event_date.value).toBe('2024-06-15')
+        // THEN: negative amount is displayed in parentheses ($100.00)
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records[0].fields.balance.displayValue).toBe('($100.00)')
+      })
+
+      await test.step('API-TABLES-RECORDS-FORMAT-007: Formats date in US format (M/D/YYYY)', async () => {
+        // WHEN: requesting record with display formatting
+        const response = await request.get('/api/tables/2/records?format=display')
+
+        // THEN: date is formatted in US format (6/15/2024)
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records[0].fields.event_date.displayValue).toBe('6/15/2024')
+      })
+
+      await test.step('API-TABLES-RECORDS-FORMAT-012: Displays time in 12-hour format with AM/PM', async () => {
+        // WHEN: requesting record with display formatting
+        const response = await request.get('/api/tables/3/records?format=display')
+
+        // THEN: time is displayed in 12-hour format with AM/PM
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records[0].fields.scheduled_time.displayValue).toMatch(/2:30\s*PM/)
+      })
+
+      await test.step('API-TABLES-RECORDS-FORMAT-016: Formats duration in h:mm format', async () => {
+        // WHEN: requesting record with display formatting
+        const response = await request.get('/api/tables/3/records?format=display')
+
+        // THEN: duration is formatted in h:mm format (1:30)
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records[0].fields.time_spent.displayValue).toBe('1:30')
+      })
+
+      await test.step('API-TABLES-RECORDS-FORMAT-021: Overrides display timezone via query parameter', async () => {
+        // WHEN: requesting record with timezone query parameter
+        const response = await request.get(
+          '/api/tables/2/records?format=display&timezone=America/New_York'
+        )
+
+        // THEN: datetime is displayed in requested timezone (14:30 UTC = 10:30 EDT)
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records[0].fields.event_time.displayValue).toMatch(/10:30/)
+        expect(data.records[0].fields.event_time.displayTimezone).toBe('America/New_York')
+      })
+
+      await test.step('API-TABLES-RECORDS-FORMAT-023: Rejects invalid timezone in query parameter', async () => {
+        // WHEN: requesting record with invalid timezone
+        const response = await request.get(
+          '/api/tables/2/records?format=display&timezone=Invalid/Timezone'
+        )
+
+        // THEN: API rejects with 400 Bad Request
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data.error).toMatch(/invalid timezone/i)
       })
     }
   )

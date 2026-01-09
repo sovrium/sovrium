@@ -491,38 +491,222 @@ test.describe('Get record by ID', () => {
     'API-TABLES-RECORDS-GET-REGRESSION: user can complete full get record workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with users table', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 13,
-              name: 'users',
-              fields: [
-                { id: 1, name: 'email', type: 'email', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
-            },
-          ],
-        })
+      // Setup: Create comprehensive schema for all test scenarios
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'phone', type: 'phone-number' },
+              { id: 4, name: 'created_at', type: 'created-at' },
+            ],
+          },
+          {
+            id: 2,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'phone', type: 'phone-number' },
+              { id: 5, name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'created_at', type: 'created-at' },
+              { id: 4, name: 'updated_at', type: 'updated-at' },
+              { id: 5, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+          {
+            id: 4,
+            name: 'confidential',
+            fields: [{ id: 1, name: 'data', type: 'long-text' }],
+          },
+        ],
       })
 
-      await test.step('Setup: Insert test record', async () => {
-        await executeQuery(`
-          INSERT INTO users (email, name)
-          VALUES ('test@example.com', 'Test User')
-        `)
-      })
+      // Insert test data for all scenarios
+      await executeQuery(`
+        INSERT INTO users (id, email, name, phone)
+        VALUES (1, 'john.doe@example.com', 'John Doe', '555-0100')
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, email, salary, phone, organization_id)
+        VALUES
+          (1, 'Alice Cooper', 'alice@example.com', 75000, '555-0200', 'org_123'),
+          (2, 'Bob Smith', 'bob@example.com', 85000, '555-0300', 'org_456'),
+          (3, 'Jane Smith', 'jane@example.com', 85000, '555-0400', 'org_123')
+      `)
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status)
+        VALUES (1, 'Important Task', 'pending')
+      `)
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status, deleted_at)
+        VALUES (2, 'Deleted Task', 'completed', NOW())
+      `)
+      await executeQuery(`
+        INSERT INTO confidential (id, data)
+        VALUES (1, 'Secret Information')
+      `)
 
-      await test.step('Fetch record by ID', async () => {
+      await test.step('API-TABLES-RECORDS-GET-001: should return 200 with complete record data', async () => {
         const response = await request.get('/api/tables/1/records/1', {})
 
         expect(response.status()).toBe(200)
 
         const data = await response.json()
         expect(data.id).toBe(1)
-        expect(data.fields.email).toBe('test@example.com')
-        expect(data.fields.name).toBe('Test User')
+        expect(data.fields.email).toBe('john.doe@example.com')
+        expect(data.fields.name).toBe('John Doe')
+        expect(data.fields.phone).toBe('555-0100')
+        expect(data).toHaveProperty('createdAt')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-002: should return 404 for non-existent record', async () => {
+        const response = await request.get('/api/tables/1/records/9999', {})
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-003: should return 401 Unauthorized', async () => {
+        // Note: This test requires unauthenticated request
+        const response = await request.get('/api/tables/2/records/1')
+
+        expect(response.status()).toBe(401)
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-004: should return 403 Forbidden', async () => {
+        // User without read permission on confidential table
+        const response = await request.get('/api/tables/4/records/1', {})
+
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-005: should return 404 for cross-org record', async () => {
+        // User from org_123 attempts to fetch record from org_456
+        const response = await request.get('/api/tables/2/records/2', {
+          headers: {},
+        })
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-006: should return all fields for admin', async () => {
+        // Admin user with full field access
+        const response = await request.get('/api/tables/2/records/1', {})
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data.fields).toHaveProperty('name')
+        expect(data.fields).toHaveProperty('email')
+        expect(data.fields).toHaveProperty('salary')
+        expect(data.fields.salary).toBe(75_000)
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-007: should exclude salary field for member', async () => {
+        // Member user without salary field read permission
+        const response = await request.get('/api/tables/2/records/3', {})
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data).toHaveProperty('email')
+        expect(data).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-008: should return minimal fields for viewer', async () => {
+        // Viewer with limited field access
+        const response = await request.get('/api/tables/2/records/1', {})
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data).not.toHaveProperty('email')
+        expect(data).not.toHaveProperty('phone')
+        expect(data).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-009: should apply both org and field filtering', async () => {
+        // Member from org_123 requests their org's record
+        const response = await request.get('/api/tables/2/records/1', {
+          headers: {},
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.id).toBe(1)
+        expect(data.fields.name).toBe('Alice Cooper')
+        expect(data.fields.email).toBe('alice@example.com')
+        expect(data.fields.organization_id).toBe('org_123')
+        expect(data.fields).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-010: should include readonly fields in response', async () => {
+        // Table with readonly system fields
+        const response = await request.get('/api/tables/3/records/1', {})
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('title')
+        expect(data).toHaveProperty('created_at')
+        expect(data).toHaveProperty('updated_at')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-011: should return 404 for soft-deleted record', async () => {
+        // Soft-deleted record without includeDeleted param
+        const response = await request.get('/api/tables/3/records/2', {})
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-GET-012: should return soft-deleted record with includeDeleted=true', async () => {
+        // Soft-deleted record with includeDeleted=true
+        const response = await request.get('/api/tables/3/records/2', {
+          params: {
+            includeDeleted: 'true',
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.record).toBeDefined()
+        expect(data.record.id).toBe(2)
+        expect(data.record.fields.title).toBe('Deleted Task')
+        expect(data.record.fields.status).toBe('completed')
+        expect(data.record.fields.deleted_at).toBeTruthy()
       })
     }
   )

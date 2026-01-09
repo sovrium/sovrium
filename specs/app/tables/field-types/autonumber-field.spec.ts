@@ -182,30 +182,40 @@ test.describe('Autonumber Field', () => {
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-REGRESSION: user can complete full autonumber-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with autonumber field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'auto_field', type: 'autonumber' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with autonumber field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'auto_field', type: 'autonumber' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Insert multiple records', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-AUTONUMBER-001: Creates PostgreSQL SERIAL column for auto-incrementing numbers', async () => {
+        // WHEN: querying column info
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='data' AND column_name='auto_field'"
+        )
+
+        // THEN: column is integer with nextval sequence
+        expect(columnInfo.data_type).toBe('integer')
+        expect(columnInfo.column_default).toMatch(/nextval/)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-AUTONUMBER-002: Automatically increments value for each new record', async () => {
+        // WHEN: inserting multiple records
         await executeQuery([
           'INSERT INTO data (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT)',
         ])
-      })
 
-      await test.step('Verify sequential numbering', async () => {
+        // THEN: each record has incrementing auto_field value
         const results = await executeQuery('SELECT auto_field FROM data ORDER BY id')
         expect(results.rows.length).toBe(5)
 
@@ -214,22 +224,14 @@ test.describe('Autonumber Field', () => {
         }
       })
 
-      await test.step('Error handling: duplicate field IDs are rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            tables: [
-              {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'auto_a', type: 'autonumber' },
-                  { id: 1, name: 'auto_b', type: 'autonumber' }, // Duplicate ID!
-                ],
-              },
-            ],
-          })
-        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      await test.step('APP-TABLES-FIELD-TYPES-AUTONUMBER-004: Is always NOT NULL (automatically generated)', async () => {
+        // WHEN: querying column nullable status
+        const notNullCheck = await executeQuery(
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='auto_field'"
+        )
+
+        // THEN: column is NOT NULL
+        expect(notNullCheck.is_nullable).toBe('NO')
       })
     }
   )

@@ -207,54 +207,67 @@ test.describe('Get organization details', () => {
     'API-AUTH-ORG-GET-ORGANIZATION-REGRESSION: user can complete full getOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
-      })
-
-      await test.step('Verify get organization fails without auth', async () => {
-        const noAuthResponse = await page.request.get(
-          '/api/auth/organization/get-full-organization?organizationId=1'
-        )
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
+      // Shared state across steps
       let orgId: string
 
-      await test.step('Setup: Create user and organization', async () => {
-        await signUp({
-          email: 'user@example.com',
-          password: 'UserPass123!',
-          name: 'Test User',
-        })
-
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
-        const org = await createResponse.json()
-        orgId = org.id
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
       })
 
-      await test.step('Get own organization', async () => {
-        const getResponse = await page.request.get(
+      await test.step('API-AUTH-ORG-GET-ORGANIZATION-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to get organization
+        const response = await page.request.get(
+          '/api/auth/organization/get-full-organization?organizationId=1'
+        )
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+      })
+
+      // Setup: Create user and organization
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+      orgId = org.id
+
+      await test.step('API-AUTH-ORG-GET-ORGANIZATION-001: Returns 200 OK with organization data', async () => {
+        // WHEN: User requests organization details
+        const response = await page.request.get(
           `/api/auth/organization/get-full-organization?organizationId=${orgId}`
         )
-        expect(getResponse.status()).toBe(200)
 
-        const data = await getResponse.json()
+        // THEN: Returns 200 OK with organization data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id', orgId)
         expect(data).toHaveProperty('name', 'Test Org')
+        expect(data).toHaveProperty('slug', 'test-org')
       })
 
-      await test.step('Verify get non-existent organization fails', async () => {
-        const notFoundResponse = await page.request.get(
+      await test.step('API-AUTH-ORG-GET-ORGANIZATION-004: Returns 404 Not Found', async () => {
+        // WHEN: User requests non-existent organization
+        const response = await page.request.get(
           '/api/auth/organization/get-full-organization?organizationId=nonexistent-id'
         )
-        expect(notFoundResponse.status()).toBe(404)
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

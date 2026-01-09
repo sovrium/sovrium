@@ -662,117 +662,119 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-REGRESSION: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with multiple lookup fields of different types', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'name', type: 'single-line-text' },
-                { id: 2, name: 'price', type: 'decimal' },
-                { id: 3, name: 'release_date', type: 'date' },
-                { id: 4, name: 'in_stock', type: 'checkbox' },
-              ],
-            },
-            {
-              id: 2,
-              name: 'orders',
-              fields: [
-                { id: 1, name: 'quantity', type: 'integer' },
-                {
-                  id: 2,
-                  name: 'product_id',
-                  type: 'relationship',
-                  relatedTable: 'products',
-                  relationType: 'many-to-one',
-                },
-                {
-                  id: 3,
-                  name: 'product_name',
-                  type: 'lookup',
-                  relationshipField: 'product_id',
-                  relatedField: 'name',
-                },
-                {
-                  id: 4,
-                  name: 'product_price',
-                  type: 'lookup',
-                  relationshipField: 'product_id',
-                  relatedField: 'price',
-                },
-                {
-                  id: 5,
-                  name: 'product_release_date',
-                  type: 'lookup',
-                  relationshipField: 'product_id',
-                  relatedField: 'release_date',
-                },
-                {
-                  id: 6,
-                  name: 'product_in_stock',
-                  type: 'lookup',
-                  relationshipField: 'product_id',
-                  relatedField: 'in_stock',
-                },
-              ],
-            },
-          ],
-        })
-
-        await executeQuery(`
-          INSERT INTO products (name, price, release_date, in_stock) VALUES
-          ('Widget Pro', 99.99, '2024-03-15', true),
-          ('Gadget Plus', 149.99, '2024-06-01', false)
-        `)
-        await executeQuery(`
-          INSERT INTO orders (product_id, quantity) VALUES (1, 5), (2, 3), (NULL, 1)
-        `)
+      // Setup: Start server with multiple lookup fields of different types
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'price', type: 'decimal' },
+              { id: 3, name: 'release_date', type: 'date' },
+              { id: 4, name: 'in_stock', type: 'checkbox' },
+            ],
+          },
+          {
+            id: 2,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'quantity', type: 'integer' },
+              {
+                id: 2,
+                name: 'product_id',
+                type: 'relationship',
+                relatedTable: 'products',
+                relationType: 'many-to-one',
+              },
+              {
+                id: 3,
+                name: 'product_name',
+                type: 'lookup',
+                relationshipField: 'product_id',
+                relatedField: 'name',
+              },
+              {
+                id: 4,
+                name: 'product_price',
+                type: 'lookup',
+                relationshipField: 'product_id',
+                relatedField: 'price',
+              },
+              {
+                id: 5,
+                name: 'product_release_date',
+                type: 'lookup',
+                relationshipField: 'product_id',
+                relatedField: 'release_date',
+              },
+              {
+                id: 6,
+                name: 'product_in_stock',
+                type: 'lookup',
+                relationshipField: 'product_id',
+                relatedField: 'in_stock',
+              },
+            ],
+          },
+        ],
       })
 
-      await test.step('Verify all lookup field types are directly accessible', async () => {
-        const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
+      // Setup: Insert test data
+      await executeQuery(`
+        INSERT INTO products (name, price, release_date, in_stock) VALUES
+        ('Widget Pro', 99.99, '2024-03-15', true),
+        ('Gadget Plus', 149.99, '2024-06-01', false)
+      `)
+      await executeQuery(`
+        INSERT INTO orders (product_id, quantity) VALUES (1, 5), (2, 3), (NULL, 1)
+      `)
 
+      await test.step('APP-TABLES-FIELD-TYPES-LOOKUP-001: Retrieves related field via JOIN', async () => {
+        // WHEN: querying order with lookup field
+        const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
+        // THEN: lookup field is directly accessible (Airtable-style)
+        expect(order.product_name).toBe('Widget Pro')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-LOOKUP-002: Supports multiple lookup fields through same relationship', async () => {
+        // WHEN: querying order with multiple lookup fields
+        const order = await executeQuery('SELECT * FROM orders WHERE id = 1')
+        // THEN: all lookup fields are accessible
         expect(order.product_name).toBe('Widget Pro')
         expect(order.product_price).toBe('99.99')
         expect(order.product_release_date instanceof Date).toBe(true)
-        const dateStr = order.product_release_date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+        const dateStr = order.product_release_date.toLocaleDateString('en-CA')
         expect(dateStr).toBe('2024-03-15')
         expect(order.product_in_stock).toBe(true)
       })
 
-      await test.step('Verify NULL relationship returns NULL via LEFT JOIN', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-LOOKUP-003: Returns NULL when relationship is NULL via LEFT JOIN', async () => {
+        // WHEN: querying order with NULL relationship
         const nullOrder = await executeQuery('SELECT * FROM orders WHERE id = 3')
-
+        // THEN: all lookup fields return NULL
         expect(nullOrder.product_name).toBeNull()
         expect(nullOrder.product_price).toBeNull()
         expect(nullOrder.product_release_date).toBeNull()
         expect(nullOrder.product_in_stock).toBeNull()
       })
 
-      await test.step('Verify lookup updates when related record changes', async () => {
-        // WHEN: Updating product name
+      await test.step('APP-TABLES-FIELD-TYPES-LOOKUP-004: Updates automatically when related record changes', async () => {
+        // WHEN: updating product name
         await executeQuery("UPDATE products SET name = 'Widget Pro Max' WHERE id = 1")
-
-        // THEN: Lookup reflects updated value immediately
+        // WHEN: querying order again
         const updated = await executeQuery('SELECT * FROM orders WHERE id = 1')
+        // THEN: lookup reflects updated value immediately
         expect(updated.product_name).toBe('Widget Pro Max')
       })
 
-      await test.step('Verify multiple lookups from same relationship', async () => {
-        const order = await executeQuery('SELECT * FROM orders WHERE id = 2')
-
-        expect(order.product_name).toBe('Gadget Plus')
-        expect(order.product_price).toBe('149.99')
-        expect(order.product_in_stock).toBe(false)
-      })
-
-      await test.step('Verify can filter by lookup values', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-LOOKUP-005: Supports filtering by lookup values', async () => {
+        // WHEN: filtering orders by lookup field value
         const expensiveOrders = await executeQuery(
           'SELECT * FROM orders WHERE product_price > 100 ORDER BY id'
         )
-
+        // THEN: query returns correct filtered results
         expect(expensiveOrders.rows.length).toBe(1)
         expect(expensiveOrders.rows[0].id).toBe(2)
       })

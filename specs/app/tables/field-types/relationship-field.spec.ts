@@ -701,104 +701,117 @@ test.describe('Relationship Field', () => {
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-REGRESSION: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create tables with various relationship types', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'departments',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 2,
-              name: 'employees',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                {
-                  id: 3,
-                  name: 'department_id',
-                  type: 'relationship',
-                  relatedTable: 'departments',
-                  relationType: 'many-to-one',
-                },
-                {
-                  id: 4,
-                  name: 'manager_id',
-                  type: 'relationship',
-                  relatedTable: 'employees',
-                  relationType: 'many-to-one',
-                },
-                {
-                  id: 5,
-                  name: 'skills',
-                  type: 'relationship',
-                  relatedTable: 'skills',
-                  relationType: 'many-to-many',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-            {
-              id: 3,
-              name: 'skills',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-
-        await executeQuery("INSERT INTO departments (name) VALUES ('Engineering'), ('Sales')")
-        await executeQuery("INSERT INTO skills (name) VALUES ('JavaScript'), ('Python'), ('SQL')")
-        await executeQuery(`
-          INSERT INTO employees (name, department_id, manager_id) VALUES
-          ('Alice', 1, NULL),
-          ('Bob', 1, 1),
-          ('Charlie', 1, 1),
-          ('Diana', 2, NULL)
-        `)
-        // Auto-generated junction table should be named employees_skills
-        await executeQuery(`
-          INSERT INTO employees_skills (employee_id, skill_id) VALUES
-          (1, 1), (1, 2), (1, 3),
-          (2, 1), (2, 3),
-          (3, 2)
-        `)
+      // Setup: Create tables with various relationship types
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'departments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'department_id',
+                type: 'relationship',
+                relatedTable: 'departments',
+                relationType: 'many-to-one',
+              },
+              {
+                id: 4,
+                name: 'manager_id',
+                type: 'relationship',
+                relatedTable: 'employees',
+                relationType: 'many-to-one',
+              },
+              {
+                id: 5,
+                name: 'skills',
+                type: 'relationship',
+                relatedTable: 'skills',
+                relationType: 'many-to-many',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 3,
+            name: 'skills',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Verify many-to-one relationship via JOIN', async () => {
+      // Setup: Insert test data
+      await executeQuery("INSERT INTO departments (name) VALUES ('Engineering'), ('Sales')")
+      await executeQuery("INSERT INTO skills (name) VALUES ('JavaScript'), ('Python'), ('SQL')")
+      await executeQuery(`
+        INSERT INTO employees (name, department_id, manager_id) VALUES
+        ('Alice', 1, NULL),
+        ('Bob', 1, 1),
+        ('Charlie', 1, 1),
+        ('Diana', 2, NULL)
+      `)
+      await executeQuery(`
+        INSERT INTO employees_skills (employee_id, skill_id) VALUES
+        (1, 1), (1, 2), (1, 3),
+        (2, 1), (2, 3),
+        (3, 2)
+      `)
+
+      await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-001: Creates INTEGER column with FOREIGN KEY constraint', async () => {
+        // WHEN: executing query to check column type
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='employees' AND column_name='department_id'"
+        )
+        // THEN: INTEGER column with proper foreign key exists
+        expect(columnInfo).toMatchObject({ column_name: 'department_id', data_type: 'integer' })
+
+        // WHEN: querying via JOIN
         const join = await executeQuery(`
           SELECT e.name, d.name as department
           FROM employees e
           JOIN departments d ON e.department_id = d.id
           WHERE e.id = 1
         `)
+        // THEN: relationship via JOIN works correctly
         expect(join.name).toBe('Alice')
         expect(join.department).toBe('Engineering')
       })
 
-      await test.step('Verify FK constraint rejects invalid reference', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-002: Rejects invalid foreign key reference', async () => {
+        // WHEN: executing query with invalid foreign key
+        // THEN: FK constraint rejects the invalid reference
         await expect(
           executeQuery("INSERT INTO employees (name, department_id) VALUES ('Invalid', 999)")
         ).rejects.toThrow(/violates foreign key constraint/)
       })
 
-      await test.step('Verify self-referencing relationship', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-008: Supports self-referencing relationships', async () => {
+        // WHEN: querying employees with specific manager
         const subordinates = await executeQuery(`
           SELECT COUNT(*) as count FROM employees WHERE manager_id = 1
         `)
+        // THEN: self-referencing relationship works correctly
         expect(subordinates.count).toBe('2') // Bob and Charlie report to Alice
       })
 
-      await test.step('Verify many-to-many via auto-generated junction table', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-007: Supports many-to-many via auto-generated junction table', async () => {
+        // WHEN: querying skills through junction table
         const aliceSkills = await executeQuery(`
           SELECT s.name
           FROM employees_skills es
@@ -806,53 +819,32 @@ test.describe('Relationship Field', () => {
           WHERE es.employee_id = 1
           ORDER BY s.name
         `)
+        // THEN: auto-generated junction table contains correct records
         expect(aliceSkills.rows).toEqual([
           { name: 'JavaScript' },
           { name: 'Python' },
           { name: 'SQL' },
         ])
-      })
 
-      await test.step('Verify auto-generated junction table prevents duplicates', async () => {
+        // WHEN: attempting to insert duplicate junction record
+        // THEN: junction table prevents duplicates
         await expect(
           executeQuery('INSERT INTO employees_skills (employee_id, skill_id) VALUES (1, 1)')
         ).rejects.toThrow(/duplicate key/)
       })
 
-      await test.step('Verify NULL relationship is allowed when not required', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-001: Allows NULL relationship when not required', async () => {
+        // WHEN: querying employees without manager
         const noManager = await executeQuery(`
           SELECT name, manager_id FROM employees WHERE manager_id IS NULL
         `)
+        // THEN: NULL relationship is allowed
         expect(noManager.rows.length).toBe(2) // Alice and Diana have no manager
       })
 
-      await test.step('Verify relationship update works', async () => {
-        await executeQuery('UPDATE employees SET department_id = 2 WHERE id = 2')
-
-        const updated = await executeQuery(`
-          SELECT e.name, d.name as department
-          FROM employees e
-          JOIN departments d ON e.department_id = d.id
-          WHERE e.id = 2
-        `)
-        expect(updated.department).toBe('Sales')
-      })
-
-      await test.step('Verify counting related records', async () => {
-        const deptCounts = await executeQuery(`
-          SELECT d.name, COUNT(e.id) as employee_count
-          FROM departments d
-          LEFT JOIN employees e ON d.id = e.department_id
-          GROUP BY d.id, d.name
-          ORDER BY d.name
-        `)
-        expect(deptCounts.rows).toEqual([
-          { name: 'Engineering', employee_count: '2' },
-          { name: 'Sales', employee_count: '2' },
-        ])
-      })
-
-      await test.step('Error handling: relationship to non-existent table is rejected', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: Rejects relationship to non-existent table', async () => {
+        // WHEN: attempting to start server with relationship to non-existent table
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app-error',

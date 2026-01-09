@@ -260,40 +260,122 @@ test.describe('Admin: List users', () => {
     'API-AUTH-ADMIN-LIST-USERS-REGRESSION: admin can complete full list-users workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with admin plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            admin: true,
-          },
-        })
+      // Setup: Start server with admin plugin and create users for workflow
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          admin: true,
+        },
       })
 
-      await test.step('Verify list users fails without auth', async () => {
-        const noAuthResponse = await page.request.get('/api/auth/admin/list-users')
-        expect(noAuthResponse.status()).toBe(401)
+      await test.step('API-AUTH-ADMIN-LIST-USERS-004: returns 401 without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to list users
+        const response = await page.request.get('/api/auth/admin/list-users')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create admin and regular user', async () => {
-        await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      // Create users for subsequent tests
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Regular User',
       })
 
-      await test.step('Verify list users fails for non-admin', async () => {
-        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-        const nonAdminResponse = await page.request.get('/api/auth/admin/list-users')
-        expect(nonAdminResponse.status()).toBe(403)
+      await test.step('API-AUTH-ADMIN-LIST-USERS-005: returns 403 for non-admin user', async () => {
+        // GIVEN: An authenticated regular user (non-admin)
+        // Note: signUp already signed in the user
+
+        // WHEN: Regular user attempts to list users
+        const response = await page.request.get('/api/auth/admin/list-users')
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
       })
 
-      await test.step('List users as admin', async () => {
-        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-        const adminResponse = await page.request.get('/api/auth/admin/list-users')
-        expect(adminResponse.status()).toBe(200)
+      // Sign in as admin for remaining tests
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
-        const data = await adminResponse.json()
+      await test.step('API-AUTH-ADMIN-LIST-USERS-001: returns 200 OK with paginated user list', async () => {
+        // WHEN: Admin requests list of users
+        const response = await page.request.get('/api/auth/admin/list-users')
+
+        // THEN: Returns 200 OK with paginated user list
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
         expect(data).toHaveProperty('users')
+        expect(Array.isArray(data.users)).toBe(true)
         expect(data.users.length).toBeGreaterThanOrEqual(2)
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USERS-006: excludes password field from response', async () => {
+        // WHEN: Admin requests list of users
+        const response = await page.request.get('/api/auth/admin/list-users')
+
+        // THEN: Returns 200 OK with users but password field excluded
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('users')
+        // Verify password is not exposed
+        for (const user of data.users) {
+          expect(user).not.toHaveProperty('password')
+          expect(user).not.toHaveProperty('password_hash')
+        }
+      })
+
+      // Create additional users for pagination and sorting tests
+      await signUp({
+        email: 'charlie@example.com',
+        password: 'UserPass123!',
+        name: 'Charlie',
+      })
+      await signUp({
+        email: 'alice@example.com',
+        password: 'UserPass123!',
+        name: 'Alice',
+      })
+
+      // Sign back in as admin after signUp
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USERS-002: returns 200 OK with paginated results', async () => {
+        // WHEN: Admin requests users with limit and offset
+        const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1')
+
+        // THEN: Returns 200 OK with paginated results
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('users')
+        expect(Array.isArray(data.users)).toBe(true)
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USERS-003: returns 200 OK with users sorted correctly', async () => {
+        // WHEN: Admin requests users sorted by email ascending
+        const response = await page.request.get(
+          '/api/auth/admin/list-users?sortBy=email&sortOrder=asc'
+        )
+
+        // THEN: Returns 200 OK with users sorted correctly
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('users')
       })
     }
   )

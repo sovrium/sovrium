@@ -304,65 +304,105 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     'API-ACTIVITY-DETAILS-REGRESSION: user can retrieve specific activity with full metadata',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      await test.step('Setup: Start server with activity logging', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text', required: true },
-                { id: 3, name: 'status', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with activity logging
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      let activityId: number
-      let userId: string
+      await test.step('API-ACTIVITY-DETAILS-002: Returns 401 when user is not authenticated', async () => {
+        // WHEN: Unauthenticated user requests activity details
+        const response = await page.request.get('/api/activity/123')
 
-      await test.step('Create activity log', async () => {
-        const { user } = await createAuthenticatedUser({ name: 'Charlie Davis' })
-        userId = user.id
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
 
-        const result = await executeQuery(`
-          INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
-          VALUES (
-            '${userId}',
-            'update',
-            'tasks',
-            42,
-            '{"status": {"old": "pending", "new": "completed"}, "updatedAt": "2025-12-16T10:00:00Z"}',
-            NOW()
-          )
-          RETURNING id
-        `)
-        activityId = result.id
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
       })
 
-      await test.step('Retrieve activity details with full metadata', async () => {
+      // Setup: Create authenticated user and activity log
+      const { user } = await createAuthenticatedUser({ name: 'Charlie Davis' })
+      const userId = user.id
+
+      const result = await executeQuery(`
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        VALUES (
+          '${userId}',
+          'update',
+          'tasks',
+          42,
+          '{"status": {"old": "pending", "new": "completed"}, "updatedAt": "2025-12-16T10:00:00Z"}',
+          NOW()
+        )
+        RETURNING id
+      `)
+      const activityId = result.id
+
+      await test.step('API-ACTIVITY-DETAILS-001: Returns 200 with activity details', async () => {
+        // WHEN: User requests specific activity details
         const response = await page.request.get(`/api/activity/${activityId}`)
+
+        // THEN: Returns 200 with complete activity details
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.id).toBe(activityId)
-        expect(data.action).toBe('update')
-        expect(data.tableName).toBe('tasks')
-        expect(data.recordId).toBe(42)
+        expect(data).toHaveProperty('id', activityId)
+        expect(data).toHaveProperty('userId', userId)
+        expect(data).toHaveProperty('action', 'update')
+        expect(data).toHaveProperty('tableName', 'tasks')
+        expect(data).toHaveProperty('recordId', 42)
+        expect(data).toHaveProperty('changes')
         expect(data.changes.status.old).toBe('pending')
         expect(data.changes.status.new).toBe('completed')
+        expect(data).toHaveProperty('createdAt')
+      })
+
+      await test.step('API-ACTIVITY-DETAILS-005: Includes user metadata in activity details', async () => {
+        // WHEN: User requests activity details
+        const response = await page.request.get(`/api/activity/${activityId}`)
+
+        // THEN: Activity includes user metadata
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
         expect(data.user.name).toBe('Charlie Davis')
         expect(data.user.id).toBe(userId)
       })
 
-      await test.step('Verify 404 for non-existent activity', async () => {
+      await test.step('API-ACTIVITY-DETAILS-003: Returns 404 when activity does not exist', async () => {
+        // WHEN: User requests non-existent activity
         const response = await page.request.get('/api/activity/99999')
+
+        // THEN: Returns 404 Not Found
         expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+      })
+
+      await test.step('API-ACTIVITY-DETAILS-007: Returns 400 when activityId is invalid format', async () => {
+        // WHEN: User requests activity with invalid ID format
+        const response = await page.request.get('/api/activity/invalid-id')
+
+        // THEN: Returns 400 Bad Request
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
       })
     }
   )

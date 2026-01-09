@@ -468,87 +468,103 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     'API-ACTIVITY-RECORD-HISTORY-REGRESSION: user can view complete change history for a record',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      await test.step('Setup: Start server with activity logging', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text', required: true },
-                { id: 3, name: 'status', type: 'single-line-text' },
-                { id: 4, name: 'priority', type: 'integer' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with activity logging
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'priority', type: 'integer' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      let user1Id: string
-      let user2Id: string
+      await test.step('API-ACTIVITY-RECORD-HISTORY-002: Returns 401 when user is not authenticated', async () => {
+        // WHEN: Unauthenticated user requests record history
+        const response = await page.request.get('/api/tables/1/records/1/history')
 
-      await test.step('Create users and record with history', async () => {
-        const user1 = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-        const user2 = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
-        user1Id = user1.user.id
-        user2Id = user2.user.id
-
-        await executeQuery(
-          `INSERT INTO tasks (id, title, status, priority) VALUES (42, 'Important Task', 'pending', 1)`
-        )
-        await executeQuery(`
-          INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
-          VALUES
-            ('${user1Id}', 'create', 'tasks', 42, '{"title": "Important Task", "status": "pending", "priority": 1}', NOW() - INTERVAL '20 minutes'),
-            ('${user1Id}', 'update', 'tasks', 42, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '15 minutes'),
-            ('${user2Id}', 'update', 'tasks', 42, '{"priority": {"old": 1, "new": 5}}', NOW() - INTERVAL '10 minutes'),
-            ('${user2Id}', 'update', 'tasks', 42, '{"title": {"old": "Important Task", "new": "Critical Task"}}', NOW() - INTERVAL '5 minutes')
-        `)
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
       })
 
-      await test.step('Retrieve complete change history', async () => {
+      // Setup: Create users and record with history
+      const user1 = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      const user2 = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+
+      await executeQuery(
+        `INSERT INTO tasks (id, title, status, priority) VALUES (42, 'Important Task', 'pending', 1)`
+      )
+      await executeQuery(`
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        VALUES
+          ('${user1.user.id}', 'create', 'tasks', 42, '{"title": "Important Task", "status": "pending", "priority": 1}', NOW() - INTERVAL '20 minutes'),
+          ('${user1.user.id}', 'update', 'tasks', 42, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '15 minutes'),
+          ('${user2.user.id}', 'update', 'tasks', 42, '{"priority": {"old": 1, "new": 5}}', NOW() - INTERVAL '10 minutes'),
+          ('${user2.user.id}', 'update', 'tasks', 42, '{"title": {"old": "Important Task", "new": "Critical Task"}}', NOW() - INTERVAL '5 minutes')
+      `)
+
+      await test.step('API-ACTIVITY-RECORD-HISTORY-001: Returns 200 with chronological change history', async () => {
+        // WHEN: User requests record history
         const response = await page.request.get('/api/tables/1/records/42/history')
-        expect(response.status()).toBe(200)
 
+        // THEN: Returns chronological change history
+        expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.history).toHaveLength(4)
         expect(data.history[0].action).toBe('create')
         expect(data.history[1].action).toBe('update')
         expect(data.history[2].action).toBe('update')
         expect(data.history[3].action).toBe('update')
+        // Verify chronological order (oldest to newest)
+        expect(new Date(data.history[0].createdAt).getTime()).toBeLessThan(
+          new Date(data.history[1].createdAt).getTime()
+        )
       })
 
-      await test.step('Verify chronological order and user attribution', async () => {
+      await test.step('API-ACTIVITY-RECORD-HISTORY-006: Includes user metadata for each activity', async () => {
+        // WHEN: User requests record history
         const response = await page.request.get('/api/tables/1/records/42/history')
+
+        // THEN: Each activity includes user metadata
+        expect(response.status()).toBe(200)
         const data = await response.json()
-
-        // Verify chronological order (oldest to newest)
-        for (let i = 1; i < data.history.length; i++) {
-          expect(new Date(data.history[i - 1].createdAt).getTime()).toBeLessThan(
-            new Date(data.history[i].createdAt).getTime()
-          )
-        }
-
-        // Verify user attribution
         expect(data.history[0].user.name).toBe('Alice')
         expect(data.history[2].user.name).toBe('Bob')
       })
 
-      await test.step('Verify pagination works', async () => {
+      await test.step('API-ACTIVITY-RECORD-HISTORY-009: Supports pagination for record history', async () => {
+        // WHEN: User requests second page of history with pageSize 2
         const response = await page.request.get(
           '/api/tables/1/records/42/history?page=1&pageSize=2'
         )
-        expect(response.status()).toBe(200)
 
+        // THEN: Returns paginated history
+        expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.history).toHaveLength(2)
         expect(data.pagination.page).toBe(1)
         expect(data.pagination.total).toBe(4)
         expect(data.pagination.totalPages).toBe(2)
+      })
+
+      await test.step('API-ACTIVITY-RECORD-HISTORY-004: Returns 404 when record does not exist', async () => {
+        // WHEN: User requests history for non-existent record
+        const response = await page.request.get('/api/tables/1/records/99999/history')
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
       })
     }
   )

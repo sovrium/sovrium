@@ -764,106 +764,348 @@ test.describe('Batch create records', () => {
     'API-TABLES-RECORDS-BATCH-POST-REGRESSION: user can complete full batch create workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with employees table', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 16,
-              name: 'employees',
-              fields: [
-                { id: 1, name: 'name', type: 'single-line-text', required: true },
-                { id: 2, name: 'email', type: 'email', required: true, unique: true },
-                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-                { id: 4, name: 'organization_id', type: 'single-line-text' },
-              ],
-            },
-          ],
-        })
+      // GIVEN: Consolidated configuration for all @spec tests
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'created_at', type: 'created-at' },
+              { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 5, name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
       })
 
-      await test.step('Batch create records successfully', async () => {
-        const successResponse = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-BATCH-POST-001: should return 201 with created=3 and records array', async () => {
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { name: 'John Doe', email: 'john@example.com' },
-              { name: 'Jane Smith', email: 'jane@example.com' },
-              { name: 'Bob Johnson', email: 'bob@example.com' },
+              { email: 'john@example.com', name: 'John Doe' },
+              { email: 'jane@example.com', name: 'Jane Smith' },
+              { email: 'bob@example.com', name: 'Bob Johnson' },
             ],
             returnRecords: true,
           },
         })
 
-        expect(successResponse.status()).toBe(201)
-        const result = await successResponse.json()
-        expect(result.created).toBe(3)
-        expect(result.records).toHaveLength(3)
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data).toHaveProperty('created')
+        expect(data).toHaveProperty('records')
+        expect(data.created).toBe(3)
+        expect(data.records).toHaveLength(3)
+
+        const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+        expect(result.rows[0].count).toBe('3')
       })
 
-      await test.step('Verify records in database', async () => {
-        const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        expect(verifyRecords.rows[0].count).toBe('3')
-      })
-
-      await test.step('Verify validation error triggers rollback', async () => {
-        const validationResponse = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-BATCH-POST-002: should return 201 with created=2 and no records array', async () => {
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { name: 'Valid', email: 'valid@example.com' },
-              { name: 'Invalid' }, // Missing email
+              { email: 'user1@example.com', name: 'User One' },
+              { email: 'user2@example.com', name: 'User Two' },
+            ],
+            returnRecords: false,
+          },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data).toHaveProperty('created')
+        expect(data.created).toBe(2)
+        expect(data).not.toHaveProperty('records')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-003: should return 400 with rollback on validation error', async () => {
+        // Get current count before attempting invalid batch
+        const beforeResult = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+        const countBefore = beforeResult.rows[0].count
+
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'valid@example.com', name: 'Valid User' },
+              { name: 'Invalid User' }, // Missing required email
             ],
           },
         })
 
-        expect(validationResponse.status()).toBe(400)
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('details')
 
-        const verifyRollback = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        expect(verifyRollback.rows[0].count).toBe('3')
+        // Verify no records created due to transaction rollback
+        const afterResult = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+        expect(afterResult.rows[0].count).toBe(countBefore)
       })
 
-      await test.step('Verify unauthorized batch create fails', async () => {
-        const forbiddenResponse = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-BATCH-POST-004: should return 401 Unauthorized', async () => {
+        // Note: This test requires unauthenticated request context
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'Test', email: 'test@example.com' }],
+            records: [{ email: 'test@example.com', name: 'Alice Cooper' }],
           },
         })
 
-        expect(forbiddenResponse.status()).toBe(403)
+        expect(response.status()).toBe(401)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Verify unauthenticated batch create fails', async () => {
-        const unauthorizedResponse = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-BATCH-POST-005: should return 403 for member without create permission', async () => {
+        // Note: Requires member user context without create permission
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'Test', email: 'test@example.com' }],
+            records: [
+              { email: 'proj1@example.com', name: 'Project Alpha' },
+              { email: 'proj2@example.com', name: 'Project Beta' },
+            ],
           },
         })
 
-        expect(unauthorizedResponse.status()).toBe(401)
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to create records in this table')
       })
 
-      await test.step('Verify field-level permission enforced', async () => {
-        const fieldForbiddenResponse = await request.post('/api/tables/1/records/batch', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-BATCH-POST-006: should return 403 for viewer', async () => {
+        // Note: Requires viewer user context
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'Test', email: 'test2@example.com', salary: 99_999 }],
+            records: [
+              { email: 'doc1@example.com', name: 'Doc 1' },
+              { email: 'doc2@example.com', name: 'Doc 2' },
+            ],
           },
         })
 
-        expect(fieldForbiddenResponse.status()).toBe(403)
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-007: should auto-inject organization_id for all records', async () => {
+        // Note: Requires admin user from org_123
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Alice Cooper', email: 'alice_org@example.com' },
+              { name: 'Bob Smith', email: 'bob_org@example.com' },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.created).toBe(2)
+        expect(data.records[0].fields.organization_id).toBe('org_123')
+        expect(data.records[1].fields.organization_id).toBe('org_123')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-008: should return 403 when creating with protected field', async () => {
+        // Note: Requires member user with field-level write restrictions (salary protected)
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Alice Cooper', email: 'alice_sal@example.com', salary: 85_000 },
+              { name: 'Bob Smith', email: 'bob_sal@example.com', salary: 90_000 },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to write to field: salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-009: should return 403 for readonly fields', async () => {
+        // Note: Requires admin user attempting to set readonly fields
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [{ id: 999, name: 'Alice Cooper', email: 'alice_ro@example.com' }],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('Cannot set readonly field: id')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-010: should return 403 when setting different organization_id', async () => {
+        // Note: Requires member user attempting to set different organization_id
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Alice Cooper', email: 'alice_diff@example.com', organization_id: 'org_456' },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('Cannot create records for different organization')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-011: should filter protected fields from response', async () => {
+        // Note: Requires member user with field-level read restrictions
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Alice Cooper', email: 'alice_filter@example.com', salary: 80_000 },
+              { name: 'Bob Smith', email: 'bob_filter@example.com', salary: 85_000 },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.created).toBe(2)
+        expect(data.records[0].fields.name).toBe('Alice Cooper')
+        expect(data.records[1].fields.name).toBe('Bob Smith')
+        // Salary field not in response
+        expect(data.records[0].fields).not.toHaveProperty('salary')
+        expect(data.records[1].fields).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-012: should return 201 with all fields for admin', async () => {
+        // Note: Requires admin user with full permissions
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Charlie Brown', email: 'charlie@example.com', salary: 130_000 },
+              { name: 'Diana Prince', email: 'diana@example.com', salary: 95_000 },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.created).toBe(2)
+        expect(data.records[0].fields.name).toBe('Charlie Brown')
+        expect(data.records[0].fields.salary).toBe(130_000)
+        expect(data.records[1].fields.name).toBe('Diana Prince')
+        expect(data.records[1].fields.salary).toBe(95_000)
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-013: should enforce combined permissions', async () => {
+        // Note: Requires member with create permission but field restrictions
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { name: 'Alice Cooper', email: 'alice_comb@example.com', salary: 80_000 },
+              { name: 'Bob Smith', email: 'bob_comb@example.com', salary: 85_000 },
+              { name: 'Charlie Davis', email: 'charlie_comb@example.com', salary: 70_000 },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.created).toBe(3)
+        // Salary field not in response for all records
+        expect(data.records[0]).not.toHaveProperty('salary')
+        expect(data.records[1]).not.toHaveProperty('salary')
+        expect(data.records[2]).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-014: should return 400 for duplicate unique field values', async () => {
+        // Get current count before attempting duplicate batch
+        const beforeResult = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+        const countBefore = beforeResult.rows[0].count
+
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'duplicate@example.com', name: 'User One' },
+              { email: 'duplicate@example.com', name: 'User Two' },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('details')
+
+        // Verify no records created due to rollback
+        const afterResult = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+        expect(afterResult.rows[0].count).toBe(countBefore)
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-015: should return 413 when exceeding 1000 record limit', async () => {
+        const records = Array.from({ length: 1001 }, (_, i) => ({
+          email: `user${i}@batch.com`,
+        }))
+
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { records },
+        })
+
+        expect(response.status()).toBe(413)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('PayloadTooLarge')
+        expect(data.message).toBe('Batch size exceeds maximum of 1000 records')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-POST-016: should return 404 for cross-org batch create', async () => {
+        // Note: User from org_123 attempting to access table belonging to org_456
+        const response = await request.post('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'crossorg1@example.com', name: 'Alice Cooper' },
+              { email: 'crossorg2@example.com', name: 'Bob Smith' },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Table not found')
       })
     }
   )

@@ -287,63 +287,135 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-REGRESSION: user can complete full listMembers workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
-      })
-
-      await test.step('Verify list members fails without auth', async () => {
-        const noAuthResponse = await page.request.get(
-          '/api/auth/organization/list-members?organizationId=1'
-        )
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // Shared state across steps
       let orgId: string
 
-      await test.step('Setup: Create owner and organization', async () => {
-        await signUp({
-          email: 'owner@example.com',
-          password: 'OwnerPass123!',
-          name: 'Owner User',
-        })
-
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
-        const org = await createResponse.json()
-        orgId = org.id
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
       })
 
-      await test.step('List members for owner (owner is member)', async () => {
-        const listResponse = await page.request.get(
+      await test.step('API-AUTH-ORG-LIST-MEMBERS-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to list members
+        const response = await page.request.get(
+          '/api/auth/organization/list-members?organizationId=1'
+        )
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+      })
+
+      // Setup: Create owner, member, and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+      orgId = org.id
+
+      // Create member user
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      // Sign back in as owner and add member
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: orgId, userId: '2', role: 'member' },
+      })
+
+      await test.step('API-AUTH-ORG-LIST-MEMBERS-002: Returns 400 Bad Request without organizationId', async () => {
+        // WHEN: User requests members without organizationId parameter
+        const response = await page.request.get('/api/auth/organization/list-members')
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-LIST-MEMBERS-001: Returns 200 OK with all members and their roles', async () => {
+        // WHEN: Owner requests list of organization members
+        const response = await page.request.get(
           `/api/auth/organization/list-members?organizationId=${orgId}`
         )
-        expect(listResponse.status()).toBe(200)
 
-        const data = await listResponse.json()
-        expect(data.members.length).toBeGreaterThan(0)
+        // THEN: Returns 200 OK with all members and their roles
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('members')
+        expect(Array.isArray(data.members)).toBe(true)
       })
 
-      await test.step('Setup: Create non-member user', async () => {
-        await signUp({
-          email: 'outsider@example.com',
-          password: 'OutsiderPass123!',
-          name: 'Outsider',
-        })
-      })
-
-      await test.step('Verify non-member gets 404', async () => {
-        const outsiderResponse = await page.request.get(
+      await test.step('API-AUTH-ORG-LIST-MEMBERS-006: Returns 200 OK with member data excluding password', async () => {
+        // WHEN: User requests list of members
+        const response = await page.request.get(
           `/api/auth/organization/list-members?organizationId=${orgId}`
         )
-        expect(outsiderResponse.status()).toBe(404)
+
+        // THEN: Returns 200 OK with member data but password excluded
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('members')
+
+        // Verify password is not included in response
+        if (data.members.length > 0) {
+          expect(data.members[0]).not.toHaveProperty('password')
+          expect(data.members[0]).not.toHaveProperty('passwordHash')
+          expect(data.members[0]).not.toHaveProperty('password_hash')
+        }
+      })
+
+      await test.step('API-AUTH-ORG-LIST-MEMBERS-004: Returns 404 Not Found for non-existent organization', async () => {
+        // WHEN: User requests members of non-existent organization
+        const response = await page.request.get(
+          '/api/auth/organization/list-members?organizationId=nonexistent-id'
+        )
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      // Create non-member user
+      await signUp({
+        email: 'nonmember@example.com',
+        password: 'NonMemberPass123!',
+        name: 'Non Member',
+      })
+
+      await test.step('API-AUTH-ORG-LIST-MEMBERS-005: Returns 404 Not Found for non-member (prevent enumeration)', async () => {
+        // WHEN: Non-member attempts to list organization members
+        const response = await page.request.get(
+          `/api/auth/organization/list-members?organizationId=${orgId}`
+        )
+
+        // THEN: Returns 404 Not Found (prevent enumeration)
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

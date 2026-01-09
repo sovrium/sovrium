@@ -327,63 +327,173 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-REGRESSION: user can complete full updateOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
       })
 
-      await test.step('Verify update organization fails without auth', async () => {
-        const noAuthResponse = await page.request.patch('/api/auth/organization/update', {
-          data: { organizationId: '1', data: { name: 'New Name' } },
-        })
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
-      let orgId: string
-
-      await test.step('Setup: Create and authenticate user', async () => {
-        await signUp({
-          email: 'owner@example.com',
-          password: 'OwnerPass123!',
-          name: 'Owner User',
-        })
-      })
-
-      await test.step('Setup: Create organization', async () => {
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Original Name', slug: 'original-slug' },
-        })
-        const org = await createResponse.json()
-        orgId = org.id
-      })
-
-      await test.step('Update organization with new name', async () => {
-        const updateResponse = await page.request.patch('/api/auth/organization/update', {
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-004: Unauthenticated request returns 401', async () => {
+        // WHEN: Unauthenticated user attempts to update organization
+        const response = await page.request.patch('/api/auth/organization/update', {
           data: {
-            organizationId: orgId,
-            data: { name: 'Updated Name' },
+            organizationId: '1',
+            data: { name: 'New Name' },
           },
         })
-        expect(updateResponse.status()).toBe(200)
 
-        const data = await updateResponse.json()
-        expect(data).toHaveProperty('name', 'Updated Name')
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Verify update non-existent organization fails', async () => {
-        const notFoundResponse = await page.request.patch('/api/auth/organization/update', {
+      // Setup: Create and authenticate owner user
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+
+      // Setup: Create organization for subsequent tests
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Old Name', slug: 'old-slug' },
+      })
+      const org = await createResponse.json()
+
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-001: Returns 200 OK with updated organization data', async () => {
+        // WHEN: Owner updates organization details
+        const response = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org.id,
+            data: {
+              name: 'New Name',
+              slug: 'new-slug',
+            },
+          },
+        })
+
+        // THEN: Returns 200 OK with updated organization data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('name', 'New Name')
+        expect(data).toHaveProperty('slug', 'new-slug')
+      })
+
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-002: Returns 200 OK with name updated, slug unchanged', async () => {
+        // WHEN: Owner updates only name field
+        const response = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org.id,
+            data: { name: 'Updated Name Only' },
+          },
+        })
+
+        // THEN: Returns 200 OK with name updated, slug unchanged
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('name', 'Updated Name Only')
+        expect(data).toHaveProperty('slug', 'new-slug')
+      })
+
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-003: Returns 400 Bad Request with validation error', async () => {
+        // WHEN: Owner submits request without organizationId
+        const response = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            data: { name: 'New Name' },
+          },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-006: Returns 404 Not Found for non-existent organization', async () => {
+        // WHEN: User attempts to update non-existent organization
+        const response = await page.request.patch('/api/auth/organization/update', {
           data: {
             organizationId: 'nonexistent-id',
             data: { name: 'New Name' },
           },
         })
-        expect(notFoundResponse.status()).toBe(404)
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-007: Returns 409 Conflict for duplicate slug', async () => {
+        // Create second organization for conflict test
+        await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Existing Org', slug: 'existing-slug' },
+        })
+
+        // WHEN: Owner attempts to update slug to existing slug
+        const response = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org.id,
+            data: { slug: 'existing-slug' },
+          },
+        })
+
+        // THEN: Returns 409 Conflict error
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-UPDATE-ORGANIZATION-005: Returns 403 Forbidden for non-owner member', async () => {
+        // Create member user
+        await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        // Sign back in as owner to invite member
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+        })
+
+        // Invite member
+        await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: org.id,
+            email: 'member@example.com',
+            role: 'member',
+          },
+        })
+
+        // Sign in as member
+        await signIn({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+        })
+
+        // WHEN: Member attempts to update organization
+        const response = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org.id,
+            data: { name: 'New Name' },
+          },
+        })
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

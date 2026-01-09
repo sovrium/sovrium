@@ -440,73 +440,127 @@ test.describe('Accept organization invitation', () => {
     'API-AUTH-ORG-ACCEPT-INVITATION-REGRESSION: user can complete full acceptInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
-      })
-
-      await test.step('Verify accept invitation fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/organization/accept-invitation', {
-          data: { invitationId: '1' },
-        })
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
+      // Shared state across steps
+      let orgId: string
       let invitationId: string
 
-      await test.step('Setup: Create owner, invitee, and organization', async () => {
-        await signUp({
-          email: 'owner@example.com',
-          password: 'OwnerPass123!',
-          name: 'Owner User',
-        })
-        await signUp({
-          email: 'invitee@example.com',
-          password: 'InviteePass123!',
-          name: 'Invitee User',
-        })
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
+      })
 
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
-        const org = await createResponse.json()
-
-        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+      await test.step('API-AUTH-ORG-ACCEPT-INVITATION-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to accept invitation
+        const response = await page.request.post('/api/auth/organization/accept-invitation', {
           data: {
-            organizationId: org.id,
-            email: 'invitee@example.com',
-            role: 'member',
+            invitationId: '1',
           },
         })
-        const invitation = await inviteResponse.json()
-        invitationId = invitation.invitation?.id || invitation.id
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Accept invitation as invitee', async () => {
-        await signIn({
-          email: 'invitee@example.com',
-          password: 'InviteePass123!',
+      // Setup: Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+      orgId = org.id
+
+      // Create invitee user
+      await signUp({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+        name: 'Invitee User',
+      })
+
+      await test.step('API-AUTH-ORG-ACCEPT-INVITATION-002: Returns 400 Bad Request without invitationId', async () => {
+        // WHEN: User submits request without invitationId
+        const response = await page.request.post('/api/auth/organization/accept-invitation', {
+          data: {},
         })
 
-        const acceptResponse = await page.request.post('/api/auth/organization/accept-invitation', {
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-ACCEPT-INVITATION-004: Returns 404 Not Found for non-existent invitation', async () => {
+        // WHEN: User attempts to accept non-existent invitation
+        const response = await page.request.post('/api/auth/organization/accept-invitation', {
+          data: {
+            invitationId: 'nonexistent-id',
+          },
+        })
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      // Sign back in as owner to send invitation
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: orgId,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      invitationId = invitation.invitation?.id || invitation.id
+
+      // Sign in as invitee
+      await signIn({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+      })
+
+      await test.step('API-AUTH-ORG-ACCEPT-INVITATION-001: Returns 200 OK and adds user to organization', async () => {
+        // WHEN: User accepts the invitation
+        const response = await page.request.post('/api/auth/organization/accept-invitation', {
+          data: {
+            invitationId: invitationId,
+          },
+        })
+
+        // THEN: Returns 200 OK and adds user to organization
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('member')
+      })
+
+      await test.step('API-AUTH-ORG-ACCEPT-INVITATION-008: Returns 409 Conflict for already accepted invitation', async () => {
+        // WHEN: User attempts to accept the same invitation again
+        const response = await page.request.post('/api/auth/organization/accept-invitation', {
           data: { invitationId },
         })
-        expect(acceptResponse.status()).toBe(200)
-      })
 
-      await test.step('Verify accept invitation again fails', async () => {
-        const duplicateResponse = await page.request.post(
-          '/api/auth/organization/accept-invitation',
-          {
-            data: { invitationId },
-          }
-        )
-        expect(duplicateResponse.status()).toBe(409)
+        // THEN: Returns 409 Conflict
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

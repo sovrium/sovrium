@@ -466,117 +466,305 @@ test.describe('SQL Injection Prevention', () => {
   test.fixme(
     'API-SECURITY-SQLI-REGRESSION: SQL injection protection across all attack vectors',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with tables', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+    async ({ request, page, startServerWithSchema, signUp, signIn, createAuthenticatedAdmin }) => {
+      // Setup comprehensive schema for all injection test scenarios
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          admin: true,
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'users_data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'secret', type: 'single-line-text' },
+            ],
           },
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'description', type: 'long-text' },
-                { id: 4, name: 'price', type: 'decimal' },
-              ],
-            },
-          ],
-        })
+          {
+            id: 2,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'data', type: 'single-line-text' },
+            ],
+          },
+          {
+            id: 3,
+            name: 'posts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'content', type: 'long-text' },
+            ],
+          },
+          {
+            id: 4,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'price', type: 'decimal' },
+            ],
+          },
+          {
+            id: 5,
+            name: 'articles',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'body', type: 'long-text' },
+            ],
+          },
+          {
+            id: 6,
+            name: 'templates',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'query_pattern', type: 'single-line-text' },
+            ],
+          },
+          {
+            id: 7,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'value', type: 'single-line-text' },
+            ],
+          },
+        ],
       })
 
-      await test.step('Setup: Create authenticated user and test data', async () => {
-        await signUp({
-          email: 'user@example.com',
-          password: 'TestPassword123!',
-          name: 'Test User',
-        })
-        await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
+      await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
 
+      await test.step('API-SECURITY-SQLI-001: Prevent SQL injection in query string filters', async () => {
         // Create test data
         await request.post('/api/tables/1/records', {
-          data: { name: 'Widget A', description: 'First widget', price: 9.99 },
+          data: { name: 'Alice', secret: 'alice-secret' },
         })
         await request.post('/api/tables/1/records', {
-          data: { name: 'Widget B', description: 'Second widget', price: 19.99 },
+          data: { name: 'Bob', secret: 'bob-secret' },
         })
-      })
 
-      await test.step('Verify: Filter injection is prevented', async () => {
-        const response = await request.get(
-          `/api/tables/1/records?filter[name]=${encodeURIComponent("' OR '1'='1")}`
-        )
+        // Attempt SQL injection via filter parameter
+        const sqlInjectionPayloads = [
+          "' OR '1'='1",
+          "'; DROP TABLE users_data; --",
+          '1; SELECT * FROM users_data --',
+          "' UNION SELECT * FROM users_data --",
+          "1' OR '1'='1' --",
+          "admin'--",
+        ]
 
-        // THEN: Should reject injection OR safely handle it
-        expect([200, 400]).toContain(response.status())
+        for (const payload of sqlInjectionPayloads) {
+          const response = await request.get(
+            `/api/tables/1/records?filter[name]=${encodeURIComponent(payload)}`
+          )
 
-        if (response.status() === 200) {
-          const data = await response.json()
-          // Should not return all records
-          expect(Array.isArray(data) ? data.length : 0).toBeLessThanOrEqual(1)
+          // Should not expose all data or cause SQL errors
+          expect([200, 400]).toContain(response.status())
+
+          if (response.status() === 200) {
+            const data = await response.json()
+            // Should not return all records (SQL injection didn't bypass filter)
+            expect(Array.isArray(data) ? data.length : 0).toBeLessThanOrEqual(1)
+          }
         }
       })
 
-      await test.step('Verify: Path parameter injection is prevented', async () => {
-        const response = await request.get(
-          `/api/tables/1/records/${encodeURIComponent('1 OR 1=1')}`
-        )
-        expect([400, 404]).toContain(response.status())
+      await test.step('API-SECURITY-SQLI-002: Prevent SQL injection in URL path parameters', async () => {
+        // Attempt SQL injection via path parameter
+        const injectionPaths = [
+          '1 OR 1=1',
+          "1'; DROP TABLE items; --",
+          '1 UNION SELECT * FROM items',
+          '1--',
+          "1' AND '1'='1",
+        ]
+
+        for (const payload of injectionPaths) {
+          const response = await request.get(`/api/tables/2/records/${encodeURIComponent(payload)}`)
+
+          // Should return 400 Bad Request or 404 Not Found
+          // Should NOT return 200 with injected data
+          expect([400, 404]).toContain(response.status())
+        }
       })
 
-      await test.step('Verify: Body injection is safely stored', async () => {
-        const maliciousData = {
-          name: "'; DROP TABLE products; --",
-          description: 'Test injection',
-          price: 5.0,
+      await test.step('API-SECURITY-SQLI-003: Prevent SQL injection in request body fields', async () => {
+        // Attempt SQL injection via request body
+        const maliciousPayloads = [
+          { title: "'); DROP TABLE posts; --", content: 'Normal content' },
+          { title: 'Normal', content: "' OR '1'='1" },
+          { title: "' UNION SELECT password FROM users --", content: 'Test' },
+        ]
+
+        for (const payload of maliciousPayloads) {
+          const response = await request.post('/api/tables/3/records', {
+            data: payload,
+            headers: { 'Content-Type': 'application/json' },
+          })
+
+          // Should succeed (data is safely escaped) or fail validation
+          expect([200, 201, 400]).toContain(response.status())
+
+          if (response.status() === 201 || response.status() === 200) {
+            const data = await response.json()
+            // Data should be stored literally (escaped), not executed as SQL
+            if (data.title) {
+              expect(data.title).toBe(payload.title)
+            }
+          }
         }
 
-        const createResponse = await request.post('/api/tables/1/records', {
-          data: maliciousData,
-        })
-        expect([200, 201, 400]).toContain(createResponse.status())
-
-        // Verify table still works
-        const listResponse = await request.get('/api/tables/1/records')
+        // Verify table still exists by querying it
+        const listResponse = await request.get('/api/tables/3/records')
         expect(listResponse.status()).toBe(200)
       })
 
-      await test.step('Verify: Sort injection is prevented', async () => {
-        const response = await request.get(
-          `/api/tables/1/records?sort=${encodeURIComponent('name; DROP TABLE products --')}`
-        )
-        expect([200, 400]).toContain(response.status())
+      await test.step('API-SECURITY-SQLI-004: Prevent SQL injection in ORDER BY clauses', async () => {
+        // Create test data
+        await request.post('/api/tables/4/records', { data: { name: 'Item A', price: 10.0 } })
+        await request.post('/api/tables/4/records', { data: { name: 'Item B', price: 20.0 } })
 
-        // Table should still exist
-        const verifyResponse = await request.get('/api/tables/1/records')
-        expect(verifyResponse.status()).toBe(200)
-      })
+        // Attempt SQL injection via sort parameter
+        const sortInjections = [
+          'name; DROP TABLE products; --',
+          '(SELECT password FROM users)',
+          'name DESC, (SELECT 1 FROM users WHERE 1=1) --',
+          'CASE WHEN 1=1 THEN name ELSE price END',
+        ]
 
-      await test.step('Verify: Search injection is prevented', async () => {
-        const response = await request.get(
-          `/api/tables/1/records?search=${encodeURIComponent("%' UNION SELECT * FROM users --")}`
-        )
-        expect([200, 400]).toContain(response.status())
+        for (const payload of sortInjections) {
+          const response = await request.get(
+            `/api/tables/4/records?sort=${encodeURIComponent(payload)}`
+          )
 
-        if (response.status() === 200) {
-          const data = await response.json()
-          // Should not leak user data
-          const json = JSON.stringify(data)
-          expect(json).not.toContain('password')
-          expect(json).not.toContain('user@example.com')
+          // Should either reject invalid sort or ignore injection
+          expect([200, 400]).toContain(response.status())
+
+          // If 200, should still return data (injection failed to execute)
+          if (response.status() === 200) {
+            const data = await response.json()
+            expect(Array.isArray(data) ? data.length : 0).toBeGreaterThan(0)
+          }
         }
       })
 
-      await test.step('Verify: All test data is preserved', async () => {
-        const response = await request.get('/api/tables/1/records')
-        expect(response.status()).toBe(200)
+      await test.step('API-SECURITY-SQLI-005: Prevent SQL injection in LIKE search patterns', async () => {
+        // Create test articles
+        await request.post('/api/tables/5/records', {
+          data: { title: 'Public Article', body: 'Public content' },
+        })
+        await request.post('/api/tables/5/records', {
+          data: { title: 'Secret Article', body: 'Secret content' },
+        })
 
-        const data = await response.json()
-        // Original 2 products + potentially 1 from injection test
-        expect(Array.isArray(data) ? data.length : 0).toBeGreaterThanOrEqual(2)
+        // Attempt SQL injection via search/LIKE pattern
+        const likeInjections = [
+          "%' OR '1'='1",
+          "%'; DELETE FROM articles; --",
+          '% UNION SELECT * FROM users --',
+          '_) OR (1=1',
+        ]
+
+        for (const payload of likeInjections) {
+          const response = await request.get(
+            `/api/tables/5/records?search=${encodeURIComponent(payload)}`
+          )
+
+          // Should safely escape special characters
+          expect([200, 400]).toContain(response.status())
+
+          if (response.status() === 200) {
+            const data = await response.json()
+            // Should not return all articles (injection didn't bypass LIKE)
+            expect(Array.isArray(data) ? data.length : 0).toBeLessThanOrEqual(2)
+          }
+        }
+
+        // Verify data wasn't deleted
+        const verifyResponse = await request.get('/api/tables/5/records')
+        expect(verifyResponse.status()).toBe(200)
+        const allArticles = await verifyResponse.json()
+        expect(Array.isArray(allArticles) ? allArticles.length : 0).toBe(2)
+      })
+
+      await test.step('API-SECURITY-SQLI-006: Prevent second-order SQL injection', async () => {
+        // Create data that will be used later
+        await request.post('/api/tables/7/records', { data: { value: 'Normal data' } })
+
+        // Store malicious payload (first-order)
+        const maliciousTemplate = await request.post('/api/tables/6/records', {
+          data: {
+            name: 'Malicious Template',
+            query_pattern: "'; DROP TABLE data; --",
+          },
+        })
+        expect([200, 201]).toContain(maliciousTemplate.status())
+
+        // Verify original data table still exists and has data
+        const verifyResponse = await request.get('/api/tables/7/records')
+        expect(verifyResponse.status()).toBe(200)
+
+        const data = await verifyResponse.json()
+        expect(Array.isArray(data) ? data.length : 0).toBeGreaterThan(0)
+      })
+
+      await test.step('API-SECURITY-SQLI-007: Prevent SQL injection in authentication email parameter', async () => {
+        // Attempt SQL injection via email parameter in sign-in
+        const sqlInjectionEmails = [
+          "admin@example.com' OR '1'='1",
+          "admin@example.com'; DROP TABLE users; --",
+          "' UNION SELECT * FROM users WHERE '1'='1",
+          "admin@example.com' --",
+        ]
+
+        for (const payload of sqlInjectionEmails) {
+          const response = await request.post('/api/auth/sign-in/email', {
+            data: {
+              email: payload,
+              password: 'anypassword',
+            },
+          })
+
+          // Should not bypass authentication or execute SQL
+          expect([400, 401]).toContain(response.status())
+
+          // Should not return user data or session
+          const data = await response.json()
+          expect(data).not.toHaveProperty('session')
+          expect(data).not.toHaveProperty('user')
+        }
+      })
+
+      await test.step('API-SECURITY-SQLI-008: Prevent SQL injection in admin list-users endpoint', async () => {
+        await createAuthenticatedAdmin()
+
+        // Attempt SQL injection via filter/search parameters
+        const sqlInjectionParams = [
+          "?filter[email]=' OR '1'='1",
+          "?search=' UNION SELECT * FROM users --",
+          "?filter[role]=admin'; DROP TABLE users; --",
+        ]
+
+        for (const params of sqlInjectionParams) {
+          const response = await page.request.get(`/api/auth/admin/list-users${params}`)
+
+          // Should either reject invalid params or safely escape them
+          expect([200, 400]).toContain(response.status())
+
+          if (response.status() === 200) {
+            const data = await response.json()
+            // Should not leak all users or execute injection
+            expect(data).toBeDefined()
+          }
+        }
       })
     }
   )

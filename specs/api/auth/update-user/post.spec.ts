@@ -251,41 +251,70 @@ test.describe('Update user profile', () => {
     'API-AUTH-UPDATE-USER-REGRESSION: user can complete full update-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+      // Setup: Start server with auth enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+      })
+
+      await test.step('API-AUTH-UPDATE-USER-003: Returns 401 Unauthorized without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to update profile
+        const response = await page.request.post('/api/auth/update-user', {
+          data: {
+            name: 'New Name',
           },
         })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Verify update fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/update-user', {
-          data: { name: 'New Name' },
+      // Setup: Create and authenticate user
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Original Name',
+      })
+
+      await test.step('API-AUTH-UPDATE-USER-001: Returns 200 OK with updated user data', async () => {
+        // WHEN: User updates their profile information
+        const response = await page.request.post('/api/auth/update-user', {
+          data: {
+            name: 'Updated Name',
+            image: 'https://new-avatar.com/new.jpg',
+          },
         })
-        expect(noAuthResponse.status()).toBe(401)
-      })
 
-      await test.step('Setup: Create and authenticate user', async () => {
-        await signUp({
-          email: 'workflow@example.com',
-          password: 'WorkflowPass123!',
-          name: 'Original Name',
-        })
-      })
+        // THEN: Returns 200 OK with updated user data
+        expect(response.status()).toBe(200)
 
-      await test.step('Update user name', async () => {
-        const updateResponse = await page.request.post('/api/auth/update-user', {
-          data: { name: 'Updated Name' },
-        })
-        expect(updateResponse.status()).toBe(200)
-      })
+        // Better Auth returns {status: true} on success
+        const data = await response.json()
+        expect(data.status).toBe(true)
 
-      await test.step('Verify update persisted in session', async () => {
+        // Verify via get-session
         const sessionResponse = await page.request.get('/api/auth/get-session')
         const sessionData = await sessionResponse.json()
         expect(sessionData.user.name).toBe('Updated Name')
+      })
+
+      await test.step('API-AUTH-UPDATE-USER-005: Preserves Unicode characters in name', async () => {
+        // WHEN: User updates name with Unicode characters
+        const response = await page.request.post('/api/auth/update-user', {
+          data: {
+            name: 'José García 日本語',
+          },
+        })
+
+        // THEN: Returns 200 OK with Unicode name preserved
+        expect(response.status()).toBe(200)
+
+        // Verify Unicode characters are preserved
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        const sessionData = await sessionResponse.json()
+        expect(sessionData.user.name).toBe('José García 日本語')
       })
     }
   )

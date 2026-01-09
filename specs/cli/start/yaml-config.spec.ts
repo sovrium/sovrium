@@ -245,66 +245,118 @@ pages:
   // ============================================================================
 
   test(
-    'CLI-START-YAML-REGRESSION: user can start server from YAML config and navigate app',
+    'CLI-START-YAML-REGRESSION: YAML configuration workflows function correctly',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
-      await test.step('Start server with multi-page YAML config', async () => {
-        await startCliServerWithConfig({
+      await test.step('CLI-START-YAML-001: Starts server with valid YAML config file', async () => {
+        // WHEN: Starting server with YAML config via CLI
+        const server = await startCliServerWithConfig({
           format: 'yaml',
           config: `
-# Multi-page YAML application configuration
-name: multi-page-yaml-app
-description: Testing complete YAML workflow
-version: 3.0.0-rc.1
+name: test-app-from-yaml
+description: App loaded from YAML config file
+`,
+        })
 
-# Page definitions
+        // THEN: Server starts successfully and serves the app
+        await page.goto(server.url)
+        await expect(page.getByTestId('app-name-heading')).toHaveText('test-app-from-yaml')
+        await expect(page.getByTestId('app-description')).toHaveText(
+          'App loaded from YAML config file'
+        )
+      })
+
+      await test.step('CLI-START-YAML-002: Supports .yml file extension', async () => {
+        // WHEN: Starting server with .yml config via CLI
+        const server = await startCliServerWithConfig({
+          format: 'yml',
+          config: `
+name: test-yml-extension
+description: Testing .yml file support
+`,
+        })
+
+        // THEN: Server starts successfully with .yml file
+        await page.goto(server.url)
+        await expect(page.getByTestId('app-name-heading')).toHaveText('test-yml-extension')
+      })
+
+      await test.step('CLI-START-YAML-005: Supports YAML-specific features (comments)', async () => {
+        // WHEN: Starting server with YAML-specific features
+        const server = await startCliServerWithConfig({
+          format: 'yaml',
+          config: `
+# Application configuration - demonstrating YAML features
+name: yaml-features-test
+description: Single line description demonstrating YAML comments
+version: 1.0.0
+
+# Theme configuration with inline comments
+theme:
+  colors:
+    primary: "#3B82F6"  # Blue - primary brand color
+    secondary: "#10B981"  # Green - secondary brand color
+`,
+        })
+
+        // THEN: Server parses YAML correctly with comments
+        await page.goto(server.url)
+        await expect(page.getByTestId('app-name-heading')).toHaveText('yaml-features-test')
+
+        // THEN: Theme colors from commented YAML are applied
+        const root = page.locator('html')
+        const primaryColor = await root.evaluate((el) =>
+          getComputedStyle(el).getPropertyValue('--color-primary')
+        )
+        expect(primaryColor.trim()).toBe('#3B82F6')
+      })
+
+      await test.step('CLI-START-YAML-006: Supports comprehensive YAML config with all features', async () => {
+        // WHEN: Starting server with comprehensive YAML config
+        const server = await startCliServerWithConfig({
+          format: 'yaml',
+          config: `
+name: full-featured-yaml-app
+description: App with all schema features in YAML
+version: 2.1.0
+
+theme:
+  colors:
+    primary: "#3B82F6"
+    secondary: "#10B981"
+  fonts:
+    sans:
+      family: Inter
+      fallback: system-ui, sans-serif
+
 pages:
-  # Home page
   - name: home
     path: /
     meta:
       lang: en
-      title: Home
-      description: Home page
+      title: Home Page
+      description: Welcome to our YAML app
     sections:
       - type: h1
         children:
-          - Home Page
+          - Welcome to full-featured-yaml-app
       - type: p
         children:
-          - Welcome to the YAML-configured app
-
-  # About page
-  - name: about
-    path: /about
-    meta:
-      lang: en
-      title: About
-      description: About page
-    sections:
-      - type: h1
-        children:
-          - About Us
-      - type: p
-        children:
-          - This application demonstrates YAML configuration
+          - This app was configured using YAML
 `,
         })
-      })
 
-      await test.step('Verify home page renders correctly', async () => {
-        // Note: Custom pages bypass default layout - header elements not rendered
-        await page.goto('/')
-        await expect(page.locator('h1')).toHaveText('Home Page')
-        await expect(page.locator('p')).toHaveText('Welcome to the YAML-configured app')
-      })
+        // THEN: Server applies all configuration correctly
+        await page.goto(server.url)
+        await expect(page.locator('h1')).toHaveText('Welcome to full-featured-yaml-app')
+        await expect(page.locator('p')).toHaveText('This app was configured using YAML')
 
-      await test.step('Navigate to about page', async () => {
-        await page.goto('/about')
-        await expect(page.locator('h1')).toHaveText('About Us')
-        await expect(page.locator('p')).toHaveText(
-          'This application demonstrates YAML configuration'
+        // THEN: Theme colors are applied
+        const root = page.locator('html')
+        const primaryColor = await root.evaluate((el) =>
+          getComputedStyle(el).getPropertyValue('--color-primary')
         )
+        expect(primaryColor.trim()).toBe('#3B82F6')
       })
     }
   )

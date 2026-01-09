@@ -236,148 +236,122 @@ test.describe('Long Text Field', () => {
     'APP-TABLES-FIELD-LONG-TEXT-REGRESSION: user can complete full long-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-LONG-TEXT-001: Create PostgreSQL TEXT column with unlimited length', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'articles',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'description', type: 'long-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with long-text fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'description', type: 'long-text' },
+              { id: 3, name: 'body', type: 'long-text', required: true },
+              { id: 4, name: 'indexed_content', type: 'long-text', indexed: true },
+              { id: 5, name: 'notes', type: 'long-text', default: 'No notes' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-001: Creates PostgreSQL TEXT column with unlimited length', async () => {
+        // WHEN: querying column info for long-text field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='articles' AND column_name='description'"
+          "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='description'"
         )
+        // THEN: TEXT column is created with unlimited length
         expect(columnInfo.column_name).toBe('description')
         expect(columnInfo.data_type).toBe('text')
         expect(columnInfo.character_maximum_length).toBeNull()
         expect(columnInfo.is_nullable).toBe('YES')
+
+        // WHEN: inserting multi-line text
         const multiLineInsert = await executeQuery(
-          "INSERT INTO articles (description) VALUES ('Line 1\nLine 2\nLine 3') RETURNING description"
+          "INSERT INTO data (description, body) VALUES ('Line 1\nLine 2\nLine 3', 'required body') RETURNING description"
         )
+        // THEN: multi-line text is stored correctly
         expect(multiLineInsert.description).toBe('Line 1\nLine 2\nLine 3')
       })
 
-      await test.step('APP-TABLES-FIELD-LONG-TEXT-002: Accept unlimited length without truncation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'long-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-002: Accepts unlimited length without truncation', async () => {
+        // WHEN: querying data type info
         const dataTypeCheck = await executeQuery(
-          "SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
+          "SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name='data' AND column_name='description'"
         )
+        // THEN: TEXT type with no length limit
         expect(dataTypeCheck.data_type).toBe('text')
         expect(dataTypeCheck.character_maximum_length).toBeNull()
+
+        // WHEN: inserting text exceeding VARCHAR(255) limit
         const largeTextInsert = await executeQuery(
-          "INSERT INTO posts (content) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.') RETURNING LENGTH(content) as length"
+          "INSERT INTO data (description, body) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.', 'body text') RETURNING LENGTH(description) as length"
         )
+        // THEN: full text is stored without truncation
         expect(largeTextInsert.length).toBe(445)
       })
 
-      await test.step('APP-TABLES-FIELD-LONG-TEXT-003: Reject NULL when required', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'comments',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'body', type: 'long-text', required: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-003: Rejects NULL value when required', async () => {
+        // WHEN: querying NOT NULL constraint
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='comments' AND column_name='body'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='body'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
+
+        // WHEN: inserting valid value for required field
         const validInsert = await executeQuery(
-          "INSERT INTO comments (body) VALUES ('Great article!') RETURNING body"
+          "INSERT INTO data (body) VALUES ('Great article!') RETURNING body"
         )
+        // THEN: value is stored correctly
         expect(validInsert.body).toBe('Great article!')
-        await expect(executeQuery('INSERT INTO comments (body) VALUES (NULL)')).rejects.toThrow(
+
+        // WHEN: attempting to insert NULL for required field
+        // THEN: NOT NULL constraint rejects insertion
+        await expect(executeQuery("INSERT INTO data (body) VALUES (NULL)")).rejects.toThrow(
           /violates not-null constraint/
         )
       })
 
-      await test.step('APP-TABLES-FIELD-LONG-TEXT-004: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'pages',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'content',
-                  type: 'long-text',
-                  required: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-004: Creates btree index when indexed=true', async () => {
+        // WHEN: checking for btree index on indexed long-text field
         const indexExists = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_content'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_indexed_content'"
         )
-        expect(indexExists.indexname).toBe('idx_pages_content')
-        expect(indexExists.tablename).toBe('pages')
+        // THEN: btree index exists
+        expect(indexExists.indexname).toBe('idx_data_indexed_content')
+        expect(indexExists.tablename).toBe('data')
+
+        // WHEN: querying index definition
         const indexDef = await executeQuery(
-          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pages_content'"
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_data_indexed_content'"
         )
+        // THEN: index is created using btree
         expect(indexDef.indexdef).toBe(
-          'CREATE INDEX idx_pages_content ON public.pages USING btree (content)'
+          'CREATE INDEX idx_data_indexed_content ON public.data USING btree (indexed_content)'
         )
       })
 
-      await test.step('APP-TABLES-FIELD-LONG-TEXT-005: Apply DEFAULT value', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'notes', type: 'long-text', default: 'No notes' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-LONG-TEXT-005: Applies DEFAULT value', async () => {
+        // WHEN: querying column default
         const defaultCheck = await executeQuery(
-          "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='notes'"
+          "SELECT column_default FROM information_schema.columns WHERE table_name='data' AND column_name='notes'"
         )
+        // THEN: default value is configured
         expect(defaultCheck.column_default).toBe("'No notes'::text")
+
+        // WHEN: inserting row without providing notes value
         const defaultInsert = await executeQuery(
-          'INSERT INTO projects (id) VALUES (DEFAULT) RETURNING notes'
+          "INSERT INTO data (body) VALUES ('test body') RETURNING notes"
         )
+        // THEN: DEFAULT value is applied
         expect(defaultInsert.notes).toBe('No notes')
+
+        // WHEN: inserting with explicit value
         const explicitInsert = await executeQuery(
-          "INSERT INTO projects (notes) VALUES ('Custom notes here') RETURNING notes"
+          "INSERT INTO data (body, notes) VALUES ('test body 2', 'Custom notes here') RETURNING notes"
         )
+        // THEN: explicit value overrides default
         expect(explicitInsert.notes).toBe('Custom notes here')
       })
     }

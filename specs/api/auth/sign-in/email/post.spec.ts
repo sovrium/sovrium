@@ -291,45 +291,68 @@ test.describe('Sign in with email and password', () => {
     'API-AUTH-SIGN-IN-EMAIL-REGRESSION: user can complete full sign-in workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Create server and test user', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+      // Setup: Start server with auth enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+      })
+
+      await test.step('API-AUTH-SIGN-IN-EMAIL-006: Returns 401 Unauthorized for non-existent user', async () => {
+        // WHEN: User attempts sign-in with non-existent email
+        const response = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'nonexistent@example.com',
+            password: 'AnyPassword123!',
           },
         })
 
-        await signUp({
-          name: 'Regression User',
-          email: 'regression@example.com',
-          password: 'SecurePass123!',
-        })
+        // THEN: Returns 401 Unauthorized with same generic error to prevent enumeration
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Sign in with valid credentials', async () => {
-        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+      // Setup: Create test user
+      await signUp({
+        name: 'Regression User',
+        email: 'regression@example.com',
+        password: 'SecurePass123!',
+      })
+
+      await test.step('API-AUTH-SIGN-IN-EMAIL-001: Returns 200 OK with session token and user data', async () => {
+        // WHEN: User submits correct email and password
+        const response = await page.request.post('/api/auth/sign-in/email', {
           data: {
             email: 'regression@example.com',
             password: 'SecurePass123!',
           },
         })
 
-        expect(signInResponse.status()).toBe(200)
-        const signInData = await signInResponse.json()
-        expect(signInData).toHaveProperty('user')
-        expect(signInData.user.email).toBe('regression@example.com')
-        expect(signInData).toHaveProperty('token')
+        // THEN: Returns 200 OK with session token and user data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data).toHaveProperty('token')
       })
 
-      await test.step('Verify sign-in fails with wrong password', async () => {
-        const failedResponse = await page.request.post('/api/auth/sign-in/email', {
+      await test.step('API-AUTH-SIGN-IN-EMAIL-005: Returns 401 Unauthorized with wrong password', async () => {
+        // WHEN: User submits correct email but wrong password
+        const response = await page.request.post('/api/auth/sign-in/email', {
           data: {
             email: 'regression@example.com',
-            password: 'WrongPassword!',
+            password: 'WrongPassword123!',
           },
         })
 
-        expect(failedResponse.status()).toBe(401)
+        // THEN: Returns 401 Unauthorized with generic error to prevent enumeration
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

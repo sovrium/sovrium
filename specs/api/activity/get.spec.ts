@@ -815,52 +815,67 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     'API-ACTIVITY-LIST-REGRESSION: user can retrieve and filter activity logs',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      await test.step('Setup: Start server with activity logging', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text', required: true },
-                { id: 3, name: 'status', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with activity logging
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      let userId: string
-
-      await test.step('Create authenticated user and activity data', async () => {
-        const { user } = await createAuthenticatedUser()
-        userId = user.id
-
-        await executeQuery(`
-          INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
-          VALUES
-            ('${userId}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
-            ('${userId}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
-            ('${userId}', 'create', 'tasks', 2, '{"title": "Task 2"}', NOW() - INTERVAL '3 minutes'),
-            ('${userId}', 'delete', 'tasks', 2, NULL, NOW() - INTERVAL '1 minute')
-        `)
-      })
-
-      await test.step('Retrieve all activities with pagination', async () => {
+      await test.step('API-ACTIVITY-LIST-002: Returns 401 when user is not authenticated', async () => {
+        // WHEN: Unauthenticated user requests activity logs
         const response = await page.request.get('/api/activity')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+      })
+
+      // Setup: Create authenticated user and activity data
+      const { user } = await createAuthenticatedUser()
+      const userId = user.id
+
+      await executeQuery(`
+        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        VALUES
+          ('${userId}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
+          ('${userId}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
+          ('${userId}', 'create', 'tasks', 2, '{"title": "Task 2"}', NOW() - INTERVAL '3 minutes'),
+          ('${userId}', 'delete', 'tasks', 2, NULL, NOW() - INTERVAL '1 minute')
+      `)
+
+      await test.step('API-ACTIVITY-LIST-001: Returns 200 with paginated activity logs', async () => {
+        // WHEN: User requests activity logs
+        const response = await page.request.get('/api/activity')
+
+        // THEN: Returns 200 with paginated activity logs
         expect(response.status()).toBe(200)
 
         const data = await response.json()
+        expect(data).toHaveProperty('activities')
+        expect(data).toHaveProperty('pagination')
         expect(data.activities).toHaveLength(4)
         expect(data.pagination.total).toBe(4)
       })
 
-      await test.step('Filter activities by action type', async () => {
+      await test.step('API-ACTIVITY-LIST-004: Returns activities filtered by action type', async () => {
+        // WHEN: User requests activities filtered by action type 'create'
         const response = await page.request.get('/api/activity?action=create')
+
+        // THEN: Returns only 'create' activities
         expect(response.status()).toBe(200)
 
         const data = await response.json()
@@ -868,8 +883,11 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data.activities.every((a: any) => a.action === 'create')).toBe(true)
       })
 
-      await test.step('Filter activities by table name', async () => {
+      await test.step('API-ACTIVITY-LIST-003: Returns activities filtered by table name', async () => {
+        // WHEN: User requests activities filtered by table name 'tasks'
         const response = await page.request.get('/api/activity?tableName=tasks')
+
+        // THEN: Returns only activities for 'tasks' table
         expect(response.status()).toBe(200)
 
         const data = await response.json()
@@ -877,8 +895,11 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data.activities.every((a: any) => a.tableName === 'tasks')).toBe(true)
       })
 
-      await test.step('Verify activities include user metadata', async () => {
+      await test.step('API-ACTIVITY-LIST-013: Includes user metadata in activity logs', async () => {
+        // WHEN: User requests activity logs
         const response = await page.request.get('/api/activity')
+
+        // THEN: Activity includes user metadata (name, email)
         expect(response.status()).toBe(200)
 
         const data = await response.json()

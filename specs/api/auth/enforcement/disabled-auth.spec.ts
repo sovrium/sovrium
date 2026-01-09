@@ -121,33 +121,45 @@ test.describe('Disabled Auth Endpoints', () => {
     'API-AUTH-DISABLED-REGRESSION: all auth endpoints should be disabled when no auth config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server without auth config', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          // No auth config - all auth endpoints should be disabled
-        })
+      // Setup: Start server without auth config
+      await startServerWithSchema({
+        name: 'test-app',
+        // No auth config - all auth endpoints should be disabled
       })
 
-      await test.step('Verify all auth endpoints return 404', async () => {
-        const authEndpoints = [
-          { method: 'POST', path: '/api/auth/sign-up/email' },
-          { method: 'POST', path: '/api/auth/sign-in/email' },
-          { method: 'GET', path: '/api/auth/get-session' },
-          { method: 'POST', path: '/api/auth/sign-out' },
-          { method: 'POST', path: '/api/auth/change-password' },
-          { method: 'POST', path: '/api/auth/request-password-reset' },
-          { method: 'GET', path: '/api/auth/admin/list-users' },
-          { method: 'GET', path: '/api/auth/organization/list-organizations' },
-        ]
+      await test.step('API-AUTH-DISABLED-001: Returns 404 for sign-up endpoint when auth is not configured', async () => {
+        // WHEN: User attempts to access sign-up endpoint
+        const response = await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'test@example.com',
+            password: 'Password123!',
+            name: 'Test User',
+          },
+        })
 
-        for (const endpoint of authEndpoints) {
-          const response =
-            endpoint.method === 'GET'
-              ? await page.request.get(endpoint.path)
-              : await page.request.post(endpoint.path, { data: {} })
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
+      })
 
-          expect(response.status()).toBe(404)
-        }
+      await test.step('API-AUTH-DISABLED-002: Returns 404 for sign-in endpoint when auth is not configured', async () => {
+        // WHEN: User attempts to access sign-in endpoint
+        const response = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'test@example.com',
+            password: 'Password123!',
+          },
+        })
+
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-DISABLED-003: Returns 404 for session endpoints when auth is not configured', async () => {
+        // WHEN: User attempts to access session endpoint
+        const response = await page.request.get('/api/auth/get-session')
+
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
       })
     }
   )

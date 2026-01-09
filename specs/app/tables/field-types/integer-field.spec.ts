@@ -262,162 +262,148 @@ test.describe('Integer Field', () => {
     'APP-TABLES-FIELD-TYPES-INTEGER-REGRESSION: user can complete full integer-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-001: Create PostgreSQL INTEGER column', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'quantity', type: 'integer' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with integer fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'quantity', type: 'integer' },
+              { id: 3, name: 'stock', type: 'integer', min: 0, max: 1000 },
+              { id: 4, name: 'order_number', type: 'integer', unique: true, required: true },
+              { id: 5, name: 'timeout', type: 'integer', default: 30 },
+              { id: 6, name: 'score', type: 'integer', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-001: Creates PostgreSQL INTEGER column', async () => {
+        // WHEN: querying column info for integer field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='quantity'"
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='quantity'"
         )
+        // THEN: INTEGER column is created
         expect(columnInfo.column_name).toBe('quantity')
         expect(columnInfo.data_type).toBe('integer')
         expect(columnInfo.is_nullable).toBe('YES')
+
+        // WHEN: inserting positive value
         const positiveInsert = await executeQuery(
-          'INSERT INTO products (quantity) VALUES (42) RETURNING quantity'
+          'INSERT INTO data (quantity, order_number) VALUES (42, 1001) RETURNING quantity'
         )
+        // THEN: positive value is stored correctly
         expect(positiveInsert.quantity).toBe(42)
+
+        // WHEN: inserting negative value
         const negativeInsert = await executeQuery(
-          'INSERT INTO products (quantity) VALUES (-10) RETURNING quantity'
+          'INSERT INTO data (quantity, order_number) VALUES (-10, 1002) RETURNING quantity'
         )
+        // THEN: negative value is stored correctly
         expect(negativeInsert.quantity).toBe(-10)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-002: Enforce range via CHECK constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'inventory',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'stock', type: 'integer', min: 0, max: 1000 },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-002: Enforces range via CHECK constraint', async () => {
+        // WHEN: checking for CHECK constraint
         const checkConstraint = await executeQuery(
           "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%'"
         )
+        // THEN: CHECK constraint exists
         expect(checkConstraint.count).toBe('1')
+
+        // WHEN: inserting valid stock within range
         const validInsert = await executeQuery(
-          'INSERT INTO inventory (stock) VALUES (500) RETURNING stock'
+          'INSERT INTO data (stock, order_number) VALUES (500, 1003) RETURNING stock'
         )
+        // THEN: value is stored correctly
         expect(validInsert.stock).toBe(500)
-        await expect(executeQuery('INSERT INTO inventory (stock) VALUES (-1)')).rejects.toThrow(
-          /violates check constraint/
-        )
-        await expect(executeQuery('INSERT INTO inventory (stock) VALUES (1001)')).rejects.toThrow(
-          /violates check constraint/
-        )
+
+        // WHEN: attempting to insert stock below min
+        // THEN: CHECK constraint rejects insertion
+        await expect(
+          executeQuery('INSERT INTO data (stock, order_number) VALUES (-1, 1004)')
+        ).rejects.toThrow(/violates check constraint/)
+
+        // WHEN: attempting to insert stock above max
+        // THEN: CHECK constraint rejects insertion
+        await expect(
+          executeQuery('INSERT INTO data (stock, order_number) VALUES (1001, 1005)')
+        ).rejects.toThrow(/violates check constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-003: Enforce NOT NULL and UNIQUE constraints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'orders',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'order_number',
-                  type: 'integer',
-                  unique: true,
-                  required: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-        await executeQuery(['INSERT INTO orders (order_number) VALUES (1001)'])
+      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-003: Enforces NOT NULL and UNIQUE constraints', async () => {
+        // WHEN: querying NOT NULL constraint
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='order_number'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='order_number'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
+
+        // WHEN: querying UNIQUE constraint
         const uniqueConstraint = await executeQuery(
-          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'"
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='data' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'"
         )
+        // THEN: UNIQUE constraint exists
         expect(uniqueConstraint.count).toBe('1')
+
+        // WHEN: attempting to insert duplicate order_number
+        // THEN: UNIQUE constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO orders (order_number) VALUES (1001)')
+          executeQuery('INSERT INTO data (order_number) VALUES (1001)')
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
+
+        // WHEN: attempting to insert NULL for required order_number
+        // THEN: NOT NULL constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO orders (order_number) VALUES (NULL)')
+          executeQuery('INSERT INTO data (order_number) VALUES (NULL)')
         ).rejects.toThrow(/violates not-null constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-004: Apply DEFAULT value', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'settings',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'timeout', type: 'integer', default: 30 },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-004: Applies DEFAULT value', async () => {
+        // WHEN: querying column default
         const defaultCheck = await executeQuery(
-          "SELECT column_default FROM information_schema.columns WHERE table_name='settings' AND column_name='timeout'"
+          "SELECT column_default FROM information_schema.columns WHERE table_name='data' AND column_name='timeout'"
         )
+        // THEN: default value is configured
         expect(defaultCheck.column_default).toBe('30')
+
+        // WHEN: inserting row without providing timeout value
         const defaultInsert = await executeQuery(
-          'INSERT INTO settings (id) VALUES (DEFAULT) RETURNING timeout'
+          'INSERT INTO data (order_number) VALUES (1006) RETURNING timeout'
         )
+        // THEN: DEFAULT value is applied
         expect(defaultInsert.timeout).toBe(30)
+
+        // WHEN: inserting with explicit value
         const explicitInsert = await executeQuery(
-          'INSERT INTO settings (timeout) VALUES (60) RETURNING timeout'
+          'INSERT INTO data (order_number, timeout) VALUES (1007, 60) RETURNING timeout'
         )
+        // THEN: explicit value overrides default
         expect(explicitInsert.timeout).toBe(60)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'leaderboard',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'score', type: 'integer', required: true, indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-INTEGER-005: Creates btree index when indexed=true', async () => {
+        // WHEN: checking for btree index on indexed integer field
         const indexExists = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_score'"
         )
-        expect(indexExists.rows[0]).toEqual({
-          indexname: 'idx_leaderboard_score',
-          tablename: 'leaderboard',
+        // THEN: btree index exists
+        expect(indexExists).toMatchObject({
+          indexname: 'idx_data_score',
+          tablename: 'data',
         })
+
+        // WHEN: querying index definition
         const indexDef = await executeQuery(
-          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'"
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_data_score'"
         )
-        expect(indexDef.rows[0].indexdef).toBe(
-          'CREATE INDEX idx_leaderboard_score ON public.leaderboard USING btree (score)'
+        // THEN: index is created using btree
+        expect(indexDef.indexdef).toBe(
+          'CREATE INDEX idx_data_score ON public.data USING btree (score)'
         )
       })
     }

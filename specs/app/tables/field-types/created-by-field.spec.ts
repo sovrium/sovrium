@@ -353,7 +353,7 @@ test.describe('Created By Field', () => {
         ],
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-001: Create PostgreSQL TEXT NOT NULL column with FOREIGN KEY', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-001: Creates PostgreSQL TEXT NOT NULL column with FOREIGN KEY', async () => {
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_by'"
         )
@@ -362,7 +362,7 @@ test.describe('Created By Field', () => {
         expect(columnInfo.is_nullable).toBe('NO')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-002: Store the creator user reference permanently', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-002: Stores the creator user reference permanently', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step2@example.com',
@@ -386,7 +386,7 @@ test.describe('Created By Field', () => {
         expect(creatorInfo.creator_name).toBe('Alice')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-003: Enforce immutability via application', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-003: Enforces immutability via application', async () => {
         const john = await createAuthenticatedUser({
           name: 'John',
           email: 'john-step3@example.com',
@@ -410,7 +410,7 @@ test.describe('Created By Field', () => {
         expect(Number(noTrigger.count)).toBe(0)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-004: Support efficient filtering by creator', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-004: Supports efficient filtering by creator', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step4@example.com',
@@ -447,7 +447,7 @@ test.describe('Created By Field', () => {
         ])
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-005: Create btree index when indexed=true', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-CREATED-BY-005: Creates btree index when indexed=true', async () => {
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
         )

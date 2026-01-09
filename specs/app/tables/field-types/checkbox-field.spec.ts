@@ -226,140 +226,99 @@ test.describe('Checkbox Field', () => {
     'APP-TABLES-FIELD-TYPES-CHECKBOX-REGRESSION: user can complete full checkbox-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-001: Create PostgreSQL BOOLEAN column', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'is_active', type: 'checkbox' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with checkbox fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'is_active', type: 'checkbox' },
+              { id: 3, name: 'terms_accepted', type: 'checkbox', required: true },
+              { id: 4, name: 'enabled', type: 'checkbox', default: false },
+              { id: 5, name: 'published', type: 'checkbox', required: true, indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-001: Creates PostgreSQL BOOLEAN column', async () => {
+        // WHEN: querying column info for checkbox field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='is_active'"
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='is_active'"
         )
+        // THEN: PostgreSQL BOOLEAN column is created
         expect(columnInfo.column_name).toBe('is_active')
         expect(columnInfo.data_type).toBe('boolean')
         expect(columnInfo.is_nullable).toBe('YES')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-002: Stores true/false values correctly', async () => {
+        // WHEN: inserting true and false values
         const trueInsert = await executeQuery(
-          'INSERT INTO users (is_active) VALUES (TRUE) RETURNING is_active'
+          'INSERT INTO data (is_active, terms_accepted, published) VALUES (TRUE, TRUE, TRUE) RETURNING is_active'
         )
+        // THEN: true value is stored
         expect(trueInsert.is_active).toBe(true)
+
         const falseInsert = await executeQuery(
-          'INSERT INTO users (is_active) VALUES (FALSE) RETURNING is_active'
+          'INSERT INTO data (is_active, terms_accepted, published) VALUES (FALSE, TRUE, FALSE) RETURNING is_active'
         )
+        // THEN: false value is stored
         expect(falseInsert.is_active).toBe(false)
+
+        // WHEN: inserting NULL for optional checkbox
+        const nullInsert = await executeQuery(
+          'INSERT INTO data (is_active, terms_accepted, published) VALUES (NULL, TRUE, TRUE) RETURNING is_active'
+        )
+        // THEN: NULL is stored for optional checkbox
+        expect(nullInsert.is_active).toBe(null)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-002: Store true/false values correctly', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'completed', type: 'checkbox' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-        await executeQuery(['INSERT INTO tasks (completed) VALUES (TRUE), (FALSE), (NULL)'])
-        const results = await executeQuery('SELECT id, completed FROM tasks ORDER BY id')
-        expect(results.rows).toEqual([
-          { id: 1, completed: true },
-          { id: 2, completed: false },
-          { id: 3, completed: null },
-        ])
-      })
-
-      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-003: Reject NULL when required', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'registrations',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'terms_accepted', type: 'checkbox', required: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-003: Rejects NULL value when required', async () => {
+        // WHEN: querying NOT NULL constraint
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='registrations' AND column_name='terms_accepted'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='terms_accepted'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
-        const validInsert = await executeQuery(
-          'INSERT INTO registrations (terms_accepted) VALUES (TRUE) RETURNING terms_accepted'
-        )
-        expect(validInsert.terms_accepted).toBe(true)
+
+        // WHEN: attempting to insert NULL for required checkbox
+        // THEN: NOT NULL constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO registrations (terms_accepted) VALUES (NULL)')
+          executeQuery(
+            'INSERT INTO data (is_active, terms_accepted, published) VALUES (TRUE, NULL, TRUE)'
+          )
         ).rejects.toThrow(/violates not-null constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-004: Apply DEFAULT value', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'features',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'enabled', type: 'checkbox', default: false },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-004: Applies DEFAULT value', async () => {
+        // WHEN: inserting row without providing enabled value
         const defaultInsert = await executeQuery(
-          'INSERT INTO features (id) VALUES (DEFAULT) RETURNING enabled'
+          'INSERT INTO data (terms_accepted, published) VALUES (TRUE, TRUE) RETURNING enabled'
         )
+        // THEN: DEFAULT value FALSE is applied
         expect(defaultInsert.enabled).toBe(false)
+
+        // WHEN: explicitly providing value
         const explicitInsert = await executeQuery(
-          'INSERT INTO features (enabled) VALUES (TRUE) RETURNING enabled'
+          'INSERT INTO data (terms_accepted, published, enabled) VALUES (TRUE, TRUE, TRUE) RETURNING enabled'
         )
+        // THEN: explicit value overrides default
         expect(explicitInsert.enabled).toBe(true)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'published',
-                  type: 'checkbox',
-                  required: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-CHECKBOX-005: Creates btree index when indexed=true', async () => {
+        // WHEN: checking for btree index on indexed checkbox field
         const indexExists = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_posts_published'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_published'"
         )
-        expect(indexExists.indexname).toBe('idx_posts_published')
-        expect(indexExists.tablename).toBe('posts')
+        // THEN: btree index exists for fast queries
+        expect(indexExists.indexname).toBe('idx_data_published')
+        expect(indexExists.tablename).toBe('data')
       })
     }
   )

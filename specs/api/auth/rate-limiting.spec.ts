@@ -284,50 +284,51 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       // This test waits 60+ seconds for rate limit window to expire
       test.slow()
 
-      await test.step('Setup: Start server with default rate limiting', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-        })
+      // Setup: Start server with default rate limiting
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
       })
 
-      await test.step('Setup: Create test user', async () => {
-        await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
-      })
+      // Setup: Create test user
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
-      await test.step('Verify: Sign-in rate limiting enforced', async () => {
-        // Exhaust default rate limit (assumes 5 attempts)
+      await test.step('API-AUTH-RATE-001: Returns 429 after exceeding sign-in rate limit', async () => {
+        // WHEN: User exceeds default sign-in rate limit with wrong password
         for (let i = 0; i < 5; i++) {
           await request.post('/api/auth/sign-in/email', {
             data: { email: 'user@example.com', password: 'WrongPassword' },
           })
         }
 
-        // Next attempt should be blocked
-        const blockedResponse = await request.post('/api/auth/sign-in/email', {
-          data: { email: 'user@example.com', password: 'TestPassword123!' },
+        // THEN: 6th attempt returns 429 Too Many Requests
+        const response = await request.post('/api/auth/sign-in/email', {
+          data: { email: 'user@example.com', password: 'WrongPassword' },
         })
-        expect(blockedResponse.status()).toBe(429)
 
-        const data = await blockedResponse.json()
+        expect(response.status()).toBe(429)
+
+        const data = await response.json()
         expect(data).toHaveProperty('error')
+        expect(data.message).toContain('Too many requests')
       })
 
-      await test.step('Verify: Rate limit resets after window', async () => {
-        // Wait for default rate limit window to expire (assumes 60 seconds)
+      await test.step('API-AUTH-RATE-002: Resets sign-in rate limit after window expires', async () => {
+        // WHEN: Wait for default window to expire (assumes 60 seconds)
         await new Promise((resolve) => setTimeout(resolve, 60_100))
 
-        // Should succeed now
         const response = await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'TestPassword123!' },
         })
+
+        // THEN: Should succeed after rate limit window expires
         expect(response.status()).toBe(200)
       })
 
-      await test.step('Verify: Sign-up rate limiting enforced', async () => {
-        // Exhaust default rate limit (assumes 5 attempts)
+      await test.step('API-AUTH-RATE-004: Returns 429 after exceeding sign-up rate limit', async () => {
+        // WHEN: User exceeds default sign-up rate limit
         for (let i = 0; i < 5; i++) {
           await request.post('/api/auth/sign-up/email', {
             data: {
@@ -338,15 +339,20 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
           })
         }
 
-        // Next attempt should be blocked
-        const blockedResponse = await request.post('/api/auth/sign-up/email', {
+        // THEN: 6th attempt returns 429 Too Many Requests
+        const response = await request.post('/api/auth/sign-up/email', {
           data: {
             email: 'newuser6@example.com',
             password: 'TestPassword123!',
             name: 'User 6',
           },
         })
-        expect(blockedResponse.status()).toBe(429)
+
+        expect(response.status()).toBe(429)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.message).toContain('Too many requests')
       })
     }
   )

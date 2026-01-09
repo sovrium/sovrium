@@ -240,153 +240,142 @@ test.describe('Array Field', () => {
     'APP-TABLES-FIELD-TYPES-ARRAY-REGRESSION: user can complete full array-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-001: Create PostgreSQL TEXT array column', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'articles',
-              fields: [{ id: 1, name: 'tags', type: 'array', itemType: 'text' }],
-            },
-          ],
-        })
+      // Setup: Start server with array fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'tags', type: 'array', itemType: 'text' },
+              { id: 2, name: 'keywords', type: 'array', itemType: 'text' },
+              { id: 3, name: 'numbers', type: 'array', itemType: 'integer', maxItems: 10 },
+              { id: 4, name: 'categories', type: 'array', itemType: 'text', indexed: true },
+              { id: 5, name: 'ingredients', type: 'array', itemType: 'text' },
+            ],
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-001: Creates PostgreSQL TEXT array column', async () => {
+        // WHEN: querying column info for array field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='articles' AND column_name='tags'"
+          "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='data' AND column_name='tags'"
         )
+        // THEN: ARRAY column is created
         expect(columnInfo.column_name).toBe('tags')
         expect(columnInfo.data_type).toBe('ARRAY')
+
+        // WHEN: inserting empty array
         const emptyArray = await executeQuery(
-          'INSERT INTO articles (tags) VALUES (ARRAY[]::TEXT[]) RETURNING tags'
+          'INSERT INTO data (tags) VALUES (ARRAY[]::TEXT[]) RETURNING tags'
         )
+        // THEN: empty array is stored correctly
         expect(emptyArray.tags).toEqual([])
+
+        // WHEN: inserting array with multiple items
         const multipleItems = await executeQuery(
-          "INSERT INTO articles (tags) VALUES (ARRAY['javascript', 'react', 'typescript']) RETURNING tags"
+          "INSERT INTO data (tags) VALUES (ARRAY['javascript', 'react', 'typescript']) RETURNING tags"
         )
+        // THEN: array with items is stored correctly
         expect(multipleItems.tags).toEqual(['javascript', 'react', 'typescript'])
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-002: Support array containment, overlap, and length', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'keywords', type: 'array', itemType: 'text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-002: Supports array containment, overlap, and length', async () => {
+        // WHEN: inserting rows with keyword arrays
         await executeQuery(
-          "INSERT INTO posts (id, keywords) VALUES (1, ARRAY['nodejs', 'express']), (2, ARRAY['nodejs', 'fastify']), (3, ARRAY['python', 'flask'])"
+          "INSERT INTO data (keywords) VALUES (ARRAY['nodejs', 'express']), (ARRAY['nodejs', 'fastify']), (ARRAY['python', 'flask'])"
         )
+
+        // WHEN: checking array containment with ANY
         const containsValue = await executeQuery(
-          "SELECT COUNT(*) as count FROM posts WHERE 'nodejs' = ANY(keywords)"
+          "SELECT COUNT(*) as count FROM data WHERE 'nodejs' = ANY(keywords)"
         )
+        // THEN: two rows contain 'nodejs'
         expect(containsValue.count).toBe('2')
+
+        // WHEN: checking array overlap with &&
         const arrayOverlap = await executeQuery(
-          "SELECT COUNT(*) as count FROM posts WHERE keywords && ARRAY['nodejs', 'python']"
+          "SELECT COUNT(*) as count FROM data WHERE keywords && ARRAY['nodejs', 'python']"
         )
+        // THEN: three rows have overlap
         expect(arrayOverlap.count).toBe('3')
+
+        // WHEN: checking array length
         const arrayLength = await executeQuery(
-          'SELECT array_length(keywords, 1) as length FROM posts WHERE id = 1'
+          "SELECT array_length(keywords, 1) as length FROM data WHERE keywords IS NOT NULL LIMIT 1"
         )
+        // THEN: array length is returned
         expect(arrayLength.length).toBe(2)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-003: Enforce maximum array size via CHECK constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'datasets',
-              fields: [
-                {
-                  id: 1,
-                  name: 'numbers',
-                  type: 'array',
-                  itemType: 'integer',
-                  maxItems: 10,
-                },
-              ],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-003: Enforces maximum array size via CHECK constraint', async () => {
+        // WHEN: inserting array at maximum allowed size
         const maxItems = await executeQuery(
-          'INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length'
+          'INSERT INTO data (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length'
         )
+        // THEN: array at max size is stored
         expect(maxItems.length).toBe(10)
+
+        // WHEN: attempting to insert array exceeding max size
+        // THEN: CHECK constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10,11])')
+          executeQuery('INSERT INTO data (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10,11])')
         ).rejects.toThrow(/violates check constraint/)
+
+        // WHEN: inserting empty array
         const emptyAllowed = await executeQuery(
-          'INSERT INTO datasets (numbers) VALUES (ARRAY[]::INTEGER[]) RETURNING numbers'
+          'INSERT INTO data (numbers) VALUES (ARRAY[]::INTEGER[]) RETURNING numbers'
         )
+        // THEN: empty array is allowed
         expect(emptyAllowed.numbers).toEqual([])
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-004: Create GIN index for efficient array queries', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'documents',
-              fields: [
-                {
-                  id: 1,
-                  name: 'categories',
-                  type: 'array',
-                  itemType: 'text',
-                  indexed: true,
-                },
-              ],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-004: Creates GIN index for efficient array queries', async () => {
+        // WHEN: checking for GIN index on indexed array field
         const indexInfo = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_categories'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_categories'"
         )
-        expect(indexInfo.indexname).toBe('idx_documents_categories')
-        expect(indexInfo.tablename).toBe('documents')
+        // THEN: GIN index exists
+        expect(indexInfo.indexname).toBe('idx_data_categories')
+        expect(indexInfo.tablename).toBe('data')
+
+        // WHEN: querying index definition
         const indexDef = await executeQuery(
-          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_documents_categories'"
+          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_data_categories'"
         )
+        // THEN: index uses GIN
         expect(indexDef.indexdef).toBe(
-          'CREATE INDEX idx_documents_categories ON public.documents USING gin (categories)'
+          'CREATE INDEX idx_data_categories ON public.data USING gin (categories)'
         )
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-005: Support dynamic array manipulation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'recipes',
-              fields: [{ id: 1, name: 'ingredients', type: 'array', itemType: 'text' }],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-ARRAY-005: Supports dynamic array manipulation', async () => {
+        // WHEN: inserting initial array
         await executeQuery(
-          "INSERT INTO recipes (ingredients) VALUES (ARRAY['flour', 'sugar', 'eggs'])"
+          "INSERT INTO data (ingredients) VALUES (ARRAY['flour', 'sugar', 'eggs'])"
         )
+
+        // WHEN: appending element with array_append
         const arrayAppend = await executeQuery(
-          "UPDATE recipes SET ingredients = array_append(ingredients, 'butter') WHERE id = 1 RETURNING ingredients"
+          "UPDATE data SET ingredients = array_append(ingredients, 'butter') WHERE ingredients IS NOT NULL RETURNING ingredients"
         )
+        // THEN: element is appended
         expect(arrayAppend.ingredients).toEqual(['flour', 'sugar', 'eggs', 'butter'])
+
+        // WHEN: removing element with array_remove
         const arrayRemove = await executeQuery(
-          "UPDATE recipes SET ingredients = array_remove(ingredients, 'sugar') WHERE id = 1 RETURNING ingredients"
+          "UPDATE data SET ingredients = array_remove(ingredients, 'sugar') WHERE ingredients IS NOT NULL RETURNING ingredients"
         )
+        // THEN: element is removed
         expect(arrayRemove.ingredients).toEqual(['flour', 'eggs', 'butter'])
+
+        // WHEN: accessing element by index
         const arrayAccess = await executeQuery(
-          'SELECT ingredients[1] as first_ingredient FROM recipes WHERE id = 1'
+          'SELECT ingredients[1] as first_ingredient FROM data WHERE ingredients IS NOT NULL LIMIT 1'
         )
+        // THEN: first element is returned
         expect(arrayAccess.first_ingredient).toBe('flour')
       })
     }

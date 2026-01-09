@@ -326,7 +326,7 @@ test.describe('Deleted By Field', () => {
         ],
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-001: Create PostgreSQL TEXT NULL column with FOREIGN KEY', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-001: Creates PostgreSQL TEXT NULL column with FOREIGN KEY', async () => {
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='deleted_by'"
         )
@@ -335,7 +335,7 @@ test.describe('Deleted By Field', () => {
         expect(columnInfo.is_nullable).toBe('YES')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-002: Store the deleting user reference when soft-deleted', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-002: Stores the deleting user reference when soft-deleted', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step2@example.com',
@@ -356,7 +356,7 @@ test.describe('Deleted By Field', () => {
         expect(afterDelete.deleted_by).toBe(alice.user.id)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-003: Clear deleted_by when record is restored', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-003: Clears deleted_by when record is restored', async () => {
         const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob-step3@example.com' })
         await executeQuery("INSERT INTO tasks (title) VALUES ('Deleted Task')")
         await executeQuery(
@@ -368,7 +368,7 @@ test.describe('Deleted By Field', () => {
         expect(restored.deleted_by).toBeNull()
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-004: Support querying who deleted records via JOIN', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-004: Supports querying who deleted records via JOIN', async () => {
         const alice = await createAuthenticatedUser({
           name: 'Alice',
           email: 'alice-step4@example.com',
@@ -400,7 +400,7 @@ test.describe('Deleted By Field', () => {
         expect(Number(aliceDeletions.count)).toBe(1)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-005: Create btree index when indexed=true', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-DELETED-BY-005: Creates btree index when indexed=true', async () => {
         const indexInfo = await executeQuery(
           "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_audit_records_deleted_by'"
         )

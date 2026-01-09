@@ -297,68 +297,125 @@ test.describe('Change email address', () => {
     'API-AUTH-CHANGE-EMAIL-REGRESSION: user can complete full change-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
-      let workflowEmail: string
-      let existingEmail: string
-      let newWorkflowEmail: string
+      // Setup emails for workflow
+      const workflowEmail = mailpit.email('workflow')
+      const existingEmail = mailpit.email('existing')
+      const newWorkflowEmail = mailpit.email('newworkflow')
 
-      await test.step('Setup: Start server with auth enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+      // Start server with auth and custom email templates
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          emailTemplates: {
+            verification: {
+              subject: 'Verify your new TestApp email address',
+              text: 'Hi $name, please verify your new email: $url',
+            },
           },
-        })
-
-        workflowEmail = mailpit.email('workflow')
-        existingEmail = mailpit.email('existing')
-        newWorkflowEmail = mailpit.email('newworkflow')
+        },
       })
 
-      await test.step('Verify change email fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/change-email', {
+      await test.step('API-AUTH-CHANGE-EMAIL-004: Returns 401 without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to change email
+        const response = await page.request.post('/api/auth/change-email', {
           data: { newEmail: newWorkflowEmail },
         })
-        expect(noAuthResponse.status()).toBe(401)
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create users and authenticate', async () => {
-        await signUp({
-          email: workflowEmail,
-          password: 'WorkflowPass123!',
-          name: 'Workflow User',
-        })
-        await signUp({
-          email: existingEmail,
-          password: 'ExistingPass123!',
-          name: 'Existing User',
-        })
-
-        await signIn({
-          email: workflowEmail,
-          password: 'WorkflowPass123!',
-        })
+      // Create users for subsequent tests
+      await signUp({
+        email: workflowEmail,
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
+      })
+      await signUp({
+        email: existingEmail,
+        password: 'ExistingPass123!',
+        name: 'Existing User',
       })
 
-      await test.step('Verify change fails for existing email', async () => {
-        const conflictResponse = await page.request.post('/api/auth/change-email', {
+      // Sign in as workflow user
+      await signIn({
+        email: workflowEmail,
+        password: 'WorkflowPass123!',
+      })
+
+      await test.step('API-AUTH-CHANGE-EMAIL-002: Returns 400 without newEmail', async () => {
+        // WHEN: User submits request without newEmail field
+        const response = await page.request.post('/api/auth/change-email', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-CHANGE-EMAIL-003: Returns 400 with invalid email format', async () => {
+        // WHEN: User submits request with invalid email format
+        const response = await page.request.post('/api/auth/change-email', {
+          data: { newEmail: 'not-an-email' },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-CHANGE-EMAIL-005: Returns 409 for existing email', async () => {
+        // WHEN: User attempts to change to an already registered email
+        const response = await page.request.post('/api/auth/change-email', {
           data: { newEmail: existingEmail },
         })
-        expect([400, 409, 422]).toContain(conflictResponse.status())
+
+        // THEN: Returns 409 Conflict error (or 400/422 depending on implementation)
+        expect([400, 409, 422]).toContain(response.status())
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Change email to new address', async () => {
-        const successResponse = await page.request.post('/api/auth/change-email', {
+      await test.step('API-AUTH-CHANGE-EMAIL-007: Returns 409 with case-insensitive matching', async () => {
+        // WHEN: User changes to uppercase variation of existing email
+        const response = await page.request.post('/api/auth/change-email', {
+          data: { newEmail: existingEmail.toUpperCase() },
+        })
+
+        // THEN: Returns 409 Conflict (case-insensitive email matching), 400, or 422
+        expect([400, 409, 422]).toContain(response.status())
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-CHANGE-EMAIL-001: Returns 200 and sends verification email', async () => {
+        // WHEN: User requests to change email to unused address
+        const response = await page.request.post('/api/auth/change-email', {
           data: { newEmail: newWorkflowEmail },
         })
-        expect(successResponse.status()).toBe(200)
 
+        // THEN: Returns 200 OK and sends verification email to new address
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
+
+        // Verify email was sent to the NEW email address with custom subject
         const email = await mailpit.waitForEmail(
-          (e) =>
-            e.To[0]?.Address === newWorkflowEmail &&
-            (e.Subject.toLowerCase().includes('verify') ||
-              e.Subject.toLowerCase().includes('email'))
+          (e) => e.To[0]?.Address === newWorkflowEmail && e.Subject.includes('TestApp')
         )
         expect(email).toBeDefined()
+        expect(email.Subject).toBe('Verify your new TestApp email address')
+        const body = email.HTML || email.Text
+        expect(body).toContain('verify your new email')
       })
     }
   )

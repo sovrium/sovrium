@@ -161,49 +161,52 @@ description: Auto-detected as YAML from .yml extension
   // ============================================================================
 
   test(
-    'CLI-START-FORMAT-REGRESSION: user can start server with different config formats seamlessly',
+    'CLI-START-FORMAT-REGRESSION: format detection works for all supported file types',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
-      await test.step('Test JSON format detection and startup', async () => {
+      await test.step('CLI-START-FORMAT-001: Auto-detects JSON format from .json extension', async () => {
+        // WHEN: Starting server with .json file (no explicit format flag)
         const server = await startCliServerWithConfig({
           format: 'json',
           config: {
-            name: 'multi-format-json-app',
-            description: 'JSON config test',
-            version: '1.0.0',
+            name: 'json-format-test',
+            description: 'Auto-detected as JSON',
           },
         })
 
+        // THEN: Server detects JSON format and starts successfully
         await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-format-json-app')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('json-format-test')
       })
 
-      await test.step('Test YAML format detection and startup', async () => {
+      await test.step('CLI-START-FORMAT-002: Auto-detects YAML format from .yaml extension', async () => {
+        // WHEN: Starting server with .yaml file (no explicit format flag)
         const server = await startCliServerWithConfig({
           format: 'yaml',
           config: `
-name: multi-format-yaml-app
-description: YAML config test
-version: 2.0.0
+name: yaml-format-test
+description: Auto-detected as YAML from .yaml extension
 `,
         })
 
+        // THEN: Server detects YAML format and starts successfully
         await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-format-yaml-app')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('yaml-format-test')
       })
 
-      await test.step('Test YML format detection and startup', async () => {
+      await test.step('CLI-START-FORMAT-003: Auto-detects YAML format from .yml extension', async () => {
+        // WHEN: Starting server with .yml file (no explicit format flag)
         const server = await startCliServerWithConfig({
           format: 'yml',
           config: `
-name: multi-format-yml-app
-description: YML config test
-version: 3.0.0
+name: yml-format-test
+description: Auto-detected as YAML from .yml extension
 `,
         })
 
+        // THEN: Server detects YAML format from .yml and starts successfully
         await page.goto(server.url)
-        await expect(page.getByTestId('app-name-heading')).toHaveText('multi-format-yml-app')
+        await expect(page.getByTestId('app-name-heading')).toHaveText('yml-format-test')
       })
     }
   )

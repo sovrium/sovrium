@@ -229,68 +229,126 @@ test.describe('Set active organization', () => {
   test(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-REGRESSION: user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
-      })
-
-      await test.step('Verify set active organization fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/organization/set-active', {
-          data: { organizationId: '1' },
-        })
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // Shared state across steps
       let org1Id: string
       let org2Id: string
 
-      await test.step('Setup: Create user and sign in', async () => {
-        await signUp({
-          email: 'user@example.com',
-          password: 'UserPass123!',
-          name: 'Test User',
-        })
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
       })
 
-      await test.step('Setup: Create two organizations', async () => {
-        const createResponse1 = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Org One', slug: 'org-one' },
-        })
-        const org1 = await createResponse1.json()
-        org1Id = org1.id
-
-        const createResponse2 = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Org Two', slug: 'org-two' },
-        })
-        const org2 = await createResponse2.json()
-        org2Id = org2.id
-      })
-
-      await test.step('Set active organization to second org', async () => {
-        const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
-          data: { organizationId: org2Id },
-        })
-        expect(setActiveResponse.status()).toBe(200)
-      })
-
-      await test.step('Switch back to first organization', async () => {
-        const switchResponse = await page.request.post('/api/auth/organization/set-active', {
-          data: { organizationId: org1Id },
-        })
-        expect(switchResponse.status()).toBe(200)
-      })
-
-      await test.step('Verify non-member org returns 403 Forbidden (native behavior)', async () => {
+      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to set active organization
         const response = await page.request.post('/api/auth/organization/set-active', {
-          data: { organizationId: 'nonexistent-id' },
+          data: {
+            organizationId: '1',
+          },
         })
-        // Better Auth returns 403 Forbidden for non-existent orgs
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+      })
+
+      // Setup: Create user and organizations
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+
+      // Create first organization
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org One', slug: 'org-one' },
+      })
+
+      // Create second organization
+      const createResponse2 = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org Two', slug: 'org-two' },
+      })
+      const org2 = await createResponse2.json()
+      org2Id = org2.id
+
+      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-001: Returns 200 OK and updates session', async () => {
+        // WHEN: User sets active organization
+        const response = await page.request.post('/api/auth/organization/set-active', {
+          data: {
+            organizationId: org2Id,
+          },
+        })
+
+        // THEN: Returns 200 OK and updates session with active organization
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        // Better Auth's set-active endpoint returns the organization object
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data.id).toBe(org2Id)
+      })
+
+      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-002: Returns 200 with null for invalid organizationId', async () => {
+        // WHEN: User submits request with invalid organizationId (empty string)
+        const response = await page.request.post('/api/auth/organization/set-active', {
+          data: {
+            organizationId: '', // Empty string is invalid
+          },
+        })
+
+        // THEN: Better Auth returns 200 with null when organization ID is invalid
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        // When organization doesn't exist or is invalid, Better Auth returns null
+        expect(data).toBeNull()
+      })
+
+      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-004: Returns 403 for non-existent org', async () => {
+        // WHEN: User attempts to set non-existent organization as active
+        const response = await page.request.post('/api/auth/organization/set-active', {
+          data: {
+            organizationId: 'nonexistent-org-id',
+          },
+        })
+
+        // THEN: Better Auth returns 403 Forbidden (native behavior)
+        // User is not a member of the organization (because it doesn't exist)
+        expect(response.status()).toBe(403)
+      })
+
+      // Setup: Create another user's organization for non-member test
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+
+      const createPrivateOrgResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Private Org', slug: 'private-org' },
+      })
+      const privateOrg = await createPrivateOrgResponse.json()
+
+      // Sign in as regular user (not member of private org)
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
+
+      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-005: Returns 403 for non-member org', async () => {
+        // WHEN: User attempts to set that organization as active
+        const response = await page.request.post('/api/auth/organization/set-active', {
+          data: {
+            organizationId: privateOrg.id,
+          },
+        })
+
+        // THEN: Better Auth returns 403 Forbidden (native behavior)
+        // User is not a member of the organization
         expect(response.status()).toBe(403)
       })
     }

@@ -1708,7 +1708,7 @@ test.describe('Languages Configuration', () => {
     'APP-LANGUAGES-REGRESSION: user can complete full languages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-LANGUAGES-001: Use English as the only available language', async () => {
+      await test.step('APP-LANGUAGES-001: Uses English as the only available language', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1729,7 +1729,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('[data-testid="language-option"]')).toHaveCount(1)
       })
 
-      await test.step('APP-LANGUAGES-002: Switch between all three languages', async () => {
+      await test.step('APP-LANGUAGES-002: Switches between all three languages', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1756,7 +1756,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       })
 
-      await test.step('APP-LANGUAGES-003: Display English fallback text', async () => {
+      await test.step('APP-LANGUAGES-003: Displays English fallback text', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1813,7 +1813,7 @@ test.describe('Languages Configuration', () => {
 
       // Note: APP-LANGUAGES-004, 005 require browser locale - covered by @spec tests only
 
-      await test.step('APP-LANGUAGES-006: Remember choice in localStorage', async () => {
+      await test.step('APP-LANGUAGES-006: Remembers choice in localStorage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1849,7 +1849,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       })
 
-      await test.step('APP-LANGUAGES-007: Not persist choice when disabled', async () => {
+      await test.step('APP-LANGUAGES-007: Does not persist choice when disabled', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1883,7 +1883,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
       })
 
-      await test.step('APP-LANGUAGES-008: Flip between LTR and RTL direction', async () => {
+      await test.step('APP-LANGUAGES-008: Flips between LTR and RTL direction', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1917,7 +1917,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
       })
 
-      await test.step('APP-LANGUAGES-009: Display all languages with native labels and flags', async () => {
+      await test.step('APP-LANGUAGES-009: Displays all languages with native labels and flags', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1958,7 +1958,7 @@ test.describe('Languages Configuration', () => {
 
       // Note: APP-LANGUAGES-010 requires browser locale - covered by @spec test only
 
-      await test.step('APP-LANGUAGES-011: Fail validation - default not in supported', async () => {
+      await test.step('APP-LANGUAGES-011: Fails validation - default not in supported', async () => {
         const schemaPromise = startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1980,7 +1980,7 @@ test.describe('Languages Configuration', () => {
         await expect(schemaPromise).rejects.toThrow(/default language must be in supported array/)
       })
 
-      await test.step('APP-LANGUAGES-012: Fail validation - fallback not in supported', async () => {
+      await test.step('APP-LANGUAGES-012: Fails validation - fallback not in supported', async () => {
         const schemaPromise = startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2000,7 +2000,7 @@ test.describe('Languages Configuration', () => {
         await expect(schemaPromise).rejects.toThrow(/fallback language must be in supported array/)
       })
 
-      await test.step('APP-LANGUAGES-013: Automatically use default as fallback', async () => {
+      await test.step('APP-LANGUAGES-013: Automatically uses default as fallback', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2031,7 +2031,7 @@ test.describe('Languages Configuration', () => {
         expect(fallbackLanguage).toBe('en')
       })
 
-      await test.step('APP-LANGUAGES-014: Show English text when French translation missing', async () => {
+      await test.step('APP-LANGUAGES-014: Shows English text when French translation missing', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2065,7 +2065,7 @@ test.describe('Languages Configuration', () => {
         expect(fallbackLanguage).toBe('en')
       })
 
-      await test.step('APP-LANGUAGES-015: Apply RTL-aware theme tokens', async () => {
+      await test.step('APP-LANGUAGES-015: Applies RTL-aware theme tokens', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: { spacing: { sm: '8px', md: '16px' }, colors: { primary: '#007bff' } },
@@ -2099,7 +2099,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
       })
 
-      await test.step('APP-LANGUAGES-016: Update page metadata and content', async () => {
+      await test.step('APP-LANGUAGES-016: Updates page metadata and content', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2147,7 +2147,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('text=Bonjour')).toBeVisible()
       })
 
-      await test.step('APP-LANGUAGES-017: Generate localized meta tags per language', async () => {
+      await test.step('APP-LANGUAGES-017: Generates localized meta tags per language', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2190,7 +2190,7 @@ test.describe('Languages Configuration', () => {
         await expect(page).toHaveTitle('Casque Sans Fil Premium | Acheter Maintenant')
       })
 
-      await test.step('APP-LANGUAGES-018: Resolve translation keys from dictionary', async () => {
+      await test.step('APP-LANGUAGES-018: Resolves translation keys from dictionary', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2232,7 +2232,7 @@ test.describe('Languages Configuration', () => {
         await expect(enregistrerButton).toHaveText('Enregistrer')
       })
 
-      await test.step('APP-LANGUAGES-019: Fall back to default language translation', async () => {
+      await test.step('APP-LANGUAGES-019: Falls back to default language translation', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2265,7 +2265,7 @@ test.describe('Languages Configuration', () => {
         await expect(buttons.nth(1)).toHaveText('Cancel')
       })
 
-      await test.step('APP-LANGUAGES-020: Organize translations by feature', async () => {
+      await test.step('APP-LANGUAGES-020: Organizes translations by feature', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2301,7 +2301,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.getByText('Not Found', { exact: true })).toBeVisible()
       })
 
-      await test.step('APP-LANGUAGES-021: Resolve translation tokens in children during SSR', async () => {
+      await test.step('APP-LANGUAGES-021: Resolves translation tokens in children during SSR', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2331,7 +2331,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('button')).toHaveText('Get Started')
       })
 
-      await test.step('APP-LANGUAGES-022: Resolve translation tokens in props during SSR', async () => {
+      await test.step('APP-LANGUAGES-022: Resolves translation tokens in props during SSR', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2360,7 +2360,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('input')).toHaveAttribute('placeholder', 'Type to search')
       })
 
-      await test.step('APP-LANGUAGES-023: Resolve translation tokens in content during SSR', async () => {
+      await test.step('APP-LANGUAGES-023: Resolves translation tokens in content during SSR', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2427,7 +2427,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('h1')).toHaveText('Welcome to Sovrium')
       })
 
-      await test.step('APP-LANGUAGES-025: Serve / with default language (cacheable)', async () => {
+      await test.step('APP-LANGUAGES-025: Serves / with default language (cacheable)', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2462,7 +2462,7 @@ test.describe('Languages Configuration', () => {
 
       // Note: APP-LANGUAGES-026 requires browser locale - covered by @spec test only
 
-      await test.step('APP-LANGUAGES-027: Render homepage at /:lang/ with correct language', async () => {
+      await test.step('APP-LANGUAGES-027: Renders homepage at /:lang/ with correct language', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2493,7 +2493,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       })
 
-      await test.step('APP-LANGUAGES-028: Navigate between language subdirectories', async () => {
+      await test.step('APP-LANGUAGES-028: Navigates between language subdirectories', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -2530,7 +2530,7 @@ test.describe('Languages Configuration', () => {
         await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
       })
 
-      await test.step('APP-LANGUAGES-029: Return 404 for invalid language subdirectory', async () => {
+      await test.step('APP-LANGUAGES-029: Returns 404 for invalid language subdirectory', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {

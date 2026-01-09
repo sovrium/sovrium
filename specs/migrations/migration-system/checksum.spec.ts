@@ -239,42 +239,159 @@ test.describe('Checksum Optimization', () => {
     'MIGRATION-CHECKSUM-REGRESSION: user can complete full checksum-optimization workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('First run: Create initial checksum', async () => {
+      // Shared state for tracking checksums across steps
+      let initialChecksum: string
+      let checksumAfterModification: string
+
+      await test.step('MIGRATION-CHECKSUM-001: SaveChecksumOnFirstMigration', async () => {
+        // GIVEN: table schema configuration with no previous checksum
+        // WHEN: runtime migration executes for first time
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 5,
-              name: 'data',
-              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
+              name: 'regression_users',
+              fields: [{ id: 2, name: 'email', type: 'email' }],
             },
           ],
         })
 
-        // Verify checksum created
-        const initialChecksum = await executeQuery(
+        // THEN: PostgreSQL saves SHA-256 checksum to _sovrium_schema_checksum table
+
+        // Checksum table exists
+        const tableCheck = await executeQuery(
+          `SELECT table_name FROM information_schema.tables WHERE table_name = '_sovrium_schema_checksum'`
+        )
+        expect(tableCheck.table_name).toBe('_sovrium_schema_checksum')
+
+        // Checksum saved as singleton row
+        const singletonCheck = await executeQuery(
+          `SELECT id, LENGTH(checksum) as checksum_length FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(singletonCheck.id).toBe('singleton')
+        expect(singletonCheck.checksum_length).toBe(64)
+
+        // Checksum is SHA-256 hex (64 characters)
+        const validSha256 = await executeQuery(
+          `SELECT checksum ~ '^[0-9a-f]{64}$' as valid_sha256 FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(validSha256.valid_sha256).toBe(true)
+
+        // Save initial checksum for later comparison
+        const savedChecksum = await executeQuery(
           `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
         )
-        expect(initialChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
+        initialChecksum = savedChecksum.checksum
       })
 
-      await test.step('Second run: Skip migrations with fast startup', async () => {
+      await test.step('MIGRATION-CHECKSUM-002: SkipMigrationWhenUnchanged', async () => {
+        // GIVEN: table schema unchanged from previous run (checksum matches)
+        // WHEN: runtime migration compares current hash with saved checksum (same schema)
         const startTime = Date.now()
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 5,
-              name: 'data',
-              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
+              name: 'regression_users',
+              fields: [{ id: 2, name: 'email', type: 'email' }],
             },
           ],
         })
-        const executionTime = Date.now() - startTime
+        const endTime = Date.now()
+        const executionTime = endTime - startTime
 
-        // Performance: Startup < 3000ms when unchanged (CI-friendly timeout)
-        // Note: Full migrations take 5-10+ seconds, so this validates optimization is working
+        // THEN: Migration skipped, startup completes quickly
+
+        // Performance check: startup < 3000ms (when migrations skipped)
+        // Note: This validates optimization is working (full migrations take 5-10+ seconds)
+        // The 3000ms timeout accounts for server startup overhead and CI environment variability
         expect(executionTime).toBeLessThan(3000)
+
+        // Verify checksum exists and is valid
+        const savedChecksum = await executeQuery(
+          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(savedChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
+      })
+
+      await test.step('MIGRATION-CHECKSUM-003: ExecuteMigrationWhenSchemaModified', async () => {
+        // GIVEN: table schema with initial configuration (from previous steps)
+        await executeQuery([`INSERT INTO regression_users (email) VALUES ('test@example.com')`])
+
+        // WHEN: table schema modified (new field added) - checksum differs from previous run
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'regression_users',
+              fields: [
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'name', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: Full migration executed and new checksum saved
+
+        // Verify migration executed (new field exists)
+        const columnCheck = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'regression_users' AND column_name = 'name'`
+        )
+        expect(columnCheck.column_name).toBe('name')
+
+        // New checksum saved after successful migration
+        const newChecksum = await executeQuery(
+          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(newChecksum.checksum).not.toBe(initialChecksum)
+
+        // Updated timestamp reflects migration
+        const timestampCheck = await executeQuery(
+          `SELECT updated_at > (NOW() - INTERVAL '5 seconds') as recently_updated
+           FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(timestampCheck.recently_updated).toBe(true)
+
+        // Save checksum for next step comparison
+        checksumAfterModification = newChecksum.checksum
+      })
+
+      await test.step('MIGRATION-CHECKSUM-004: ReMigrateOnMinorSchemaChange', async () => {
+        // GIVEN: checksum computation includes all schema properties (fields, types, constraints, indexes)
+        // Current schema has 'name' field as nullable (from previous step)
+
+        // WHEN: minor schema change occurs (field property change that affects schema)
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'regression_users',
+              fields: [
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'name', type: 'single-line-text', required: true },
+              ],
+            },
+          ],
+        })
+
+        // THEN: Checksum changes and triggers re-migration
+
+        // Verify constraint was added (name is now NOT NULL)
+        const constraintCheck = await executeQuery(
+          `SELECT is_nullable FROM information_schema.columns WHERE table_name = 'regression_users' AND column_name = 'name'`
+        )
+        expect(constraintCheck.is_nullable).toBe('NO')
+
+        // New checksum saved with constraint included
+        const newChecksum = await executeQuery(
+          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(newChecksum.checksum).not.toBe(checksumAfterModification)
       })
     }
   )

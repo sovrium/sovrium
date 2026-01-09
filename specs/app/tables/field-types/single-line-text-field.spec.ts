@@ -786,79 +786,93 @@ test.describe('Single Line Text Field', () => {
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-REGRESSION: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with single-line-text field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 20,
-              name: 'data',
-              fields: [
-                {
-                  id: 1,
-                  name: 'text_field',
-                  type: 'single-line-text',
-                  required: true,
-                  unique: true,
-                  default: 'Default Value',
-                  indexed: true,
-                },
-              ],
-            },
-          ],
-        })
+      // Setup: Start server with single-line-text field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 20,
+            name: 'data',
+            fields: [
+              {
+                id: 1,
+                name: 'text_field',
+                type: 'single-line-text',
+                required: true,
+                unique: true,
+                default: 'Default Value',
+                indexed: true,
+              },
+            ],
+          },
+        ],
       })
 
-      await test.step('Verify column setup and constraints', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-001: Creates PostgreSQL VARCHAR(255) column', async () => {
+        // WHEN: querying column metadata
         const columnInfo = await executeQuery(
           "SELECT data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name='data' AND column_name='text_field'"
         )
+        // THEN: VARCHAR(255) column is created with proper constraints
         expect(columnInfo.data_type).toBe('character varying')
         expect(columnInfo.character_maximum_length).toBe(255)
         expect(columnInfo.is_nullable).toBe('NO')
         expect(columnInfo.column_default).toBe("'Default Value'::character varying")
       })
 
-      await test.step('Error handling: unique constraint rejects duplicate values', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-002: Rejects duplicate values with UNIQUE constraint', async () => {
+        // WHEN: inserting first value
         await executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
+        // WHEN: attempting to insert duplicate value
+        // THEN: UNIQUE constraint rejects insertion
         await expect(
           executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
 
-      await test.step('Error handling: NOT NULL constraint rejects NULL value', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-003: Rejects NULL values with NOT NULL constraint', async () => {
+        // WHEN: attempting to insert NULL for required field
+        // THEN: NOT NULL constraint rejects insertion
         await expect(executeQuery('INSERT INTO data (text_field) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )
       })
 
-      await test.step('Error handling: VARCHAR(255) limit rejects text exceeding limit', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-005: Rejects text exceeding VARCHAR(255) limit', async () => {
+        // WHEN: attempting to insert text longer than 255 characters
+        // THEN: PostgreSQL rejects with value too long error
         await expect(
           executeQuery("INSERT INTO data (text_field) VALUES (REPEAT('x', 256))")
         ).rejects.toThrow(/value too long for type character varying\(255\)/)
       })
 
-      await test.step('Test unicode handling', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-010: Stores and retrieves unicode characters', async () => {
+        // WHEN: inserting unicode text with emoji
         const unicodeInsert = await executeQuery(
           "INSERT INTO data (text_field) VALUES ('Hello 👋') RETURNING text_field"
         )
+        // THEN: unicode characters are preserved
         expect(unicodeInsert.text_field).toBe('Hello 👋')
       })
 
-      await test.step('Test bulk insert and search performance', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-004: Creates btree index for fast text lookups', async () => {
+        // WHEN: inserting bulk data and performing indexed search
         await executeQuery(
           "INSERT INTO data (text_field) SELECT 'Bulk-' || i FROM generate_series(1, 500) i"
         )
+        // THEN: indexed lookup returns correct result
         const searchResult = await executeQuery(
           "SELECT text_field FROM data WHERE text_field = 'Bulk-250'"
         )
         expect(searchResult.text_field).toBe('Bulk-250')
       })
 
-      await test.step('Test max length boundary', async () => {
+      await test.step('APP-TABLES-FIELD-SINGLE-LINE-TEXT-001: Stores text within VARCHAR(255) limit', async () => {
+        // WHEN: inserting text within max length
         const maxLengthInsert = await executeQuery(
-          "INSERT INTO data (text_field) VALUES (REPEAT('x', 50)) RETURNING LENGTH(text_field) as len"
+          "INSERT INTO data (text_field) VALUES (REPEAT('y', 50)) RETURNING LENGTH(text_field) as len"
         )
+        // THEN: text is stored correctly
         expect(maxLengthInsert.len).toBe(50)
       })
     }

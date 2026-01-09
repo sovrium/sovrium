@@ -450,69 +450,109 @@ test.describe('Cancel organization invitation', () => {
     'API-AUTH-ORG-CANCEL-INVITATION-REGRESSION: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
-      })
-
-      await test.step('Verify cancel invitation fails without auth', async () => {
-        const noAuthResponse = await page.request.delete(
-          '/api/auth/organization/cancel-invitation',
-          {
-            data: { invitationId: '1' },
-          }
-        )
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
+      // Shared state across steps
+      let orgId: string
       let invitationId: string
 
-      await test.step('Setup: Create owner and organization', async () => {
-        await signUp({
-          email: 'owner@example.com',
-          password: 'OwnerPass123!',
-          name: 'Owner User',
-        })
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
+      })
 
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
-        const org = await createResponse.json()
-
-        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+      await test.step('API-AUTH-ORG-CANCEL-INVITATION-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to cancel invitation
+        const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
           data: {
-            organizationId: org.id,
-            email: 'invitee@example.com',
-            role: 'member',
+            invitationId: '1',
           },
         })
-        const invitation = await inviteResponse.json()
-        invitationId = invitation.invitation?.id || invitation.id
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Cancel invitation as owner', async () => {
-        const cancelResponse = await page.request.delete(
-          '/api/auth/organization/cancel-invitation',
-          {
-            data: { invitationId },
-          }
-        )
-        expect(cancelResponse.status()).toBe(200)
+      // Setup: Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
       })
 
-      await test.step('Verify cancel invitation again fails', async () => {
-        const duplicateResponse = await page.request.delete(
-          '/api/auth/organization/cancel-invitation',
-          {
-            data: { invitationId },
-          }
-        )
-        expect(duplicateResponse.status()).toBe(409)
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+      orgId = org.id
+
+      await test.step('API-AUTH-ORG-CANCEL-INVITATION-002: Returns 400 Bad Request without invitationId', async () => {
+        // WHEN: Owner submits request without invitationId
+        const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-CANCEL-INVITATION-005: Returns 404 Not Found for non-existent invitation', async () => {
+        // WHEN: Owner attempts to cancel non-existent invitation
+        const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
+          data: {
+            invitationId: 'nonexistent-id',
+          },
+        })
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      // Create invitation
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: orgId,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      invitationId = invitation.invitation?.id || invitation.id
+
+      await test.step('API-AUTH-ORG-CANCEL-INVITATION-001: Returns 200 OK and marks invitation as cancelled', async () => {
+        // WHEN: Owner cancels the invitation
+        const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
+          data: {
+            invitationId: invitationId,
+          },
+        })
+
+        // THEN: Returns 200 OK and marks invitation as cancelled
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toMatchObject({ success: true })
+      })
+
+      await test.step('API-AUTH-ORG-CANCEL-INVITATION-007: Returns 409 Conflict for already cancelled invitation', async () => {
+        // WHEN: Owner attempts to cancel the same invitation again
+        const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
+          data: { invitationId },
+        })
+
+        // THEN: Returns 409 Conflict
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

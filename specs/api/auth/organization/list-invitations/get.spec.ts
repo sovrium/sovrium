@@ -358,61 +358,130 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-REGRESSION: user can complete full listInvitations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
-      })
-
-      await test.step('Verify list invitations fails without auth', async () => {
-        const noAuthResponse = await page.request.get(
-          '/api/auth/organization/list-invitations?organizationId=1'
-        )
-        expect(noAuthResponse.status()).toBe(401)
-      })
-
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // Shared state across steps
       let orgId: string
 
-      await test.step('Setup: Create owner and organization', async () => {
-        await signUp({
-          email: 'owner@example.com',
-          password: 'OwnerPass123!',
-          name: 'Owner User',
-        })
-
-        const createResponse = await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
-        const org = await createResponse.json()
-        orgId = org.id
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
       })
 
-      await test.step('List invitations with empty list', async () => {
-        const emptyResponse = await page.request.get(
+      await test.step('API-AUTH-ORG-LIST-INVITATIONS-004: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to list invitations
+        const response = await page.request.get(
+          '/api/auth/organization/list-invitations?organizationId=1'
+        )
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+      })
+
+      // Setup: Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+      orgId = org.id
+
+      await test.step('API-AUTH-ORG-LIST-INVITATIONS-003: Returns 400 Bad Request without organizationId', async () => {
+        // WHEN: User requests invitations without organizationId parameter
+        const response = await page.request.get('/api/auth/organization/list-invitations')
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ORG-LIST-INVITATIONS-008: Returns 200 OK with empty invitations array', async () => {
+        // WHEN: Owner requests list of invitations
+        const response = await page.request.get(
           `/api/auth/organization/list-invitations?organizationId=${orgId}`
         )
-        expect(emptyResponse.status()).toBe(200)
+
+        // THEN: Returns 200 OK with empty invitations array
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('invitations')
+        expect(data.invitations).toHaveLength(0)
       })
 
-      await test.step('Create invitation', async () => {
-        await page.request.post('/api/auth/organization/invite-member', {
-          data: { organizationId: orgId, email: 'invitee@example.com', role: 'member' },
-        })
+      // Create invitations for subsequent tests
+      await page.request.post('/api/auth/organization/invite-member', {
+        data: { organizationId: orgId, email: 'pending@example.com', role: 'member' },
+      })
+      await page.request.post('/api/auth/organization/invite-member', {
+        data: { organizationId: orgId, email: 'admin@example.com', role: 'admin' },
       })
 
-      await test.step('List invitations with invitation present', async () => {
-        const listResponse = await page.request.get(
+      await test.step('API-AUTH-ORG-LIST-INVITATIONS-001: Returns 200 OK with all invitations', async () => {
+        // WHEN: Owner requests list of all invitations
+        const response = await page.request.get(
           `/api/auth/organization/list-invitations?organizationId=${orgId}`
         )
-        expect(listResponse.status()).toBe(200)
 
-        const data = await listResponse.json()
-        expect(data.invitations.length).toBeGreaterThan(0)
+        // THEN: Returns 200 OK with all invitations
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('invitations')
+        expect(Array.isArray(data.invitations)).toBe(true)
+      })
+
+      await test.step('API-AUTH-ORG-LIST-INVITATIONS-006: Returns 404 Not Found for non-existent organization', async () => {
+        // WHEN: User requests invitations for non-existent organization
+        const response = await page.request.get(
+          '/api/auth/organization/list-invitations?organizationId=nonexistent-id'
+        )
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      // Create member user for forbidden test
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: orgId, userId: '2', role: 'member' },
+      })
+
+      // Sign in as member
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
+
+      await test.step('API-AUTH-ORG-LIST-INVITATIONS-005: Returns 403 Forbidden for regular member', async () => {
+        // WHEN: Member attempts to list invitations
+        const response = await page.request.get(
+          `/api/auth/organization/list-invitations?organizationId=${orgId}`
+        )
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

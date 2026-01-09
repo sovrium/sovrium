@@ -724,7 +724,7 @@ test.describe('Reusable Blocks', () => {
     'APP-BLOCKS-REGRESSION: user can complete full blocks workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-BLOCKS-001: Validate minimal block definition at build time', async () => {
+      await test.step('APP-BLOCKS-001: Validates minimal block definition at build time', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [{ name: 'simple-block', type: 'div' }],
@@ -741,7 +741,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-block="simple-block"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-002: Use URL-friendly naming convention for data-testid', async () => {
+      await test.step('APP-BLOCKS-002: Uses URL-friendly naming convention for data-testid', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -768,7 +768,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-testid="block-feature-card"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-003: Reject invalid block names at build time', async () => {
+      await test.step('APP-BLOCKS-003: Rejects invalid block names at build time', async () => {
         const validBlocks = [
           { name: 'icon-badge', type: 'div' },
           { name: 'cta', type: 'div' },
@@ -791,7 +791,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-block="icon-badge"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-004: Validate block naming uniqueness', async () => {
+      await test.step('APP-BLOCKS-004: Validates block naming uniqueness', async () => {
         await expect(async () => {
           await startServerWithSchema({
             name: 'test-app',
@@ -811,7 +811,7 @@ test.describe('Reusable Blocks', () => {
         }).rejects.toThrow(/duplicate.*name|unique/i)
       })
 
-      await test.step('APP-BLOCKS-005: Validate blocks array structure', async () => {
+      await test.step('APP-BLOCKS-005: Validates blocks array structure', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [{ name: 'test-block', type: 'div' }],
@@ -828,7 +828,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-block="test-block"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-006: Make blocks available for reference in all page sections', async () => {
+      await test.step('APP-BLOCKS-006: Makes blocks available for reference in all page sections', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -852,7 +852,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-block="complex"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-007: Render corresponding HTML element or component by type', async () => {
+      await test.step('APP-BLOCKS-007: Renders corresponding HTML element or component by type', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -880,7 +880,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-testid="block-cta"][data-type="button"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-008: Render with properties including variable substitution', async () => {
+      await test.step('APP-BLOCKS-008: Renders with properties including variable substitution', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -910,7 +910,7 @@ test.describe('Reusable Blocks', () => {
         await expect(styledBox).toHaveAttribute('aria-label', 'Main content')
       })
 
-      await test.step('APP-BLOCKS-009: Render nested child components', async () => {
+      await test.step('APP-BLOCKS-009: Renders nested child components', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -939,7 +939,7 @@ test.describe('Reusable Blocks', () => {
         await expect(block.locator('p')).toHaveText('Card subtitle')
       })
 
-      await test.step('APP-BLOCKS-010: Render text content with substituted variables', async () => {
+      await test.step('APP-BLOCKS-010: Renders text content with substituted variables', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -965,7 +965,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-testid="block-alert-message"]')).toHaveClass(/alert/)
       })
 
-      await test.step('APP-BLOCKS-011: Render same block definition across multiple locations', async () => {
+      await test.step('APP-BLOCKS-011: Renders same block definition across multiple locations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [{ name: 'reusable', type: 'div', children: ['Reusable block'] }],
@@ -982,7 +982,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-block="reusable"]')).toHaveCount(2)
       })
 
-      await test.step('APP-BLOCKS-012: Render multiple instances with different data', async () => {
+      await test.step('APP-BLOCKS-012: Renders multiple instances with different data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -1013,7 +1013,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('h4').nth(2)).toHaveText('89%')
       })
 
-      await test.step('APP-BLOCKS-013: Provide consistent components across pages', async () => {
+      await test.step('APP-BLOCKS-013: Provides consistent components across pages', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [{ name: 'shared-block', type: 'div' }],
@@ -1028,7 +1028,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('[data-block="shared-block"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-014: Render complete component with all aspects integrated', async () => {
+      await test.step('APP-BLOCKS-014: Renders complete component with all aspects integrated', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -1068,7 +1068,7 @@ test.describe('Reusable Blocks', () => {
         await expect(page.locator('p')).toHaveText('Best value for teams')
       })
 
-      await test.step('APP-BLOCKS-015: Transform template placeholders into concrete values in DOM', async () => {
+      await test.step('APP-BLOCKS-015: Transforms template placeholders into concrete values in DOM', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -1095,7 +1095,7 @@ test.describe('Reusable Blocks', () => {
         expect(html).not.toContain('$')
       })
 
-      await test.step('APP-BLOCKS-016: Render with design tokens applied from global theme', async () => {
+      await test.step('APP-BLOCKS-016: Renders with design tokens applied from global theme', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1132,7 +1132,7 @@ test.describe('Reusable Blocks', () => {
         await expect(card).toHaveCSS('background-color', 'rgb(0, 123, 255)')
       })
 
-      await test.step('APP-BLOCKS-017: Render blocks within page layout with full variable substitution', async () => {
+      await test.step('APP-BLOCKS-017: Renders blocks within page layout with full variable substitution', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -1167,7 +1167,7 @@ test.describe('Reusable Blocks', () => {
         expect(buttonHtml).not.toContain('$')
       })
 
-      await test.step('APP-BLOCKS-018: Generate structured data and meta tags from block content', async () => {
+      await test.step('APP-BLOCKS-018: Generates structured data and meta tags from block content', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [

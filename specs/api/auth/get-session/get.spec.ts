@@ -191,48 +191,60 @@ test.describe('Get current session', () => {
     'API-AUTH-GET-SESSION-REGRESSION: user can complete full get-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-        })
+      // Setup: Start server with auth enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
       })
 
-      await test.step('Verify no session before sign-in', async () => {
-        const noSessionResponse = await page.request.get('/api/auth/get-session')
-        expect(noSessionResponse.status()).toBe(200)
-        const noSessionData = await noSessionResponse.json()
-        // Better Auth returns null body when no session exists
-        expect(noSessionData).toBeNull()
+      await test.step('API-AUTH-GET-SESSION-002: Returns null session without authentication', async () => {
+        // WHEN: User requests session without authentication
+        const response = await page.request.get('/api/auth/get-session')
+
+        // THEN: Better Auth returns 200 with null (no session)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toBeNull()
       })
 
-      await test.step('Setup: Create and authenticate user', async () => {
-        await signUp({
-          name: 'Regression User',
-          email: 'regression@example.com',
-          password: 'SecurePass123!',
-        })
+      // Setup: Create and authenticate user
+      await signUp({
+        name: 'Regression User',
+        email: 'regression@example.com',
+        password: 'SecurePass123!',
       })
 
-      await test.step('Verify session exists after sign-in', async () => {
-        const sessionResponse = await page.request.get('/api/auth/get-session')
-        expect(sessionResponse.status()).toBe(200)
-        const sessionData = await sessionResponse.json()
-        expect(sessionData).toHaveProperty('session')
-        expect(sessionData).toHaveProperty('user')
-        expect(sessionData.user.email).toBe('regression@example.com')
+      await test.step('API-AUTH-GET-SESSION-001: Returns 200 OK with session and user data', async () => {
+        // WHEN: User requests current session information
+        const response = await page.request.get('/api/auth/get-session')
+
+        // THEN: Returns 200 OK with session and user data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('session')
+        expect(data).toHaveProperty('user')
+        expect(data.user.email).toBe('regression@example.com')
+        expect(data.user.name).toBe('Regression User')
+        expect(data.user).not.toHaveProperty('password')
+        expect(data.user).not.toHaveProperty('password_hash')
       })
 
-      await test.step('Verify no session after sign-out', async () => {
+      await test.step('API-AUTH-GET-SESSION-004: Returns null session after sign-out', async () => {
+        // Sign out
         await page.request.post('/api/auth/sign-out')
 
-        const afterSignOutResponse = await page.request.get('/api/auth/get-session')
-        expect(afterSignOutResponse.status()).toBe(200)
-        const afterSignOutData = await afterSignOutResponse.json()
-        // Better Auth returns null body when no session exists
-        expect(afterSignOutData).toBeNull()
+        // WHEN: User requests session after sign-out
+        const response = await page.request.get('/api/auth/get-session')
+
+        // THEN: Returns 200 with null body (session was invalidated)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toBeNull()
       })
     }
   )

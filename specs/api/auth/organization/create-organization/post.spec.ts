@@ -216,7 +216,7 @@ test.describe('Create organization', () => {
     'API-AUTH-ORG-CREATE-ORGANIZATION-REGRESSION: user can complete full createOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
+      await test.step('API-AUTH-ORG-CREATE-ORGANIZATION-004: should return 401 Unauthorized', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -224,24 +224,20 @@ test.describe('Create organization', () => {
             organization: true,
           },
         })
-      })
 
-      await test.step('Verify create organization fails without auth', async () => {
         const noAuthResponse = await page.request.post('/api/auth/organization/create', {
           data: { name: 'Test Org' },
         })
         expect([400, 401]).toContain(noAuthResponse.status())
       })
 
-      await test.step('Setup: Create and authenticate user', async () => {
+      await test.step('API-AUTH-ORG-CREATE-ORGANIZATION-001: should return 201 Created with organization data and user is set as owner', async () => {
         await signUp({
           email: 'user@example.com',
           password: 'UserPass123!',
           name: 'Test User',
         })
-      })
 
-      await test.step('Create organization with valid data', async () => {
         const createResponse = await page.request.post('/api/auth/organization/create', {
           data: {
             name: 'My Organization',
@@ -255,7 +251,7 @@ test.describe('Create organization', () => {
         expect(org).toHaveProperty('slug', 'my-org')
       })
 
-      await test.step('Verify duplicate slug fails', async () => {
+      await test.step('API-AUTH-ORG-CREATE-ORGANIZATION-005: should return 409 Conflict error', async () => {
         const duplicateResponse = await page.request.post('/api/auth/organization/create', {
           data: {
             name: 'Another Org',

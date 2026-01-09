@@ -4608,45 +4608,86 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-TYPES-FORMULA-REGRESSION: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with formula field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 124,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'base_price', type: 'decimal' },
-                { id: 3, name: 'tax_rate', type: 'decimal' },
-                {
-                  id: 4,
-                  name: 'total_price',
-                  type: 'formula',
-                  formula: 'base_price * (1 + tax_rate)',
-                  resultType: 'number',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with formula field for arithmetic calculations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 124,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'quantity', type: 'integer', required: true },
+              { id: 3, name: 'unit_price', type: 'decimal', required: true },
+              {
+                id: 4,
+                name: 'total',
+                type: 'formula',
+                formula: 'quantity * unit_price',
+                resultType: 'decimal',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Insert data and verify formula calculation', async () => {
-        await executeQuery('INSERT INTO data (base_price, tax_rate) VALUES (100.00, 0.10)')
-        const computed = await executeQuery(
-          'SELECT base_price, tax_rate, total_price FROM data WHERE id = 1'
+      await test.step('APP-TABLES-FIELD-TYPES-FORMULA-001: Creates GENERATED ALWAYS AS column for arithmetic formula', async () => {
+        // WHEN: querying column metadata
+        const generatedColumn = await executeQuery(
+          "SELECT column_name, is_generated FROM information_schema.columns WHERE table_name='data' AND column_name='total'"
         )
-        expect(computed.base_price).toBe('100.00')
-        expect(computed.tax_rate).toBe('0.10')
-        expect(computed.total_price).toBe('110.0000')
+        // THEN: column is marked as GENERATED ALWAYS
+        expect(generatedColumn.column_name).toBe('total')
+        expect(generatedColumn.is_generated).toBe('ALWAYS')
       })
 
-      await test.step('Update value and verify formula recalculation', async () => {
-        await executeQuery('UPDATE data SET tax_rate = 0.20 WHERE id = 1')
-        const recomputed = await executeQuery('SELECT total_price FROM data WHERE id = 1')
-        expect(recomputed.total_price).toBe('120.0000')
+      await test.step('APP-TABLES-FIELD-TYPES-FORMULA-001: Calculates arithmetic formula on insert', async () => {
+        // WHEN: inserting data with source fields
+        await executeQuery('INSERT INTO data (quantity, unit_price) VALUES (5, 19.99)')
+        // WHEN: querying the computed result
+        const computed = await executeQuery(
+          'SELECT quantity, unit_price, total FROM data WHERE id = 1'
+        )
+        // THEN: formula column contains calculated value
+        expect(computed.quantity).toBe(5)
+        expect(parseFloat(computed.unit_price)).toBe(19.99)
+        expect(parseFloat(computed.total)).toBe(99.95)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-FORMULA-001: Recalculates formula on update', async () => {
+        // WHEN: updating source field value
+        await executeQuery('UPDATE data SET quantity = 10 WHERE id = 1')
+        // WHEN: querying the recomputed result
+        const recomputed = await executeQuery('SELECT total FROM data WHERE id = 1')
+        // THEN: formula column is automatically recalculated
+        expect(parseFloat(recomputed.total)).toBe(199.9)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-FORMULA-124: Rejects formula when referenced field does not exist', async () => {
+        // WHEN: attempting to create formula referencing non-existent field
+        // THEN: validation error is thrown
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-error',
+            tables: [
+              {
+                id: 99,
+                name: 'invalid',
+                fields: [
+                  { id: 1, name: 'quantity', type: 'integer', required: true },
+                  {
+                    id: 2,
+                    name: 'total',
+                    type: 'formula',
+                    formula: 'price * quantity', // 'price' field doesn't exist!
+                    resultType: 'decimal',
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/field.*price.*not found|invalid.*field reference/i)
       })
     }
   )

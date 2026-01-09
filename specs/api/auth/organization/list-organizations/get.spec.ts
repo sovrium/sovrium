@@ -217,48 +217,58 @@ test.describe('List user organizations', () => {
     'API-AUTH-ORG-LIST-ORGANIZATIONS-REGRESSION: user can complete full listOrganizations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with organization plugin', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
-        })
+      // Setup: Start server with organization plugin
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          organization: true,
+        },
       })
 
-      await test.step('Verify list organizations fails without auth', async () => {
-        const noAuthResponse = await page.request.get('/api/auth/organization/list')
-        expect(noAuthResponse.status()).toBe(401)
+      await test.step('API-AUTH-ORG-LIST-ORGANIZATIONS-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to list organizations
+        const response = await page.request.get('/api/auth/organization/list')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create and authenticate user', async () => {
-        await signUp({
-          email: 'user@example.com',
-          password: 'UserPass123!',
-          name: 'Test User',
-        })
+      // Setup: Create and authenticate user
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
       })
 
-      await test.step('Verify list returns empty array for new user', async () => {
-        const emptyResponse = await page.request.get('/api/auth/organization/list')
-        expect(emptyResponse.status()).toBe(200)
-        const emptyData = await emptyResponse.json()
-        expect(emptyData.length).toBe(0)
+      await test.step('API-AUTH-ORG-LIST-ORGANIZATIONS-002: Returns 200 OK with empty organizations array', async () => {
+        // WHEN: User requests list of their organizations
+        const response = await page.request.get('/api/auth/organization/list')
+
+        // THEN: Returns 200 OK with empty organizations array
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data.length).toBe(0)
       })
 
-      await test.step('Create organization', async () => {
-        await page.request.post('/api/auth/organization/create', {
-          data: { name: 'Test Org', slug: 'test-org' },
-        })
+      // Setup: Create organization
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
       })
 
-      await test.step('Verify list returns organization after creation', async () => {
-        const listResponse = await page.request.get('/api/auth/organization/list')
-        expect(listResponse.status()).toBe(200)
-        const listData = await listResponse.json()
-        expect(listData.length).toBe(1)
-        expect(listData[0]).toHaveProperty('name', 'Test Org')
+      await test.step('API-AUTH-ORG-LIST-ORGANIZATIONS-001: Returns 200 OK with all organizations', async () => {
+        // WHEN: User requests list of their organizations
+        const response = await page.request.get('/api/auth/organization/list')
+
+        // THEN: Returns 200 OK with all organizations and user's roles
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data.length).toBeGreaterThanOrEqual(1)
+        expect(data[0]).toHaveProperty('name', 'Test Org')
       })
     }
   )

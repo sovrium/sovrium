@@ -142,87 +142,67 @@ test.describe('Barcode Field', () => {
     'APP-TABLES-FIELD-TYPES-BARCODE-REGRESSION: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-001: Create VARCHAR column for barcode storage', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'products',
-              fields: [{ id: 1, name: 'barcode', type: 'barcode' }],
-            },
-          ],
-        })
+      // Setup: Start server with barcode fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'barcode', type: 'barcode' },
+              { id: 2, name: 'ean', type: 'barcode', format: 'EAN-13' },
+              { id: 3, name: 'code', type: 'barcode' },
+              { id: 4, name: 'unique_barcode', type: 'barcode', unique: true },
+              { id: 5, name: 'tracking', type: 'barcode', indexed: true },
+            ],
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-001: Creates VARCHAR column for barcode storage', async () => {
+        // WHEN: querying column info for barcode field
         const column = await executeQuery(
-          "SELECT data_type FROM information_schema.columns WHERE table_name='products' AND column_name='barcode'"
+          "SELECT data_type FROM information_schema.columns WHERE table_name='data' AND column_name='barcode'"
         )
+        // THEN: VARCHAR column is created
         expect(column.data_type).toBe('character varying')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-002: Enforce barcode format via CHECK constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'items',
-              fields: [{ id: 1, name: 'ean', type: 'barcode', format: 'EAN-13' }],
-            },
-          ],
-        })
-        await expect(executeQuery("INSERT INTO items (ean) VALUES ('invalid')")).rejects.toThrow(
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-002: Enforces barcode format via CHECK constraint', async () => {
+        // WHEN: attempting to insert invalid barcode format
+        // THEN: CHECK constraint rejects insertion
+        await expect(executeQuery("INSERT INTO data (ean) VALUES ('invalid')")).rejects.toThrow(
           /violates check constraint/
         )
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-003: Store valid barcode values', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'inventory',
-              fields: [{ id: 1, name: 'code', type: 'barcode' }],
-            },
-          ],
-        })
-        await executeQuery("INSERT INTO inventory (code) VALUES ('1234567890123')")
-        const result = await executeQuery('SELECT code FROM inventory WHERE id = 1')
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-003: Stores valid barcode values', async () => {
+        // WHEN: inserting valid barcode value
+        await executeQuery("INSERT INTO data (code) VALUES ('1234567890123')")
+        // WHEN: querying stored barcode value
+        const result = await executeQuery('SELECT code FROM data WHERE code IS NOT NULL LIMIT 1')
+        // THEN: barcode is stored correctly
         expect(result.code).toBe('1234567890123')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-004: Enforce UNIQUE constraint for barcode uniqueness', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'assets',
-              fields: [{ id: 1, name: 'barcode', type: 'barcode', unique: true }],
-            },
-          ],
-        })
-        await executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-004: Enforces UNIQUE constraint for barcode uniqueness', async () => {
+        // WHEN: inserting first unique barcode
+        await executeQuery("INSERT INTO data (unique_barcode) VALUES ('ABC123')")
+        // WHEN: attempting to insert duplicate unique barcode
+        // THEN: UNIQUE constraint rejects insertion
         await expect(
-          executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")
+          executeQuery("INSERT INTO data (unique_barcode) VALUES ('ABC123')")
         ).rejects.toThrow(/duplicate key/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-005: Create index on barcode for fast lookups', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'shipments',
-              fields: [{ id: 1, name: 'tracking', type: 'barcode', indexed: true }],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-BARCODE-005: Creates index on barcode for fast lookups', async () => {
+        // WHEN: checking for btree index on indexed barcode field
         const index = await executeQuery(
-          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_shipments_tracking'"
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_data_tracking'"
         )
-        expect(index.indexname).toBe('idx_shipments_tracking')
+        // THEN: btree index exists
+        expect(index.indexname).toBe('idx_data_tracking')
       })
     }
   )

@@ -237,144 +237,99 @@ test.describe('URL Field', () => {
     'APP-TABLES-FIELD-URL-REGRESSION: user can complete full url-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-URL-001: Create PostgreSQL VARCHAR(255) column for URL storage', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'companies',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'website', type: 'url' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with URL fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'website', type: 'url' },
+              { id: 3, name: 'primary_url', type: 'url', unique: true, required: true },
+              { id: 4, name: 'indexed_url', type: 'url', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-URL-001: Creates PostgreSQL VARCHAR(255) column for URL storage', async () => {
+        // WHEN: querying column info for URL field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='companies' AND column_name='website'"
+          "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='website'"
         )
+        // THEN: VARCHAR(255) column is created
         expect(columnInfo.column_name).toBe('website')
         expect(columnInfo.data_type).toBe('character varying')
         expect(columnInfo.character_maximum_length).toBe(255)
         expect(columnInfo.is_nullable).toBe('YES')
-        const validInsert = await executeQuery(
-          "INSERT INTO companies (website) VALUES ('https://example.com') RETURNING website"
-        )
-        expect(validInsert.website).toBe('https://example.com')
       })
 
-      await test.step('APP-TABLES-FIELD-URL-002: Store both protocols correctly', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'products',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'product_url', type: 'url' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-URL-002: Stores both protocols correctly', async () => {
+        // WHEN: inserting URLs with HTTPS protocol
         const httpsInsert = await executeQuery(
-          "INSERT INTO products (product_url) VALUES ('https://secure.example.com/product/123') RETURNING product_url"
+          "INSERT INTO data (website, primary_url) VALUES ('https://secure.example.com/product/123', 'https://unique1.com') RETURNING website"
         )
-        expect(httpsInsert.product_url).toBe('https://secure.example.com/product/123')
+        // THEN: HTTPS URL is stored
+        expect(httpsInsert.website).toBe('https://secure.example.com/product/123')
+
+        // WHEN: inserting URLs with HTTP protocol
         const httpInsert = await executeQuery(
-          "INSERT INTO products (product_url) VALUES ('http://legacy.example.com/item') RETURNING product_url"
+          "INSERT INTO data (website, primary_url) VALUES ('http://legacy.example.com/item', 'https://unique2.com') RETURNING website"
         )
-        expect(httpInsert.product_url).toBe('http://legacy.example.com/item')
+        // THEN: HTTP URL is stored
+        expect(httpInsert.website).toBe('http://legacy.example.com/item')
+
+        // WHEN: querying stored URLs
         const bothStored = await executeQuery(
-          "SELECT COUNT(*) as count FROM products WHERE product_url LIKE 'http%://%'"
+          "SELECT COUNT(*) as count FROM data WHERE website LIKE 'http%://%'"
         )
+        // THEN: both protocols are stored
         expect(bothStored.count).toBe('2')
       })
 
-      await test.step('APP-TABLES-FIELD-URL-003: Reject duplicate URL with unique constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'links',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'url', type: 'url', unique: true, required: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-        await executeQuery(["INSERT INTO links (url) VALUES ('https://example.com')"])
+      await test.step('APP-TABLES-FIELD-URL-003: Rejects duplicate URL with unique constraint', async () => {
+        // WHEN: querying UNIQUE constraint
         const uniqueConstraint = await executeQuery(
-          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='links' AND constraint_type='UNIQUE' AND constraint_name LIKE '%url%'"
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='data' AND constraint_type='UNIQUE' AND constraint_name LIKE '%primary_url%'"
         )
+        // THEN: UNIQUE constraint exists
         expect(uniqueConstraint.count).toBe('1')
+
+        // WHEN: attempting to insert duplicate primary_url
+        // THEN: UNIQUE constraint rejects insertion
         await expect(
-          executeQuery("INSERT INTO links (url) VALUES ('https://example.com')")
+          executeQuery(
+            "INSERT INTO data (website, primary_url) VALUES ('https://test.com', 'https://unique1.com')"
+          )
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
-        const rowCount = await executeQuery('SELECT COUNT(*) as count FROM links')
-        expect(rowCount.count).toBe('1')
       })
 
-      await test.step('APP-TABLES-FIELD-URL-004: Reject NULL when required', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'resources',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'resource_url', type: 'url', required: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-URL-004: Rejects NULL value when required', async () => {
+        // WHEN: querying NOT NULL constraint
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='resources' AND column_name='resource_url'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='primary_url'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
-        const validInsert = await executeQuery(
-          "INSERT INTO resources (resource_url) VALUES ('https://cdn.example.com/file.pdf') RETURNING resource_url"
-        )
-        expect(validInsert.resource_url).toBe('https://cdn.example.com/file.pdf')
+
+        // WHEN: attempting to insert NULL for required URL
+        // THEN: NOT NULL constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO resources (resource_url) VALUES (NULL)')
+          executeQuery("INSERT INTO data (website, primary_url) VALUES ('https://test.com', NULL)")
         ).rejects.toThrow(/violates not-null constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-URL-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'bookmarks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'url', type: 'url', unique: true, indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-URL-005: Creates btree index when indexed=true', async () => {
+        // WHEN: checking for btree index on indexed URL field
         const indexExists = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_indexed_url'"
         )
-        expect(indexExists.indexname).toBe('idx_bookmarks_url')
-        expect(indexExists.tablename).toBe('bookmarks')
-        const indexDef = await executeQuery(
-          "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
-        )
-        expect(indexDef.indexdef).toBe(
-          'CREATE INDEX idx_bookmarks_url ON public.bookmarks USING btree (url)'
-        )
+        // THEN: btree index exists for fast URL lookups
+        expect(indexExists.indexname).toBe('idx_data_indexed_url')
+        expect(indexExists.tablename).toBe('data')
       })
     }
   )

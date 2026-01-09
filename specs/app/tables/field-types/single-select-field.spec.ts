@@ -279,46 +279,66 @@ test.describe('Single Select Field', () => {
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-REGRESSION: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with single-select field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'select_field',
-                  type: 'single-select',
-                  options: ['option1', 'option2', 'option3'],
-                  required: true,
-                  indexed: true,
-                  default: 'option1',
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with single-select field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'select_field',
+                type: 'single-select',
+                options: ['option1', 'option2', 'option3'],
+                required: true,
+                indexed: true,
+                default: 'option1',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
       })
 
-      await test.step('Insert and verify selected value', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-SELECT-001: Creates PostgreSQL VARCHAR column for storage', async () => {
+        // WHEN: executing query to check column info
+        const columnInfo = await executeQuery(
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='select_field'"
+        )
+        // THEN: VARCHAR column is created
+        expect(columnInfo.data_type).toMatch(/character varying|text/)
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-SELECT-002: Enforces CHECK constraint for predefined options', async () => {
+        // WHEN: inserting valid option value
         await executeQuery("INSERT INTO data (select_field) VALUES ('option2')")
         const stored = await executeQuery('SELECT select_field FROM data WHERE id = 1')
+        // THEN: value is stored correctly
         expect(stored.select_field).toBe('option2')
+
+        // WHEN: attempting to insert invalid option value
+        // THEN: CHECK constraint rejects the value
+        await expect(
+          executeQuery("INSERT INTO data (select_field) VALUES ('invalid_option')")
+        ).rejects.toThrow(/violates check constraint/)
       })
 
-      await test.step('Test grouping by option', async () => {
-        await executeQuery("INSERT INTO data (select_field) VALUES ('option2'), ('option3')")
-        const grouped = await executeQuery(
-          'SELECT select_field, COUNT(*) as count FROM data GROUP BY select_field ORDER BY select_field'
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-SELECT-005: Creates btree index for fast queries', async () => {
+        // WHEN: checking for index on select_field
+        const indexExists = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_data_select_field'"
         )
-        expect(grouped.rows).toContainEqual({ select_field: 'option2', count: '2' })
+        // THEN: btree index exists
+        expect(indexExists.indexname).toBe('idx_data_select_field')
       })
 
-      await test.step('Error handling: empty options array is rejected', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-SINGLE-SELECT-006: Rejects empty options array', async () => {
+        // WHEN: attempting to start server with empty options array
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app-error',

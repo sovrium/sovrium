@@ -671,7 +671,7 @@ test.describe('Pages', () => {
     'APP-PAGES-REGRESSION: user can complete full pages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-001: Validate as pages array with minimum 1 item', async () => {
+      await test.step('APP-PAGES-001: Validates as pages array with minimum 1 item', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -687,7 +687,7 @@ test.describe('Pages', () => {
         await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
       })
 
-      await test.step('APP-PAGES-002: Validate with minimal configuration', async () => {
+      await test.step('APP-PAGES-002: Validates with minimal configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -704,7 +704,7 @@ test.describe('Pages', () => {
         await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
       })
 
-      await test.step('APP-PAGES-003: Accept complete page configuration', async () => {
+      await test.step('APP-PAGES-003: Accepts complete page configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -724,7 +724,7 @@ test.describe('Pages', () => {
         await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
       })
 
-      await test.step('APP-PAGES-004: Accept root path for homepage', async () => {
+      await test.step('APP-PAGES-004: Accepts root path for homepage', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -741,7 +741,7 @@ test.describe('Pages', () => {
         await expect(page).toHaveTitle('Home')
       })
 
-      await test.step('APP-PAGES-005: Accept nested URL paths', async () => {
+      await test.step('APP-PAGES-005: Accepts nested URL paths', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -758,7 +758,7 @@ test.describe('Pages', () => {
         await expect(page).toHaveTitle('Pricing')
       })
 
-      await test.step('APP-PAGES-006: Support direct component definitions in sections', async () => {
+      await test.step('APP-PAGES-006: Supports direct component definitions in sections', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -780,7 +780,7 @@ test.describe('Pages', () => {
         await expect(page.locator('section#hero h1')).toHaveText('Welcome')
       })
 
-      await test.step('APP-PAGES-007: Support block references with $variable syntax', async () => {
+      await test.step('APP-PAGES-007: Supports block references with $variable syntax', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -804,7 +804,7 @@ test.describe('Pages', () => {
         await expect(page.locator('section#hero h1')).toHaveText('Welcome to Our Platform')
       })
 
-      await test.step('APP-PAGES-008: Orchestrate global layout components', async () => {
+      await test.step('APP-PAGES-008: Orchestrates global layout components', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -836,7 +836,7 @@ test.describe('Pages', () => {
         `)
       })
 
-      await test.step('APP-PAGES-009: Manage client-side scripts and features', async () => {
+      await test.step('APP-PAGES-009: Manages client-side scripts and features', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -856,7 +856,7 @@ test.describe('Pages', () => {
         await expect(page.locator('script[src="https://cdn.example.com/script.js"]')).toBeAttached()
       })
 
-      await test.step('APP-PAGES-010: Support multiple page configurations', async () => {
+      await test.step('APP-PAGES-010: Supports multiple page configurations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -894,7 +894,7 @@ test.describe('Pages', () => {
         await expect(page).toHaveTitle('Pricing')
       })
 
-      await test.step('APP-PAGES-011: Enable block reusability across pages via $ref', async () => {
+      await test.step('APP-PAGES-011: Enables block reusability across pages via $ref', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -921,7 +921,7 @@ test.describe('Pages', () => {
         await expect(page.locator('button')).toHaveText('Buy Now')
       })
 
-      await test.step('APP-PAGES-012: Support complete metadata configuration beyond basic SEO', async () => {
+      await test.step('APP-PAGES-012: Supports complete metadata configuration beyond basic SEO', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -963,7 +963,7 @@ test.describe('Pages', () => {
         )
       })
 
-      await test.step('APP-PAGES-013: Apply global theme to page elements', async () => {
+      await test.step('APP-PAGES-013: Applies global theme to page elements', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: { colors: { primary: '#3B82F6', secondary: '#10B981' } },
@@ -990,7 +990,7 @@ test.describe('Pages', () => {
         await expect(section).toHaveCSS('background-color', 'rgb(59, 130, 246)')
       })
 
-      await test.step('APP-PAGES-014: Adapt page content based on selected language', async () => {
+      await test.step('APP-PAGES-014: Adapts page content based on selected language', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1022,7 +1022,7 @@ test.describe('Pages', () => {
         await expect(page.locator('h1')).toHaveText('Bienvenue')
       })
 
-      await test.step('APP-PAGES-015: Compose pages from reusable blocks', async () => {
+      await test.step('APP-PAGES-015: Composes pages from reusable blocks', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -1058,7 +1058,7 @@ test.describe('Pages', () => {
         await expect(page.locator('button')).toHaveText('Buy Now')
       })
 
-      await test.step('APP-PAGES-016: Support responsive design via className utilities', async () => {
+      await test.step('APP-PAGES-016: Supports responsive design via className utilities', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -1089,7 +1089,7 @@ test.describe('Pages', () => {
         await expect(section).toHaveClass(/md:grid-cols-2/)
       })
 
-      await test.step('APP-PAGES-017: Demonstrate end-to-end integration of all page-building features', async () => {
+      await test.step('APP-PAGES-017: Demonstrates end-to-end integration of all page-building features', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: { colors: { primary: '#3B82F6', secondary: '#10B981' } },

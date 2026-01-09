@@ -190,42 +190,55 @@ test.describe('Sign out user', () => {
     'API-AUTH-SIGN-OUT-REGRESSION: user can complete full sign-out workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Create server and authenticate user', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-        })
-
-        await signUp({
-          name: 'Regression User',
-          email: 'regression@example.com',
-          password: 'SecurePass123!',
-        })
+      // Setup: Create server and authenticate user
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
       })
 
-      await test.step('Sign out user', async () => {
-        const signOutResponse = await page.request.post('/api/auth/sign-out')
-        expect(signOutResponse.status()).toBe(200)
+      await signUp({
+        name: 'Regression User',
+        email: 'regression@example.com',
+        password: 'SecurePass123!',
       })
 
-      await test.step('Verify session is invalidated', async () => {
+      await test.step('API-AUTH-SIGN-OUT-001: Returns 200 OK and invalidates session', async () => {
+        // WHEN: User requests to sign out
+        const response = await page.request.post('/api/auth/sign-out')
+
+        // THEN: Returns 200 OK and invalidates session
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('success', true)
+      })
+
+      await test.step('API-AUTH-SIGN-OUT-003: Session is invalidated after sign-out', async () => {
+        // WHEN: User checks session after sign-out
         const sessionResponse = await page.request.get('/api/auth/get-session')
+
+        // THEN: Session is invalidated - get-session returns null body
         expect(sessionResponse.status()).toBe(200)
         const sessionData = await sessionResponse.json()
-        // Better Auth returns null body when no session exists
         expect(sessionData).toBeNull()
       })
 
-      await test.step('Verify user can sign in again', async () => {
-        const reSignInResponse = await page.request.post('/api/auth/sign-in/email', {
+      await test.step('API-AUTH-SIGN-OUT-004: Allows re-login after sign-out', async () => {
+        // WHEN: User signs in again
+        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
           data: {
             email: 'regression@example.com',
             password: 'SecurePass123!',
           },
         })
-        expect(reSignInResponse.status()).toBe(200)
+
+        // THEN: Re-login succeeds
+        expect(signInResponse.status()).toBe(200)
+        const signInData = await signInResponse.json()
+        expect(signInData).toHaveProperty('user')
+        expect(signInData).toHaveProperty('token')
       })
     }
   )

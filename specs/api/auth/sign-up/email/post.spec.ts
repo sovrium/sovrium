@@ -609,17 +609,17 @@ test.describe('Sign up with email and password', () => {
     'API-AUTH-SIGN-UP-EMAIL-REGRESSION: user can complete full sign-up workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-        })
+      // Setup: Start server with auth enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
       })
 
-      await test.step('Sign up with valid credentials', async () => {
-        const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
+      await test.step('API-AUTH-SIGN-UP-EMAIL-001: Returns 200 OK with user data and session token', async () => {
+        // WHEN: User submits valid sign-up credentials
+        const response = await page.request.post('/api/auth/sign-up/email', {
           data: {
             name: 'Regression User',
             email: 'regression@example.com',
@@ -627,24 +627,31 @@ test.describe('Sign up with email and password', () => {
           },
         })
 
-        expect(signUpResponse.status()).toBe(200)
-        const signUpData = await signUpResponse.json()
-        expect(signUpData).toHaveProperty('user')
-        expect(signUpData.user.email).toBe('regression@example.com')
+        // THEN: Returns 200 OK with user data and session token
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('id')
+        expect(data.user).toHaveProperty('email', 'regression@example.com')
+        expect(data.user).toHaveProperty('name', 'Regression User')
       })
 
-      await test.step('Sign in with new credentials', async () => {
-        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+      await test.step('API-AUTH-SIGN-UP-EMAIL-007: Returns 422 when email already exists', async () => {
+        // WHEN: Another user attempts sign-up with same email
+        const response = await page.request.post('/api/auth/sign-up/email', {
           data: {
+            name: 'Another User',
             email: 'regression@example.com',
             password: 'SecurePass123!',
           },
         })
 
-        expect(signInResponse.status()).toBe(200)
-        const signInData = await signInResponse.json()
-        expect(signInData).toHaveProperty('user')
-        expect(signInData).toHaveProperty('token')
+        // THEN: Returns 422 (Better Auth returns 422 for duplicate email)
+        expect(response.status()).toBe(422)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

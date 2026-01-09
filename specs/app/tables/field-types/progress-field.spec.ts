@@ -106,56 +106,58 @@ test.describe('Progress Field', () => {
     'APP-TABLES-FIELD-TYPES-PROGRESS-REGRESSION: user can complete full progress-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-PROGRESS-001: Create PostgreSQL INTEGER column for progress percentage storage', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'progress', type: 'progress' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with progress fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'progress', type: 'progress' },
+              { id: 3, name: 'completion', type: 'progress' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-PROGRESS-001: Creates PostgreSQL INTEGER column for progress percentage storage', async () => {
+        // WHEN: querying column info for progress field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='progress'"
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='progress'"
         )
+        // THEN: INTEGER column is created
         expect(columnInfo.data_type).toBe('integer')
         expect(columnInfo.is_nullable).toBe('YES')
+
+        // WHEN: inserting progress value
         const validInsert = await executeQuery(
-          'INSERT INTO tasks (progress) VALUES (75) RETURNING progress'
+          'INSERT INTO data (progress) VALUES (75) RETURNING progress'
         )
+        // THEN: value is stored correctly
         expect(validInsert.progress).toBe(75)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-PROGRESS-002: Enforce 0-100 range constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'completion', type: 'progress' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-PROGRESS-002: Enforces 0-100 range constraint', async () => {
+        // WHEN: inserting valid completion within range
         const validInsert = await executeQuery(
-          'INSERT INTO projects (completion) VALUES (50) RETURNING completion'
+          'INSERT INTO data (completion) VALUES (50) RETURNING completion'
         )
+        // THEN: value is stored correctly
         expect(validInsert.completion).toBe(50)
-        await expect(executeQuery('INSERT INTO projects (completion) VALUES (-1)')).rejects.toThrow(
+
+        // WHEN: attempting to insert completion below 0
+        // THEN: CHECK constraint rejects insertion
+        await expect(executeQuery('INSERT INTO data (completion) VALUES (-1)')).rejects.toThrow(
           /violates check constraint/
         )
+
+        // WHEN: attempting to insert completion above 100
+        // THEN: CHECK constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO projects (completion) VALUES (101)')
+          executeQuery('INSERT INTO data (completion) VALUES (101)')
         ).rejects.toThrow(/violates check constraint/)
       })
     }

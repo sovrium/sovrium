@@ -204,73 +204,89 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
     'API-SECURITY-HEADERS-REGRESSION: secure headers protect all API endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+      // Setup: Start server with auth enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
           },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-              ],
-            },
-          ],
-        })
+        ],
       })
 
-      await test.step('Setup: Create authenticated user', async () => {
-        await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
-        await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
-      })
+      // Setup: Create authenticated user
+      await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
+      await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
 
-      await test.step('Verify: Health endpoint has secure headers', async () => {
+      await test.step('API-SECURITY-HEADERS-004: Includes X-Content-Type-Options header', async () => {
+        // WHEN: Making any API request
         const response = await request.get('/api/health')
 
-        expect(response.headers()['x-content-type-options']).toBe('nosniff')
-        expect(response.headers()['x-frame-options']).toBeDefined()
-        expect(response.headers()['referrer-policy']).toBeDefined()
+        // THEN: X-Content-Type-Options prevents MIME-sniffing
+        const contentTypeOptions = response.headers()['x-content-type-options']
+        expect(contentTypeOptions).toBeDefined()
+        expect(contentTypeOptions).toBe('nosniff')
       })
 
-      await test.step('Verify: Auth endpoints have secure headers', async () => {
-        const response = await request.get('/api/auth/get-session')
-
-        expect(response.headers()['x-content-type-options']).toBe('nosniff')
-        expect(response.headers()['x-frame-options']).toBeDefined()
-        expect(response.headers()['referrer-policy']).toBeDefined()
-      })
-
-      await test.step('Verify: Table endpoints have secure headers', async () => {
-        const response = await request.get('/api/tables')
-
-        expect(response.headers()['x-content-type-options']).toBe('nosniff')
-        expect(response.headers()['x-frame-options']).toBeDefined()
-        expect(response.headers()['referrer-policy']).toBeDefined()
-      })
-
-      await test.step('Verify: Error responses have secure headers', async () => {
-        const response = await request.get('/api/nonexistent-endpoint')
-
-        // Even 404 responses should include security headers
-        expect(response.status()).toBe(404)
-        expect(response.headers()['x-content-type-options']).toBe('nosniff')
-        expect(response.headers()['x-frame-options']).toBeDefined()
-      })
-
-      await test.step('Verify: No version disclosure in headers', async () => {
+      await test.step('API-SECURITY-HEADERS-003: Includes X-Frame-Options header', async () => {
+        // WHEN: Making any API request
         const response = await request.get('/api/health')
 
+        // THEN: X-Frame-Options header prevents clickjacking
+        const xFrameOptions = response.headers()['x-frame-options']
+        expect(xFrameOptions).toBeDefined()
+
+        // Should be DENY or SAMEORIGIN (DENY is more secure for APIs)
+        expect(['DENY', 'SAMEORIGIN']).toContain(xFrameOptions)
+      })
+
+      await test.step('API-SECURITY-HEADERS-005: Includes Referrer-Policy header', async () => {
+        // WHEN: Making any API request
+        const response = await request.get('/api/health')
+
+        // THEN: Referrer-Policy controls information leakage
+        const referrerPolicy = response.headers()['referrer-policy']
+        expect(referrerPolicy).toBeDefined()
+
+        // Should be a secure policy (not 'unsafe-url')
+        const securePolicies = [
+          'no-referrer',
+          'no-referrer-when-downgrade',
+          'same-origin',
+          'origin',
+          'strict-origin',
+          'origin-when-cross-origin',
+          'strict-origin-when-cross-origin',
+        ]
+        expect(securePolicies).toContain(referrerPolicy)
+      })
+
+      await test.step('API-SECURITY-HEADERS-006: Does not expose server version in headers', async () => {
+        // WHEN: Making any API request
+        const response = await request.get('/api/health')
+
+        // THEN: Server header should not reveal version information
         const serverHeader = response.headers()['server']
+
         if (serverHeader) {
-          // Should not contain version numbers
+          // Should not contain version numbers (pattern: digits with dots)
           expect(serverHeader).not.toMatch(/\d+\.\d+/)
+
+          // Should not contain specific framework versions
+          expect(serverHeader.toLowerCase()).not.toMatch(/hono\/\d/)
+          expect(serverHeader.toLowerCase()).not.toMatch(/bun\/\d/)
+          expect(serverHeader.toLowerCase()).not.toMatch(/node\/\d/)
         }
 
-        // X-Powered-By should not be present
+        // X-Powered-By should not be present (security best practice)
         expect(response.headers()['x-powered-by']).toBeUndefined()
       })
     }

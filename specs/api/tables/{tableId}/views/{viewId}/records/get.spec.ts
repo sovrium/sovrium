@@ -224,44 +224,102 @@ test.fixme(
 )
 
 test.fixme(
-  'API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
+  'API-TABLES-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
   { tag: '@regression' },
-  async ({ startServerWithSchema, executeQuery, request }) => {
-    await test.step('Setup: Create table with view and seed data', async () => {
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'active', type: 'checkbox' },
-            ],
-            views: [
-              {
-                id: 'view_active',
-                name: 'active_items',
-                filters: {
-                  and: [{ field: 'fld_active', operator: 'is', value: true }],
-                },
+  async ({ startServerWithSchema, executeQuery, request, createAuthenticatedViewer }) => {
+    // Setup: Create table with views and seed data
+    await startServerWithSchema({
+      name: 'test-app',
+      auth: { emailAndPassword: true },
+      tables: [
+        {
+          id: 1,
+          name: 'tasks',
+          fields: [
+            { id: 1, name: 'title', type: 'single-line-text' },
+            {
+              id: 2,
+              name: 'status',
+              type: 'single-select',
+              options: ['active', 'completed'],
+            },
+            { id: 3, name: 'price', type: 'decimal' },
+          ],
+          views: [
+            {
+              id: 'view_active',
+              name: 'active_tasks',
+              filters: {
+                and: [{ field: 'fld_status', operator: 'is', value: 'active' }],
               },
-            ],
-          },
-        ],
-      })
-
-      await executeQuery(
-        `INSERT INTO items (name, active) VALUES ('Item 1', true), ('Item 2', false)`
-      )
+            },
+            {
+              id: 'view_by_price',
+              name: 'by_price',
+              sorts: [{ field: 'fld_price', direction: 'desc' }],
+            },
+            {
+              id: 'view_admin',
+              name: 'admin_view',
+              permissions: {
+                read: ['admin'],
+              },
+            },
+          ],
+        },
+      ],
     })
 
-    await test.step('Verify view filtering returns only active items', async () => {
-      const response = await request.get('/api/tables/tbl_items/views/view_active/records', {})
+    await executeQuery(`
+      INSERT INTO tasks (title, status, price) VALUES
+      ('Task 1', 'active', 50.00),
+      ('Task 2', 'completed', 10.00),
+      ('Task 3', 'active', 25.00)
+    `)
 
+    await test.step('API-TABLES-VIEW-RECORDS-001: Returns records filtered by view configuration', async () => {
+      // WHEN: GET /api/tables/tbl_tasks/views/view_active/records
+      const response = await request.get('/api/tables/tbl_tasks/views/view_active/records', {})
+
+      // THEN: only active tasks returned
+      expect(response.status()).toBe(200)
       const body = await response.json()
-      expect(body.records).toHaveLength(1)
-      expect(body.records[0].fields.name).toBe('Item 1')
+
+      expect(body.records).toHaveLength(2)
+      expect(
+        body.records.every((r: { fields: { status: string } }) => r.fields.status === 'active')
+      ).toBe(true)
+
+      const titles = body.records.map((r: { fields: { title: string } }) => r.fields.title).sort()
+      expect(titles).toEqual(['Task 1', 'Task 3'])
+    })
+
+    await test.step('API-TABLES-VIEW-RECORDS-002: Returns records sorted by view configuration', async () => {
+      // WHEN: GET /api/tables/tbl_tasks/views/view_by_price/records
+      const response = await request.get('/api/tables/tbl_tasks/views/view_by_price/records', {})
+
+      // THEN: records sorted by price descending
+      expect(response.status()).toBe(200)
+      const body = await response.json()
+
+      expect(body.records).toHaveLength(3)
+
+      const prices = body.records.map((r: { fields: { price: string } }) => r.fields.price)
+      expect(prices).toEqual(['50.00', '25.00', '10.00'])
+    })
+
+    await test.step('API-TABLES-VIEW-RECORDS-004: Returns 403 when user lacks view access', async () => {
+      // Setup: Create a viewer user (non-admin)
+      await createAuthenticatedViewer({ email: 'viewer@example.com' })
+
+      // WHEN: viewer user attempts to access admin view
+      const response = await request.get('/api/tables/tbl_tasks/views/view_admin/records')
+
+      // THEN: 403 Forbidden
+      expect(response.status()).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('Forbidden')
+      expect(body.message).toMatch(/insufficient permissions/i)
     })
   }
 )

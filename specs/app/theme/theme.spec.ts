@@ -786,7 +786,7 @@ test.describe('Theme Configuration', () => {
     'APP-THEME-REGRESSION: user can complete full theme workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-001: Validate theme with colors as the only design token category', async () => {
+      await test.step('APP-THEME-001: Validates theme with colors as the only design token category', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -837,7 +837,7 @@ test.describe('Theme Configuration', () => {
         expect(color).toBe('rgb(108, 117, 125)')
       })
 
-      await test.step('APP-THEME-002: Validate color palette and typography system', async () => {
+      await test.step('APP-THEME-002: Validates color palette and typography system', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -878,7 +878,7 @@ test.describe('Theme Configuration', () => {
         expect(primaryColor).toContain('0, 123, 255')
       })
 
-      await test.step('APP-THEME-003: Validate visual identity, typography, and layout tokens', async () => {
+      await test.step('APP-THEME-003: Validates visual identity, typography, and layout tokens', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -909,7 +909,7 @@ test.describe('Theme Configuration', () => {
         await expect(page.locator('body')).toHaveCSS('font-family', /Inter/)
       })
 
-      await test.step('APP-THEME-004: Validate and orchestrate all design token categories', async () => {
+      await test.step('APP-THEME-004: Validates and orchestrates all design token categories', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1016,7 +1016,7 @@ test.describe('Theme Configuration', () => {
         await expect(page.locator('[data-testid="theme-border-radius"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-005: Ensure consistency between breakpoints and responsive variants', async () => {
+      await test.step('APP-THEME-005: Ensures consistency between breakpoints and responsive variants', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1045,7 +1045,7 @@ test.describe('Theme Configuration', () => {
         expect(breakpoints).toBeTruthy()
       })
 
-      await test.step('APP-THEME-006: Provide animations reusable in interactions', async () => {
+      await test.step('APP-THEME-006: Provides animations reusable in interactions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1087,7 +1087,7 @@ test.describe('Theme Configuration', () => {
         expect(['fade-in', 'slide-in', 'pulse']).toContain(animationName)
       })
 
-      await test.step('APP-THEME-007: Enable consistent UI across entire application', async () => {
+      await test.step('APP-THEME-007: Enables consistent UI across entire application', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1142,7 +1142,7 @@ test.describe('Theme Configuration', () => {
         expect(buttonStyles).toBeTruthy()
       })
 
-      await test.step('APP-THEME-008: Integrate seamlessly with Tailwind CSS', async () => {
+      await test.step('APP-THEME-008: Integrates seamlessly with Tailwind CSS', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1170,7 +1170,7 @@ test.describe('Theme Configuration', () => {
         await expect(page.locator('[data-testid="container"]')).toHaveCSS('max-width', '1280px')
       })
 
-      await test.step('APP-THEME-009: Render cohesive UI with all theme tokens applied together', async () => {
+      await test.step('APP-THEME-009: Renders cohesive UI with all theme tokens applied together', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1220,7 +1220,7 @@ test.describe('Theme Configuration', () => {
         await expect(heroSection).toBeVisible()
       })
 
-      await test.step('APP-THEME-010: Maintain visual consistency across entire page layout', async () => {
+      await test.step('APP-THEME-010: Maintains visual consistency across entire page layout', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1255,7 +1255,7 @@ test.describe('Theme Configuration', () => {
         await expect(header).toBeVisible()
       })
 
-      await test.step('APP-THEME-011: Render adaptive layouts that respond to screen size', async () => {
+      await test.step('APP-THEME-011: Renders adaptive layouts that respond to screen size', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1288,7 +1288,7 @@ test.describe('Theme Configuration', () => {
         await expect(section).toBeVisible()
       })
 
-      await test.step('APP-THEME-012: Create cohesive branded motion with theme-aware animations', async () => {
+      await test.step('APP-THEME-012: Creates cohesive branded motion with theme-aware animations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {

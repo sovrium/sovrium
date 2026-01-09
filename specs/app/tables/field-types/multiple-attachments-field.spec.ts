@@ -254,45 +254,70 @@ test.describe('Multiple Attachments Field', () => {
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-REGRESSION: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with multiple-attachments field', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 6,
-              name: 'data',
-              fields: [{ id: 1, name: 'files', type: 'multiple-attachments' }],
-            },
-          ],
-        })
-      })
-
-      await test.step('Insert and verify multiple attachments', async () => {
-        await executeQuery(
-          'INSERT INTO data (files) VALUES (\'[{"url": "a.pdf"}, {"url": "b.jpg"}]\')'
-        )
-        const files = await executeQuery(
-          'SELECT jsonb_array_length(files) as count FROM data WHERE id = 1'
-        )
-        expect(files.count).toBe(2)
-      })
-
-      await test.step('Error handling: duplicate field IDs are rejected', async () => {
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-error',
-            tables: [
+      // Setup: Start server with multiple-attachments field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [
               {
-                id: 99,
-                name: 'invalid',
-                fields: [
-                  { id: 1, name: 'files_a', type: 'multiple-attachments' },
-                  { id: 1, name: 'files_b', type: 'multiple-attachments' }, // Duplicate ID!
-                ],
+                id: 1,
+                name: 'files',
+                type: 'multiple-attachments',
+                indexed: true,
+                maxFiles: 5,
               },
             ],
-          })
-        ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-001: Creates JSONB ARRAY column for multiple file storage', async () => {
+        // WHEN: querying the database
+        const column = await executeQuery(
+          "SELECT data_type FROM information_schema.columns WHERE table_name='data' AND column_name='files'"
+        )
+        // THEN: column is JSONB type
+        expect(column.data_type).toBe('jsonb')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-002: Stores array of file metadata objects', async () => {
+        // WHEN: inserting multiple file metadata
+        await executeQuery(
+          'INSERT INTO data (files) VALUES (\'[{"url": "file1.pdf", "size": 100}, {"url": "file2.jpg", "size": 200}]\')'
+        )
+        // WHEN: querying the stored files
+        const files = await executeQuery('SELECT files FROM data WHERE id = 1')
+        // THEN: array contains 2 files
+        expect(files.files.length).toBe(2)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-003: Enforces maximum attachment count via CHECK constraint', async () => {
+        // WHEN: attempting to insert more files than maxFiles limit (5)
+        // THEN: CHECK constraint rejects the insertion
+        await expect(
+          executeQuery("INSERT INTO data (files) VALUES ('[1,2,3,4,5,6]')")
+        ).rejects.toThrow(/violates check constraint/)
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-004: Supports querying by attachment properties', async () => {
+        // WHEN: querying with JSONB containment operator
+        const result = await executeQuery(
+          'SELECT COUNT(*) as count FROM data WHERE files @> \'[{"url": "file1.pdf"}]\''
+        )
+        // THEN: query finds the matching record
+        expect(result.count).toBe('1')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-005: Creates GIN index for efficient JSON queries', async () => {
+        // WHEN: querying for GIN index
+        const index = await executeQuery(
+          "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_data_files'"
+        )
+        // THEN: GIN index exists
+        expect(index.indexname).toBe('idx_data_files')
       })
     }
   )

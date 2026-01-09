@@ -234,145 +234,110 @@ test.describe('Percentage Field', () => {
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-REGRESSION: user can complete full percentage-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-001: Create PostgreSQL DECIMAL column for percentage storage', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'completion', type: 'percentage' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      // Setup: Start server with percentage fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'completion', type: 'percentage' },
+              { id: 3, name: 'progress', type: 'percentage', min: 0, max: 100 },
+              { id: 4, name: 'score', type: 'percentage', unique: true, required: true },
+              { id: 5, name: 'discount', type: 'percentage', default: 10.0 },
+              { id: 6, name: 'rating', type: 'percentage', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-001: Creates PostgreSQL DECIMAL column for percentage storage', async () => {
+        // WHEN: querying column info for percentage field
         const columnInfo = await executeQuery(
-          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='completion'"
+          "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='completion'"
         )
+        // THEN: DECIMAL column is created
         expect(columnInfo.column_name).toBe('completion')
         expect(columnInfo.data_type).toMatch(/numeric|decimal/)
         expect(columnInfo.is_nullable).toBe('YES')
+
+        // WHEN: inserting percentage value
         const validInsert = await executeQuery(
-          'INSERT INTO tasks (completion) VALUES (75.5) RETURNING completion'
+          'INSERT INTO data (completion, score) VALUES (75.5, 1.0) RETURNING completion'
         )
+        // THEN: value is stored correctly
         expect(parseFloat(validInsert.completion)).toBe(75.5)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-002: Enforce range via CHECK constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'progress', type: 'percentage', min: 0, max: 100 },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-002: Enforces range via CHECK constraint', async () => {
+        // WHEN: inserting valid progress within range
         const validInsert = await executeQuery(
-          'INSERT INTO projects (progress) VALUES (50.0) RETURNING progress'
+          'INSERT INTO data (progress, score) VALUES (50.0, 2.0) RETURNING progress'
         )
+        // THEN: value is stored correctly
         expect(parseFloat(validInsert.progress)).toBe(50)
-        await expect(executeQuery('INSERT INTO projects (progress) VALUES (-0.1)')).rejects.toThrow(
-          /violates check constraint/
-        )
+
+        // WHEN: attempting to insert progress below min
+        // THEN: CHECK constraint rejects insertion
         await expect(
-          executeQuery('INSERT INTO projects (progress) VALUES (100.1)')
+          executeQuery('INSERT INTO data (progress, score) VALUES (-0.1, 3.0)')
+        ).rejects.toThrow(/violates check constraint/)
+
+        // WHEN: attempting to insert progress above max
+        // THEN: CHECK constraint rejects insertion
+        await expect(
+          executeQuery('INSERT INTO data (progress, score) VALUES (100.1, 4.0)')
         ).rejects.toThrow(/violates check constraint/)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-003: Enforce NOT NULL and UNIQUE constraints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'scores',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'score',
-                  type: 'percentage',
-                  unique: true,
-                  required: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
-        await executeQuery(['INSERT INTO scores (score) VALUES (95.5)'])
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-003: Enforces NOT NULL and UNIQUE constraints', async () => {
+        // WHEN: querying NOT NULL constraint
         const notNullCheck = await executeQuery(
-          "SELECT is_nullable FROM information_schema.columns WHERE table_name='scores' AND column_name='score'"
+          "SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='score'"
         )
+        // THEN: column has NOT NULL constraint
         expect(notNullCheck.is_nullable).toBe('NO')
-        await expect(executeQuery('INSERT INTO scores (score) VALUES (95.5)')).rejects.toThrow(
+
+        // WHEN: attempting to insert duplicate score
+        // THEN: UNIQUE constraint rejects insertion
+        await expect(executeQuery('INSERT INTO data (score) VALUES (1.0)')).rejects.toThrow(
           /duplicate key value violates unique constraint/
         )
-        await expect(executeQuery('INSERT INTO scores (score) VALUES (NULL)')).rejects.toThrow(
+
+        // WHEN: attempting to insert NULL for required score
+        // THEN: NOT NULL constraint rejects insertion
+        await expect(executeQuery('INSERT INTO data (score) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-004: Apply DEFAULT value', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'promotions',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'discount', type: 'percentage', default: 10.0 },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-004: Applies DEFAULT value', async () => {
+        // WHEN: inserting row without providing discount value
         const defaultInsert = await executeQuery(
-          'INSERT INTO promotions (id) VALUES (DEFAULT) RETURNING discount'
+          'INSERT INTO data (score) VALUES (5.0) RETURNING discount'
         )
+        // THEN: DEFAULT value is applied
         expect(parseFloat(defaultInsert.discount)).toBe(10)
+
+        // WHEN: inserting with explicit value
         const explicitInsert = await executeQuery(
-          'INSERT INTO promotions (discount) VALUES (25.0) RETURNING discount'
+          'INSERT INTO data (score, discount) VALUES (6.0, 25.0) RETURNING discount'
         )
+        // THEN: explicit value overrides default
         expect(parseFloat(explicitInsert.discount)).toBe(25)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-005: Create btree index when indexed=true', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'reviews',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                {
-                  id: 2,
-                  name: 'rating',
-                  type: 'percentage',
-                  required: true,
-                  indexed: true,
-                },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-PERCENTAGE-005: Creates btree index when indexed=true', async () => {
+        // WHEN: checking for btree index on indexed percentage field
         const indexExists = await executeQuery(
-          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_reviews_rating'"
+          "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_data_rating'"
         )
-        expect(indexExists.indexname).toBe('idx_reviews_rating')
-        expect(indexExists.tablename).toBe('reviews')
+        // THEN: btree index exists
+        expect(indexExists.indexname).toBe('idx_data_rating')
+        expect(indexExists.tablename).toBe('data')
       })
     }
   )

@@ -264,41 +264,50 @@ test.describe('List user sessions', () => {
     'API-AUTH-LIST-SESSIONS-REGRESSION: user can complete full list-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-        })
+      // Setup: Start server with auth enabled
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
       })
 
-      await test.step('Verify list sessions fails without auth', async () => {
-        const noAuthResponse = await page.request.get('/api/auth/list-sessions')
-        expect(noAuthResponse.status()).toBe(401)
+      await test.step('API-AUTH-LIST-SESSIONS-003: Returns 401 Unauthorized without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to list sessions
+        const response = await page.request.get('/api/auth/list-sessions')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create and authenticate user', async () => {
-        await signUp({
-          email: 'workflow@example.com',
-          password: 'WorkflowPass123!',
-          name: 'Workflow User',
-        })
+      // Setup: Create and authenticate user
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
       })
 
-      await test.step('List sessions with valid auth', async () => {
-        const authResponse = await page.request.get('/api/auth/list-sessions')
-        expect(authResponse.status()).toBe(200)
-        const sessions = await authResponse.json()
-        expect(Array.isArray(sessions)).toBe(true)
-        expect(sessions.length).toBeGreaterThanOrEqual(1)
+      await test.step('API-AUTH-LIST-SESSIONS-001: Returns 200 OK with active sessions', async () => {
+        // WHEN: User requests list of their sessions
+        const response = await page.request.get('/api/auth/list-sessions')
+
+        // THEN: Returns 200 OK with sessions array
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data.length).toBeGreaterThanOrEqual(1)
       })
 
-      await test.step('Verify list sessions fails after sign-out', async () => {
+      await test.step('API-AUTH-LIST-SESSIONS-006: Returns 401 after sign-out', async () => {
+        // Sign out
         await page.request.post('/api/auth/sign-out')
 
-        const afterSignOutResponse = await page.request.get('/api/auth/list-sessions')
-        expect(afterSignOutResponse.status()).toBe(401)
+        // WHEN: User attempts to list sessions after sign-out
+        const response = await page.request.get('/api/auth/list-sessions')
+
+        // THEN: Returns 401 Unauthorized (no longer authenticated)
+        expect(response.status()).toBe(401)
       })
     }
   )

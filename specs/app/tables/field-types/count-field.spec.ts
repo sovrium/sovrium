@@ -678,7 +678,7 @@ test.describe('Count Field', () => {
         ],
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-001: Count number of linked records', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-COUNT-001: Counts number of linked records', async () => {
         await executeQuery("INSERT INTO projects (name) VALUES ('Website Redesign')")
         await executeQuery(
           "INSERT INTO tasks (title, project_id) VALUES ('Design mockups', 1), ('Write code', 1), ('Test', 1)"
@@ -687,13 +687,13 @@ test.describe('Count Field', () => {
         expect(projectWithCount.task_count).toBe('3')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-002: Return zero when no records are linked', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-COUNT-002: Returns zero when no records are linked', async () => {
         await executeQuery("INSERT INTO categories (name) VALUES ('Empty Category')")
         const emptyCategory = await executeQuery('SELECT * FROM categories WHERE id = 1')
         expect(emptyCategory.product_count).toBe('0')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-003: Auto-update when linked records change', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-COUNT-003: Auto-updates when linked records change', async () => {
         await executeQuery("INSERT INTO authors (name) VALUES ('Jane Austen')")
         await executeQuery("INSERT INTO books (title, author_id) VALUES ('Pride and Prejudice', 1)")
         const initialCount = await executeQuery('SELECT * FROM authors WHERE id = 1')
@@ -708,7 +708,7 @@ test.describe('Count Field', () => {
         expect(afterDeleteCount.book_count).toBe('1')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-004: Count records for multiple relationship fields', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-COUNT-004: Counts records for multiple relationship fields', async () => {
         await executeQuery("INSERT INTO team_members (name) VALUES ('Alice'), ('Bob')")
         await executeQuery(
           "INSERT INTO tasks (title, created_by, assigned_to) VALUES ('Task 1', 1, 2), ('Task 2', 1, 1), ('Task 3', 2, 1)"
@@ -721,7 +721,7 @@ test.describe('Count Field', () => {
         expect(bobCounts.assigned_task_count).toBe('1')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-COUNT-005: Apply conditions to filter counted records', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-COUNT-005: Applies conditions to filter counted records', async () => {
         await executeQuery("INSERT INTO projects (name) VALUES ('Website')")
         await executeQuery(`
           INSERT INTO tasks (title, status, project_id) VALUES

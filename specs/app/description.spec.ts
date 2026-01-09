@@ -478,7 +478,7 @@ test(
   'APP-DESCRIPTION-REGRESSION: user can complete full description workflow',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    await test.step('APP-DESCRIPTION-001: Display description below app name', async () => {
+    await test.step('APP-DESCRIPTION-001: Displays description below app name', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -492,7 +492,7 @@ test(
       await expect(description).toHaveText('A simple application')
     })
 
-    await test.step('APP-DESCRIPTION-002: NOT render when description missing', async () => {
+    await test.step('APP-DESCRIPTION-002: Does NOT render when description missing', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -504,7 +504,7 @@ test(
       await expect(description).toBeHidden()
     })
 
-    await test.step('APP-DESCRIPTION-003: Render description AFTER h1 title', async () => {
+    await test.step('APP-DESCRIPTION-003: Renders description AFTER h1 title', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -524,7 +524,7 @@ test(
       expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
     })
 
-    await test.step('APP-DESCRIPTION-004: Display special characters correctly', async () => {
+    await test.step('APP-DESCRIPTION-004: Displays special characters correctly', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -537,7 +537,7 @@ test(
       await expect(description).toHaveText('My app - with special!@#$%')
     })
 
-    await test.step('APP-DESCRIPTION-005: Display Unicode and emojis correctly', async () => {
+    await test.step('APP-DESCRIPTION-005: Displays Unicode and emojis correctly', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -550,7 +550,7 @@ test(
       await expect(description).toHaveText('Très bien! 你好 🎉')
     })
 
-    await test.step('APP-DESCRIPTION-006: Wrap long description properly', async () => {
+    await test.step('APP-DESCRIPTION-006: Wraps long description properly', async () => {
       const longDescription =
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
         'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ' +
@@ -572,7 +572,7 @@ test(
       await expect(description).toHaveText(longDescription)
     })
 
-    await test.step('APP-DESCRIPTION-007: NOT render when description is empty', async () => {
+    await test.step('APP-DESCRIPTION-007: Does NOT render when description is empty', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -585,7 +585,7 @@ test(
       await expect(description).toBeHidden()
     })
 
-    await test.step('APP-DESCRIPTION-008: Render as paragraph element', async () => {
+    await test.step('APP-DESCRIPTION-008: Renders as paragraph element', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -598,7 +598,7 @@ test(
       await expect(description).toBeVisible()
     })
 
-    await test.step('APP-DESCRIPTION-009: Center description horizontally', async () => {
+    await test.step('APP-DESCRIPTION-009: Centers description horizontally', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -616,7 +616,7 @@ test(
       expect(styles.textAlign).toBe('center')
     })
 
-    await test.step('APP-DESCRIPTION-010: Display description in viewport', async () => {
+    await test.step('APP-DESCRIPTION-010: Displays description in viewport', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -630,7 +630,7 @@ test(
       await expect(description).toBeInViewport()
     })
 
-    await test.step('APP-DESCRIPTION-011: Display text without transformation', async () => {
+    await test.step('APP-DESCRIPTION-011: Displays text without transformation', async () => {
       const originalText = 'MiXeD CaSe!  With   Spaces  & Special@#$%'
       await startServerWithSchema(
         {
@@ -644,7 +644,7 @@ test(
       await expect(description).toHaveText(originalText)
     })
 
-    await test.step('APP-DESCRIPTION-012: Display elements in order: version → title → description', async () => {
+    await test.step('APP-DESCRIPTION-012: Displays elements in order: version → title → description', async () => {
       await startServerWithSchema(
         {
           version: '1.0.0',
@@ -670,7 +670,7 @@ test(
       expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
     })
 
-    await test.step('APP-DESCRIPTION-013: Display full description without truncation', async () => {
+    await test.step('APP-DESCRIPTION-013: Displays full description without truncation', async () => {
       const veryLongDescription =
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(20) +
         'Final sentence to verify complete rendering without any truncation.'
@@ -692,7 +692,7 @@ test(
       expect(styles.textOverflow).not.toBe('ellipsis')
     })
 
-    await test.step('APP-DESCRIPTION-014: Escape HTML tags and display as text', async () => {
+    await test.step('APP-DESCRIPTION-014: Escapes HTML tags and displays as text', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -708,7 +708,7 @@ test(
       await expect(scriptElement).toHaveCount(0)
     })
 
-    await test.step('APP-DESCRIPTION-015: Have appropriate spacing between title and description', async () => {
+    await test.step('APP-DESCRIPTION-015: Has appropriate spacing between title and description', async () => {
       await startServerWithSchema(
         {
           name: 'test-app',

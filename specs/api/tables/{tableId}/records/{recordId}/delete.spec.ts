@@ -843,74 +843,97 @@ test.describe('Delete record', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-REGRESSION: user can complete full soft delete workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with contacts table', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: Consolidated schema covering all @spec test scenarios
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
           },
-          tables: [
-            {
-              id: 16,
-              name: 'contacts',
-              fields: [
-                { id: 1, name: 'email', type: 'email', required: true },
-                { id: 2, name: 'organization_id', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-              ],
-            },
-          ],
-        })
+          {
+            id: 2,
+            name: 'contacts_notfound',
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+          {
+            id: 3,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
       })
 
-      await test.step('Setup: Insert test records', async () => {
-        await executeQuery(`
-          INSERT INTO contacts (id, email, organization_id) VALUES
-            (1, 'admin@example.com', 'org_123'),
-            (2, 'member@example.com', 'org_123'),
-            (3, 'viewer@example.com', 'org_123')
-        `)
+      // Setup: Insert test records for all scenarios
+      await executeQuery(`INSERT INTO contacts (id, email) VALUES (1, 'test@example.com')`)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id)
+        VALUES (1, 'Alice Cooper', 'org_123')
+      `)
+
+      // API-TABLES-RECORDS-DELETE-003: should return 401 Unauthorized
+      // Test this FIRST before authenticating
+      await test.step('API-TABLES-RECORDS-DELETE-003: should return 401 Unauthorized', async () => {
+        // WHEN: User attempts to delete a record without auth token
+        const response = await request.delete('/api/tables/3/records/1')
+
+        // THEN: Returns 401 Unauthorized error
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        // THEN: assertion
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+
+        // Verify record remains active (deleted_at is NULL)
+        const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+        expect(result.deleted_at).toBeNull()
       })
 
-      await test.step('Soft delete record successfully', async () => {
-        const successResponse = await request.delete('/api/tables/1/records/1', {})
-        expect(successResponse.status()).toBe(204)
-      })
+      // Now authenticate for remaining tests
+      await createAuthenticatedUser()
 
-      await test.step('Verify soft deletion in database', async () => {
+      // API-TABLES-RECORDS-DELETE-001: should return 204 No Content and soft delete record
+      await test.step('API-TABLES-RECORDS-DELETE-001: should return 204 No Content and soft delete record', async () => {
+        // WHEN: User deletes record by ID
+        const response = await request.delete('/api/tables/1/records/1', {})
+
+        // THEN: Returns 204 No Content
+        expect(response.status()).toBe(204)
+
+        // THEN: Record still exists but deleted_at is set (soft delete)
         const result = await executeQuery(`SELECT deleted_at FROM contacts WHERE id=1`)
         expect(result.deleted_at).toBeTruthy()
       })
 
-      await test.step('Verify soft-deleted record is not visible in queries', async () => {
-        const activeUsers = await executeQuery(`
-          SELECT COUNT(*) as count FROM contacts WHERE deleted_at IS NULL
-        `)
-        expect(activeUsers.rows[0].count).toBe('2')
-      })
+      // API-TABLES-RECORDS-DELETE-002: should return 404 Not Found
+      await test.step('API-TABLES-RECORDS-DELETE-002: should return 404 Not Found', async () => {
+        // WHEN: User attempts to delete non-existent record
+        const response = await request.delete('/api/tables/2/records/9999', {})
 
-      await test.step('Verify deleting already-deleted record fails', async () => {
-        const deleteAgainResponse = await request.delete('/api/tables/1/records/1', {})
-        expect(deleteAgainResponse.status()).toBe(404)
-      })
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
 
-      await test.step('Verify permanent delete (admin)', async () => {
-        const permanentResponse = await request.delete('/api/tables/1/records/2?permanent=true', {})
-        expect(permanentResponse.status()).toBe(204)
-
-        const verifyPermanent = await executeQuery(
-          `SELECT COUNT(*) as count FROM contacts WHERE id=2`
-        )
-        expect(verifyPermanent.rows[0].count).toBe('0')
-      })
-
-      await test.step('Verify unauthenticated delete fails', async () => {
-        const unauthorizedResponse = await request.delete('/api/tables/1/records/3')
-        expect(unauthorizedResponse.status()).toBe(401)
+        const data = await response.json()
+        // THEN: assertion
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Record not found')
       })
     }
   )

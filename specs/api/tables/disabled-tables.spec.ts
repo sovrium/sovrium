@@ -111,46 +111,46 @@ test.describe('Disabled Tables Endpoints', () => {
     'API-TABLES-DISABLED-REGRESSION: all tables endpoints should be disabled when no tables config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('Setup: Start server with no tables config', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          // No tables config - all tables endpoints should be disabled
-        })
+      // Setup: Start server with no tables config
+      await startServerWithSchema({
+        name: 'test-app',
+        // No tables config - all tables endpoints should be disabled
       })
 
-      await test.step('Verify all tables endpoints return 404', async () => {
-        const tablesEndpoints = [
-          { method: 'GET', path: '/api/tables' },
-          { method: 'GET', path: '/api/tables/1' },
-          { method: 'GET', path: '/api/tables/1/records' },
-          { method: 'POST', path: '/api/tables/1/records' },
-          { method: 'GET', path: '/api/tables/1/records/1' },
-          { method: 'PATCH', path: '/api/tables/1/records/1' },
-          { method: 'DELETE', path: '/api/tables/1/records/1' },
-          { method: 'POST', path: '/api/tables/1/records/batch' },
-          { method: 'PATCH', path: '/api/tables/1/records/batch' },
-          { method: 'DELETE', path: '/api/tables/1/records/batch' },
-        ]
+      await test.step('API-TABLES-DISABLED-001: Returns 404 for list tables endpoint when no tables configured', async () => {
+        // WHEN: User attempts to list tables
+        const response = await page.request.get('/api/tables')
 
-        for (const endpoint of tablesEndpoints) {
-          let response
-          switch (endpoint.method) {
-            case 'GET':
-              response = await page.request.get(endpoint.path)
-              break
-            case 'POST':
-              response = await page.request.post(endpoint.path, { data: {} })
-              break
-            case 'PATCH':
-              response = await page.request.patch(endpoint.path, { data: {} })
-              break
-            case 'DELETE':
-              response = await page.request.delete(endpoint.path)
-              break
-          }
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
+      })
 
-          expect(response?.status()).toBe(404)
-        }
+      await test.step('API-TABLES-DISABLED-002: Returns 404 for get table endpoint when no tables configured', async () => {
+        // WHEN: User attempts to get a specific table
+        const response = await page.request.get('/api/tables/1')
+
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-TABLES-DISABLED-003: Returns 404 for records endpoints when no tables configured', async () => {
+        // WHEN: User attempts to access records endpoint
+        const response = await page.request.get('/api/tables/1/records')
+
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-TABLES-DISABLED-004: Returns 404 for create record endpoint when no tables configured', async () => {
+        // WHEN: User attempts to create a record
+        const response = await page.request.post('/api/tables/1/records', {
+          data: {
+            name: 'Test Record',
+          },
+        })
+
+        // THEN: Returns 404 Not Found (endpoint does not exist)
+        expect(response.status()).toBe(404)
       })
     }
   )

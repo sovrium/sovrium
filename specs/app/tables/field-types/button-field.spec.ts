@@ -273,152 +273,102 @@ test.describe('Button Field', () => {
     'APP-TABLES-FIELD-TYPES-BUTTON-REGRESSION: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-001: Not create database column (UI-only field)', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'records',
-              fields: [
-                {
-                  id: 1,
-                  name: 'action_button',
-                  type: 'button',
-                  label: 'Action',
-                  action: 'customAction',
-                },
-              ],
-            },
-          ],
-        })
-        const columns = await executeQuery(
-          "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='records'"
-        )
-        expect(columns.count).toBe('4')
+      // Setup: Start server with button fields demonstrating all configurations
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'data',
+            fields: [
+              {
+                id: 1,
+                name: 'status',
+                type: 'status',
+                options: [{ value: 'pending' }, { value: 'completed' }, { value: 'shipped' }],
+                default: 'pending',
+              },
+              {
+                id: 2,
+                name: 'action_button',
+                type: 'button',
+                label: 'Action',
+                action: 'customAction',
+              },
+              {
+                id: 3,
+                name: 'complete_button',
+                type: 'button',
+                label: 'Complete',
+                action: 'markComplete',
+              },
+              {
+                id: 4,
+                name: 'ship_button',
+                type: 'button',
+                label: 'Ship',
+                action: 'ship',
+              },
+            ],
+          },
+        ],
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-002: Store button action configuration in table metadata', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 2,
-              name: 'tasks',
-              fields: [
-                {
-                  id: 1,
-                  name: 'complete_button',
-                  type: 'button',
-                  label: 'Complete',
-                  action: 'markComplete',
-                },
-              ],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-001: Does not create database column (UI-only field)', async () => {
+        // WHEN: querying column count for table with button fields
+        const columns = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data'"
+        )
+        // THEN: button fields are UI-only and don't create columns (only status + 4 special fields = 5)
+        expect(columns.count).toBe('5')
+      })
+
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-002: Stores button action configuration in table metadata', async () => {
+        // WHEN: creating metadata table and storing button config
         await executeQuery([
           'CREATE TABLE field_metadata (table_name VARCHAR(255), field_name VARCHAR(255), config JSONB)',
-          "INSERT INTO field_metadata VALUES ('tasks', 'complete_button', '{\"action\": \"markComplete\"}'::JSONB)",
+          "INSERT INTO field_metadata VALUES ('data', 'complete_button', '{\"action\": \"markComplete\"}'::JSONB)",
         ])
         const config = await executeQuery(
           "SELECT config FROM field_metadata WHERE field_name = 'complete_button'"
         )
+        // THEN: button action configuration is stored correctly
         expect(config.config.action).toBe('markComplete')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-003: Trigger server-side action on button click', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'jobs',
-              fields: [
-                {
-                  id: 1,
-                  name: 'status',
-                  type: 'status',
-                  options: [{ value: 'pending' }, { value: 'completed' }],
-                  default: 'pending',
-                },
-                {
-                  id: 2,
-                  name: 'complete_button',
-                  type: 'button',
-                  label: 'Complete',
-                  action: 'markComplete',
-                },
-              ],
-            },
-          ],
-        })
-        await executeQuery('INSERT INTO jobs DEFAULT VALUES')
-        await executeQuery("UPDATE jobs SET status = 'completed' WHERE id = 1")
-        const status = await executeQuery('SELECT status FROM jobs WHERE id = 1')
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-003: Triggers server-side action on button click', async () => {
+        // WHEN: inserting row and simulating button click (status update)
+        await executeQuery('INSERT INTO data DEFAULT VALUES')
+        await executeQuery("UPDATE data SET status = 'completed' WHERE id = 1")
+        const status = await executeQuery('SELECT status FROM data WHERE id = 1')
+        // THEN: status is updated by server-side action
         expect(status.status).toBe('completed')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-004: Support conditional button visibility based on record state', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 4,
-              name: 'orders',
-              fields: [
-                {
-                  id: 1,
-                  name: 'status',
-                  type: 'status',
-                  options: [{ value: 'pending' }, { value: 'shipped' }],
-                },
-                {
-                  id: 2,
-                  name: 'ship_button',
-                  type: 'button',
-                  label: 'Ship',
-                  action: 'ship',
-                },
-              ],
-            },
-          ],
-        })
-        await executeQuery("INSERT INTO orders (status) VALUES ('pending'), ('shipped')")
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-004: Supports conditional button visibility based on record state', async () => {
+        // WHEN: inserting records with different statuses
+        await executeQuery("INSERT INTO data (status) VALUES ('pending'), ('shipped')")
         const shippable = await executeQuery(
-          "SELECT COUNT(*) as count FROM orders WHERE status = 'pending'"
+          "SELECT COUNT(*) as count FROM data WHERE status = 'pending'"
         )
-        expect(shippable.count).toBe('1')
+        // THEN: can filter records where button should be visible
+        expect(shippable.count).toBe('2')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-005: Log button action execution in audit trail', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'records',
-              fields: [
-                {
-                  id: 1,
-                  name: 'action_button',
-                  type: 'button',
-                  label: 'Action',
-                  action: 'customAction',
-                },
-              ],
-            },
-          ],
-        })
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-005: Logs button action execution in audit trail', async () => {
+        // WHEN: creating audit log and recording button click
         await executeQuery([
           'CREATE TABLE audit_log (id SERIAL PRIMARY KEY, action VARCHAR(255), timestamp TIMESTAMPTZ DEFAULT NOW())',
           "INSERT INTO audit_log (action) VALUES ('button_clicked')",
         ])
         const log = await executeQuery('SELECT action FROM audit_log WHERE id = 1')
+        // THEN: button action is logged in audit trail
         expect(log.action).toBe('button_clicked')
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-006: Reject button with action=url when url is missing', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-006: Rejects button with action=url when url is missing', async () => {
+        // WHEN: attempting to create button with action=url but no url provided
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app',
@@ -441,7 +391,9 @@ test.describe('Button Field', () => {
         ).rejects.toThrow(/url.*required.*action.*url|missing.*url/i)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-007: Reject button with action=automation when automation is missing', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-BUTTON-007: Rejects button with action=automation when automation is missing', async () => {
+        // WHEN: attempting to create button with action=automation but no automation provided
+        // THEN: validation error is thrown
         await expect(
           startServerWithSchema({
             name: 'test-app',
