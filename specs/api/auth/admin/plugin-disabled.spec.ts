@@ -152,7 +152,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ADMIN-PLUGIN-005: all admin endpoints return 404 without admin plugin',
+    'API-AUTH-ADMIN-PLUGIN-REGRESSION: all admin endpoints return 404 without admin plugin',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       await test.step('Setup: Start server without admin plugin', async () => {

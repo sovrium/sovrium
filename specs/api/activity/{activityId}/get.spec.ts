@@ -301,7 +301,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   // ============================================================================
 
   test.fixme(
-    'API-ACTIVITY-DETAILS-009: user can retrieve specific activity with full metadata',
+    'API-ACTIVITY-DETAILS-REGRESSION: user can retrieve specific activity with full metadata',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       await test.step('Setup: Start server with activity logging', async () => {

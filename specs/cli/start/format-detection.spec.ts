@@ -161,7 +161,7 @@ description: Auto-detected as YAML from .yml extension
   // ============================================================================
 
   test(
-    'CLI-START-FORMAT-006: user can start server with different config formats seamlessly',
+    'CLI-START-FORMAT-REGRESSION: user can start server with different config formats seamlessly',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
       await test.step('Test JSON format detection and startup', async () => {

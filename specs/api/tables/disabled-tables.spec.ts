@@ -108,7 +108,7 @@ test.describe('Disabled Tables Endpoints', () => {
   // ============================================================================
 
   test(
-    'API-TABLES-DISABLED-005: all tables endpoints should be disabled when no tables config',
+    'API-TABLES-DISABLED-REGRESSION: all tables endpoints should be disabled when no tables config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       await test.step('Setup: Start server with no tables config', async () => {

@@ -118,7 +118,7 @@ test.describe('Disabled Auth Endpoints', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-DISABLED-005: all auth endpoints should be disabled when no auth config',
+    'API-AUTH-DISABLED-REGRESSION: all auth endpoints should be disabled when no auth config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       await test.step('Setup: Start server without auth config', async () => {

@@ -465,7 +465,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   // ============================================================================
 
   test.fixme(
-    'API-ACTIVITY-RECORD-HISTORY-012: user can view complete change history for a record',
+    'API-ACTIVITY-RECORD-HISTORY-REGRESSION: user can view complete change history for a record',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       await test.step('Setup: Start server with activity logging', async () => {

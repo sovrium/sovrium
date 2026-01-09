@@ -812,7 +812,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ACTIVITY-LIST-021: user can retrieve and filter activity logs',
+    'API-ACTIVITY-LIST-REGRESSION: user can retrieve and filter activity logs',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       await test.step('Setup: Start server with activity logging', async () => {

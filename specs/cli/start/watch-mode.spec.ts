@@ -468,7 +468,7 @@ version: 2.0.0
   // ============================================================================
 
   test(
-    'CLI-START-WATCH-008: user can develop with live config reloading across formats',
+    'CLI-START-WATCH-REGRESSION: user can develop with live config reloading across formats',
     { tag: '@regression' },
     async () => {
       await test.step('Start server in watch mode with JSON config', async () => {

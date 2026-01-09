@@ -878,7 +878,7 @@ test.describe('Record Display Formatting', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-FORMAT-025: user can retrieve records with all formatting options',
+    'API-TABLES-RECORDS-FORMAT-REGRESSION: user can retrieve records with all formatting options',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, request }) => {
       await test.step('Setup: Start server with multiple formatted fields', async () => {

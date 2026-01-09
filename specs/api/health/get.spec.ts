@@ -25,7 +25,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test(
-  'API-HEALTH-001: health endpoint returns complete status information',
+  'API-HEALTH-REGRESSION: health endpoint returns complete status information',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
     await test.step('Setup: Start server with app name', async () => {

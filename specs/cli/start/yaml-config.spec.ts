@@ -245,7 +245,7 @@ pages:
   // ============================================================================
 
   test(
-    'CLI-START-YAML-008: user can start server from YAML config and navigate app',
+    'CLI-START-YAML-REGRESSION: user can start server from YAML config and navigate app',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
       await test.step('Start server with multi-page YAML config', async () => {

@@ -464,7 +464,7 @@ test.describe('SQL Injection Prevention', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-SQLI-009: SQL injection protection across all attack vectors',
+    'API-SECURITY-SQLI-REGRESSION: SQL injection protection across all attack vectors',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with tables', async () => {

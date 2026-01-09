@@ -218,7 +218,7 @@ test.describe('CLI Start Command - JSON Configuration', () => {
   // ============================================================================
 
   test(
-    'CLI-START-JSON-007: user can start server from JSON config and navigate app',
+    'CLI-START-JSON-REGRESSION: user can start server from JSON config and navigate app',
     { tag: '@regression' },
     async ({ startCliServerWithConfig, page }) => {
       await test.step('Start server with multi-page JSON config', async () => {

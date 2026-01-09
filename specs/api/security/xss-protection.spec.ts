@@ -460,7 +460,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-XSS-009: XSS protection is enforced across all content types',
+    'API-SECURITY-XSS-REGRESSION: XSS protection is enforced across all content types',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with user-generated content tables', async () => {

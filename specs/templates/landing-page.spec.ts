@@ -48,7 +48,7 @@ async function loadLandingPageSchema(): Promise<App> {
 
 test.describe('Landing Page Template', () => {
   test(
-    'TEMPLATES-LANDING-PAGE-001: comprehensive landing page validation',
+    'TEMPLATES-LANDING-PAGE-REGRESSION: comprehensive landing page validation',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // ========================================================================

@@ -201,7 +201,7 @@ test.describe('Secure Headers - HTTP Security Response Headers', () => {
   // ============================================================================
 
   test.fixme(
-    'API-SECURITY-HEADERS-007: secure headers protect all API endpoints',
+    'API-SECURITY-HEADERS-REGRESSION: secure headers protect all API endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with auth enabled', async () => {

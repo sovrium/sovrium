@@ -224,7 +224,7 @@ test.fixme(
 )
 
 test.fixme(
-  'API-TABLES-VIEW-RECORDS-005: API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
+  'API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
   { tag: '@regression' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     await test.step('Setup: Create table with view and seed data', async () => {

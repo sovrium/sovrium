@@ -278,7 +278,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-RATE-007: rate limiting protects security-critical endpoints',
+    'API-AUTH-RATE-REGRESSION: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {
       // This test waits 60+ seconds for rate limit window to expire
