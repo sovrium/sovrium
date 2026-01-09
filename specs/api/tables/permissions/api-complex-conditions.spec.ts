@@ -348,6 +348,7 @@ test.describe('API Complex Permission Conditions', () => {
       // WHEN: User reads articles - should see own and published
       const readResponse = await request.get('/api/tables/1/records')
 
+      // THEN: User sees all articles (own draft, own published, other's published)
       expect(readResponse.status()).toBe(200)
       const readData = await readResponse.json()
       expect(readData.records).toHaveLength(3) // All three visible

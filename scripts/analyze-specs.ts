@@ -246,17 +246,101 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
     // Extract the full test block - need to find the test function body, not just options
     // Test structure: test('name', { options }, async () => { ... })
     // We need to find the outermost closing paren that matches test(
+    // IMPORTANT: Skip parentheses inside strings, comments, AND regex literals
     const testStart = matchIndex
     let parenCount = 0
     let testEnd = testStart
     let foundFirstParen = false
+    let inString: string | null = null // Track which quote char started the string
+    let inSingleLineComment = false // Track // comments
+    let inMultiLineComment = false // Track /* */ comments
+    let inRegex = false // Track /regex/ literals
+    let lastSignificantChar = '' // Track last non-whitespace char for regex detection
+
+    // Characters that typically precede a regex literal (not division)
+    const regexPreceders = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '\n'])
 
     for (let i = testStart; i < content.length; i++) {
-      if (content[i] === '(') {
-        parenCount++
-        foundFirstParen = true
-      } else if (content[i] === ')') {
-        parenCount--
+      const char = content[i]
+      const prevChar = i > 0 ? content[i - 1] : ''
+      const nextChar = i < content.length - 1 ? content[i + 1] : ''
+
+      // Handle single-line comment end (newline)
+      if (inSingleLineComment && char === '\n') {
+        inSingleLineComment = false
+        lastSignificantChar = '\n'
+        continue
+      }
+
+      // Handle multi-line comment end
+      if (inMultiLineComment && char === '*' && nextChar === '/') {
+        inMultiLineComment = false
+        i++ // Skip the '/'
+        continue
+      }
+
+      // Handle regex end (unescaped /)
+      if (inRegex && char === '/' && prevChar !== '\\') {
+        inRegex = false
+        lastSignificantChar = '/'
+        continue
+      }
+
+      // Skip everything inside comments
+      if (inSingleLineComment || inMultiLineComment) {
+        continue
+      }
+
+      // Skip everything inside regex (but handle escaped chars)
+      if (inRegex) {
+        if (char === '\\' && nextChar) {
+          i++ // Skip the escaped character
+        }
+        continue
+      }
+
+      // Detect comment or regex start (only when not in string)
+      if (inString === null) {
+        if (char === '/' && nextChar === '/') {
+          inSingleLineComment = true
+          i++ // Skip the second '/'
+          continue
+        }
+        if (char === '/' && nextChar === '*') {
+          inMultiLineComment = true
+          i++ // Skip the '*'
+          continue
+        }
+        // Detect regex literal: / followed by non-/ and non-* after a regex-preceding char
+        if (char === '/' && nextChar !== '/' && nextChar !== '*' && regexPreceders.has(lastSignificantChar)) {
+          inRegex = true
+          continue
+        }
+      }
+
+      // Handle string boundaries (skip escaped quotes) - only when not in comment
+      if ((char === '"' || char === "'" || char === '`') && prevChar !== '\\') {
+        if (inString === null) {
+          inString = char // Enter string
+        } else if (inString === char) {
+          inString = null // Exit string
+        }
+        // Don't continue - we still need to check parenCount at end of loop
+      }
+
+      // Only count parentheses outside of strings, comments, and regex
+      if (inString === null) {
+        if (char === '(') {
+          parenCount++
+          foundFirstParen = true
+        } else if (char === ')') {
+          parenCount--
+        }
+      }
+
+      // Track last significant (non-whitespace) character for regex detection
+      if (inString === null && !/\s/.test(char)) {
+        lastSignificantChar = char
       }
 
       if (foundFirstParen && parenCount === 0) {
@@ -307,17 +391,101 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
     const lineNumber = beforeMatch.split('\n').length
 
     // Extract the full test block using parenthesis counting (same as regular tests)
+    // IMPORTANT: Skip parentheses inside strings, comments, AND regex literals to avoid miscounting
     const testStart = matchIndex
     let parenCount = 0
     let testEnd = testStart
     let foundFirstParen = false
+    let inString: string | null = null // Track which quote char started the string
+    let inSingleLineComment = false // Track // comments
+    let inMultiLineComment = false // Track /* */ comments
+    let inRegex = false // Track /regex/ literals
+    let lastSignificantChar = '' // Track last non-whitespace char for regex detection
+
+    // Characters that typically precede a regex literal (not division)
+    const regexPreceders = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '\n'])
 
     for (let i = testStart; i < content.length; i++) {
-      if (content[i] === '(') {
-        parenCount++
-        foundFirstParen = true
-      } else if (content[i] === ')') {
-        parenCount--
+      const char = content[i]
+      const prevChar = i > 0 ? content[i - 1] : ''
+      const nextChar = i < content.length - 1 ? content[i + 1] : ''
+
+      // Handle single-line comment end (newline)
+      if (inSingleLineComment && char === '\n') {
+        inSingleLineComment = false
+        lastSignificantChar = '\n'
+        continue
+      }
+
+      // Handle multi-line comment end
+      if (inMultiLineComment && char === '*' && nextChar === '/') {
+        inMultiLineComment = false
+        i++ // Skip the '/'
+        continue
+      }
+
+      // Handle regex end (unescaped /)
+      if (inRegex && char === '/' && prevChar !== '\\') {
+        inRegex = false
+        lastSignificantChar = '/'
+        continue
+      }
+
+      // Skip everything inside comments
+      if (inSingleLineComment || inMultiLineComment) {
+        continue
+      }
+
+      // Skip everything inside regex (but handle escaped chars)
+      if (inRegex) {
+        if (char === '\\' && nextChar) {
+          i++ // Skip the escaped character
+        }
+        continue
+      }
+
+      // Detect comment or regex start (only when not in string)
+      if (inString === null) {
+        if (char === '/' && nextChar === '/') {
+          inSingleLineComment = true
+          i++ // Skip the second '/'
+          continue
+        }
+        if (char === '/' && nextChar === '*') {
+          inMultiLineComment = true
+          i++ // Skip the '*'
+          continue
+        }
+        // Detect regex literal: / followed by non-/ and non-* after a regex-preceding char
+        if (char === '/' && nextChar !== '/' && nextChar !== '*' && regexPreceders.has(lastSignificantChar)) {
+          inRegex = true
+          continue
+        }
+      }
+
+      // Handle string boundaries (skip escaped quotes) - only when not in comment
+      if ((char === '"' || char === "'" || char === '`') && prevChar !== '\\') {
+        if (inString === null) {
+          inString = char // Enter string
+        } else if (inString === char) {
+          inString = null // Exit string
+        }
+        // Don't continue - we still need to check parenCount at end of loop
+      }
+
+      // Only count parentheses outside of strings, comments, and regex
+      if (inString === null) {
+        if (char === '(') {
+          parenCount++
+          foundFirstParen = true
+        } else if (char === ')') {
+          parenCount--
+        }
+      }
+
+      // Track last significant (non-whitespace) character for regex detection
+      if (inString === null && !/\s/.test(char)) {
+        lastSignificantChar = char
       }
 
       if (foundFirstParen && parenCount === 0) {
@@ -359,8 +527,16 @@ function analyzeQuality(file: SpecFile, content: string): QualityIssue[] {
   const issues: QualityIssue[] = []
 
   for (const test of file.tests) {
-    // Check for spec ID - required for both @spec and @regression tests
-    if (!test.id && (test.tag === '@spec' || test.tag === '@regression')) {
+    // Skip regression tests - they are mirrors of @spec tests and don't need individual validation
+    // Regression tests are identified by @regression tag OR -REGRESSION suffix in spec ID
+    const isRegressionTest =
+      test.tag === '@regression' || (test.id !== null && test.id.endsWith('-REGRESSION'))
+    if (isRegressionTest) {
+      continue
+    }
+
+    // Check for spec ID - required for @spec tests
+    if (!test.id && test.tag === '@spec') {
       issues.push({
         type: 'error',
         code: 'MISSING_SPEC_ID',
@@ -478,10 +654,13 @@ function analyzeQuality(file: SpecFile, content: string): QualityIssue[] {
     })
   }
 
-  // Check for sequential spec IDs (include both @spec and @regression tests)
-  const allTestIds = file.tests.map((t) => t.id).filter(Boolean) as string[]
-  if (allTestIds.length > 1) {
-    const idNumbers = allTestIds.map((id) => {
+  // Check for sequential spec IDs (exclude regression tests - they have -REGRESSION suffix, not numeric)
+  const specTestIds = file.tests
+    .filter((t) => t.tag === '@spec' && t.id && !t.id.endsWith('-REGRESSION'))
+    .map((t) => t.id)
+    .filter(Boolean) as string[]
+  if (specTestIds.length > 1) {
+    const idNumbers = specTestIds.map((id) => {
       const numMatch = id.match(/(\d{3})$/)
       return numMatch?.[1] ? parseInt(numMatch[1], 10) : 0
     })
@@ -493,7 +672,7 @@ function analyzeQuality(file: SpecFile, content: string): QualityIssue[] {
         issues.push({
           type: 'suggestion',
           code: 'NON_SEQUENTIAL_IDS',
-          message: `Spec IDs are not sequential (gap between ${allTestIds[i - 1]} and ${allTestIds[i]})`,
+          message: `Spec IDs are not sequential (gap between ${specTestIds[i - 1]} and ${specTestIds[i]})`,
         })
         break
       }

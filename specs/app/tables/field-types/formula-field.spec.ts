@@ -4664,7 +4664,7 @@ test.describe('Formula Field', () => {
         expect(parseFloat(recomputed.total)).toBe(199.9)
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-FORMULA-124: Rejects formula when referenced field does not exist', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-FORMULA-123: Rejects formula when referenced field does not exist', async () => {
         // WHEN: attempting to create formula referencing non-existent field
         // THEN: validation error is thrown
         await expect(
@@ -4693,11 +4693,11 @@ test.describe('Formula Field', () => {
   )
 
   // ============================================================================
-  // Phase 11: Error Configuration Validation Tests (124-126)
+  // Phase 11: Error Configuration Validation Tests (123-125)
   // ============================================================================
 
   test(
-    'APP-TABLES-FIELD-TYPES-FORMULA-124: should reject formula when referenced field does not exist',
+    'APP-TABLES-FIELD-TYPES-FORMULA-123: should reject formula when referenced field does not exist',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Formula field referencing non-existent field
@@ -4728,7 +4728,7 @@ test.describe('Formula Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-FORMULA-125: should reject circular formula dependencies',
+    'APP-TABLES-FIELD-TYPES-FORMULA-124: should reject circular formula dependencies',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Two formula fields that reference each other
@@ -4765,7 +4765,7 @@ test.describe('Formula Field', () => {
   )
 
   test(
-    'APP-TABLES-FIELD-TYPES-FORMULA-126: should reject formula with invalid syntax',
+    'APP-TABLES-FIELD-TYPES-FORMULA-125: should reject formula with invalid syntax',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Formula field with syntax error
