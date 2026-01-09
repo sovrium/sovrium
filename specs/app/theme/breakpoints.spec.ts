@@ -414,7 +414,7 @@ test.describe('Breakpoints', () => {
     'APP-THEME-BREAKPOINTS-REGRESSION: user can complete full breakpoints workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-BREAKPOINTS-001: Validate Tailwind breakpoint values', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-001: Validates Tailwind breakpoint values', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -456,7 +456,7 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-002: Validate pixel-based breakpoints', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-002: Validates pixel-based breakpoints', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -487,7 +487,7 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-003: Validate progressive enhancement strategy', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-003: Validates progressive enhancement strategy', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -516,7 +516,7 @@ test.describe('Breakpoints', () => {
         expect(breakpoints).toBeTruthy()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-004: Validate lowercase naming convention', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-004: Validates lowercase naming convention', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -547,7 +547,7 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-005: Validate custom breakpoint naming', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-005: Validates custom breakpoint naming', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -579,7 +579,7 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-006: Validate consistency across responsive system', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-006: Validates consistency across responsive system', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -608,7 +608,7 @@ test.describe('Breakpoints', () => {
         expect(breakpoints).toBeTruthy()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-007: Render grid with media query at 768px', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-007: Renders grid with media query at 768px', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -636,7 +636,7 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="responsive-grid"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-008: Render hamburger menu below 1024px', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-008: Renders hamburger menu below 1024px', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -664,7 +664,7 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="main-nav"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-009: Render with increasing padding at breakpoints', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-009: Renders with increasing padding at breakpoints', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {

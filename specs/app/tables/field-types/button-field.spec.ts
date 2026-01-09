@@ -351,8 +351,8 @@ test.describe('Button Field', () => {
         const shippable = await executeQuery(
           "SELECT COUNT(*) as count FROM data WHERE status = 'pending'"
         )
-        // THEN: can filter records where button should be visible
-        expect(shippable.count).toBe('2')
+        // THEN: can filter records where button should be visible (1 pending from this step, previous row was 'completed')
+        expect(shippable.count).toBe('1')
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-BUTTON-005: Logs button action execution in audit trail', async () => {
