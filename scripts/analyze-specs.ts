@@ -258,10 +258,25 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
     let lastSignificantChar = '' // Track last non-whitespace char for regex detection
 
     // Characters that typically precede a regex literal (not division)
-    const regexPreceders = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '\n'])
+    const regexPreceders = new Set([
+      '(',
+      ',',
+      '=',
+      ':',
+      '[',
+      '!',
+      '&',
+      '|',
+      '?',
+      '{',
+      '}',
+      ';',
+      '\n',
+    ])
 
     for (let i = testStart; i < content.length; i++) {
       const char = content[i]
+      if (char === undefined) continue // Guard for TypeScript strict mode
       const prevChar = i > 0 ? content[i - 1] : ''
       const nextChar = i < content.length - 1 ? content[i + 1] : ''
 
@@ -312,7 +327,12 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
           continue
         }
         // Detect regex literal: / followed by non-/ and non-* after a regex-preceding char
-        if (char === '/' && nextChar !== '/' && nextChar !== '*' && regexPreceders.has(lastSignificantChar)) {
+        if (
+          char === '/' &&
+          nextChar !== '/' &&
+          nextChar !== '*' &&
+          regexPreceders.has(lastSignificantChar)
+        ) {
           inRegex = true
           continue
         }
@@ -403,10 +423,25 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
     let lastSignificantChar = '' // Track last non-whitespace char for regex detection
 
     // Characters that typically precede a regex literal (not division)
-    const regexPreceders = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '\n'])
+    const regexPreceders = new Set([
+      '(',
+      ',',
+      '=',
+      ':',
+      '[',
+      '!',
+      '&',
+      '|',
+      '?',
+      '{',
+      '}',
+      ';',
+      '\n',
+    ])
 
     for (let i = testStart; i < content.length; i++) {
       const char = content[i]
+      if (char === undefined) continue // Guard for TypeScript strict mode
       const prevChar = i > 0 ? content[i - 1] : ''
       const nextChar = i < content.length - 1 ? content[i + 1] : ''
 
@@ -457,7 +492,12 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
           continue
         }
         // Detect regex literal: / followed by non-/ and non-* after a regex-preceding char
-        if (char === '/' && nextChar !== '/' && nextChar !== '*' && regexPreceders.has(lastSignificantChar)) {
+        if (
+          char === '/' &&
+          nextChar !== '/' &&
+          nextChar !== '*' &&
+          regexPreceders.has(lastSignificantChar)
+        ) {
           inRegex = true
           continue
         }
