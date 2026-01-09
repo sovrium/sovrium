@@ -156,9 +156,9 @@ test.describe('Progress Field', () => {
 
         // WHEN: attempting to insert completion above 100
         // THEN: CHECK constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (completion) VALUES (101)')
-        ).rejects.toThrow(/violates check constraint/)
+        await expect(executeQuery('INSERT INTO data (completion) VALUES (101)')).rejects.toThrow(
+          /violates check constraint/
+        )
       })
     }
   )

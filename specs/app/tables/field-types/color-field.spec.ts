@@ -180,16 +180,20 @@ test.describe('Color Field', () => {
       await test.step('APP-TABLES-FIELD-TYPES-COLOR-002: Enforces hex color format via CHECK constraint', async () => {
         // WHEN: attempting to insert invalid color format
         // THEN: CHECK constraint rejects insertion
-        await expect(executeQuery("INSERT INTO data (value, brand_color) VALUES ('invalid', '#000000')")).rejects.toThrow(
-          /violates check constraint/
-        )
+        await expect(
+          executeQuery("INSERT INTO data (value, brand_color) VALUES ('invalid', '#000000')")
+        ).rejects.toThrow(/violates check constraint/)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-COLOR-003: Stores valid hex color values', async () => {
         // WHEN: inserting valid hex color values
-        await executeQuery("INSERT INTO data (color, brand_color) VALUES ('#FF5733', '#000000'), ('#3498DB', '#FFFFFF')")
+        await executeQuery(
+          "INSERT INTO data (color, brand_color) VALUES ('#FF5733', '#000000'), ('#3498DB', '#FFFFFF')"
+        )
         // WHEN: querying stored color values
-        const colors = await executeQuery('SELECT color FROM data WHERE color IS NOT NULL ORDER BY id')
+        const colors = await executeQuery(
+          'SELECT color FROM data WHERE color IS NOT NULL ORDER BY id'
+        )
         // THEN: colors are stored correctly
         expect(colors.rows).toEqual([{ color: '#FF5733' }, { color: '#3498DB' }])
       })
@@ -198,7 +202,9 @@ test.describe('Color Field', () => {
         // WHEN: inserting NULL for optional color
         await executeQuery("INSERT INTO data (accent_color, brand_color) VALUES (NULL, '#123456')")
         // WHEN: querying the stored value
-        const result = await executeQuery('SELECT accent_color FROM data WHERE accent_color IS NULL LIMIT 1')
+        const result = await executeQuery(
+          'SELECT accent_color FROM data WHERE accent_color IS NULL LIMIT 1'
+        )
         // THEN: NULL is accepted for optional color
         expect(result.accent_color).toBeNull()
       })
@@ -206,9 +212,9 @@ test.describe('Color Field', () => {
       await test.step('APP-TABLES-FIELD-TYPES-COLOR-005: Requires NOT NULL when color is required', async () => {
         // WHEN: attempting to insert NULL for required color
         // THEN: NOT NULL constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (brand_color) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        await expect(executeQuery('INSERT INTO data (brand_color) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
     }
   )

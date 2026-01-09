@@ -355,9 +355,7 @@ test.describe('JSON Field', () => {
 
       await test.step('APP-TABLES-FIELD-TYPES-JSON-005: Supports in-place JSON field updates', async () => {
         // WHEN: inserting initial payload
-        await executeQuery(
-          'INSERT INTO data (payload) VALUES (\'{"type": "click", "count": 1}\')'
-        )
+        await executeQuery('INSERT INTO data (payload) VALUES (\'{"type": "click", "count": 1}\')')
 
         // WHEN: querying initial value
         const initialValue = await executeQuery(

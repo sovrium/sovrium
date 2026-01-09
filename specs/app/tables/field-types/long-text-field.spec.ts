@@ -308,7 +308,7 @@ test.describe('Long Text Field', () => {
 
         // WHEN: attempting to insert NULL for required field
         // THEN: NOT NULL constraint rejects insertion
-        await expect(executeQuery("INSERT INTO data (body) VALUES (NULL)")).rejects.toThrow(
+        await expect(executeQuery('INSERT INTO data (body) VALUES (NULL)')).rejects.toThrow(
           /violates not-null constraint/
         )
       })

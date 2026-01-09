@@ -293,15 +293,15 @@ test.describe('Decimal Field', () => {
 
         // WHEN: attempting to insert duplicate value
         // THEN: UNIQUE constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (value) VALUES (1.00)')
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        await expect(executeQuery('INSERT INTO data (value) VALUES (1.00)')).rejects.toThrow(
+          /duplicate key value violates unique constraint/
+        )
 
         // WHEN: attempting to insert NULL for required value
         // THEN: NOT NULL constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (value) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        await expect(executeQuery('INSERT INTO data (value) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-DECIMAL-004: Applies DEFAULT value', async () => {

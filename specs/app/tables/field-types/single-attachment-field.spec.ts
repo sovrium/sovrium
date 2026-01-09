@@ -306,7 +306,9 @@ test.describe('Single Attachment Field', () => {
       await test.step('APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-005: Supports NULL for optional attachments', async () => {
         // WHEN: inserting NULL for optional attachment
         await executeQuery('INSERT INTO data (attachment) VALUES (NULL)')
-        const result = await executeQuery('SELECT attachment FROM data WHERE attachment IS NULL LIMIT 1')
+        const result = await executeQuery(
+          'SELECT attachment FROM data WHERE attachment IS NULL LIMIT 1'
+        )
         // THEN: NULL is accepted for optional attachments
         expect(result.attachment).toBeNull()
       })
@@ -316,7 +318,9 @@ test.describe('Single Attachment Field', () => {
         await executeQuery(
           'INSERT INTO data (photo) VALUES (\'{"url": "image.jpg", "width": 1920, "height": 1080}\')'
         )
-        const metadata = await executeQuery('SELECT photo FROM data WHERE photo IS NOT NULL LIMIT 1')
+        const metadata = await executeQuery(
+          'SELECT photo FROM data WHERE photo IS NOT NULL LIMIT 1'
+        )
         const photoData = JSON.parse(metadata.photo)
         // THEN: image dimensions are stored in metadata
         expect(photoData.width).toBe(1920)
@@ -328,7 +332,9 @@ test.describe('Single Attachment Field', () => {
         await executeQuery(
           'INSERT INTO data (video_file) VALUES (\'{"url": "video.mp4", "duration": 120.5}\')'
         )
-        const metadata = await executeQuery('SELECT video_file FROM data WHERE video_file IS NOT NULL LIMIT 1')
+        const metadata = await executeQuery(
+          'SELECT video_file FROM data WHERE video_file IS NOT NULL LIMIT 1'
+        )
         const videoData = JSON.parse(metadata.video_file)
         // THEN: video duration is stored in metadata
         expect(videoData.duration).toBe(120.5)

@@ -926,8 +926,12 @@ test.describe('Record Display Formatting', () => {
 
       // Setup: Seed test data
       await executeQuery('INSERT INTO products (id, price, balance) VALUES (1, 99.99, -100.00)')
-      await executeQuery("INSERT INTO events (id, event_date, event_time) VALUES (1, '2024-06-15', '2024-06-15 14:30:00+00')")
-      await executeQuery("INSERT INTO tasks (id, time_spent, scheduled_time) VALUES (1, '1 hour 30 minutes', '2024-06-15 14:30:00+00')")
+      await executeQuery(
+        "INSERT INTO events (id, event_date, event_time) VALUES (1, '2024-06-15', '2024-06-15 14:30:00+00')"
+      )
+      await executeQuery(
+        "INSERT INTO tasks (id, time_spent, scheduled_time) VALUES (1, '1 hour 30 minutes', '2024-06-15 14:30:00+00')"
+      )
 
       await test.step('API-TABLES-RECORDS-FORMAT-001: Formats currency with EUR symbol', async () => {
         // WHEN: requesting record with display formatting

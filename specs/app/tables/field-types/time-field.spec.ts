@@ -259,9 +259,9 @@ test.describe('Time Field', () => {
 
         // WHEN: attempting to insert NULL for required time
         // THEN: NOT NULL constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (shift_start) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        await expect(executeQuery('INSERT INTO data (shift_start) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-TIME-004: Applies DEFAULT value', async () => {

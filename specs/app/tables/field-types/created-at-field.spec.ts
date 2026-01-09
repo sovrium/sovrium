@@ -208,9 +208,7 @@ test.describe('Created At Field', () => {
 
       await test.step('APP-TABLES-FIELD-TYPES-CREATED-AT-002: Automatically sets timestamp when row is created', async () => {
         // WHEN: inserting a new row
-        const insert = await executeQuery(
-          'INSERT INTO data DEFAULT VALUES RETURNING created_at'
-        )
+        const insert = await executeQuery('INSERT INTO data DEFAULT VALUES RETURNING created_at')
         // THEN: created_at is automatically populated
         expect(insert.created_at).toBeTruthy()
       })

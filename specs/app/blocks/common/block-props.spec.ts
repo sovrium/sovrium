@@ -672,7 +672,7 @@ test.describe('Block Props', () => {
     'APP-BLOCKS-PROPS-REGRESSION: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-BLOCKS-PROPS-001: Validate any valid JavaScript property name at build time', async () => {
+      await test.step('APP-BLOCKS-PROPS-001: Validates any valid JavaScript property name at build time', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -696,7 +696,7 @@ test.describe('Block Props', () => {
         await expect(block).toHaveAttribute('aria-label', 'Main content')
       })
 
-      await test.step('APP-BLOCKS-PROPS-002: Render as HTML attributes following camelCase convention', async () => {
+      await test.step('APP-BLOCKS-PROPS-002: Renders as HTML attributes following camelCase convention', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -715,7 +715,7 @@ test.describe('Block Props', () => {
         await expect(button).toHaveAttribute('data-test-id', 'submit-btn')
       })
 
-      await test.step('APP-BLOCKS-PROPS-003: Render string value with variable substitution', async () => {
+      await test.step('APP-BLOCKS-PROPS-003: Renders string value with variable substitution', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -745,7 +745,7 @@ test.describe('Block Props', () => {
         await expect(div).toHaveAttribute('title', 'Hover for info')
       })
 
-      await test.step('APP-BLOCKS-PROPS-004: Render numeric value as HTML attribute', async () => {
+      await test.step('APP-BLOCKS-PROPS-004: Renders numeric value as HTML attribute', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -764,7 +764,7 @@ test.describe('Block Props', () => {
         await expect(grid).toHaveAttribute('data-max-width', '1200')
       })
 
-      await test.step('APP-BLOCKS-PROPS-005: Render boolean as HTML boolean attribute', async () => {
+      await test.step('APP-BLOCKS-PROPS-005: Renders boolean as HTML boolean attribute', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -783,7 +783,7 @@ test.describe('Block Props', () => {
         await expect(input).not.toHaveAttribute('hidden')
       })
 
-      await test.step('APP-BLOCKS-PROPS-006: Render object as JSON data attribute', async () => {
+      await test.step('APP-BLOCKS-PROPS-006: Renders object as JSON data attribute', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -810,7 +810,7 @@ test.describe('Block Props', () => {
         expect(config.data).toEqual([10, 20, 30])
       })
 
-      await test.step('APP-BLOCKS-PROPS-007: Render array as JSON data attribute', async () => {
+      await test.step('APP-BLOCKS-PROPS-007: Renders array as JSON data attribute', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -830,7 +830,7 @@ test.describe('Block Props', () => {
         expect(tags).toEqual(['react', 'typescript', 'tailwind'])
       })
 
-      await test.step('APP-BLOCKS-PROPS-008: Render with all variables substituted in className', async () => {
+      await test.step('APP-BLOCKS-PROPS-008: Renders with all variables substituted in className', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -860,7 +860,7 @@ test.describe('Block Props', () => {
         await expect(box).toHaveClass(/border-gray-300/)
       })
 
-      await test.step('APP-BLOCKS-PROPS-009: Render combined static and dynamic className parts', async () => {
+      await test.step('APP-BLOCKS-PROPS-009: Renders combined static and dynamic className parts', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -886,7 +886,7 @@ test.describe('Block Props', () => {
         await expect(container).toHaveClass(/px-4/)
       })
 
-      await test.step('APP-BLOCKS-PROPS-010: Render complete component with all configuration applied', async () => {
+      await test.step('APP-BLOCKS-PROPS-010: Renders complete component with all configuration applied', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -929,7 +929,7 @@ test.describe('Block Props', () => {
         await expect(button).toHaveText('Submit')
       })
 
-      await test.step('APP-BLOCKS-PROPS-011: Resolve translation tokens in block props during rendering', async () => {
+      await test.step('APP-BLOCKS-PROPS-011: Resolves translation tokens in block props during rendering', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -981,7 +981,7 @@ test.describe('Block Props', () => {
         await expect(button).toHaveClass(/btn-primary/)
       })
 
-      await test.step('APP-BLOCKS-PROPS-012: Resolve translation tokens in block children during rendering', async () => {
+      await test.step('APP-BLOCKS-PROPS-012: Resolves translation tokens in block children during rendering', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1024,7 +1024,7 @@ test.describe('Block Props', () => {
         await expect(nav.locator('a').nth(2)).toHaveText('Contact')
       })
 
-      await test.step('APP-BLOCKS-PROPS-013: Resolve translation tokens in block content during rendering', async () => {
+      await test.step('APP-BLOCKS-PROPS-013: Resolves translation tokens in block content during rendering', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
@@ -1061,7 +1061,7 @@ test.describe('Block Props', () => {
         )
       })
 
-      await test.step('APP-BLOCKS-PROPS-014: Work with both translation tokens ($t:) and variable references ($variable)', async () => {
+      await test.step('APP-BLOCKS-PROPS-014: Works with both translation tokens ($t:) and variable references ($variable)', async () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {

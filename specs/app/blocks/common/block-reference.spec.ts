@@ -508,7 +508,7 @@ test.describe('Block Reference', () => {
     'APP-BLOCKS-REFERENCE-REGRESSION: user can complete full reference workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-BLOCKS-REFERENCE-001: Validate minimal block reference structure at build time', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-001: Validates minimal block reference structure at build time', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [{ name: 'my-block', type: 'div', props: { className: 'text-$color' } }],
@@ -520,7 +520,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="block-my-block"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-002: Look up and instantiate matching block template', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-002: Looks up and instantiates matching block template', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -543,7 +543,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="block-cta-button"]')).toHaveText('Click')
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-003: Validate kebab-case naming at build time', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-003: Validates kebab-case naming at build time', async () => {
         const validBlocks = [
           { name: 'icon-badge', type: 'div' },
           { name: 'cta', type: 'div' },
@@ -565,7 +565,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="block-icon-badge"]')).toBeVisible()
       })
 
-      await test.step("APP-BLOCKS-REFERENCE-004: Fail validation if referenced block doesn't exist", async () => {
+      await test.step("APP-BLOCKS-REFERENCE-004: Fails validation if referenced block doesn't exist", async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [{ name: 'icon-badge', type: 'badge' }],
@@ -575,7 +575,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="block-icon-badge"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-005: Provide all data needed for template substitution', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-005: Provides all data needed for template substitution', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -609,7 +609,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="email"]')).toHaveText('john@example.com')
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-006: Validate JavaScript naming convention for variables', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-006: Validates JavaScript naming convention for variables', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -637,7 +637,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="block-test-block"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-007: Substitute primitive data types into template', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-007: Substitutes primitive data types into template', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -672,7 +672,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="max"]')).toHaveText('Max: 100')
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-008: Render badge with orange color, users icon, and French text', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-008: Renders badge with orange color, users icon, and French text', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -705,7 +705,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="badge-text"]')).toHaveText('6 à 15 personnes')
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-009: Render section header with purple title and French content', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-009: Renders section header with purple title and French content', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -750,7 +750,7 @@ test.describe('Block Reference', () => {
         )
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-010: Transform abstract template into concrete rendered component', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-010: Transforms abstract template into concrete rendered component', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -779,7 +779,7 @@ test.describe('Block Reference', () => {
         expect(html).not.toContain('$')
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-011: Enable same template to generate different instances', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-011: Enables same template to generate different instances', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -824,7 +824,7 @@ test.describe('Block Reference', () => {
         await expect(page.locator('[data-testid="block-team-member-2"] h4')).toHaveText('Carol')
       })
 
-      await test.step('APP-BLOCKS-REFERENCE-012: Maintain structural consistency while varying data', async () => {
+      await test.step('APP-BLOCKS-REFERENCE-012: Maintains structural consistency while varying data', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [

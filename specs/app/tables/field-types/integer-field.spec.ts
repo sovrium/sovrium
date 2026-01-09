@@ -352,15 +352,15 @@ test.describe('Integer Field', () => {
 
         // WHEN: attempting to insert duplicate order_number
         // THEN: UNIQUE constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (order_number) VALUES (1001)')
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        await expect(executeQuery('INSERT INTO data (order_number) VALUES (1001)')).rejects.toThrow(
+          /duplicate key value violates unique constraint/
+        )
 
         // WHEN: attempting to insert NULL for required order_number
         // THEN: NOT NULL constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (order_number) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        await expect(executeQuery('INSERT INTO data (order_number) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-INTEGER-004: Applies DEFAULT value', async () => {

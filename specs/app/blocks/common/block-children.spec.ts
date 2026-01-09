@@ -466,7 +466,7 @@ test.describe('Block Children', () => {
     'APP-BLOCKS-CHILDREN-REGRESSION: user can complete full children workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-BLOCKS-CHILDREN-001: Render nested component structure in DOM', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-001: Renders nested component structure in DOM', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -487,7 +487,7 @@ test.describe('Block Children', () => {
         await expect(card.locator('div.body')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-002: Render child element based on type', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-002: Renders child element based on type', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -512,7 +512,7 @@ test.describe('Block Children', () => {
         await expect(block.locator('[data-testid="child-3"]')).toBeVisible()
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-003: Render child with specified properties and attributes', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-003: Renders child with specified properties and attributes', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -536,7 +536,7 @@ test.describe('Block Children', () => {
         await expect(child).toHaveAttribute('aria-label', 'Card header')
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-004: Render unlimited nesting depth in DOM tree', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-004: Renders unlimited nesting depth in DOM tree', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -577,7 +577,7 @@ test.describe('Block Children', () => {
         await expect(list.locator('li li li').first()).toContainText('Level 3')
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-005: Render child with substituted text content', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-005: Renders child with substituted text content', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -612,7 +612,7 @@ test.describe('Block Children', () => {
         await expect(page.locator('input')).toHaveAttribute('placeholder', 'Enter your email')
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-006: Render composite UI pattern with all child elements', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-006: Renders composite UI pattern with all child elements', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -665,7 +665,7 @@ test.describe('Block Children', () => {
         await expect(page.locator('button')).toHaveText('Get Started')
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-007: Render SVG icon with substituted name and color', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-007: Renders SVG icon with substituted name and color', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -693,7 +693,7 @@ test.describe('Block Children', () => {
         )
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-008: Render text element with substituted content', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-008: Renders text element with substituted content', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -722,7 +722,7 @@ test.describe('Block Children', () => {
         )
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-009: Render all children with substituted values throughout tree', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-009: Renders all children with substituted values throughout tree', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
@@ -767,7 +767,7 @@ test.describe('Block Children', () => {
         await expect(page.locator('h4')).toHaveText('Success!')
       })
 
-      await test.step('APP-BLOCKS-CHILDREN-010: Render hierarchical DOM tree with proper nesting', async () => {
+      await test.step('APP-BLOCKS-CHILDREN-010: Renders hierarchical DOM tree with proper nesting', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [

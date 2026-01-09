@@ -304,7 +304,7 @@ test.describe('Array Field', () => {
 
         // WHEN: checking array length
         const arrayLength = await executeQuery(
-          "SELECT array_length(keywords, 1) as length FROM data WHERE keywords IS NOT NULL LIMIT 1"
+          'SELECT array_length(keywords, 1) as length FROM data WHERE keywords IS NOT NULL LIMIT 1'
         )
         // THEN: array length is returned
         expect(arrayLength.length).toBe(2)

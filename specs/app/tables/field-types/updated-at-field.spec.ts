@@ -232,9 +232,7 @@ test.describe('Updated At Field', () => {
 
       await test.step('APP-TABLES-FIELD-TYPES-UPDATED-AT-003: Sets initial timestamp on creation', async () => {
         // WHEN: inserting a new row
-        const insert = await executeQuery(
-          'INSERT INTO data DEFAULT VALUES RETURNING updated_at'
-        )
+        const insert = await executeQuery('INSERT INTO data DEFAULT VALUES RETURNING updated_at')
         // THEN: updated_at is automatically populated with current timestamp
         expect(insert.updated_at).toBeTruthy()
         const created = new Date(insert.updated_at)

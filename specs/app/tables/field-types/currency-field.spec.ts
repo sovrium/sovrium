@@ -256,7 +256,14 @@ test.describe('Currency Field', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'price', type: 'currency', currency: 'USD' },
               { id: 3, name: 'budget', type: 'currency', currency: 'USD', min: 0, max: 10_000 },
-              { id: 4, name: 'amount', type: 'currency', currency: 'USD', unique: true, required: true },
+              {
+                id: 4,
+                name: 'amount',
+                type: 'currency',
+                currency: 'USD',
+                unique: true,
+                required: true,
+              },
               { id: 5, name: 'fee', type: 'currency', currency: 'USD', default: 9.99 },
               { id: 6, name: 'total', type: 'currency', currency: 'USD', indexed: true },
             ],
@@ -314,15 +321,15 @@ test.describe('Currency Field', () => {
 
         // WHEN: attempting to insert duplicate amount
         // THEN: UNIQUE constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (amount) VALUES (1.00)')
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        await expect(executeQuery('INSERT INTO data (amount) VALUES (1.00)')).rejects.toThrow(
+          /duplicate key value violates unique constraint/
+        )
 
         // WHEN: attempting to insert NULL for required amount
         // THEN: NOT NULL constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (amount) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        await expect(executeQuery('INSERT INTO data (amount) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-CURRENCY-004: Applies DEFAULT value', async () => {

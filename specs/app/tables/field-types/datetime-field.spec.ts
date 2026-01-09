@@ -285,9 +285,9 @@ test.describe('DateTime Field', () => {
 
         // WHEN: attempting to insert NULL for required datetime
         // THEN: NOT NULL constraint rejects insertion
-        await expect(
-          executeQuery('INSERT INTO data (published_at) VALUES (NULL)')
-        ).rejects.toThrow(/violates not-null constraint/)
+        await expect(executeQuery('INSERT INTO data (published_at) VALUES (NULL)')).rejects.toThrow(
+          /violates not-null constraint/
+        )
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-DATETIME-004: Applies DEFAULT value', async () => {

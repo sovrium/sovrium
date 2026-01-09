@@ -322,9 +322,9 @@ test.describe('Rich Text Field', () => {
 
         // WHEN: attempting to insert duplicate slug
         // THEN: UNIQUE constraint rejects insertion
-        await expect(
-          executeQuery("INSERT INTO data (slug) VALUES ('doc-1')")
-        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+        await expect(executeQuery("INSERT INTO data (slug) VALUES ('doc-1')")).rejects.toThrow(
+          /duplicate key value violates unique constraint/
+        )
       })
     }
   )
