@@ -441,8 +441,8 @@ test.describe('Accept organization invitation', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // Shared state across steps
-      let orgId: string
-      let invitationId: string
+      let orgId = ''
+      let invitationId = ''
 
       // Setup: Start server with organization plugin
       await startServerWithSchema({

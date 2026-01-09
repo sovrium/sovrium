@@ -208,7 +208,7 @@ test.describe('Get organization details', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
       // Shared state across steps
-      let orgId: string
+      let orgId = ''
 
       // Setup: Start server with organization plugin
       await startServerWithSchema({

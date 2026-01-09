@@ -230,10 +230,6 @@ test.describe('Set active organization', () => {
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-REGRESSION: user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // Shared state across steps
-      let org1Id: string
-      let org2Id: string
-
       // Setup: Start server with organization plugin
       await startServerWithSchema({
         name: 'test-app',
@@ -272,7 +268,7 @@ test.describe('Set active organization', () => {
         data: { name: 'Org Two', slug: 'org-two' },
       })
       const org2 = await createResponse2.json()
-      org2Id = org2.id
+      const org2Id = org2.id
 
       await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-001: Returns 200 OK and updates session', async () => {
         // WHEN: User sets active organization
@@ -292,20 +288,23 @@ test.describe('Set active organization', () => {
         expect(data.id).toBe(org2Id)
       })
 
-      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-002: Returns 200 with null for invalid organizationId', async () => {
-        // WHEN: User submits request with invalid organizationId (empty string)
+      await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-002: Returns 200 with current org for empty organizationId', async () => {
+        // WHEN: User submits request with empty organizationId
         const response = await page.request.post('/api/auth/organization/set-active', {
           data: {
-            organizationId: '', // Empty string is invalid
+            organizationId: '', // Empty string - Better Auth returns current active org
           },
         })
 
-        // THEN: Better Auth returns 200 with null when organization ID is invalid
+        // THEN: Better Auth returns 200 with the currently active organization
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        // When organization doesn't exist or is invalid, Better Auth returns null
-        expect(data).toBeNull()
+        // Empty organizationId returns the currently active org (org2 from previous step)
+        expect(data).not.toBeNull()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data.id).toBe(org2Id)
       })
 
       await test.step('API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-004: Returns 403 for non-existent org', async () => {

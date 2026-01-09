@@ -290,7 +290,7 @@ test.describe('Delete organization', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // Shared state across steps
-      let orgId: string
+      let orgId = ''
       let orgBId: string
 
       // Setup: Start server with organization plugin

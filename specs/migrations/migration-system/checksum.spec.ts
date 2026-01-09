@@ -358,6 +358,9 @@ test.describe('Checksum Optimization', () => {
 
         // Save checksum for next step comparison
         checksumAfterModification = newChecksum.checksum
+
+        // Populate 'name' for existing row to allow step 004 to add NOT NULL constraint
+        await executeQuery([`UPDATE regression_users SET name = 'Test User' WHERE name IS NULL`])
       })
 
       await test.step('MIGRATION-CHECKSUM-004: ReMigrateOnMinorSchemaChange', async () => {

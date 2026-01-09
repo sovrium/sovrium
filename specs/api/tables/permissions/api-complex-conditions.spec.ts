@@ -548,8 +548,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        const user = await createAuthenticatedUser({ email: 'author@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        const user = await createAuthenticatedUser({ email: 'author001@example.com' })
+        const org = await createOrganization({ name: 'Test Org 001' })
 
         await executeQuery(`
             INSERT INTO private_notes (id, content, author_id, organization_id) VALUES
@@ -570,7 +570,7 @@ test.describe('API Complex Permission Conditions', () => {
           auth: { emailAndPassword: true, organization: true },
           tables: [
             {
-              id: 1,
+              id: 2,
               name: 'projects',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -590,8 +590,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        await createAuthenticatedUser({ email: 'user@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        await createAuthenticatedUser({ email: 'user002@example.com' })
+        const org = await createOrganization({ name: 'Test Org 002' })
 
         await executeQuery(`
             INSERT INTO projects (id, name, status, organization_id) VALUES
@@ -600,7 +600,7 @@ test.describe('API Complex Permission Conditions', () => {
               (3, 'Draft Project', 'draft', '${org.organization.id}')
           `)
 
-        const response = await request.get('/api/tables/1/records')
+        const response = await request.get('/api/tables/2/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.records).toHaveLength(1)
@@ -613,7 +613,7 @@ test.describe('API Complex Permission Conditions', () => {
           auth: { emailAndPassword: true, organization: true },
           tables: [
             {
-              id: 1,
+              id: 3,
               name: 'documents',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -634,8 +634,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        const user = await createAuthenticatedUser({ email: 'user@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        const user = await createAuthenticatedUser({ email: 'user003@example.com' })
+        const org = await createOrganization({ name: 'Test Org 003' })
 
         await executeQuery(`
             INSERT INTO documents (id, title, visibility, author_id, organization_id) VALUES
@@ -644,7 +644,7 @@ test.describe('API Complex Permission Conditions', () => {
               (3, 'Other Private Doc', 'private', 'other-user-id', '${org.organization.id}')
           `)
 
-        const response = await request.get('/api/tables/1/records')
+        const response = await request.get('/api/tables/3/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.records).toHaveLength(2)
@@ -659,7 +659,7 @@ test.describe('API Complex Permission Conditions', () => {
           auth: { emailAndPassword: true, organization: true },
           tables: [
             {
-              id: 1,
+              id: 4,
               name: 'orders',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -676,8 +676,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        await createAuthenticatedUser({ email: 'user@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        await createAuthenticatedUser({ email: 'user004@example.com' })
+        const org = await createOrganization({ name: 'Test Org 004' })
 
         await executeQuery(`
             INSERT INTO orders (id, description, amount, organization_id) VALUES
@@ -686,7 +686,7 @@ test.describe('API Complex Permission Conditions', () => {
               (3, 'Large Order', 5000, '${org.organization.id}')
           `)
 
-        const response = await request.get('/api/tables/1/records')
+        const response = await request.get('/api/tables/4/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.records).toHaveLength(2)
@@ -703,7 +703,7 @@ test.describe('API Complex Permission Conditions', () => {
           auth: { emailAndPassword: true, organization: true },
           tables: [
             {
-              id: 1,
+              id: 5,
               name: 'articles',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -728,8 +728,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        const user = await createAuthenticatedUser({ email: 'author@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        const user = await createAuthenticatedUser({ email: 'author005@example.com' })
+        const org = await createOrganization({ name: 'Test Org 005' })
 
         await executeQuery(`
             INSERT INTO articles (id, title, status, author_id, organization_id) VALUES
@@ -739,20 +739,20 @@ test.describe('API Complex Permission Conditions', () => {
           `)
 
         // Read: all 3 visible
-        const readResponse = await request.get('/api/tables/1/records')
+        const readResponse = await request.get('/api/tables/5/records')
         expect(readResponse.status()).toBe(200)
         const readData = await readResponse.json()
         expect(readData.records).toHaveLength(3)
 
         // Update draft: should succeed
-        const updateDraftResponse = await request.patch('/api/tables/1/records/1', {
+        const updateDraftResponse = await request.patch('/api/tables/5/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { title: 'My Updated Draft' },
         })
         expect(updateDraftResponse.status()).toBe(200)
 
         // Update published: should fail
-        const updatePublishedResponse = await request.patch('/api/tables/1/records/2', {
+        const updatePublishedResponse = await request.patch('/api/tables/5/records/2', {
           headers: { 'Content-Type': 'application/json' },
           data: { title: 'Trying to Change Published' },
         })
@@ -765,7 +765,7 @@ test.describe('API Complex Permission Conditions', () => {
           auth: { emailAndPassword: true, organization: true },
           tables: [
             {
-              id: 1,
+              id: 6,
               name: 'tasks',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -785,8 +785,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        const user = await createAuthenticatedUser({ email: 'user@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        const user = await createAuthenticatedUser({ email: 'user006@example.com' })
+        const org = await createOrganization({ name: 'Test Org 006' })
 
         await executeQuery(`
             INSERT INTO tasks (id, title, assigned_to, organization_id) VALUES
@@ -795,7 +795,7 @@ test.describe('API Complex Permission Conditions', () => {
               (3, 'Other Task', 'other-user-id', '${org.organization.id}')
           `)
 
-        const response = await request.get('/api/tables/1/records')
+        const response = await request.get('/api/tables/6/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.records).toHaveLength(2)
@@ -810,7 +810,7 @@ test.describe('API Complex Permission Conditions', () => {
           auth: { emailAndPassword: true, organization: true },
           tables: [
             {
-              id: 1,
+              id: 7,
               name: 'events',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
@@ -827,8 +827,8 @@ test.describe('API Complex Permission Conditions', () => {
           ],
         })
 
-        await createAuthenticatedUser({ email: 'user@example.com' })
-        const org = await createOrganization({ name: 'Test Org' })
+        await createAuthenticatedUser({ email: 'user007@example.com' })
+        const org = await createOrganization({ name: 'Test Org 007' })
 
         const today = new Date().toLocaleDateString('en-CA')
         const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA')
@@ -841,7 +841,7 @@ test.describe('API Complex Permission Conditions', () => {
               (3, 'Future Event', '${tomorrow}', '${org.organization.id}')
           `)
 
-        const response = await request.get('/api/tables/1/records')
+        const response = await request.get('/api/tables/7/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.records).toHaveLength(2)

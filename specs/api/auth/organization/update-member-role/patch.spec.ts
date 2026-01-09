@@ -331,7 +331,7 @@ test.describe('Update member role', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // Shared state across steps
-      let orgId: string
+      let orgId = ''
 
       // Setup: Start server with organization plugin
       await startServerWithSchema({
