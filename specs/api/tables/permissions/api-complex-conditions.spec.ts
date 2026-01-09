@@ -508,26 +508,109 @@ test.describe('API Complex Permission Conditions', () => {
   )
 
   // ============================================================================
-  // @regression test - Complete workflow validation
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying custom permission conditions work together
+  // Generated from 7 @spec tests - covers: userId, organizationId, AND/OR logic,
+  // numeric comparison, NULL handling, date comparison, multi-operation permissions
   // ============================================================================
 
-  test.fixme(
-    'API-TABLES-PERMISSIONS-CONDITIONS-REGRESSION: complete custom permission workflow',
+  test(
+    'API-TABLES-PERMISSIONS-CONDITIONS-REGRESSION: custom permission conditions workflow',
     { tag: '@regression' },
     async ({
       request,
       startServerWithSchema,
       createAuthenticatedUser,
       createOrganization,
-      signOut,
+      executeQuery,
     }) => {
-      await test.step('Setup: Create schema with complex custom permissions', async () => {
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-001: Custom condition with userId variable', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            organization: true,
-          },
+          auth: { emailAndPassword: true, organization: true },
+          tables: [
+            {
+              id: 1,
+              name: 'private_notes',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'long-text' },
+                { id: 3, name: 'author_id', type: 'single-line-text' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'custom', condition: '{userId} = author_id' },
+                create: { type: 'authenticated' },
+              },
+            },
+          ],
+        })
+
+        const user = await createAuthenticatedUser({ email: 'author@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
+
+        await executeQuery(`
+            INSERT INTO private_notes (id, content, author_id, organization_id) VALUES
+              (1, 'My private note', '${user.user.id}', '${org.organization.id}'),
+              (2, 'Someone else note', 'other-user-id', '${org.organization.id}')
+          `)
+
+        const response = await request.get('/api/tables/1/records')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields.content).toBe('My private note')
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-002: Custom condition with AND logic', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true, organization: true },
+          tables: [
+            {
+              id: 1,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: {
+                  type: 'custom',
+                  condition: "{organizationId} = organization_id AND status = 'active'",
+                },
+              },
+            },
+          ],
+        })
+
+        await createAuthenticatedUser({ email: 'user@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
+
+        await executeQuery(`
+            INSERT INTO projects (id, name, status, organization_id) VALUES
+              (1, 'Active Project', 'active', '${org.organization.id}'),
+              (2, 'Archived Project', 'archived', '${org.organization.id}'),
+              (3, 'Draft Project', 'draft', '${org.organization.id}')
+          `)
+
+        const response = await request.get('/api/tables/1/records')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields.name).toBe('Active Project')
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-003: Custom condition with OR logic', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true, organization: true },
           tables: [
             {
               id: 1,
@@ -536,172 +619,235 @@ test.describe('API Complex Permission Conditions', () => {
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
                 { id: 3, name: 'visibility', type: 'single-line-text' },
-                { id: 4, name: 'status', type: 'single-line-text' },
-                { id: 5, name: 'author_id', type: 'single-line-text' },
-                { id: 6, name: 'organization_id', type: 'single-line-text' },
+                { id: 4, name: 'author_id', type: 'single-line-text' },
+                { id: 5, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
                 organizationScoped: true,
-                // Complex read: public AND published, OR own docs
                 read: {
                   type: 'custom',
-                  condition:
-                    "(visibility = 'public' AND status = 'published') OR {userId} = author_id",
-                },
-                // Complex create: can create if status is draft
-                create: { type: 'authenticated' },
-                // Complex update: only own docs that aren't published
-                update: {
-                  type: 'custom',
-                  condition: "{userId} = author_id AND status != 'published'",
-                },
-                // Complex delete: only own draft docs
-                delete: {
-                  type: 'custom',
-                  condition: "{userId} = author_id AND status = 'draft'",
+                  condition: "visibility = 'public' OR {userId} = author_id",
                 },
               },
             },
           ],
         })
-      })
 
-      await test.step('Setup: Create users in same organization', async () => {
-        await createAuthenticatedUser({ email: 'user1@example.com' })
-        await createOrganization({ name: 'Shared Org' })
+        const user = await createAuthenticatedUser({ email: 'user@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
 
-        await signOut()
-
-        await createAuthenticatedUser({ email: 'user2@example.com' })
-      })
-
-      await test.step('User1 creates documents', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'user1@example.com' })
-
-        // Create a draft document
-        const draftResponse = await request.post('/api/tables/1/records', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            title: 'User1 Draft',
-            visibility: 'private',
-            status: 'draft',
-          },
-        })
-        expect(draftResponse.status()).toBe(201)
-
-        // Create a published public document
-        const publishedResponse = await request.post('/api/tables/1/records', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            title: 'User1 Published',
-            visibility: 'public',
-            status: 'published',
-          },
-        })
-        expect(publishedResponse.status()).toBe(201)
-      })
-
-      await test.step('User2 can only see public published docs', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'user2@example.com' })
+        await executeQuery(`
+            INSERT INTO documents (id, title, visibility, author_id, organization_id) VALUES
+              (1, 'Public Doc', 'public', 'other-user-id', '${org.organization.id}'),
+              (2, 'My Private Doc', 'private', '${user.user.id}', '${org.organization.id}'),
+              (3, 'Other Private Doc', 'private', 'other-user-id', '${org.organization.id}')
+          `)
 
         const response = await request.get('/api/tables/1/records')
-
         expect(response.status()).toBe(200)
         const data = await response.json()
-
-        // User2 only sees public+published (not User1's draft)
-        expect(data.records).toHaveLength(1)
-        expect(data.records[0].fields.title).toBe('User1 Published')
-      })
-
-      await test.step('User1 can see all their own docs', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'user1@example.com' })
-
-        const response = await request.get('/api/tables/1/records')
-
-        expect(response.status()).toBe(200)
-        const data = await response.json()
-
-        // User1 sees both their docs
         expect(data.records).toHaveLength(2)
+        const titles = data.records.map((r: { fields: { title: string } }) => r.fields.title)
+        expect(titles).toContain('Public Doc')
+        expect(titles).toContain('My Private Doc')
       })
 
-      await test.step('User1 can update their draft but not published', async () => {
-        // Get document IDs
-        const docsResponse = await request.get('/api/tables/1/records')
-        const docs = await docsResponse.json()
-        const draftDoc = docs.records.find((r: any) => r.status === 'draft')
-        const publishedDoc = docs.records.find((r: any) => r.status === 'published')
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-004: Custom condition with numeric comparison', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true, organization: true },
+          tables: [
+            {
+              id: 1,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'description', type: 'single-line-text' },
+                { id: 3, name: 'amount', type: 'decimal' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'custom', condition: 'amount < 1000' },
+              },
+            },
+          ],
+        })
 
-        // Update draft - should succeed
-        const updateDraftResponse = await request.patch(`/api/tables/1/records/${draftDoc.id}`, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { title: 'Updated Draft Title' },
+        await createAuthenticatedUser({ email: 'user@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
+
+        await executeQuery(`
+            INSERT INTO orders (id, description, amount, organization_id) VALUES
+              (1, 'Small Order', 500, '${org.organization.id}'),
+              (2, 'Medium Order', 999, '${org.organization.id}'),
+              (3, 'Large Order', 5000, '${org.organization.id}')
+          `)
+
+        const response = await request.get('/api/tables/1/records')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(2)
+        const descriptions = data.records.map(
+          (r: { fields: { description: string } }) => r.fields.description
+        )
+        expect(descriptions).toContain('Small Order')
+        expect(descriptions).toContain('Medium Order')
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-005: Different conditions for read vs update', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true, organization: true },
+          tables: [
+            {
+              id: 1,
+              name: 'articles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'author_id', type: 'single-line-text' },
+                { id: 5, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: {
+                  type: 'custom',
+                  condition: "status = 'published' OR {userId} = author_id",
+                },
+                update: {
+                  type: 'custom',
+                  condition: "{userId} = author_id AND status != 'published'",
+                },
+              },
+            },
+          ],
+        })
+
+        const user = await createAuthenticatedUser({ email: 'author@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
+
+        await executeQuery(`
+            INSERT INTO articles (id, title, status, author_id, organization_id) VALUES
+              (1, 'My Draft', 'draft', '${user.user.id}', '${org.organization.id}'),
+              (2, 'My Published', 'published', '${user.user.id}', '${org.organization.id}'),
+              (3, 'Other Published', 'published', 'other-user-id', '${org.organization.id}')
+          `)
+
+        // Read: all 3 visible
+        const readResponse = await request.get('/api/tables/1/records')
+        expect(readResponse.status()).toBe(200)
+        const readData = await readResponse.json()
+        expect(readData.records).toHaveLength(3)
+
+        // Update draft: should succeed
+        const updateDraftResponse = await request.patch('/api/tables/1/records/1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { title: 'My Updated Draft' },
         })
         expect(updateDraftResponse.status()).toBe(200)
 
-        // Update published - should fail
-        const updatePublishedResponse = await request.patch(
-          `/api/tables/1/records/${publishedDoc.id}`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            data: { title: 'Trying to Update Published' },
-          }
-        )
+        // Update published: should fail
+        const updatePublishedResponse = await request.patch('/api/tables/1/records/2', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { title: 'Trying to Change Published' },
+        })
         expect(updatePublishedResponse.status()).toBe(403)
       })
 
-      await test.step('User1 can delete their draft but not published', async () => {
-        // Get document IDs
-        const docsResponse = await request.get('/api/tables/1/records')
-        const docs = await docsResponse.json()
-        const draftDoc = docs.records.find((r: any) => r.status === 'draft')
-        const publishedDoc = docs.records.find((r: any) => r.status === 'published')
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-006: Custom condition with NULL handling', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true, organization: true },
+          tables: [
+            {
+              id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'assigned_to', type: 'single-line-text' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: {
+                  type: 'custom',
+                  condition: 'assigned_to IS NULL OR {userId} = assigned_to',
+                },
+              },
+            },
+          ],
+        })
 
-        // Delete published - should fail
-        const deletePublishedResponse = await request.delete(
-          `/api/tables/1/records/${publishedDoc.id}`
-        )
-        expect(deletePublishedResponse.status()).toBe(403)
+        const user = await createAuthenticatedUser({ email: 'user@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
 
-        // Delete draft - should succeed
-        const deleteDraftResponse = await request.delete(`/api/tables/1/records/${draftDoc.id}`)
-        expect(deleteDraftResponse.status()).toBe(204)
+        await executeQuery(`
+            INSERT INTO tasks (id, title, assigned_to, organization_id) VALUES
+              (1, 'Unassigned Task', NULL, '${org.organization.id}'),
+              (2, 'My Task', '${user.user.id}', '${org.organization.id}'),
+              (3, 'Other Task', 'other-user-id', '${org.organization.id}')
+          `)
+
+        const response = await request.get('/api/tables/1/records')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(2)
+        const titles = data.records.map((r: { fields: { title: string } }) => r.fields.title)
+        expect(titles).toContain('Unassigned Task')
+        expect(titles).toContain('My Task')
       })
 
-      await test.step('User2 cannot update or delete User1 docs', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'user2@example.com' })
-
-        // Get the remaining published doc
-        const docsResponse = await request.get('/api/tables/1/records')
-        const docs = await docsResponse.json()
-        const publishedDoc = docs.records[0]
-
-        // User2 cannot update User1's doc
-        const updateResponse = await request.patch(`/api/tables/1/records/${publishedDoc.id}`, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { title: 'Hacked Title' },
+      await test.step('API-TABLES-PERMISSIONS-CONDITIONS-007: Custom condition with date comparison', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true, organization: true },
+          tables: [
+            {
+              id: 1,
+              name: 'events',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'event_date', type: 'date' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'custom', condition: 'event_date >= CURRENT_DATE' },
+              },
+            },
+          ],
         })
-        expect(updateResponse.status()).toBe(403)
 
-        // User2 cannot delete User1's doc
-        const deleteResponse = await request.delete(`/api/tables/1/records/${publishedDoc.id}`)
-        expect(deleteResponse.status()).toBe(403)
+        await createAuthenticatedUser({ email: 'user@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
+
+        const today = new Date().toLocaleDateString('en-CA')
+        const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA')
+        const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA')
+
+        await executeQuery(`
+            INSERT INTO events (id, name, event_date, organization_id) VALUES
+              (1, 'Past Event', '${yesterday}', '${org.organization.id}'),
+              (2, 'Today Event', '${today}', '${org.organization.id}'),
+              (3, 'Future Event', '${tomorrow}', '${org.organization.id}')
+          `)
+
+        const response = await request.get('/api/tables/1/records')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(2)
+        const names = data.records.map((r: { fields: { name: string } }) => r.fields.name)
+        expect(names).toContain('Today Event')
+        expect(names).toContain('Future Event')
       })
     }
   )
