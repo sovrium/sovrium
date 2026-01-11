@@ -675,83 +675,265 @@ test.describe('Database Indexes', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
+  // Generated from 10 @spec tests - Validates complete database index workflow
   // ============================================================================
 
   test(
     'APP-TABLES-INDEXES-REGRESSION: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create table with index configurations and seed data', async () => {
+      await test.step('Setup: Start server with comprehensive index configurations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 8,
+              id: 1,
               name: 'users',
               fields: [
-                { id: 1, name: 'username', type: 'single-line-text' },
+                { id: 1, name: 'name', type: 'single-line-text' },
                 { id: 2, name: 'email', type: 'email' },
-                { id: 3, name: 'created_at', type: 'created-at' },
               ],
               indexes: [
                 {
-                  name: 'idx_users_username',
+                  name: 'idx_user_email',
+                  fields: ['email'],
+                },
+              ],
+            },
+            {
+              id: 2,
+              name: 'contacts',
+              fields: [
+                { id: 1, name: 'first_name', type: 'single-line-text' },
+                { id: 2, name: 'last_name', type: 'single-line-text' },
+                { id: 3, name: 'phone', type: 'phone-number' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_contacts_name',
+                  fields: ['last_name', 'first_name'],
+                },
+              ],
+            },
+            {
+              id: 3,
+              name: 'accounts',
+              fields: [
+                { id: 1, name: 'username', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_accounts_username',
                   fields: ['username'],
                   unique: true,
                 },
+              ],
+            },
+            {
+              id: 4,
+              name: 'logs',
+              fields: [
+                { id: 1, name: 'message', type: 'long-text' },
+                { id: 2, name: 'created_at', type: 'created-at' },
+              ],
+              indexes: [],
+            },
+            {
+              id: 5,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'sku', type: 'single-line-text' },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'category', type: 'single-line-text' },
+                { id: 4, name: 'price', type: 'decimal' },
+              ],
+              indexes: [
                 {
-                  name: 'idx_users_email',
-                  fields: ['email'],
+                  name: 'idx_products_sku',
+                  fields: ['sku'],
                 },
                 {
-                  name: 'idx_users_created_at',
+                  name: 'idx_products_category',
+                  fields: ['category'],
+                },
+                {
+                  name: 'idx_products_price',
+                  fields: ['price'],
+                },
+              ],
+            },
+            {
+              id: 6,
+              name: 'events',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'created_at', type: 'created-at' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_events_created_at',
                   fields: ['created_at'],
+                },
+              ],
+            },
+            {
+              id: 7,
+              name: 'tenant_users',
+              fields: [
+                { id: 1, name: 'tenant_id', type: 'integer' },
+                { id: 2, name: 'username', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'email' },
+              ],
+              indexes: [
+                {
+                  name: 'idx_tenant_users_unique',
+                  fields: ['tenant_id', 'username'],
+                  unique: true,
                 },
               ],
             },
           ],
         })
 
+        // Seed data for all tables
         await executeQuery(
-          `INSERT INTO users (username, email, created_at) VALUES ('alice', 'alice@example.com', '2024-01-01 10:00:00'), ('bob', 'bob@example.com', '2024-01-02 10:00:00')`
+          `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com')`
+        )
+        await executeQuery(
+          `INSERT INTO contacts (first_name, last_name, phone) VALUES ('Alice', 'Smith', '555-1111'), ('Bob', 'Smith', '555-2222')`
+        )
+        await executeQuery(
+          `INSERT INTO accounts (username, email) VALUES ('alice123', 'alice@example.com')`
+        )
+        await executeQuery(`INSERT INTO logs (message, created_at) VALUES ('Log 1', NOW())`)
+        await executeQuery(
+          `INSERT INTO products (sku, name, category, price) VALUES ('SKU-001', 'Product 1', 'Electronics', 99.99)`
+        )
+        await executeQuery(
+          `INSERT INTO events (name, created_at) VALUES ('Event 1', '2024-01-01 10:00:00'), ('Event 2', '2024-01-02 10:00:00')`
+        )
+        await executeQuery(
+          `INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'alice@tenant1.com'), (2, 'alice', 'alice@tenant2.com')`
         )
       })
 
-      await test.step('Verify unique index prevents duplicates', async () => {
+      await test.step('APP-TABLES-INDEXES-001: Create single-column index for efficient lookups', async () => {
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_user_email'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_user_email' })
+
+        const result = await executeQuery(
+          `SELECT name FROM users WHERE email = 'alice@example.com'`
+        )
+        expect(result.rows[0]).toMatchObject({ name: 'Alice' })
+      })
+
+      await test.step('APP-TABLES-INDEXES-002: Create multi-column index for compound lookups', async () => {
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_contacts_name'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_contacts_name' })
+
+        const result = await executeQuery(
+          `SELECT phone FROM contacts WHERE last_name = 'Smith' AND first_name = 'Alice'`
+        )
+        expect(result.rows[0]).toMatchObject({ phone: '555-1111' })
+      })
+
+      await test.step('APP-TABLES-INDEXES-003: Prevent duplicate values with UNIQUE index', async () => {
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_accounts_username'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_accounts_username' })
+
         await expect(
           executeQuery(
-            `INSERT INTO users (username, email, created_at) VALUES ('alice', 'duplicate@example.com', NOW())`
+            `INSERT INTO accounts (username, email) VALUES ('alice123', 'duplicate@example.com')`
           )
-        ).rejects.toThrow(/unique constraint/)
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
 
-      await test.step('Verify regular indexes allow efficient lookups', async () => {
-        const emailLookup = await executeQuery(
-          `SELECT username FROM users WHERE email = 'bob@example.com'`
+      await test.step('APP-TABLES-INDEXES-004: Only create default primary key index when no indexes configured', async () => {
+        const count = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'`
         )
-        expect(emailLookup.rows[0]).toMatchObject({ username: 'bob' })
+        expect(count.rows[0]).toMatchObject({ count: '2' })
+
+        const customIndexes = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey' AND indexname NOT LIKE '%deleted_at%'`
+        )
+        expect(customIndexes.rows[0]).toMatchObject({ count: '0' })
       })
 
-      await test.step('Verify timestamp index supports range queries', async () => {
+      await test.step('APP-TABLES-INDEXES-005: Create all specified indexes independently', async () => {
+        const count = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%' AND indexname NOT LIKE '%deleted_at%'`
+        )
+        expect(count.rows[0]).toMatchObject({ count: '3' })
+
+        const skuIndex = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_sku'`
+        )
+        expect(skuIndex.rows[0]).toMatchObject({ indexname: 'idx_products_sku' })
+      })
+
+      await test.step('APP-TABLES-INDEXES-006: Optimize ORDER BY and range queries with timestamp index', async () => {
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_created_at'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_events_created_at' })
+
         const rangeQuery = await executeQuery(
-          `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
+          `SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'`
         )
         expect(rangeQuery.rows[0]).toMatchObject({ count: '2' })
+
+        const orderBy = await executeQuery(
+          `SELECT name FROM events ORDER BY created_at DESC LIMIT 1`
+        )
+        expect(orderBy.rows[0]).toMatchObject({ name: 'Event 2' })
       })
 
-      await test.step('Verify all indexes are retrievable', async () => {
-        const indexes = await executeQuery(
-          `SELECT indexname FROM pg_indexes WHERE tablename = 'users' AND indexname LIKE 'idx_users_%' ORDER BY indexname`
+      await test.step('APP-TABLES-INDEXES-007: Enforce uniqueness within each tenant with partial unique index', async () => {
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tenant_users_unique'`
         )
-        expect(indexes.rows).toHaveLength(4)
-        expect(indexes.rows).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ indexname: 'idx_users_created_at' }),
-            expect.objectContaining({ indexname: 'idx_users_deleted_at' }),
-            expect.objectContaining({ indexname: 'idx_users_email' }),
-            expect.objectContaining({ indexname: 'idx_users_username' }),
-          ])
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_tenant_users_unique' })
+
+        const sameUsername = await executeQuery(
+          `SELECT COUNT(*) as count FROM tenant_users WHERE username = 'alice'`
         )
+        expect(sameUsername.rows[0]).toMatchObject({ count: '2' })
+
+        await expect(
+          executeQuery(
+            `INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'duplicate@tenant1.com')`
+          )
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('APP-TABLES-INDEXES-008: Enable efficient text search with GIN index', async () => {
+        await executeQuery(
+          `CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)`
+        )
+        await executeQuery(
+          `CREATE INDEX idx_articles_search ON articles USING GIN (to_tsvector('english', title || ' ' || content))`
+        )
+        await executeQuery(
+          `INSERT INTO articles (title, content) VALUES ('PostgreSQL Tutorial', 'Learn about database indexes')`
+        )
+
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_articles_search'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_articles_search' })
+
+        const search = await executeQuery(
+          `SELECT title FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'database')`
+        )
+        expect(search.rows[0]).toMatchObject({ title: 'PostgreSQL Tutorial' })
       })
     }
   )

@@ -157,83 +157,141 @@ test.describe('Organization Slug Handling', () => {
     'API-AUTH-ORG-OPT-SLUG-REGRESSION: system can manage slug uniqueness across organizations',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
-      // GIVEN: Multiple organizations
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
+      let org1: Awaited<ReturnType<typeof createAuthenticatedUser>>
+      let org2: Awaited<ReturnType<typeof createAuthenticatedUser>>
 
-      const org1 = await createAuthenticatedUser({
-        email: 'org1@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      const org2 = await createAuthenticatedUser({
-        email: 'org2@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      // WHEN/THEN: Set unique slugs
-      const slug1Response = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: org1.organizationId!,
-          slug: 'company-one',
-        },
-      })
-      expect(slug1Response.status()).toBe(200)
-
-      const slug2Response = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: org2.organizationId!,
-          slug: 'company-two',
-        },
-      })
-      expect(slug2Response.status()).toBe(200)
-
-      // WHEN/THEN: Attempt duplicate slug
-      const duplicateResponse = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: org2.organizationId!,
-          slug: 'company-one',
-        },
-      })
-      expect(duplicateResponse.status()).toBe(400)
-
-      // WHEN/THEN: Auto-generation creates unique slugs
-      const org3 = await createAuthenticatedUser({
-        email: 'org3@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
-
-      await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: org3.organizationId!,
-          name: 'Company One', // Same name as org1
-        },
-      })
-
-      const org3Details = await request
-        .get('/api/auth/organization/get-details', {
-          params: { organizationId: org3.organizationId! },
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: true,
+          },
         })
-        .then((r) => r.json())
 
-      // Should generate unique slug (e.g., company-one-1 or similar)
-      expect(org3Details.slug).not.toBe('company-one')
-      expect(org3Details.slug).toContain('company')
+        org1 = await createAuthenticatedUser({
+          email: 'org1@example.com',
+          password: 'Password123!',
+          createOrganization: true,
+        })
 
-      // WHEN/THEN: Verify all slugs are unique
-      const allOrgs = await request.get('/api/auth/organization/list').then((r) => r.json())
+        org2 = await createAuthenticatedUser({
+          email: 'org2@example.com',
+          password: 'Password123!',
+          createOrganization: true,
+        })
+      })
 
-      const slugs = allOrgs.map((org: any) => org.slug)
-      const uniqueSlugs = new Set(slugs)
-      expect(slugs.length).toBe(uniqueSlugs.size)
+      await test.step('API-AUTH-ORG-OPT-SLUG-001: Auto-generates slug from organization name', async () => {
+        // WHEN: Update organization with name
+        await request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org1.organizationId!,
+            name: 'Acme Corporation',
+          },
+        })
+
+        // WHEN: Fetch organization details
+        const response = await request.get('/api/auth/organization/get-details', {
+          params: { organizationId: org1.organizationId! },
+        })
+
+        // THEN: Slug should be auto-generated from name
+        expect(response.status()).toBe(200)
+        const org = await response.json()
+        expect(org.slug).toBeDefined()
+        expect(org.slug).toBe('acme-corporation')
+      })
+
+      await test.step('API-AUTH-ORG-OPT-SLUG-002: Returns 400 when slug conflicts with existing', async () => {
+        // Set up org2 with explicit slug
+        await request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org2.organizationId!,
+            slug: 'company-two',
+          },
+        })
+
+        // WHEN: Try to use same slug for different organization
+        const response = await request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org2.organizationId!,
+            slug: 'acme-corporation', // Same as org1
+          },
+        })
+
+        // THEN: Should return 400 Bad Request
+        expect(response.status()).toBe(400)
+        const error = await response.json()
+        expect(error.message).toContain('slug')
+      })
+
+      await test.step('API-AUTH-ORG-OPT-SLUG-003: Validates slug format (alphanumeric-dash)', async () => {
+        // WHEN: Try to set invalid slug formats
+        const invalidSlugs = [
+          'invalid slug', // Contains space
+          'invalid_slug', // Contains underscore
+          'Invalid-Slug', // Contains uppercase
+        ]
+
+        for (const invalidSlug of invalidSlugs) {
+          const response = await request.patch('/api/auth/organization/update', {
+            data: {
+              organizationId: org2.organizationId!,
+              slug: invalidSlug,
+            },
+          })
+
+          // THEN: Should return 400 for invalid format
+          expect(response.status()).toBe(400)
+          const error = await response.json()
+          expect(error.message).toContain('slug')
+        }
+
+        // WHEN: Set valid slug
+        const validResponse = await request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org2.organizationId!,
+            slug: 'valid-slug-123',
+          },
+        })
+
+        // THEN: Valid slug should succeed
+        expect(validResponse.status()).toBe(200)
+      })
+
+      await test.step('Verifies auto-generation creates unique slugs for duplicate names', async () => {
+        // WHEN: Create org3 with same name as org1
+        const org3 = await createAuthenticatedUser({
+          email: 'org3@example.com',
+          password: 'Password123!',
+          createOrganization: true,
+        })
+
+        await request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: org3.organizationId!,
+            name: 'Acme Corporation', // Same name as org1
+          },
+        })
+
+        const org3Details = await request
+          .get('/api/auth/organization/get-details', {
+            params: { organizationId: org3.organizationId! },
+          })
+          .then((r) => r.json())
+
+        // THEN: Should generate unique slug (e.g., acme-corporation-1 or similar)
+        expect(org3Details.slug).not.toBe('acme-corporation')
+        expect(org3Details.slug).toContain('acme')
+
+        // THEN: Verify all slugs are unique
+        const allOrgs = await request.get('/api/auth/organization/list').then((r) => r.json())
+
+        const slugs = allOrgs.map((o: any) => o.slug)
+        const uniqueSlugs = new Set(slugs)
+        expect(slugs.length).toBe(uniqueSlugs.size)
+      })
     }
   )
 })

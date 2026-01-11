@@ -117,35 +117,58 @@ test.describe('HTTPS Redirect Security', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly ONE test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 2 @spec tests - covers: HTTP→HTTPS redirect, HSTS headers
   // ============================================================================
 
   test.fixme(
     'API-SECURITY-REDIRECT-REGRESSION: user can complete full HTTPS redirect workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with Hono secure-headers middleware configured
-      await startServerWithSchema({
-        name: 'test-app',
+      await test.step('Setup: Start server with security middleware configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+        })
       })
 
-      // WHEN: User makes HTTP request
-      const httpResponse = await request.get('http://localhost:3000/api/users?page=1', {
-        maxRedirects: 0,
+      await test.step('API-SECURITY-REDIRECT-001: redirects HTTP to HTTPS with 301 status', async () => {
+        // Verify root path redirect
+        const response = await request.get('http://localhost:3000/', {
+          maxRedirects: 0,
+        })
+        expect(response.status()).toBe(301)
+        expect(response.headers()['location']).toBe('https://localhost:3000/')
+
+        // Verify path preservation
+        const pathResponse = await request.get('http://localhost:3000/api/users', {
+          maxRedirects: 0,
+        })
+        expect(pathResponse.status()).toBe(301)
+        expect(pathResponse.headers()['location']).toBe('https://localhost:3000/api/users')
+
+        // Verify query parameters preservation
+        const queryResponse = await request.get('http://localhost:3000/search?q=test&page=2', {
+          maxRedirects: 0,
+        })
+        expect(queryResponse.status()).toBe(301)
+        expect(queryResponse.headers()['location']).toBe(
+          'https://localhost:3000/search?q=test&page=2'
+        )
       })
 
-      // THEN: HTTP is redirected to HTTPS with 301
-      expect(httpResponse.status()).toBe(301)
-      expect(httpResponse.headers()['location']).toBe('https://localhost:3000/api/users?page=1')
+      await test.step('API-SECURITY-REDIRECT-002: includes HSTS preload directive in response', async () => {
+        // Verify HSTS header on root endpoint
+        const response = await request.get('https://localhost:3000/')
+        const hstsHeader = response.headers()['strict-transport-security']
+        expect(hstsHeader).toBe('max-age=31536000; includeSubDomains; preload')
 
-      // WHEN: User follows redirect to HTTPS (browser auto-follows)
-      const httpsResponse = await request.get('https://localhost:3000/api/users?page=1')
-
-      // THEN: HTTPS request succeeds
-      expect(httpsResponse.ok()).toBe(true)
-
-      // Note: HSTS header validation is tested comprehensively in secure-headers.spec.ts
-      // This test focuses on HTTP→HTTPS redirect workflow
+        // Verify HSTS header on API endpoint
+        const apiResponse = await request.get('https://localhost:3000/api/status')
+        expect(apiResponse.headers()['strict-transport-security']).toBe(
+          'max-age=31536000; includeSubDomains; preload'
+        )
+      })
     }
   )
 })

@@ -323,10 +323,11 @@ test.describe('Database Session Context Integration', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED workflow validation
+  // Generated from 5 @spec tests - covers session context integration workflow
   // ============================================================================
 
   test(
-    'APP-TABLES-SESSION-CTX-REGRESSION: session context integration workflow',
+    'APP-TABLES-SESSION-CTX-REGRESSION: user can complete full session context workflow',
     { tag: '@regression' },
     async ({
       startServerWithSchema,
@@ -334,7 +335,7 @@ test.describe('Database Session Context Integration', () => {
       createAuthenticatedUser,
       createOrganization,
     }) => {
-      await test.step('Setup: Create schema with RLS and organization features', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -344,82 +345,169 @@ test.describe('Database Session Context Integration', () => {
           tables: [
             {
               id: 1,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
+              ],
+              permissions: {
+                read: { type: 'owner', field: 'owner_id' },
+              },
+            },
+            {
+              id: 2,
               name: 'projects',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'organization_id', type: 'single-line-text' },
-                { id: 4, name: 'owner_id', type: 'user' },
               ],
               permissions: {
                 organizationScoped: true,
-                read: { type: 'owner', field: 'owner_id' },
               },
             },
           ],
         })
       })
 
-      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
-      const org1 = await createOrganization({ name: 'Org 1' })
+      await test.step('APP-TABLES-SESSION-CTX-001: Set session context from Better Auth session', async () => {
+        // Create user and organization
+        const user = await createAuthenticatedUser({ email: 'user@example.com' })
+        const org = await createOrganization({ name: 'Test Org' })
 
-      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
-      const org2 = await createOrganization({ name: 'Org 2' })
-
-      await test.step('Insert test data for multiple organizations and owners', async () => {
-        await executeQuery([
-          `INSERT INTO projects (id, name, organization_id, owner_id) VALUES
-           (1, 'User 1 Org 1 Project', '${org1.organization.id}', '${user1.user.id}'),
-           (2, 'User 2 Org 2 Project', '${org2.organization.id}', '${user2.user.id}')`,
+        // Set session context and read it back
+        const contextResult = await executeQuery([
+          `BEGIN`,
+          `SET LOCAL app.user_id = '${user.user.id}'`,
+          `SET LOCAL app.organization_id = '${org.organization.id}'`,
+          `SET LOCAL app.user_role = 'owner'`,
+          `SELECT
+            current_setting('app.user_id') as user_id,
+            current_setting('app.organization_id') as organization_id,
+            current_setting('app.user_role') as role`,
         ])
+
+        // Verify session variables are set correctly
+        expect(contextResult.rows[0].user_id).toBe(user.user.id)
+        expect(contextResult.rows[0].organization_id).toBe(org.organization.id)
+        expect(contextResult.rows[0].role).toBe('owner')
       })
 
-      await test.step('Set session context for user1/org1 and verify isolation', async () => {
-        // Set session context and query projects
-        // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
-        // Use SET ROLE to switch to non-superuser role (superusers bypass RLS)
-        const projectsResult = await executeQuery([
+      await test.step('APP-TABLES-SESSION-CTX-002: Enable RLS filtering with session context', async () => {
+        // Create two users
+        const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+        const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
+        // Insert tasks for both users
+        await executeQuery([
+          `INSERT INTO tasks (id, title, owner_id) VALUES
+           (1, 'User 1 Task', '${user1.user.id}'),
+           (2, 'User 2 Task', '${user2.user.id}')`,
+        ])
+
+        // Set session context for user1 and query tasks
+        const tasksResult = await executeQuery([
           `BEGIN`,
           `SET LOCAL ROLE app_user`,
           `SET LOCAL app.user_id = '${user1.user.id}'`,
+          `SELECT id, title FROM tasks ORDER BY id`,
+        ])
+
+        // Verify RLS filters to only user1's tasks
+        expect(tasksResult.rows).toHaveLength(1)
+        expect(tasksResult.rows[0].title).toBe('User 1 Task')
+      })
+
+      await test.step('APP-TABLES-SESSION-CTX-003: Enforce organization isolation via session context', async () => {
+        // Create two organizations
+        await createAuthenticatedUser({ email: 'org1user@example.com' })
+        const org1 = await createOrganization({ name: 'Org 1' })
+
+        await createAuthenticatedUser({ email: 'org2user@example.com' })
+        const org2 = await createOrganization({ name: 'Org 2' })
+
+        // Insert projects for both organizations
+        await executeQuery([
+          `INSERT INTO projects (id, name, organization_id) VALUES
+           (1, 'Org 1 Project', '${org1.organization.id}'),
+           (2, 'Org 2 Project', '${org2.organization.id}')`,
+        ])
+
+        // Set session context for org1 and query projects
+        const projectsResult = await executeQuery([
+          `BEGIN`,
+          `SET LOCAL ROLE app_user`,
           `SET LOCAL app.organization_id = '${org1.organization.id}'`,
           `SELECT id, name FROM projects ORDER BY id`,
         ])
 
-        // Verify RLS filters to only user1's projects in org1
+        // Verify organization isolation
         expect(projectsResult.rows).toHaveLength(1)
-        expect(projectsResult.rows[0].name).toBe('User 1 Org 1 Project')
+        expect(projectsResult.rows[0].name).toBe('Org 1 Project')
       })
 
-      await test.step('Query without context and verify access is denied', async () => {
-        // Without meaningful session context, RLS should deny all access
-        // Use SET ROLE to switch to non-superuser role (superusers bypass RLS)
-        // Set empty values for session variables (required by RLS policy to exist)
-        const projectsResult = await executeQuery([
+      await test.step('APP-TABLES-SESSION-CTX-004: Clear session context after transaction', async () => {
+        const user = await createAuthenticatedUser({ email: 'clear-test@example.com' })
+
+        // Set session context
+        const contextBefore = await executeQuery([
           `BEGIN`,
-          `SET LOCAL ROLE app_user`,
-          `SET LOCAL app.user_id = ''`,
-          `SET LOCAL app.organization_id = ''`,
-          `SELECT id, name FROM projects`,
+          `SET LOCAL app.user_id = '${user.user.id}'`,
+          `SELECT current_setting('app.user_id') as user_id`,
         ])
-        expect(projectsResult.rows).toHaveLength(0)
+
+        expect(contextBefore.rows[0].user_id).toBe(user.user.id)
+
+        // Clear session context
+        const contextAfter = await executeQuery([
+          `BEGIN`,
+          `RESET app.user_id`,
+          `RESET app.organization_id`,
+          `RESET app.user_role`,
+          `SELECT
+            current_setting('app.user_id', true) as user_id,
+            current_setting('app.organization_id', true) as organization_id,
+            current_setting('app.user_role', true) as role`,
+        ])
+
+        // Verify variables are cleared
+        expect(contextAfter.rows[0].user_id).toBe('')
+        expect(contextAfter.rows[0].organization_id).toBe('')
+        expect(contextAfter.rows[0].role).toBe('')
       })
 
-      await test.step('Switch to user2/org2 and verify different data access', async () => {
-        // Set different session context and query projects
-        // Note: Transaction auto-rolls back when connection closes (no explicit COMMIT needed)
-        // Use SET ROLE to switch to non-superuser role (superusers bypass RLS)
-        const projectsResult = await executeQuery([
+      await test.step('APP-TABLES-SESSION-CTX-005: Handle users without organization membership', async () => {
+        await createAuthenticatedUser({ email: 'member@example.com' })
+        const org = await createOrganization({ name: 'Membership Test Org' })
+
+        // Create non-member user
+        const nonMember = await createAuthenticatedUser({ email: 'nonmember@example.com' })
+
+        // Verify non-member has no role
+        const memberResult = await executeQuery(`
+          SELECT role FROM _sovrium_auth_members
+          WHERE organization_id = '${org.organization.id}'
+          AND user_id = '${nonMember.user.id}'
+        `)
+
+        expect(memberResult.rows).toHaveLength(0)
+
+        // Set session variables for non-member
+        const contextResult = await executeQuery([
           `BEGIN`,
-          `SET LOCAL ROLE app_user`,
-          `SET LOCAL app.user_id = '${user2.user.id}'`,
-          `SET LOCAL app.organization_id = '${org2.organization.id}'`,
-          `SELECT id, name FROM projects ORDER BY id`,
+          `SET LOCAL app.user_id = '${nonMember.user.id}'`,
+          `SET LOCAL app.organization_id = '${org.organization.id}'`,
+          `SET LOCAL app.user_role = 'authenticated'`,
+          `SELECT
+            current_setting('app.user_id') as user_id,
+            current_setting('app.organization_id') as organization_id,
+            current_setting('app.user_role') as role`,
         ])
 
-        // Verify RLS filters to only user2's projects in org2
-        expect(projectsResult.rows).toHaveLength(1)
-        expect(projectsResult.rows[0].name).toBe('User 2 Org 2 Project')
+        // Verify default role for non-members
+        expect(contextResult.rows[0].role).toBe('authenticated')
+        expect(contextResult.rows[0].organization_id).toBe(org.organization.id)
       })
     }
   )

@@ -151,26 +151,82 @@ test.describe('Get view details', () => {
     'API-TABLES-VIEWS-GET-REGRESSION: user can complete full view details workflow',
     { tag: '@regression' },
     async ({ request }) => {
-      await test.step('Verify successful view details retrieval', async () => {
-        const successResponse = await request.get('/api/tables/1/views/active_projects', {})
-        expect(successResponse.status()).toBe(200)
-        const view = await successResponse.json()
-        expect(view).toHaveProperty('id')
-        expect(view).toHaveProperty('name')
-        expect(view).toHaveProperty('type')
+      await test.step('API-TABLES-VIEWS-GET-003: Returns 404 with Table not found message', async () => {
+        // WHEN: User requests view details for non-existent table
+        const response = await request.get('/api/tables/9999/views/active_projects', {})
+
+        // THEN: 404 Not Found error should be returned with 'Table not found' message
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('code')
+        expect(data.error).toBe('Table not found')
+        expect(data.code).toBe('TABLE_NOT_FOUND')
       })
 
-      await test.step('Verify non-existent view returns 404', async () => {
-        const viewNotFoundResponse = await request.get('/api/tables/1/views/non_existent', {})
-        expect(viewNotFoundResponse.status()).toBe(404)
+      await test.step('API-TABLES-VIEWS-GET-002: Returns 404 with View not found message', async () => {
+        // WHEN: User requests non-existent view
+        const response = await request.get('/api/tables/1/views/non_existent', {})
+
+        // THEN: 404 Not Found error should be returned with 'View not found' message
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('code')
+        expect(data.error).toBe('View not found')
+        expect(data.code).toBe('VIEW_NOT_FOUND')
       })
 
-      await test.step('Verify non-existent table returns 404', async () => {
-        const tableNotFoundResponse = await request.get(
-          '/api/tables/9999/views/active_projects',
-          {}
-        )
-        expect(tableNotFoundResponse.status()).toBe(404)
+      await test.step('API-TABLES-VIEWS-GET-001: Returns view configuration with all properties', async () => {
+        // WHEN: User requests specific view details
+        const response = await request.get('/api/tables/1/views/active_projects', {})
+
+        // THEN: View configuration should be returned with all properties
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data).toHaveProperty('type')
+        expect(data.id).toBe('active_projects')
+        expect(data.name).toBe('Active Projects')
+        expect(data.type).toBe('grid')
+      })
+
+      await test.step('API-TABLES-VIEWS-GET-004: Includes filters, sorts, and groupBy in response', async () => {
+        // WHEN: User requests view details for kanban view
+        const response = await request.get('/api/tables/1/views/status_board', {})
+
+        // THEN: All view properties including filters, sorts, and groupBy should be included
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data).toHaveProperty('type')
+        expect(data).toHaveProperty('groupBy')
+        expect(data).toHaveProperty('filters')
+        expect(data.type).toBe('kanban')
+        expect(data.groupBy.field).toBe('status')
+      })
+
+      await test.step('API-TABLES-VIEWS-GET-005: Includes fields array with visibility and order', async () => {
+        // WHEN: User requests view with field configurations
+        const response = await request.get('/api/tables/1/views/project_timeline', {})
+
+        // THEN: Fields array with visibility and order should be included
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data).toHaveProperty('type')
+        expect(data).toHaveProperty('fields')
+        expect(data.type).toBe('calendar')
+        expect(Array.isArray(data.fields)).toBe(true)
+        expect(data.fields).toHaveLength(3)
       })
     }
   )

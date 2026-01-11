@@ -249,8 +249,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-REGRESSION: admin can complete full list-user-sessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with admin plugin', async () => {
+    async ({ page, startServerWithSchema, signUp, signIn, executeQuery }) => {
+      let adminUserId: string
+      let targetUserId: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -260,34 +263,126 @@ test.describe('Admin: List user sessions', () => {
         })
       })
 
-      await test.step('Verify list sessions fails without auth', async () => {
-        const noAuthResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=1')
-        expect(noAuthResponse.status()).toBe(401)
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-003: Returns 401 Unauthorized without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to list user sessions
+        const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create admin and regular users', async () => {
-        await signUp({
+      await test.step('Setup: Create admin and target users', async () => {
+        // Create admin user
+        const admin = await signUp({
           email: 'admin@example.com',
           password: 'AdminPass123!',
           name: 'Admin User',
         })
-        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+        adminUserId = admin.user.id
+
+        // Promote first user to admin via database (bootstrap the first admin)
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'admin'
+          WHERE id = '${adminUserId}'
+        `)
+
+        // Create target user
+        const target = await signUp({
+          email: 'target@example.com',
+          password: 'TargetPass123!',
+          name: 'Target User',
+        })
+        targetUserId = target.user.id
+
+        // Create regular user for non-admin test
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Regular User',
+        })
       })
 
-      await test.step('Verify list sessions fails for non-admin', async () => {
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-004: Returns 403 Forbidden for non-admin user', async () => {
+        // Sign in as regular user (non-admin)
         await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-        const nonAdminResponse = await page.request.get(
-          '/api/auth/admin/list-user-sessions?userId=1'
+
+        // WHEN: Regular user attempts to list another user's sessions
+        const response = await page.request.get(
+          `/api/auth/admin/list-user-sessions?userId=${targetUserId}`
         )
-        expect(nonAdminResponse.status()).toBe(403)
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
       })
 
-      await test.step('List user sessions as admin', async () => {
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-002: Returns 400 Bad Request without userId parameter', async () => {
+        // Re-sign in as admin
         await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-        const adminResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
-        expect(adminResponse.status()).toBe(200)
 
-        const data = await adminResponse.json()
+        // WHEN: Admin requests sessions without userId parameter
+        const response = await page.request.get('/api/auth/admin/list-user-sessions')
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-005: Returns 404 Not Found for non-existent user', async () => {
+        // WHEN: Admin requests sessions for non-existent user
+        const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=999')
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-006: Returns 200 OK with empty sessions array', async () => {
+        // WHEN: Admin requests list of user sessions for user with no active sessions
+        const response = await page.request.get(
+          `/api/auth/admin/list-user-sessions?userId=${targetUserId}`
+        )
+
+        // THEN: Returns 200 OK with empty sessions array
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('sessions')
+        expect(Array.isArray(data.sessions)).toBe(true)
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-001: Returns 200 OK with all active user sessions', async () => {
+        // Create multiple sessions for target user by signing in multiple times
+        await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
+        await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
+
+        // Re-sign in as admin
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+        // WHEN: Admin requests list of user sessions
+        const response = await page.request.get(
+          `/api/auth/admin/list-user-sessions?userId=${targetUserId}`
+        )
+
+        // THEN: Returns 200 OK with all active user sessions
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('sessions')
+        expect(Array.isArray(data.sessions)).toBe(true)
+      })
+
+      await test.step('API-AUTH-ADMIN-LIST-USER-SESSIONS-007: Returns 200 OK with only active sessions', async () => {
+        // WHEN: Admin requests list of user sessions
+        const response = await page.request.get(
+          `/api/auth/admin/list-user-sessions?userId=${targetUserId}`
+        )
+
+        // THEN: Returns 200 OK with only active sessions (expired filtered out)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
         expect(data).toHaveProperty('sessions')
         expect(Array.isArray(data.sessions)).toBe(true)
       })

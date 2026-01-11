@@ -284,70 +284,234 @@ test.describe('Remove Field Migration', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 4 @spec tests - covers: basic removal, middle column, indexed column, FK column
   // ============================================================================
 
   test(
-    'MIGRATION-ALTER-REMOVE-REGRESSION: user can complete full remove-field-migration workflow',
+    'MIGRATION-ALTER-REMOVE-REGRESSION: user can complete full remove-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create table with indexed field and data', async () => {
+      await test.step('MIGRATION-ALTER-REMOVE-001: removes phone column and preserves other columns', async () => {
+        // GIVEN: table 'contacts' with email and phone fields
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'contacts',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'description', type: 'single-line-text' },
-                { id: 4, name: 'status', type: 'single-line-text', indexed: true },
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'phone', type: 'phone-number' },
               ],
             },
           ],
         })
         await executeQuery([
-          `INSERT INTO data (id, title, description, status) VALUES (1, 'Record 1', 'Desc 1', 'active')`,
+          `INSERT INTO contacts (id, email, phone) VALUES (1, 'user@example.com', '+1-555-0100')`,
         ])
-      })
 
-      await test.step('Remove indexed field from table', async () => {
+        // WHEN: phone field is removed from schema
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'contacts',
+              allowDestructive: true,
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'description', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email' },
               ],
-              allowDestructive: true, // Allow column drop
             },
           ],
         })
-      })
 
-      await test.step('Verify field and index removed, data preserved', async () => {
-        // Verify column removed
+        // THEN: phone column removed, email preserved
         const columnCheck = await executeQuery(
-          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='status'`
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='contacts' AND column_name='phone'`
         )
         expect(columnCheck.count).toBe('0')
 
-        // Verify index removed
+        const dataCheck = await executeQuery(
+          `SELECT email FROM contacts WHERE email = 'user@example.com'`
+        )
+        expect(dataCheck.email).toBe('user@example.com')
+      })
+
+      await test.step('MIGRATION-ALTER-REMOVE-002: drops column from middle and preserves remaining fields', async () => {
+        // GIVEN: table 'products' with multiple fields
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'description', type: 'long-text' },
+                { id: 4, name: 'price', type: 'decimal' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO products (id, title, description, price) VALUES (1, 'Product A', 'Description A', 99.99)`,
+        ])
+
+        // WHEN: middle field (description) is removed
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              allowDestructive: true,
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 4, name: 'price', type: 'decimal' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: description column removed, other columns preserved
+        const columnCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='products' AND column_name='description'`
+        )
+        expect(columnCheck.count).toBe('0')
+
+        const dataCheck = await executeQuery(`SELECT title, price FROM products WHERE id = 1`)
+        expect(dataCheck.title).toBe('Product A')
+        expect(parseFloat(dataCheck.price)).toBe(99.99)
+      })
+
+      await test.step('MIGRATION-ALTER-REMOVE-003: automatically drops associated index when column removed', async () => {
+        // GIVEN: table 'tasks' with indexed field
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text', indexed: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO tasks (id, title, status) VALUES (1, 'Task 1', 'open')`])
+
+        // WHEN: indexed field is removed
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              allowDestructive: true,
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: column and index removed
+        const columnCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='tasks' AND column_name='status'`
+        )
+        expect(columnCheck.count).toBe('0')
+
         const indexCheck = await executeQuery(
-          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname='idx_data_status'`
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='tasks' AND indexname='idx_tasks_status'`
         )
         expect(indexCheck.count).toBe('0')
+      })
 
-        // Existing data preserved
-        const dataCheck = await executeQuery(
-          `SELECT COUNT(*) as count FROM data WHERE title = 'Record 1'`
+      await test.step('MIGRATION-ALTER-REMOVE-004: removes column and cascades foreign key constraint', async () => {
+        // GIVEN: table 'orders' with foreign key field to 'customers'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 5,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'customer_id',
+                  type: 'relationship',
+                  relatedTable: 'customers',
+                  relationType: 'many-to-one',
+                },
+                { id: 3, name: 'total', type: 'decimal' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO customers (id, name) VALUES (1, 'Customer A')`,
+          `INSERT INTO orders (id, customer_id, total) VALUES (1, 1, 150.00)`,
+        ])
+
+        // WHEN: foreign key column is removed
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 5,
+              name: 'orders',
+              allowDestructive: true,
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 3, name: 'total', type: 'decimal' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+
+        // THEN: FK column and constraint removed, data preserved
+        const columnCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='orders' AND column_name='customer_id'`
         )
-        expect(dataCheck.count).toBe('1')
+        expect(columnCheck.count).toBe('0')
+
+        const fkCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='FOREIGN KEY'`
+        )
+        expect(fkCheck.count).toBe('0')
+
+        const dataCheck = await executeQuery(`SELECT total FROM orders WHERE id = 1`)
+        expect(parseFloat(dataCheck.total)).toBe(150)
       })
     }
   )

@@ -251,7 +251,9 @@ test.describe('Verify Two-Factor Authentication Code', () => {
     'API-AUTH-TWO-FACTOR-VERIFY-REGRESSION: user can complete full 2FA verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with two-factor plugin', async () => {
+      let backupCodes: string[]
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -262,56 +264,62 @@ test.describe('Verify Two-Factor Authentication Code', () => {
             },
           },
         })
-      })
 
-      let backupCodes: string[]
-
-      await test.step('Setup: Sign up and authenticate user', async () => {
         await signUp({
           name: 'Test User',
           email: 'test@example.com',
           password: 'ValidPassword123!',
         })
-      })
 
-      await test.step('Enable 2FA and get backup codes', async () => {
+        // Enable 2FA and get backup codes
         const enableResponse = await page.request.post('/api/auth/two-factor/enable')
-
         expect(enableResponse.status()).toBe(200)
         const { secret: _secret, backupCodes: codes } = await enableResponse.json()
         backupCodes = codes
       })
 
-      await test.step('Verify invalid code fails', async () => {
-        const invalidResponse = await page.request.post('/api/auth/two-factor/verify', {
+      await test.step('API-AUTH-TWO-FACTOR-VERIFY-002: Rejects invalid TOTP code', async () => {
+        // WHEN: User submits invalid TOTP code
+        const response = await page.request.post('/api/auth/two-factor/verify', {
           data: {
             code: '000000',
           },
         })
 
-        expect([400, 401]).toContain(invalidResponse.status())
+        // THEN: Returns 400 Bad Request or 401 Unauthorized
+        expect([400, 401]).toContain(response.status())
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Verify backup code succeeds', async () => {
-        const backupResponse = await page.request.post('/api/auth/two-factor/verify', {
+      await test.step('API-AUTH-TWO-FACTOR-VERIFY-003: Accepts backup code when enabled', async () => {
+        // WHEN: User submits backup code instead of TOTP
+        const response = await page.request.post('/api/auth/two-factor/verify', {
           data: {
             code: backupCodes[0],
           },
         })
 
-        expect(backupResponse.status()).toBe(200)
-        const backupData = await backupResponse.json()
-        expect(backupData.verified).toBe(true)
+        // THEN: Returns 200 OK accepting backup code
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('verified')
+        expect(data.verified).toBe(true)
       })
 
-      await test.step('Verify 2FA verification fails without auth', async () => {
-        const unauthResponse = await page.request.post('/api/auth/two-factor/verify', {
-          data: {
-            code: '123456',
-          },
+      await test.step('API-AUTH-TWO-FACTOR-VERIFY-005: Returns 400 when code is missing', async () => {
+        // WHEN: User submits verification request without code
+        const response = await page.request.post('/api/auth/two-factor/verify', {
+          data: {},
         })
 
-        expect(unauthResponse.status()).toBe(401)
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

@@ -316,28 +316,137 @@ test.describe('Get single comment by ID', () => {
         await createAuthenticatedUser()
       })
 
-      await test.step('Setup: Insert test record, user, and comment', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-001: Returns 200 with complete comment data', async () => {
+        // GIVEN: Table with record that has a comment
         await executeQuery(`
-          INSERT INTO tasks (id, title) VALUES (1, 'Test Task')
-        `)
+            INSERT INTO tasks (id, title) VALUES (1, 'Task One')
+          `)
         await executeQuery(`
-          INSERT INTO users (id, name, email) VALUES ('user_1', 'Test User', 'test@example.com')
-        `)
+            INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
+          `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
-          VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Test comment')
-        `)
-      })
+            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+            VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'This is a test comment', NOW(), NOW())
+          `)
 
-      await test.step('Fetch comment by ID', async () => {
+        // WHEN: User requests comment by ID
         const response = await request.get('/api/tables/1/records/1/comments/comment_1', {})
 
+        // THEN: Returns 200 with complete comment data including user metadata
         expect(response.status()).toBe(200)
 
         const data = await response.json()
         expect(data.comment.id).toBe('comment_1')
-        expect(data.comment.content).toBe('Test comment')
-        expect(data.comment.user.name).toBe('Test User')
+        expect(data.comment.content).toBe('This is a test comment')
+        expect(data.comment.userId).toBe('user_1')
+        expect(data.comment.recordId).toBe('1')
+        expect(data.comment.tableId).toBe('1')
+        expect(data.comment.organizationId).toBe('org_123')
+        expect(data.comment).toHaveProperty('createdAt')
+        expect(data.comment).toHaveProperty('updatedAt')
+        expect(data.comment.user).toMatchObject({
+          id: 'user_1',
+          name: 'Alice',
+          email: 'alice@example.com',
+        })
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-002: Returns 404 for non-existent comment', async () => {
+        // WHEN: User requests non-existent comment
+        const response = await request.get('/api/tables/1/records/1/comments/nonexistent', {})
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Comment not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-003: Returns 401 for unauthenticated request', async () => {
+        // GIVEN: Record with comment in authenticated app
+        await executeQuery(`
+            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            VALUES ('comment_2', '1', '1', 'org_123', 'user_1', 'Private comment')
+          `)
+
+        // WHEN: Unauthenticated user attempts to fetch comment
+        const response = await request.get('/api/tables/1/records/1/comments/comment_2')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-004: Returns 404 for cross-organization access', async () => {
+        // GIVEN: User from different organization
+        await executeQuery(`
+            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            VALUES ('comment_3', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
+          `)
+
+        // WHEN: User from org_123 attempts to fetch comment from org_456
+        const response = await request.get('/api/tables/1/records/1/comments/comment_3', {
+          headers: {},
+        })
+
+        // THEN: Returns 404 Not Found (don't leak existence across orgs)
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Comment not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-005: Returns 404 for soft-deleted comment', async () => {
+        // GIVEN: Record with soft-deleted comment
+        await executeQuery(`
+            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+            VALUES ('comment_4', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
+          `)
+
+        // WHEN: User attempts to fetch soft-deleted comment
+        const response = await request.get('/api/tables/1/records/1/comments/comment_4', {})
+
+        // THEN: Returns 404 Not Found (soft-deleted comments are hidden)
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Comment not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-006: Returns 403 for unauthorized access', async () => {
+        // GIVEN: User without read permission for the record
+        await executeQuery(`
+            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            VALUES ('comment_5', '1', '1', 'org_123', 'user_1', 'Confidential comment')
+          `)
+
+        // WHEN: User without permission attempts to fetch comment
+        const response = await request.get('/api/tables/1/records/1/comments/comment_5', {})
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-007: Shows updated timestamp for edited comments', async () => {
+        // GIVEN: Record with an edited comment (updatedAt > createdAt)
+        await executeQuery(`
+            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+            VALUES ('comment_6', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
+          `)
+
+        // WHEN: User fetches the edited comment
+        const response = await request.get('/api/tables/1/records/1/comments/comment_6', {})
+
+        // THEN: updatedAt is more recent than createdAt
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.comment.content).toBe('Edited comment')
+        expect(new Date(data.comment.updatedAt).getTime()).toBeGreaterThan(
+          new Date(data.comment.createdAt).getTime()
+        )
       })
     }
   )

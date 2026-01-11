@@ -219,26 +219,25 @@ test.describe('Verify Magic Link', () => {
     'API-AUTH-MAGIC-LINK-VERIFY-REGRESSION: user can complete full magic link verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      await test.step('Setup: Start server with magic link auth', async () => {
+      let existingToken: string
+      let newToken: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             magicLink: true,
           },
         })
-      })
 
-      await test.step('Setup: Sign up existing user', async () => {
+        // Sign up existing user for first test
         await signUp({
           name: 'Existing User',
           email: 'existing@example.com',
           password: 'ValidPassword123!',
         })
-      })
 
-      let existingToken: string
-
-      await test.step('Send magic link to existing user', async () => {
+        // Send magic link to existing user
         await page.request.post('/api/auth/magic-link/send', {
           data: {
             email: 'existing@example.com',
@@ -249,22 +248,9 @@ test.describe('Verify Magic Link', () => {
         const existingEmail = await mailpit.getLatestEmail('existing@example.com')
         const existingTokenMatch = existingEmail.html.match(/token=([^"&\s]+)/)
         existingToken = existingTokenMatch?.[1] as string
-
         expect(existingToken).toBeDefined()
-      })
 
-      await test.step('Verify existing user authenticates with magic link', async () => {
-        const existingUserResponse = await page.request.get(
-          `/api/auth/magic-link/verify?token=${existingToken}`
-        )
-
-        expect(existingUserResponse.status()).toBe(200)
-        const existingData = await existingUserResponse.json()
-        expect(existingData.user.email).toBe('existing@example.com')
-        expect(existingData).toHaveProperty('token')
-      })
-
-      await test.step('Send magic link to new user and verify account creation', async () => {
+        // Send magic link to new user for second test
         await page.request.post('/api/auth/magic-link/send', {
           data: {
             email: 'newuser@example.com',
@@ -274,23 +260,60 @@ test.describe('Verify Magic Link', () => {
 
         const newEmail = await mailpit.getLatestEmail('newuser@example.com')
         const newTokenMatch = newEmail.html.match(/token=([^"&\s]+)/)
-        const newToken = newTokenMatch?.[1]
-
-        const newUserResponse = await page.request.get(
-          `/api/auth/magic-link/verify?token=${newToken}`
-        )
-
-        expect(newUserResponse.status()).toBe(200)
-        const newData = await newUserResponse.json()
-        expect(newData.user.email).toBe('newuser@example.com')
+        newToken = newTokenMatch?.[1] as string
+        expect(newToken).toBeDefined()
       })
 
-      await test.step('Verify invalid token fails', async () => {
-        const invalidResponse = await page.request.get(
-          '/api/auth/magic-link/verify?token=invalid-token'
+      await test.step('API-AUTH-MAGIC-LINK-VERIFY-001: Authenticates user with valid magic link token', async () => {
+        // WHEN: User clicks magic link (GET request with token)
+        const response = await page.request.get(
+          `/api/auth/magic-link/verify?token=${existingToken}`
         )
 
-        expect([400, 401]).toContain(invalidResponse.status())
+        // THEN: Returns 200 OK with session token and user data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user.email).toBe('existing@example.com')
+        expect(data).toHaveProperty('token')
+      })
+
+      await test.step('API-AUTH-MAGIC-LINK-VERIFY-002: Creates account for new user with valid token', async () => {
+        // WHEN: New user clicks magic link
+        const response = await page.request.get(`/api/auth/magic-link/verify?token=${newToken}`)
+
+        // THEN: Returns 200 OK creating new account and signing in
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user.email).toBe('newuser@example.com')
+        expect(data).toHaveProperty('token')
+      })
+
+      await test.step('API-AUTH-MAGIC-LINK-VERIFY-003: Returns 400 with invalid token', async () => {
+        // WHEN: User attempts to verify with invalid token
+        const response = await page.request.get(
+          '/api/auth/magic-link/verify?token=invalid-token-12345'
+        )
+
+        // THEN: Returns 400 Bad Request or 401 Unauthorized
+        expect([400, 401]).toContain(response.status())
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-MAGIC-LINK-VERIFY-005: Returns 400 when token is missing', async () => {
+        // WHEN: User attempts to verify without token parameter
+        const response = await page.request.get('/api/auth/magic-link/verify')
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
     }
   )

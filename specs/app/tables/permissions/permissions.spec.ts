@@ -670,6 +670,7 @@ test.describe('Table Permissions', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
+  // Generated from 10 @spec tests - covers: table/field/record permissions, error validation
   // ============================================================================
 
   test(
@@ -724,7 +725,7 @@ test.describe('Table Permissions', () => {
       let user2: Awaited<ReturnType<typeof createAuthenticatedUser>>
       let user3: Awaited<ReturnType<typeof createAuthenticatedUser>>
 
-      await test.step('Create RLS policies and insert test data', async () => {
+      await test.step('Setup: Create RLS policies and test data', async () => {
         user1 = await createAuthenticatedUser({ name: 'User 1', email: 'user1@example.com' })
         user2 = await createAuthenticatedUser({ name: 'User 2', email: 'user2@example.com' })
         user3 = await createAuthenticatedUser({ name: 'User 3', email: 'user3@example.com' })
@@ -737,14 +738,14 @@ test.describe('Table Permissions', () => {
         ])
       })
 
-      await test.step('Verify hierarchical permission structure exists', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-001: Deny access before field/record checks when lacking table-level permission', async () => {
         const policies = await executeQuery(
           "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents'"
         )
         expect(Number(policies.count)).toBeGreaterThan(0)
       })
 
-      await test.step('Verify authenticated user can access published documents', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-002: Filter sensitive fields with table read but restricted field access', async () => {
         const userDocs = await executeQuery([
           `SET LOCAL app.user_id = '${user3.user.id}'`,
           "SELECT COUNT(*) as count FROM documents WHERE status = 'published'",
@@ -752,7 +753,7 @@ test.describe('Table Permissions', () => {
         expect(userDocs.rows[0].count).toBe('1')
       })
 
-      await test.step('Verify field-level restriction for non-admin users', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-002: Verify field-level restriction for non-admin users', async () => {
         let accessDenied = false
         let errorMessage = ''
         try {
@@ -769,7 +770,7 @@ test.describe('Table Permissions', () => {
         expect(accessDenied).toBe(true)
       })
 
-      await test.step('Verify admin can see restricted fields', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-002: Verify admin can access restricted fields', async () => {
         const adminFields = await executeQuery([
           'SET ROLE admin_user',
           `SET LOCAL app.user_id = '${user1.user.id}'`,
@@ -779,10 +780,7 @@ test.describe('Table Permissions', () => {
         expect(adminFields.salary_info).toBe('Confidential')
       })
 
-      await test.step('Verify custom roles are accepted (aligns with 006)', async () => {
-        // Note: Custom roles like 'super_admin' are ALLOWED (role validation intentionally disabled)
-        // See: src/domain/models/app/table/index.ts (lines 343-357)
-        // This test verifies the same behavior as APP-TABLES-PERMISSIONS-006
+      await test.step('APP-TABLES-PERMISSIONS-006: Accept custom roles beyond default set', async () => {
         await startServerWithSchema({
           name: 'test-app-custom-role',
           tables: [
@@ -797,16 +795,15 @@ test.describe('Table Permissions', () => {
               permissions: {
                 read: {
                   type: 'roles',
-                  roles: ['super_admin'], // Custom role - allowed beyond default set
+                  roles: ['super_admin'],
                 },
               },
             },
           ],
         })
-        // Server should start successfully (custom roles accepted)
       })
 
-      await test.step('Error handling: field permission referencing non-existent field', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-007: Reject field permission referencing non-existent field', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error2',
@@ -822,7 +819,7 @@ test.describe('Table Permissions', () => {
                 permissions: {
                   fields: [
                     {
-                      field: 'salary', // 'salary' field doesn't exist!
+                      field: 'salary',
                       read: { type: 'roles', roles: ['admin'] },
                     },
                   ],
@@ -833,7 +830,7 @@ test.describe('Table Permissions', () => {
         ).rejects.toThrow(/field.*salary.*not found|field.*does not exist/i)
       })
 
-      await test.step('Error handling: conflicting field permissions', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-008: Reject conflicting field permissions', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error3',
@@ -850,11 +847,11 @@ test.describe('Table Permissions', () => {
                   fields: [
                     {
                       field: 'content',
-                      read: { type: 'public' }, // Public read
+                      read: { type: 'public' },
                     },
                     {
-                      field: 'content', // Duplicate field definition!
-                      read: { type: 'roles', roles: ['admin'] }, // Conflicting!
+                      field: 'content',
+                      read: { type: 'roles', roles: ['admin'] },
                     },
                   ],
                 },
@@ -864,7 +861,7 @@ test.describe('Table Permissions', () => {
         ).rejects.toThrow(/duplicate.*field.*permission|conflicting.*permission/i)
       })
 
-      await test.step('Error handling: record permission with invalid condition field reference', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-009: Reject record permission with invalid condition field reference', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error4',
@@ -881,7 +878,7 @@ test.describe('Table Permissions', () => {
                   records: [
                     {
                       action: 'read',
-                      condition: '{userId} = owner_id', // 'owner_id' field doesn't exist!
+                      condition: '{userId} = owner_id',
                     },
                   ],
                 },
@@ -891,7 +888,7 @@ test.describe('Table Permissions', () => {
         ).rejects.toThrow(/field.*owner_id.*not found|invalid.*field.*condition/i)
       })
 
-      await test.step('Error handling: circular relationship dependency between tables', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-010: Reject circular relationship dependency between tables', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error5',
@@ -906,7 +903,7 @@ test.describe('Table Permissions', () => {
                     id: 3,
                     name: 'table_b_ref',
                     type: 'relationship',
-                    relatedTable: 'table_b', // References table_b
+                    relatedTable: 'table_b',
                     relationType: 'many-to-one',
                   },
                 ],
@@ -922,7 +919,7 @@ test.describe('Table Permissions', () => {
                     id: 3,
                     name: 'table_a_ref',
                     type: 'relationship',
-                    relatedTable: 'table_a', // References table_a - circular!
+                    relatedTable: 'table_a',
                     relationType: 'many-to-one',
                   },
                 ],

@@ -516,7 +516,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         ],
       })
 
-      await test.step('API-SECURITY-XSS-001: Safely store and return script tag content', async () => {
+      await test.step('API-SECURITY-XSS-001: Stores and returns script tag content safely', async () => {
         // Create user for this step
         await signUp({
           email: 'user001@example.com',
@@ -547,7 +547,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-XSS-002: Safely store and return event handler injections', async () => {
+      await test.step('API-SECURITY-XSS-002: Stores and returns event handler injections safely', async () => {
         // WHEN: Storing content with event handlers
         const eventHandlerPayloads = ['<img src=x onerror="alert(\'XSS\')">']
 
@@ -567,7 +567,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-XSS-003: Reject or sanitize javascript: URLs', async () => {
+      await test.step('API-SECURITY-XSS-003: Rejects or sanitizes javascript: URLs', async () => {
         // WHEN: Attempting to store javascript: URLs
         const jsUrlPayloads = ['javascript:alert("XSS")']
 
@@ -589,7 +589,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-XSS-004: Return Content-Type application/json for API responses', async () => {
+      await test.step('API-SECURITY-XSS-004: Returns Content-Type application/json for API responses', async () => {
         // Create test data with HTML content
         await request.post('/api/tables/4/records', {
           data: { data: '<script>alert("XSS")</script>' },
@@ -609,7 +609,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-XSS-005: Not reflect query parameters in error responses', async () => {
+      await test.step('API-SECURITY-XSS-005: Does not reflect query parameters in error responses', async () => {
         // WHEN: Sending requests with XSS payloads in query parameters
         const xssQueries = [
           '/api/nonexistent?param=<script>alert("XSS")</script>',
@@ -633,7 +633,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-XSS-006: Handle nested XSS payloads in JSON', async () => {
+      await test.step('API-SECURITY-XSS-006: Handles nested XSS payloads in JSON', async () => {
         // WHEN: Storing nested XSS payloads in JSON fields
         const nestedPayload = {
           user: {
@@ -664,7 +664,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         expect(retrieved.metadata).toBeDefined()
       })
 
-      await test.step('API-SECURITY-XSS-007: Prevent XSS in user profile name field during sign-up', async () => {
+      await test.step('API-SECURITY-XSS-007: Prevents XSS in user profile name field during sign-up', async () => {
         // WHEN: Attempting to register with XSS payloads in name field
         const xssNamePayloads = [
           '<script>alert("XSS")</script>',
@@ -704,7 +704,7 @@ test.describe('XSS Protection - Cross-Site Scripting Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-XSS-008: Prevent XSS in update-user endpoint', async () => {
+      await test.step('API-SECURITY-XSS-008: Prevents XSS in update-user endpoint', async () => {
         // Sign in as a known user for update test
         await signIn({ email: 'user001@example.com', password: 'TestPassword123!' })
 

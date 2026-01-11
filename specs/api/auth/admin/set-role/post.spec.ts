@@ -323,8 +323,11 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-REGRESSION: admin can complete full set-role workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with admin plugin', async () => {
+    async ({ page, startServerWithSchema, signUp, signIn, executeQuery }) => {
+      let adminUserId: string
+      let targetUserId: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -334,38 +337,159 @@ test.describe('Admin: Set user role', () => {
         })
       })
 
-      await test.step('Verify set role fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/admin/set-role', {
-          data: { userId: '2', role: 'member' },
+      await test.step('API-AUTH-ADMIN-SET-ROLE-004: Returns 401 Unauthorized without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to set role
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: '2',
+            role: 'member',
+          },
         })
-        expect(noAuthResponse.status()).toBe(401)
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create admin and regular user', async () => {
-        await signUp({
+      await test.step('Setup: Create admin and target users', async () => {
+        // Create admin user
+        const admin = await signUp({
           email: 'admin@example.com',
           password: 'AdminPass123!',
           name: 'Admin User',
         })
-        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+        adminUserId = admin.user.id
+
+        // Promote first user to admin via database (bootstrap the first admin)
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'admin'
+          WHERE id = '${adminUserId}'
+        `)
+
+        // Create target user
+        const target = await signUp({
+          email: 'target@example.com',
+          password: 'TargetPass123!',
+          name: 'Target User',
+        })
+        targetUserId = target.user.id
+
+        // Create regular user for non-admin test
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Regular User',
+        })
       })
 
-      await test.step('Verify set role fails for non-admin', async () => {
+      await test.step('API-AUTH-ADMIN-SET-ROLE-005: Returns 403 Forbidden for non-admin user', async () => {
+        // Sign in as regular user
         await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-        const nonAdminResponse = await page.request.post('/api/auth/admin/set-role', {
-          data: { userId: '1', role: 'member' },
+
+        // WHEN: Regular user attempts to set another user's role
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: targetUserId,
+            role: 'admin',
+          },
         })
-        expect(nonAdminResponse.status()).toBe(403)
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
       })
 
-      await test.step('Set user role as admin', async () => {
+      await test.step('API-AUTH-ADMIN-SET-ROLE-002: Returns 400 Bad Request without required fields', async () => {
+        // Re-sign in as admin
         await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-        const adminResponse = await page.request.post('/api/auth/admin/set-role', {
-          data: { userId: '2', role: 'admin' },
-        })
-        expect(adminResponse.status()).toBe(200)
 
-        const data = await adminResponse.json()
+        // WHEN: Admin submits request without required fields
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request with validation errors
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-ROLE-003: Returns 400 Bad Request with invalid role value', async () => {
+        // WHEN: Admin submits request with invalid role value
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: targetUserId,
+            role: 'superadmin', // Invalid role
+          },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-ROLE-006: Returns 404 Not Found for non-existent user', async () => {
+        // WHEN: Admin attempts to set role for non-existent user
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: '999',
+            role: 'member',
+          },
+        })
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-ROLE-001: Returns 200 OK with updated user data', async () => {
+        // WHEN: Admin updates user role to member
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: targetUserId,
+            role: 'member',
+          },
+        })
+
+        // THEN: Returns 200 OK with updated user data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('role', 'member')
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-ROLE-007: Returns 200 OK and user gains admin privileges', async () => {
+        // WHEN: Admin promotes member to admin role
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: targetUserId,
+            role: 'admin',
+          },
+        })
+
+        // THEN: Returns 200 OK and user gains admin privileges
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('role', 'admin')
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-ROLE-008: Returns 200 OK when setting same role (idempotent)', async () => {
+        // WHEN: Admin sets user role to their current role (no change)
+        const response = await page.request.post('/api/auth/admin/set-role', {
+          data: {
+            userId: targetUserId,
+            role: 'admin',
+          },
+        })
+
+        // THEN: Returns 200 OK (idempotent operation)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
         expect(data).toHaveProperty('user')
         expect(data.user).toHaveProperty('role', 'admin')
       })

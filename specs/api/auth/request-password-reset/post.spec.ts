@@ -337,17 +337,25 @@ test.describe('Request password reset', () => {
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let userEmail: string
       let nonExistentEmail: string
+      let upperEmail: string
 
-      await test.step('Setup: Create server and test user', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
+            emailTemplates: {
+              resetPassword: {
+                subject: 'Reset your TestApp password',
+                text: 'Hi $name, click here to reset your password: $url',
+              },
+            },
           },
         })
 
         userEmail = mailpit.email('workflow')
         nonExistentEmail = mailpit.email('nonexistent')
+        upperEmail = userEmail.toUpperCase()
 
         await signUp({
           email: userEmail,
@@ -356,33 +364,74 @@ test.describe('Request password reset', () => {
         })
       })
 
-      await test.step('Verify request fails with invalid email format', async () => {
-        const invalidResponse = await page.request.post('/api/auth/request-password-reset', {
-          data: { email: 'not-an-email' },
-        })
-        expect(invalidResponse.status()).toBe(400)
-      })
-
-      await test.step('Request password reset for registered email', async () => {
-        const successResponse = await page.request.post('/api/auth/request-password-reset', {
+      await test.step('API-AUTH-REQUEST-PASSWORD-RESET-001: Returns 200 OK and sends reset email with custom template', async () => {
+        // WHEN: User requests password reset with registered email
+        const response = await page.request.post('/api/auth/request-password-reset', {
           data: { email: userEmail },
         })
-        expect(successResponse.status()).toBe(200)
+
+        // THEN: Returns 200 OK and sends reset email with custom template
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
 
         const email = await mailpit.waitForEmail(
-          (e) =>
-            e.To[0]?.Address === userEmail &&
-            (e.Subject.toLowerCase().includes('password') ||
-              e.Subject.toLowerCase().includes('reset'))
+          (e) => e.To[0]?.Address === userEmail && e.Subject.includes('TestApp')
         )
-        expect(email).toBeDefined()
+        expect(email.Subject).toBe('Reset your TestApp password')
       })
 
-      await test.step('Verify non-existent email succeeds (prevent enumeration)', async () => {
-        const nonExistentResponse = await page.request.post('/api/auth/request-password-reset', {
+      await test.step('API-AUTH-REQUEST-PASSWORD-RESET-002: Returns 200 OK for non-existent email', async () => {
+        // WHEN: User requests password reset with non-existent email
+        const response = await page.request.post('/api/auth/request-password-reset', {
           data: { email: nonExistentEmail },
         })
-        expect(nonExistentResponse.status()).toBe(200)
+
+        // THEN: Returns 200 OK (same response to prevent email enumeration)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
+      })
+
+      await test.step('API-AUTH-REQUEST-PASSWORD-RESET-003: Returns 400 Bad Request without email', async () => {
+        // WHEN: User submits request without email field
+        const response = await page.request.post('/api/auth/request-password-reset', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-REQUEST-PASSWORD-RESET-004: Returns 400 Bad Request with invalid email format', async () => {
+        // WHEN: User submits request with invalid email format
+        const response = await page.request.post('/api/auth/request-password-reset', {
+          data: { email: 'not-an-email' },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-REQUEST-PASSWORD-RESET-005: Returns 200 OK with case-insensitive email', async () => {
+        // WHEN: User requests password reset with uppercase email variation
+        const response = await page.request.post('/api/auth/request-password-reset', {
+          data: { email: upperEmail },
+        })
+
+        // THEN: Returns 200 OK (case-insensitive matching)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
       })
     }
   )

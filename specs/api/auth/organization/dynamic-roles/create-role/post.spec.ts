@@ -325,74 +325,178 @@ test.describe('Create Custom Role', () => {
   test.fixme(
     'API-AUTH-ORG-DYNAMIC-ROLE-CREATE-REGRESSION: owner can create multiple custom roles with different permissions',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createOrganization, page }) => {
-      // GIVEN: Authenticated organization owner
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: {
-            dynamicRoles: true,
-          },
-        },
-      })
+    async ({
+      startServerWithSchema,
+      signUp,
+      createOrganization,
+      inviteMember,
+      acceptInvitation,
+      page,
+    }) => {
+      let organization: { id: string }
 
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-
-      const { organization } = await createOrganization({
-        name: 'Test Company',
-        slug: 'test-company',
-      })
-
-      // WHEN: Owner creates multiple custom roles
-      const roles = [
-        {
-          name: 'Content Editor',
-          permission: ['posts:create', 'posts:read', 'posts:update', 'posts:delete'],
-        },
-        {
-          name: 'Analyst',
-          permission: ['analytics:read', 'reports:read'],
-        },
-        {
-          name: 'Project Manager',
-          permission: ['project:read', 'project:write', 'team:read'],
-        },
-      ]
-
-      const responses = await Promise.all(
-        roles.map((role) =>
-          page.request.post('/api/auth/organization/create-role', {
-            data: {
-              organizationId: organization.id,
-              ...role,
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: {
+              dynamicRoles: true,
             },
-          })
-        )
-      )
-
-      // THEN: All roles created successfully
-      responses.forEach((response) => {
-        expect(response.status()).toBe(201)
+          },
+        })
       })
 
-      const createdRoles = await Promise.all(responses.map((r) => r.json()))
+      await test.step('API-AUTH-ORG-DYNAMIC-ROLE-CREATE-006: Returns 401 Unauthorized when not authenticated', async () => {
+        // WHEN: Unauthenticated user tries to create role
+        const response = await page.request.post('/api/auth/organization/create-role', {
+          data: {
+            organizationId: 'org-123',
+            name: 'Some Role',
+            permission: ['some:permission'],
+          },
+        })
 
-      expect(createdRoles).toHaveLength(3)
-      expect(createdRoles.find((r) => r.name === 'Content Editor').permission).toEqual([
-        'posts:create',
-        'posts:read',
-        'posts:update',
-        'posts:delete',
-      ])
-      expect(createdRoles.find((r) => r.name === 'Analyst').permission).toEqual([
-        'analytics:read',
-        'reports:read',
-      ])
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('Unauthorized')
+      })
+
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const result = await createOrganization({
+          name: 'Test Company',
+          slug: 'test-company',
+        })
+        organization = result.organization
+      })
+
+      await test.step('API-AUTH-ORG-DYNAMIC-ROLE-CREATE-004: Returns 400 Bad Request when name missing', async () => {
+        // WHEN: Owner tries to create role without name
+        const response = await page.request.post('/api/auth/organization/create-role', {
+          data: {
+            organizationId: organization.id,
+            permission: ['some:permission'],
+          },
+        })
+
+        // THEN: Returns 400 Bad Request (name is required)
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('name')
+      })
+
+      await test.step('API-AUTH-ORG-DYNAMIC-ROLE-CREATE-001: Returns 201 Created with custom role data', async () => {
+        // WHEN: Owner creates a custom role with permissions
+        const response = await page.request.post('/api/auth/organization/create-role', {
+          data: {
+            organizationId: organization.id,
+            name: 'Project Manager',
+            description: 'Can manage projects and view analytics',
+            permission: ['project:read', 'project:write', 'analytics:read'],
+          },
+        })
+
+        // THEN: Returns 201 Created with role data
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name', 'Project Manager')
+        expect(data).toHaveProperty('description', 'Can manage projects and view analytics')
+        expect(data).toHaveProperty('permission')
+        expect(data.permission).toEqual(['project:read', 'project:write', 'analytics:read'])
+        expect(data).toHaveProperty('organizationId', organization.id)
+        expect(data).toHaveProperty('createdAt')
+      })
+
+      await test.step('API-AUTH-ORG-DYNAMIC-ROLE-CREATE-002: Returns 201 Created with resource:action permissions', async () => {
+        // WHEN: Owner creates role with resource:action format permissions
+        const response = await page.request.post('/api/auth/organization/create-role', {
+          data: {
+            organizationId: organization.id,
+            name: 'Content Editor',
+            permission: [
+              'posts:create',
+              'posts:read',
+              'posts:update',
+              'posts:delete',
+              'media:upload',
+              'media:read',
+            ],
+          },
+        })
+
+        // THEN: Returns 201 Created with properly formatted permissions
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data.permission).toHaveLength(6)
+        expect(data.permission).toContain('posts:create')
+        expect(data.permission).toContain('media:upload')
+      })
+
+      await test.step('API-AUTH-ORG-DYNAMIC-ROLE-CREATE-005: Returns 409 Conflict when name exists', async () => {
+        // WHEN: Owner tries to create another role with same name
+        const response = await page.request.post('/api/auth/organization/create-role', {
+          data: {
+            organizationId: organization.id,
+            name: 'Project Manager',
+            permission: ['project:write'],
+          },
+        })
+
+        // THEN: Returns 409 Conflict (role names must be unique within organization)
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('already exists')
+      })
+
+      await test.step('Setup: Create member user for permission test', async () => {
+        const { invitation } = await inviteMember({
+          organizationId: organization.id,
+          email: 'member@example.com',
+          role: 'member',
+        })
+
+        await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        await acceptInvitation(invitation.id)
+      })
+
+      await test.step('API-AUTH-ORG-DYNAMIC-ROLE-CREATE-003: Returns 403 Forbidden when non-owner creates role', async () => {
+        // WHEN: Member tries to create a custom role
+        const response = await page.request.post('/api/auth/organization/create-role', {
+          data: {
+            organizationId: organization.id,
+            name: 'Unauthorized Role',
+            permission: ['some:permission'],
+          },
+        })
+
+        // THEN: Returns 403 Forbidden (only owner/admin can create roles)
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('permission')
+      })
     }
   )
 })

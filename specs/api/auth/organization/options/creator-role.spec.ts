@@ -99,83 +99,57 @@ test.describe('Organization Creator Role', () => {
   test.fixme(
     'API-AUTH-ORG-OPT-CREATOR-REGRESSION: system can manage creator role lifecycle',
     { tag: '@regression' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, request, addMember }) => {
-      // GIVEN: Organization with creator and multiple members
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-      })
-      const creator = await createAuthenticatedUser({
-        email: 'creator@example.com',
-        password: 'Password123!',
-        createOrganization: true,
-      })
+    async ({ startServerWithSchema, createAuthenticatedUser, request }) => {
+      let creator: Awaited<ReturnType<typeof createAuthenticatedUser>>
+      let creatorMemberId: string
 
-      const admin = await signUp({
-        email: 'admin@example.com',
-        password: 'Password123!',
-        name: 'Admin User',
-      })
-      await addMember({
-        organizationId: creator.organizationId!,
-        userId: admin.user.id,
-        role: 'admin',
-      })
-
-      const member = await signUp({
-        email: 'member@example.com',
-        password: 'Password123!',
-        name: 'Regular Member',
-      })
-      await addMember({
-        organizationId: creator.organizationId!,
-        userId: member.user.id,
-        role: 'member',
-      })
-
-      // WHEN/THEN: Verify creator is owner
-      const members = await request
-        .get('/api/auth/organization/list-members', {
-          params: { organizationId: creator.organizationId! },
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: true,
+          },
         })
-        .then((r) => r.json())
 
-      const creatorMember = members.find((m: any) => m.userId === creator.user.id)
-      expect(creatorMember.role).toBe('owner')
-
-      // WHEN/THEN: Creator can manage organization
-      const updateResponse = await request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: creator.organizationId!,
-          name: 'Updated Company Name',
-        },
+        creator = await createAuthenticatedUser({
+          email: 'creator@example.com',
+          password: 'Password123!',
+          createOrganization: true,
+        })
       })
-      expect(updateResponse.status()).toBe(200)
 
-      // WHEN/THEN: Creator can create custom roles
-      const createRoleResponse = await request.post('/api/auth/organization/create-role', {
-        data: {
-          organizationId: creator.organizationId!,
-          name: 'editor',
-          permissions: ['read:content', 'write:content'],
-        },
-      })
-      expect(createRoleResponse.status()).toBe(200)
+      await test.step('API-AUTH-ORG-OPT-CREATOR-001: Assigns owner role to organization creator', async () => {
+        // WHEN: Check creator's role in the organization
+        const members = await request
+          .get('/api/auth/organization/list-members', {
+            params: { organizationId: creator.organizationId! },
+          })
+          .then((r) => r.json())
 
-      // WHEN/THEN: Creator can delete organization
-      const deleteResponse = await request.delete('/api/auth/organization/delete', {
-        data: { organizationId: creator.organizationId! },
-      })
-      expect(deleteResponse.status()).toBe(200)
+        const creatorMember = members.find((m: any) => m.userId === creator.user.id)
+        creatorMemberId = creatorMember.id
 
-      // WHEN/THEN: Organization should no longer exist
-      const getOrgResponse = await request.get('/api/auth/organization/get-details', {
-        params: { organizationId: creator.organizationId! },
+        // THEN: Creator should have owner role
+        expect(creatorMember).toBeDefined()
+        expect(creatorMember.role).toBe('owner')
       })
-      expect(getOrgResponse.status()).toBe(404)
+
+      await test.step('API-AUTH-ORG-OPT-CREATOR-002: Returns 400 when demoting creator below owner', async () => {
+        // WHEN: Try to demote creator to member
+        const response = await request.patch('/api/auth/organization/update-member-role', {
+          data: {
+            organizationId: creator.organizationId!,
+            memberId: creatorMemberId,
+            role: 'member',
+          },
+        })
+
+        // THEN: Should return 400 Bad Request
+        expect(response.status()).toBe(400)
+        const error = await response.json()
+        expect(error.message).toContain('creator')
+      })
     }
   )
 })

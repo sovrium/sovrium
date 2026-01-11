@@ -741,13 +741,14 @@ test.describe('Foreign Key Relationships', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-FK-REGRESSION: user can complete full foreign-key workflow with CASCADE behaviors',
+    'APP-TABLES-FK-REGRESSION: user can complete full foreign keys workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create tables with various FK relationships', async () => {
+      await test.step('Setup: Start server with comprehensive foreign key configurations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
+            // Basic many-to-one relationship
             {
               id: 1,
               name: 'customers',
@@ -765,28 +766,195 @@ test.describe('Foreign Key Relationships', () => {
                   relatedTable: 'customers',
                   relationType: 'many-to-one',
                   onDelete: 'cascade',
+                  onUpdate: 'cascade',
                 },
               ],
             },
+            // Self-referential relationship
+            {
+              id: 3,
+              name: 'categories',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                {
+                  id: 2,
+                  name: 'parent_id',
+                  type: 'relationship',
+                  relatedTable: 'categories',
+                  relationType: 'many-to-one',
+                  required: false,
+                },
+              ],
+            },
+            // One-to-one relationship
+            {
+              id: 4,
+              name: 'users',
+              fields: [{ id: 1, name: 'email', type: 'email', unique: true }],
+            },
+            {
+              id: 5,
+              name: 'profiles',
+              fields: [
+                {
+                  id: 1,
+                  name: 'user_id',
+                  type: 'relationship',
+                  relatedTable: 'users',
+                  relationType: 'one-to-one',
+                  unique: true,
+                },
+                { id: 2, name: 'bio', type: 'long-text' },
+              ],
+            },
+            // Many-to-many junction table
+            {
+              id: 6,
+              name: 'students',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 7,
+              name: 'courses',
+              fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            },
+            {
+              id: 8,
+              name: 'enrollments',
+              fields: [
+                {
+                  id: 1,
+                  name: 'student_id',
+                  type: 'relationship',
+                  relatedTable: 'students',
+                  relationType: 'many-to-one',
+                  required: true,
+                },
+                {
+                  id: 2,
+                  name: 'course_id',
+                  type: 'relationship',
+                  relatedTable: 'courses',
+                  relationType: 'many-to-one',
+                  required: true,
+                },
+                { id: 3, name: 'enrolled_at', type: 'created-at' },
+              ],
+              primaryKey: { type: 'composite', fields: ['student_id', 'course_id'] },
+            },
           ],
         })
+      })
+
+      await test.step('APP-TABLES-FK-001: Create foreign key constraint', async () => {
+        const fkCheck = await executeQuery(
+          `SELECT conname, contype FROM pg_constraint WHERE conrelid = 'orders'::regclass AND contype = 'f'`
+        )
+        expect(fkCheck.rows[0]).toMatchObject({ contype: 'f' })
+
+        const fkDetails = await executeQuery(
+          `SELECT
+            tc.constraint_name,
+            kcu.column_name,
+            ccu.table_name AS foreign_table_name,
+            ccu.column_name AS foreign_column_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+          JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name
+          WHERE tc.table_name = 'orders' AND tc.constraint_type = 'FOREIGN KEY'`
+        )
+        expect(fkDetails.rows[0]).toMatchObject({
+          column_name: 'customer_id',
+          foreign_table_name: 'customers',
+          foreign_column_name: 'id',
+        })
+      })
+
+      await test.step('APP-TABLES-FK-002: Reject INSERT with non-existent parent record', async () => {
+        await expect(
+          executeQuery(`INSERT INTO orders (total, customer_id) VALUES (100.00, 999)`)
+        ).rejects.toThrow(/violates foreign key constraint/)
 
         await executeQuery(`INSERT INTO customers (name) VALUES ('Alice')`)
-        await executeQuery(
-          `INSERT INTO orders (total, customer_id) VALUES (100.00, 1), (200.00, 1)`
+        const validOrder = await executeQuery(
+          `INSERT INTO orders (total, customer_id) VALUES (100.00, 1) RETURNING customer_id`
         )
+        expect(validOrder.rows[0]).toMatchObject({ customer_id: 1 })
       })
 
-      await test.step('Verify foreign key constraint enforcement', async () => {
-        await expect(
-          executeQuery(`INSERT INTO orders (total, customer_id) VALUES (50.00, 999)`)
-        ).rejects.toThrow(/foreign key/)
-      })
+      await test.step('APP-TABLES-FK-004: CASCADE DELETE child records', async () => {
+        await executeQuery(
+          `INSERT INTO orders (total, customer_id) VALUES (200.00, 1), (150.00, 1)`
+        )
 
-      await test.step('Verify CASCADE DELETE behavior', async () => {
-        await executeQuery(`DELETE FROM customers WHERE id = 1`)
+        const deletedCustomer = await executeQuery(
+          `DELETE FROM customers WHERE id = 1 RETURNING id`
+        )
+        expect(deletedCustomer.rows[0]).toMatchObject({ id: 1 })
+
         const remainingOrders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
         expect(remainingOrders.rows[0]).toMatchObject({ count: '0' })
+      })
+
+      await test.step('APP-TABLES-FK-006: Support self-referential relationships', async () => {
+        await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('Electronics', NULL)`)
+        await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('Laptops', 1)`)
+        await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('Gaming Laptops', 2)`)
+
+        const laptops = await executeQuery(`SELECT name, parent_id FROM categories WHERE id = 2`)
+        expect(laptops.rows[0]).toMatchObject({ name: 'Laptops', parent_id: 1 })
+
+        await expect(
+          executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('Invalid', 999)`)
+        ).rejects.toThrow(/violates foreign key constraint/)
+      })
+
+      await test.step('APP-TABLES-FK-008: Create index on foreign key column', async () => {
+        const indexCheck = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE tablename = 'orders' AND indexdef LIKE '%customer_id%'`
+        )
+        expect(indexCheck.rows.length).toBeGreaterThan(0)
+      })
+
+      await test.step('APP-TABLES-FK-012: CASCADE UPDATE child records on parent key change', async () => {
+        await executeQuery(`INSERT INTO customers (name) VALUES ('Bob')`)
+        await executeQuery(`INSERT INTO orders (total, customer_id) VALUES (300.00, 2)`)
+
+        await executeQuery(`UPDATE customers SET id = 100 WHERE id = 2`)
+
+        const updatedOrder = await executeQuery(`SELECT customer_id FROM orders WHERE total = 300`)
+        expect(updatedOrder.rows[0]).toMatchObject({ customer_id: 100 })
+      })
+
+      await test.step('APP-TABLES-FK-013: Support one-to-one relationships with UNIQUE constraint', async () => {
+        await executeQuery(`INSERT INTO users (email) VALUES ('alice@example.com')`)
+        await executeQuery(`INSERT INTO profiles (user_id, bio) VALUES (1, 'Software engineer')`)
+
+        await expect(
+          executeQuery(`INSERT INTO profiles (user_id, bio) VALUES (1, 'Duplicate profile')`)
+        ).rejects.toThrow(/violates unique constraint/)
+      })
+
+      await test.step('APP-TABLES-FK-014: Support many-to-many relationships via junction table', async () => {
+        await executeQuery(`INSERT INTO students (name) VALUES ('Charlie'), ('Diana')`)
+        await executeQuery(`INSERT INTO courses (title) VALUES ('Math 101'), ('CS 101')`)
+
+        await executeQuery(`INSERT INTO enrollments (student_id, course_id) VALUES (1, 1), (1, 2)`)
+        await executeQuery(`INSERT INTO enrollments (student_id, course_id) VALUES (2, 2)`)
+
+        const charlieEnrollments = await executeQuery(
+          `SELECT course_id FROM enrollments WHERE student_id = 1 ORDER BY course_id`
+        )
+        expect(charlieEnrollments.rows).toEqual([{ course_id: 1 }, { course_id: 2 }])
+
+        const cs101Students = await executeQuery(
+          `SELECT student_id FROM enrollments WHERE course_id = 2 ORDER BY student_id`
+        )
+        expect(cs101Students.rows).toEqual([{ student_id: 1 }, { student_id: 2 }])
+
+        await expect(
+          executeQuery(`INSERT INTO enrollments (student_id, course_id) VALUES (1, 1)`)
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
     }
   )

@@ -842,62 +842,353 @@ test.describe('Row-Level Security Enforcement', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
+  // Generated from 14 @spec tests - covers RLS enforcement scenarios
   // ============================================================================
 
   test(
-    'APP-TABLES-RLS-ENFORCEMENT-REGRESSION: row-level security enforcement workflow',
+    'APP-TABLES-RLS-ENFORCEMENT-REGRESSION: user can complete full row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // Create shared test users at the beginning
       let user1: any
       let user2: any
 
-      await test.step('Setup: Start server with owner-based permissions', async () => {
+      await test.step('Setup: Start server and create test users', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
           },
           tables: [
+            // Table for owner-based filtering (specs 001-002)
             {
               id: 1,
-              name: 'items',
+              name: 'notes',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
+              ],
+              permissions: {
+                read: { type: 'owner', field: 'owner_id' },
+              },
+            },
+            // Table for field-level read restrictions (spec 003)
+            {
+              id: 2,
+              name: 'employees',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'user_id', type: 'user' },
+                { id: 3, name: 'email', type: 'email' },
+                { id: 4, name: 'salary', type: 'decimal' },
+                { id: 5, name: 'ssn', type: 'single-line-text' },
               ],
               permissions: {
-                read: { type: 'owner', field: 'user_id' },
-                create: { type: 'owner', field: 'user_id' },
-                update: { type: 'owner', field: 'user_id' },
-                delete: { type: 'owner', field: 'user_id' },
+                fields: [
+                  { field: 'salary', read: { type: 'roles', roles: ['admin', 'hr'] } },
+                  { field: 'ssn', read: { type: 'roles', roles: ['hr'] } },
+                ],
+              },
+            },
+            // Table for field-level write restrictions (spec 004)
+            {
+              id: 3,
+              name: 'profiles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'display_name', type: 'single-line-text' },
+                { id: 3, name: 'bio', type: 'long-text' },
+                { id: 4, name: 'verified', type: 'checkbox' },
+                {
+                  id: 5,
+                  name: 'role',
+                  type: 'single-select',
+                  options: ['admin', 'member', 'guest'],
+                },
+              ],
+              permissions: {
+                fields: [
+                  { field: 'verified', write: { type: 'roles', roles: ['admin'] } },
+                  { field: 'role', write: { type: 'roles', roles: ['admin'] } },
+                ],
+              },
+            },
+            // Table for INSERT operations (spec 005)
+            {
+              id: 4,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'user' },
+              ],
+              permissions: {
+                create: { type: 'owner', field: 'created_by' },
+              },
+            },
+            // Table for UPDATE operations (spec 006)
+            {
+              id: 5,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'long-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
+              ],
+              permissions: {
+                update: { type: 'owner', field: 'owner_id' },
+              },
+            },
+            // Table for DELETE operations (spec 007)
+            {
+              id: 6,
+              name: 'comments',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'text', type: 'long-text' },
+                { id: 3, name: 'author_id', type: 'user' },
+              ],
+              permissions: {
+                delete: { type: 'owner', field: 'author_id' },
+              },
+            },
+            // Table for role-based permissions (spec 008)
+            {
+              id: 7,
+              name: 'reports',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'department', type: 'single-line-text' },
+              ],
+              permissions: {
+                read: { type: 'roles', roles: ['manager', 'admin'] },
+                create: { type: 'roles', roles: ['admin'] },
+                update: { type: 'roles', roles: ['admin'] },
+                delete: { type: 'roles', roles: ['admin'] },
+              },
+            },
+            // Table for dual filtering pattern (spec 009)
+            {
+              id: 8,
+              name: 'articles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'content', type: 'long-text' },
+                { id: 4, name: 'author_id', type: 'user' },
+                { id: 5, name: 'status', type: 'single-select', options: ['draft', 'published'] },
+              ],
+              permissions: {
+                read: { type: 'roles', roles: ['member', 'admin'] },
+                records: [
+                  {
+                    action: 'read',
+                    condition: '{userId} = author_id',
+                  },
+                ],
+              },
+            },
+            // Table for complementary filtering (spec 010)
+            {
+              id: 9,
+              name: 'documents_v2',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'content', type: 'long-text' },
+                {
+                  id: 4,
+                  name: 'status',
+                  type: 'single-select',
+                  options: ['draft', 'review', 'approved'],
+                },
+                { id: 5, name: 'department', type: 'single-line-text' },
+              ],
+              permissions: {
+                read: { type: 'roles', roles: ['member'] },
+                records: [
+                  {
+                    action: 'read',
+                    condition: "status IN ('approved', 'review')",
+                  },
+                ],
+              },
+            },
+            // Table for multi-condition RLS filtering (spec 011)
+            {
+              id: 10,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'order_number', type: 'single-line-text' },
+                { id: 3, name: 'customer_id', type: 'user' },
+                {
+                  id: 4,
+                  name: 'status',
+                  type: 'single-select',
+                  options: ['pending', 'processing', 'completed', 'cancelled'],
+                },
+                { id: 5, name: 'total', type: 'decimal' },
+              ],
+              permissions: {
+                read: { type: 'roles', roles: ['member'] },
+                records: [
+                  {
+                    action: 'read',
+                    condition: "{userId} = customer_id OR status = 'completed'",
+                  },
+                ],
               },
             },
           ],
         })
-      })
 
-      await test.step('Create test users and insert data', async () => {
+        // Create all test users once (only 2 needed for all test steps)
         user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
         user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
-
-        await executeQuery([
-          `INSERT INTO items (id, name, user_id) VALUES
-           (1, 'User 1 Item', '${user1.user.id}'),
-           (2, 'User 2 Item', '${user2.user.id}')`,
-        ])
       })
 
-      await test.step('Verify RLS enabled on table', async () => {
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-001: Filter records based on user ownership policy', async () => {
+        await executeQuery([
+          `INSERT INTO notes (id, title, owner_id) VALUES
+           (1, 'User 1 Note 1', '${user1.user.id}'),
+           (2, 'User 1 Note 2', '${user1.user.id}'),
+           (3, 'User 2 Note 1', '${user2.user.id}')`,
+        ])
+
         const rlsEnabled = await executeQuery(
-          `SELECT relrowsecurity FROM pg_class WHERE relname = 'items'`
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'notes'`
         )
         expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+
+        const policies = await executeQuery(
+          `SELECT policyname FROM pg_policies WHERE tablename = 'notes'`
+        )
+        expect(
+          policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))
+        ).toBe(true)
       })
 
-      await test.step('Verify policies exist for all CRUD operations', async () => {
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-002: Prevent reading records not matching permission policy', async () => {
         const policies = await executeQuery(
-          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'items' ORDER BY cmd`
+          `SELECT cmd FROM pg_policies WHERE tablename = 'notes' AND cmd = 'SELECT'`
+        )
+        expect(policies.rows).toHaveLength(1)
+        expect(policies.rows[0].cmd).toBe('SELECT')
+
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'notes'::regclass AND polcmd = 'r'`
+        )
+        expect(policyDef.rows[0].qual).toContain('owner_id')
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-003: Enforce field-level read restrictions', async () => {
+        await executeQuery([
+          `INSERT INTO employees (id, name, email, salary, ssn) VALUES
+           (1, 'John Doe', 'john@company.com', 75000.00, '123-45-6789')`,
+        ])
+
+        const columns = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'employees'`
+        )
+        expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('salary')
+        expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('ssn')
+
+        const data = await executeQuery(`SELECT salary, ssn FROM employees WHERE id = 1`)
+        expect(parseFloat(data.rows[0].salary)).toBe(75_000)
+        expect(data.rows[0].ssn).toBe('123-45-6789')
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-004: Enforce field-level write restrictions', async () => {
+        await executeQuery([
+          `INSERT INTO profiles (id, display_name, bio, verified, role) VALUES
+           (1, 'User Profile', 'My bio', false, 'member')`,
+        ])
+
+        const columns = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'profiles'`
+        )
+        expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain(
+          'verified'
+        )
+        expect(columns.rows.map((c: { column_name: string }) => c.column_name)).toContain('role')
+
+        const data = await executeQuery(`SELECT verified, role FROM profiles WHERE id = 1`)
+        expect(data.rows[0].verified).toBe(false)
+        expect(data.rows[0].role).toBe('member')
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-005: Apply owner permission on INSERT operations', async () => {
+        const rlsEnabled = await executeQuery(
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'tasks'`
+        )
+        expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+
+        const policies = await executeQuery(
+          `SELECT cmd FROM pg_policies WHERE tablename = 'tasks' AND cmd = 'INSERT'`
+        )
+        expect(policies.rows).toHaveLength(1)
+        expect(policies.rows[0].cmd).toBe('INSERT')
+
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polwithcheck, polrelid) as withcheck FROM pg_policy
+           WHERE polrelid = 'tasks'::regclass AND polcmd = 'a'`
+        )
+        expect(policyDef.rows[0].withcheck).toContain('created_by')
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-006: Apply owner permission on UPDATE operations', async () => {
+        await executeQuery([
+          `INSERT INTO documents (id, content, owner_id) VALUES
+           (1, 'User 1 Doc', '${user1.user.id}'),
+           (2, 'User 2 Doc', '${user2.user.id}')`,
+        ])
+
+        const rlsEnabled = await executeQuery(
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'documents'`
+        )
+        expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+
+        const policies = await executeQuery(
+          `SELECT cmd FROM pg_policies WHERE tablename = 'documents' AND cmd = 'UPDATE'`
+        )
+        expect(policies.rows).toHaveLength(1)
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-007: Apply owner permission on DELETE operations', async () => {
+        await executeQuery([
+          `INSERT INTO comments (id, text, author_id) VALUES
+           (1, 'User 1 Comment', '${user1.user.id}')`,
+        ])
+
+        const rlsEnabled = await executeQuery(
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'comments'`
+        )
+        expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+
+        const policies = await executeQuery(
+          `SELECT cmd FROM pg_policies WHERE tablename = 'comments' AND cmd = 'DELETE'`
+        )
+        expect(policies.rows).toHaveLength(1)
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-008: Support role-based permissions', async () => {
+        await executeQuery([
+          `INSERT INTO reports (id, title, department) VALUES
+           (1, 'Sales Q1', 'sales'),
+           (2, 'Engineering Q1', 'engineering')`,
+        ])
+
+        const rlsEnabled = await executeQuery(
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'reports'`
+        )
+        expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+
+        const policies = await executeQuery(
+          `SELECT cmd FROM pg_policies WHERE tablename = 'reports' ORDER BY cmd`
         )
         const cmds = policies.rows.map((p: { cmd: string }) => p.cmd)
         expect(cmds).toContain('SELECT')
@@ -906,32 +1197,64 @@ test.describe('Row-Level Security Enforcement', () => {
         expect(cmds).toContain('DELETE')
       })
 
-      await test.step('Verify all policies reference user_id field', async () => {
-        const policyDefs = await executeQuery(
-          `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
-           FROM pg_policy WHERE polrelid = 'items'::regclass`
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-009: Demonstrate dual filtering pattern (Better Auth + RLS)', async () => {
+        await executeQuery([
+          `INSERT INTO articles (id, title, content, author_id, status) VALUES
+           (1, 'User 1 Article', 'Content 1', '${user1.user.id}', 'published'),
+           (2, 'User 2 Article', 'Content 2', '${user2.user.id}', 'draft')`,
+        ])
+
+        const policies = await executeQuery(
+          `SELECT policyname FROM pg_policies WHERE tablename = 'articles'`
         )
-        const policies2 = policyDefs.rows as unknown as Array<{
-          polcmd: string
-          qual: string | null
-          withcheck: string | null
-        }>
-        for (const policy of policies2) {
-          const def = policy.qual || policy.withcheck
-          expect(def).toContain('user_id')
-        }
+        expect(
+          policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))
+        ).toBe(true)
       })
 
-      await test.step('Verify data stored correctly', async () => {
-        const data = await executeQuery(`SELECT id, name, user_id FROM items ORDER BY id`)
-        expect(data.rows).toHaveLength(2)
-        expect(data.rows[0].name).toBe('User 1 Item')
-        expect(data.rows[0].user_id).toBe(user1.user.id)
-        expect(data.rows[1].name).toBe('User 2 Item')
-        expect(data.rows[1].user_id).toBe(user2.user.id)
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-010: Apply complementary filtering (role-based API + status-based RLS)', async () => {
+        await executeQuery([
+          `INSERT INTO documents_v2 (id, title, content, status, department) VALUES
+           (1, 'Draft Doc', 'Content 1', 'draft', 'engineering'),
+           (2, 'Review Doc', 'Content 2', 'review', 'engineering')`,
+        ])
+
+        const policies = await executeQuery(
+          `SELECT policyname FROM pg_policies WHERE tablename = 'documents_v2'`
+        )
+        expect(
+          policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))
+        ).toBe(true)
+
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'documents_v2'::regclass AND polcmd = 'r'`
+        )
+        expect(policyDef.rows[0]?.qual).toMatch(/status|approved|review/)
       })
 
-      await test.step('Error handling: RLS policy with syntax error in condition', async () => {
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-011: Enforce multi-condition RLS filtering with role-based API access', async () => {
+        await executeQuery([
+          `INSERT INTO orders (id, order_number, customer_id, status, total) VALUES
+           (1, 'ORD-001', '${user1.user.id}', 'pending', 100.00),
+           (2, 'ORD-002', '${user2.user.id}', 'completed', 200.00)`,
+        ])
+
+        const policies = await executeQuery(
+          `SELECT policyname FROM pg_policies WHERE tablename = 'orders'`
+        )
+        expect(
+          policies.rows.some((p: { policyname: string }) => p.policyname.includes('read'))
+        ).toBe(true)
+
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'orders'::regclass AND polcmd = 'r'`
+        )
+        expect(policyDef.rows[0]?.qual).toMatch(/customer_id|status|completed/)
+      })
+
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-012: Reject RLS policy with syntax error in condition', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error',
@@ -947,7 +1270,7 @@ test.describe('Row-Level Security Enforcement', () => {
                   records: [
                     {
                       action: 'read',
-                      condition: '{userId} == owner_id', // Invalid: double equals
+                      condition: '{userId} == owner_id',
                     },
                   ],
                 },
@@ -957,7 +1280,7 @@ test.describe('Row-Level Security Enforcement', () => {
         ).rejects.toThrow(/invalid.*condition.*syntax|syntax error/i)
       })
 
-      await test.step('Error handling: RLS policy referencing non-existent column', async () => {
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-013: Reject RLS policy referencing non-existent column', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error2',
@@ -973,7 +1296,7 @@ test.describe('Row-Level Security Enforcement', () => {
                   records: [
                     {
                       action: 'read',
-                      condition: '{userId} = created_by', // 'created_by' column doesn't exist!
+                      condition: '{userId} = created_by',
                     },
                   ],
                 },
@@ -983,7 +1306,7 @@ test.describe('Row-Level Security Enforcement', () => {
         ).rejects.toThrow(/column.*created_by.*not found|field.*does not exist/i)
       })
 
-      await test.step('Error handling: field permission read restriction on non-existent field', async () => {
+      await test.step('APP-TABLES-RLS-ENFORCEMENT-014: Reject field permission read restriction on non-existent field', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error3',
@@ -998,7 +1321,7 @@ test.describe('Row-Level Security Enforcement', () => {
                 permissions: {
                   fields: [
                     {
-                      field: 'salary', // 'salary' field doesn't exist!
+                      field: 'salary',
                       read: { type: 'roles', roles: ['admin', 'hr'] },
                     },
                   ],

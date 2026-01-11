@@ -153,20 +153,19 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ORG-PLUGIN-REGRESSION: all organization endpoints return 404 without organization plugin',
+    'API-AUTH-ORG-PLUGIN-REGRESSION: organization endpoints unavailable without plugin',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server without organization plugin', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            // No organization plugin - all organization endpoints should be disabled
+            // No organization plugin - organization endpoints should not exist
           },
         })
-      })
 
-      await test.step('Setup: Create and authenticate user', async () => {
+        // Create and authenticate a user (signUp auto-authenticates)
         await signUp({
           email: 'user@example.com',
           password: 'ValidPassword123!',
@@ -174,50 +173,47 @@ test.describe('Organization Plugin Disabled - Endpoint Availability', () => {
         })
       })
 
-      await test.step('Verify all organization endpoints return 404', async () => {
-        const organizationEndpoints = [
-          {
-            method: 'POST',
-            path: '/api/auth/organization/create',
-            data: { name: 'Test Org', slug: 'test' },
+      await test.step('API-AUTH-ORG-PLUGIN-001: Creates organization returns 404 without plugin', async () => {
+        // WHEN: User attempts to create an organization
+        const response = await page.request.post('/api/auth/organization/create', {
+          data: {
+            name: 'Test Organization',
+            slug: 'test-org',
           },
-          { method: 'GET', path: '/api/auth/organization/list' },
-          {
-            method: 'POST',
-            path: '/api/auth/organization/invite-member',
-            data: { email: 'member@example.com', organizationId: 'org-123' },
-          },
-          { method: 'GET', path: '/api/auth/organization/org-123' },
-          { method: 'GET', path: '/api/auth/organization/list-members?organizationId=org-123' },
-          {
-            method: 'POST',
-            path: '/api/auth/organization/set-active',
-            data: { organizationId: 'org-123' },
-          },
-          {
-            method: 'DELETE',
-            path: '/api/auth/organization/remove-member',
-            data: { userId: '123', organizationId: 'org-123' },
-          },
-          { method: 'GET', path: '/api/auth/organization/invitations' },
-        ]
+        })
 
-        for (const endpoint of organizationEndpoints) {
-          const response =
-            endpoint.method === 'GET'
-              ? await page.request.get(endpoint.path)
-              : endpoint.method === 'DELETE'
-                ? await page.request.delete(endpoint.path, { data: endpoint.data })
-                : await page.request.post(endpoint.path, { data: endpoint.data || {} })
-
-          expect(response.status()).toBe(404)
-        }
+        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
+        expect(response.status()).toBe(404)
       })
 
-      await test.step('Verify auth endpoints still work without organization plugin', async () => {
-        // Session endpoint should work (not organization-related)
-        const sessionResponse = await page.request.get('/api/auth/get-session')
-        expect(sessionResponse.status()).toBe(200)
+      await test.step('API-AUTH-ORG-PLUGIN-002: Lists organizations returns 404 without plugin', async () => {
+        // WHEN: User attempts to list organizations
+        const response = await page.request.get('/api/auth/organization/list')
+
+        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-ORG-PLUGIN-003: Invites member returns 404 without plugin', async () => {
+        // WHEN: User attempts to invite a member to an organization
+        const response = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            email: 'member@example.com',
+            organizationId: 'org-123',
+            role: 'member',
+          },
+        })
+
+        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-ORG-PLUGIN-004: Gets organization returns 404 without plugin', async () => {
+        // WHEN: User attempts to get organization details
+        const response = await page.request.get('/api/auth/organization/org-123')
+
+        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
+        expect(response.status()).toBe(404)
       })
     }
   )

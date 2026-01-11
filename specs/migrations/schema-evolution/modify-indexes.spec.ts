@@ -326,66 +326,283 @@ test.describe('Modify Indexes Migration', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 6 @spec tests - covers: create index, multi-column index,
+  // drop index, modify index to composite, modify to unique, concurrent creation
   // ============================================================================
 
   test(
     'MIGRATION-MODIFY-INDEX-REGRESSION: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: create items table without indexes', async () => {
+      await test.step('MIGRATION-MODIFY-INDEX-001: creates btree index on specified field', async () => {
+        // GIVEN: table 'products' with no custom indexes
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'items',
+              id: 1,
+              name: 'products',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'category', type: 'single-line-text' }, // no index initially
-                { id: 4, name: 'sku', type: 'single-line-text' }, // no index initially
+                { id: 3, name: 'sku', type: 'single-line-text' },
+                { id: 4, name: 'price', type: 'decimal' },
               ],
             },
           ],
         })
         await executeQuery([
-          `INSERT INTO items (name, category, sku) VALUES ('Item A', 'cat1', 'SKU-A'), ('Item B', 'cat2', 'SKU-B')`,
+          `INSERT INTO products (name, sku, price) VALUES ('Widget', 'SKU-001', 19.99), ('Gadget', 'SKU-002', 29.99)`,
         ])
-      })
 
-      await test.step('Add indexes to category and sku fields', async () => {
+        // WHEN: new single-column index added to 'indexed' property
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'items',
+              id: 1,
+              name: 'products',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'category', type: 'single-line-text', indexed: true }, // index added
-                { id: 4, name: 'sku', type: 'single-line-text', indexed: true }, // index added
+                { id: 3, name: 'sku', type: 'single-line-text', indexed: true },
+                { id: 4, name: 'price', type: 'decimal' },
               ],
             },
           ],
         })
+
+        // THEN: Index exists on sku column
+        const indexCheck = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE tablename = 'products' AND indexdef LIKE '%sku%'`
+        )
+        expect(indexCheck.indexname).toMatch(/idx.*sku/i)
       })
 
-      await test.step('Verify indexes created and data preserved', async () => {
-        // Index on category exists
-        const categoryIndex = await executeQuery(
-          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%category%'`
-        )
-        expect(Number(categoryIndex.count)).toBeGreaterThan(0)
+      await test.step('MIGRATION-MODIFY-INDEX-002: creates multi-column btree index', async () => {
+        // GIVEN: table 'contacts' with no indexes
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'contacts',
+              fields: [
+                { id: 2, name: 'first_name', type: 'single-line-text' },
+                { id: 3, name: 'last_name', type: 'single-line-text' },
+                { id: 4, name: 'email', type: 'email' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO contacts (first_name, last_name, email) VALUES ('John', 'Doe', 'john@example.com')`,
+        ])
 
-        // Index on sku exists
-        const skuIndex = await executeQuery(
-          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%sku%'`
-        )
-        expect(Number(skuIndex.count)).toBeGreaterThan(0)
+        // WHEN: composite index on (last_name, first_name) added
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'contacts',
+              fields: [
+                { id: 2, name: 'first_name', type: 'single-line-text' },
+                { id: 3, name: 'last_name', type: 'single-line-text' },
+                { id: 4, name: 'email', type: 'email' },
+              ],
+              indexes: [{ name: 'idx_contacts_last_first', fields: ['last_name', 'first_name'] }],
+            },
+          ],
+        })
 
-        // Data preserved
-        const itemCount = await executeQuery(`SELECT COUNT(*) as count FROM items`)
-        expect(itemCount.count).toBe('2')
+        // THEN: Composite index exists
+        const indexCheck = await executeQuery(
+          `SELECT indexdef FROM pg_indexes WHERE tablename = 'contacts' AND indexdef LIKE '%last_name%first_name%'`
+        )
+        expect(indexCheck.indexdef).toMatch(/last_name.*first_name/i)
+      })
+
+      await test.step('MIGRATION-MODIFY-INDEX-003: removes index from table', async () => {
+        // GIVEN: table 'users' with existing index on email
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'users',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'email', type: 'email', indexed: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')`,
+        ])
+
+        // WHEN: index removed from 'indexed' property
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'users',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'email', type: 'email' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: Index no longer exists
+        const indexCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'users' AND indexname = 'idx_users_email'`
+        )
+        expect(indexCheck.count).toBe('0')
+      })
+
+      await test.step('MIGRATION-MODIFY-INDEX-004: drops old index and creates new composite index', async () => {
+        // GIVEN: table 'orders' with index on single field 'customer_id'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                { id: 2, name: 'customer_id', type: 'integer', indexed: true },
+                { id: 3, name: 'created_at', type: 'datetime' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO orders (customer_id) VALUES (1), (2)`])
+
+        // WHEN: index modified to be composite (customer_id, created_at)
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                { id: 2, name: 'customer_id', type: 'integer' },
+                { id: 3, name: 'created_at', type: 'datetime' },
+              ],
+              indexes: [
+                { name: 'idx_orders_customer_created', fields: ['customer_id', 'created_at'] },
+              ],
+            },
+          ],
+        })
+
+        // THEN: Old single-column index removed
+        const oldIndexCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'orders' AND indexname = 'idx_orders_customer_id'`
+        )
+        expect(oldIndexCheck.count).toBe('0')
+
+        // New composite index exists
+        const newIndexCheck = await executeQuery(
+          `SELECT indexdef FROM pg_indexes WHERE tablename = 'orders' AND indexdef LIKE '%customer_id%created_at%'`
+        )
+        expect(newIndexCheck.indexdef).toMatch(/customer_id.*created_at/i)
+      })
+
+      await test.step('MIGRATION-MODIFY-INDEX-005: drops regular index and creates unique index', async () => {
+        // GIVEN: table 'accounts' with regular index on username
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'accounts',
+              fields: [
+                {
+                  id: 2,
+                  name: 'username',
+                  type: 'single-line-text',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO accounts (username) VALUES ('alice'), ('bob')`])
+
+        // WHEN: index modified to UNIQUE
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'accounts',
+              fields: [
+                { id: 2, name: 'username', type: 'single-line-text', required: true, unique: true },
+              ],
+            },
+          ],
+        })
+
+        // THEN: Unique index exists
+        const indexCheck = await executeQuery(
+          `SELECT indexdef FROM pg_indexes WHERE tablename = 'accounts' AND indexdef LIKE '%username%'`
+        )
+        expect(indexCheck.indexdef).toMatch(/UNIQUE/i)
+
+        // Duplicate username rejected
+        await expect(async () => {
+          await executeQuery(`INSERT INTO accounts (username) VALUES ('alice')`)
+        }).rejects.toThrow(/duplicate key|unique constraint/i)
+      })
+
+      await test.step('MIGRATION-MODIFY-INDEX-006: allows reads/writes during concurrent index creation', async () => {
+        // GIVEN: large table 'events' requiring non-blocking index creation
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'events',
+              fields: [
+                { id: 2, name: 'event_type', type: 'single-line-text' },
+                { id: 3, name: 'created_at', type: 'datetime' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO events (event_type) SELECT 'event_' || generate_series(1, 100)`,
+        ])
+
+        // WHEN: new index added with concurrent option
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'events',
+              fields: [
+                { id: 2, name: 'event_type', type: 'single-line-text', indexed: true },
+                { id: 3, name: 'created_at', type: 'datetime' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: Index exists
+        const indexCheck = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE tablename = 'events' AND indexdef LIKE '%event_type%'`
+        )
+        expect(indexCheck.indexname).toBeDefined()
+
+        // Data intact
+        const eventCount = await executeQuery(`SELECT COUNT(*) as count FROM events`)
+        expect(Number(eventCount.count)).toBeGreaterThanOrEqual(100)
       })
     }
   )

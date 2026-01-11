@@ -321,59 +321,58 @@ test.describe('Static Site Generation - Asset Management', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying asset management components work together
+  // Generated from 4 @spec tests - covers: file copying, directory structure,
+  // binary files, and asset references
+  // ============================================================================
+
   test(
-    'CLI-BUILD-ASSETS-REGRESSION: complete asset management workflow',
+    'CLI-BUILD-ASSETS-REGRESSION: user can complete full asset management workflow',
     { tag: '@regression' },
-    async ({ generateStaticSite, page }) => {
+    async ({ generateStaticSite }) => {
+      // Shared state across steps
       let outputDir: string
 
-      await test.step('Setup: Create test assets and generate static site', async () => {
+      await test.step('Setup: Creates comprehensive asset structure for all tests', async () => {
         const tempPublicDir = await mkdtemp(join(tmpdir(), 'sovrium-public-'))
 
-        // Create comprehensive asset structure
+        // Create directory structure (for CLI-BUILD-ASSETS-001, 002)
         await mkdir(join(tempPublicDir, 'images/icons'), { recursive: true })
-        await mkdir(join(tempPublicDir, 'fonts'), { recursive: true })
-        await mkdir(join(tempPublicDir, 'documents'), { recursive: true })
+        await mkdir(join(tempPublicDir, 'images/photos'), { recursive: true })
+        await mkdir(join(tempPublicDir, 'fonts/woff2'), { recursive: true })
+        await mkdir(join(tempPublicDir, 'documents/pdf'), { recursive: true })
+        await mkdir(join(tempPublicDir, 'media'), { recursive: true })
 
-        // Create test assets
-        await writeFile(join(tempPublicDir, 'favicon.ico'), Buffer.from('ICO'))
-        await writeFile(
-          join(tempPublicDir, 'manifest.json'),
-          JSON.stringify({
-            name: 'Test App',
-            short_name: 'Test',
-            start_url: '/',
-            display: 'standalone',
-          })
-        )
-        await writeFile(
-          join(tempPublicDir, 'images/logo.svg'),
-          `
-        <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100" height="100" fill="#3B82F6"/>
-        </svg>
-      `
-        )
-        await writeFile(join(tempPublicDir, 'images/icons/menu.svg'), '<svg>menu</svg>')
-        await writeFile(
-          join(tempPublicDir, 'fonts/inter.css'),
-          `
-        @font-face {
-          font-family: 'Inter';
-          src: url('/fonts/inter.woff2') format('woff2');
-        }
-      `
-        )
-        await writeFile(join(tempPublicDir, 'fonts/inter.woff2'), Buffer.from('FONT'))
-        await writeFile(join(tempPublicDir, 'documents/guide.pdf'), Buffer.from('PDF'))
+        // Create text-based assets (for CLI-BUILD-ASSETS-001)
+        await writeFile(join(tempPublicDir, 'favicon.ico'), Buffer.from('fake-ico'))
+        await writeFile(join(tempPublicDir, 'robots.txt'), 'User-agent: *\nAllow: /')
+        await writeFile(join(tempPublicDir, 'images/logo.svg'), '<svg>logo</svg>')
+        await writeFile(join(tempPublicDir, 'images/icons/arrow.svg'), '<svg></svg>')
+        await writeFile(join(tempPublicDir, 'images/photos/hero.jpg'), 'fake-jpg')
+        await writeFile(join(tempPublicDir, 'images/hero-bg.jpg'), 'fake-jpg-bg')
+        await writeFile(join(tempPublicDir, 'fonts/woff2/inter.woff2'), Buffer.from('fake-font'))
+        await writeFile(join(tempPublicDir, 'documents/pdf/guide.pdf'), 'fake-pdf')
 
+        // Create binary assets with proper headers (for CLI-BUILD-ASSETS-003)
+        const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+        const jpgHeader = Buffer.from([0xff, 0xd8, 0xff, 0xe0])
+        const gifHeader = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
+        await writeFile(join(tempPublicDir, 'media/image.png'), pngHeader)
+        await writeFile(join(tempPublicDir, 'media/photo.jpg'), jpgHeader)
+        await writeFile(join(tempPublicDir, 'media/animation.gif'), gifHeader)
+
+        // Generate static site with comprehensive configuration (for CLI-BUILD-ASSETS-004)
         outputDir = await generateStaticSite(
           {
             name: 'test-app',
-            description: 'Asset management test',
             theme: {
-              colors: {
-                primary: '#3B82F6',
+              fonts: {
+                custom: {
+                  family: 'Inter',
+                  url: '/fonts/woff2/inter.woff2',
+                },
               },
             },
             pages: [
@@ -382,38 +381,44 @@ test.describe('Static Site Generation - Asset Management', () => {
                 path: '/',
                 meta: {
                   lang: 'en',
-                  title: 'Asset Test',
-                  description: 'Testing asset management',
+                  title: 'Home',
+                  description: 'Home page',
                   favicon: './favicon.ico',
                 },
                 sections: [
                   {
-                    type: 'header',
-                    props: { className: 'bg-primary p-4' },
+                    type: 'div',
+                    props: {
+                      className: 'hero',
+                      style: { backgroundImage: "url('/images/hero-bg.jpg')" },
+                    },
                     children: [
                       {
                         type: 'image',
                         props: {
                           src: '/images/logo.svg',
                           alt: 'Logo',
-                          className: 'w-12 h-12',
                         },
                       },
                     ],
                   },
+                ],
+              },
+              {
+                name: 'nested',
+                path: '/products/detail',
+                meta: {
+                  lang: 'en',
+                  title: 'Product',
+                  description: 'Product detail',
+                },
+                sections: [
                   {
-                    type: 'main',
-                    props: { className: 'p-8' },
-                    children: [
-                      {
-                        type: 'a',
-                        props: {
-                          href: '/documents/guide.pdf',
-                          download: true,
-                        },
-                        children: ['Download Guide'],
-                      },
-                    ],
+                    type: 'image',
+                    props: {
+                      src: '/images/logo.svg',
+                      alt: 'Logo',
+                    },
                   },
                 ],
               },
@@ -425,35 +430,87 @@ test.describe('Static Site Generation - Asset Management', () => {
         )
       })
 
-      await test.step('Verify asset references in generated page', async () => {
-        await page.goto(`file://${join(outputDir, 'index.html')}`)
+      await test.step('CLI-BUILD-ASSETS-001: Copies files from public/ directory', async () => {
+        const files = await readdir(outputDir, { recursive: true })
 
-        // Check logo is displayed
-        const logo = page.locator('img[alt="Logo"]')
-        await expect(logo).toBeVisible()
-        await expect(logo).toHaveAttribute('src', '/images/logo.svg')
+        // Verify essential files are copied
+        expect(files).toContain('favicon.ico')
+        expect(files).toContain('robots.txt')
+        expect(files).toContain('images/logo.svg')
 
-        // Check link to PDF
-        const pdfLink = page.locator('a[download]')
-        await expect(pdfLink).toHaveAttribute('href', '/documents/guide.pdf')
-        await expect(pdfLink).toHaveText('Download Guide')
+        // Verify file contents were copied correctly
+        const favicon = await readFile(join(outputDir, 'favicon.ico'))
+        expect(favicon.toString()).toBe('fake-ico')
+
+        const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
+        expect(robots).toBe('User-agent: *\nAllow: /')
       })
 
-      await test.step('Verify all assets copied to output directory', async () => {
-        const files = await readdir(outputDir, { recursive: true })
-        expect(files).toContain('favicon.ico')
-        expect(files).toContain('manifest.json')
-        expect(files).toContain('images/logo.svg')
-        expect(files).toContain('images/icons/menu.svg')
-        expect(files).toContain('fonts/inter.css')
-        expect(files).toContain('fonts/inter.woff2')
-        expect(files).toContain('documents/guide.pdf')
+      await test.step('CLI-BUILD-ASSETS-002: Preserves directory structure', async () => {
+        const files = await readdir(outputDir, { recursive: true, withFileTypes: true })
+        const structure = new Map<string, 'file' | 'directory'>()
 
-        // Verify manifest.json content is valid JSON
-        const manifest = await readFile(join(outputDir, 'manifest.json'), 'utf-8')
-        const manifestData = JSON.parse(manifest)
-        expect(manifestData.name).toBe('Test App')
-        expect(manifestData.start_url).toBe('/')
+        for (const file of files) {
+          const relativePath = file.parentPath
+            ? join(file.parentPath.replace(outputDir, ''), file.name)
+            : file.name
+          structure.set(relativePath.replace(/^\//, ''), file.isDirectory() ? 'directory' : 'file')
+        }
+
+        // Verify directory structure is preserved
+        expect(structure.get('images')).toBe('directory')
+        expect(structure.get('images/icons')).toBe('directory')
+        expect(structure.get('images/photos')).toBe('directory')
+        expect(structure.get('fonts')).toBe('directory')
+        expect(structure.get('documents')).toBe('directory')
+
+        // Verify files are in correct locations
+        expect(structure.get('images/icons/arrow.svg')).toBe('file')
+        expect(structure.get('images/photos/hero.jpg')).toBe('file')
+      })
+
+      await test.step('CLI-BUILD-ASSETS-003: Handles binary files correctly', async () => {
+        // Read binary files from output
+        const png = await readFile(join(outputDir, 'media/image.png'))
+        const jpg = await readFile(join(outputDir, 'media/photo.jpg'))
+        const gif = await readFile(join(outputDir, 'media/animation.gif'))
+
+        // Verify PNG header preserved
+        const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+        expect(Buffer.compare(png, pngHeader)).toBe(0)
+
+        // Verify JPG header preserved
+        const jpgHeader = Buffer.from([0xff, 0xd8, 0xff, 0xe0])
+        expect(Buffer.compare(jpg, jpgHeader)).toBe(0)
+
+        // Verify GIF header preserved
+        const gifHeader = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
+        expect(Buffer.compare(gif, gifHeader)).toBe(0)
+
+        // Verify file size is preserved
+        const pngStat = await stat(join(outputDir, 'media/image.png'))
+        expect(pngStat.size).toBe(pngHeader.length)
+      })
+
+      await test.step('CLI-BUILD-ASSETS-004: Updates asset references in HTML and CSS', async () => {
+        // Read generated HTML files
+        const homeHtml = await readFile(join(outputDir, 'index.html'), 'utf-8')
+        const nestedHtml = await readFile(join(outputDir, 'products/detail.html'), 'utf-8')
+
+        // Verify home page asset references
+        expect(homeHtml).toContain('href="./favicon.ico"')
+        expect(homeHtml).toContain('src="/images/logo.svg"')
+        expect(homeHtml).toContain('href="/assets/output.css"')
+
+        // Verify nested page has absolute paths
+        expect(nestedHtml).toContain('src="/images/logo.svg"')
+        expect(nestedHtml).toContain('href="/assets/output.css"')
+
+        // Verify assets were copied
+        const files = await readdir(outputDir, { recursive: true })
+        expect(files).toContain('images/logo.svg')
+        expect(files).toContain('images/hero-bg.jpg')
+        expect(files).toContain('favicon.ico')
       })
     }
   )

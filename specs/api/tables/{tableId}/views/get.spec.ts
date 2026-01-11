@@ -124,16 +124,67 @@ test.describe('List table views', () => {
     'API-TABLES-VIEWS-LIST-REGRESSION: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request }) => {
-      await test.step('Verify successful views list retrieval', async () => {
-        const successResponse = await request.get('/api/tables/1/views', {})
-        expect(successResponse.status()).toBe(200)
-        const views = await successResponse.json()
-        expect(Array.isArray(views)).toBe(true)
+      await test.step('API-TABLES-VIEWS-LIST-004: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user requests list of views
+        const response = await request.get('/api/tables/1/views')
+
+        // THEN: Response should be 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Verify non-existent table returns 404', async () => {
-        const notFoundResponse = await request.get('/api/tables/9999/views', {})
-        expect(notFoundResponse.status()).toBe(404)
+      await test.step('Setup: Create authenticated user and table with views', async () => {
+        // Authentication and table setup would be done here
+        // For now, tests rely on fixture configuration
+      })
+
+      await test.step('API-TABLES-VIEWS-LIST-003: Returns 404 Not Found', async () => {
+        // WHEN: User requests list of views for non-existent table
+        const response = await request.get('/api/tables/9999/views', {})
+
+        // THEN: 404 Not Found error should be returned
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Table not found')
+      })
+
+      await test.step('API-TABLES-VIEWS-LIST-002: Returns empty array', async () => {
+        // WHEN: User requests list of views for table with no views
+        const response = await request.get('/api/tables/1/views', {})
+
+        // THEN: An empty array should be returned
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data.length).toBe(0)
+      })
+
+      await test.step('API-TABLES-VIEWS-LIST-001: Returns all views with complete configurations', async () => {
+        // WHEN: User requests list of views
+        const response = await request.get('/api/tables/1/views', {})
+
+        // THEN: All views should be returned with complete configurations
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data.length).toBeGreaterThanOrEqual(3)
+
+        // Validate view schema
+        for (const view of data) {
+          expect(view).toHaveProperty('id')
+          expect(view).toHaveProperty('name')
+          expect(view).toHaveProperty('type')
+          expect(typeof view.id).toBe('string')
+          expect(typeof view.name).toBe('string')
+          expect(typeof view.type).toBe('string')
+        }
       })
     }
   )

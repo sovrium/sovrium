@@ -542,7 +542,7 @@ test.describe('SQL Injection Prevention', () => {
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
       await signIn({ email: 'user@example.com', password: 'TestPassword123!' })
 
-      await test.step('API-SECURITY-SQLI-001: Prevent SQL injection in query string filters', async () => {
+      await test.step('API-SECURITY-SQLI-001: prevents SQL injection in query string filters', async () => {
         // Create test data
         await request.post('/api/tables/1/records', {
           data: { name: 'Alice', secret: 'alice-secret' },
@@ -577,7 +577,7 @@ test.describe('SQL Injection Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-SQLI-002: Prevent SQL injection in URL path parameters', async () => {
+      await test.step('API-SECURITY-SQLI-002: prevents SQL injection in URL path parameters', async () => {
         // Attempt SQL injection via path parameter
         const injectionPaths = [
           '1 OR 1=1',
@@ -596,7 +596,7 @@ test.describe('SQL Injection Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-SQLI-003: Prevent SQL injection in request body fields', async () => {
+      await test.step('API-SECURITY-SQLI-003: prevents SQL injection in request body fields', async () => {
         // Attempt SQL injection via request body
         const maliciousPayloads = [
           { title: "'); DROP TABLE posts; --", content: 'Normal content' },
@@ -627,7 +627,7 @@ test.describe('SQL Injection Prevention', () => {
         expect(listResponse.status()).toBe(200)
       })
 
-      await test.step('API-SECURITY-SQLI-004: Prevent SQL injection in ORDER BY clauses', async () => {
+      await test.step('API-SECURITY-SQLI-004: prevents SQL injection in ORDER BY clauses', async () => {
         // Create test data
         await request.post('/api/tables/4/records', { data: { name: 'Item A', price: 10.0 } })
         await request.post('/api/tables/4/records', { data: { name: 'Item B', price: 20.0 } })
@@ -656,7 +656,7 @@ test.describe('SQL Injection Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-SQLI-005: Prevent SQL injection in LIKE search patterns', async () => {
+      await test.step('API-SECURITY-SQLI-005: prevents SQL injection in LIKE search patterns', async () => {
         // Create test articles
         await request.post('/api/tables/5/records', {
           data: { title: 'Public Article', body: 'Public content' },
@@ -695,7 +695,7 @@ test.describe('SQL Injection Prevention', () => {
         expect(Array.isArray(allArticles) ? allArticles.length : 0).toBe(2)
       })
 
-      await test.step('API-SECURITY-SQLI-006: Prevent second-order SQL injection', async () => {
+      await test.step('API-SECURITY-SQLI-006: prevents second-order SQL injection', async () => {
         // Create data that will be used later
         await request.post('/api/tables/7/records', { data: { value: 'Normal data' } })
 
@@ -716,7 +716,7 @@ test.describe('SQL Injection Prevention', () => {
         expect(Array.isArray(data) ? data.length : 0).toBeGreaterThan(0)
       })
 
-      await test.step('API-SECURITY-SQLI-007: Prevent SQL injection in authentication email parameter', async () => {
+      await test.step('API-SECURITY-SQLI-007: prevents SQL injection in authentication email parameter', async () => {
         // Attempt SQL injection via email parameter in sign-in
         const sqlInjectionEmails = [
           "admin@example.com' OR '1'='1",
@@ -743,7 +743,7 @@ test.describe('SQL Injection Prevention', () => {
         }
       })
 
-      await test.step('API-SECURITY-SQLI-008: Prevent SQL injection in admin list-users endpoint', async () => {
+      await test.step('API-SECURITY-SQLI-008: prevents SQL injection in admin list-users endpoint', async () => {
         await createAuthenticatedAdmin()
 
         // Attempt SQL injection via filter/search parameters

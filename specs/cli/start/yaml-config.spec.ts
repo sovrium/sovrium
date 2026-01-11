@@ -18,7 +18,7 @@ import {
  *
  * Source: src/cli.ts
  * Domain: cli
- * Spec Count: 7
+ * Spec Count: 8
  *
  * YAML Config Behavior:
  * - Starts server from valid YAML configuration file
@@ -242,6 +242,7 @@ pages:
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
+  // Generated from 7 @spec tests - covers: valid YAML, .yml extension, error handling, features
   // ============================================================================
 
   test(
@@ -279,6 +280,47 @@ description: Testing .yml file support
         // THEN: Server starts successfully with .yml file
         await page.goto(server.url)
         await expect(page.getByTestId('app-name-heading')).toHaveText('test-yml-extension')
+      })
+
+      await test.step('CLI-START-YAML-003: Handles invalid YAML syntax with clear error message', async () => {
+        // GIVEN: YAML file with actual syntax error (unclosed quote)
+        const invalidYaml = `
+name: "unclosed quote
+description: This will cause a YAML parse error
+`
+        const configPath = await createTempConfigFile(invalidYaml, 'yaml')
+
+        try {
+          // WHEN: Attempting to start server with invalid YAML
+          const result = await captureCliOutput(configPath)
+
+          // THEN: CLI displays error message about invalid YAML
+          expect(result.output).toContain('Failed to parse YAML file')
+          expect(result.output).toContain(configPath)
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-YAML-004: Validates YAML schema and reports validation errors', async () => {
+        // GIVEN: Valid YAML but invalid schema (missing required 'name' field)
+        const invalidSchemaYaml = `
+description: App without name field
+version: 1.0.0
+# name field intentionally omitted (required by AppEncoded schema)
+`
+        const configPath = await createTempConfigFile(invalidSchemaYaml, 'yaml')
+
+        try {
+          // WHEN: Attempting to start server with invalid schema
+          const result = await captureCliOutput(configPath)
+
+          // THEN: CLI displays schema validation error
+          expect(result.output).toContain('name')
+          expect(result.output.toLowerCase()).toMatch(/required|missing|expected/)
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
       })
 
       await test.step('CLI-START-YAML-005: Supports YAML-specific features (comments)', async () => {
@@ -357,6 +399,20 @@ pages:
           getComputedStyle(el).getPropertyValue('--color-primary')
         )
         expect(primaryColor.trim()).toBe('#3B82F6')
+      })
+
+      await test.step('CLI-START-YAML-007: Reports file not found error for YAML config', async () => {
+        // GIVEN: Non-existent YAML config file path
+        const nonExistentPath = '/tmp/sovrium-nonexistent-config-67890.yaml'
+
+        // WHEN: Attempting to start server with non-existent file
+        const result = await captureCliOutput(nonExistentPath)
+
+        // THEN: CLI displays file not found error with path and usage hint
+        expect(result.output).toContain('File not found')
+        expect(result.output).toContain(nonExistentPath)
+        expect(result.output).toContain('Usage')
+        expect(result.output).toContain('sovrium start')
       })
     }
   )

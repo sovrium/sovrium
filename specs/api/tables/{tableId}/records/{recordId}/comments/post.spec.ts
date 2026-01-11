@@ -522,13 +522,14 @@ test.describe('Create comment on a record', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
+  // Generated from 11 @spec tests - covers: creation, mentions, validation, auth, permissions, auto-injection
   // ============================================================================
 
   test.fixme(
     'API-TABLES-RECORDS-COMMENTS-CREATE-REGRESSION: user can complete full create comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('Setup: Start server with tasks table and authenticate', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: { emailAndPassword: true },
@@ -539,47 +540,219 @@ test.describe('Create comment on a record', () => {
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
                 { id: 2, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
+            },
+            {
+              id: 13,
+              name: 'confidential_tasks',
+              fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
             },
           ],
         })
         await createAuthenticatedUser()
-      })
-
-      await test.step('Setup: Insert test record and user', async () => {
         await executeQuery(`
-          INSERT INTO tasks (id, title, status) VALUES (1, 'Test Task', 'active')
+          INSERT INTO tasks (id, title, status, organization_id) VALUES
+            (1, 'Task One', 'active', 'org_123'),
+            (2, 'Task in Org 456', 'active', 'org_456')
         `)
         await executeQuery(`
-          INSERT INTO users (id, name, email) VALUES ('user_1', 'Test User', 'test@example.com')
+          INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
+        `)
+        await executeQuery(`
+          INSERT INTO users (id, name, email, image) VALUES
+            ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
+            ('user_2', 'Bob Smith', 'bob@example.com', NULL)
+        `)
+        await executeQuery(`
+          INSERT INTO organizations (id, name, slug) VALUES ('org_123', 'Test Org', 'test-org')
         `)
       })
 
-      await test.step('Create comment on the record', async () => {
-        const response = await request.post('/api/tables/1/records/1/comments', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            content: 'This is a test comment with @[user_1] mention.',
-          },
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-001: Return 201 Created with comment data', async () => {
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'This is my first comment on this task.' },
         })
 
         expect(response.status()).toBe(201)
-
         const data = await response.json()
         expect(data.comment.id).toBeDefined()
-        expect(data.comment.content).toBe('This is a test comment with @[user_1] mention.')
+        expect(data.comment.content).toBe('This is my first comment on this task.')
         expect(data.comment.userId).toBe('user_1')
-        expect(data.comment.user.name).toBe('Test User')
+        expect(data.comment.recordId).toBe('1')
+        expect(data.comment.tableId).toBe('12')
+        expect(data.comment.organizationId).toBe('org_123')
+        expect(data.comment.createdAt).toBeDefined()
+
+        // Verify in database
+        const result = await executeQuery(`
+          SELECT * FROM _sovrium_record_comments WHERE record_id = '1' AND table_id = '12'
+        `)
+        expect(result.rows.length).toBeGreaterThan(0)
       })
 
-      await test.step('Verify comment exists in database', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-002: Support @mentions in content', async () => {
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Hey @[user_2], can you review this task?' },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.comment.content).toBe('Hey @[user_2], can you review this task?')
+
         const result = await executeQuery(`
-          SELECT * FROM _sovrium_record_comments WHERE record_id = '1'
+          SELECT content FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
         `)
-        expect(result.rows).toHaveLength(1)
-        expect(result.rows[0].content).toContain('@[user_1]')
+        expect(result.rows[0].content).toContain('@[user_2]')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-003: Return 400 for empty content', async () => {
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: '' },
+        })
+
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data.error).toBe('Validation error')
+        expect(data.message).toContain('content')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-004: Return 400 for content too long', async () => {
+        const longContent = 'a'.repeat(10_001)
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: longContent },
+        })
+
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data.error).toBe('Validation error')
+        expect(data.message).toContain('content')
+        expect(data.message).toContain('maximum length')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-005: Restart server without auth', async () => {
+        // Restart server to clear authentication context
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 14,
+              name: 'tasks',
+              fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
+            },
+          ],
+        })
+        await executeQuery(`
+          INSERT INTO tasks (id, title) VALUES (1, 'Task One')
+        `)
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-005: Return 401 Unauthorized', async () => {
+        const response = await request.post('/api/tables/14/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Attempting to comment without auth' },
+        })
+
+        expect(response.status()).toBe(401)
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-005: Re-authenticate for remaining steps', async () => {
+        await createAuthenticatedUser()
+        await executeQuery(`
+          INSERT INTO users (id, name, email, image) VALUES
+            ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
+            ('user_2', 'Bob Smith', 'bob@example.com', NULL)
+        `)
+        await executeQuery(`
+          INSERT INTO organizations (id, name, slug) VALUES ('org_123', 'Test Org', 'test-org')
+        `)
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-006: Return 404 for non-existent record', async () => {
+        const response = await request.post('/api/tables/12/records/9999/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Comment on non-existent record' },
+        })
+
+        expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-007: Return 404 for cross-organization access', async () => {
+        // User from org_123 attempts to comment on org_456's record
+        const response = await request.post('/api/tables/12/records/2/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Cross-org comment attempt' },
+        })
+
+        expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-008: Return 403 without permission', async () => {
+        const response = await request.post('/api/tables/13/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Trying to comment without permission' },
+        })
+
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-009: Auto-inject user_id from session', async () => {
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Comment from authenticated user' },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.comment.userId).toBe('user_1')
+
+        const result = await executeQuery(`
+          SELECT user_id FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+        `)
+        expect(result.rows[0].user_id).toBe('user_1')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-010: Auto-inject organization_id from session', async () => {
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Comment in organization' },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.comment.organizationId).toBe('org_123')
+
+        const result = await executeQuery(`
+          SELECT organization_id FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+        `)
+        expect(result.rows[0].organization_id).toBe('org_123')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-011: Include user metadata in response', async () => {
+        const response = await request.post('/api/tables/12/records/1/comments', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'My comment with user metadata' },
+        })
+
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.comment.user).toMatchObject({
+          id: 'user_1',
+          name: 'Alice Johnson',
+          email: 'alice@example.com',
+          image: 'https://example.com/alice.jpg',
+        })
       })
     }
   )

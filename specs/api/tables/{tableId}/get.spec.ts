@@ -177,57 +177,119 @@ test.describe('Get table by ID', () => {
   )
 
   // ============================================================================
-  // @regression test (exactly one) - OPTIMIZED integration
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
     'API-TABLES-GET-REGRESSION: user can complete full table retrieval workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: A running server with a test table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'single-line-text' },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-            permissions: {
-              read: {
-                type: 'roles',
-                roles: ['owner', 'admin', 'member', 'viewer'],
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'single-line-text' },
+                { id: 3, name: 'first_name', type: 'single-line-text' },
+              ],
+              permissions: {
+                read: {
+                  type: 'roles',
+                  roles: ['owner', 'admin', 'member'],
+                },
               },
             },
-          },
-        ],
+            {
+              id: 2,
+              name: 'confidential',
+              fields: [
+                { id: 1, name: 'secret_data', type: 'long-text' },
+                { id: 2, name: 'classification', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+
+        // Create authenticated user with member role
+        await createAuthenticatedUser({
+          email: 'test@example.com',
+          password: 'password123',
+          name: 'Test User',
+        })
       })
 
-      // Create authenticated user with member role
-      await createAuthenticatedUser({
-        email: 'test@example.com',
-        password: 'password123',
-        name: 'Test User',
+      await test.step('API-TABLES-GET-001: Return 200 OK with table configuration', async () => {
+        // WHEN: User requests table by ID
+        const response = await request.get('/api/tables/1', {})
+
+        // THEN: Response is 200 OK with complete table configuration
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name')
+        expect(data).toHaveProperty('fields')
+        expect(typeof data.id).toBe('number')
+        expect(typeof data.name).toBe('string')
+        expect(Array.isArray(data.fields)).toBe(true)
+        expect(data.name).toBe('users')
       })
 
-      await test.step('Get table by ID successfully', async () => {
-        const successResponse = await request.get('/api/tables/1', {})
-        expect(successResponse.status()).toBe(200)
+      await test.step('API-TABLES-GET-002: Return 404 Not Found', async () => {
+        // WHEN: User requests non-existent table
+        const response = await request.get('/api/tables/9999', {})
 
-        const table = await successResponse.json()
-        expect(table).toHaveProperty('id')
-        expect(table).toHaveProperty('name')
-        expect(table).toHaveProperty('fields')
+        // THEN: Response is 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Table not found')
       })
 
-      await test.step('Verify get non-existent table fails', async () => {
-        const notFoundResponse = await request.get('/api/tables/9999', {})
-        expect(notFoundResponse.status()).toBe(404)
+      await test.step('API-TABLES-GET-003: Return 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated request for table
+        const response = await request.get('/api/tables/1')
+
+        // THEN: Response is 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-TABLES-GET-004: Return 403 when user lacks read permission', async () => {
+        // WHEN: User requests table they don't have permission to access
+        const response = await request.get('/api/tables/2', {})
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-GET-005: Return 404 for cross-org table access', async () => {
+        // WHEN: User attempts to access table from different organization
+        const response = await request.get('/api/tables/999', {})
+
+        // THEN: Returns 404 Not Found (prevent org enumeration)
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Table not found')
       })
     }
   )

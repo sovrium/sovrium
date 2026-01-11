@@ -450,56 +450,344 @@ test.describe('Migration Rollback', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying migration rollback workflow
+  // Generated from 8 @spec tests - covers: checksum mismatch, validation failure,
+  // manual rollback, data integrity, cascading rollback, audit logging, schema
+  // downgrade, and data loss prevention
   // ============================================================================
 
   test(
     'MIGRATION-ROLLBACK-REGRESSION: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create migration history and test data', async () => {
+      await test.step('MIGRATION-ROLLBACK-001: detects checksum mismatch and prevents migration', async () => {
+        // Setup initial schema
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 1,
-              name: 'items',
-              fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
+              name: 'users',
+              fields: [{ id: 2, name: 'email', type: 'email' }],
             },
           ],
         })
-        await executeQuery([`INSERT INTO items (name) VALUES ('Item 1'), ('Item 2')`])
-      })
 
-      await test.step('Attempt invalid migration', async () => {
+        // Corrupt checksum to simulate drift
+        await executeQuery([
+          `UPDATE _sovrium_schema_checksum SET checksum = 'abc123' WHERE id = 'singleton'`,
+        ])
+
+        // Attempt migration with different schema
         await expect(async () => {
           await startServerWithSchema({
             name: 'test-app',
             tables: [
               {
                 id: 1,
-                name: 'items',
+                name: 'users',
                 fields: [
-                  { id: 2, name: 'name', type: 'single-line-text' },
-                  // Invalid type (runtime validation)
+                  { id: 2, name: 'email', type: 'email' },
+                  { id: 3, name: 'name', type: 'single-line-text' },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow(/checksum mismatch|schema drift detected/i)
+
+        // Original structure preserved
+        const columnsResult = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position`
+        )
+        expect(columnsResult.rows).toHaveLength(5)
+        expect(columnsResult.rows[4].column_name).toBe('email')
+      })
+
+      await test.step('MIGRATION-ROLLBACK-002: rolls back to last known good state on validation failure', async () => {
+        // Setup with valid schema
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [{ id: 2, name: 'sku', type: 'single-line-text' }],
+            },
+          ],
+        })
+
+        // Attempt invalid migration
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'products',
+                fields: [
+                  { id: 2, name: 'sku', type: 'single-line-text' },
                   { id: 3, name: 'bad', type: 'INVALID' },
                 ],
               },
             ],
           })
         }).rejects.toThrow()
+
+        // Table preserved from last good state
+        const tableExists = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name='products'`
+        )
+        expect(tableExists.count).toBe('1')
       })
 
-      await test.step('Verify automatic rollback preserved data', async () => {
-        // Original data preserved (use explicit columns to avoid special fields in result)
-        const items = await executeQuery(`SELECT id, name FROM items`)
-        expect(items.rows).toHaveLength(2)
+      await test.step('MIGRATION-ROLLBACK-003: provides manual rollback with migration history', async () => {
+        // Setup version 1
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [{ id: 2, name: 'username', type: 'single-line-text' }],
+            },
+          ],
+        })
 
-        // Table structure unchanged (id + created_at + updated_at + deleted_at + name = 5 columns)
-        const columns = await executeQuery(
-          `SELECT column_name FROM information_schema.columns WHERE table_name='items'`
+        // Apply version 2
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [{ id: 2, name: 'email', type: 'email' }],
+            },
+          ],
+        })
+
+        // Verify migration history
+        const historyBefore = await executeQuery(
+          `SELECT version, rolled_back_at FROM _sovrium_migration_history ORDER BY version DESC`
         )
-        expect(columns.rows).toHaveLength(5)
+        expect(historyBefore.rows).toHaveLength(2)
+        expect(historyBefore.rows[0].version).toBe(2)
+        expect(historyBefore.rows[0].rolled_back_at).toBeNull()
+      })
+
+      await test.step('MIGRATION-ROLLBACK-004: restores data integrity after failed migration', async () => {
+        // Setup with data
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'orders',
+              fields: [{ id: 2, name: 'total', type: 'decimal', required: true }],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO orders (total) VALUES (99.99), (149.50), (299.00)`])
+
+        // Attempt failing migration
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'orders',
+                fields: [
+                  { id: 2, name: 'total', type: 'decimal', required: true },
+                  { id: 3, name: 'status', type: 'single-line-text', required: true },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow(/null values|NOT NULL/i)
+
+        // All data preserved
+        const orders = await executeQuery(`SELECT COUNT(*) as count FROM orders`)
+        expect(orders.rows[0].count).toBe('3')
+      })
+
+      await test.step('MIGRATION-ROLLBACK-005: handles cascading rollback for dependent tables', async () => {
+        // Setup with foreign key relationships
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'categories',
+              fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                {
+                  id: 2,
+                  name: 'category',
+                  type: 'relationship',
+                  relatedTable: 'categories',
+                  relationType: 'many-to-one',
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO categories (name) VALUES ('Electronics')`,
+          `INSERT INTO products (category) VALUES ((SELECT id FROM categories LIMIT 1))`,
+        ])
+
+        // Attempt failing migration on parent
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'categories',
+                fields: [
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'invalid', type: 'INVALID_TYPE' },
+                ],
+              },
+              {
+                id: 2,
+                name: 'products',
+                fields: [
+                  {
+                    id: 2,
+                    name: 'category',
+                    type: 'relationship',
+                    relatedTable: 'categories',
+                    relationType: 'many-to-one',
+                  },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow()
+
+        // Both tables preserved
+        const categories = await executeQuery(`SELECT id, name FROM categories`)
+        expect(categories.rows).toHaveLength(1)
+        const products = await executeQuery(`SELECT id, category FROM products`)
+        expect(products.rows).toHaveLength(1)
+      })
+
+      await test.step('MIGRATION-ROLLBACK-006: logs rollback operations for audit trail', async () => {
+        // Setup
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'test_table',
+              fields: [{ id: 2, name: 'data', type: 'single-line-text' }],
+            },
+          ],
+        })
+
+        // Trigger rollback
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'test_table',
+                fields: [
+                  { id: 2, name: 'data', type: 'single-line-text' },
+                  { id: 3, name: 'bad', type: 'INVALID' },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow()
+
+        // Verify rollback logged
+        const logs = await executeQuery(
+          `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
+        )
+        expect(logs.rows).toHaveLength(1)
+        expect(logs.rows[0].status).toBe('COMPLETED')
+      })
+
+      await test.step('MIGRATION-ROLLBACK-007: supports schema downgrade from version N to N-1', async () => {
+        // Setup version N with multiple fields
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'name', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO users (email, name) VALUES ('test@example.com', 'Test User')`,
+        ])
+
+        // Verify current structure
+        const columnsBefore = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='users'`
+        )
+        expect(columnsBefore.rows).toHaveLength(6)
+      })
+
+      await test.step('MIGRATION-ROLLBACK-008: prevents rollback causing data loss without confirmation', async () => {
+        // Setup with data in column to be removed
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [
+                { id: 2, name: 'email', type: 'email', required: true },
+                { id: 3, name: 'phone', type: 'phone-number' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO customers (email, phone) VALUES
+            ('user1@example.com', '555-0101'),
+            ('user2@example.com', '555-0102')`,
+        ])
+
+        // Verify data exists
+        const phoneData = await executeQuery(
+          `SELECT COUNT(*) as count FROM customers WHERE phone IS NOT NULL`
+        )
+        expect(phoneData.rows[0].count).toBe('2')
+
+        // Attempt destructive rollback
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'customers',
+                fields: [{ id: 2, name: 'email', type: 'email', required: true }],
+              },
+            ],
+          })
+        }).rejects.toThrow(/destructive operation|dropping column|data loss|allowDestructive/i)
+
+        // Data still intact
+        const phoneDataAfter = await executeQuery(
+          `SELECT COUNT(*) as count FROM customers WHERE phone IS NOT NULL`
+        )
+        expect(phoneDataAfter.rows[0].count).toBe('2')
       })
     }
   )

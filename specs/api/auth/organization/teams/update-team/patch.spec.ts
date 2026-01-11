@@ -343,77 +343,185 @@ test.describe('Update Team', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-UPDATE-REGRESSION: owner can update all team fields and verify changes persist',
+    'API-AUTH-ORG-TEAMS-UPDATE-REGRESSION: owner can complete full team update workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createOrganization, page }) => {
-      // GIVEN: Organization with team
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: {
-            teams: true,
+    async ({
+      startServerWithSchema,
+      signUp,
+      createOrganization,
+      inviteMember,
+      acceptInvitation,
+      page,
+    }) => {
+      let organization: { id: string }
+      let teamId: string
+      let team2Id: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: {
+              teams: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('API-AUTH-ORG-TEAMS-UPDATE-006: Returns 401 Unauthorized when not authenticated', async () => {
+        // WHEN: Unauthenticated user tries to update team
+        const response = await page.request.patch('/api/auth/organization/update-team', {
+          data: {
+            teamId: 'team-123',
+            name: 'Updated Name',
+          },
+        })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('Unauthorized')
       })
 
-      const { organization } = await createOrganization({
-        name: 'Test Company',
-        slug: 'test-company',
+      await test.step('Setup: Create owner and organization with teams', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const result = await createOrganization({
+          name: 'Test Company',
+          slug: 'test-company',
+        })
+        organization = result.organization
+
+        // Create first team
+        const createResponse = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Engineering Team',
+          },
+        })
+        const team = await createResponse.json()
+        teamId = team.id
+
+        // Create second team for conflict testing
+        const create2Response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Marketing Team',
+          },
+        })
+        const team2 = await create2Response.json()
+        team2Id = team2.id
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create-team', {
-        data: {
+      await test.step('API-AUTH-ORG-TEAMS-UPDATE-005: Returns 404 Not Found when team does not exist', async () => {
+        // WHEN: Owner tries to update non-existent team
+        const response = await page.request.patch('/api/auth/organization/update-team', {
+          data: {
+            teamId: 'non-existent-team-id',
+            name: 'Updated Name',
+          },
+        })
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('not found')
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-UPDATE-001: Returns 200 OK with updated team data when owner updates team', async () => {
+        // WHEN: Owner updates team details
+        const response = await page.request.patch('/api/auth/organization/update-team', {
+          data: {
+            teamId,
+            name: 'Product Engineering Team',
+          },
+        })
+
+        // THEN: Returns 200 OK with updated data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id', teamId)
+        expect(data).toHaveProperty('name', 'Product Engineering Team')
+        expect(data).toHaveProperty('organizationId', organization.id)
+        expect(data).toHaveProperty('updatedAt')
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-UPDATE-002: Returns 200 OK when updating only name', async () => {
+        // WHEN: Owner updates only team name
+        const response = await page.request.patch('/api/auth/organization/update-team', {
+          data: {
+            teamId,
+            name: 'Updated Engineering Team',
+          },
+        })
+
+        // THEN: Returns 200 OK with updated name
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('name', 'Updated Engineering Team')
+        expect(data).toHaveProperty('organizationId', organization.id)
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-UPDATE-004: Returns 409 Conflict when updated name already exists', async () => {
+        // WHEN: Owner tries to rename team 2 to existing name
+        const response = await page.request.patch('/api/auth/organization/update-team', {
+          data: {
+            teamId: team2Id,
+            name: 'Updated Engineering Team', // Same as team 1
+          },
+        })
+
+        // THEN: Returns 409 Conflict
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('already exists')
+      })
+
+      await test.step('Setup: Create member user for permission test', async () => {
+        const { invitation } = await inviteMember({
           organizationId: organization.id,
-          name: 'Original Team',
-        },
+          email: 'member@example.com',
+          role: 'member',
+        })
+
+        await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        await acceptInvitation(invitation.id)
       })
 
-      const { id: teamId } = await createResponse.json()
+      await test.step('API-AUTH-ORG-TEAMS-UPDATE-003: Returns 403 Forbidden when non-owner tries to update team', async () => {
+        // WHEN: Member tries to update team
+        const response = await page.request.patch('/api/auth/organization/update-team', {
+          data: {
+            teamId,
+            name: 'Unauthorized Update',
+          },
+        })
 
-      // WHEN: Owner performs multiple updates
-      // First update
-      const update1Response = await page.request.patch('/api/auth/organization/update-team', {
-        data: {
-          teamId,
-          name: 'Updated Team v1',
-        },
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('permission')
       })
-
-      expect(update1Response.status()).toBe(200)
-
-      // Second update
-      const update2Response = await page.request.patch('/api/auth/organization/update-team', {
-        data: {
-          teamId,
-          name: 'Updated Team v2',
-        },
-      })
-
-      expect(update2Response.status()).toBe(200)
-
-      // Third update: final name
-      const update3Response = await page.request.patch('/api/auth/organization/update-team', {
-        data: {
-          teamId,
-          name: 'Final Team Name',
-        },
-      })
-
-      expect(update3Response.status()).toBe(200)
-
-      // THEN: Get team to verify final state
-      const getResponse = await page.request.get(`/api/auth/organization/get-team?teamId=${teamId}`)
-      const finalTeam = await getResponse.json()
-
-      expect(finalTeam.name).toBe('Final Team Name')
-      expect(finalTeam.organizationId).toBe(organization.id)
     }
   )
 })

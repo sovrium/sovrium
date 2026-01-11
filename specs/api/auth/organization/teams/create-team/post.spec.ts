@@ -307,56 +307,161 @@ test.describe('Create Team', () => {
   test.fixme(
     'API-AUTH-ORG-TEAMS-CREATE-REGRESSION: owner can complete full team creation workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, signUp, createOrganization, page }) => {
-      // GIVEN: Authenticated organization owner
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: {
-            teams: true,
+    async ({
+      startServerWithSchema,
+      signUp,
+      createOrganization,
+      inviteMember,
+      acceptInvitation,
+      page,
+    }) => {
+      let organization: { id: string }
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: {
+              teams: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('API-AUTH-ORG-TEAMS-CREATE-006: Returns 401 Unauthorized when not authenticated', async () => {
+        // WHEN: Unauthenticated user tries to create team
+        const response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: 'org-123',
+            name: 'Engineering Team',
+          },
+        })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('Unauthorized')
       })
 
-      const { organization } = await createOrganization({
-        name: 'Test Company',
-        slug: 'test-company',
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const result = await createOrganization({
+          name: 'Test Company',
+          slug: 'test-company',
+        })
+        organization = result.organization
       })
 
-      // WHEN: Owner creates multiple teams
-      const engineeringResponse = await page.request.post('/api/auth/organization/create-team', {
-        data: {
+      await test.step('API-AUTH-ORG-TEAMS-CREATE-004: Returns 400 Bad Request when name missing', async () => {
+        // WHEN: Owner tries to create team without name
+        const response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+          },
+        })
+
+        // THEN: Returns 400 Bad Request (name is required)
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('name')
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-CREATE-001: Returns 201 Created with team data when owner creates team', async () => {
+        // WHEN: Owner creates a team within the organization
+        const response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Engineering Team',
+          },
+        })
+
+        // THEN: Returns 201 Created with team data
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name', 'Engineering Team')
+        expect(data).toHaveProperty('organizationId', organization.id)
+        expect(data).toHaveProperty('createdAt')
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-CREATE-002: Returns 201 Created with minimal data', async () => {
+        // WHEN: Owner creates team with only required name field
+        const response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Marketing Team',
+          },
+        })
+
+        // THEN: Returns 201 Created with team data
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('name', 'Marketing Team')
+        expect(data).toHaveProperty('organizationId', organization.id)
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-CREATE-005: Returns 409 Conflict when name exists', async () => {
+        // WHEN: Owner tries to create another team with same name
+        const response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Engineering Team',
+          },
+        })
+
+        // THEN: Returns 409 Conflict (team names must be unique within organization)
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('already exists')
+      })
+
+      await test.step('Setup: Create member user for permission test', async () => {
+        const { invitation } = await inviteMember({
           organizationId: organization.id,
-          name: 'Engineering Team',
-        },
+          email: 'member@example.com',
+          role: 'member',
+        })
+
+        await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        await acceptInvitation(invitation.id)
       })
 
-      const marketingResponse = await page.request.post('/api/auth/organization/create-team', {
-        data: {
-          organizationId: organization.id,
-          name: 'Marketing Team',
-        },
+      await test.step('API-AUTH-ORG-TEAMS-CREATE-003: Returns 403 Forbidden when non-owner creates team', async () => {
+        // WHEN: Member tries to create a team
+        const response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Unauthorized Team',
+          },
+        })
+
+        // THEN: Returns 403 Forbidden (only owner/admin can create teams)
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('permission')
       })
-
-      // THEN: Both teams created successfully with correct data
-      expect(engineeringResponse.status()).toBe(201)
-      expect(marketingResponse.status()).toBe(201)
-
-      const engTeam = await engineeringResponse.json()
-      const mktTeam = await marketingResponse.json()
-
-      expect(engTeam.name).toBe('Engineering Team')
-      expect(engTeam.organizationId).toBe(organization.id)
-
-      expect(mktTeam.name).toBe('Marketing Team')
-      expect(mktTeam.organizationId).toBe(organization.id)
     }
   )
 })

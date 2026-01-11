@@ -372,59 +372,309 @@ test.describe('Add Field Migration', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 6 @spec tests - covers: TEXT NOT NULL, nullable, CHECK constraint,
+  // DEFAULT value, deleted_at column, and soft delete preservation
   // ============================================================================
 
   test(
     'MIGRATION-ALTER-ADD-REGRESSION: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Add optional field to table', async () => {
-        // GIVEN: table 'data' exists with initial data
+      await test.step('MIGRATION-ALTER-ADD-001: adds TEXT NOT NULL column to existing table', async () => {
+        // Setup: table 'users' with email field
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'data',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true },
               ],
             },
           ],
         })
-        await executeQuery([`INSERT INTO data (id, title) VALUES (1, 'Initial record')`])
+        await executeQuery([`INSERT INTO users (id, email) VALUES (1, 'user@example.com')`])
 
-        // WHEN: optional field 'description' is added via schema migration
+        // Add required 'name' field with default
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'data',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true },
+                { id: 3, name: 'name', type: 'single-line-text', required: true, default: '' },
+              ],
+            },
+          ],
+        })
+
+        // Verify NOT NULL column added and data preserved
+        const columnCheck = await executeQuery(
+          `SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'`
+        )
+        expect(columnCheck.column_name).toBe('name')
+        expect(columnCheck.is_nullable).toBe('NO')
+
+        const dataCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM users WHERE email = 'user@example.com'`
+        )
+        expect(dataCheck.count).toBe('1')
+      })
+
+      await test.step('MIGRATION-ALTER-ADD-002: adds TEXT column without NOT NULL constraint', async () => {
+        // Setup: table 'products' with title field
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO products (id, title) VALUES (1, 'MacBook Pro'), (2, 'iPhone 15')`,
+        ])
+
+        // Add optional 'description' field
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
                 { id: 3, name: 'description', type: 'single-line-text' },
               ],
             },
           ],
         })
-      })
 
-      await test.step('Verify nullable column added and data preserved', async () => {
         // Verify nullable column added
         const columnCheck = await executeQuery(
-          `SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='description'`
+          `SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='description'`
         )
         expect(columnCheck.is_nullable).toBe('YES')
 
-        // Existing data preserved
+        // Verify existing records have NULL for new column
         const dataCheck = await executeQuery(
-          `SELECT COUNT(*) as count FROM data WHERE title = 'Initial record'`
+          `SELECT title, description FROM products WHERE title = 'MacBook Pro'`
         )
-        expect(dataCheck.count).toBe('1')
+        expect(dataCheck.title).toBe('MacBook Pro')
+        expect(dataCheck.description).toBeNull()
+      })
+
+      await test.step('MIGRATION-ALTER-ADD-003: adds TEXT column with CHECK constraint for enum values', async () => {
+        // Setup: table 'tasks' exists
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
+            },
+          ],
+        })
+
+        // Add 'priority' single-select field
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text', required: true },
+                {
+                  id: 2,
+                  name: 'priority',
+                  type: 'single-select',
+                  options: ['low', 'medium', 'high'],
+                },
+              ],
+            },
+          ],
+        })
+
+        // Verify CHECK constraint enforced
+        const validInsert = await executeQuery(
+          `INSERT INTO tasks (title, priority) VALUES ('Valid task', 'high') RETURNING priority`
+        )
+        expect(validInsert.priority).toBe('high')
+
+        // Verify invalid enum value rejected
+        await expect(async () => {
+          await executeQuery(
+            `INSERT INTO tasks (title, priority) VALUES ('Invalid task', 'critical')`
+          )
+        }).rejects.toThrow(/violates check constraint/i)
+      })
+
+      await test.step('MIGRATION-ALTER-ADD-004: adds column with default value applied to existing rows', async () => {
+        // Setup: table 'orders' exists with data
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'orders',
+              fields: [{ id: 1, name: 'order_number', type: 'single-line-text' }],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`])
+
+        // Add 'total' field with default value
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'order_number', type: 'single-line-text' },
+                { id: 2, name: 'total', type: 'decimal', default: 0 },
+              ],
+            },
+          ],
+        })
+
+        // Verify default applied to existing rows
+        const existingRow = await executeQuery(
+          `SELECT order_number, total FROM orders WHERE order_number = 'ORD-001'`
+        )
+        expect(existingRow.order_number).toBe('ORD-001')
+        expect(parseFloat(existingRow.total)).toBe(0)
+
+        // Verify new rows can override default
+        const newRow = await executeQuery(
+          `INSERT INTO orders (order_number, total) VALUES ('ORD-003', 150.50) RETURNING total`
+        )
+        expect(parseFloat(newRow.total)).toBe(150.5)
+      })
+
+      await test.step('MIGRATION-ALTER-ADD-005: adds deleted_at TIMESTAMP NULL column with index', async () => {
+        // Setup: table 'items_soft' exists without deleted_at
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items_soft',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text', required: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO items_soft (id, title) VALUES (1, 'Task 1'), (2, 'Task 2'), (3, 'Task 3')`,
+        ])
+
+        // Add 'deleted_at' field with index
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items_soft',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text', required: true },
+                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              ],
+            },
+          ],
+        })
+
+        // Verify TIMESTAMP NULL column added
+        const columnCheck = await executeQuery(
+          `SELECT column_name, data_type, is_nullable, column_default
+           FROM information_schema.columns
+           WHERE table_name='items_soft' AND column_name='deleted_at'`
+        )
+        expect(columnCheck.column_name).toBe('deleted_at')
+        expect(columnCheck.data_type).toMatch(/timestamp/)
+        expect(columnCheck.is_nullable).toBe('YES')
+        expect(columnCheck.column_default).toBeNull()
+
+        // Verify index created
+        const indexCheck = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_items_soft_deleted_at'`
+        )
+        expect(indexCheck.indexname).toBe('idx_items_soft_deleted_at')
+      })
+
+      await test.step('MIGRATION-ALTER-ADD-006: preserves existing records as non-deleted (NULL)', async () => {
+        // Setup: table 'items_preserve' exists with data
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'items_preserve',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'status', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO items_preserve (name, status) VALUES
+            ('Item 1', 'active'),
+            ('Item 2', 'pending'),
+            ('Item 3', 'completed')`,
+        ])
+
+        // Add 'deleted_at' field
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'items_preserve',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'deleted_at', type: 'deleted-at' },
+              ],
+            },
+          ],
+        })
+
+        // Verify all existing records remain active (deleted_at = NULL)
+        const recordsCheck = await executeQuery(
+          `SELECT id, name, deleted_at FROM items_preserve ORDER BY id`
+        )
+        expect(recordsCheck.rows).toHaveLength(3)
+        expect(recordsCheck.rows[0].deleted_at).toBeNull()
+        expect(recordsCheck.rows[1].deleted_at).toBeNull()
+        expect(recordsCheck.rows[2].deleted_at).toBeNull()
+
+        // Verify soft delete can be applied
+        await executeQuery(
+          `INSERT INTO items_preserve (name, status, deleted_at) VALUES ('Item 4', 'deleted', NOW())`
+        )
+        const newRecord = await executeQuery(
+          `SELECT deleted_at FROM items_preserve WHERE name = 'Item 4'`
+        )
+        expect(newRecord.deleted_at).toBeTruthy()
       })
     }
   )

@@ -526,118 +526,385 @@ test.describe('Table Fields', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
+  // Generated from 16 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
     'APP-TABLES-FIELDS-REGRESSION: user can complete full Table Fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with tables containing various field configurations
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'customers',
-            fields: [
-              {
-                id: 1,
-                name: 'email',
-                type: 'email',
-                required: true,
-                unique: true,
-              },
-              {
-                id: 2,
-                name: 'name',
-                type: 'single-line-text',
-                required: true,
-              },
-              {
-                id: 3,
-                name: 'age',
-                type: 'integer',
-                min: 0,
-                max: 150,
-              },
-              {
-                id: 4,
-                name: 'balance',
-                type: 'decimal',
-                precision: 10,
-              },
-              {
-                id: 5,
-                name: 'is_active',
-                type: 'checkbox',
-                default: true,
-              },
-              {
-                id: 6,
-                name: 'created_at',
-                type: 'created-at',
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with comprehensive field configuration', async () => {
+        // GIVEN: Application with tables containing various field types and configurations
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'customers',
+              fields: [
+                {
+                  id: 1,
+                  name: 'email',
+                  type: 'email',
+                  required: true,
+                  unique: true,
+                },
+                {
+                  id: 2,
+                  name: 'name',
+                  type: 'single-line-text',
+                  required: true,
+                },
+                {
+                  id: 3,
+                  name: 'age',
+                  type: 'integer',
+                  min: 0,
+                  max: 150,
+                },
+                {
+                  id: 4,
+                  name: 'balance',
+                  type: 'decimal',
+                  precision: 10,
+                },
+                {
+                  id: 5,
+                  name: 'is_active',
+                  type: 'checkbox',
+                  default: true,
+                },
+                {
+                  id: 6,
+                  name: 'created_at',
+                  type: 'created-at',
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Execute representative workflow
-
-      await test.step('All fields are created in database', async () => {
+      await test.step('APP-TABLES-FIELDS-001: Accept fields with at least 1 item', async () => {
+        // WHEN: Validating input with at least 1 items
+        // THEN: All fields are created in database
         const fieldCount = await executeQuery(
           `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
         )
         expect(Number(fieldCount.rows[0].count)).toBeGreaterThanOrEqual(6) // At least 6 fields (+ auto id)
       })
 
-      await test.step('Field types are correctly mapped to PostgreSQL types', async () => {
-        const columns = await executeQuery(
-          `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' AND column_name IN ('email', 'name', 'age', 'balance', 'is_active', 'created_at') ORDER BY column_name`
-        )
-        expect(columns.rows).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ column_name: 'email', data_type: 'character varying' }),
-            expect.objectContaining({ column_name: 'name', data_type: 'character varying' }),
-            expect.objectContaining({ column_name: 'age', data_type: 'integer' }),
-            expect.objectContaining({ column_name: 'balance', data_type: 'numeric' }),
-            expect.objectContaining({ column_name: 'is_active', data_type: 'boolean' }),
-            expect.objectContaining({
-              column_name: 'created_at',
-              data_type: 'timestamp without time zone',
-            }),
-          ])
-        )
-      })
-
-      await test.step('Constraints are properly applied', async () => {
-        const constraints = await executeQuery(
-          `SELECT constraint_type, COUNT(*) as count FROM information_schema.table_constraints WHERE table_name = 'customers' GROUP BY constraint_type ORDER BY constraint_type`
-        )
-        expect(constraints.rows).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ constraint_type: 'PRIMARY KEY' }),
-            expect.objectContaining({ constraint_type: 'UNIQUE' }), // email unique constraint
-          ])
-        )
-      })
-
-      await test.step('Error handling: duplicate field IDs are rejected', async () => {
+      await test.step('APP-TABLES-FIELDS-002: Enforce minimum items for empty fields array', async () => {
+        // WHEN: Validating input with fewer than 1 items
+        // THEN: Error should enforce minimum items
         await expect(
           startServerWithSchema({
-            name: 'test-app-error',
+            name: 'test-app-min',
+            tables: [{ id: 99, name: 'invalid_table', fields: [] }],
+          })
+        ).rejects.toThrow(/Expected an array of at least 1 item/)
+      })
+
+      await test.step('APP-TABLES-FIELDS-003: Reject duplicate field IDs', async () => {
+        // WHEN: Table with duplicate field IDs
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-dup-id',
             tables: [
               {
-                id: 99,
+                id: 98,
                 name: 'invalid_table',
                 fields: [
-                  { id: 1, name: 'field_a', type: 'single-line-text' }, // Duplicate ID
-                  { id: 1, name: 'field_b', type: 'email' }, // Duplicate ID
+                  { id: 1, name: 'field_a', type: 'single-line-text' },
+                  { id: 1, name: 'field_b', type: 'email' },
                 ],
               },
             ],
           })
         ).rejects.toThrow(/duplicate.*field.*id|field.*id.*must.*be.*unique/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-004: Reject duplicate field names', async () => {
+        // WHEN: Table with duplicate field names
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-dup-name',
+            tables: [
+              {
+                id: 97,
+                name: 'invalid_table',
+                fields: [
+                  { id: 1, name: 'email', type: 'email' },
+                  { id: 2, name: 'email', type: 'single-line-text' },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*field.*name|field.*name.*must.*be.*unique/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-005: Reject field name starting with number', async () => {
+        // WHEN: Field name starting with a number
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-number',
+            tables: [
+              {
+                id: 96,
+                name: 'invalid_table',
+                fields: [{ id: 1, name: '1invalid_field', type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/invalid.*field.*name|name.*must.*start.*letter|pattern/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-006: Reject field name with special characters', async () => {
+        // WHEN: Field name with special characters
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-special',
+            tables: [
+              {
+                id: 95,
+                name: 'invalid_table',
+                fields: [{ id: 1, name: 'user-email!', type: 'email' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/invalid.*field.*name|name.*must.*match|pattern/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-007: Reject field name exceeding maximum length', async () => {
+        // WHEN: Field name exceeding 63 characters
+        // THEN: Should throw validation error
+        const longFieldName = 'f'.repeat(64)
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-long',
+            tables: [
+              {
+                id: 94,
+                name: 'invalid_table',
+                fields: [{ id: 1, name: longFieldName, type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/name.*too.*long|exceeds.*maximum.*length|maxLength/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-008: Reject empty field name', async () => {
+        // WHEN: Empty field name
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-empty',
+            tables: [
+              {
+                id: 93,
+                name: 'invalid_table',
+                fields: [{ id: 1, name: '', type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/name.*required|empty.*name|minLength/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-009: Reject invalid field type', async () => {
+        // WHEN: Field with invalid type
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-type',
+            tables: [
+              {
+                id: 92,
+                name: 'invalid_table',
+                fields: [{ id: 1, name: 'data', type: 'nonexistent-type' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/unknown.*field.*type|invalid.*type/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-010: Reject integer field with min greater than max', async () => {
+        // WHEN: Integer field with min > max
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-int-range',
+            tables: [
+              {
+                id: 91,
+                name: 'invalid_table',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'quantity',
+                    type: 'integer',
+                    min: 500,
+                    max: 100,
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-011: Reject decimal field with min greater than max', async () => {
+        // WHEN: Decimal field with min > max
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-dec-range',
+            tables: [
+              {
+                id: 90,
+                name: 'invalid_table',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'price',
+                    type: 'decimal',
+                    precision: 10,
+                    min: 999.99,
+                    max: 0.01,
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/min.*greater.*max|invalid.*range|min.*cannot.*exceed/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-012: Reject single-select field with empty options', async () => {
+        // WHEN: Single-select field with no options
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-select',
+            tables: [
+              {
+                id: 89,
+                name: 'invalid_table',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'status',
+                    type: 'single-select',
+                    options: [],
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-013: Reject multi-select field with empty options', async () => {
+        // WHEN: Multi-select field with no options
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-multi',
+            tables: [
+              {
+                id: 88,
+                name: 'invalid_table',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'tags',
+                    type: 'multi-select',
+                    options: [],
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/options.*required|at.*least.*one.*option|minItems/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-014: Reject decimal field with negative precision', async () => {
+        // WHEN: Decimal field with negative precision
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-precision',
+            tables: [
+              {
+                id: 87,
+                name: 'invalid_table',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'price',
+                    type: 'decimal',
+                    precision: -5,
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/invalid.*precision|precision.*must.*be.*positive|greaterThan/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-015: Reject relationship field without relatedTable', async () => {
+        // WHEN: Relationship field missing relatedTable
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-rel-table',
+            tables: [
+              {
+                id: 86,
+                name: 'invalid_table',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'author_id',
+                    type: 'relationship',
+                    relationType: 'many-to-one',
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/relatedTable.*is missing|relatedTable is required/i)
+      })
+
+      await test.step('APP-TABLES-FIELDS-016: Reject relationship field without relationType', async () => {
+        // WHEN: Relationship field missing relationType
+        // THEN: Should throw validation error
+        await expect(
+          startServerWithSchema({
+            name: 'test-app-rel-type',
+            tables: [
+              {
+                id: 85,
+                name: 'users',
+                fields: [{ id: 1, name: 'email', type: 'email' }],
+              },
+              {
+                id: 84,
+                name: 'posts',
+                fields: [
+                  {
+                    id: 1,
+                    name: 'author_id',
+                    type: 'relationship',
+                    relatedTable: 'users',
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/relationType.*is missing|relationType is required/i)
       })
 
       // Workflow completes successfully with proper validation

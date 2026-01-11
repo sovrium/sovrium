@@ -767,43 +767,131 @@ test.describe('Field-Level Permissions', () => {
   test(
     'APP-TABLES-FIELD-PERMISSIONS-REGRESSION: user can complete full field-permissions workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      signUp,
+      signIn,
+      page,
+    }) => {
       let user1: any
       let user2: any
 
-      await test.step('Setup: Start server with field-level permissions', async () => {
+      await test.step('Setup: Start server with comprehensive field permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
           },
           tables: [
+            // Table for spec 001, 003, 007 - role-based read permissions
             {
-              id: 7,
-              name: 'records',
+              id: 1,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'single-line-text' },
+                { id: 4, name: 'salary', type: 'decimal' },
+                { id: 5, name: 'ssn', type: 'single-line-text' },
+                { id: 6, name: 'department', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: { type: 'roles', roles: ['member', 'admin'] },
+                fields: [
+                  {
+                    field: 'email',
+                    read: { type: 'authenticated' },
+                  },
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['admin'] },
+                  },
+                  {
+                    field: 'ssn',
+                    read: { type: 'roles', roles: ['admin'] },
+                  },
+                  {
+                    field: 'department',
+                    read: { type: 'public' },
+                  },
+                ],
+              },
+            },
+            // Table for spec 002, 008 - role-based write permissions
+            {
+              id: 2,
+              name: 'profiles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'display_name', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'single-line-text' },
+                { id: 4, name: 'bio', type: 'single-line-text' },
+                { id: 5, name: 'verified', type: 'checkbox' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                update: { type: 'roles', roles: ['member', 'admin'] },
+                fields: [
+                  {
+                    field: 'email',
+                    write: { type: 'roles', roles: ['admin'] },
+                  },
+                  {
+                    field: 'verified',
+                    write: { type: 'roles', roles: ['admin'] },
+                  },
+                ],
+              },
+            },
+            // Table for spec 004 - public read, admin-only write
+            {
+              id: 3,
+              name: 'tickets',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'public_field', type: 'single-line-text' },
-                { id: 4, name: 'private_field', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                fields: [
+                  {
+                    field: 'status',
+                    read: { type: 'public' },
+                    write: { type: 'roles', roles: ['admin'] },
+                  },
+                ],
+              },
+            },
+            // Table for spec 005, 009 - custom condition (owner-only)
+            {
+              id: 4,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'notes', type: 'single-line-text' },
+                { id: 4, name: 'secret_content', type: 'long-text' },
                 { id: 5, name: 'owner_id', type: 'user' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                read: {
-                  type: 'authenticated',
-                },
-                update: {
-                  type: 'authenticated',
-                },
+                read: { type: 'authenticated' },
+                update: { type: 'authenticated' },
                 fields: [
                   {
-                    field: 'private_field',
-                    read: {
+                    field: 'notes',
+                    write: {
                       type: 'custom',
                       condition: '{userId} = owner_id',
                     },
-                    write: {
+                  },
+                  {
+                    field: 'secret_content',
+                    read: {
                       type: 'custom',
                       condition: '{userId} = owner_id',
                     },
@@ -811,72 +899,313 @@ test.describe('Field-Level Permissions', () => {
                 ],
               },
             },
+            // Table for spec 006 - no field restrictions (inherit table-level)
+            {
+              id: 5,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'content', type: 'single-line-text' },
+                { id: 4, name: 'created_at', type: 'datetime' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: { type: 'authenticated' },
+                fields: [],
+              },
+            },
           ],
         })
       })
 
-      await test.step('Create test users and insert data', async () => {
-        user1 = await createAuthenticatedUser({ email: 'owner@example.com' })
-        user2 = await createAuthenticatedUser({ email: 'other@example.com' })
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-001: Exclude salary for non-admin users', async () => {
+        // Insert test data (without id - auto-generated)
+        await executeQuery([
+          "INSERT INTO employees (name, email, salary, ssn, department) VALUES ('Alice', 'alice@example.com', 75000.00, '123-45-6789', 'Engineering')",
+        ])
+
+        // Admin can SELECT salary
+        const adminResult = await executeQuery([
+          'SET ROLE admin_user',
+          'SELECT id, name, salary, department FROM employees WHERE id = 1',
+        ])
+        expect(adminResult).toMatchObject({
+          id: 1,
+          name: 'Alice',
+          salary: '75000.00',
+          department: 'Engineering',
+        })
+
+        // Member user SELECT excludes salary (application layer filtering)
+        const memberResult = await executeQuery([
+          'SET ROLE member_user',
+          'SELECT id, name, department FROM employees WHERE id = 1',
+        ])
+        expect(memberResult).toMatchObject({
+          id: 1,
+          name: 'Alice',
+          department: 'Engineering',
+        })
+
+        // Member cannot SELECT salary (permission denied)
+        await expect(async () => {
+          await executeQuery(['SET ROLE member_user', 'SELECT salary FROM employees WHERE id = 1'])
+        }).rejects.toThrow('permission denied for table employees')
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-002: Reject email update by member role', async () => {
+        await executeQuery([
+          "INSERT INTO profiles (display_name, email, bio, verified) VALUES ('Alice Profile', 'alice@example.com', 'Software engineer', false)",
+        ])
+
+        // Admin can UPDATE email
+        const adminUpdate = await executeQuery([
+          'SET ROLE admin_user',
+          "UPDATE profiles SET email = 'alice.new@example.com' WHERE id = 1 RETURNING email",
+        ])
+        expect(adminUpdate.email).toBe('alice.new@example.com')
+
+        // Member can UPDATE other fields
+        const memberUpdate = await executeQuery([
+          'SET ROLE member_user',
+          "UPDATE profiles SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
+        ])
+        expect(memberUpdate.bio).toBe('Updated bio')
+
+        // Member cannot UPDATE email
+        await expect(async () => {
+          await executeQuery([
+            'SET ROLE member_user',
+            "UPDATE profiles SET email = 'hacked@example.com' WHERE id = 1",
+          ])
+        }).rejects.toThrow('permission denied for table profiles')
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-003: Include only permitted columns for different roles', async () => {
+        // Admin sees all fields including salary and ssn
+        const adminResult = await executeQuery([
+          'SET ROLE admin_user',
+          'SELECT name, email, salary, ssn, department FROM employees WHERE id = 1',
+        ])
+        expect(adminResult).toMatchObject({
+          name: 'Alice',
+          email: 'alice@example.com',
+          salary: '75000.00',
+          ssn: '123-45-6789',
+          department: 'Engineering',
+        })
+
+        // Authenticated user sees email and department (no salary/ssn)
+        const authResult = await executeQuery([
+          'SET ROLE authenticated_user',
+          'SELECT name, email, department FROM employees WHERE id = 1',
+        ])
+        expect(authResult).toMatchObject({
+          name: 'Alice',
+          email: 'alice@example.com',
+          department: 'Engineering',
+        })
+
+        // Unauthenticated sees department only
+        const unauthResult = await executeQuery([
+          'RESET ROLE',
+          'SELECT name, department FROM employees WHERE id = 1',
+        ])
+        expect(unauthResult).toMatchObject({
+          name: 'Alice',
+          department: 'Engineering',
+        })
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-004: Include status for all (public read, admin write)', async () => {
+        await executeQuery(["INSERT INTO tickets (title, status) VALUES ('Bug #123', 'open')"])
+
+        // Unauthenticated can SELECT status
+        const unauthResult = await executeQuery([
+          'RESET ROLE',
+          'SELECT title, status FROM tickets WHERE id = 1',
+        ])
+        expect(unauthResult).toMatchObject({
+          title: 'Bug #123',
+          status: 'open',
+        })
+
+        // Admin can UPDATE status
+        const adminUpdate = await executeQuery([
+          'SET ROLE admin_user',
+          "UPDATE tickets SET status = 'closed' WHERE id = 1 RETURNING status",
+        ])
+        expect(adminUpdate.status).toBe('closed')
+
+        // Member cannot UPDATE status
+        await expect(async () => {
+          await executeQuery([
+            'SET ROLE member_user',
+            "UPDATE tickets SET status = 'reopened' WHERE id = 1",
+          ])
+        }).rejects.toThrow('permission denied for table tickets')
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-005: Deny update for non-owner (custom condition)', async () => {
+        user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+        user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
         await executeQuery([
-          `INSERT INTO records (title, public_field, private_field, owner_id) VALUES ('Record 1', 'Public', 'Private', '${user1.user.id}')`,
+          `INSERT INTO tasks (title, notes, owner_id) VALUES ('Task 1', 'Initial notes', '${user1.user.id}')`,
         ])
-      })
 
-      await test.step('Verify owner can read all fields including private field', async () => {
-        // WHEN: Owner queries their own record as authenticated user
-        const ownerRead = await executeQuery([
-          'SET LOCAL ROLE authenticated_user',
-          `SET LOCAL app.user_id = '${user1.user.id}'`,
-          'SELECT title, public_field, private_field FROM records WHERE id = 1',
-        ])
-        // THEN: Owner sees all fields including private_field
-        expect(ownerRead.rows[0].title).toBe('Record 1')
-        expect(ownerRead.rows[0].private_field).toBe('Private')
-      })
-
-      await test.step('Verify non-owner cannot read private field', async () => {
-        // WHEN: Non-owner queries the record as authenticated user
-        // Note: PostgreSQL RLS filters entire rows when field-level custom conditions aren't met
-        // This is a documented PostgreSQL limitation - column-level dynamic permissions don't exist
-        const nonOwnerRead = await executeQuery([
-          'SET LOCAL ROLE authenticated_user',
-          `SET LOCAL app.user_id = '${user2.user.id}'`,
-          'SELECT private_field FROM records WHERE id = 1',
-        ])
-        // THEN: RLS filters out the row (non-owner sees zero rows, not permission denied)
-        expect(nonOwnerRead.rows).toHaveLength(0)
-      })
-
-      await test.step('Verify owner can update private field', async () => {
-        // WHEN: Owner updates their private field as authenticated user
+        // Owner can UPDATE notes
         const ownerUpdate = await executeQuery([
-          'SET LOCAL ROLE authenticated_user',
           `SET LOCAL app.user_id = '${user1.user.id}'`,
-          "UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field",
+          "UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes",
         ])
-        // THEN: Update succeeds
-        expect(ownerUpdate.rows).toHaveLength(1)
-        expect(ownerUpdate.rows[0].private_field).toBe('Updated')
+        expect(ownerUpdate.notes).toBe('Updated by owner')
+
+        // Non-owner cannot UPDATE notes
+        await expect(async () => {
+          await executeQuery([
+            `SET LOCAL app.user_id = '${user2.user.id}'`,
+            "UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1",
+          ])
+        }).rejects.toThrow('permission denied for column notes')
       })
 
-      await test.step('Verify non-owner cannot update private field', async () => {
-        // WHEN: Non-owner attempts to update the private field
-        // Note: Write permissions use BEFORE UPDATE triggers which raise exceptions
-        try {
-          await executeQuery([
-            'SET LOCAL ROLE authenticated_user',
-            `SET LOCAL app.user_id = '${user2.user.id}'`,
-            "UPDATE records SET private_field = 'Hacked' WHERE id = 1",
-          ])
-          // If we get here, the update succeeded which is wrong
-          throw new Error('Expected update to fail with permission denied')
-        } catch (error: unknown) {
-          const errMsg = error instanceof Error ? error.message : String(error)
-          // THEN: Trigger raises permission denied exception
-          expect(errMsg).toMatch(/permission denied/i)
-        }
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-006: Include created_at (inherits table permissions)', async () => {
+        await executeQuery(["INSERT INTO posts (title, content) VALUES ('Post 1', 'Content 1')"])
+
+        // Empty fields array means no field-level restrictions
+        const emptyPermissions = await executeQuery("SELECT '[]'::jsonb as field_permissions")
+        expect(emptyPermissions.field_permissions).toEqual([])
+
+        // Authenticated user can SELECT all fields
+        const authResult = await executeQuery(
+          'SELECT id, title, created_at FROM posts WHERE id = 1'
+        )
+        expect(authResult).toMatchObject({
+          id: 1,
+          title: 'Post 1',
+          created_at: null,
+        })
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-007: Demonstrate dual-layer field filtering (Better Auth + RLS)', async () => {
+        // Create member user
+        const memberResult = await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        await executeQuery([
+          `UPDATE _sovrium_auth_users SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
+        ])
+
+        await signIn({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+        })
+
+        // Member reads employees - Better Auth allows, RLS filters salary/ssn
+        const response = await page.request.get('/api/tables/employees/records')
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.records[0].fields).toHaveProperty('name')
+        expect(data.records[0].fields).not.toHaveProperty('salary') // Filtered by RLS
+        expect(data.records[0].fields).not.toHaveProperty('ssn') // Filtered by RLS
+
+        // Create admin user
+        const adminResult = await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+
+        await executeQuery([
+          `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
+        ])
+
+        await signIn({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+        })
+
+        // Admin reads employees - Better Auth allows, RLS includes all fields
+        const adminResponse = await page.request.get('/api/tables/employees/records')
+        expect(adminResponse.status()).toBe(200)
+
+        const adminData = await adminResponse.json()
+        expect(adminData.records[0].fields).toHaveProperty('salary') // Included by RLS
+        expect(adminData.records[0].fields).toHaveProperty('ssn') // Included by RLS
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-008: Prevent field modification at both layers', async () => {
+        // Sign in as member (created in step 007)
+        await signIn({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+        })
+
+        // Member attempts to update verified field - Better Auth blocks
+        const response = await page.request.patch('/api/tables/profiles/records/1', {
+          data: { verified: true },
+        })
+        expect([403, 401]).toContain(response.status())
+
+        // Verify field unchanged
+        const dbResult = await executeQuery('SELECT verified FROM profiles WHERE id = 1')
+        expect(dbResult.rows[0].verified).toBe(false)
+
+        // Admin updates verified field - both layers allow
+        await signIn({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+        })
+
+        const adminResponse = await page.request.patch('/api/tables/profiles/records/1', {
+          data: { verified: true },
+        })
+        expect(adminResponse.status()).toBe(200)
+
+        const adminDbResult = await executeQuery('SELECT verified FROM profiles WHERE id = 1')
+        expect(adminDbResult.rows[0].verified).toBe(true)
+      })
+
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-009: Apply complementary permissions (Better Auth guards + RLS filters)', async () => {
+        await executeQuery([
+          `INSERT INTO tasks (title, secret_content, owner_id) VALUES
+           ('Task 2', 'User 1 Secret', '${user1.user.id}'),
+           ('Task 3', 'User 2 Secret', '${user2.user.id}')`,
+        ])
+
+        // Sign in as user1
+        await signIn({
+          email: 'user1@example.com',
+          password: 'TestPassword123!',
+        })
+
+        // User1 reads tasks - Better Auth allows, RLS filters secret_content by ownership
+        const response = await page.request.get('/api/tables/tasks/records')
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        const user1Task = data.records.find((r: any) => r.fields.owner_id === user1.user.id)
+        const user2Task = data.records.find((r: any) => r.fields.owner_id === user2.user.id)
+
+        // User1 sees their own secret content
+        expect(user1Task.fields).toHaveProperty('secret_content')
+        expect(user1Task.fields.secret_content).toBe('User 1 Secret')
+
+        // User1 does NOT see User2's secret content
+        expect(user2Task.fields).toHaveProperty('title')
+        expect(user2Task.fields).not.toHaveProperty('secret_content')
+
+        // Unauthenticated user blocked by Better Auth
+        const unauthResponse = await page.request.get('/api/tables/tasks/records', {
+          headers: { Cookie: '' },
+        })
+        expect(unauthResponse.status()).toBe(401)
       })
     }
   )

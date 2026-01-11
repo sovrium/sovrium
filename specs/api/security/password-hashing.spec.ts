@@ -149,55 +149,98 @@ test.describe('Password Hashing Security', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly ONE test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 3 @spec tests - covers: algorithm validation, cost factor, unique salts
   // ============================================================================
 
   test.fixme(
     'API-SECURITY-HASH-REGRESSION: user can complete full password hashing workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Application with authentication enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with authentication enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // WHEN: User signs up with password
-      const signupResponse = await request.post('/api/auth/sign-up/email', {
-        data: {
-          email: 'workflow@example.com',
-          password: 'WorkflowTest123!',
-          name: 'Workflow User',
-        },
+      await test.step('API-SECURITY-HASH-001: uses bcrypt or argon2 for password hashing', async () => {
+        // Sign up user
+        const response = await request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'test@example.com',
+            password: 'SecurePassword123!',
+            name: 'Test User',
+          },
+        })
+        expect(response.ok()).toBe(true)
+
+        // Verify password hash format
+        const user = await request.get('/api/auth/user/test@example.com')
+        const userData = await user.json()
+
+        expect(userData.password).toMatch(/^(\$2[ab]\$|\$argon2)/)
+        expect(userData.password).not.toBe('SecurePassword123!')
+        expect(userData.password.length).toBeGreaterThan(50)
       })
 
-      // THEN: Signup succeeds
-      expect(signupResponse.ok()).toBe(true)
+      await test.step('API-SECURITY-HASH-002: uses cost factor >= 12 for bcrypt', async () => {
+        // Sign up another user
+        const response = await request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'secure@example.com',
+            password: 'StrongPassword456!',
+            name: 'Secure User',
+          },
+        })
+        expect(response.ok()).toBe(true)
 
-      // WHEN: Verifying password hash properties
-      const userResponse = await request.get('/api/auth/user/workflow@example.com')
-      const user = await userResponse.json()
+        // Verify cost factor
+        const user = await request.get('/api/auth/user/secure@example.com')
+        const userData = await user.json()
 
-      // THEN: Password is properly hashed with secure algorithm
-      expect(user.password).toMatch(/^(\$2[ab]\$|\$argon2)/)
-      expect(user.password).not.toBe('WorkflowTest123!')
-      expect(user.password.length).toBeGreaterThan(50)
+        if (userData.password.startsWith('$2')) {
+          const costFactor = parseInt(userData.password.split('$')[2])
+          expect(costFactor).toBeGreaterThanOrEqual(12)
+        }
 
-      // WHEN: User logs in with original password
-      const loginResponse = await request.post('/api/auth/sign-in/email', {
-        data: {
-          email: 'workflow@example.com',
-          password: 'WorkflowTest123!',
-        },
+        if (userData.password.startsWith('$argon2')) {
+          expect(userData.password).toMatch(/^\$argon2(id|i|d)\$/)
+        }
       })
 
-      // THEN: Login succeeds (hash verification works)
-      expect(loginResponse.ok()).toBe(true)
-      const loginData = await loginResponse.json()
-      expect(loginData.session).toBeDefined()
-      expect(loginData.user.email).toBe('workflow@example.com')
+      await test.step('API-SECURITY-HASH-003: generates unique salt per password', async () => {
+        // Create two users with identical passwords
+        await request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'user1@example.com',
+            password: 'SamePassword789!',
+            name: 'User One',
+          },
+        })
+
+        await request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'user2@example.com',
+            password: 'SamePassword789!',
+            name: 'User Two',
+          },
+        })
+
+        // Verify hashes are different
+        const user1Response = await request.get('/api/auth/user/user1@example.com')
+        const user1 = await user1Response.json()
+
+        const user2Response = await request.get('/api/auth/user/user2@example.com')
+        const user2 = await user2Response.json()
+
+        expect(user1.password).not.toBe(user2.password)
+        expect(user1.password).toMatch(/^(\$2[ab]\$|\$argon2)/)
+        expect(user2.password).toMatch(/^(\$2[ab]\$|\$argon2)/)
+      })
     }
   )
 })

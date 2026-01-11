@@ -464,80 +464,37 @@ version: 2.0.0
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly ONE test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying CLI watch mode works together efficiently
+  // Generated from 7 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
-    'CLI-START-WATCH-REGRESSION: user can develop with live config reloading across formats',
+    'CLI-START-WATCH-REGRESSION: user can develop with live config reloading',
     { tag: '@regression' },
     async () => {
-      await test.step('Start server in watch mode with JSON config', async () => {
+      await test.step('CLI-START-WATCH-001: activates watch mode with --watch flag', async () => {
         const configPath = await createTempConfigFile(
           JSON.stringify({
-            name: 'dev-workflow-app',
-            description: 'Development workflow test',
-            version: '1.0.0',
+            name: 'watch-mode-test',
+            description: 'Testing --watch flag',
           }),
           'json'
         )
 
         try {
-          const args = ['run', 'src/cli.ts', 'start', configPath, '-w']
-          const serverProcess = spawn('bun', args, { stdio: 'pipe' })
+          const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
+          const serverProcess = spawn('bun', args, {
+            stdio: 'pipe',
+            env: { ...process.env, PORT: '0' },
+          })
 
           const output = await new Promise<string>((resolve) => {
             const outputBuffer: string[] = []
-            let stage = 0
-
             const handleOutput = (data: Buffer) => {
               const text = data.toString()
               outputBuffer.push(text)
-
-              // Stage 0: Wait for watch mode
-              if (stage === 0 && text.includes('👀 Watching')) {
-                stage = 1
-                // Stage 1: Make valid config change
-                setTimeout(async () => {
-                  await writeFile(
-                    configPath,
-                    JSON.stringify({
-                      name: 'dev-workflow-app-v2',
-                      description: 'Updated in dev',
-                      version: '2.0.0',
-                    }),
-                    'utf-8'
-                  )
-                }, 500)
-              }
-
-              // Stage 1: Wait for successful reload
-              if (stage === 1 && text.includes('✅ Server reloaded')) {
-                stage = 2
-                // Stage 2: Make invalid config change
-                setTimeout(async () => {
-                  await writeFile(configPath, '{ "name": "broken', 'utf-8')
-                }, 500)
-              }
-
-              // Stage 2: Wait for error handling
-              if (stage === 2 && text.includes('❌ Reload failed')) {
-                stage = 3
-                // Stage 3: Fix the config
-                setTimeout(async () => {
-                  await writeFile(
-                    configPath,
-                    JSON.stringify({
-                      name: 'dev-workflow-app-fixed',
-                      description: 'Fixed after error',
-                      version: '2.1.0',
-                    }),
-                    'utf-8'
-                  )
-                }, 500)
-              }
-
-              // Stage 3: Wait for recovery
-              if (stage === 3 && text.includes('✅ Server reloaded')) {
+              if (text.includes('👀 Watching')) {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
               }
@@ -549,22 +506,327 @@ version: 2.0.0
             setTimeout(() => {
               serverProcess.kill()
               resolve(outputBuffer.join(''))
-            }, 15_000)
+            }, 5000)
           })
 
-          // Verify complete development workflow
           expect(output).toContain('Watch mode: enabled')
           expect(output).toContain('👀 Watching')
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
 
-          // First successful reload
-          expect(output).toMatch(/🔄 Config changed.*✅ Server reloaded/s)
+      await test.step('CLI-START-WATCH-002: activates watch mode with -w short flag', async () => {
+        const configPath = await createTempConfigFile(
+          `
+name: watch-short-flag-test
+description: Testing -w flag
+`,
+          'yaml'
+        )
 
-          // Error handling (keeps server running)
-          expect(output).toContain('❌ Reload failed')
+        try {
+          const args = ['run', 'src/cli.ts', 'start', configPath, '-w']
+          const serverProcess = spawn('bun', args, {
+            stdio: 'pipe',
+            env: { ...process.env, PORT: '0' },
+          })
 
-          // Recovery after fix
-          const reloadSuccesses = output.match(/✅ Server reloaded/g)
-          expect(reloadSuccesses?.length).toBeGreaterThanOrEqual(2)
+          const output = await new Promise<string>((resolve) => {
+            const outputBuffer: string[] = []
+            const handleOutput = (data: Buffer) => {
+              const text = data.toString()
+              outputBuffer.push(text)
+              if (text.includes('👀 Watching')) {
+                serverProcess.kill()
+                resolve(outputBuffer.join(''))
+              }
+            }
+
+            serverProcess.stdout?.on('data', handleOutput)
+            serverProcess.stderr?.on('data', handleOutput)
+
+            setTimeout(() => {
+              serverProcess.kill()
+              resolve(outputBuffer.join(''))
+            }, 5000)
+          })
+
+          expect(output).toContain('Watch mode: enabled')
+          expect(output).toContain('👀 Watching')
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-WATCH-003: reloads server when JSON config changes', async () => {
+        const configPath = await createTempConfigFile(
+          JSON.stringify({
+            name: 'original-app-name',
+            description: 'Original description',
+          }),
+          'json'
+        )
+
+        try {
+          const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
+          const serverProcess = spawn('bun', args, {
+            stdio: 'pipe',
+            env: { ...process.env, PORT: '0' },
+          })
+
+          const reloadOutput = await new Promise<string>((resolve) => {
+            const outputBuffer: string[] = []
+            let watchMessageSeen = false
+
+            const handleOutput = (data: Buffer) => {
+              const text = data.toString()
+              outputBuffer.push(text)
+
+              if (!watchMessageSeen && text.includes('👀 Watching')) {
+                watchMessageSeen = true
+                setTimeout(async () => {
+                  await writeFile(
+                    configPath,
+                    JSON.stringify({
+                      name: 'updated-app-name',
+                      description: 'Updated description',
+                    }),
+                    'utf-8'
+                  )
+                }, 500)
+              }
+
+              if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+                serverProcess.kill()
+                resolve(outputBuffer.join(''))
+              }
+            }
+
+            serverProcess.stdout?.on('data', handleOutput)
+            serverProcess.stderr?.on('data', handleOutput)
+
+            setTimeout(() => {
+              serverProcess.kill()
+              resolve(outputBuffer.join(''))
+            }, 10_000)
+          })
+
+          expect(reloadOutput).toContain('🔄 Config changed, reloading')
+          expect(reloadOutput).toContain('✅ Server reloaded successfully')
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-WATCH-004: reloads server when YAML config changes', async () => {
+        const configPath = await createTempConfigFile(
+          `
+name: original-yaml-app
+description: Original YAML description
+`,
+          'yaml'
+        )
+
+        try {
+          const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
+          const serverProcess = spawn('bun', args, {
+            stdio: 'pipe',
+            env: { ...process.env, PORT: '0' },
+          })
+
+          const reloadOutput = await new Promise<string>((resolve) => {
+            const outputBuffer: string[] = []
+            let watchMessageSeen = false
+
+            const handleOutput = (data: Buffer) => {
+              const text = data.toString()
+              outputBuffer.push(text)
+
+              if (!watchMessageSeen && text.includes('👀 Watching')) {
+                watchMessageSeen = true
+                setTimeout(async () => {
+                  await writeFile(
+                    configPath,
+                    `
+name: updated-yaml-app
+description: Updated YAML description
+version: 2.0.0
+`,
+                    'utf-8'
+                  )
+                }, 500)
+              }
+
+              if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+                serverProcess.kill()
+                resolve(outputBuffer.join(''))
+              }
+            }
+
+            serverProcess.stdout?.on('data', handleOutput)
+            serverProcess.stderr?.on('data', handleOutput)
+
+            setTimeout(() => {
+              serverProcess.kill()
+              resolve(outputBuffer.join(''))
+            }, 10_000)
+          })
+
+          expect(reloadOutput).toContain('🔄 Config changed, reloading')
+          expect(reloadOutput).toContain('✅ Server reloaded successfully')
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-WATCH-005: keeps old server running when config is invalid', async () => {
+        const configPath = await createTempConfigFile(
+          JSON.stringify({
+            name: 'stable-app',
+            description: 'Stable configuration',
+          }),
+          'json'
+        )
+
+        try {
+          const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
+          const serverProcess = spawn('bun', args, {
+            stdio: 'pipe',
+            env: { ...process.env, PORT: '0' },
+          })
+
+          const errorOutput = await new Promise<string>((resolve) => {
+            const outputBuffer: string[] = []
+            let watchMessageSeen = false
+
+            const handleOutput = (data: Buffer) => {
+              const text = data.toString()
+              outputBuffer.push(text)
+
+              if (!watchMessageSeen && text.includes('👀 Watching')) {
+                watchMessageSeen = true
+                setTimeout(async () => {
+                  await writeFile(
+                    configPath,
+                    `{
+  "name": "broken-app",
+  "description": "Missing closing brace"
+`,
+                    'utf-8'
+                  )
+                }, 500)
+              }
+
+              if (watchMessageSeen && text.includes('❌ Reload failed')) {
+                setTimeout(() => {
+                  serverProcess.kill()
+                  resolve(outputBuffer.join(''))
+                }, 500)
+              }
+            }
+
+            serverProcess.stdout?.on('data', handleOutput)
+            serverProcess.stderr?.on('data', handleOutput)
+
+            setTimeout(() => {
+              serverProcess.kill()
+              resolve(outputBuffer.join(''))
+            }, 10_000)
+          })
+
+          expect(errorOutput).toContain('🔄 Config changed, reloading')
+          expect(errorOutput).toContain('❌ Reload failed')
+          expect(errorOutput).not.toContain('✅ Server reloaded')
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-WATCH-006: displays watch status messages in correct sequence', async () => {
+        const configPath = await createTempConfigFile(
+          JSON.stringify({
+            name: 'message-test-app',
+            description: 'Testing watch messages',
+          }),
+          'json'
+        )
+
+        try {
+          const args = ['run', 'src/cli.ts', 'start', configPath, '--watch']
+          const serverProcess = spawn('bun', args, {
+            stdio: 'pipe',
+            env: { ...process.env, PORT: '0' },
+          })
+
+          const output = await new Promise<string>((resolve) => {
+            const outputBuffer: string[] = []
+            let watchMessageSeen = false
+
+            const handleOutput = (data: Buffer) => {
+              const text = data.toString()
+              outputBuffer.push(text)
+
+              if (!watchMessageSeen && text.includes('👀 Watching')) {
+                watchMessageSeen = true
+                setTimeout(async () => {
+                  await writeFile(
+                    configPath,
+                    JSON.stringify({
+                      name: 'updated-message-test',
+                      description: 'Updated for message test',
+                    }),
+                    'utf-8'
+                  )
+                }, 500)
+              }
+
+              if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+                serverProcess.kill()
+                resolve(outputBuffer.join(''))
+              }
+            }
+
+            serverProcess.stdout?.on('data', handleOutput)
+            serverProcess.stderr?.on('data', handleOutput)
+
+            setTimeout(() => {
+              serverProcess.kill()
+              resolve(outputBuffer.join(''))
+            }, 10_000)
+          })
+
+          expect(output).toContain('Watch mode: enabled')
+          expect(output).toContain('👀 Watching')
+          expect(output).toContain('🔄 Config changed, reloading')
+          expect(output).toContain('✅ Server reloaded successfully')
+
+          const watchIndex = output.indexOf('👀 Watching')
+          const changeIndex = output.indexOf('🔄 Config changed')
+          const successIndex = output.indexOf('✅ Server reloaded')
+
+          expect(watchIndex).toBeLessThan(changeIndex)
+          expect(changeIndex).toBeLessThan(successIndex)
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-WATCH-007: does not activate watch mode without flag', async () => {
+        const configPath = await createTempConfigFile(
+          JSON.stringify({
+            name: 'no-watch-test',
+            description: 'Testing without watch flag',
+          }),
+          'json'
+        )
+
+        try {
+          const result = await captureCliOutput(configPath)
+
+          expect(result.output).not.toContain('Watch mode: enabled')
+          expect(result.output).not.toContain('👀 Watching')
+          expect(result.output).toContain('Starting Sovrium server')
         } finally {
           await cleanupTempConfigFile(configPath)
         }

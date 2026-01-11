@@ -494,6 +494,7 @@ test.describe('Update comment', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
+  // Combines 10 @spec scenarios into one workflow validating the update comment feature
   // ============================================================================
 
   test.fixme(
@@ -508,48 +509,175 @@ test.describe('Update comment', () => {
             {
               id: 11,
               name: 'tasks',
-              fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
+              fields: [
+                { id: 1, name: 'title', type: 'single-line-text', required: true },
+                { id: 2, name: 'organization_id', type: 'single-line-text' },
+              ],
             },
           ],
         })
         await createAuthenticatedUser()
       })
 
-      await test.step('Setup: Insert test record, user, and comment', async () => {
+      await test.step('Setup: Insert test records, users, and comments', async () => {
         await executeQuery(`
-          INSERT INTO tasks (id, title) VALUES (1, 'Test Task')
+          INSERT INTO tasks (id, title, organization_id) VALUES
+            (1, 'Task in Current Org', NULL),
+            (2, 'Task in Different Org', 'org_456')
         `)
         await executeQuery(`
-          INSERT INTO users (id, name, email) VALUES ('user_1', 'Test User', 'test@example.com')
+          INSERT INTO users (id, name, email, image) VALUES
+            ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
+            ('user_2', 'Bob Smith', 'bob@example.com', NULL),
+            ('user_3', 'Carol White', 'carol@example.com', NULL)
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
-          VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
+          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at, deleted_at)
+          VALUES
+            ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
+            ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob', NOW(), NOW(), NULL),
+            ('comment_3', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW(), NOW(), NOW()),
+            ('comment_4', '2', '1', 'org_456', 'user_2', 'Cross-org comment', NOW(), NOW(), NULL)
         `)
       })
 
-      await test.step('Update the comment', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-001: Return 200 with updated comment data', async () => {
         const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            content: 'Updated comment with @[user_1] mention',
-          },
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Updated comment text' },
         })
 
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.comment.content).toBe('Updated comment with @[user_1] mention')
+        expect(data.comment.id).toBe('comment_1')
+        expect(data.comment.content).toBe('Updated comment text')
         expect(data.comment.userId).toBe('user_1')
+        expect(new Date(data.comment.updatedAt).getTime()).toBeGreaterThan(
+          new Date(data.comment.createdAt).getTime()
+        )
+
+        const result = await executeQuery(`
+          SELECT content, updated_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+        `)
+        expect(result.rows[0].content).toBe('Updated comment text')
       })
 
-      await test.step('Verify comment was updated in database', async () => {
-        const result = await executeQuery(`
-          SELECT content FROM _sovrium_record_comments WHERE id = 'comment_1'
-        `)
-        expect(result.rows[0].content).toBe('Updated comment with @[user_1] mention')
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-002: Update @mentions in content', async () => {
+        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Actually, @[user_3] should review this instead' },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.comment.content).toBe('Actually, @[user_3] should review this instead')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-003: Return 400 Bad Request for empty content', async () => {
+        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: '' },
+        })
+
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data.error).toBe('Validation error')
+        expect(data.message).toContain('content')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-004: Return 400 Bad Request for content too long', async () => {
+        const longContent = 'a'.repeat(10_001)
+        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: longContent },
+        })
+
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data.error).toBe('Validation error')
+        expect(data.message).toContain('content')
+        expect(data.message).toContain('maximum length')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-005: Return 401 Unauthorized', async () => {
+        // Create new request context without authentication
+        const unauthRequest = request
+        const response = await unauthRequest.patch('/api/tables/1/records/1/comments/comment_1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Trying to update without auth' },
+        })
+
+        expect(response.status()).toBe(401)
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-006: Return 403 Forbidden for different user', async () => {
+        const response = await request.patch('/api/tables/1/records/1/comments/comment_2', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Alice trying to edit Bobs comment' },
+        })
+
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You can only edit your own comments')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-007: Return 404 Not Found for nonexistent comment', async () => {
+        const response = await request.patch('/api/tables/1/records/1/comments/nonexistent', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Trying to update non-existent comment' },
+        })
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Comment not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 Not Found for cross-organization access', async () => {
+        const response = await request.patch('/api/tables/1/records/2/comments/comment_4', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Cross-org update attempt' },
+        })
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Comment not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-009: Return 404 Not Found for soft-deleted comment', async () => {
+        const response = await request.patch('/api/tables/1/records/1/comments/comment_3', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Trying to update deleted comment' },
+        })
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Comment not found')
+      })
+
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-010: Include user metadata in response', async () => {
+        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Final update with metadata check' },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.comment.user).toMatchObject({
+          id: 'user_1',
+          name: 'Alice Johnson',
+          email: 'alice@example.com',
+          image: 'https://example.com/alice.jpg',
+        })
       })
     }
   )

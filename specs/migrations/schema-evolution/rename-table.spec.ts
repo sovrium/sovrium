@@ -290,65 +290,248 @@ test.describe('Rename Table Migration', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 4 @spec tests - covers: data preservation, FK updates, constraints, rollback
   // ============================================================================
 
   test(
     'MIGRATION-RENAME-TABLE-REGRESSION: user can complete full rename-table workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: create employees table with data and index', async () => {
+      await test.step('MIGRATION-RENAME-TABLE-001: alters table rename and preserves data, indexes, and constraints', async () => {
+        // GIVEN: existing table 'users' with data and indexes
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 1,
-              name: 'employees',
+              name: 'users',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'department', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'email', unique: true },
               ],
             },
           ],
         })
         await executeQuery([
-          `INSERT INTO employees (name, department) VALUES ('Alice', 'Engineering')`,
-          `INSERT INTO employees (name, department) VALUES ('Bob', 'Marketing')`,
+          `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')`,
+          `INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')`,
         ])
-      })
 
-      await test.step('Rename table from employees to staff', async () => {
+        // WHEN: table name property changes to 'customers'
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 1, // SAME table ID - triggers RENAME
-              name: 'staff', // Renamed from 'employees'
+              id: 1,
+              name: 'customers',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'department', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'email', unique: true },
               ],
             },
           ],
         })
-      })
 
-      await test.step('Verify table renamed and data preserved', async () => {
-        // New table accessible
-        const staff = await executeQuery(`SELECT COUNT(*) as count FROM staff`)
-        expect(staff.count).toBe('2')
+        // THEN: ALTER TABLE RENAME preserves data, indexes, and constraints
+        const customers = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
+        expect(customers.count).toBe('2')
 
-        // Query by department works
-        const engineers = await executeQuery(
-          `SELECT name FROM staff WHERE department = 'Engineering' LIMIT 1`
+        const alice = await executeQuery(
+          `SELECT name, email FROM customers WHERE name = 'Alice' LIMIT 1`
         )
-        expect(engineers.name).toBe('Alice')
+        expect(alice.email).toBe('alice@example.com')
 
-        // Old table name no longer exists
         const oldTableExists = await executeQuery(
-          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'employees'`
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'users'`
         )
         expect(oldTableExists.count).toBe('0')
+
+        await expect(async () => {
+          await executeQuery(
+            `INSERT INTO customers (name, email) VALUES ('Charlie', 'alice@example.com')`
+          )
+        }).rejects.toThrow(/duplicate key|unique constraint/i)
+      })
+
+      await test.step('MIGRATION-RENAME-TABLE-002: automatically updates foreign key references', async () => {
+        // GIVEN: table 'posts' referenced by foreign key from 'comments'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'posts',
+              fields: [{ id: 2, name: 'title', type: 'single-line-text', required: true }],
+            },
+            {
+              id: 2,
+              name: 'comments',
+              fields: [
+                {
+                  id: 2,
+                  name: 'post_id',
+                  type: 'relationship',
+                  relatedTable: 'posts',
+                  relationType: 'many-to-one',
+                },
+                { id: 3, name: 'content', type: 'long-text', required: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO posts (title) VALUES ('First Post')`,
+          `INSERT INTO comments (post_id, content) VALUES ((SELECT id FROM posts LIMIT 1), 'Great post!')`,
+        ])
+
+        // WHEN: table name changes to 'articles'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'articles',
+              fields: [{ id: 2, name: 'title', type: 'single-line-text', required: true }],
+            },
+            {
+              id: 2,
+              name: 'comments',
+              fields: [
+                {
+                  id: 2,
+                  name: 'post_id',
+                  type: 'relationship',
+                  relatedTable: 'articles',
+                  relationType: 'many-to-one',
+                },
+                { id: 3, name: 'content', type: 'long-text', required: true },
+              ],
+            },
+          ],
+        })
+
+        // THEN: PostgreSQL automatically updates foreign key references
+        await expect(async () => {
+          await executeQuery(`INSERT INTO comments (post_id, content) VALUES (999, 'Invalid FK')`)
+        }).rejects.toThrow(/foreign key|violates foreign key/i)
+
+        const comment = await executeQuery(
+          `SELECT a.title, c.content FROM articles a JOIN comments c ON a.id = c.post_id LIMIT 1`
+        )
+        expect(comment.title).toBe('First Post')
+        expect(comment.content).toBe('Great post!')
+      })
+
+      await test.step('MIGRATION-RENAME-TABLE-003: maintains all indexes and constraints as functional', async () => {
+        // GIVEN: table 'products' with multiple indexes and constraints
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'sku', type: 'single-line-text', unique: true },
+                { id: 4, name: 'price', type: 'decimal', min: 0 },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO products (name, sku, price) VALUES ('Widget', 'SKU-001', 19.99)`,
+          `INSERT INTO products (name, sku, price) VALUES ('Gadget', 'SKU-002', 29.99)`,
+        ])
+
+        // WHEN: table renamed to 'items'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'sku', type: 'single-line-text', unique: true },
+                { id: 4, name: 'price', type: 'decimal', min: 0 },
+              ],
+            },
+          ],
+        })
+
+        // THEN: All indexes and constraints remain functional
+        await expect(async () => {
+          await executeQuery(
+            `INSERT INTO items (name, sku, price) VALUES ('New Item', 'SKU-001', 15.99)`
+          )
+        }).rejects.toThrow(/duplicate key|unique constraint/i)
+
+        await expect(async () => {
+          await executeQuery(
+            `INSERT INTO items (name, sku, price) VALUES ('Bad Item', 'SKU-003', -5.00)`
+          )
+        }).rejects.toThrow(/check constraint/i)
+
+        const items = await executeQuery(`SELECT COUNT(*) as count FROM items`)
+        expect(items.count).toBe('2')
+      })
+
+      await test.step('MIGRATION-RENAME-TABLE-004: fails migration with error and rolls back transaction', async () => {
+        // GIVEN: table rename where new name conflicts with existing table
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'users',
+              fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
+            },
+            {
+              id: 2,
+              name: 'customers',
+              fields: [{ id: 2, name: 'company', type: 'single-line-text', required: true }],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO users (name) VALUES ('Alice')`,
+          `INSERT INTO customers (company) VALUES ('Acme Inc')`,
+        ])
+
+        // WHEN: attempting to rename 'users' to 'customers' but 'customers' exists
+        // THEN: Migration fails with error and transaction rolls back
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'customers',
+                fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
+              },
+              {
+                id: 2,
+                name: 'customers',
+                fields: [{ id: 2, name: 'company', type: 'single-line-text', required: true }],
+              },
+            ],
+          })
+        }).rejects.toThrow(/Table names must be unique|already exists|duplicate|relation.*exists/i)
+
+        const usersExist = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'users'`
+        )
+        expect(usersExist.count).toBe('1')
+
+        const customersExist = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'customers'`
+        )
+        expect(customersExist.count).toBe('1')
+
+        const alice = await executeQuery(`SELECT name FROM users WHERE name = 'Alice' LIMIT 1`)
+        expect(alice.name).toBe('Alice')
       })
     }
   )

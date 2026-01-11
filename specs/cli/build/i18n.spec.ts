@@ -406,41 +406,87 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 4 @spec tests - covers: language directories, HTML files,
+  // hreflang links, language switcher
+  // ============================================================================
+
   test(
-    'CLI-BUILD-I18N-REGRESSION: complete multi-language workflow',
+    'CLI-BUILD-I18N-REGRESSION: user can complete full multi-language workflow',
     { tag: '@regression' },
-    async ({ generateStaticSite, page }) => {
+    async ({ generateStaticSite }) => {
       let outputDir: string
 
-      await test.step('Setup: Generate multi-language static site', async () => {
+      await test.step('Setup: Generate multi-language static site with comprehensive configuration', async () => {
         outputDir = await generateStaticSite({
           name: 'test-app',
-          description: 'Multi-language test application',
-          theme: {
-            colors: { primary: '#3B82F6' },
-          },
           languages: {
             default: 'en',
             supported: [
               { code: 'en', label: 'English', locale: 'en-US' },
               { code: 'fr', label: 'Français', locale: 'fr-FR' },
+              { code: 'es', label: 'Español', locale: 'es-ES' },
             ],
             translations: {
               en: {
-                'site.title': 'Multilingual Site',
-                'home.welcome': 'Welcome',
-                'home.description': 'This site is available in multiple languages',
-                'home.cta': 'Learn More',
+                'home.title': 'Home',
+                'home.heading': 'Welcome to Our Site',
+                'home.content': 'This is the English version',
                 'about.title': 'About Us',
-                'about.content': 'We are an international company',
+                'about.description': 'Learn more about us',
+                'nav.home': 'Home',
+                'nav.about': 'About',
+                'lang.switch': 'Language',
+                'lang.en': 'English',
+                'lang.fr': 'Français',
+                'lang.es': 'Español',
               },
               fr: {
-                'site.title': 'Site Multilingue',
-                'home.welcome': 'Bienvenue',
-                'home.description': 'Ce site est disponible en plusieurs langues',
-                'home.cta': 'En Savoir Plus',
-                'about.title': 'À Propos',
-                'about.content': 'Nous sommes une entreprise internationale',
+                'home.title': 'Accueil',
+                'home.heading': 'Bienvenue sur Notre Site',
+                'home.content': 'Ceci est la version française',
+                'about.title': 'À propos',
+                'about.description': 'En savoir plus sur nous',
+                'nav.home': 'Accueil',
+                'nav.about': 'À propos',
+                'lang.switch': 'Langue',
+                'lang.en': 'English',
+                'lang.fr': 'Français',
+                'lang.es': 'Español',
+              },
+              es: {
+                'home.title': 'Inicio',
+                'home.heading': 'Bienvenido a Nuestro Sitio',
+                'home.content': 'Esta es la versión en español',
+                'about.title': 'Acerca de',
+                'about.description': 'Aprende más sobre nosotros',
+                'nav.home': 'Inicio',
+                'nav.about': 'Acerca de',
+                'lang.switch': 'Idioma',
+                'lang.en': 'English',
+                'lang.fr': 'Français',
+                'lang.es': 'Español',
+              },
+            },
+          },
+          defaultLayout: {
+            navigation: {
+              logo: './logo.svg',
+              links: {
+                desktop: [
+                  { label: '$t:nav.home', href: '/' },
+                  { label: '$t:nav.about', href: '/about' },
+                ],
+              },
+              languageSwitcher: {
+                label: '$t:lang.switch',
+                items: [
+                  { lang: 'en', label: '$t:lang.en', href: '/en{{currentPath}}' },
+                  { lang: 'fr', label: '$t:lang.fr', href: '/fr{{currentPath}}' },
+                  { lang: 'es', label: '$t:lang.es', href: '/es{{currentPath}}' },
+                ],
               },
             },
           },
@@ -449,32 +495,16 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
               name: 'home',
               path: '/',
               meta: {
-                title: '$t:home.welcome - $t:site.title',
-                description: '$t:home.description',
+                title: '$t:home.title',
+                description: '$t:home.content',
               },
               sections: [
                 {
-                  type: 'header',
-                  props: { className: 'bg-primary text-white p-8 text-center' },
+                  type: 'main',
+                  props: { className: 'container' },
                   children: [
-                    {
-                      type: 'h1',
-                      props: { className: 'text-4xl mb-4' },
-                      children: ['$t:home.welcome'],
-                    },
-                    {
-                      type: 'p',
-                      props: { className: 'text-xl' },
-                      children: ['$t:home.description'],
-                    },
-                    {
-                      type: 'a',
-                      props: {
-                        href: '/about',
-                        className: 'inline-block mt-4 px-6 py-3 bg-white text-primary rounded',
-                      },
-                      children: ['$t:home.cta'],
-                    },
+                    { type: 'h1', children: ['$t:home.heading'] },
+                    { type: 'p', children: ['$t:home.content'] },
                   ],
                 },
               ],
@@ -483,58 +513,116 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
               name: 'about',
               path: '/about',
               meta: {
-                title: '$t:about.title - $t:site.title',
+                title: '$t:about.title',
+                description: '$t:about.description',
               },
               sections: [
-                {
-                  type: 'main',
-                  props: { className: 'container mx-auto p-8' },
-                  children: [
-                    {
-                      type: 'h1',
-                      props: { className: 'text-3xl mb-4' },
-                      children: ['$t:about.title'],
-                    },
-                    { type: 'p', children: ['$t:about.content'] },
-                  ],
-                },
+                { type: 'h1', children: ['$t:about.title'] },
+                { type: 'p', children: ['$t:about.description'] },
               ],
             },
           ],
         })
       })
 
-      await test.step('Verify English version and hreflang tags', async () => {
-        await page.goto(`file://${join(outputDir, 'en/index.html')}`)
+      await test.step('CLI-BUILD-I18N-001: generates language directories for each locale', async () => {
+        const files = await readdir(outputDir, { recursive: true, withFileTypes: true })
+        const dirs = files
+          .filter((f) => f.isDirectory())
+          .map((f) => (f.parentPath ? join(f.parentPath.replace(outputDir, ''), f.name) : f.name))
+          .map((p) => p.replace(/^\//, ''))
 
-        await expect(page.locator('h1')).toHaveText('Welcome')
-        await expect(page.locator('p').first()).toHaveText(
-          'This site is available in multiple languages'
-        )
-        await expect(page.locator('a[href="/about"]')).toHaveText('Learn More')
+        expect(dirs).toContain('en')
+        expect(dirs).toContain('fr')
+        expect(dirs).toContain('es')
 
-        const enHreflangLinks = await page.locator('link[rel="alternate"][hreflang]').all()
-        expect(enHreflangLinks.length).toBeGreaterThan(0)
+        const enFiles = await readdir(join(outputDir, 'en'), { recursive: true })
+        const frFiles = await readdir(join(outputDir, 'fr'), { recursive: true })
+        const esFiles = await readdir(join(outputDir, 'es'), { recursive: true })
+
+        expect(enFiles).toContain('index.html')
+        expect(enFiles).toContain('about.html')
+        expect(frFiles).toContain('index.html')
+        expect(frFiles).toContain('about.html')
+        expect(esFiles).toContain('index.html')
+        expect(esFiles).toContain('about.html')
+
+        const rootFiles = await readdir(outputDir, { withFileTypes: true })
+        const rootHtmlFiles = rootFiles
+          .filter((f) => f.isFile() && f.name.endsWith('.html'))
+          .map((f) => f.name)
+        expect(rootHtmlFiles).toContain('index.html')
       })
 
-      await test.step('Verify French version and translations', async () => {
-        await page.goto(`file://${join(outputDir, 'fr/index.html')}`)
+      await test.step('CLI-BUILD-I18N-002: creates language-specific HTML with correct translations', async () => {
+        const enHtml = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
+        const frHtml = await readFile(join(outputDir, 'fr/index.html'), 'utf-8')
 
-        await expect(page.locator('h1')).toHaveText('Bienvenue')
-        await expect(page.locator('p').first()).toHaveText(
-          'Ce site est disponible en plusieurs langues'
-        )
-        await expect(page.locator('a[href="/about"]')).toHaveText('En Savoir Plus')
+        expect(enHtml).toContain('<!DOCTYPE html>')
+        expect(enHtml).toContain('lang="en-US"')
+        expect(enHtml).toContain('<title>Home</title>')
+        expect(enHtml).toContain('Welcome to Our Site')
+        expect(enHtml).toContain('This is the English version')
 
-        await page.goto(`file://${join(outputDir, 'fr/about.html')}`)
-        await expect(page.locator('h1')).toHaveText('À Propos')
-        await expect(page.locator('p')).toHaveText('Nous sommes une entreprise internationale')
+        expect(frHtml).toContain('<!DOCTYPE html>')
+        expect(frHtml).toContain('lang="fr-FR"')
+        expect(frHtml).toContain('<title>Accueil</title>')
+        expect(frHtml).toContain('Bienvenue sur Notre Site')
+        expect(frHtml).toContain('Ceci est la version française')
+
+        const rootHtml = await readFile(join(outputDir, 'index.html'), 'utf-8')
+        expect(rootHtml).toContain('Welcome to Our Site')
       })
 
-      await test.step('Verify language directory structure consistency', async () => {
-        const enFiles = await readdir(join(outputDir, 'en'))
-        const frFiles = await readdir(join(outputDir, 'fr'))
-        expect(enFiles).toEqual(frFiles)
+      await test.step('CLI-BUILD-I18N-003: generates hreflang links in HTML head', async () => {
+        const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
+        const frHome = await readFile(join(outputDir, 'fr/index.html'), 'utf-8')
+        const enAbout = await readFile(join(outputDir, 'en/about.html'), 'utf-8')
+
+        expect(enHome).toContain('hreflang="en-US"')
+        expect(enHome).toContain('href="/en/"')
+        expect(enHome).toContain('hreflang="fr-FR"')
+        expect(enHome).toContain('href="/fr/"')
+        expect(enHome).toContain('hreflang="es-ES"')
+        expect(enHome).toContain('href="/es/"')
+        expect(enHome).toContain('hreflang="x-default"')
+
+        expect(frHome).toContain('hreflang="en-US"')
+        expect(frHome).toContain('hreflang="fr-FR"')
+        expect(frHome).toContain('hreflang="es-ES"')
+
+        expect(enAbout).toContain('hreflang="en-US"')
+        expect(enAbout).toContain('href="/en/about/"')
+        expect(enAbout).toContain('hreflang="fr-FR"')
+        expect(enAbout).toContain('href="/fr/about/"')
+      })
+
+      await test.step('CLI-BUILD-I18N-004: creates language switcher links', async () => {
+        const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
+        const frHome = await readFile(join(outputDir, 'fr/index.html'), 'utf-8')
+        const esAbout = await readFile(join(outputDir, 'es/about.html'), 'utf-8')
+
+        expect(enHome).toContain('Language')
+        expect(enHome).toContain('href="/en/"')
+        expect(enHome).toContain('href="/fr/"')
+        expect(enHome).toContain('href="/es/"')
+
+        expect(frHome).toContain('Langue')
+        expect(frHome).toContain('href="/en/"')
+        expect(frHome).toContain('href="/fr/"')
+        expect(frHome).toContain('href="/es/"')
+
+        expect(esAbout).toContain('Idioma')
+        expect(esAbout).toContain('href="/en/about"')
+        expect(esAbout).toContain('href="/fr/about"')
+        expect(esAbout).toContain('href="/es/about"')
+
+        expect(enHome).toContain('Home')
+        expect(enHome).toContain('About')
+        expect(frHome).toContain('Accueil')
+        expect(frHome).toContain('À propos')
+        expect(esAbout).toContain('Inicio')
+        expect(esAbout).toContain('Acerca de')
       })
     }
   )

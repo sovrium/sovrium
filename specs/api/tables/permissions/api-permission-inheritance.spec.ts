@@ -488,7 +488,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   )
 
   // ============================================================================
-  // @regression test - Complete workflow validation
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 6 @spec tests - covers: role hierarchy, access control, escalation prevention
   // ============================================================================
 
   test.fixme(
@@ -508,7 +510,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
       let admin: { user: { id: string } }
       let member: { user: { id: string } }
 
-      await test.step('Setup: Create schema with tiered permissions', async () => {
+      await test.step('Setup: Start server with comprehensive role-based permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -516,33 +518,111 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             organization: true,
           },
           tables: [
+            // Table for owner-only access tests (INHERIT-001, INHERIT-002)
             {
               id: 1,
-              name: 'tiered_resources',
+              name: 'owner_secrets',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'tier', type: 'single-line-text' },
-                { id: 4, name: 'organization_id', type: 'single-line-text' },
+                { id: 2, name: 'secret', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
                 organizationScoped: true,
-                // Tiered permissions: all can read, fewer can create, even fewer can update/delete
+                read: { type: 'roles', roles: ['owner'] },
+                create: { type: 'roles', roles: ['owner'] },
+              },
+            },
+            // Table for cascading permissions (INHERIT-003)
+            {
+              id: 2,
+              name: 'team_resources',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
                 read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-                create: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-                update: { type: 'roles', roles: ['owner', 'admin'] },
+                create: { type: 'roles', roles: ['owner', 'admin'] },
                 delete: { type: 'roles', roles: ['owner'] },
+              },
+            },
+            // Table for read-only member tests (INHERIT-004)
+            {
+              id: 3,
+              name: 'public_data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                create: { type: 'roles', roles: ['owner', 'admin'] },
+                update: { type: 'roles', roles: ['owner', 'admin'] },
+                delete: { type: 'roles', roles: ['owner', 'admin'] },
+              },
+            },
+            // Table for role escalation tests (INHERIT-005)
+            {
+              id: 4,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'role_field', type: 'single-line-text' },
+                { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
+                { id: 5, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                update: { type: 'roles', roles: ['owner', 'admin'] },
+                fields: [
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['owner', 'admin'] },
+                    write: { type: 'roles', roles: ['owner'] },
+                  },
+                  {
+                    field: 'role_field',
+                    read: { type: 'authenticated' },
+                    write: { type: 'roles', roles: ['owner'] },
+                  },
+                ],
+              },
+            },
+            // Table for empty roles array tests (INHERIT-006)
+            {
+              id: 5,
+              name: 'system_logs',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'message', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                organizationScoped: true,
+                read: { type: 'authenticated' },
+                delete: { type: 'roles', roles: [] },
               },
             },
           ],
         })
       })
 
-      await test.step('Setup: Create all role types in organization', async () => {
+      await test.step('Setup: Create organization with all role types', async () => {
         // Owner (creates org)
         await createAuthenticatedUser({ email: 'owner@example.com' })
-        org = await createOrganization({ name: 'Tiered Org' })
+        org = await createOrganization({ name: 'Test Org' })
 
         // Admin
         await signOut()
@@ -563,103 +643,134 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         })
       })
 
-      await test.step('Setup: Create initial resource', async () => {
+      await test.step('Setup: Insert test data for all tables', async () => {
         await executeQuery(`
-          INSERT INTO tiered_resources (id, name, tier, organization_id) VALUES
-            (1, 'Initial Resource', 'admin', '${org.organization.id}')
+          INSERT INTO owner_secrets (id, secret, organization_id) VALUES
+            (1, 'Top secret data', '${org.organization.id}');
+          INSERT INTO team_resources (id, name, organization_id) VALUES
+            (1, 'Shared Resource', '${org.organization.id}');
+          INSERT INTO public_data (id, content, organization_id) VALUES
+            (1, 'Viewable Content', '${org.organization.id}');
+          INSERT INTO employees (id, name, role_field, salary, organization_id) VALUES
+            (1, 'Test Employee', 'member', 50000, '${org.organization.id}');
+          INSERT INTO system_logs (id, message, organization_id) VALUES
+            (1, 'Important log', '${org.organization.id}');
         `)
       })
 
-      await test.step('Verify all roles can READ', async () => {
-        for (const email of ['owner@example.com', 'admin@example.com', 'member@example.com']) {
-          await signOut()
-          await createAuthenticatedUser({ email })
-
-          const response = await request.get('/api/tables/1/records')
-
-          expect(response.status()).toBe(200)
-          const data = await response.json()
-          expect(data.records.length).toBeGreaterThanOrEqual(1)
-        }
-      })
-
-      await test.step('Verify CREATE permissions (owner, admin, member)', async () => {
-        // Member can create
-        await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
-
-        const memberCreateResponse = await request.post('/api/tables/1/records', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { name: 'Member Created', tier: 'member' },
-        })
-        expect(memberCreateResponse.status()).toBe(201)
-
-        // Non-member (user not in org) cannot create
-        await signOut()
-        await createAuthenticatedUser({ email: 'outsider@example.com' })
-        // Note: Not added to org - they're not a member
-
-        const outsiderCreateResponse = await request.post('/api/tables/1/records', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { name: 'Outsider Created', tier: 'outsider' },
-        })
-        // Non-member should be forbidden
-        expect([401, 403]).toContain(outsiderCreateResponse.status())
-      })
-
-      await test.step('Verify UPDATE permissions (owner, admin only)', async () => {
-        // Admin can update
-        await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
-
-        const adminUpdateResponse = await request.patch('/api/tables/1/records/1', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { name: 'Admin Updated' },
-        })
-        expect(adminUpdateResponse.status()).toBe(200)
-
-        // Member cannot update
-        await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
-
-        const memberUpdateResponse = await request.patch('/api/tables/1/records/1', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { name: 'Member Hacked' },
-        })
-        expect(memberUpdateResponse.status()).toBe(403)
-      })
-
-      await test.step('Verify DELETE permissions (owner only)', async () => {
-        // Get the member-created resource ID
-        const resourcesResponse = await request.get('/api/tables/1/records')
-        const resources = await resourcesResponse.json()
-        const memberResource = resources.records.find((r: any) => r.name === 'Member Created')
-
-        // Admin cannot delete
-        await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
-
-        const adminDeleteResponse = await request.delete(
-          `/api/tables/1/records/${memberResource.id}`
-        )
-        expect(adminDeleteResponse.status()).toBe(403)
-
-        // Owner can delete
+      await test.step('API-TABLES-PERMISSIONS-INHERIT-001: Owner accesses owner-only resources', async () => {
+        // WHEN: Owner requests the secrets
         await signOut()
         await createAuthenticatedUser({ email: 'owner@example.com' })
+        const response = await request.get('/api/tables/1/records')
 
-        const ownerDeleteResponse = await request.delete(
-          `/api/tables/1/records/${memberResource.id}`
+        // THEN: Owner can access
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields.secret).toBe('Top secret data')
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-INHERIT-002: Admin cannot access owner-only resources', async () => {
+        // WHEN: Admin tries to access owner-only resources
+        await signOut()
+        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        const response = await request.get('/api/tables/1/records')
+
+        // THEN: Admin gets empty results (RLS filters, no access)
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(0)
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-INHERIT-003: Cascading permissions include multiple roles', async () => {
+        // WHEN: Member reads resources
+        await signOut()
+        await createAuthenticatedUser({ email: 'member@example.com' })
+        const readResponse = await request.get('/api/tables/2/records')
+
+        // THEN: Member can read (included in roles array)
+        expect(readResponse.status()).toBe(200)
+        const readData = await readResponse.json()
+        expect(readData.records).toHaveLength(1)
+
+        // WHEN: Member tries to create
+        const createResponse = await request.post('/api/tables/2/records', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { name: 'Member Resource' },
+        })
+
+        // THEN: Member cannot create (not in create roles)
+        expect(createResponse.status()).toBe(403)
+
+        // WHEN: Member tries to delete
+        const deleteResponse = await request.delete('/api/tables/2/records/1')
+
+        // THEN: Member cannot delete (not in delete roles)
+        expect(deleteResponse.status()).toBe(403)
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-INHERIT-004: Member has read-only access when excluded from CUD', async () => {
+        // WHEN: Read-only member reads
+        await signOut()
+        await createAuthenticatedUser({ email: 'member@example.com' })
+        const readResponse = await request.get('/api/tables/3/records')
+
+        // THEN: Member can read
+        expect(readResponse.status()).toBe(200)
+        const readData = await readResponse.json()
+        expect(readData.records).toHaveLength(1)
+
+        // WHEN: Read-only member tries to create
+        const createResponse = await request.post('/api/tables/3/records', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Member Content' },
+        })
+
+        // THEN: Member cannot create
+        expect(createResponse.status()).toBe(403)
+
+        // WHEN: Read-only member tries to update
+        const updateResponse = await request.patch('/api/tables/3/records/1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { content: 'Hacked Content' },
+        })
+
+        // THEN: Member cannot update
+        expect(updateResponse.status()).toBe(403)
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-INHERIT-005: Role escalation attempt fails', async () => {
+        // WHEN: Member tries to escalate their role
+        await signOut()
+        await createAuthenticatedUser({ email: 'member@example.com' })
+        const escalateResponse = await request.patch('/api/tables/4/records/1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { role_field: 'admin' },
+        })
+
+        // THEN: Role escalation is denied (member can't write role_field)
+        expect(escalateResponse.status()).toBe(403)
+
+        // Verify role was not changed
+        const verifyResult = await executeQuery('SELECT role_field FROM employees WHERE id = 1')
+        expect(verifyResult.rows[0].role_field).toBe('member')
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-INHERIT-006: Empty roles array denies all access', async () => {
+        // WHEN: Owner tries to delete (even owner is denied with empty roles)
+        await signOut()
+        await createAuthenticatedUser({ email: 'owner@example.com' })
+        const deleteResponse = await request.delete('/api/tables/5/records/1')
+
+        // THEN: Delete is denied
+        expect(deleteResponse.status()).toBe(403)
+
+        // Verify record still exists
+        const verifyResult = await executeQuery(
+          'SELECT COUNT(*) as count FROM system_logs WHERE id = 1'
         )
-        expect(ownerDeleteResponse.status()).toBe(204)
+        expect(verifyResult.rows[0].count).toBe('1')
       })
     }
   )

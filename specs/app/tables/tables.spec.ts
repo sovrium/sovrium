@@ -1723,18 +1723,20 @@ test.describe('Data Tables', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
+  // Generated from 44 @spec tests covering table creation, field types, constraints, CRUD operations, and validation
   // ============================================================================
 
   test(
     'APP-TABLES-REGRESSION: user can complete full Data Tables workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create table with representative configuration', async () => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      await test.step('Setup: Start server with comprehensive table configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true }, // Required for user field tests
           tables: [
             {
-              id: 26,
+              id: 1,
               name: 'products',
               fields: [
                 {
@@ -1762,17 +1764,66 @@ test.describe('Data Tables', () => {
                   name: 'quantity',
                   type: 'integer',
                   min: 0,
+                  max: 10_000,
                 },
                 {
                   id: 5,
                   name: 'is_active',
                   type: 'checkbox',
-                  default: true,
+                  default: false,
                 },
                 {
                   id: 6,
-                  name: 'created_at',
-                  type: 'created-at',
+                  name: 'status',
+                  type: 'single-select',
+                  options: ['active', 'inactive'],
+                },
+              ],
+              indexes: [
+                {
+                  name: 'idx_products_sku',
+                  fields: ['sku'],
+                },
+              ],
+            },
+            {
+              id: 2,
+              name: 'customers',
+              fields: [
+                {
+                  id: 1,
+                  name: 'email',
+                  type: 'email',
+                  required: true,
+                  unique: true,
+                },
+                {
+                  id: 2,
+                  name: 'name',
+                  type: 'single-line-text',
+                  required: true,
+                },
+                {
+                  id: 3,
+                  name: 'age',
+                  type: 'integer',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 3,
+              name: 'tasks',
+              fields: [
+                {
+                  id: 1,
+                  name: 'title',
+                  type: 'single-line-text',
+                },
+                {
+                  id: 2,
+                  name: 'assigned_to',
+                  type: 'user',
                 },
               ],
             },
@@ -1780,43 +1831,134 @@ test.describe('Data Tables', () => {
         })
       })
 
-      await test.step('Verify schema introspection works', async () => {
+      await test.step('APP-TABLES-001: Create PostgreSQL table with columns', async () => {
         const tableExists = await executeQuery(
           `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'products')`
         )
         expect(tableExists.rows[0]).toMatchObject({ exists: true })
+
+        const columns = await executeQuery(
+          `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'products' ORDER BY ordinal_position`
+        )
+        expect(columns.rows.length).toBeGreaterThan(4)
       })
 
-      await test.step('Verify CRUD operations work', async () => {
-        const insertion = await executeQuery(
-          `INSERT INTO products (sku, title, price, quantity) VALUES ('WIDGET-001', 'Widget', 19.99, 100) RETURNING id, title`
+      await test.step('APP-TABLES-002: Create correct column types for different field types', async () => {
+        const columns = await executeQuery(
+          `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position`
         )
-        expect(insertion.rows[0]).toMatchObject({ title: 'Widget' })
-
-        const update = await executeQuery(
-          `UPDATE products SET price = 24.99 WHERE sku = 'WIDGET-001' RETURNING price`
-        )
-        expect(update.rows[0]).toMatchObject({ price: '24.99' })
-
-        const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-        expect(select.rows[0]).toMatchObject({ count: '1' })
+        const dataTypes = columns.rows.map((r: any) => r.data_type)
+        expect(dataTypes).toContain('character varying')
+        expect(dataTypes).toContain('integer')
       })
 
-      await test.step('Verify constraints enforce data integrity', async () => {
+      await test.step('APP-TABLES-004: Enforce all constraints (UNIQUE, NOT NULL, CHECK)', async () => {
+        const uniqueConstraint = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE'`
+        )
+        expect(uniqueConstraint.rows[0]).toMatchObject({ count: '1' })
+
+        const checkConstraint = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%quantity%'`
+        )
+        expect(checkConstraint.rows[0]).toMatchObject({ count: '1' })
+      })
+
+      await test.step('APP-TABLES-005: Return complete table metadata via introspection queries', async () => {
+        const tableInfo = await executeQuery(
+          `SELECT tablename FROM pg_tables WHERE tablename = 'customers'`
+        )
+        expect(tableInfo.rows[0]).toMatchObject({ tablename: 'customers' })
+
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_sku'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'idx_products_sku' })
+      })
+
+      await test.step('APP-TABLES-011: Reject duplicate values with unique constraint violation', async () => {
+        await executeQuery(
+          `INSERT INTO customers (email, name) VALUES ('john@example.com', 'John')`
+        )
+
         await expect(
           executeQuery(
-            `INSERT INTO products (sku, title, price) VALUES ('WIDGET-001', 'Duplicate', 10)`
+            `INSERT INTO customers (email, name) VALUES ('john@example.com', 'Duplicate')`
           )
         ).rejects.toThrow(/unique constraint/)
+      })
+
+      await test.step('APP-TABLES-012: Reject NULL values with NOT NULL constraint violation', async () => {
+        await expect(
+          executeQuery(`INSERT INTO products (sku, title) VALUES ('SKU-001', NULL)`)
+        ).rejects.toThrow(/not-null constraint/)
+      })
+
+      await test.step('APP-TABLES-013: Enforce CHECK constraint and reject values outside range', async () => {
+        await executeQuery(
+          `INSERT INTO products (sku, title, price, quantity) VALUES ('WIDGET-001', 'Widget', 19.99, 5000)`
+        )
 
         await expect(
-          executeQuery(`INSERT INTO products (sku, title, price) VALUES ('NEW-001', 'Invalid', -5)`)
+          executeQuery(
+            `INSERT INTO products (sku, title, quantity) VALUES ('WIDGET-002', 'Invalid', -1)`
+          )
+        ).rejects.toThrow(/check constraint/)
+
+        await expect(
+          executeQuery(
+            `INSERT INTO products (sku, title, quantity) VALUES ('WIDGET-003', 'Invalid', 10001)`
+          )
         ).rejects.toThrow(/check constraint/)
       })
 
+      await test.step('APP-TABLES-017: Insert data and return row with generated ID', async () => {
+        const insertion = await executeQuery(
+          `INSERT INTO customers (email, name) VALUES ('alice@example.com', 'Alice') RETURNING id, email, name`
+        )
+        expect(insertion.rows[0]).toMatchObject({ email: 'alice@example.com', name: 'Alice' })
+      })
+
+      await test.step('APP-TABLES-018: Update row and return new value', async () => {
+        const update = await executeQuery(
+          `UPDATE customers SET name = 'Alice Smith' WHERE email = 'alice@example.com' RETURNING name`
+        )
+        expect(update.rows[0]).toMatchObject({ name: 'Alice Smith' })
+      })
+
+      await test.step('APP-TABLES-019: Delete row and decrease row count', async () => {
+        const beforeCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
+        const beforeCountValue = parseInt(beforeCount.rows[0].count)
+
+        await executeQuery(`DELETE FROM customers WHERE email = 'john@example.com'`)
+
+        const afterCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
+        expect(parseInt(afterCount.rows[0].count)).toBe(beforeCountValue - 1)
+      })
+
+      await test.step('APP-TABLES-021: Create VARCHAR column with CHECK constraint for enum values', async () => {
+        const checkConstraint = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'`
+        )
+        expect(checkConstraint.rows[0]).toMatchObject({ count: '1' })
+      })
+
+      await test.step('APP-TABLES-027: Accept user fields when auth config is present', async () => {
+        const user = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+        await executeQuery(
+          `INSERT INTO tasks (title, assigned_to) VALUES ('Test Task', '${user.user.id}')`
+        )
+
+        const result = await executeQuery('SELECT t.title FROM tasks t WHERE t.id = 1')
+        expect(result.rows[0]).toMatchObject({ title: 'Test Task' })
+      })
+
       await test.step('Verify final data state', async () => {
-        const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
-        expect(finalCount.rows[0]).toMatchObject({ count: '1' })
+        const productCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
+        expect(parseInt(productCount.rows[0].count)).toBeGreaterThan(0)
+
+        const customerCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
+        expect(parseInt(customerCount.rows[0].count)).toBeGreaterThan(0)
       })
     }
   )

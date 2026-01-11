@@ -182,13 +182,14 @@ test.describe('Session Timeout - Idle and Maximum Session Lifetime', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
+  // Generated from 3 @spec tests - covers: idle timeout, max lifetime, activity renewal
   // ============================================================================
 
   test.fixme(
     'API-SECURITY-TIMEOUT-REGRESSION: session timeout workflow protects against unattended access',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with session auth (timeout is native)', async () => {
+      await test.step('Setup: Start server with session auth configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -208,7 +209,7 @@ test.describe('Session Timeout - Idle and Maximum Session Lifetime', () => {
         })
       })
 
-      await test.step('Verify: Activity renews idle timeout', async () => {
+      await test.step('API-SECURITY-TIMEOUT-003: renews timeout on user activity', async () => {
         // Perform activity every 20 minutes
         for (let i = 0; i < 3; i++) {
           await page.clock.fastForward(20 * 60 * 1000)
@@ -217,7 +218,7 @@ test.describe('Session Timeout - Idle and Maximum Session Lifetime', () => {
         }
       })
 
-      await test.step('Verify: Idle timeout logs out after inactivity', async () => {
+      await test.step('API-SECURITY-TIMEOUT-001: logs out after 30 minutes of inactivity', async () => {
         // Wait 31 minutes without activity
         await page.clock.fastForward(31 * 60 * 1000)
 
@@ -228,7 +229,7 @@ test.describe('Session Timeout - Idle and Maximum Session Lifetime', () => {
         await expect(page.getByText(/Session expired/i)).toBeVisible()
       })
 
-      await test.step('Verify: Maximum session lifetime enforced', async () => {
+      await test.step('API-SECURITY-TIMEOUT-002: logs out after 12 hours maximum session length', async () => {
         // Sign in again
         await signIn({
           email: 'regression@example.com',

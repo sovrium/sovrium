@@ -311,63 +311,249 @@ test.describe('Rename Field Migration', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 4 @spec tests - covers: RENAME COLUMN detection, index update, FK preservation, CHECK constraint
   // ============================================================================
 
   test(
     'MIGRATION-ALTER-RENAME-REGRESSION: user can complete full rename-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: create table with old field name', async () => {
+      await test.step('MIGRATION-ALTER-RENAME-001: generates RENAME COLUMN via field ID detection', async () => {
+        // Setup: table with email field
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
-              fields: [{ id: 1, name: 'old_name', type: 'single-line-text', required: true }],
+              id: 1,
+              name: 'users',
+              fields: [{ id: 1, name: 'email', type: 'email', unique: true }],
             },
           ],
         })
-        await executeQuery([`INSERT INTO data (old_name) VALUES ('test value')`])
-      })
+        await executeQuery([`INSERT INTO users (email) VALUES ('user@example.com')`])
 
-      await test.step('Rename field from old_name to new_name', async () => {
+        // Rename field from 'email' to 'email_address' (same field id=1)
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 6,
-              name: 'data',
+              id: 1,
+              name: 'users',
+              fields: [{ id: 1, name: 'email_address', type: 'email', unique: true }],
+            },
+          ],
+        })
+
+        // Verify column renamed
+        const newColumn = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='email_address'`
+        )
+        expect(newColumn.column_name).toBe('email_address')
+
+        // Verify old column removed
+        const oldColumn = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='email'`
+        )
+        expect(oldColumn.count).toBe('0')
+
+        // Verify data preserved
+        const data = await executeQuery(`SELECT email_address FROM users LIMIT 1`)
+        expect(data.email_address).toBe('user@example.com')
+
+        // Verify UNIQUE constraint preserved
+        const constraints = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
+        )
+        expect(Number(constraints.count)).toBeGreaterThanOrEqual(1)
+      })
+
+      await test.step('MIGRATION-ALTER-RENAME-002: renames column and updates index reference', async () => {
+        // Setup: products table with indexed sku field
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'sku', type: 'single-line-text', unique: true },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `CREATE INDEX idx_products_sku ON products(sku)`,
+          `INSERT INTO products (id, sku) VALUES (1, 'PROD-001')`,
+        ])
+
+        // Rename field from 'sku' to 'product_code'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'product_code', type: 'single-line-text', unique: true },
+              ],
+            },
+          ],
+        })
+
+        // Verify column renamed
+        const column = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='products' AND column_name='product_code'`
+        )
+        expect(column.column_name).toBe('product_code')
+
+        // Verify index references renamed column
+        const index = await executeQuery(
+          `SELECT indexdef FROM pg_indexes WHERE tablename='products' AND indexname='idx_products_sku'`
+        )
+        expect(index.indexdef).toContain('product_code')
+
+        // Verify data preserved
+        const data = await executeQuery(`SELECT product_code FROM products WHERE id = 1`)
+        expect(data.product_code).toBe('PROD-001')
+      })
+
+      await test.step('MIGRATION-ALTER-RENAME-003: renames column and preserves FK constraint', async () => {
+        // Setup: customers and orders tables with FK relationship
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'customers',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 4,
+              name: 'orders',
               fields: [
                 {
                   id: 1,
-                  name: 'new_name',
-                  type: 'single-line-text',
-                  required: true,
+                  name: 'customer_id',
+                  type: 'relationship',
+                  relatedTable: 'customers',
+                  relationType: 'many-to-one',
                 },
               ],
             },
           ],
         })
-      })
+        await executeQuery([
+          `INSERT INTO customers (name) VALUES ('Customer A')`,
+          `INSERT INTO orders (customer_id) VALUES (1)`,
+        ])
 
-      await test.step('Verify field renamed and data preserved', async () => {
+        // Rename FK field from 'customer_id' to 'client_id'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'customers',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            },
+            {
+              id: 4,
+              name: 'orders',
+              fields: [
+                {
+                  id: 1,
+                  name: 'client_id',
+                  type: 'relationship',
+                  relatedTable: 'customers',
+                  relationType: 'many-to-one',
+                },
+              ],
+            },
+          ],
+        })
+
         // Verify column renamed
-        const newColumn = await executeQuery(
-          `SELECT column_name FROM information_schema.columns WHERE table_name='data' AND column_name='new_name'`
+        const column = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='orders' AND column_name='client_id'`
         )
-        expect(newColumn.column_name).toBe('new_name')
+        expect(column.column_name).toBe('client_id')
 
-        // Verify old column name removed
-        const oldColumn = await executeQuery(
-          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='old_name'`
+        // Verify FK constraint preserved
+        const fk = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='FOREIGN KEY'`
         )
-        expect(oldColumn.count).toBe('0')
+        expect(fk.count).toBe('1')
+
+        // Verify FK still enforced
+        await expect(async () => {
+          await executeQuery(`INSERT INTO orders (client_id) VALUES (999)`)
+        }).rejects.toThrow(/violates foreign key constraint/i)
 
         // Verify data preserved
-        const data = await executeQuery(`SELECT new_name FROM data LIMIT 1`)
-        expect(data.new_name).toBe('test value')
+        const data = await executeQuery(`SELECT client_id FROM orders LIMIT 1`)
+        expect(data.client_id).toBe(1)
+      })
+
+      await test.step('MIGRATION-ALTER-RENAME-004: renames column with CHECK constraint', async () => {
+        // Setup: tasks table with single-select (CHECK constraint)
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'tasks',
+              fields: [
+                {
+                  id: 1,
+                  name: 'status',
+                  type: 'single-select',
+                  options: ['open', 'in_progress', 'done'],
+                },
+              ],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO tasks (status) VALUES ('open')`])
+
+        // Rename field from 'status' to 'state'
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'tasks',
+              fields: [
+                {
+                  id: 1,
+                  name: 'state',
+                  type: 'single-select',
+                  options: ['open', 'in_progress', 'done'],
+                },
+              ],
+            },
+          ],
+        })
+
+        // Verify column renamed
+        const column = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='tasks' AND column_name='state'`
+        )
+        expect(column.column_name).toBe('state')
+
+        // Verify CHECK constraint enforced with valid value
+        const validInsert = await executeQuery(
+          `INSERT INTO tasks (state) VALUES ('done') RETURNING state`
+        )
+        expect(validInsert.state).toBe('done')
+
+        // Verify invalid value rejected
+        await expect(async () => {
+          await executeQuery(`INSERT INTO tasks (state) VALUES ('invalid')`)
+        }).rejects.toThrow(/violates check constraint/i)
       })
     }
   )

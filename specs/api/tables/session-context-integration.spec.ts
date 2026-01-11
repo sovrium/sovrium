@@ -459,8 +459,8 @@ test.describe('API Session Context Integration', () => {
   // @regression test - OPTIMIZED workflow validation
   // ============================================================================
 
-  test.fixme(
-    'API-TABLES-SESSION-CTX-INT-REGRESSION: complete API session context integration workflow',
+  test(
+    'API-TABLES-SESSION-CTX-INT-REGRESSION: user can complete full API session context integration workflow',
     { tag: '@regression' },
     async ({
       request,
@@ -470,7 +470,7 @@ test.describe('API Session Context Integration', () => {
       addMember,
       executeQuery,
     }) => {
-      await test.step('Setup: Create schema with multi-tenant tables and permissions', async () => {
+      await test.step('Setup: Start server with comprehensive multi-tenant tables and permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -517,7 +517,7 @@ test.describe('API Session Context Integration', () => {
       const org2Owner = await createAuthenticatedUser({ email: 'org2-owner@example.com' })
       const org2 = await createOrganization({ name: 'Org 2' })
 
-      await test.step('Insert test data for multiple organizations and owners', async () => {
+      await test.step('Setup: Insert test data for multiple organizations and owners', async () => {
         await executeQuery(`
           INSERT INTO projects (id, name, budget, organization_id, owner_id)
           VALUES
@@ -527,7 +527,21 @@ test.describe('API Session Context Integration', () => {
         `)
       })
 
-      await test.step('Org1 owner sees own projects with budget via API', async () => {
+      await test.step('API-TABLES-SESSION-CTX-INT-001: Set session context from auth token for API requests', async () => {
+        // Authenticated request should succeed (session context is set)
+        const response = await request.get('/api/tables/1/records', {
+          headers: {
+            'X-Organization-Id': org1.organization.id,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+        // Success proves session context was set correctly
+        // (RLS policies would deny access without proper session context)
+      })
+
+      await test.step('API-TABLES-SESSION-CTX-INT-002: Enforce RLS owner filtering via API', async () => {
+        // Owner should see only their own projects (RLS owner filtering)
         const response = await request.get('/api/tables/1/records', {
           headers: {
             'X-Organization-Id': org1.organization.id,
@@ -537,35 +551,19 @@ test.describe('API Session Context Integration', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        // Owner should see only their own projects (RLS owner filtering)
         expect(data.records).toHaveLength(1)
         expect(data.records[0].fields.name).toBe('Org1 Owner Project')
-        // Owner should see budget field (role-based field permission)
-        expect(data.records[0].fields.budget).toBe(100_000)
+        expect(data.records[0].fields.owner_id).toBe(org1Owner.user.id)
         // Should NOT see org1Member's project (owner filtering)
         expect(
-          data.records.find((r: { name: string }) => r.name === 'Org1 Member Project')
+          data.records.find(
+            (r: { fields: { name: string } }) => r.fields.name === 'Org1 Member Project'
+          )
         ).toBeUndefined()
       })
 
-      await test.step('Org1 member sees own projects WITHOUT budget via API', async () => {
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org1.organization.id,
-          },
-        })
-
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        // Member should see only their own projects (RLS owner filtering)
-        expect(data.records).toHaveLength(1)
-        expect(data.records[0].fields.name).toBe('Org1 Member Project')
-        // Member should NOT see budget field (role-based field permission)
-        expect(data.records[0].fields).not.toHaveProperty('budget')
-      })
-
-      await test.step('Org2 owner sees only Org2 projects via API', async () => {
+      await test.step('API-TABLES-SESSION-CTX-INT-003: Enforce organization isolation via API', async () => {
+        // Org2 owner should see only Org2 projects (organization isolation)
         const response = await request.get('/api/tables/1/records', {
           headers: {
             'X-Organization-Id': org2.organization.id,
@@ -575,23 +573,61 @@ test.describe('API Session Context Integration', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        // Org2 owner should see only Org2 projects (organization isolation)
         expect(data.records).toHaveLength(1)
         expect(data.records[0].fields.name).toBe('Org2 Owner Project')
-        expect(data.records[0].fields.budget).toBe(75_000)
+        expect(data.records[0].fields.organization_id).toBe(org2.organization.id)
         // Should NOT see any Org1 projects (organization isolation)
         expect(
-          data.records.find((r: { name: string }) => r.name.startsWith('Org1'))
+          data.records.find((r: { fields: { name: string } }) => r.fields.name.startsWith('Org1'))
         ).toBeUndefined()
       })
 
-      await test.step('Unauthenticated request is rejected', async () => {
+      await test.step('API-TABLES-SESSION-CTX-INT-004: Enforce role-based permissions via API', async () => {
+        // Owner should see budget field (role-based permission)
+        const ownerResponse = await request.get('/api/tables/1/records', {
+          headers: {
+            'X-Organization-Id': org1.organization.id,
+          },
+        })
+
+        expect(ownerResponse.status()).toBe(200)
+
+        const ownerData = await ownerResponse.json()
+        expect(ownerData.records).toHaveLength(1)
+        expect(ownerData.records[0].fields.budget).toBe(100_000)
+
+        // Note: Member role verification is covered in step 005 (field-level permissions)
+        // This step focuses on owner's access to budget field (role-based permission)
+      })
+
+      await test.step('API-TABLES-SESSION-CTX-INT-005: Enforce field-level permissions via API', async () => {
+        // Member should see name but NOT budget field (field-level permission)
+        const response = await request.get('/api/tables/1/records', {
+          headers: {
+            'X-Organization-Id': org1.organization.id,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields.name).toBe('Org1 Member Project')
+        expect(data.records[0].fields).not.toHaveProperty('budget')
+      })
+
+      await test.step('API-TABLES-SESSION-CTX-INT-006: Reject unauthenticated API requests', async () => {
+        // Unauthenticated request should be rejected (no session context = no access)
         const response = await request.get('/api/tables/1/records')
 
         expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data.error).toBeDefined()
       })
 
-      await test.step('Create new project via API sets organization and owner automatically', async () => {
+      await test.step('API-TABLES-SESSION-CTX-INT-007: Handle create operations with session context', async () => {
+        // Create new project via API should set organization_id and owner_id automatically
         const response = await request.post('/api/tables/1/records', {
           headers: {
             'X-Organization-Id': org1.organization.id,

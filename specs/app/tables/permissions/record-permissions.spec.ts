@@ -504,11 +504,12 @@ test.describe('Record-Level Permissions', () => {
     'APP-TABLES-RECORD-PERMISSIONS-REGRESSION: user can complete full record-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      const roleName = generateRoleName('006')
+      const roleName = generateRoleName('regression')
       let user1: any
       let user2: any
+      let user3: any
 
-      await test.step('Setup: Start server with record-level permissions', async () => {
+      await test.step('Setup: Start server with comprehensive record-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -516,89 +517,254 @@ test.describe('Record-Level Permissions', () => {
           },
           tables: [
             {
-              id: 7,
-              name: 'items',
+              id: 1,
+              name: 'documents',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'owner_id', type: 'user' },
-                { id: 4, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'content', type: 'single-line-text' },
+                { id: 4, name: 'created_by', type: 'user' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
                 records: [
                   {
                     action: 'read',
-                    condition: '{userId} = owner_id',
+                    condition: '{userId} = created_by',
                   },
-                  {
-                    action: 'update',
-                    condition: '{userId} = owner_id',
-                  },
+                ],
+              },
+            },
+            {
+              id: 2,
+              name: 'articles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'created_by', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                records: [
                   {
                     action: 'delete',
-                    condition: "{userId} = owner_id AND status = 'draft'",
+                    condition: "{userId} = created_by AND status = 'draft'",
+                  },
+                ],
+              },
+            },
+            {
+              id: 3,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'department', type: 'single-line-text' },
+                { id: 4, name: 'status', type: 'single-line-text' },
+                { id: 5, name: 'owner_id', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                records: [
+                  {
+                    action: 'read',
+                    condition: '{user.department} = department',
+                  },
+                  {
+                    action: 'read',
+                    condition: "status = 'active'",
+                  },
+                ],
+              },
+            },
+            {
+              id: 4,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'department', type: 'single-line-text' },
+                { id: 4, name: 'email', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                records: [
+                  {
+                    action: 'read',
+                    condition: '{user.department} = department',
+                  },
+                ],
+              },
+            },
+            {
+              id: 5,
+              name: 'tickets',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'user' },
+                { id: 4, name: 'assigned_to', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                records: [
+                  {
+                    action: 'read',
+                    condition: '{userId} = created_by OR {userId} = assigned_to',
                   },
                 ],
               },
             },
           ],
         })
-      })
 
-      await test.step('Create test users and RLS policies', async () => {
+        // Create test users
         user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
         user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+        user3 = await createAuthenticatedUser({ email: 'user3@example.com' })
 
+        // Create non-superuser role for RLS testing
         await executeQuery(`DROP ROLE IF EXISTS ${roleName}`)
         await executeQuery(`CREATE ROLE ${roleName} WITH LOGIN PASSWORD 'test'`)
+      })
 
+      await test.step('APP-TABLES-RECORD-PERMISSIONS-001: Filter records by user ID', async () => {
+        // Setup RLS for documents table
         await executeQuery([
-          'ALTER TABLE items ENABLE ROW LEVEL SECURITY',
-          'ALTER TABLE items FORCE ROW LEVEL SECURITY',
-          "CREATE POLICY user_read ON items FOR SELECT USING (owner_id = current_setting('app.user_id', true)::TEXT)",
-          "CREATE POLICY user_update ON items FOR UPDATE USING (owner_id = current_setting('app.user_id', true)::TEXT)",
-          "CREATE POLICY user_delete ON items FOR DELETE USING (owner_id = current_setting('app.user_id', true)::TEXT AND status = 'draft')",
-          `INSERT INTO items (title, owner_id, status) VALUES ('Item 1', '${user1.user.id}', 'draft'), ('Item 2', '${user2.user.id}', 'published')`,
-          `GRANT ALL ON TABLE items TO ${roleName}`,
+          'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
+          'ALTER TABLE documents FORCE ROW LEVEL SECURITY',
+          "CREATE POLICY user_read_own ON documents FOR SELECT USING (created_by = current_setting('app.user_id', true)::TEXT)",
+          `INSERT INTO documents (title, content, created_by) VALUES ('Doc 1', 'Content 1', '${user1.user.id}'), ('Doc 2', 'Content 2', '${user2.user.id}'), ('Doc 3', 'Content 3', '${user1.user.id}')`,
+          `GRANT ALL ON TABLE documents TO ${roleName}`,
           `GRANT USAGE ON SCHEMA public TO ${roleName}`,
         ])
-      })
 
-      await test.step('Verify user can read their own records', async () => {
-        const readResult = await executeQuery([
+        // User 1 can only SELECT their own records
+        const user1Count = await executeQuery([
           `SET ROLE ${roleName}`,
           `SET LOCAL app.user_id = '${user1.user.id}'`,
-          'SELECT COUNT(*) as count FROM items',
+          'SELECT COUNT(*) as count FROM documents',
         ])
-        expect(readResult.rows[0].count).toBe('1')
+        expect(user1Count.count).toBe('2')
+
+        // User 2 can only SELECT their own records
+        const user2Count = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user2.user.id}'`,
+          'SELECT COUNT(*) as count FROM documents',
+        ])
+        expect(user2Count.count).toBe('1')
       })
 
-      await test.step('Verify user can update their own records', async () => {
-        const updateResult = await executeQuery([
+      await test.step('APP-TABLES-RECORD-PERMISSIONS-002: Deny DELETE on published records', async () => {
+        // Setup RLS for articles table
+        await executeQuery([
+          'ALTER TABLE articles ENABLE ROW LEVEL SECURITY',
+          'ALTER TABLE articles FORCE ROW LEVEL SECURITY',
+          "CREATE POLICY user_select_own ON articles FOR SELECT USING (created_by = current_setting('app.user_id', true)::TEXT)",
+          "CREATE POLICY user_delete_draft ON articles FOR DELETE USING (created_by = current_setting('app.user_id', true)::TEXT AND status = 'draft')",
+          `INSERT INTO articles (title, status, created_by) VALUES ('Draft 1', 'draft', '${user1.user.id}'), ('Published 1', 'published', '${user1.user.id}'), ('Draft 2', 'draft', '${user2.user.id}')`,
+          `GRANT ALL ON TABLE articles TO ${roleName}`,
+          `GRANT USAGE ON SCHEMA public TO ${roleName}`,
+        ])
+
+        // User 1 can DELETE their draft article
+        const user1Delete = await executeQuery([
           `SET ROLE ${roleName}`,
           `SET LOCAL app.user_id = '${user1.user.id}'`,
-          "UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title",
+          'DELETE FROM articles WHERE id = 1 RETURNING id',
         ])
-        expect(updateResult.rows[0].title).toBe('Updated')
+        expect(user1Delete.id).toBe(1)
+
+        // User 1 cannot DELETE their published article
+        const user1FailedDelete = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user1.user.id}'`,
+          'DELETE FROM articles WHERE id = 2 RETURNING id',
+        ])
+        expect(user1FailedDelete.id).toBeUndefined()
       })
 
-      await test.step('Verify user can delete their own draft records', async () => {
-        const deleteResult = await executeQuery([
-          `SET ROLE ${roleName}`,
-          `SET LOCAL app.user_id = '${user1.user.id}'`,
-          'DELETE FROM items WHERE id = 1 RETURNING id',
+      await test.step('APP-TABLES-RECORD-PERMISSIONS-003: Filter records with multiple AND conditions', async () => {
+        // Setup test data for projects
+        await executeQuery([
+          `INSERT INTO projects (name, department, status, owner_id) VALUES ('Project A', 'Engineering', 'active', '${user1.user.id}'), ('Project B', 'Engineering', 'archived', '${user1.user.id}'), ('Project C', 'Marketing', 'active', '${user2.user.id}')`,
+          `GRANT ALL ON TABLE projects TO ${roleName}`,
+          `GRANT USAGE ON SCHEMA public TO ${roleName}`,
         ])
-        expect(deleteResult.rows[0].id).toBe(1)
+
+        // RLS policy combines conditions with AND
+        const policyQual = await executeQuery(
+          "SELECT qual FROM pg_policies WHERE tablename='projects' AND policyname='projects_record_read'"
+        )
+        expect(policyQual.qual).toBe(
+          "((current_setting('app.user_department'::text, true) = (department)::text) AND ((status)::text = 'active'::text))"
+        )
+
+        // Engineering user sees only active Engineering projects
+        const engCount = await executeQuery([
+          `SET ROLE ${roleName}`,
+          "SET LOCAL app.user_department = 'Engineering'",
+          'SELECT COUNT(*) as count FROM projects',
+        ])
+        expect(engCount.count).toBe('1')
       })
 
-      await test.step('Verify user cannot access other users records', async () => {
-        const crossUserResult = await executeQuery([
+      await test.step('APP-TABLES-RECORD-PERMISSIONS-004: Filter by user department custom property', async () => {
+        // Setup RLS for employees table
+        await executeQuery([
+          'ALTER TABLE employees ENABLE ROW LEVEL SECURITY',
+          'ALTER TABLE employees FORCE ROW LEVEL SECURITY',
+          "CREATE POLICY same_department ON employees FOR SELECT USING (department = current_setting('app.user_department', true))",
+          "INSERT INTO employees (name, department, email) VALUES ('Alice', 'Engineering', 'alice@example.com'), ('Bob', 'Marketing', 'bob@example.com'), ('Charlie', 'Engineering', 'charlie@example.com')",
+          `GRANT ALL ON TABLE employees TO ${roleName}`,
+          `GRANT USAGE ON SCHEMA public TO ${roleName}`,
+        ])
+
+        // Engineering user sees Engineering employees only
+        const engCount = await executeQuery([
+          `SET ROLE ${roleName}`,
+          "SET LOCAL app.user_department = 'Engineering'",
+          'SELECT COUNT(*) as count FROM employees',
+        ])
+        expect(engCount.count).toBe('2')
+
+        // Marketing user sees Marketing employees only
+        const mktEmployee = await executeQuery([
+          `SET ROLE ${roleName}`,
+          "SET LOCAL app.user_department = 'Marketing'",
+          'SELECT name FROM employees',
+        ])
+        expect(mktEmployee.name).toBe('Bob')
+      })
+
+      await test.step('APP-TABLES-RECORD-PERMISSIONS-005: Filter records with complex OR condition', async () => {
+        // Setup RLS for tickets table
+        await executeQuery([
+          'ALTER TABLE tickets ENABLE ROW LEVEL SECURITY',
+          'ALTER TABLE tickets FORCE ROW LEVEL SECURITY',
+          "CREATE POLICY user_read_tickets ON tickets FOR SELECT USING (created_by = current_setting('app.user_id', true)::TEXT OR assigned_to = current_setting('app.user_id', true)::TEXT)",
+          `INSERT INTO tickets (title, created_by, assigned_to) VALUES ('Ticket 1', '${user1.user.id}', '${user2.user.id}'), ('Ticket 2', '${user2.user.id}', '${user1.user.id}'), ('Ticket 3', '${user1.user.id}', '${user1.user.id}'), ('Ticket 4', '${user3.user.id}', '${user3.user.id}')`,
+          `GRANT ALL ON TABLE tickets TO ${roleName}`,
+          `GRANT USAGE ON SCHEMA public TO ${roleName}`,
+        ])
+
+        // User 1 sees tickets they created OR are assigned to
+        const user1Count = await executeQuery([
           `SET ROLE ${roleName}`,
           `SET LOCAL app.user_id = '${user1.user.id}'`,
-          `SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`,
+          'SELECT COUNT(*) as count FROM tickets',
         ])
-        expect(crossUserResult.rows[0].count).toBe('0')
+        expect(user1Count.count).toBe('3')
+
+        // User 2 sees their tickets
+        const user2Tickets = await executeQuery([
+          `SET ROLE ${roleName}`,
+          `SET LOCAL app.user_id = '${user2.user.id}'`,
+          'SELECT title FROM tickets ORDER BY id',
+        ])
+        expect(user2Tickets.rows).toEqual([{ title: 'Ticket 1' }, { title: 'Ticket 2' }])
       })
     }
   )

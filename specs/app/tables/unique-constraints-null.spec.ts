@@ -362,16 +362,18 @@ test.describe('NULL Handling in Unique Constraints', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration workflow
+  // Generated from 7 @spec tests - covers: NULL handling, composite constraints, partial indexes, CHECK constraints
   // ============================================================================
 
   test(
     'APP-TABLES-UNIQUECONSTRAINTS-NULL-REGRESSION: user can complete full NULL-in-unique-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Create table with optional unique field', async () => {
+      await test.step('Setup: Start server with comprehensive table configurations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
+            // Basic optional unique field (001, 003)
             {
               id: 1,
               name: 'contacts',
@@ -380,40 +382,206 @@ test.describe('NULL Handling in Unique Constraints', () => {
                 { id: 2, name: 'email', type: 'email', unique: true, required: false },
               ],
             },
+            // Composite unique constraint (002)
+            {
+              id: 2,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'tenant_id', type: 'integer', required: false },
+                { id: 2, name: 'email', type: 'email', required: false },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_users_tenant_email',
+                  fields: ['tenant_id', 'email'],
+                },
+              ],
+            },
+            // Required vs optional unique (004)
+            {
+              id: 3,
+              name: 'required_unique',
+              fields: [{ id: 1, name: 'email', type: 'email', unique: true, required: true }],
+            },
+            {
+              id: 4,
+              name: 'optional_unique',
+              fields: [{ id: 1, name: 'email', type: 'email', unique: true, required: false }],
+            },
+            // Partial unique index (005)
+            {
+              id: 5,
+              name: 'accounts',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'username', type: 'single-line-text', required: false },
+              ],
+              indexes: [
+                {
+                  name: 'idx_accounts_username_unique',
+                  fields: ['username'],
+                  unique: true,
+                  where: 'username IS NOT NULL',
+                },
+              ],
+            },
+            // Global settings pattern (006)
+            {
+              id: 6,
+              name: 'settings',
+              fields: [
+                { id: 1, name: 'user_id', type: 'integer', required: false },
+                { id: 2, name: 'setting_key', type: 'single-line-text', required: true },
+                { id: 3, name: 'value', type: 'single-line-text' },
+              ],
+              uniqueConstraints: [
+                {
+                  name: 'uq_settings_user_key',
+                  fields: ['user_id', 'setting_key'],
+                },
+              ],
+            },
+            // CHECK constraint with UNIQUE (007)
+            {
+              id: 7,
+              name: 'members',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text', required: true },
+                { id: 2, name: 'email', type: 'email', unique: true, required: false },
+                { id: 3, name: 'is_active', type: 'checkbox', default: false },
+              ],
+              constraints: [
+                {
+                  name: 'chk_active_members_have_email',
+                  check: '(is_active = false) OR (email IS NOT NULL)',
+                },
+              ],
+            },
           ],
         })
       })
 
-      await test.step('Verify multiple NULL values allowed per SQL standard', async () => {
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-001: Allow multiple NULL values in UNIQUE column', async () => {
+        // Insert multiple NULLs (allowed per SQL standard)
         await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Alice', NULL)`)
         await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Bob', NULL)`)
+        await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Charlie', NULL)`)
+
         const nullCount = await executeQuery(
           `SELECT COUNT(*) as count FROM contacts WHERE email IS NULL`
+        )
+        expect(nullCount.rows[0]).toMatchObject({ count: '3' })
+
+        // Duplicate non-NULL still rejected
+        await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Dave', 'dave@example.com')`)
+        await expect(
+          executeQuery(`INSERT INTO contacts (name, email) VALUES ('Eve', 'dave@example.com')`)
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-002: Allow multiple NULL combinations in composite UNIQUE', async () => {
+        // Both columns NULL
+        await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (NULL, NULL)`)
+        await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (NULL, NULL)`)
+
+        // One column NULL
+        await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (1, NULL)`)
+        await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (1, NULL)`)
+
+        const totalCount = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+        expect(totalCount.rows[0]).toMatchObject({ count: '4' })
+
+        // Non-NULL combination enforces uniqueness
+        await executeQuery(`INSERT INTO users (tenant_id, email) VALUES (1, 'test@example.com')`)
+        await expect(
+          executeQuery(`INSERT INTO users (tenant_id, email) VALUES (1, 'test@example.com')`)
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-003: Enforce unique non-NULL values while allowing multiple NULLs', async () => {
+        // Additional NULLs allowed in contacts table
+        const insertNull = await executeQuery(
+          `INSERT INTO contacts (name, email) VALUES ('Frank', NULL) RETURNING id`
+        )
+        expect(insertNull.rows[0].id).toBeGreaterThan(0)
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-004: Document required+unique differs from optional+unique', async () => {
+        // NULL rejected in required+unique
+        await expect(
+          executeQuery(`INSERT INTO required_unique (email) VALUES (NULL)`)
+        ).rejects.toThrow(/violates not-null constraint/)
+
+        await executeQuery(`INSERT INTO required_unique (email) VALUES ('test@example.com')`)
+        await expect(
+          executeQuery(`INSERT INTO required_unique (email) VALUES ('test@example.com')`)
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+
+        // NULL allowed multiple times in optional+unique
+        await executeQuery(`INSERT INTO optional_unique (email) VALUES (NULL)`)
+        await executeQuery(`INSERT INTO optional_unique (email) VALUES (NULL)`)
+
+        const nullCount = await executeQuery(
+          `SELECT COUNT(*) as count FROM optional_unique WHERE email IS NULL`
         )
         expect(nullCount.rows[0]).toMatchObject({ count: '2' })
       })
 
-      await test.step('Verify non-NULL uniqueness still enforced', async () => {
-        await executeQuery(
-          `INSERT INTO contacts (name, email) VALUES ('Charlie', 'charlie@example.com')`
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-005: Use partial unique index for non-NULL uniqueness', async () => {
+        // Multiple NULLs allowed
+        await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Alice', NULL)`)
+        await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Bob', NULL)`)
+        await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Charlie', NULL)`)
+
+        const nullCount = await executeQuery(
+          `SELECT COUNT(*) as count FROM accounts WHERE username IS NULL`
         )
+        expect(nullCount.rows[0]).toMatchObject({ count: '3' })
+
+        // Non-NULL usernames still unique
+        await executeQuery(`INSERT INTO accounts (name, username) VALUES ('Dave', 'alice')`)
         await expect(
-          executeQuery(`INSERT INTO contacts (name, email) VALUES ('Dave', 'charlie@example.com')`)
-        ).rejects.toThrow(/unique constraint/)
+          executeQuery(`INSERT INTO accounts (name, username) VALUES ('Eve', 'alice')`)
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
 
-      await test.step('Verify NULL and non-NULL coexist correctly', async () => {
-        // Additional NULL still allowed
-        await executeQuery(`INSERT INTO contacts (name, email) VALUES ('Eve', NULL)`)
-
-        // Final count: 3 NULLs, 1 non-NULL
-        const totalCount = await executeQuery(`SELECT COUNT(*) as count FROM contacts`)
-        expect(totalCount.rows[0]).toMatchObject({ count: '4' })
-
-        const nonNullCount = await executeQuery(
-          `SELECT COUNT(*) as count FROM contacts WHERE email IS NOT NULL`
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-006: Demonstrate NULL as distinct value in global settings', async () => {
+        // Multiple (NULL, setting_key) combinations allowed
+        await executeQuery(
+          `INSERT INTO settings (user_id, setting_key, value) VALUES (NULL, 'theme', 'dark')`
         )
-        expect(nonNullCount.rows[0]).toMatchObject({ count: '1' })
+        await executeQuery(
+          `INSERT INTO settings (user_id, setting_key, value) VALUES (NULL, 'theme', 'light')`
+        )
+
+        const globalSettings = await executeQuery(
+          `SELECT COUNT(*) as count FROM settings WHERE user_id IS NULL AND setting_key = 'theme'`
+        )
+        expect(globalSettings.rows[0]).toMatchObject({ count: '2' })
+      })
+
+      await test.step('APP-TABLES-UNIQUECONSTRAINTS-NULL-007: Combine UNIQUE and CHECK constraints', async () => {
+        // Inactive member without email (allowed)
+        await executeQuery(
+          `INSERT INTO members (name, email, is_active) VALUES ('Alice', NULL, false)`
+        )
+
+        // Active member without email (rejected by CHECK)
+        await expect(
+          executeQuery(`INSERT INTO members (name, email, is_active) VALUES ('Bob', NULL, true)`)
+        ).rejects.toThrow(/violates check constraint/)
+
+        // Active member with email (allowed)
+        await executeQuery(
+          `INSERT INTO members (name, email, is_active) VALUES ('Charlie', 'charlie@example.com', true)`
+        )
+
+        // Unique constraint still enforced
+        await expect(
+          executeQuery(
+            `INSERT INTO members (name, email, is_active) VALUES ('Dave', 'charlie@example.com', true)`
+          )
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
     }
   )

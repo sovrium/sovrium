@@ -358,108 +358,225 @@ test.describe('Delete Team', () => {
       acceptInvitation,
       page,
     }) => {
-      // GIVEN: Organization with multiple teams, some with members
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: {
-            teams: true,
+      let organization: { id: string }
+      let teamId: string
+      let team2Id: string
+      let memberUserId: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: {
+              teams: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('API-AUTH-ORG-TEAMS-DELETE-006: Returns 401 Unauthorized when not authenticated', async () => {
+        // WHEN: Unauthenticated user tries to delete team
+        const response = await page.request.delete('/api/auth/organization/delete-team', {
+          data: {
+            teamId: 'team-123',
+          },
+        })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('Unauthorized')
       })
 
-      const { organization } = await createOrganization({
-        name: 'Test Company',
-        slug: 'test-company',
+      await test.step('Setup: Create owner and organization with teams', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const result = await createOrganization({
+          name: 'Test Company',
+          slug: 'test-company',
+        })
+        organization = result.organization
+
+        const createResponse = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Engineering Team',
+          },
+        })
+
+        const team = await createResponse.json()
+        teamId = team.id
+
+        // Create second team (will remain after deletion tests)
+        const team2Response = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Team to Keep',
+          },
+        })
+
+        const team2 = await team2Response.json()
+        team2Id = team2.id
       })
 
-      // Create team 1 with members
-      const team1Response = await page.request.post('/api/auth/organization/create-team', {
-        data: {
-          organizationId: organization.id,
-          name: 'Team to Delete',
-        },
+      await test.step('API-AUTH-ORG-TEAMS-DELETE-005: Returns 400 Bad Request when teamId is missing', async () => {
+        // WHEN: Owner tries to delete team without teamId
+        const response = await page.request.delete('/api/auth/organization/delete-team', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('teamId')
       })
 
-      const { id: team1Id } = await team1Response.json()
+      await test.step('API-AUTH-ORG-TEAMS-DELETE-004: Returns 404 Not Found when team does not exist', async () => {
+        // WHEN: Owner tries to delete non-existent team
+        const response = await page.request.delete('/api/auth/organization/delete-team', {
+          data: {
+            teamId: 'non-existent-team-id',
+          },
+        })
 
-      // Create team 2 (will remain)
-      const team2Response = await page.request.post('/api/auth/organization/create-team', {
-        data: {
-          organizationId: organization.id,
-          name: 'Team to Keep',
-        },
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('not found')
       })
 
-      const { id: team2Id } = await team2Response.json()
-
-      // Add members to both teams
-      for (let i = 1; i <= 2; i++) {
-        const email = `member${i}@example.com`
-
+      await test.step('Setup: Add member to team for cascade delete test', async () => {
         const { invitation } = await inviteMember({
           organizationId: organization.id,
-          email,
+          email: 'member@example.com',
           role: 'member',
         })
 
         await signUp({
-          email,
+          email: 'member@example.com',
           password: 'MemberPass123!',
-          name: `Member ${i}`,
+          name: 'Member User',
         })
 
         const memberAccept = await acceptInvitation(invitation.id)
+        memberUserId = memberAccept.member.userId
 
         await page.request.post('/api/auth/organization/add-team-member', {
           data: {
-            teamId: team1Id,
-            userId: memberAccept.member.userId,
+            teamId,
+            userId: memberUserId,
           },
         })
-
-        await page.request.post('/api/auth/organization/add-team-member', {
-          data: {
-            teamId: team2Id,
-            userId: memberAccept.member.userId,
-          },
-        })
-      }
-
-      // WHEN: Owner deletes team 1
-      const deleteResponse = await page.request.delete('/api/auth/organization/delete-team', {
-        data: {
-          teamId: team1Id,
-        },
       })
 
-      expect(deleteResponse.status()).toBe(200)
+      await test.step('API-AUTH-ORG-TEAMS-DELETE-001: Returns 200 OK when owner deletes team', async () => {
+        // WHEN: Owner deletes the team
+        const response = await page.request.delete('/api/auth/organization/delete-team', {
+          data: {
+            teamId,
+          },
+        })
 
-      // THEN: Team 1 is deleted but team 2 still exists
-      const getTeam1Response = await page.request.get(
-        `/api/auth/organization/get-team?teamId=${team1Id}`
-      )
-      expect(getTeam1Response.status()).toBe(404)
+        // THEN: Returns 200 OK
+        expect(response.status()).toBe(200)
 
-      const getTeam2Response = await page.request.get(
-        `/api/auth/organization/get-team?teamId=${team2Id}`
-      )
-      expect(getTeam2Response.status()).toBe(200)
+        const data = await response.json()
+        expect(data).toHaveProperty('success', true)
 
-      // THEN: List teams shows only team 2
-      const listResponse = await page.request.get(
-        `/api/auth/organization/list-teams?organizationId=${organization.id}`
-      )
-      const teams = await listResponse.json()
-      expect(teams).toHaveLength(1)
-      expect(teams[0].id).toBe(team2Id)
+        // THEN: Team no longer exists
+        const getResponse = await page.request.get(
+          `/api/auth/organization/get-team?teamId=${teamId}`
+        )
+        expect(getResponse.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-DELETE-002: Cascades delete team members when team is deleted', async () => {
+        // Create new team with member for cascade delete test
+        const createResponse = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Team to Delete with Members',
+          },
+        })
+
+        const { id: newTeamId } = await createResponse.json()
+
+        // Add existing member to this team
+        await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: newTeamId,
+            userId: memberUserId,
+          },
+        })
+
+        // WHEN: Owner deletes team
+        const response = await page.request.delete('/api/auth/organization/delete-team', {
+          data: {
+            teamId: newTeamId,
+          },
+        })
+
+        // THEN: Team and team members deleted
+        expect(response.status()).toBe(200)
+
+        const listMembersResponse = await page.request.get(
+          `/api/auth/organization/list-team-members?teamId=${newTeamId}`
+        )
+        expect(listMembersResponse.status()).toBe(404)
+      })
+
+      await test.step('Setup: Create team for permission test', async () => {
+        const createResponse = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Protected Team',
+          },
+        })
+
+        const team = await createResponse.json()
+        teamId = team.id
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-DELETE-003: Returns 403 Forbidden when non-owner tries to delete team', async () => {
+        // Switch to member context (member was signed up earlier)
+        // The last signed up user should be the member
+
+        // WHEN: Member tries to delete team
+        const response = await page.request.delete('/api/auth/organization/delete-team', {
+          data: {
+            teamId,
+          },
+        })
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('permission')
+      })
+
+      await test.step('Verifies remaining team still exists after deletions', async () => {
+        // THEN: Team 2 still exists
+        const getTeam2Response = await page.request.get(
+          `/api/auth/organization/get-team?teamId=${team2Id}`
+        )
+        expect(getTeam2Response.status()).toBe(200)
+
+        const team2 = await getTeam2Response.json()
+        expect(team2.name).toBe('Team to Keep')
+      })
     }
   )
 })

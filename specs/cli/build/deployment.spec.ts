@@ -484,55 +484,188 @@ test.describe('Static Site Generation - Deployment Features', () => {
     }
   )
 
-  test(
-    'CLI-BUILD-DEPLOY-REGRESSION: complete deployment workflow',
-    { tag: '@regression' },
-    async ({ generateStaticSite, page }) => {
-      let outputDir: string
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying deployment features work together efficiently
+  // Generated from 6 @spec tests - covers: .nojekyll, sitemap.xml, robots.txt,
+  // base path, CNAME for custom domains, no CNAME for github.io
+  // ============================================================================
 
-      await test.step('Setup: Generate site with deployment configuration', async () => {
-        outputDir = await generateStaticSite(
+  test(
+    'CLI-BUILD-DEPLOY-REGRESSION: user can complete full deployment workflow',
+    { tag: '@regression' },
+    async ({ generateStaticSite }) => {
+      await test.step('CLI-BUILD-DEPLOY-001: generates .nojekyll for GitHub Pages', async () => {
+        const outputDir = await generateStaticSite(
           {
             name: 'test-app',
-            description: 'Deployment test application',
-            theme: {
-              colors: { primary: '#3B82F6' },
-            },
-            languages: {
-              default: 'en',
-              supported: [
-                { code: 'en', locale: 'en-US', label: 'English' },
-                { code: 'fr', locale: 'fr-FR', label: 'Français' },
-              ],
-              translations: {
-                en: { title: 'Home' },
-                fr: { title: 'Accueil' },
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: { lang: 'en', title: 'Home', description: 'Home page' },
+                sections: [],
               },
-            },
+              {
+                name: 'about',
+                path: '/about',
+                meta: { lang: 'en', title: 'About', description: 'About page' },
+                sections: [{ type: 'h1', children: ['About Us'] }],
+              },
+              {
+                name: 'docs',
+                path: '/_docs/api',
+                meta: { lang: 'en', title: 'API Docs', description: 'API Documentation' },
+                sections: [{ type: 'h1', children: ['API Documentation'] }],
+              },
+            ],
+          },
+          { deployment: 'github-pages' }
+        )
+
+        const files = await readdir(outputDir)
+        expect(files).toContain('.nojekyll')
+
+        await expect(access(join(outputDir, '.nojekyll'), constants.R_OK)).resolves.toBeUndefined()
+        const nojekyllContent = await readFile(join(outputDir, '.nojekyll'), 'utf-8')
+        expect(nojekyllContent).toBe('')
+
+        const allFiles = await readdir(outputDir, { recursive: true })
+        expect(allFiles).not.toContain('_docs')
+        expect(allFiles).toContain('index.html')
+        expect(allFiles).toContain('about.html')
+      })
+
+      await test.step('CLI-BUILD-DEPLOY-002: generates sitemap.xml', async () => {
+        const outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
             pages: [
               {
                 name: 'home',
                 path: '/',
                 meta: {
-                  title: '$t:title',
-                  description: 'Multi-language home page',
+                  lang: 'en',
+                  title: 'Home',
+                  description: 'Home page',
                   priority: 1.0,
                   changefreq: 'daily',
                 },
+                sections: [],
+              },
+              {
+                name: 'about',
+                path: '/about',
+                meta: {
+                  lang: 'en',
+                  title: 'About',
+                  description: 'About page',
+                  priority: 0.8,
+                  changefreq: 'weekly',
+                },
+                sections: [],
+              },
+              {
+                name: 'privacy',
+                path: '/privacy',
+                meta: {
+                  lang: 'en',
+                  title: 'Privacy Policy',
+                  description: 'Privacy policy',
+                  priority: 0.3,
+                  changefreq: 'yearly',
+                  noindex: true,
+                },
+                sections: [],
+              },
+            ],
+          },
+          { baseUrl: 'https://example.com', generateSitemap: true }
+        )
+
+        const sitemapPath = join(outputDir, 'sitemap.xml')
+        await expect(access(sitemapPath, constants.R_OK)).resolves.toBeUndefined()
+        const sitemap = await readFile(sitemapPath, 'utf-8')
+
+        expect(sitemap).toContain('<?xml version="1.0" encoding="UTF-8"?>')
+        expect(sitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+        expect(sitemap).toContain('<loc>https://example.com/</loc>')
+        expect(sitemap).toContain('<loc>https://example.com/about</loc>')
+        expect(sitemap).not.toContain('<loc>https://example.com/privacy</loc>')
+        expect(sitemap).toContain('<priority>1.0</priority>')
+        expect(sitemap).toContain('<changefreq>daily</changefreq>')
+      })
+
+      await test.step('CLI-BUILD-DEPLOY-003: generates robots.txt', async () => {
+        const outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: { lang: 'en', title: 'Home', description: 'Home' },
+                sections: [],
+              },
+              {
+                name: 'api-docs',
+                path: '/api/docs',
+                meta: {
+                  lang: 'en',
+                  title: 'API Documentation',
+                  description: 'API docs',
+                  robots: 'noindex',
+                },
+                sections: [],
+              },
+              {
+                name: 'private',
+                path: '/private',
+                meta: {
+                  lang: 'en',
+                  title: 'Private Area',
+                  description: 'Private',
+                  robots: 'noindex, nofollow',
+                },
+                sections: [],
+              },
+            ],
+          },
+          { baseUrl: 'https://example.com', generateRobotsTxt: true, generateSitemap: true }
+        )
+
+        const robotsPath = join(outputDir, 'robots.txt')
+        await expect(access(robotsPath, constants.R_OK)).resolves.toBeUndefined()
+        const robots = await readFile(robotsPath, 'utf-8')
+
+        expect(robots).toContain('User-agent: *')
+        expect(robots).toContain('Allow: /')
+        expect(robots).toContain('Disallow: /api/docs')
+        expect(robots).toContain('Disallow: /private')
+        expect(robots).toContain('Sitemap: https://example.com/sitemap.xml')
+      })
+
+      await test.step('CLI-BUILD-DEPLOY-004: handles base path configuration', async () => {
+        const outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
+            theme: { colors: { primary: '#3B82F6' } },
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: { lang: 'en', title: 'Home', description: 'Home' },
                 sections: [
                   {
-                    type: 'header',
-                    props: { className: 'bg-primary text-white p-4' },
+                    type: 'div',
                     children: [
-                      { type: 'h1', children: ['$t:title'] },
+                      { type: 'a', props: { href: '/', className: 'home-link' }, children: ['Home'] },
                       {
-                        type: 'nav',
-                        children: [
-                          { type: 'a', props: { href: '/' }, children: ['Home'] },
-                          { type: 'a', props: { href: '/about' }, children: ['About'] },
-                          { type: 'a', props: { href: '/products' }, children: ['Products'] },
-                        ],
+                        type: 'a',
+                        props: { href: '/about', className: 'about-link' },
+                        children: ['About'],
                       },
+                      { type: 'img', props: { src: '/images/logo.png', alt: 'Logo' } },
                     ],
                   },
                 ],
@@ -540,84 +673,68 @@ test.describe('Static Site Generation - Deployment Features', () => {
               {
                 name: 'about',
                 path: '/about',
-                meta: {
-                  title: 'About',
-                  priority: 0.8,
-                  changefreq: 'weekly',
-                },
-                sections: [],
+                meta: { lang: 'en', title: 'About', description: 'About' },
+                sections: [{ type: 'a', props: { href: '/' }, children: ['Back to Home'] }],
               },
+            ],
+          },
+          { baseUrl: 'https://example.com/myapp', basePath: '/myapp', deployment: 'generic' }
+        )
+
+        const homeHtml = await readFile(join(outputDir, 'index.html'), 'utf-8')
+        const aboutHtml = await readFile(join(outputDir, 'about.html'), 'utf-8')
+
+        expect(homeHtml).toContain('href="/myapp/"')
+        expect(homeHtml).toContain('href="/myapp/about"')
+        expect(homeHtml).toContain('src="/myapp/images/logo.png"')
+        expect(homeHtml).toContain('<link rel="canonical" href="https://example.com/myapp/">')
+        expect(aboutHtml).toContain('href="/myapp/"')
+        expect(aboutHtml).toContain('<link rel="canonical" href="https://example.com/myapp/about">')
+      })
+
+      await test.step('CLI-BUILD-DEPLOY-005: generates CNAME for custom domains', async () => {
+        const outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
+            pages: [
               {
-                name: 'products',
-                path: '/products',
-                meta: {
-                  title: 'Products',
-                  priority: 0.9,
-                  changefreq: 'daily',
-                },
+                name: 'home',
+                path: '/',
+                meta: { lang: 'en', title: 'Home', description: 'Home page' },
                 sections: [],
               },
             ],
           },
-          {
-            baseUrl: 'https://example.github.io/my-project',
-            basePath: '/my-project',
-            deployment: 'github-pages',
-            languages: ['en', 'fr'],
-            generateSitemap: true,
-            generateRobotsTxt: true,
-            hydration: true,
-          }
+          { deployment: 'github-pages', baseUrl: 'https://sovrium.com' }
         )
-      })
 
-      await test.step('Verify deployment files and configuration', async () => {
-        const files = await readdir(outputDir, { recursive: true })
-
-        // GitHub Pages specific
+        const files = await readdir(outputDir)
+        expect(files).toContain('CNAME')
+        await expect(access(join(outputDir, 'CNAME'), constants.R_OK)).resolves.toBeUndefined()
+        const cnameContent = await readFile(join(outputDir, 'CNAME'), 'utf-8')
+        expect(cnameContent).toBe('sovrium.com')
         expect(files).toContain('.nojekyll')
-        expect(files).not.toContain('CNAME')
-
-        // Sitemap
-        expect(files).toContain('sitemap.xml')
-        const sitemap = await readFile(join(outputDir, 'sitemap.xml'), 'utf-8')
-        expect(sitemap).toContain('https://example.github.io/my-project/')
-        expect(sitemap).toContain('https://example.github.io/my-project/en/')
-        expect(sitemap).toContain('https://example.github.io/my-project/fr/')
-
-        // Robots.txt
-        expect(files).toContain('robots.txt')
-        const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
-        expect(robots).toContain('Sitemap: https://example.github.io/my-project/sitemap.xml')
-
-        // Multi-language structure
-        expect(files).toContain('en/index.html')
-        expect(files).toContain('fr/index.html')
-
-        // Assets
-        expect(files).toContain('assets/output.css')
-        expect(files).toContain('assets/client.js')
-
-        // Verify underscore-prefixed pages are NOT generated
-        expect(files).not.toContain('_admin.html')
-        expect(files).not.toContain('en/_admin.html')
-        expect(files).not.toContain('fr/_admin.html')
       })
 
-      await test.step('Verify HTML paths and browser rendering', async () => {
-        // Check HTML has correct paths
-        const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
-        expect(enHome).toContain('href="/my-project/assets/output.css"')
-        expect(enHome).toContain('src="/my-project/assets/client.js"')
-        expect(enHome).toContain('href="/my-project/en/about"')
+      await test.step('CLI-BUILD-DEPLOY-006: does not generate CNAME for github.io URLs', async () => {
+        const outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: { lang: 'en', title: 'Home', description: 'Home page' },
+                sections: [],
+              },
+            ],
+          },
+          { deployment: 'github-pages', baseUrl: 'https://username.github.io/repo' }
+        )
 
-        // Hreflang tags with base path
-        expect(enHome).toContain('hreflang="en" href="https://example.github.io/my-project/en/"')
-        expect(enHome).toContain('hreflang="fr" href="https://example.github.io/my-project/fr/"')
-
-        // Load in browser to verify
-        await page.goto(`file://${join(outputDir, 'en/index.html')}`)
-        await expect(page.locator('h1')).toBeVisible()
+        const files = await readdir(outputDir)
+        expect(files).not.toContain('CNAME')
+        expect(files).toContain('.nojekyll')
       })
     }
   )

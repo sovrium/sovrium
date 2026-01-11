@@ -669,113 +669,143 @@ test.describe('Batch delete records', () => {
     'API-TABLES-RECORDS-BATCH-DELETE-REGRESSION: user can complete full batch soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with tasks table', async () => {
+      await test.step('Setup: Start server with users table and test records', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 14,
-              name: 'tasks',
+              id: 1,
+              name: 'users',
               fields: [
-                { id: 1, name: 'title', type: 'single-line-text', required: true },
-                { id: 2, name: 'status', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 1, name: 'email', type: 'email', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+                { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
         })
-      })
-
-      await test.step('Setup: Insert test records', async () => {
         await executeQuery(`
-          INSERT INTO tasks (id, title, status) VALUES
-            (1, 'Task 1', 'pending'),
-            (2, 'Task 2', 'pending'),
-            (3, 'Task 3', 'pending'),
-            (4, 'Task 4', 'pending'),
-            (5, 'Task 5', 'pending')
+          INSERT INTO users (id, email, name, organization_id, deleted_at) VALUES
+            (1, 'user1@example.com', 'User One', 'org_123', NULL),
+            (2, 'user2@example.com', 'User Two', 'org_123', NULL),
+            (3, 'user3@example.com', 'User Three', 'org_123', NULL),
+            (4, 'user4@example.com', 'User Four', 'org_123', NULL),
+            (5, 'user5@example.com', 'Already Deleted', 'org_123', NOW()),
+            (6, 'user6@example.com', 'User Six', 'org_456', NULL)
         `)
       })
 
-      await test.step('Batch soft delete records successfully', async () => {
-        const successResponse = await request.delete('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-DELETE-001: Batch deletes IDs [1, 2] and returns 200 with deleted=2', async () => {
+        const response = await request.delete('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            ids: [1, 2, 3],
+            ids: [1, 2],
           },
         })
 
-        expect(successResponse.status()).toBe(200)
-        const result = await successResponse.json()
-        expect(result.deleted).toBe(3)
-      })
+        expect(response.status()).toBe(200)
 
-      await test.step('Verify soft deletion in database', async () => {
-        const afterDelete = await executeQuery(`
-          SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3) AND deleted_at IS NOT NULL
+        const data = await response.json()
+        expect(data.deleted).toBe(2)
+
+        const deletedCheck = await executeQuery(`
+          SELECT COUNT(*) as count FROM users WHERE id IN (1, 2) AND deleted_at IS NOT NULL
         `)
-        expect(afterDelete.rows[0].count).toBe('3')
-      })
+        expect(deletedCheck.rows[0].count).toBe('2')
 
-      await test.step('Verify active records count', async () => {
-        const activeCount = await executeQuery(`
-          SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL
+        const remainingCheck = await executeQuery(`
+          SELECT deleted_at FROM users WHERE id=3
         `)
-        expect(activeCount.rows[0].count).toBe('2')
+        expect(remainingCheck.deleted_at).toBeNull()
       })
 
-      await test.step('Verify partial failure triggers rollback', async () => {
-        const rollbackResponse = await request.delete('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-DELETE-002: Batch delete with non-existent ID returns 404 and rolls back transaction', async () => {
+        const response = await request.delete('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            ids: [4, 9999],
+            ids: [3, 9999],
           },
         })
 
-        expect(rollbackResponse.status()).toBe(404)
+        expect(response.status()).toBe(404)
 
-        const afterRollback = await executeQuery(`
-          SELECT deleted_at FROM tasks WHERE id=4
+        const data = await response.json()
+        expect(data.error).toBeDefined()
+
+        const rollbackCheck = await executeQuery(`
+          SELECT deleted_at FROM users WHERE id=3
         `)
-        expect(afterRollback.deleted_at).toBeNull()
+        expect(rollbackCheck.deleted_at).toBeNull()
       })
 
-      await test.step('Verify permanent delete (admin)', async () => {
-        const permanentResponse = await request.delete(
-          '/api/tables/1/records/batch?permanent=true',
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            data: {
-              ids: [4, 5],
-            },
-          }
-        )
-
-        expect(permanentResponse.status()).toBe(200)
-
-        const verifyPermanent = await executeQuery(`
-          SELECT COUNT(*) as count FROM tasks WHERE id IN (4, 5)
-        `)
-        expect(verifyPermanent.rows[0].count).toBe('0')
-      })
-
-      await test.step('Verify payload size limit enforced', async () => {
-        const tooLargeResponse = await request.delete('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-DELETE-003: Batch delete request exceeding 1000 ID limit returns 413', async () => {
+        const ids = Array.from({ length: 1001 }, (_, i) => i + 1)
+        const response = await request.delete('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            ids: Array.from({ length: 1001 }, (_, i) => i + 1),
+            ids,
           },
         })
 
-        expect(tooLargeResponse.status()).toBe(413)
+        expect(response.status()).toBe(413)
+
+        const data = await response.json()
+        expect(data.error).toBe('PayloadTooLarge')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-DELETE-012: Batch delete including already soft-deleted records skips them and returns count of newly deleted only', async () => {
+        const response = await request.delete('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            ids: [3, 4, 5],
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.deleted).toBe(2)
+
+        const result = await executeQuery(`
+          SELECT COUNT(*) as count FROM users WHERE id IN (3, 4, 5) AND deleted_at IS NOT NULL
+        `)
+        expect(result.rows[0].count).toBe('3')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-DELETE-013: Admin batch deletes with permanent=true and hard deletes records', async () => {
+        await executeQuery(`
+          INSERT INTO users (id, email, name, organization_id) VALUES
+            (7, 'user7@example.com', 'User Seven', 'org_123'),
+            (8, 'user8@example.com', 'User Eight', 'org_123')
+        `)
+
+        const response = await request.delete('/api/tables/1/records/batch?permanent=true', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            ids: [7, 8],
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.deleted).toBe(2)
+
+        const result = await executeQuery(`
+          SELECT COUNT(*) as count FROM users WHERE id IN (7, 8)
+        `)
+        expect(result.rows[0].count).toBe('0')
       })
     }
   )

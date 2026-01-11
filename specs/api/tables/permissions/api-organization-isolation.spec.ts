@@ -457,6 +457,7 @@ test.describe('API Organization Isolation', () => {
 
   // ============================================================================
   // @regression test - Complete workflow validation
+  // Generated from 7 @spec tests - covers organization isolation via API
   // ============================================================================
 
   test.fixme(
@@ -470,7 +471,10 @@ test.describe('API Organization Isolation', () => {
       executeQuery,
       signOut,
     }) => {
-      await test.step('Setup: Create multi-tenant schema', async () => {
+      let orgA: { organization: { id: string } }
+      let orgB: { organization: { id: string } }
+
+      await test.step('Setup: Create multi-tenant schema with two organizations', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -493,108 +497,174 @@ test.describe('API Organization Isolation', () => {
                 read: { type: 'authenticated' },
                 create: { type: 'authenticated' },
                 update: { type: 'authenticated' },
-                delete: { type: 'roles', roles: ['admin'] },
+                delete: { type: 'authenticated' },
               },
             },
           ],
         })
-      })
 
-      await test.step('Setup: Create two organizations with users', async () => {
         // User A in Org A
         await createAuthenticatedUser({ email: 'user-a@example.com' })
-        await createOrganization({ name: 'Organization A' })
+        orgA = await createOrganization({ name: 'Organization A' })
 
         await signOut()
 
         // User B in Org B
         await createAuthenticatedUser({ email: 'user-b@example.com' })
-        await createOrganization({ name: 'Organization B' })
+        orgB = await createOrganization({ name: 'Organization B' })
       })
 
-      await test.step('User A creates project in Org A', async () => {
+      await test.step('API-TABLES-PERMISSIONS-ORG-003: Auto-sets organization_id on create', async () => {
+        // WHEN: User creates project without specifying organization_id
         await signOut()
         await createAuthenticatedUser({ email: 'user-a@example.com' })
 
         const response = await request.post('/api/tables/1/records', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
+          data: { name: 'Org A Project', budget: 100_000 },
+        })
+
+        // THEN: Record should be created with user's organization_id auto-set
+        expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.fields.organization_id).toBe(orgA.organization.id)
+
+        // Verify in database
+        const dbResult = await executeQuery(
+          "SELECT organization_id FROM projects WHERE name = 'Org A Project'"
+        )
+        expect(dbResult.rows[0].organization_id).toBe(orgA.organization.id)
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-ORG-004: Silently overrides mismatched organization_id', async () => {
+        // WHEN: User tries to create record with different org ID
+        const response = await request.post('/api/tables/1/records', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'Org A Secret Project',
-            budget: 100_000,
+            name: 'Malicious Project',
+            organization_id: 'other-org-id', // Attempting to inject different org
           },
         })
 
+        // THEN: Should silently override with correct org (security by design)
         expect(response.status()).toBe(201)
+        const data = await response.json()
+        expect(data.fields.organization_id).toBe(orgA.organization.id) // Overridden to user's actual org
       })
 
-      await test.step('User B creates project in Org B', async () => {
+      await test.step('API-TABLES-PERMISSIONS-ORG-001: Returns only records from users organization', async () => {
+        // Insert Org B project
         await signOut()
         await createAuthenticatedUser({ email: 'user-b@example.com' })
-
-        const response = await request.post('/api/tables/1/records', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: {
-            name: 'Org B Public Project',
-            budget: 50_000,
-          },
+        await request.post('/api/tables/1/records', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { name: 'Org B Project', budget: 50_000 },
         })
 
-        expect(response.status()).toBe(201)
-      })
-
-      await test.step('User A cannot see Org B projects', async () => {
+        // Switch to user A
         await signOut()
         await createAuthenticatedUser({ email: 'user-a@example.com' })
 
+        // WHEN: User from Org A requests projects
         const response = await request.get('/api/tables/1/records')
 
+        // THEN: Only Org A projects should be returned
         expect(response.status()).toBe(200)
         const data = await response.json()
-
-        // Only see Org A projects
-        expect(data.records).toHaveLength(1)
-        expect(data.records[0].fields.name).toBe('Org A Secret Project')
-        expect(data.records.some((r: any) => r.fields.name === 'Org B Public Project')).toBe(false)
+        expect(
+          data.records.every((r: any) => r.fields.organization_id === orgA.organization.id)
+        ).toBe(true)
+        expect(data.records.map((r: any) => r.fields.name)).toContain('Org A Project')
+        expect(data.records.map((r: any) => r.fields.name)).not.toContain('Org B Project')
       })
 
-      await test.step('User B cannot access Org A project by ID', async () => {
-        await signOut()
-        await createAuthenticatedUser({ email: 'user-b@example.com' })
-
-        // Try to access Org A's project directly
-        const orgAProject = await executeQuery(
-          `SELECT id FROM projects WHERE name = 'Org A Secret Project'`
+      await test.step('API-TABLES-PERMISSIONS-ORG-002: Returns 404 for record from different org', async () => {
+        // Get Org B project ID
+        const orgBProject = await executeQuery(
+          `SELECT id FROM projects WHERE name = 'Org B Project'`
         )
 
-        const response = await request.get(`/api/tables/1/records/${orgAProject.rows[0].id}`)
+        // WHEN: User from Org A tries to access Org B record by ID
+        const response = await request.get(`/api/tables/1/records/${orgBProject.rows[0].id}`)
 
-        // 404 - don't leak existence
+        // THEN: 404 Not Found (don't leak existence to other orgs)
         expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
       })
 
-      await test.step('Aggregations are organization-scoped', async () => {
+      await test.step('API-TABLES-PERMISSIONS-ORG-005: Prevents update to change organization_id', async () => {
+        // Get Org A project ID
+        const orgAProject = await executeQuery(
+          `SELECT id FROM projects WHERE name = 'Org A Project'`
+        )
+
+        // WHEN: User tries to change organization_id via update
+        const response = await request.patch(`/api/tables/1/records/${orgAProject.rows[0].id}`, {
+          headers: { 'Content-Type': 'application/json' },
+          data: { organization_id: 'other-org-id' }, // Attempting to move to different org
+        })
+
+        // THEN: Should ignore the org_id field in update (return 200 but don't change org)
+        expect(response.status()).toBe(200)
+
+        // Verify organization_id was NOT changed (silently ignored)
+        const dbResult = await executeQuery(
+          `SELECT organization_id FROM projects WHERE id = ${orgAProject.rows[0].id}`
+        )
+        expect(dbResult.rows[0].organization_id).toBe(orgA.organization.id)
+      })
+
+      await test.step('API-TABLES-PERMISSIONS-ORG-006: Filters search results by organization', async () => {
+        // Insert same-name project in Org B
+        await signOut()
+        await createAuthenticatedUser({ email: 'user-b@example.com' })
+        await request.post('/api/tables/1/records', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { name: 'Alpha Project' },
+        })
+
+        // Insert same-name project in Org A
         await signOut()
         await createAuthenticatedUser({ email: 'user-a@example.com' })
+        await request.post('/api/tables/1/records', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { name: 'Alpha Project' },
+        })
 
+        // WHEN: User searches for "Alpha"
         const response = await request.get('/api/tables/1/records', {
           params: {
-            aggregate: JSON.stringify({
-              count: true,
-              sum: ['budget'],
+            filter: JSON.stringify({
+              and: [{ field: 'name', operator: 'contains', value: 'Alpha' }],
             }),
           },
         })
 
+        // THEN: Only the Alpha Project from user's org should be found
         expect(response.status()).toBe(200)
         const data = await response.json()
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields.organization_id).toBe(orgA.organization.id)
+      })
 
-        // Only count/sum Org A data
-        expect(data.aggregations.count).toBe('1')
-        expect(data.aggregations.sum.budget).toBe(100_000) // Not 150,000 (combined)
+      await test.step('API-TABLES-PERMISSIONS-ORG-007: Prevents delete of records from other org', async () => {
+        // Get Org B project ID
+        const orgBProject = await executeQuery(
+          `SELECT id FROM projects WHERE organization_id = '${orgB.organization.id}' LIMIT 1`
+        )
+
+        // WHEN: User from Org A tries to delete Org B record
+        const response = await request.delete(`/api/tables/1/records/${orgBProject.rows[0].id}`)
+
+        // THEN: 404 Not Found (record doesn't exist in user's org context)
+        expect(response.status()).toBe(404)
+
+        // Verify record still exists in database
+        const dbResult = await executeQuery(
+          `SELECT COUNT(*) as count FROM projects WHERE id = ${orgBProject.rows[0].id}`
+        )
+        expect(dbResult.rows[0].count).toBe('1')
       })
     }
   )

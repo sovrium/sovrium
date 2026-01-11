@@ -427,13 +427,21 @@ test.describe('Static Site Generation', () => {
     }
   )
 
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying static site generation workflow
+  // Generated from 6 @spec tests - covers: HTML generation, CSS compilation,
+  // directory structure, nested paths, and formatting
+  // ============================================================================
+
   test(
-    'CLI-BUILD-GENERATION-REGRESSION: complete static generation workflow',
+    'CLI-BUILD-GENERATION-REGRESSION: user can complete full static generation workflow',
     { tag: '@regression' },
-    async ({ generateStaticSite, page }) => {
+    async ({ generateStaticSite }) => {
       let outputDir: string
 
-      await test.step('Setup: Generate static site with complete configuration', async () => {
+      await test.step('Setup: Generate static site with comprehensive configuration', async () => {
+        // Consolidated configuration covering all @spec scenarios
         outputDir = await generateStaticSite({
           name: 'test-app',
           description: 'A complete test application',
@@ -441,12 +449,29 @@ test.describe('Static Site Generation', () => {
             colors: {
               primary: '#3B82F6',
               secondary: '#10B981',
+              accent: '#F59E0B',
+              neutral: '#6B7280',
+              error: '#EF4444',
+              warning: '#F97316',
+              success: '#22C55E',
+              info: '#06B6D4',
             },
             fonts: {
               sans: {
                 family: 'Inter',
-                fallback: 'sans-serif',
+                fallback: 'system-ui, sans-serif',
               },
+              mono: {
+                family: 'JetBrains Mono',
+                fallback: 'monospace',
+              },
+            },
+            spacing: {
+              xs: '0.5rem',
+              sm: '1rem',
+              md: '1.5rem',
+              lg: '2rem',
+              xl: '3rem',
             },
           },
           pages: [
@@ -455,90 +480,207 @@ test.describe('Static Site Generation', () => {
               path: '/',
               meta: {
                 lang: 'en',
-                title: 'Home - Test App',
-                description: 'Welcome to our test application',
+                title: 'Test App',
+                description: 'Test application',
+                viewport: 'width=device-width, initial-scale=1',
               },
               sections: [
                 {
-                  type: 'header',
-                  props: { className: 'bg-primary text-white py-4' },
+                  type: 'section',
+                  props: { className: 'container mx-auto p-4' },
                   children: [
-                    {
-                      type: 'div',
-                      props: { className: 'container mx-auto px-4' },
-                      children: [
-                        {
-                          type: 'h1',
-                          props: { className: 'text-3xl font-bold' },
-                          children: ['Test App'],
-                        },
-                        {
-                          type: 'p',
-                          props: { className: 'text-lg' },
-                          children: ['Static Site Generation'],
-                        },
-                      ],
-                    },
+                    { type: 'h1', children: ['Welcome to Test App'] },
+                    { type: 'p', children: ['This is a static site'] },
                   ],
                 },
                 {
-                  type: 'main',
-                  props: { className: 'container mx-auto px-4 py-8' },
-                  children: [
-                    { type: 'h2', props: { className: 'text-2xl mb-4' }, children: ['Welcome'] },
-                    {
-                      type: 'p',
-                      props: { className: 'text-gray-700' },
-                      children: ['This is a statically generated page.'],
-                    },
-                  ],
+                  type: 'div',
+                  props: { className: 'bg-primary text-white p-lg' },
+                  children: ['Themed content'],
                 },
               ],
             },
             {
               name: 'about',
               path: '/about',
+              meta: { lang: 'en', title: 'About', description: 'About page' },
+              sections: [],
+            },
+            {
+              name: 'products',
+              path: '/products',
+              meta: { lang: 'en', title: 'Products', description: 'Products page' },
+              sections: [],
+            },
+            {
+              name: 'product-detail',
+              path: '/products/detail',
+              meta: { lang: 'en', title: 'Product Detail', description: 'Detail' },
+              sections: [],
+            },
+            {
+              name: 'blog',
+              path: '/blog',
+              meta: { lang: 'en', title: 'Blog', description: 'Blog' },
+              sections: [],
+            },
+            {
+              name: 'blog-post',
+              path: '/blog/post-1',
+              meta: { lang: 'en', title: 'Blog Post 1', description: 'Post 1' },
+              sections: [],
+            },
+            {
+              name: 'deep-page',
+              path: '/docs/guides/getting-started/installation',
+              meta: { lang: 'en', title: 'Installation', description: 'Installation guide' },
+              sections: [
+                { type: 'h1', children: ['Installation Guide'] },
+                { type: 'p', children: ['Follow these steps to install'] },
+              ],
+            },
+            {
+              name: 'formatted',
+              path: '/formatted',
               meta: {
                 lang: 'en',
-                title: 'About - Test App',
-                description: 'Learn more about our application',
+                title: 'Formatted Page',
+                description: 'Page with properly formatted HTML',
+                viewport: 'width=device-width, initial-scale=1.0',
               },
               sections: [
                 {
                   type: 'div',
-                  props: { className: 'container mx-auto px-4 py-8' },
+                  props: { className: 'container mx-auto' },
                   children: [
-                    { type: 'h1', props: { className: 'text-3xl mb-4' }, children: ['About Us'] },
-                    { type: 'p', children: ['We build great applications.'] },
+                    { type: 'h1', props: { className: 'text-3xl' }, children: ['Main Title'] },
+                    {
+                      type: 'div',
+                      props: { className: 'content' },
+                      children: [
+                        {
+                          type: 'p',
+                          props: { className: 'mb-4' },
+                          children: ['First paragraph with formatted content.'],
+                        },
+                        {
+                          type: 'p',
+                          props: { className: 'mb-4' },
+                          children: ['Second paragraph with additional content.'],
+                        },
+                      ],
+                    },
                   ],
                 },
               ],
             },
           ],
         })
+
+        // Store outputDir for use in other steps
+        ;(globalThis as unknown as Record<string, string | undefined>).__testOutputDir = outputDir
       })
 
-      await test.step('Load home page and verify content', async () => {
-        await page.goto(`file://${join(outputDir, 'index.html')}`)
+      await test.step('CLI-BUILD-GENERATION-001: generates HTML files for all pages', async () => {
+        const outputDir = (globalThis as unknown as Record<string, string | undefined>).__testOutputDir
+        if (!outputDir) throw new Error('outputDir not set in previous step')
+        const files = await readdir(outputDir, { recursive: true })
 
-        await expect(page.locator('h1').first()).toHaveText('Test App')
-        await expect(page.locator('h2')).toHaveText('Welcome')
-        await expect(page.locator('header p')).toHaveText('Static Site Generation')
-        await expect(
-          page.locator('main').getByText('This is a statically generated page.')
-        ).toBeVisible()
+        expect(files).toContain('index.html')
+        expect(files).toContain('about.html')
+        expect(files).toContain('products.html')
+        expect(files).toContain('assets/output.css')
 
-        const header = page.locator('header')
-        await expect(header).toHaveClass(/bg-primary/)
-        await expect(header).toHaveClass(/text-white/)
+        await expect(access(join(outputDir, 'index.html'), constants.R_OK)).resolves.toBeUndefined()
       })
 
-      await test.step('Navigate to about page and verify', async () => {
-        await page.goto(`file://${join(outputDir, 'about.html')}`)
-        await expect(page.locator('h1')).toHaveText('About Us')
-        await expect(page.locator('p')).toHaveText('We build great applications.')
+      await test.step('CLI-BUILD-GENERATION-002: generates valid HTML with DOCTYPE', async () => {
+        const outputDir = (globalThis as unknown as Record<string, string | undefined>).__testOutputDir
+        if (!outputDir) throw new Error('outputDir not set in previous step')
+        const html = await readFile(join(outputDir, 'index.html'), 'utf-8')
 
-        await expect(page).toHaveScreenshot('static-home-page.png')
+        expect(html.startsWith('<!DOCTYPE html>')).toBe(true)
+        expect(html).toContain('lang="en"')
+        expect(html).toContain('charset="UTF-8"')
+        expect(html).toContain('<title>Test App</title>')
+        expect(html).toContain('Welcome to Test App')
+        expect(html).toContain('</html>')
+      })
+
+      await test.step('CLI-BUILD-GENERATION-003: compiles CSS with theme tokens', async () => {
+        const outputDir = (globalThis as unknown as Record<string, string | undefined>).__testOutputDir
+        if (!outputDir) throw new Error('outputDir not set in previous step')
+        const css = await readFile(join(outputDir, 'assets/output.css'), 'utf-8')
+
+        expect(css).toContain('--color-primary')
+        expect(css).toContain('#3B82F6')
+        expect(css).toContain('--color-secondary')
+        expect(css).toContain('#10B981')
+        expect(css).toContain('--font-sans')
+        expect(css).toContain('Inter')
+        expect(css).toContain('.bg-primary')
+      })
+
+      await test.step('CLI-BUILD-GENERATION-004: creates proper directory structure', async () => {
+        const outputDir = (globalThis as unknown as Record<string, string | undefined>).__testOutputDir
+        if (!outputDir) throw new Error('outputDir not set in previous step')
+        const files = await readdir(outputDir, { recursive: true, withFileTypes: true })
+        const fileMap = new Map<string, 'file' | 'directory'>()
+
+        for (const file of files) {
+          const relativePath = file.parentPath
+            ? join(file.parentPath.replace(outputDir, ''), file.name)
+            : file.name
+          fileMap.set(relativePath.replace(/^\//, ''), file.isDirectory() ? 'directory' : 'file')
+        }
+
+        expect(fileMap.get('index.html')).toBe('file')
+        expect(fileMap.get('products.html')).toBe('file')
+        expect(fileMap.get('products')).toBe('directory')
+        expect(fileMap.get('products/detail.html')).toBe('file')
+        expect(fileMap.get('blog.html')).toBe('file')
+        expect(fileMap.get('blog')).toBe('directory')
+        expect(fileMap.get('assets')).toBe('directory')
+      })
+
+      await test.step('CLI-BUILD-GENERATION-005: handles nested page paths correctly', async () => {
+        const outputDir = (globalThis as unknown as Record<string, string | undefined>).__testOutputDir
+        if (!outputDir) throw new Error('outputDir not set in previous step')
+        const installHtml = await readFile(
+          join(outputDir, 'docs/guides/getting-started/installation.html'),
+          'utf-8'
+        )
+
+        expect(installHtml).toContain('<title>Installation</title>')
+        expect(installHtml).toContain('>Installation Guide</h1>')
+        expect(installHtml).toContain('Follow these steps to install')
+
+        const files = await readdir(outputDir, { recursive: true })
+        expect(files).toContain('docs/guides/getting-started/installation.html')
+      })
+
+      await test.step('CLI-BUILD-GENERATION-006: generates well-formatted HTML', async () => {
+        const outputDir = (globalThis as unknown as Record<string, string | undefined>).__testOutputDir
+        if (!outputDir) throw new Error('outputDir not set in previous step')
+        const html = await readFile(join(outputDir, 'formatted.html'), 'utf-8')
+
+        const lines = html.split('\n')
+        expect(lines[0]?.trim()).toBe('<!DOCTYPE html>')
+
+        expect(html).toContain('<html')
+        expect(html).toContain('<head>')
+        expect(html).toContain('<body')
+        expect(html).toContain('</html>')
+
+        const htmlLines = html
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+        expect(htmlLines.length).toBeGreaterThan(10)
+
+        expect(html).toContain('<h1')
+        expect(html).toContain('Main Title')
+        expect(html).toContain('</h1>')
       })
     }
   )

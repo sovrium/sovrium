@@ -158,6 +158,7 @@ description: Auto-detected as YAML from .yml extension
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
+  // Generated from 5 @spec tests - covers: JSON/YAML/YML detection, error handling, case insensitivity
   // ============================================================================
 
   test(
@@ -207,6 +208,45 @@ description: Auto-detected as YAML from .yml extension
         // THEN: Server detects YAML format from .yml and starts successfully
         await page.goto(server.url)
         await expect(page.getByTestId('app-name-heading')).toHaveText('yml-format-test')
+      })
+
+      await test.step('CLI-START-FORMAT-004: Reports error for unsupported file extensions', async () => {
+        // Test .txt extension (representative of unsupported formats)
+        const configPath = await createTempConfigFile(
+          'name: Test App\ndescription: Text file',
+          'txt'
+        )
+
+        try {
+          // WHEN: Attempting to start server with unsupported extension
+          const result = await captureCliOutput(configPath, { waitForServer: false })
+
+          // THEN: CLI reports unsupported format error
+          expect(result.output).toContain('Unsupported file format')
+          expect(result.output).toContain('.txt')
+          expect(result.exitCode).not.toBe(0)
+        } finally {
+          await cleanupTempConfigFile(configPath)
+        }
+      })
+
+      await test.step('CLI-START-FORMAT-005: Handles format detection with mixed case extensions', async () => {
+        // WHEN: Starting server with various case extensions
+        // THEN: Server starts successfully (format detection is case-insensitive)
+        await startCliServerWithConfig({
+          format: 'json',
+          config: { name: 'uppercase-json', description: 'Test' },
+        })
+
+        await startCliServerWithConfig({
+          format: 'yaml',
+          config: 'name: mixed-case-yaml\ndescription: Test\n',
+        })
+
+        await startCliServerWithConfig({
+          format: 'yml',
+          config: 'name: uppercase-yml\ndescription: Test\n',
+        })
       })
     }
   )

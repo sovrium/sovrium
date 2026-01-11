@@ -789,7 +789,9 @@ test.describe('Batch update records', () => {
                 { id: 1, name: 'name', type: 'single-line-text', required: true },
                 { id: 2, name: 'email', type: 'email', required: true, unique: true },
                 { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-                { id: 4, name: 'organization_id', type: 'single-line-text' },
+                { id: 4, name: 'status', type: 'single-line-text' },
+                { id: 5, name: 'created_at', type: 'created-at' },
+                { id: 6, name: 'organization_id', type: 'single-line-text' },
               ],
             },
           ],
@@ -798,90 +800,336 @@ test.describe('Batch update records', () => {
 
       await test.step('Setup: Insert test records', async () => {
         await executeQuery(`
-          INSERT INTO employees (id, name, email, salary, organization_id) VALUES
-            (1, 'John Doe', 'john@example.com', 75000, 'org_123'),
-            (2, 'Jane Smith', 'jane@example.com', 80000, 'org_123'),
-            (3, 'Bob Johnson', 'bob@example.com', 70000, 'org_123')
+          INSERT INTO employees (id, name, email, salary, status, organization_id) VALUES
+            (1, 'John Doe', 'john@example.com', 75000, 'active', 'org_123'),
+            (2, 'Jane Smith', 'jane@example.com', 80000, 'active', 'org_123'),
+            (3, 'Bob Johnson', 'bob@example.com', 70000, 'active', 'org_123'),
+            (4, 'Alice Brown', 'alice@example.com', 85000, 'active', 'org_456')
         `)
       })
 
-      await test.step('Batch update records successfully', async () => {
-        const successResponse = await request.patch('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-001: Returns 200 with updated=2 and records array', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
             records: [
-              { id: 1, name: 'John Updated' },
+              { id: 1, status: 'inactive' },
               { id: 2, email: 'jane.updated@example.com' },
             ],
             returnRecords: true,
           },
         })
 
-        expect(successResponse.status()).toBe(200)
-        const result = await successResponse.json()
-        expect(result.updated).toBe(2)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('updated')
+        expect(data).toHaveProperty('records')
+        expect(data.updated).toBe(2)
+        expect(data.records).toHaveLength(2)
+
+        const result = await executeQuery(`
+          SELECT id, status, email FROM employees WHERE id IN (1, 2) ORDER BY id
+        `)
+        expect(result.rows[0].status).toBe('inactive')
+        expect(result.rows[1].email).toBe('jane.updated@example.com')
       })
 
-      await test.step('Verify updates in database', async () => {
-        const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
-        expect(verifyUpdate.rows[0].name).toBe('John Updated')
-      })
-
-      await test.step('Verify validation error triggers rollback', async () => {
-        const validationResponse = await request.patch('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-002: Returns 200 with updated=2 and no records array', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
             records: [
-              { id: 1, name: 'Valid' },
-              { id: 2, email: null }, // Invalid
+              { id: 1, status: 'active' },
+              { id: 2, status: 'active' },
+            ],
+            returnRecords: false,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('updated')
+        expect(data.updated).toBe(2)
+        expect(data).not.toHaveProperty('records')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-003: Returns 400 with rollback on validation error', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, name: 'Valid Update' },
+              { id: 2, email: null },
             ],
           },
         })
 
-        expect(validationResponse.status()).toBe(400)
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('details')
+
+        const result = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+        expect(result.rows[0].name).toBe('John Doe')
       })
 
-      await test.step('Verify unauthorized batch update fails', async () => {
-        const forbiddenResponse = await request.patch('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-004: Returns 401 Unauthorized', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            records: [{ id: 3, name: 'Test' }],
+            records: [{ id: 1, name: 'Unauthorized Update' }],
           },
         })
 
-        expect(forbiddenResponse.status()).toBe(403)
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+
+        const result = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+        expect(result.rows[0].name).toBe('John Doe')
       })
 
-      await test.step('Verify unauthenticated batch update fails', async () => {
-        const unauthorizedResponse = await request.patch('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-005: Returns 403 for member without update permission', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            records: [{ id: 1, name: 'Test' }],
+            records: [{ id: 1, name: 'Member Update' }],
           },
         })
 
-        expect(unauthorizedResponse.status()).toBe(401)
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to update records in this table')
       })
 
-      await test.step('Verify field-level permission enforced', async () => {
-        const fieldForbiddenResponse = await request.patch('/api/tables/1/records/batch', {
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-006: Returns 403 for viewer', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
           data: {
-            records: [{ id: 3, salary: 99_999 }],
+            records: [{ id: 1, name: 'Viewer Update' }],
           },
         })
 
-        expect(fieldForbiddenResponse.status()).toBe(403)
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-007: Returns 404 for cross-org update', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 4, name: 'Cross-org Update' }],
+          },
+        })
+
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toBe('Record not found')
+
+        const result = await executeQuery(`
+          SELECT name FROM employees WHERE id=4 AND organization_id='org_456'
+        `)
+        expect(result.rows[0].name).toBe('Alice Brown')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-008: Returns 403 when updating protected field', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, salary: 85_000 },
+              { id: 2, salary: 90_000 },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to write to field: salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-009: Returns 403 for readonly fields', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 1, created_at: '2025-01-01T00:00:00Z' }],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe("Cannot write to readonly field 'created_at'")
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-010: Returns 403 when changing organization_id', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 1, organization_id: 'org_456' }],
+          },
+        })
+
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('Cannot change record ownership to a different organization')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-011: Filters protected fields from response', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, name: 'John Updated Again', salary: 80_000 },
+              { id: 2, name: 'Jane Updated Again', salary: 85_000 },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.updated).toBe(2)
+        expect(data.records[0].fields.name).toBe('John Updated Again')
+        expect(data.records[1].fields.name).toBe('Jane Updated Again')
+
+        expect(data.records[0].fields).not.toHaveProperty('salary')
+        expect(data.records[1].fields).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-012: Returns 200 with all fields for admin', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, salary: 130_000 },
+              { id: 2, salary: 100_000 },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.updated).toBe(2)
+        expect(data.records[0].fields.salary).toBe(130_000)
+        expect(data.records[1].fields.salary).toBe(100_000)
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-013: Enforces combined permissions', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, name: 'Combined Update 1', salary: 80_000 },
+              { id: 2, email: 'jane.combined@example.com', salary: 85_000 },
+            ],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.updated).toBe(2)
+
+        expect(data.records[0]).not.toHaveProperty('salary')
+        expect(data.records[1]).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-014: Updates only found records', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [
+              { id: 1, name: 'Found Record' },
+              { id: 999, name: 'Non-existent Record' },
+            ],
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('updated')
+        expect(data.updated).toBe(1)
+
+        const result = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+        expect(result.rows[0].name).toBe('Found Record')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-PATCH-015: Excludes unreadable fields from response', async () => {
+        const response = await request.patch('/api/tables/1/records/batch', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            records: [{ id: 1, name: 'Final Update' }],
+            returnRecords: true,
+          },
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.updated).toBe(1)
+        expect(data.records[0].fields.name).toBe('Final Update')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
       })
     }
   )

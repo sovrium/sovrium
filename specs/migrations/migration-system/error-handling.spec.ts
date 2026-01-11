@@ -435,63 +435,103 @@ test.describe('Error Handling and Rollback', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying error handling and rollback work together efficiently
+  // Generated from 10 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test(
     'MIGRATION-ERROR-REGRESSION: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Test invalid field type triggers rollback', async () => {
+      await test.step('MIGRATION-ERROR-001: Rollback on invalid field type', async () => {
+        // Invalid field type triggers transaction rollback
         await expect(async () => {
           await startServerWithSchema({
             name: 'test-app',
             tables: [
               {
-                id: 8,
-                name: 'test',
+                id: 1,
+                name: 'customers',
+                fields: [{ id: 2, name: 'email', type: 'email' }],
+              },
+              {
+                id: 2,
+                name: 'products',
+                fields: [{ id: 2, name: 'bad_field', type: 'INVALID_TYPE' }],
+              },
+            ],
+          })
+        }).rejects.toThrow(/Unknown field type: INVALID_TYPE/i)
+
+        // Transaction rolled back - neither table created
+        const customersTable = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='customers'`
+        )
+        expect(customersTable.count).toBe('0')
+
+        const productsTable = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='products'`
+        )
+        expect(productsTable.count).toBe('0')
+      })
+
+      await test.step('MIGRATION-ERROR-002: Rollback when migration fails mid-execution', async () => {
+        // Schema validation fails before migration due to min > max constraint
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 3,
+                name: 'categories',
+                fields: [{ id: 2, name: 'name', type: 'single-line-text' }],
+              },
+              {
+                id: 4,
+                name: 'products',
                 fields: [
-                  // Testing invalid field type (runtime validation)
-                  { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'price', type: 'decimal', min: 100, max: 10 },
                 ],
               },
             ],
           })
-        }).rejects.toThrow()
+        }).rejects.toThrow(/min cannot be greater than max/i)
 
-        // Verify table NOT created
-        const tableCheck = await executeQuery(
-          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='test'`
+        // Both tables NOT created
+        const categoriesTable = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='categories'`
         )
-        expect(tableCheck.count).toBe('0')
+        expect(categoriesTable.count).toBe('0')
       })
 
-      await test.step('Setup: Create table with existing data', async () => {
+      await test.step('MIGRATION-ERROR-003: Rollback ALTER TABLE on constraint violation', async () => {
+        // Setup: Create table with existing data
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 9,
-              name: 'data',
-              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
+              id: 5,
+              name: 'users',
+              fields: [{ id: 2, name: 'email', type: 'email' }],
             },
           ],
         })
-        await executeQuery([`INSERT INTO data (value) VALUES ('existing')`])
-      })
+        await executeQuery([`INSERT INTO users (email) VALUES ('existing@example.com')`])
 
-      await test.step('Test constraint violation preserves existing data', async () => {
+        // ALTER TABLE fails (NOT NULL without default on existing data)
         let migrationError: Error | null = null
         try {
           await startServerWithSchema({
             name: 'test-app',
             tables: [
               {
-                id: 9,
-                name: 'data',
+                id: 5,
+                name: 'users',
                 fields: [
-                  { id: 2, name: 'value', type: 'single-line-text' },
-                  { id: 3, name: 'required_field', type: 'single-line-text', required: true },
+                  { id: 2, name: 'email', type: 'email' },
+                  { id: 3, name: 'name', type: 'single-line-text', required: true },
                 ],
               },
             ],
@@ -501,12 +541,183 @@ test.describe('Error Handling and Rollback', () => {
         }
 
         expect(migrationError).not.toBeNull()
+        expect(migrationError?.message).toMatch(/column.*name.*contains null values/i)
 
-        // Verify existing data preserved
+        // Existing data preserved
         const dataCheck = await executeQuery(
-          `SELECT COUNT(*) as count FROM data WHERE value = 'existing'`
+          `SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'`
         )
         expect(dataCheck.count).toBe('1')
+      })
+
+      await test.step('MIGRATION-ERROR-004: Fail on foreign key to non-existent table', async () => {
+        // Foreign key creation fails (users table does not exist)
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 6,
+                name: 'posts',
+                fields: [
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  {
+                    id: 3,
+                    name: 'author_id',
+                    type: 'relationship',
+                    relatedTable: 'users',
+                    relationType: 'many-to-one',
+                  },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow(/relatedTable "users" does not exist|relation "users" does not exist/i)
+
+        // Posts table NOT created
+        const postsTable = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='posts'`
+        )
+        expect(postsTable.count).toBe('0')
+      })
+
+      await test.step('MIGRATION-ERROR-005: Abort on database connection error', async () => {
+        // Migration fails with connection error
+        await expect(async () => {
+          await startServerWithSchema(
+            {
+              name: 'test-app',
+              tables: [
+                {
+                  id: 7,
+                  name: 'test_users',
+                  fields: [{ id: 2, name: 'email', type: 'email' }],
+                },
+              ],
+            },
+            {
+              database: {
+                url: 'postgresql://invalid_host:5432/invalid_db',
+              },
+            }
+          )
+        }).rejects.toThrow(/database connection failed|ECONNREFUSED|connection refused/i)
+      })
+
+      await test.step('MIGRATION-ERROR-006: Reject index on non-existent column', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'idx_test_users',
+                fields: [{ id: 2, name: 'email', type: 'email' }],
+                indexes: [
+                  {
+                    name: 'idx_users_status',
+                    fields: ['status'], // 'status' column doesn't exist!
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(/column.*status.*not found|index.*references.*non-existent.*column/i)
+      })
+
+      await test.step('MIGRATION-ERROR-007: Reject duplicate table IDs', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1, // Duplicate ID!
+                name: 'dup_users',
+                fields: [{ id: 2, name: 'email', type: 'email' }],
+              },
+              {
+                id: 1, // Duplicate ID!
+                name: 'dup_products',
+                fields: [{ id: 2, name: 'title', type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/duplicate.*table.*id|table id.*must be unique/i)
+      })
+
+      await test.step('MIGRATION-ERROR-008: Reject invalid dependency order', async () => {
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'dep_posts',
+                fields: [
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  {
+                    id: 3,
+                    name: 'author_id',
+                    type: 'relationship',
+                    relatedTable: 'users', // References 'users' table that doesn't exist
+                    relationType: 'many-to-one',
+                  },
+                ],
+              },
+            ],
+          })
+        ).rejects.toThrow(
+          /relation.*users.*does not exist|invalid.*migration.*order|dependency.*not.*found/i
+        )
+      })
+
+      await test.step('MIGRATION-ERROR-009: Reject destructive operations without confirmation', async () => {
+        // Setup: Create table with data
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'legacy_data',
+              fields: [{ id: 2, name: 'value', type: 'single-line-text' }],
+            },
+          ],
+        })
+        await executeQuery([`INSERT INTO legacy_data (value) VALUES ('important data')`])
+
+        // Attempt to drop column without confirmation
+        await expect(
+          startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'legacy_data',
+                fields: [{ id: 3, name: 'other_field', type: 'single-line-text' }],
+              },
+            ],
+          })
+        ).rejects.toThrow(/destructive.*operation|column.*drop.*requires.*confirmation|data loss/i)
+
+        // Verify data still exists
+        const dataCheck = await executeQuery(`SELECT COUNT(*) as count FROM legacy_data`)
+        expect(dataCheck.count).toBe('1')
+      })
+
+      await test.step('MIGRATION-ERROR-010: Handle empty migration gracefully', async () => {
+        // Empty schema is valid - server starts successfully
+        await startServerWithSchema({
+          name: 'test-app',
+        })
+
+        // Verify no user tables were created (only internal tables)
+        const userTables = await executeQuery(`
+          SELECT COUNT(*) as count
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+          AND table_name NOT LIKE '_sovrium_%'
+        `)
+        expect(userTables.count).toBe('0')
       })
     }
   )

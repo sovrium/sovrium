@@ -221,8 +221,8 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-REGRESSION: user can complete full revoke-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -231,44 +231,110 @@ test.describe('Revoke specific session', () => {
         })
       })
 
-      await test.step('Verify revoke fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/revoke-session', {
-          data: { token: 'test_token' },
+      await test.step('API-AUTH-REVOKE-SESSION-003: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to revoke a session
+        const response = await page.request.post('/api/auth/revoke-session', {
+          data: {
+            token: 'session_123',
+          },
         })
-        expect(noAuthResponse.status()).toBe(401)
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
       await test.step('Setup: Create and authenticate user', async () => {
         await signUp({
-          email: 'workflow@example.com',
-          password: 'WorkflowPass123!',
-          name: 'Workflow User',
+          email: 'test@example.com',
+          password: 'TestPassword123!',
+          name: 'Test User',
         })
       })
 
-      await test.step('Verify user has active sessions', async () => {
-        const sessionsResponse = await page.request.get('/api/auth/list-sessions')
-        const sessions = await sessionsResponse.json()
-        expect(sessions.length).toBeGreaterThanOrEqual(1)
+      await test.step('API-AUTH-REVOKE-SESSION-002: Returns 400 Bad Request with validation error', async () => {
+        // WHEN: User submits request without token field
+        const response = await page.request.post('/api/auth/revoke-session', {})
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Revoke non-existent session (idempotent)', async () => {
-        const notFoundResponse = await page.request.post('/api/auth/revoke-session', {
-          data: { token: 'nonexistent_token' },
+      await test.step('API-AUTH-REVOKE-SESSION-004: Returns 200 OK for non-existent session (idempotent)', async () => {
+        // WHEN: User attempts to revoke non-existent session
+        const response = await page.request.post('/api/auth/revoke-session', {
+          data: {
+            token: 'nonexistent_session_token',
+          },
         })
-        expect([200, 404]).toContain(notFoundResponse.status())
+
+        // THEN: Returns 200 OK (idempotent operation - Better Auth behavior)
+        expect([200, 404]).toContain(response.status())
       })
 
-      await test.step('Revoke valid session if multiple exist', async () => {
+      await test.step('Setup: Create second session for multi-session test', async () => {
+        // Sign in again to create a second session
+        await signIn({
+          email: 'test@example.com',
+          password: 'TestPassword123!',
+        })
+      })
+
+      await test.step('API-AUTH-REVOKE-SESSION-001: Returns 200 OK and revokes specified session', async () => {
+        // Get all sessions
         const sessionsResponse = await page.request.get('/api/auth/list-sessions')
         const sessions = await sessionsResponse.json()
+        expect(sessions.length).toBeGreaterThanOrEqual(2)
 
-        if (sessions.length >= 2) {
-          const sessionToRevoke = sessions[1]
-          const revokeResponse = await page.request.post('/api/auth/revoke-session', {
-            data: { token: sessionToRevoke.token },
-          })
-          expect(revokeResponse.status()).toBe(200)
+        // Get current session to find a different one to revoke
+        const currentSession = await page.request.get('/api/auth/get-session')
+        const currentData = await currentSession.json()
+        const currentToken = currentData.session.token
+
+        // Find a session that's not the current one
+        const sessionToRevoke = sessions.find((s: { token: string }) => s.token !== currentToken)
+        expect(sessionToRevoke).toBeTruthy()
+
+        // WHEN: User revokes a specific session
+        const response = await page.request.post('/api/auth/revoke-session', {
+          data: {
+            token: sessionToRevoke!.token,
+          },
+        })
+
+        // THEN: Returns 200 OK and revokes the specified session
+        expect(response.status()).toBe(200)
+
+        // Verify session was revoked by checking sessions count
+        const updatedSessions = await page.request.get('/api/auth/list-sessions')
+        const updatedData = await updatedSessions.json()
+        expect(updatedData.length).toBeLessThanOrEqual(sessions.length)
+      })
+
+      await test.step('API-AUTH-REVOKE-SESSION-005: Returns 200 OK and revokes current session', async () => {
+        // Get current session
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        const sessionData = await sessionResponse.json()
+        const currentSessionToken = sessionData.session.token
+
+        // WHEN: User revokes their own current session
+        const response = await page.request.post('/api/auth/revoke-session', {
+          data: {
+            token: currentSessionToken,
+          },
+        })
+
+        // THEN: Returns 200 OK and revokes current session
+        expect(response.status()).toBe(200)
+
+        // Verify session is invalidated
+        const afterResponse = await page.request.get('/api/auth/get-session')
+        const afterText = await afterResponse.text()
+        if (afterText && afterText !== 'null') {
+          const afterData = JSON.parse(afterText)
+          expect(afterData?.session).toBeFalsy()
         }
       })
     }

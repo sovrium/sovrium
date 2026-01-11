@@ -261,18 +261,18 @@ test.describe('Batch Restore records', () => {
   test.fixme(
     'API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION: user can complete full batch restore workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with tasks table', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
-              id: 6,
+              id: 1,
               name: 'tasks',
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
-                { id: 2, name: 'status', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
@@ -281,71 +281,118 @@ test.describe('Batch Restore records', () => {
 
       await test.step('Setup: Insert test records (mix of active and deleted)', async () => {
         await executeQuery(`
-          INSERT INTO tasks (id, title, status, deleted_at) VALUES
-            (1, 'Active Task', 'pending', NULL),
-            (2, 'Deleted Task 1', 'completed', NOW()),
-            (3, 'Deleted Task 2', 'pending', NOW()),
-            (4, 'Deleted Task 3', 'in_progress', NOW())
+          INSERT INTO tasks (id, title, deleted_at) VALUES
+            (1, 'Task 1', NOW()),
+            (2, 'Task 2', NOW()),
+            (3, 'Task 3', NOW()),
+            (4, 'Active Task', NULL)
         `)
       })
 
-      await test.step('Batch restore soft-deleted records successfully', async () => {
-        const restoreResponse = await request.post('/api/tables/1/records/batch/restore', {
-          data: { ids: [2, 3, 4] },
-        })
-        expect(restoreResponse.status()).toBe(200)
+      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-001: returns 200 with restored count', async () => {
+        // Verify records are soft-deleted
+        const beforeRestore = await executeQuery(
+          `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NOT NULL`
+        )
+        expect(beforeRestore.count).toBe('3')
 
-        const data = await restoreResponse.json()
+        // User batch restores the soft-deleted records
+        const response = await request.post('/api/tables/1/records/batch/restore', {
+          data: { ids: [1, 2, 3] },
+        })
+
+        // Returns 200 OK with restored count
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
         expect(data.success).toBe(true)
         expect(data.restored).toBe(3)
-      })
 
-      await test.step('Verify all records are restored in database', async () => {
-        const activeCount = await executeQuery(
+        // All records are restored (deleted_at cleared)
+        const afterRestore = await executeQuery(
           `SELECT COUNT(*) as count FROM tasks WHERE deleted_at IS NULL`
         )
-        expect(activeCount.count).toBe('4')
+        expect(afterRestore.count).toBe('4')
       })
 
-      await test.step('Verify batch restoring active records fails', async () => {
-        const badRequestResponse = await request.post('/api/tables/1/records/batch/restore', {
+      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-002: rollback on partial failure (404)', async () => {
+        // Soft-delete records again for this test
+        await executeQuery(`UPDATE tasks SET deleted_at = NOW() WHERE id IN (1, 2)`)
+
+        // User attempts to batch restore including non-existent record
+        const response = await request.post('/api/tables/1/records/batch/restore', {
+          data: { ids: [1, 2, 9999] },
+        })
+
+        // Returns 404 Not Found
+        expect(response.status()).toBe(404)
+
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+        expect(data.recordId).toBe(9999)
+
+        // No records were restored (transaction rollback)
+        const result = await executeQuery(
+          `SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2) AND deleted_at IS NOT NULL`
+        )
+        expect(result.count).toBe('2')
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-003: returns 400 for non-deleted records in batch', async () => {
+        // User attempts to batch restore including an active record
+        const response = await request.post('/api/tables/1/records/batch/restore', {
+          data: { ids: [1, 4] },
+        })
+
+        // Returns 400 Bad Request
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data.error).toBe('Bad Request')
+        expect(data.message).toContain('Record is not deleted')
+        expect(data.recordId).toBe(4)
+
+        // No records were restored (transaction rollback)
+        const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
+        expect(result.deleted_at).toBeTruthy()
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-004: returns 401 Unauthorized', async () => {
+        // User attempts to batch restore without auth token
+        const response = await request.post('/api/tables/1/records/batch/restore')
+
+        // Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data.error).toBeDefined()
+
+        // Records remain soft-deleted
+        const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
+        expect(result.deleted_at).toBeTruthy()
+      })
+
+      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-005: returns 403 for viewer', async () => {
+        // Create viewer user with read-only access
+        const viewer = await createAuthenticatedUser()
+
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'viewer'
+          WHERE id = '${viewer.user.id}'
+        `)
+
+        // Viewer attempts to batch restore records
+        const response = await request.post('/api/tables/1/records/batch/restore', {
           data: { ids: [1, 2] },
         })
-        expect(badRequestResponse.status()).toBe(400)
 
-        const errorData = await badRequestResponse.json()
-        expect(errorData.message).toContain('Record is not deleted')
-      })
+        // Returns 403 Forbidden
+        expect(response.status()).toBe(403)
 
-      await test.step('Verify batch restoring non-existent records fails with rollback', async () => {
-        // First soft-delete record 2 again
-        await executeQuery(`UPDATE tasks SET deleted_at = NOW() WHERE id = 2`)
-
-        const notFoundResponse = await request.post('/api/tables/1/records/batch/restore', {
-          data: { ids: [2, 9999] },
-        })
-        expect(notFoundResponse.status()).toBe(404)
-
-        // Verify record 2 was not restored (rollback)
-        const record2 = await executeQuery(`SELECT deleted_at FROM tasks WHERE id = 2`)
-        expect(record2.deleted_at).toBeTruthy()
-      })
-
-      await test.step('Verify unauthenticated batch restore fails', async () => {
-        const unauthorizedResponse = await request.post('/api/tables/1/records/batch/restore')
-        expect(unauthorizedResponse.status()).toBe(401)
-      })
-
-      await test.step('Verify restored records are accessible via GET', async () => {
-        // Restore record 2 for this test
-        await executeQuery(`UPDATE tasks SET deleted_at = NULL WHERE id = 2`)
-
-        const getResponse = await request.get('/api/tables/1/records/2', {})
-        expect(getResponse.status()).toBe(200)
-
-        const recordData = await getResponse.json()
-        expect(recordData.record.id).toBe(2)
-        expect(recordData.record.fields.title).toBe('Deleted Task 1')
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to restore records in this table')
       })
     }
   )

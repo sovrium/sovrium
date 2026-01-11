@@ -408,7 +408,9 @@ test.describe('API Field Permission Enforcement', () => {
   )
 
   // ============================================================================
-  // @regression test - Complete workflow validation
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 5 @spec tests - covers: field read filtering, field write restrictions, partial updates
   // ============================================================================
 
   test.fixme(
@@ -427,7 +429,7 @@ test.describe('API Field Permission Enforcement', () => {
       let org: { organization: { id: string } }
       let member: { user: { id: string } }
 
-      await test.step('Setup: Create schema with field-level permissions', async () => {
+      await test.step('Setup: Start server with field-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -443,25 +445,22 @@ test.describe('API Field Permission Enforcement', () => {
                 { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'email', type: 'email' },
                 { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-                { id: 5, name: 'ssn', type: 'single-line-text' }, // Extra sensitive
-                { id: 6, name: 'organization_id', type: 'single-line-text' },
+                { id: 5, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
                 organizationScoped: true,
                 read: { type: 'authenticated' },
-                create: { type: 'roles', roles: ['admin'] },
                 update: { type: 'authenticated' },
                 fields: [
+                  {
+                    field: 'name',
+                    write: { type: 'authenticated' }, // Anyone can update name (FIELD-004)
+                  },
                   {
                     field: 'salary',
                     read: { type: 'roles', roles: ['owner', 'admin'] },
                     write: { type: 'roles', roles: ['admin'] },
-                  },
-                  {
-                    field: 'ssn',
-                    read: { type: 'roles', roles: ['owner'] }, // Owner only
-                    write: { type: 'roles', roles: ['owner'] },
                   },
                 ],
               },
@@ -470,12 +469,13 @@ test.describe('API Field Permission Enforcement', () => {
         })
       })
 
-      await test.step('Setup: Create admin and member users', async () => {
+      await test.step('Setup: Create organization with admin and member users', async () => {
+        // Admin (becomes owner of org)
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
         org = await createOrganization({ name: 'Test Org' })
 
+        // Member
         await signOut()
-
         member = await createAuthenticatedUser({ email: 'member@example.com' })
         await addMember({
           organizationId: org.organization.id,
@@ -484,90 +484,81 @@ test.describe('API Field Permission Enforcement', () => {
         })
       })
 
-      await test.step('Setup: Insert test data as admin', async () => {
+      await test.step('Setup: Insert test data', async () => {
         await executeQuery(`
-          INSERT INTO employees (id, name, email, salary, ssn, organization_id)
+          INSERT INTO employees (id, name, email, salary, organization_id)
           VALUES
-            (1, 'John Doe', 'john@example.com', 75000, '123-45-6789', '${org.organization.id}'),
-            (2, 'Jane Smith', 'jane@example.com', 95000, '987-65-4321', '${org.organization.id}')
+            (1, 'John Doe', 'john@example.com', 75000, '${org.organization.id}')
         `)
       })
 
-      await test.step('Member can see name/email but not salary/ssn', async () => {
-        // Sign in as member
+      await test.step('API-TABLES-PERMISSIONS-FIELD-001: Excludes salary field from member response', async () => {
+        // WHEN: Member user requests employee data via API
         await signOut()
         await createAuthenticatedUser({ email: 'member@example.com' })
-
         const response = await request.get('/api/tables/1/records')
 
+        // THEN: API response should include name but EXCLUDE salary field
         expect(response.status()).toBe(200)
         const data = await response.json()
-
-        expect(data.records).toHaveLength(2)
-        // Member can see these fields
-        expect(data.records[0]).toHaveProperty('name')
-        expect(data.records[0]).toHaveProperty('email')
-        // Member cannot see these fields
-        expect(data.records[0]).not.toHaveProperty('salary')
-        expect(data.records[0]).not.toHaveProperty('ssn')
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields).toHaveProperty('name', 'John Doe')
+        expect(data.records[0].fields).toHaveProperty('email', 'john@example.com')
+        // KEY ASSERTION: Salary field should be filtered out
+        expect(data.records[0].fields).not.toHaveProperty('salary')
       })
 
-      await test.step('Admin can see name/email/salary but not ssn', async () => {
-        // Sign in as admin
+      await test.step('API-TABLES-PERMISSIONS-FIELD-002: Includes all fields for admin response', async () => {
+        // WHEN: Admin user requests employee data via API
         await signOut()
         await createAuthenticatedAdmin({ email: 'admin@example.com' })
-
         const response = await request.get('/api/tables/1/records')
 
+        // THEN: Admin should see ALL fields including salary
         expect(response.status()).toBe(200)
         const data = await response.json()
-
-        expect(data.records).toHaveLength(2)
-        // Admin can see these fields
-        expect(data.records[0]).toHaveProperty('name')
-        expect(data.records[0]).toHaveProperty('email')
-        expect(data.records[0]).toHaveProperty('salary')
-        // Admin still cannot see owner-only fields
-        expect(data.records[0]).not.toHaveProperty('ssn')
+        expect(data.records).toHaveLength(1)
+        expect(data.records[0].fields).toHaveProperty('name', 'John Doe')
+        // KEY ASSERTION: Admin can see salary field
+        expect(data.records[0].fields).toHaveProperty('salary', '75000')
       })
 
-      await test.step('Member cannot update salary via API', async () => {
+      await test.step('API-TABLES-PERMISSIONS-FIELD-003: Rejects write when user lacks field permission', async () => {
+        // WHEN: Member tries to update salary field via API
         await signOut()
         await createAuthenticatedUser({ email: 'member@example.com' })
-
         const response = await request.patch('/api/tables/1/records/1', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { salary: 200_000 },
+          headers: { 'Content-Type': 'application/json' },
+          data: { salary: 100_000 }, // Attempting to give themselves a raise!
         })
 
+        // THEN: Should return 403 Forbidden (field write permission denied)
         expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBeDefined()
+        expect(data.message).toMatch(/permission|forbidden|salary/i)
+
+        // VERIFY: Salary should remain unchanged in database
+        const result = await executeQuery(`SELECT salary FROM employees WHERE id = 1`)
+        expect(result.salary).toBe('75000')
       })
 
-      await test.step('Admin can update salary via API', async () => {
+      await test.step('API-TABLES-PERMISSIONS-FIELD-004: Allows partial update for permitted fields', async () => {
+        // WHEN: Member updates only the name field (which they have permission for)
         await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
-
+        await createAuthenticatedUser({ email: 'member@example.com' })
         const response = await request.patch('/api/tables/1/records/1', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          data: { salary: 80_000 },
+          headers: { 'Content-Type': 'application/json' },
+          data: { name: 'John Smith' }, // This should work
         })
 
+        // THEN: Update should succeed
         expect(response.status()).toBe(200)
 
-        // Verify update
-        const result = await executeQuery(`SELECT salary FROM employees WHERE id = 1`)
-        expect(result.salary).toBe(80_000)
-      })
-
-      await test.step('Unauthenticated request returns 401', async () => {
-        await signOut()
-
-        const response = await request.get('/api/tables/1/records')
-        expect(response.status()).toBe(401)
+        // VERIFY: Name updated, salary unchanged
+        const result = await executeQuery(`SELECT name, salary FROM employees WHERE id = 1`)
+        expect(result.name).toBe('John Smith')
+        expect(result.salary).toBe('75000')
       })
     }
   )

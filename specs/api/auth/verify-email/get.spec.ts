@@ -247,8 +247,9 @@ test.describe('Verify email address', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let userEmail: string
+      let token: string | null
 
-      await test.step('Setup: Create server and test user', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -263,34 +264,62 @@ test.describe('Verify email address', () => {
           password: 'WorkflowPass123!',
           name: 'Workflow User',
         })
-      })
 
-      await test.step('Verify without token fails', async () => {
-        const noTokenResponse = await page.request.get('/api/auth/verify-email')
-        expect(noTokenResponse.status()).toBe(400)
-      })
-
-      await test.step('Verify with invalid token fails', async () => {
-        const invalidTokenResponse = await page.request.get(
-          '/api/auth/verify-email?token=invalid_token'
-        )
-        expect([400, 401]).toContain(invalidTokenResponse.status())
-      })
-
-      await test.step('Complete verification with valid token', async () => {
+        // Request verification email
         await page.request.post('/api/auth/send-verification-email', {
           data: { email: userEmail },
         })
 
+        // Extract token for later use
         const email = await mailpit.waitForEmail(
           (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
         )
-
-        const token = extractTokenFromUrl(email.HTML, 'token')
+        token = extractTokenFromUrl(email.HTML, 'token')
         expect(token).not.toBeNull()
+      })
 
-        const verifyResponse = await page.request.get(`/api/auth/verify-email?token=${token}`)
-        expect(verifyResponse.status()).toBe(200)
+      await test.step('API-AUTH-VERIFY-EMAIL-001: Returns 200 OK and marks email as verified', async () => {
+        // WHEN: User clicks verification link with valid token
+        const response = await page.request.get(`/api/auth/verify-email?token=${token}`)
+
+        // THEN: Returns 200 OK and marks email as verified
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
+      })
+
+      await test.step('API-AUTH-VERIFY-EMAIL-002: Returns 400 Bad Request without token', async () => {
+        // WHEN: User accesses endpoint without token parameter
+        const response = await page.request.get('/api/auth/verify-email')
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-VERIFY-EMAIL-003: Returns 401 Unauthorized with invalid token', async () => {
+        // WHEN: User submits invalid verification token
+        const response = await page.request.get('/api/auth/verify-email?token=invalid_token_abc123')
+
+        // THEN: Returns 401 Unauthorized (or 400 depending on Better Auth version)
+        expect([400, 401]).toContain(response.status())
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-VERIFY-EMAIL-005: Returns 200 OK with already used token (idempotent)', async () => {
+        // WHEN: User attempts to reuse the same verification token
+        const response = await page.request.get(`/api/auth/verify-email?token=${token}`)
+
+        // THEN: Returns 200 OK (Better Auth is idempotent - email already verified)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
       })
     }
   )

@@ -299,76 +299,172 @@ test.describe('List Teams', () => {
       startServerWithSchema,
       signUp,
       createOrganization,
-      inviteMember,
-      acceptInvitation,
+      inviteMember: _inviteMember,
+      acceptInvitation: _acceptInvitation,
       page,
     }) => {
-      // GIVEN: Organization with multiple teams and a member
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: {
-            teams: true,
+      let organization: { id: string }
+      let org1: { id: string }
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: {
+              teams: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('API-AUTH-ORG-TEAMS-LIST-006: Returns 401 Unauthorized when not authenticated', async () => {
+        // WHEN: Unauthenticated user tries to list teams
+        const response = await page.request.get(
+          '/api/auth/organization/list-teams?organizationId=org-123'
+        )
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('Unauthorized')
       })
 
-      const { organization } = await createOrganization({
-        name: 'Test Company',
-        slug: 'test-company',
+      await test.step('Setup: Create owner and organization with teams', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const result = await createOrganization({
+          name: 'Test Company',
+          slug: 'test-company',
+        })
+        organization = result.organization
+
+        // Create multiple teams
+        await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Engineering Team',
+          },
+        })
+
+        await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Marketing Team',
+          },
+        })
       })
 
-      // Create multiple teams
-      await page.request.post('/api/auth/organization/create-team', {
-        data: {
-          organizationId: organization.id,
-          name: 'Engineering',
-        },
+      await test.step('API-AUTH-ORG-TEAMS-LIST-005: Returns 400 Bad Request when organizationId is missing', async () => {
+        // WHEN: User tries to list teams without organizationId
+        const response = await page.request.get('/api/auth/organization/list-teams')
+
+        // THEN: Returns 400 Bad Request
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('organizationId')
       })
 
-      await page.request.post('/api/auth/organization/create-team', {
-        data: {
-          organizationId: organization.id,
-          name: 'Marketing',
-        },
+      await test.step('API-AUTH-ORG-TEAMS-LIST-001: Returns 200 OK with array of teams for organization member', async () => {
+        // WHEN: User requests list of teams
+        const response = await page.request.get(
+          `/api/auth/organization/list-teams?organizationId=${organization.id}`
+        )
+
+        // THEN: Returns 200 OK with array of teams
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data).toHaveLength(2)
+
+        expect(data[0]).toHaveProperty('id')
+        expect(data[0]).toHaveProperty('name')
+        expect(data[0]).toHaveProperty('organizationId', organization.id)
+
+        const teamNames = data.map((team: { name: string }) => team.name)
+        expect(teamNames).toContain('Engineering Team')
+        expect(teamNames).toContain('Marketing Team')
       })
 
-      // Invite and accept member
-      const { invitation } = await inviteMember({
-        organizationId: organization.id,
-        email: 'member@example.com',
-        role: 'member',
+      await test.step('API-AUTH-ORG-TEAMS-LIST-004: Returns teams with createdAt timestamp', async () => {
+        // WHEN: User lists teams
+        const response = await page.request.get(
+          `/api/auth/organization/list-teams?organizationId=${organization.id}`
+        )
+
+        // THEN: Teams include createdAt timestamp
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data[0]).toHaveProperty('createdAt')
+        expect(new Date(data[0].createdAt)).toBeInstanceOf(Date)
       })
 
-      await signUp({
-        email: 'member@example.com',
-        password: 'MemberPass123!',
-        name: 'Member User',
+      await test.step('Setup: Create second organization for permission test', async () => {
+        // User 2 creates organization 2
+        await signUp({
+          email: 'user2@example.com',
+          password: 'User2Pass123!',
+          name: 'User Two',
+        })
+
+        await createOrganization({
+          name: 'Company Two',
+          slug: 'company-two',
+        })
+        org1 = organization // Save org1 reference before switching
       })
 
-      await acceptInvitation(invitation.id)
+      await test.step('API-AUTH-ORG-TEAMS-LIST-003: Returns 403 Forbidden when user is not organization member', async () => {
+        // WHEN: User 2 tries to list teams from organization 1
+        const response = await page.request.get(
+          `/api/auth/organization/list-teams?organizationId=${org1.id}`
+        )
 
-      // WHEN: Member lists teams
-      const response = await page.request.get(
-        `/api/auth/organization/list-teams?organizationId=${organization.id}`
-      )
+        // THEN: Returns 403 Forbidden (user not a member)
+        expect(response.status()).toBe(403)
 
-      // THEN: Member sees all teams
-      expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('permission')
+      })
 
-      const teams = await response.json()
-      expect(teams).toHaveLength(2)
+      await test.step('Setup: Create member user for empty list test', async () => {
+        await signUp({
+          email: 'owner3@example.com',
+          password: 'Owner3Pass123!',
+          name: 'Owner Three',
+        })
 
-      const teamNames = teams.map((t: { name: string }) => t.name)
-      expect(teamNames).toContain('Engineering')
-      expect(teamNames).toContain('Marketing')
+        const result = await createOrganization({
+          name: 'Empty Company',
+          slug: 'empty-company',
+        })
+        organization = result.organization
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-LIST-002: Returns 200 OK with empty array when organization has no teams', async () => {
+        // WHEN: User requests list of teams from organization without teams
+        const response = await page.request.get(
+          `/api/auth/organization/list-teams?organizationId=${organization.id}`
+        )
+
+        // THEN: Returns 200 OK with empty array
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(Array.isArray(data)).toBe(true)
+        expect(data).toHaveLength(0)
+      })
     }
   )
 })

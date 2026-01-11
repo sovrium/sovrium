@@ -374,69 +374,280 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly one test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 6 @spec tests - covers: type widening, narrowing, conversion, rollback
   // ============================================================================
 
   test(
     'MIGRATION-MODIFY-TYPE-REGRESSION: user can complete full modify-field-type workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: create items table with TEXT and INTEGER fields', async () => {
+      await test.step('MIGRATION-MODIFY-TYPE-001: alters column type to TEXT', async () => {
+        // GIVEN: table 'users' with field 'bio' (VARCHAR(255))
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'items',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'quantity', type: 'long-text' },
-                { id: 4, name: 'price', type: 'integer' },
+                { id: 3, name: 'bio', type: 'single-line-text' },
               ],
             },
           ],
         })
         await executeQuery([
-          `INSERT INTO items (name, quantity, price) VALUES ('Widget', '100', 50), ('Gadget', '200', 75)`,
+          `INSERT INTO users (name, bio) VALUES ('Alice', 'Short bio'), ('Bob', 'Another bio')`,
         ])
-      })
 
-      await test.step('Change quantity TEXT→INTEGER and price INTEGER→DECIMAL', async () => {
+        // WHEN: field type changed to long-text (TEXT)
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
-              id: 7,
-              name: 'items',
+              id: 1,
+              name: 'users',
               fields: [
                 { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'quantity', type: 'integer' },
-                { id: 4, name: 'price', type: 'decimal' },
+                { id: 3, name: 'bio', type: 'long-text' },
               ],
             },
           ],
         })
+
+        // THEN: column type changed to TEXT and data preserved
+        const columnCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='users' AND column_name='bio'`
+        )
+        expect(columnCheck.data_type).toBe('text')
+        const existingData = await executeQuery(`SELECT bio FROM users WHERE name = 'Alice'`)
+        expect(existingData.bio).toBe('Short bio')
       })
 
-      await test.step('Verify both type changes applied and data converted', async () => {
-        // Quantity converted from TEXT to INTEGER
-        const quantityCheck = await executeQuery(
-          `SELECT data_type FROM information_schema.columns WHERE table_name='items' AND column_name='quantity'`
-        )
-        expect(quantityCheck.data_type).toBe('integer')
+      await test.step('MIGRATION-MODIFY-TYPE-002: alters column type to VARCHAR(255)', async () => {
+        // GIVEN: table 'products' with field 'sku' (TEXT)
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'sku', type: 'long-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO products (name, sku) VALUES ('Widget', 'SKU-123'), ('Gadget', '${'X'.repeat(100)}')`,
+        ])
 
-        // Price converted from INTEGER to NUMERIC
-        const priceCheck = await executeQuery(
-          `SELECT data_type FROM information_schema.columns WHERE table_name='items' AND column_name='price'`
-        )
-        expect(priceCheck.data_type).toBe('numeric')
+        // WHEN: field type changed to single-line-text
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'sku', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
 
-        // Existing data preserved and converted
+        // THEN: column type changed to VARCHAR(255)
+        const columnCheck = await executeQuery(
+          `SELECT character_maximum_length FROM information_schema.columns WHERE table_name='products' AND column_name='sku'`
+        )
+        expect(columnCheck.character_maximum_length).toBe(255)
+        const shortSku = await executeQuery(`SELECT sku FROM products WHERE name = 'Widget'`)
+        expect(shortSku.sku).toBe('SKU-123')
+      })
+
+      await test.step('MIGRATION-MODIFY-TYPE-003: alters column type to NUMERIC', async () => {
+        // GIVEN: table 'orders' with field 'total' (INTEGER)
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'orders',
+              fields: [
+                { id: 2, name: 'order_number', type: 'single-line-text', required: true },
+                { id: 3, name: 'total', type: 'integer' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO orders (order_number, total) VALUES ('ORD-001', 100), ('ORD-002', 250)`,
+        ])
+
+        // WHEN: field type changed to decimal
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'orders',
+              fields: [
+                { id: 2, name: 'order_number', type: 'single-line-text', required: true },
+                { id: 3, name: 'total', type: 'decimal' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: column type changed to NUMERIC and data converted
+        const columnCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='orders' AND column_name='total'`
+        )
+        expect(columnCheck.data_type).toBe('numeric')
         const existingData = await executeQuery(
-          `SELECT quantity, price FROM items WHERE name = 'Widget'`
+          `SELECT total FROM orders WHERE order_number = 'ORD-001'`
         )
-        expect(existingData.quantity).toBe(100)
-        expect(parseFloat(existingData.price)).toBe(50.0)
+        expect(parseFloat(existingData.total)).toBe(100.0)
+      })
+
+      await test.step('MIGRATION-MODIFY-TYPE-004: alters column type to INTEGER with cast', async () => {
+        // GIVEN: table 'metrics' with field 'count' (TEXT)
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'metrics',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'count', type: 'long-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO metrics (name, count) VALUES ('page_views', '1500'), ('clicks', '250')`,
+        ])
+
+        // WHEN: field type changed to integer
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'metrics',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'count', type: 'integer' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: column type changed to INTEGER and text values converted
+        const columnCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='metrics' AND column_name='count'`
+        )
+        expect(columnCheck.data_type).toBe('integer')
+        const existingData = await executeQuery(
+          `SELECT count FROM metrics WHERE name = 'page_views'`
+        )
+        expect(existingData.count).toBe(1500)
+      })
+
+      await test.step('MIGRATION-MODIFY-TYPE-005: alters column type to TIMESTAMPTZ', async () => {
+        // GIVEN: table 'events' with field 'occurred_at' (TEXT) containing ISO-8601 strings
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'events',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'occurred_at', type: 'long-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO events (name, occurred_at) VALUES ('signup', '2024-01-15T10:30:00Z'), ('purchase', '2024-02-20T14:45:00Z')`,
+        ])
+
+        // WHEN: field type changed to timestamp
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'events',
+              fields: [
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'occurred_at', type: 'datetime' },
+              ],
+            },
+          ],
+        })
+
+        // THEN: column type changed to TIMESTAMPTZ and ISO-8601 strings converted
+        const columnCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='events' AND column_name='occurred_at'`
+        )
+        expect(columnCheck.data_type).toMatch(/timestamp/i)
+        const existingData = await executeQuery(
+          `SELECT occurred_at FROM events WHERE name = 'signup'`
+        )
+        expect(existingData.occurred_at).toBeInstanceOf(Date)
+      })
+
+      await test.step('MIGRATION-MODIFY-TYPE-006: fails migration with rollback on conversion error', async () => {
+        // GIVEN: table 'data' with field 'value' (TEXT) containing non-numeric values
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 2, name: 'label', type: 'single-line-text', required: true },
+                { id: 3, name: 'value', type: 'long-text' },
+              ],
+            },
+          ],
+        })
+        await executeQuery([
+          `INSERT INTO data (label, value) VALUES ('numeric', '42'), ('invalid', 'not-a-number')`,
+        ])
+
+        // WHEN: field type changed to INTEGER with invalid data
+        // THEN: Migration fails and data remains unchanged
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 6,
+                name: 'data',
+                fields: [
+                  { id: 2, name: 'label', type: 'single-line-text', required: true },
+                  { id: 3, name: 'value', type: 'integer' },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow(/invalid input syntax|cannot be cast/i)
+
+        // Original data unchanged (migration rolled back)
+        const originalData = await executeQuery(`SELECT value FROM data WHERE label = 'invalid'`)
+        expect(originalData.value).toBe('not-a-number')
+        const columnCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='data' AND column_name='value'`
+        )
+        expect(columnCheck.data_type).toBe('text')
       })
     }
   )

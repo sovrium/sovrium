@@ -405,78 +405,228 @@ test.describe('Restore record', () => {
   )
 
   // ============================================================================
-  // @regression test (exactly one) - OPTIMIZED integration
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 9 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test.fixme(
     'API-TABLES-RECORDS-RESTORE-REGRESSION: user can complete full record restore workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with tasks table', async () => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+    }) => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
-              id: 8,
+              id: 1,
               name: 'tasks',
               fields: [
-                { id: 1, name: 'title', type: 'single-line-text', required: true },
-                { id: 2, name: 'status', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 1, name: 'id', type: 'autonumber', required: true },
+                { id: 2, name: 'title', type: 'single-line-text', required: true },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+                { id: 5, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
         })
       })
 
-      await test.step('Setup: Insert test records (mix of active and deleted)', async () => {
+      await test.step('API-TABLES-RECORDS-RESTORE-001: Return 200 OK and clear deleted_at', async () => {
+        // Insert soft-deleted record
         await executeQuery(`
-          INSERT INTO tasks (id, title, status, deleted_at) VALUES
-            (1, 'Active Task', 'pending', NULL),
-            (2, 'Deleted Task', 'completed', NOW()),
-            (3, 'Another Deleted', 'pending', NOW())
+          INSERT INTO tasks (id, title, deleted_at) VALUES (1, 'Deleted Task', NOW())
         `)
-      })
 
-      await test.step('Restore soft-deleted record successfully', async () => {
-        const restoreResponse = await request.post('/api/tables/1/records/2/restore', {})
-        expect(restoreResponse.status()).toBe(200)
+        // Verify record is soft-deleted
+        const beforeRestore = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
+        expect(beforeRestore.deleted_at).toBeTruthy()
 
-        const data = await restoreResponse.json()
+        // Restore the soft-deleted record
+        const response = await request.post('/api/tables/1/records/1/restore', {})
+
+        // Verify response
+        expect(response.status()).toBe(200)
+        const data = await response.json()
         expect(data.success).toBe(true)
-        expect(data.record.id).toBe(2)
+        expect(data.record.id).toBe(1)
+
+        // Verify deleted_at is cleared
+        const afterRestore = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
+        expect(afterRestore.deleted_at).toBeNull()
       })
 
-      await test.step('Verify record is restored in database', async () => {
-        const restoredRecord = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=2`)
-        expect(restoredRecord.deleted_at).toBeNull()
+      await test.step('API-TABLES-RECORDS-RESTORE-002: Return 404 for non-existent record', async () => {
+        // Attempt to restore non-existent record
+        const response = await request.post('/api/tables/1/records/9999/restore', {})
+
+        expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
       })
 
-      await test.step('Verify restoring active record fails', async () => {
-        const badRequestResponse = await request.post('/api/tables/1/records/1/restore', {})
-        expect(badRequestResponse.status()).toBe(400)
+      await test.step('API-TABLES-RECORDS-RESTORE-003: Return 400 for non-deleted record', async () => {
+        // Insert active (non-deleted) record
+        await executeQuery(`
+          INSERT INTO tasks (id, title) VALUES (2, 'Active Task')
+        `)
 
-        const errorData = await badRequestResponse.json()
-        expect(errorData.message).toBe('Record is not deleted')
+        // Attempt to restore already-active record
+        const response = await request.post('/api/tables/1/records/2/restore', {})
+
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data.error).toBe('Bad Request')
+        expect(data.message).toBe('Record is not deleted')
       })
 
-      await test.step('Verify restoring non-existent record fails', async () => {
-        const notFoundResponse = await request.post('/api/tables/1/records/9999/restore', {})
-        expect(notFoundResponse.status()).toBe(404)
+      await test.step('API-TABLES-RECORDS-RESTORE-004: Return 401 Unauthorized', async () => {
+        // Insert soft-deleted record
+        await executeQuery(`
+          INSERT INTO tasks (id, title, deleted_at) VALUES (3, 'Deleted Task 3', NOW())
+        `)
+
+        // Attempt to restore without auth token
+        const response = await request.post('/api/tables/1/records/3/restore')
+
+        expect(response.status()).toBe(401)
+        const data = await response.json()
+        expect(data.error).toBeDefined()
+
+        // Verify record remains soft-deleted
+        const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=3`)
+        expect(result.deleted_at).toBeTruthy()
       })
 
-      await test.step('Verify unauthenticated restore fails', async () => {
-        const unauthorizedResponse = await request.post('/api/tables/1/records/3/restore')
-        expect(unauthorizedResponse.status()).toBe(401)
+      await test.step('API-TABLES-RECORDS-RESTORE-005: Return 403 for viewer (read-only)', async () => {
+        // Insert soft-deleted record
+        await executeQuery(`
+          INSERT INTO tasks (id, title, deleted_at) VALUES (4, 'Deleted Task 4', NOW())
+        `)
+
+        // Viewer attempts to restore (assumes viewer role context)
+        const response = await request.post('/api/tables/1/records/4/restore', {})
+
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to restore records in this table')
       })
 
-      await test.step('Verify restored record is accessible via GET', async () => {
-        const getResponse = await request.get('/api/tables/1/records/2', {})
-        expect(getResponse.status()).toBe(200)
+      await test.step('API-TABLES-RECORDS-RESTORE-006: Return 200 for member with delete permission', async () => {
+        // Create authenticated user (member role)
+        const { organizationId } = await createAuthenticatedUser({ createOrganization: true })
 
-        const recordData = await getResponse.json()
-        expect(recordData.record.id).toBe(2)
-        expect(recordData.record.fields.title).toBe('Deleted Task')
+        // Insert soft-deleted record in member's organization
+        await executeQuery(`
+          INSERT INTO tasks (id, title, organization_id, deleted_at)
+          VALUES (5, 'Deleted Item', '${organizationId}', NOW())
+        `)
+
+        // Member restores record
+        const response = await request.post('/api/tables/1/records/5/restore', {})
+
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.success).toBe(true)
+
+        // Verify record is restored
+        const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=5`)
+        expect(result.deleted_at).toBeNull()
+      })
+
+      await test.step('API-TABLES-RECORDS-RESTORE-007: Return 404 for cross-org access', async () => {
+        // Create User A with Organization A
+        const userA = await createAuthenticatedUser({ createOrganization: true })
+
+        // Insert soft-deleted record in User A's organization
+        await executeQuery(`
+          INSERT INTO tasks (id, title, organization_id, deleted_at)
+          VALUES (6, 'User A Item', '${userA.organizationId}', NOW())
+        `)
+
+        // Create User B with Organization B (sets up isolation context)
+        await createAuthenticatedUser({ createOrganization: true })
+
+        // User B attempts to restore User A's record
+        const response = await request.post('/api/tables/1/records/6/restore', {})
+
+        expect(response.status()).toBe(404)
+        const data = await response.json()
+        expect(data.error).toBe('Record not found')
+
+        // Verify record remains soft-deleted
+        const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=6`)
+        expect(result.deleted_at).toBeTruthy()
+      })
+
+      await test.step('API-TABLES-RECORDS-RESTORE-008: Create activity log entry when record is restored', async () => {
+        // Create authenticated user
+        const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
+
+        // Insert soft-deleted record
+        await executeQuery(`
+          INSERT INTO tasks (id, title, status, deleted_at)
+          VALUES (7, 'Deleted Task 7', 'completed', NOW())
+        `)
+
+        // Restore record
+        const response = await request.post('/api/tables/1/records/7/restore', {})
+        expect(response.status()).toBe(200)
+
+        // Verify activity log entry is created
+        const logs = await executeQuery(`
+          SELECT * FROM _sovrium_activity_logs
+          WHERE table_name = 'tasks' AND action = 'restore' AND record_id = '7'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `)
+
+        expect(logs.rows).toHaveLength(1)
+        const log = logs.rows[0]
+        expect(log.action).toBe('restore')
+        expect(log.user_id).toBe(user.id)
+        expect(log.table_id).toBe('1')
+        expect(log.record_id).toBe('7')
+
+        // Verify changes field contains restored state
+        const changes = JSON.parse(log.changes)
+        expect(changes.after.deleted_at).toBeNull()
+      })
+
+      await test.step('API-TABLES-RECORDS-RESTORE-009: Capture user_id who restored the record', async () => {
+        // Create admin user
+        const { user: adminUser } = await createAuthenticatedAdmin({
+          email: 'admin@example.com',
+        })
+
+        // Insert soft-deleted record
+        await executeQuery(`
+          INSERT INTO tasks (id, title, deleted_at)
+          VALUES (8, 'Item A', NOW())
+        `)
+
+        // Admin restores record
+        const response = await request.post('/api/tables/1/records/8/restore', {})
+        expect(response.status()).toBe(200)
+
+        // Verify activity log attributes restore to admin user
+        const logs = await executeQuery(`
+          SELECT user_id FROM _sovrium_activity_logs
+          WHERE table_name = 'tasks' AND action = 'restore' AND record_id = '8'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `)
+
+        expect(logs.rows[0].user_id).toBe(adminUser.id)
       })
     }
   )

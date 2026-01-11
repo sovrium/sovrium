@@ -286,8 +286,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-REGRESSION: admin can complete full set-user-password workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with admin plugin', async () => {
+    async ({ page, startServerWithSchema, signUp, signIn, executeQuery }) => {
+      let adminUserId: string
+      let targetUserId: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -297,38 +300,158 @@ test.describe('Admin: Set user password', () => {
         })
       })
 
-      await test.step('Verify set password fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/admin/set-user-password', {
-          data: { userId: '2', newPassword: 'NewPass123!' },
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-005: Returns 401 Unauthorized without authentication', async () => {
+        // WHEN: Unauthenticated user attempts to set password
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {
+            userId: '2',
+            newPassword: 'NewSecurePass123!',
+          },
         })
-        expect(noAuthResponse.status()).toBe(401)
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
-      await test.step('Setup: Create admin and regular user', async () => {
-        await signUp({
+      await test.step('Setup: Create admin and target users', async () => {
+        // Create admin user
+        const admin = await signUp({
           email: 'admin@example.com',
           password: 'AdminPass123!',
           name: 'Admin User',
         })
-        await signUp({ email: 'user@example.com', password: 'OldPass123!', name: 'Regular User' })
-      })
+        adminUserId = admin.user.id
 
-      await test.step('Verify set password fails for non-admin', async () => {
-        await signIn({ email: 'user@example.com', password: 'OldPass123!' })
-        const nonAdminResponse = await page.request.post('/api/auth/admin/set-user-password', {
-          data: { userId: '1', newPassword: 'NewPass123!' },
+        // Promote first user to admin via database (bootstrap the first admin)
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'admin'
+          WHERE id = '${adminUserId}'
+        `)
+
+        // Create target user
+        const target = await signUp({
+          email: 'target@example.com',
+          password: 'OldPassword123!',
+          name: 'Target User',
         })
-        expect(nonAdminResponse.status()).toBe(403)
+        targetUserId = target.user.id
+
+        // Create regular user for non-admin test
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Regular User',
+        })
       })
 
-      await test.step('Set user password as admin', async () => {
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-006: Returns 403 Forbidden for non-admin user', async () => {
+        // Sign in as regular user (non-admin)
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+
+        // WHEN: Regular user attempts to set another user's password
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {
+            userId: targetUserId,
+            newPassword: 'NewSecurePass123!',
+          },
+        })
+
+        // THEN: Returns 403 Forbidden
+        expect(response.status()).toBe(403)
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-003: Returns 400 Bad Request without required fields', async () => {
+        // Re-sign in as admin
         await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-        const adminResponse = await page.request.post('/api/auth/admin/set-user-password', {
-          data: { userId: '2', newPassword: 'NewSecurePass123!' },
-        })
-        expect(adminResponse.status()).toBe(200)
 
-        const data = await adminResponse.json()
+        // WHEN: Admin submits request without required fields
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {},
+        })
+
+        // THEN: Returns 400 Bad Request with validation errors
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-004: Returns 400 Bad Request with short password', async () => {
+        // WHEN: Admin submits password shorter than 8 characters
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {
+            userId: targetUserId,
+            newPassword: 'short',
+          },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-007: Returns 404 Not Found for non-existent user', async () => {
+        // WHEN: Admin attempts to set password for non-existent user
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {
+            userId: '999',
+            newPassword: 'NewSecurePass123!',
+          },
+        })
+
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-001: Returns 200 OK and updates password', async () => {
+        // WHEN: Admin sets new password for user
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {
+            userId: targetUserId,
+            newPassword: 'NewSecurePass123!',
+          },
+        })
+
+        // THEN: Returns 200 OK and updates user password
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
+
+        // Verify user can sign in with new password
+        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'target@example.com',
+            password: 'NewSecurePass123!',
+          },
+        })
+        expect(signInResponse.status()).toBe(200)
+      })
+
+      await test.step('API-AUTH-ADMIN-SET-USER-PASSWORD-002: Returns 200 OK and revokes all user sessions', async () => {
+        // Create multiple sessions for target user
+        await signIn({ email: 'target@example.com', password: 'NewSecurePass123!' })
+        await signIn({ email: 'target@example.com', password: 'NewSecurePass123!' })
+
+        // Re-sign in as admin
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+        // WHEN: Admin sets password with revokeOtherSessions enabled
+        const response = await page.request.post('/api/auth/admin/set-user-password', {
+          data: {
+            userId: targetUserId,
+            newPassword: 'AnotherNewPass123!',
+            revokeOtherSessions: true,
+          },
+        })
+
+        // THEN: Returns 200 OK and revokes all user sessions
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
         expect(data).toHaveProperty('status', true)
       })
     }

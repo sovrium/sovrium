@@ -909,9 +909,19 @@ test.describe('Organization Data Isolation', () => {
       executeQuery,
       createAuthenticatedUser,
       createOrganization,
+      addMember,
+      signIn,
+      signOut,
+      page,
+      setActiveOrganization,
     }) => {
       let orgA: any
       let orgB: any
+      let orgC: any
+      let multiOrgUser: any
+      let admin: any
+      let member: any
+      let org: any
 
       await test.step('Setup: Start server with organization-scoped table', async () => {
         await startServerWithSchema({
@@ -927,78 +937,185 @@ test.describe('Organization Data Isolation', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
+                { id: 3, name: 'content', type: 'long-text' },
+                { id: 4, name: 'created_by', type: 'single-line-text' },
+                { id: 5, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
                 organizationScoped: true,
+                read: { type: 'roles', roles: ['member', 'admin', 'owner'] },
+                create: { type: 'roles', roles: ['member', 'admin', 'owner'] },
+                update: { type: 'roles', roles: ['admin', 'owner'] },
+                delete: { type: 'roles', roles: ['admin', 'owner'] },
               },
             },
           ],
         })
       })
 
-      await test.step('Create two organizations with separate users', async () => {
-        await createAuthenticatedUser({ email: 'user1@example.com' })
+      await test.step('APP-TABLES-ORG-ISOLATION-001: Prevent access to data from other organizations', async () => {
+        // Create user A and their organization
+        await createAuthenticatedUser({ email: 'usera@example.com' })
         orgA = await createOrganization({ name: 'Organization A' })
 
-        await createAuthenticatedUser({ email: 'user2@example.com' })
+        // Create user B and their organization
+        await createAuthenticatedUser({ email: 'userb@example.com' })
         orgB = await createOrganization({ name: 'Organization B' })
-      })
 
-      await test.step('Insert resources for each organization', async () => {
+        // Insert projects for each organization
         await executeQuery([
           `INSERT INTO resources (id, name, organization_id) VALUES
-           (1, 'My Resource', '${orgA.organization.id}'),
-           (2, 'Other Org Resource', '${orgB.organization.id}')`,
+           (1, 'Org A Project 1', '${orgA.organization.id}'),
+           (2, 'Org A Project 2', '${orgA.organization.id}'),
+           (3, 'Org B Project 1', '${orgB.organization.id}')`,
         ])
-      })
 
-      await test.step('Verify RLS enabled on table', async () => {
+        // Verify RLS is enabled on table
         const rlsEnabled = await executeQuery(
           `SELECT relrowsecurity FROM pg_class WHERE relname = 'resources'`
         )
         expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
-      })
 
-      await test.step('Verify policies exist for all CRUD operations', async () => {
+        // Verify RLS policy exists for SELECT
         const policies = await executeQuery(
-          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' ORDER BY cmd`
+          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' AND cmd = 'SELECT'`
         )
-        const cmds = policies.rows.map((p: { cmd: string }) => p.cmd)
-        expect(cmds).toContain('SELECT')
-        expect(cmds).toContain('INSERT')
-        expect(cmds).toContain('UPDATE')
-        expect(cmds).toContain('DELETE')
+        expect(policies.rows).toHaveLength(1)
+
+        // Verify policy definition references organization_id
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'r'`
+        )
+        expect(policyDef.rows[0].qual).toContain('organization_id')
       })
 
-      await test.step('Verify all policies reference organization_id', async () => {
-        const policyDefs = await executeQuery(
-          `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
-           FROM pg_policy WHERE polrelid = 'resources'::regclass`
+      await test.step('APP-TABLES-ORG-ISOLATION-002: Deny direct access to other organization records', async () => {
+        // Verify RLS policy uses USING clause
+        const policies = await executeQuery(
+          `SELECT policyname, cmd, permissive FROM pg_policies WHERE tablename = 'resources' AND cmd = 'SELECT'`
         )
-        const policies2 = policyDefs.rows as Array<{
-          polcmd: string
-          qual: string | null
-          withcheck: string | null
-        }>
-        for (const policy of policies2) {
-          const def = policy.qual || policy.withcheck
-          expect(def).toContain('organization_id')
-        }
-      })
+        expect(policies.rows).toHaveLength(1)
 
-      await test.step('Verify data stored with correct organization IDs', async () => {
+        // Verify the policy definition references organization_id for filtering
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'r'`
+        )
+        expect(policyDef.rows[0].qual).toContain('organization_id')
+
+        // Verify data exists with different org IDs
         const data = await executeQuery(
           `SELECT id, name, organization_id FROM resources ORDER BY id`
         )
-        expect(data.rows).toHaveLength(2)
-        expect(data.rows[0].name).toBe('My Resource')
+        expect(data.rows).toHaveLength(3)
         expect(data.rows[0].organization_id).toBe(orgA.organization.id)
-        expect(data.rows[1].name).toBe('Other Org Resource')
-        expect(data.rows[1].organization_id).toBe(orgB.organization.id)
+        expect(data.rows[2].organization_id).toBe(orgB.organization.id)
       })
 
-      await test.step('Error handling: organizationScoped table without organization_id field', async () => {
+      await test.step('APP-TABLES-ORG-ISOLATION-003: Prevent creating records in other organizations', async () => {
+        // Verify RLS policy exists for INSERT
+        const policies = await executeQuery(
+          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' AND cmd = 'INSERT'`
+        )
+        expect(policies.rows).toHaveLength(1)
+
+        // Verify INSERT policy uses WITH CHECK clause referencing organization_id
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polwithcheck, polrelid) as withcheck FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'a'`
+        )
+        expect(policyDef.rows[0].withcheck).toContain('organization_id')
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-004: Prevent updating records in other organizations', async () => {
+        // Verify RLS policy exists for UPDATE
+        const policies = await executeQuery(
+          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' AND cmd = 'UPDATE'`
+        )
+        expect(policies.rows).toHaveLength(1)
+
+        // Verify UPDATE policy definition references organization_id
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'w'`
+        )
+        expect(policyDef.rows[0].qual).toContain('organization_id')
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-005: Prevent deleting records in other organizations', async () => {
+        // Verify RLS policy exists for DELETE
+        const policies = await executeQuery(
+          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' AND cmd = 'DELETE'`
+        )
+        expect(policies.rows).toHaveLength(1)
+
+        // Verify DELETE policy definition references organization_id
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'd'`
+        )
+        expect(policyDef.rows[0].qual).toContain('organization_id')
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-006: Allow organization admin to access all org data', async () => {
+        // Create admin user and their organization
+        admin = await createAuthenticatedUser({ email: 'admin@example.com' })
+        org = await createOrganization({ name: 'Test Org' })
+
+        // Create member user and add them to the organization
+        member = await createAuthenticatedUser({ email: 'member@example.com' })
+        await addMember({
+          organizationId: org.organization.id,
+          userId: member.user.id,
+          role: 'member',
+        })
+
+        // Insert docs with created_by field
+        await executeQuery([
+          `INSERT INTO resources (id, name, content, organization_id, created_by) VALUES
+           (10, 'Admin Doc', 'Admin created', '${org.organization.id}', '${admin.user.id}'),
+           (11, 'Member Doc', 'Member created', '${org.organization.id}', '${member.user.id}')`,
+        ])
+
+        // Verify SELECT policy combines organization + role check
+        const readPolicy = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'r'`
+        )
+        expect(readPolicy.rows[0].qual).toContain('organization_id')
+        expect(readPolicy.rows[0].qual).toMatch(/role|admin|member/i)
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-007: Support users in multiple organizations', async () => {
+        // Create user who will belong to multiple organizations
+        multiOrgUser = await createAuthenticatedUser({ email: 'multiorg@example.com' })
+
+        // Create first organization (multiOrgUser becomes owner)
+        orgC = await createOrganization({ name: 'Organization C' })
+
+        // Add multiOrgUser as member of organization B
+        await addMember({
+          organizationId: orgB.organization.id,
+          userId: multiOrgUser.user.id,
+          role: 'member',
+        })
+
+        // Insert notes for organization C
+        await executeQuery([
+          `INSERT INTO resources (id, name, organization_id) VALUES
+           (20, 'Org C Note', '${orgC.organization.id}')`,
+        ])
+
+        // Verify policy definition references organization_id
+        const policyDef = await executeQuery(
+          `SELECT pg_get_expr(polqual, polrelid) as qual FROM pg_policy
+           WHERE polrelid = 'resources'::regclass AND polcmd = 'r'`
+        )
+        expect(policyDef.rows[0].qual).toContain('organization_id')
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-008: Reject organizationScoped table without organization_id field', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error',
@@ -1013,10 +1130,9 @@ test.describe('Organization Data Isolation', () => {
                 fields: [
                   { id: 1, name: 'id', type: 'integer', required: true },
                   { id: 2, name: 'name', type: 'single-line-text' },
-                  // Missing organization_id field!
                 ],
                 permissions: {
-                  organizationScoped: true, // Requires organization_id field!
+                  organizationScoped: true,
                 },
               },
             ],
@@ -1026,7 +1142,7 @@ test.describe('Organization Data Isolation', () => {
         )
       })
 
-      await test.step('Error handling: organizationScoped table with wrong organization_id field type', async () => {
+      await test.step('APP-TABLES-ORG-ISOLATION-009: Reject organizationScoped table with wrong organization_id field type', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error2',
@@ -1041,7 +1157,7 @@ test.describe('Organization Data Isolation', () => {
                 fields: [
                   { id: 1, name: 'id', type: 'integer', required: true },
                   { id: 2, name: 'name', type: 'single-line-text' },
-                  { id: 3, name: 'organization_id', type: 'integer' }, // Should be text/single-line-text!
+                  { id: 3, name: 'organization_id', type: 'integer' },
                 ],
                 permissions: {
                   organizationScoped: true,
@@ -1050,6 +1166,120 @@ test.describe('Organization Data Isolation', () => {
             ],
           })
         ).rejects.toThrow(/organization_id.*type.*text|organization_id.*invalid.*type/i)
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-010: Enforce dual-layer organization isolation (Better Auth validates membership → RLS filters rows)', async () => {
+        // Restart server after error-testing steps (008-009 tried invalid configs)
+        await startServerWithSchema({
+          name: 'test-app-dual-layer',
+          auth: {
+            emailAndPassword: true,
+            organization: true,
+          },
+          tables: [
+            {
+              id: 10,
+              name: 'company_secrets',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              permissions: {
+                organizationScoped: true,
+              },
+            },
+          ],
+        })
+
+        // Note: Users and organizations from earlier steps still exist in database (persist across server restarts)
+        // Fetch organization IDs from database
+        const orgsResult = await executeQuery(`
+          SELECT id, slug FROM organization WHERE slug IN ('company-a', 'company-b') ORDER BY slug
+        `)
+        const orgAId = orgsResult.rows.find((r: any) => r.slug === 'company-a')?.id
+        const orgBId = orgsResult.rows.find((r: any) => r.slug === 'company-b')?.id
+
+        if (!orgAId || !orgBId) {
+          throw new Error('Organizations from earlier steps not found in database')
+        }
+
+        // Insert confidential data for existing organizations
+        await executeQuery([
+          `INSERT INTO company_secrets (id, name, organization_id) VALUES
+           (30, 'Company A Secret', '${orgAId}'),
+           (31, 'Company B Secret', '${orgBId}')`,
+        ])
+
+        // User1 (member of Org A) accesses company data
+        await signIn({ email: 'usera@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgAId)
+
+        const user1Response = await page.request.get('/api/tables/company_secrets/records')
+
+        // Better Auth validates organization membership (passes)
+        expect(user1Response.status()).toBe(200)
+
+        // RLS filters rows by organization_id (only Company A visible)
+        const user1Data = await user1Response.json()
+        expect(user1Data.records.some((r: any) => r.fields.name === 'Company A Secret')).toBe(true)
+        expect(user1Data.records.every((r: any) => r.fields.organization_id === orgAId)).toBe(true)
+
+        // Unauthenticated user attempts to access company data
+        await signOut()
+        const unauthResponse = await page.request.get('/api/tables/company_secrets/records')
+
+        // Better Auth blocks at API level (not authenticated)
+        expect(unauthResponse.status()).toBe(401)
+      })
+
+      await test.step('APP-TABLES-ORG-ISOLATION-011: Prevent cross-organization data manipulation (both layers validate)', async () => {
+        // Reuse organization IDs from database (same server instance as step 010)
+        const orgsResult = await executeQuery(`
+          SELECT id, slug FROM organization WHERE slug IN ('company-a', 'company-b') ORDER BY slug
+        `)
+        const orgAId = orgsResult.rows.find((r: any) => r.slug === 'company-a')?.id
+        const orgBId = orgsResult.rows.find((r: any) => r.slug === 'company-b')?.id
+
+        // Insert resources for existing organizations
+        await executeQuery([
+          `INSERT INTO company_secrets (id, name, organization_id) VALUES
+           (40, 'Team A Resource', '${orgAId}'),
+           (41, 'Team B Resource', '${orgBId}')`,
+        ])
+
+        // Admin (user A, owner of org A) attempts to update Org B's resource (cross-org manipulation)
+        await signIn({ email: 'usera@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgAId)
+
+        const crossOrgUpdateResponse = await page.request.patch(
+          '/api/tables/company_secrets/records/41',
+          {
+            data: { name: 'Hacked Resource' },
+          }
+        )
+
+        // Better Auth allows (is owner) → RLS blocks (different organization)
+        expect([403, 404]).toContain(crossOrgUpdateResponse.status())
+
+        // Database unchanged (RLS prevented cross-org update)
+        const dbCheck = await executeQuery('SELECT name FROM company_secrets WHERE id = 41')
+        expect(dbCheck.rows[0].name).toBe('Team B Resource')
+
+        // Admin attempts to update their own resource (same org)
+        const sameOrgUpdateResponse = await page.request.patch(
+          '/api/tables/company_secrets/records/40',
+          {
+            data: { name: 'Updated Team A Resource' },
+          }
+        )
+
+        // Better Auth allows (is owner) → RLS allows (same organization)
+        expect(sameOrgUpdateResponse.status()).toBe(200)
+
+        // Database updated (both layers granted permission)
+        const dbUpdate = await executeQuery('SELECT name FROM company_secrets WHERE id = 40')
+        expect(dbUpdate.rows[0].name).toBe('Updated Team A Resource')
       })
     }
   )

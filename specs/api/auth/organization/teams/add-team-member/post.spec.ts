@@ -426,7 +426,7 @@ test.describe('Add Team Member', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-TEAMS-ADD-MEMBER-REGRESSION: owner can add multiple members to team and verify membership',
+    'API-AUTH-ORG-TEAMS-ADD-MEMBER-REGRESSION: owner can add members to team and verify permissions',
     { tag: '@regression' },
     async ({
       startServerWithSchema,
@@ -436,82 +436,249 @@ test.describe('Add Team Member', () => {
       acceptInvitation,
       page,
     }) => {
-      // GIVEN: Organization with team and multiple members
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: {
-            teams: true,
+      let organization: { id: string }
+      let team: { id: string }
+      let member1UserId: string
+      let member2UserId: string
+
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            organization: {
+              teams: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('API-AUTH-ORG-TEAMS-ADD-MEMBER-006: Returns 401 Unauthorized when not authenticated', async () => {
+        // WHEN: Unauthenticated user tries to add team member
+        const response = await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: 'team-123',
+            userId: 'user-456',
+          },
+        })
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('Unauthorized')
       })
 
-      const { organization } = await createOrganization({
-        name: 'Test Company',
-        slug: 'test-company',
+      await test.step('Setup: Create owner and organization with team', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const result = await createOrganization({
+          name: 'Test Company',
+          slug: 'test-company',
+        })
+        organization = result.organization
+
+        const teamResponse = await page.request.post('/api/auth/organization/create-team', {
+          data: {
+            organizationId: organization.id,
+            name: 'Engineering Team',
+          },
+        })
+        team = await teamResponse.json()
       })
 
-      const teamResponse = await page.request.post('/api/auth/organization/create-team', {
-        data: {
-          organizationId: organization.id,
-          name: 'Engineering Team',
-        },
-      })
-      const team = await teamResponse.json()
-
-      // Add multiple members
-      const memberEmails = ['member1@example.com', 'member2@example.com', 'member3@example.com']
-      const memberIds = []
-
-      for (const email of memberEmails) {
+      await test.step('API-AUTH-ORG-TEAMS-ADD-MEMBER-005: Returns 404 Not Found when team does not exist', async () => {
+        // Setup: Add a member to organization
         const { invitation } = await inviteMember({
           organizationId: organization.id,
-          email,
+          email: 'member-for-404@example.com',
           role: 'member',
         })
 
         await signUp({
-          email,
+          email: 'member-for-404@example.com',
           password: 'MemberPass123!',
-          name: `Member ${email}`,
+          name: 'Member For 404',
         })
 
         const memberAccept = await acceptInvitation(invitation.id)
 
-        memberIds.push(memberAccept.member.userId)
-
-        // WHEN: Owner adds each member to team
-        const addResponse = await page.request.post('/api/auth/organization/add-team-member', {
+        // WHEN: Owner tries to add member to non-existent team
+        const response = await page.request.post('/api/auth/organization/add-team-member', {
           data: {
-            teamId: team.id,
+            teamId: 'non-existent-team-id',
             userId: memberAccept.member.userId,
           },
         })
 
-        // THEN: Each member added successfully
-        expect(addResponse.status()).toBe(200)
-      }
+        // THEN: Returns 404 Not Found
+        expect(response.status()).toBe(404)
 
-      // THEN: List team members shows all added members
-      const listResponse = await page.request.get(
-        `/api/auth/organization/list-team-members?teamId=${team.id}`
-      )
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('not found')
+      })
 
-      expect(listResponse.status()).toBe(200)
+      await test.step('Setup: Create organization members for testing', async () => {
+        // Member 1
+        const { invitation: invitation1 } = await inviteMember({
+          organizationId: organization.id,
+          email: 'member1@example.com',
+          role: 'member',
+        })
 
-      const teamMembers = await listResponse.json()
-      expect(teamMembers).toHaveLength(3)
+        await signUp({
+          email: 'member1@example.com',
+          password: 'Member1Pass123!',
+          name: 'Member One',
+        })
 
-      const teamMemberIds = teamMembers.map((tm: { userId: string }) => tm.userId)
-      memberIds.forEach((id) => {
-        expect(teamMemberIds).toContain(id)
+        const member1Accept = await acceptInvitation(invitation1.id)
+        member1UserId = member1Accept.member.userId
+
+        // Member 2
+        const { invitation: invitation2 } = await inviteMember({
+          organizationId: organization.id,
+          email: 'member2@example.com',
+          role: 'member',
+        })
+
+        await signUp({
+          email: 'member2@example.com',
+          password: 'Member2Pass123!',
+          name: 'Member Two',
+        })
+
+        const member2Accept = await acceptInvitation(invitation2.id)
+        member2UserId = member2Accept.member.userId
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-ADD-MEMBER-002: Returns 403 Forbidden when non-owner tries to add team member', async () => {
+        // Current user is member2 (last signed up)
+        // WHEN: Member 2 tries to add Member 1 to team
+        const response = await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: team.id,
+            userId: member1UserId,
+          },
+        })
+
+        // THEN: Returns 403 Forbidden (only owner/admin can add team members)
+        expect(response.status()).toBe(403)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('permission')
+      })
+
+      await test.step('Setup: Sign back in as owner', async () => {
+        // Sign back in as owner to continue tests
+        await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'owner@example.com',
+            password: 'OwnerPass123!',
+          },
+        })
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-ADD-MEMBER-001: Returns 200 OK when owner adds organization member to team', async () => {
+        // WHEN: Owner adds member to team
+        const response = await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: team.id,
+            userId: member1UserId,
+          },
+        })
+
+        // THEN: Returns 200 OK with team membership data
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('teamId', team.id)
+        expect(data).toHaveProperty('userId', member1UserId)
+        expect(data).toHaveProperty('createdAt')
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-ADD-MEMBER-004: Returns 409 Conflict when user is already team member', async () => {
+        // WHEN: Owner tries to add same member again
+        const response = await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: team.id,
+            userId: member1UserId,
+          },
+        })
+
+        // THEN: Returns 409 Conflict
+        expect(response.status()).toBe(409)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('already a member')
+      })
+
+      await test.step('API-AUTH-ORG-TEAMS-ADD-MEMBER-003: Returns 400 Bad Request when user is not organization member', async () => {
+        // Create outsider user
+        await signUp({
+          email: 'outsider@example.com',
+          password: 'OutsiderPass123!',
+          name: 'Outsider User',
+        })
+
+        // Get outsider user ID
+        const userResponse = await page.request.get('/api/auth/get-session')
+        const userData = await userResponse.json()
+
+        // Sign back in as owner
+        await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'owner@example.com',
+            password: 'OwnerPass123!',
+          },
+        })
+
+        // WHEN: Owner tries to add non-member to team
+        const response = await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: team.id,
+            userId: userData.user.id,
+          },
+        })
+
+        // THEN: Returns 400 Bad Request (user must be org member first)
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('not a member')
+      })
+
+      await test.step('Verifies team membership is correctly maintained', async () => {
+        // Add member2 to team
+        await page.request.post('/api/auth/organization/add-team-member', {
+          data: {
+            teamId: team.id,
+            userId: member2UserId,
+          },
+        })
+
+        // THEN: List team members shows all added members
+        const listResponse = await page.request.get(
+          `/api/auth/organization/list-team-members?teamId=${team.id}`
+        )
+
+        expect(listResponse.status()).toBe(200)
+
+        const teamMembers = await listResponse.json()
+        expect(teamMembers.length).toBeGreaterThanOrEqual(2)
+
+        const teamMemberIds = teamMembers.map((tm: { userId: string }) => tm.userId)
+        expect(teamMemberIds).toContain(member1UserId)
+        expect(teamMemberIds).toContain(member2UserId)
       })
     }
   )

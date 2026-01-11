@@ -774,10 +774,10 @@ test.describe('Upsert records (create or update)', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-REGRESSION: user can complete full upsert workflow',
+    'API-TABLES-RECORDS-UPSERT-REGRESSION: validates complete upsert workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      await test.step('Setup: Start server with employees table', async () => {
+      await test.step('Setup: Creates employees table with field-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
@@ -793,83 +793,269 @@ test.describe('Upsert records (create or update)', () => {
             },
           ],
         })
+        await executeQuery(`
+          INSERT INTO employees (email, name, salary, organization_id)
+          VALUES ('existing@example.com', 'Existing User', 75000, 'org_123')
+        `)
       })
 
-      await test.step('Upsert records successfully', async () => {
-        const successResponse = await request.post('/api/tables/1/records/upsert', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-UPSERT-001: Returns 200 with created=1, updated=1 for mixed operation', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'john@example.com', name: 'John Doe' },
-              { email: 'jane@example.com', name: 'Jane Smith' },
+              { email: 'existing@example.com', name: 'Updated Existing' },
+              { email: 'new@example.com', name: 'New User' },
             ],
             fieldsToMergeOn: ['email'],
             returnRecords: true,
           },
         })
-        expect(successResponse.status()).toBe(200)
-        const result = await successResponse.json()
-        expect(result).toHaveProperty('created')
-        expect(result).toHaveProperty('updated')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.created).toBe(1)
+        expect(data.updated).toBe(1)
+        expect(data.records).toHaveLength(2)
       })
 
-      await test.step('Verify records in database', async () => {
-        const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        expect(verifyRecords.rows[0].count).toBe('2')
-      })
-
-      await test.step('Verify validation error with rollback', async () => {
-        const validationResponse = await request.post('/api/tables/1/records/upsert', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-UPSERT-002: Returns 200 with created=2, updated=0 for all new records', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'valid@example.com', name: 'Valid' }, { name: 'Missing Email' }],
+            records: [
+              { email: 'alice@example.com', name: 'Alice Johnson' },
+              { email: 'bob@example.com', name: 'Bob Smith' },
+            ],
+            fieldsToMergeOn: ['email'],
+            returnRecords: true,
+          },
+        })
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.created).toBe(2)
+        expect(data.updated).toBe(0)
+        expect(data.records).toHaveLength(2)
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-003: Returns 400 with rollback on validation error', async () => {
+        const countBefore = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'valid@example.com', name: 'Valid User' },
+              { name: 'Invalid - Missing Email' },
+            ],
             fieldsToMergeOn: ['email'],
           },
         })
-        expect(validationResponse.status()).toBe(400)
+        expect(response.status()).toBe(400)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('details')
+        // Verify rollback - no records created
+        const countAfter = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+        expect(countAfter.rows[0].count).toBe(countBefore.rows[0].count)
       })
 
-      await test.step('Verify permission denied without create permission', async () => {
-        const forbiddenResponse = await request.post('/api/tables/1/records/upsert', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-UPSERT-004: Returns 401 Unauthorized for unauthenticated request', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'test@example.com', name: 'Test' }],
+            records: [{ email: 'test@example.com', name: 'Test User' }],
             fieldsToMergeOn: ['email'],
           },
         })
-        expect(forbiddenResponse.status()).toBe(403)
+        expect(response.status()).toBe(401)
+        const data = await response.json()
+        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('message')
       })
 
-      await test.step('Verify unauthenticated access fails', async () => {
-        const unauthorizedResponse = await request.post('/api/tables/1/records/upsert', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-UPSERT-005: Returns 403 when member lacks create permission', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'test@example.com', name: 'Test' }],
+            records: [{ email: 'newuser@example.com', name: 'New User' }],
             fieldsToMergeOn: ['email'],
           },
         })
-        expect(unauthorizedResponse.status()).toBe(401)
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to create records in this table')
       })
 
-      await test.step('Verify field-level write restriction', async () => {
-        const fieldForbiddenResponse = await request.post('/api/tables/1/records/upsert', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
+      await test.step('API-TABLES-RECORDS-UPSERT-006: Returns 403 when member lacks update permission', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'test@example.com', name: 'Test', salary: 99_999 }],
+            records: [{ email: 'existing@example.com', name: 'Try Update' }],
             fieldsToMergeOn: ['email'],
           },
         })
-        expect(fieldForbiddenResponse.status()).toBe(403)
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to update records in this table')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-007: Returns 403 for viewer with read-only access', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [{ email: 'viewer@example.com', name: 'Viewer' }],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-008: Auto-injects organization_id for all upserted records', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'existing@example.com', name: 'Updated' },
+              { email: 'charlie@example.com', name: 'Charlie' },
+            ],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.created).toBe(1)
+        expect(data.updated).toBe(1)
+        expect(data.records[0].fields.organization_id).toBe('org_123')
+        expect(data.records[1].fields.organization_id).toBe('org_123')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-009: Returns 403 when creating record with protected field', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [{ email: 'newperson@example.com', name: 'New Person', salary: 100_000 }],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to write to field: salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-010: Returns 403 when updating record with protected field', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [{ email: 'existing@example.com', name: 'Update Name', salary: 85_000 }],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('You do not have permission to write to field: salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-011: Returns 403 when attempting to set readonly fields', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [{ id: 999, email: 'test@example.com', name: 'Test' }],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('Cannot set readonly field: id')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-012: Returns 403 when setting different organization_id', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              {
+                email: 'crossorg@example.com',
+                name: 'Cross Org',
+                organization_id: 'org_456',
+              },
+            ],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(403)
+        const data = await response.json()
+        expect(data.error).toBe('Forbidden')
+        expect(data.message).toBe('Cannot create records for different organization')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-013: Filters protected fields from response for member', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'existing@example.com', name: 'Updated Again' },
+              { email: 'diana@example.com', name: 'Diana' },
+            ],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.created).toBe(1)
+        expect(data.updated).toBe(1)
+        expect(data.records[0].fields.name).toBe('Updated Again')
+        expect(data.records[1].fields.name).toBe('Diana')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
+        expect(data.records[1].fields).not.toHaveProperty('salary')
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-014: Returns 200 with all fields visible for admin', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'existing@example.com', name: 'Admin Update', salary: 95_000 },
+              { email: 'eve@example.com', name: 'Eve', salary: 110_000 },
+            ],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.created).toBe(1)
+        expect(data.updated).toBe(1)
+        expect(data.records[0].fields.name).toBe('Admin Update')
+        expect(data.records[0].fields.salary).toBe(95_000)
+        expect(data.records[1].fields.name).toBe('Eve')
+        expect(data.records[1].fields.salary).toBe(110_000)
+      })
+
+      await test.step('API-TABLES-RECORDS-UPSERT-015: Enforces combined permissions across create/update operations', async () => {
+        const response = await request.post('/api/tables/1/records/upsert', {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            records: [
+              { email: 'existing@example.com', name: 'Combined Update' },
+              { email: 'alice@example.com', name: 'Combined Alice' },
+              { email: 'frank@example.com', name: 'Frank New' },
+            ],
+            fieldsToMergeOn: ['email'],
+          },
+        })
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.created).toBe(1)
+        expect(data.updated).toBe(2)
+        // Verify field filtering applied across all records
+        expect(data.records[0]).not.toHaveProperty('salary')
+        expect(data.records[1]).not.toHaveProperty('salary')
+        expect(data.records[2]).not.toHaveProperty('salary')
       })
     }
   )

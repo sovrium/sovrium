@@ -212,13 +212,15 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
+  // Generated from 4 @spec tests - covers: session regeneration, Secure flag,
+  // HttpOnly flag, SameSite attribute
   // ============================================================================
 
   test.fixme(
     'API-SECURITY-SESSION-REGRESSION: session security workflow prevents attacks',
     { tag: '@regression' },
-    async ({ page, context, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with auth', async () => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      await test.step('Setup: starts server with auth configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -233,9 +235,9 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
         })
       })
 
-      await test.step('Verify: Session ID regenerates after sign-in', async () => {
+      await test.step('API-SECURITY-SESSION-001: regenerates session ID after authentication', async () => {
         await page.goto('/')
-        const cookiesBefore = await context.cookies()
+        const cookiesBefore = await page.context().cookies()
         const sessionBefore = cookiesBefore.find(
           (c) => c.name.includes('session') || c.name.includes('auth')
         )
@@ -245,7 +247,7 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
           password: 'InitialPass123!',
         })
 
-        const cookiesAfter = await context.cookies()
+        const cookiesAfter = await page.context().cookies()
         const sessionAfter = cookiesAfter.find(
           (c) => c.name.includes('session') || c.name.includes('auth')
         )
@@ -256,8 +258,8 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
         }
       })
 
-      await test.step('Verify: Session cookie has Secure flag', async () => {
-        const cookies = await context.cookies()
+      await test.step('API-SECURITY-SESSION-002: sets Secure flag on session cookies', async () => {
+        const cookies = await page.context().cookies()
         const sessionCookie = cookies.find(
           (c) => c.name.includes('session') || c.name.includes('auth')
         )
@@ -266,8 +268,8 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
         expect(sessionCookie!.secure).toBe(true)
       })
 
-      await test.step('Verify: Session cookie has HttpOnly flag', async () => {
-        const cookies = await context.cookies()
+      await test.step('API-SECURITY-SESSION-003: sets HttpOnly flag on session cookies', async () => {
+        const cookies = await page.context().cookies()
         const sessionCookie = cookies.find(
           (c) => c.name.includes('session') || c.name.includes('auth')
         )
@@ -281,8 +283,8 @@ test.describe('Session Security - Session Fixation and Hijacking Prevention', ()
         expect(jsAccessibleCookies).not.toContain(sessionCookie!.name)
       })
 
-      await test.step('Verify: Session cookie has SameSite attribute', async () => {
-        const cookies = await context.cookies()
+      await test.step('API-SECURITY-SESSION-004: sets SameSite attribute on session cookies', async () => {
+        const cookies = await page.context().cookies()
         const sessionCookie = cookies.find(
           (c) => c.name.includes('session') || c.name.includes('auth')
         )

@@ -231,7 +231,7 @@ test.describe('Revoke all other sessions', () => {
     'API-AUTH-REVOKE-OTHER-SESSIONS-REGRESSION: user can complete full revoke-other-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      await test.step('Setup: Start server with auth enabled', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -240,9 +240,12 @@ test.describe('Revoke all other sessions', () => {
         })
       })
 
-      await test.step('Verify revoke fails without auth', async () => {
-        const noAuthResponse = await page.request.post('/api/auth/revoke-other-sessions')
-        expect(noAuthResponse.status()).toBe(401)
+      await test.step('API-AUTH-REVOKE-OTHER-SESSIONS-002: Returns 401 Unauthorized', async () => {
+        // WHEN: Unauthenticated user attempts to revoke other sessions
+        const response = await page.request.post('/api/auth/revoke-other-sessions')
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
       await test.step('Setup: Create user with multiple sessions', async () => {
@@ -262,15 +265,30 @@ test.describe('Revoke all other sessions', () => {
         expect(beforeSessions.length).toBeGreaterThanOrEqual(2)
       })
 
-      await test.step('Revoke other sessions', async () => {
-        const revokeResponse = await page.request.post('/api/auth/revoke-other-sessions')
-        expect(revokeResponse.status()).toBe(200)
+      await test.step('API-AUTH-REVOKE-OTHER-SESSIONS-001: Returns 200 OK and revokes all sessions except current one', async () => {
+        // WHEN: User revokes all other sessions
+        const response = await page.request.post('/api/auth/revoke-other-sessions')
+
+        // THEN: Returns 200 OK and revokes all sessions except current one
+        expect(response.status()).toBe(200)
+
+        // Verify only one session remains (current)
+        const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
+        const sessionsAfter = await sessionsAfterResponse.json()
+        expect(sessionsAfter.length).toBe(1)
       })
 
-      await test.step('Verify only current session remains', async () => {
-        const afterResponse = await page.request.get('/api/auth/list-sessions')
-        const afterSessions = await afterResponse.json()
-        expect(afterSessions.length).toBe(1)
+      await test.step('API-AUTH-REVOKE-OTHER-SESSIONS-003: Returns 200 OK with no sessions to revoke', async () => {
+        // WHEN: User revokes other sessions (none exist besides current)
+        const response = await page.request.post('/api/auth/revoke-other-sessions')
+
+        // THEN: Returns 200 OK (idempotent operation)
+        expect(response.status()).toBe(200)
+
+        // Current session remains active
+        const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
+        const sessionsAfter = await sessionsAfterResponse.json()
+        expect(sessionsAfter.length).toBeGreaterThanOrEqual(1)
       })
     }
   )

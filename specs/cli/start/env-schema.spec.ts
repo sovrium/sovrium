@@ -430,46 +430,19 @@ version: 3.0.0
   )
 
   // ============================================================================
-  // @regression test - OPTIMIZED integration (exactly ONE test)
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying environment variable schema loading works together
+  // Generated from 11 @spec tests - covers: inline JSON/YAML, remote URLs, precedence, error handling, format detection
   // ============================================================================
 
   test(
     'CLI-START-ENV-REGRESSION: user can start server with environment variable in production workflow',
     { tag: '@regression' },
     async () => {
-      await test.step('Load inline JSON schema from environment variable', async () => {
-        // Simulate production deployment with environment variable
+      await test.step('CLI-START-ENV-001: loads inline JSON from environment variable', async () => {
         const jsonSchema = JSON.stringify({
-          name: 'production-app',
-          description: 'Production app with environment variable schema',
-          version: '1.0.0',
-          theme: {
-            colors: {
-              primary: '#3B82F6',
-              secondary: '#10B981',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                lang: 'en',
-                title: 'Production App',
-                description: 'Production deployment',
-              },
-              sections: [
-                {
-                  type: 'h1',
-                  children: ['Welcome to Production'],
-                },
-                {
-                  type: 'p',
-                  children: ['This app is configured via environment variable'],
-                },
-              ],
-            },
-          ],
+          name: 'env-json-app',
+          description: 'App loaded from inline JSON in environment variable',
         })
 
         const result = await captureCliOutputWithEnv({
@@ -478,48 +451,34 @@ version: 3.0.0
         })
 
         expect(result.output).toContain('Starting Sovrium server')
-        expect(result.output).toContain('production-app')
+        expect(result.output).toContain('env-json-app')
         expect(result.output).toContain('Homepage: http://localhost:')
       })
 
-      await test.step('Verify file path precedence over environment variable', async () => {
-        const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-regression-'))
-        const configPath = join(tempDir, 'priority-test.json')
+      await test.step('CLI-START-ENV-002: loads inline YAML from environment variable', async () => {
+        const yamlSchema = `
+name: env-yaml-app
+description: App loaded from inline YAML in environment variable
+version: 1.0.0
+`
 
-        await writeFile(
-          configPath,
-          JSON.stringify({
-            name: 'file-priority-app',
-            description: 'File takes precedence',
-          })
-        )
-
-        try {
-          const result = await captureCliOutputWithEnv(
-            {
-              SOVRIUM_APP_SCHEMA: JSON.stringify({
-                name: 'env-ignored',
-                description: 'Should be ignored',
-              }),
-              PORT: '0',
-            },
-            [configPath]
-          )
-
-          expect(result.output).toContain('file-priority-app')
-          expect(result.output).not.toContain('env-ignored')
-        } finally {
-          await rm(tempDir, { recursive: true, force: true })
-        }
-      })
-
-      await test.step('Verify remote URL schema fetching', async () => {
-        const remoteSchema = JSON.stringify({
-          name: 'remote-production-app',
-          description: 'Fetched from remote URL',
+        const result = await captureCliOutputWithEnv({
+          SOVRIUM_APP_SCHEMA: yamlSchema,
+          PORT: '0',
         })
 
-        const mockServer = await createMockHttpServer(remoteSchema, 'application/json')
+        expect(result.output).toContain('Starting Sovrium server')
+        expect(result.output).toContain('env-yaml-app')
+        expect(result.output).toContain('Homepage: http://localhost:')
+      })
+
+      await test.step('CLI-START-ENV-003: loads schema from remote JSON URL', async () => {
+        const jsonSchema = JSON.stringify({
+          name: 'remote-json-app',
+          description: 'App loaded from remote JSON URL',
+        })
+
+        const mockServer = await createMockHttpServer(jsonSchema, 'application/json')
 
         try {
           const result = await captureCliOutputWithEnv({
@@ -528,9 +487,185 @@ version: 3.0.0
           })
 
           expect(result.output).toContain('Starting Sovrium server')
-          expect(result.output).toContain('remote-production-app')
+          expect(result.output).toContain('remote-json-app')
         } finally {
           await mockServer.cleanup()
+        }
+      })
+
+      await test.step('CLI-START-ENV-004: loads schema from remote YAML URL', async () => {
+        const yamlSchema = `
+name: remote-yaml-app
+description: App loaded from remote YAML URL
+version: 2.0.0
+`
+
+        const mockServer = await createMockHttpServer(yamlSchema, 'application/x-yaml')
+
+        try {
+          const result = await captureCliOutputWithEnv({
+            SOVRIUM_APP_SCHEMA: mockServer.url,
+            PORT: '0',
+          })
+
+          expect(result.output).toContain('Starting Sovrium server')
+          expect(result.output).toContain('remote-yaml-app')
+        } finally {
+          await mockServer.cleanup()
+        }
+      })
+
+      await test.step('CLI-START-ENV-005: prioritizes file path argument over environment variable', async () => {
+        const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-regression-'))
+        const configPath = join(tempDir, 'priority-test.json')
+
+        await writeFile(
+          configPath,
+          JSON.stringify({
+            name: 'file-config-app',
+            description: 'App from file (should be used)',
+          })
+        )
+
+        try {
+          const result = await captureCliOutputWithEnv(
+            {
+              SOVRIUM_APP_SCHEMA: JSON.stringify({
+                name: 'env-config-app',
+                description: 'Should be ignored',
+              }),
+              PORT: '0',
+            },
+            [configPath]
+          )
+
+          expect(result.output).toContain('file-config-app')
+          expect(result.output).not.toContain('env-config-app')
+        } finally {
+          await rm(tempDir, { recursive: true, force: true })
+        }
+      })
+
+      await test.step('CLI-START-ENV-006: handles invalid JSON with clear error', async () => {
+        const invalidJson = '{ "name": "test", "invalid": }'
+
+        const result = await captureCliOutputWithEnv({
+          SOVRIUM_APP_SCHEMA: invalidJson,
+        })
+
+        expect(result.output).toContain('Error')
+        expect(result.output.toLowerCase()).toMatch(/invalid|parse|json/)
+        expect(result.exitCode).not.toBe(0)
+      })
+
+      await test.step('CLI-START-ENV-007: handles invalid YAML with clear error', async () => {
+        const invalidYaml = `
+name: test-app
+description: "unclosed quote
+version: 1.0.0
+`
+
+        const result = await captureCliOutputWithEnv({
+          SOVRIUM_APP_SCHEMA: invalidYaml,
+        })
+
+        expect(result.output).toContain('Error')
+        expect(result.output.toLowerCase()).toMatch(/invalid|parse|yaml/)
+        expect(result.exitCode).not.toBe(0)
+      })
+
+      await test.step('CLI-START-ENV-008: handles unreachable URL with clear error', async () => {
+        const unreachableUrl = 'http://localhost:99999/nonexistent-schema.json'
+
+        const result = await captureCliOutputWithEnv({
+          SOVRIUM_APP_SCHEMA: unreachableUrl,
+        })
+
+        expect(result.output).toContain('Error')
+        expect(result.output.toLowerCase()).toMatch(/failed|fetch|connect|network/)
+        expect(result.exitCode).not.toBe(0)
+      })
+
+      await test.step('CLI-START-ENV-009: handles non-schema content with clear error', async () => {
+        const htmlContent = '<html><body>Not a schema</body></html>'
+        const mockServer = await createMockHttpServer(htmlContent, 'text/html')
+
+        try {
+          const result = await captureCliOutputWithEnv({
+            SOVRIUM_APP_SCHEMA: mockServer.url,
+          })
+
+          expect(result.output).toContain('Error')
+          expect(result.output.toLowerCase()).toMatch(/invalid|schema|parse/)
+          expect(result.exitCode).not.toBe(0)
+        } finally {
+          await mockServer.cleanup()
+        }
+      })
+
+      await test.step('CLI-START-ENV-010: auto-detects JSON format from Content-Type header', async () => {
+        const jsonSchema = JSON.stringify({
+          name: 'content-type-json-app',
+          description: 'Format detected from Content-Type header',
+        })
+
+        const mockServer = await createMockHttpServer(jsonSchema, 'application/json')
+
+        try {
+          const result = await captureCliOutputWithEnv({
+            SOVRIUM_APP_SCHEMA: mockServer.url,
+            PORT: '0',
+          })
+
+          expect(result.output).toContain('Starting Sovrium server')
+          expect(result.output).toContain('content-type-json-app')
+        } finally {
+          await mockServer.cleanup()
+        }
+      })
+
+      await test.step('CLI-START-ENV-011: auto-detects YAML format from file extension in URL', async () => {
+        const yamlSchema = `
+name: extension-yaml-app
+description: Format detected from .yaml file extension in URL
+version: 3.0.0
+`
+
+        const http = await import('node:http')
+        const server = http.createServer((req, res) => {
+          const url = new URL(req.url || '', `http://${req.headers.host}`)
+          if (url.pathname.endsWith('.yaml')) {
+            res.writeHead(200, { 'Content-Type': 'text/plain' })
+            res.end(yamlSchema)
+          } else {
+            res.writeHead(404)
+            res.end('Not found')
+          }
+        })
+
+        await new Promise<void>((resolve) => {
+          server.listen(0, () => resolve())
+        })
+
+        const address = server.address()
+        if (!address || typeof address === 'string') {
+          throw new Error('Failed to get server address')
+        }
+
+        const yamlUrl = `http://localhost:${address.port}/config.yaml`
+
+        try {
+          const result = await captureCliOutputWithEnv({
+            SOVRIUM_APP_SCHEMA: yamlUrl,
+            PORT: '0',
+          })
+
+          expect(result.output).toContain('Starting Sovrium server')
+          expect(result.output).toContain('extension-yaml-app')
+        } finally {
+          await new Promise<void>((resolve, reject) => {
+            server.close((err) => (err ? reject(err) : resolve()))
+          })
         }
       })
     }

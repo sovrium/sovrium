@@ -620,13 +620,17 @@ test.describe('Primary Key', () => {
               id: 9,
               name: 'users',
               fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
-              // Default SERIAL primary key
+              // Default SERIAL primary key (APP-TABLES-PRIMARYKEY-001)
             },
             {
               id: 10,
               name: 'sessions',
               primaryKey: { type: 'uuid' },
-              fields: [{ id: 1, name: 'user_id', type: 'integer' }],
+              fields: [
+                { id: 1, name: 'user_id', type: 'integer' },
+                { id: 2, name: 'created_at', type: 'created-at' },
+              ],
+              // UUID primary key (APP-TABLES-PRIMARYKEY-002)
             },
             {
               id: 11,
@@ -635,48 +639,189 @@ test.describe('Primary Key', () => {
               fields: [
                 { id: 1, name: 'tenant_id', type: 'integer', required: true },
                 { id: 2, name: 'user_id', type: 'integer', required: true },
+                { id: 3, name: 'name', type: 'single-line-text' },
               ],
+              // Composite primary key (APP-TABLES-PRIMARYKEY-003)
+            },
+            {
+              id: 12,
+              name: 'products',
+              fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+              // NOT NULL constraint test (APP-TABLES-PRIMARYKEY-004)
+            },
+            {
+              id: 13,
+              name: 'orders',
+              fields: [
+                { id: 1, name: 'customer_id', type: 'integer' },
+                { id: 2, name: 'total', type: 'decimal' },
+              ],
+              // Index creation test (APP-TABLES-PRIMARYKEY-005)
+            },
+            {
+              id: 14,
+              name: 'items',
+              primaryKey: { type: 'composite', fields: ['id'] },
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+              // UPDATE test (APP-TABLES-PRIMARYKEY-006)
+            },
+            {
+              id: 15,
+              name: 'logs',
+              primaryKey: { type: 'bigserial' },
+              fields: [
+                { id: 1, name: 'message', type: 'long-text' },
+                { id: 2, name: 'created_at', type: 'created-at' },
+              ],
+              // BIGSERIAL test (APP-TABLES-PRIMARYKEY-007)
+            },
+            {
+              id: 16,
+              name: 'audit_log',
+              primaryKey: { type: 'composite', fields: ['tenant_id', 'user_id', 'timestamp'] },
+              fields: [
+                { id: 1, name: 'tenant_id', type: 'integer', required: true },
+                { id: 2, name: 'user_id', type: 'integer', required: true },
+                { id: 3, name: 'timestamp', type: 'integer', required: true },
+                { id: 4, name: 'action', type: 'single-line-text' },
+              ],
+              // 3-column composite key (APP-TABLES-PRIMARYKEY-008)
             },
           ],
         })
       })
 
-      await test.step('Verify SERIAL auto-increment works', async () => {
-        await executeQuery(`INSERT INTO users (name) VALUES ('Alice'), ('Bob')`)
+      await test.step('APP-TABLES-PRIMARYKEY-001: Generate sequential INTEGER values with auto-increment', async () => {
+        await executeQuery(`INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')`)
         const users = await executeQuery(`SELECT id FROM users ORDER BY id`)
-        expect(users.rows).toEqual([{ id: 1 }, { id: 2 }])
+        expect(users.rows).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }])
+
+        // Verify primary key constraint exists
+        const constraint = await executeQuery(
+          `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='PRIMARY KEY'`
+        )
+        expect(constraint.rows[0]).toMatchObject({ constraint_name: 'users_pkey' })
       })
 
-      await test.step('Verify UUID generation works', async () => {
-        await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2)`)
+      await test.step('APP-TABLES-PRIMARYKEY-002: Generate UUID values using gen_random_uuid()', async () => {
+        await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2), (3)`)
         const sessions = await executeQuery(`SELECT COUNT(DISTINCT id) as count FROM sessions`)
-        expect(sessions.rows[0]).toMatchObject({ count: '2' })
+        expect(sessions.rows[0]).toMatchObject({ count: '3' })
+
+        // Verify UUID column type
+        const column = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='sessions' AND column_name='id'`
+        )
+        expect(column.rows[0]).toMatchObject({ data_type: 'uuid' })
       })
 
-      await test.step('Verify composite primary key works', async () => {
+      await test.step('APP-TABLES-PRIMARYKEY-003: Create PRIMARY KEY constraint on both columns with composite key', async () => {
         await executeQuery(
-          `INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1), (1, 2), (2, 1)`
+          `INSERT INTO tenant_users (tenant_id, user_id, name) VALUES (1, 1, 'Alice'), (1, 2, 'Bob'), (2, 1, 'Charlie')`
         )
         const tenantUsers = await executeQuery(
           `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
         )
         expect(tenantUsers.rows[0]).toMatchObject({ count: '2' }) // Same user in different tenants
-      })
 
-      await test.step('Verify primary key constraints enforce uniqueness', async () => {
-        await expect(
-          executeQuery(`INSERT INTO users (id, name) VALUES (1, 'Duplicate')`)
-        ).rejects.toThrow(/unique constraint/)
-        await expect(
-          executeQuery(`INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1)`)
-        ).rejects.toThrow(/unique constraint/)
-      })
-
-      await test.step('Verify primary key indexes are created automatically', async () => {
-        const indexes = await executeQuery(
-          `SELECT indexname FROM pg_indexes WHERE indexname IN ('users_pkey', 'sessions_pkey', 'tenant_users_pkey') ORDER BY indexname`
+        // Verify composite key includes both columns
+        const keyCount = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='tenant_users' AND constraint_name='tenant_users_pkey'`
         )
-        expect(indexes.rows).toHaveLength(3)
+        expect(keyCount.rows[0]).toMatchObject({ count: '2' })
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-004: Reject NULL values in primary key column', async () => {
+        await executeQuery(`INSERT INTO products (name) VALUES ('Product 1')`)
+
+        // Verify NOT NULL constraint
+        const nullable = await executeQuery(
+          `SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='id'`
+        )
+        expect(nullable.rows[0]).toMatchObject({ is_nullable: 'NO' })
+
+        // NULL value rejected
+        await expect(
+          executeQuery(`INSERT INTO products (id, name) VALUES (NULL, 'Product 2')`)
+        ).rejects.toThrow(/not-null constraint/)
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-005: Automatically create index for primary key constraint', async () => {
+        await executeQuery(`INSERT INTO orders (customer_id, total) VALUES (1, 99.99)`)
+
+        // Verify index created
+        const index = await executeQuery(
+          `SELECT indexname FROM pg_indexes WHERE tablename='orders' AND indexname='orders_pkey'`
+        )
+        expect(index.rows[0]).toMatchObject({ indexname: 'orders_pkey' })
+
+        // Verify index is unique
+        const indexDef = await executeQuery(
+          `SELECT indexdef FROM pg_indexes WHERE indexname='orders_pkey'`
+        )
+        expect(indexDef.rows[0]).toMatchObject({
+          indexdef: 'CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)',
+        })
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-006: Allow UPDATE but new value must remain unique', async () => {
+        await executeQuery(`INSERT INTO items (id, name) VALUES (1, 'Item 1'), (2, 'Item 2')`)
+
+        // Update to unique value succeeds
+        const update = await executeQuery(
+          `UPDATE items SET id = 10 WHERE id = 1 RETURNING id, name`
+        )
+        expect(update.rows[0]).toMatchObject({ id: 10, name: 'Item 1' })
+
+        // Update to duplicate value rejected
+        await expect(executeQuery(`UPDATE items SET id = 2 WHERE id = 10`)).rejects.toThrow(
+          /unique constraint/
+        )
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-007: Use BIGINT for larger auto-increment range with BIGSERIAL', async () => {
+        await executeQuery(`INSERT INTO logs (message) VALUES ('Log 1'), ('Log 2')`)
+
+        // Verify BIGINT type
+        const column = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='logs' AND column_name='id'`
+        )
+        expect(column.rows[0]).toMatchObject({ data_type: 'bigint' })
+
+        // Verify sequential values
+        const ids = await executeQuery(`SELECT id FROM logs ORDER BY id`)
+        expect(ids.rows).toEqual([{ id: '1' }, { id: '2' }])
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-008: Create PRIMARY KEY constraint on all specified columns with 3-column composite key', async () => {
+        await executeQuery(
+          `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, 1000, 'login'), (1, 1, 1100, 'logout')`
+        )
+
+        // Verify 3 columns in composite key
+        const keyCount = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='audit_log' AND constraint_name='audit_log_pkey'`
+        )
+        expect(keyCount.rows[0]).toMatchObject({ count: '3' })
+
+        // Same tenant/user allowed at different timestamps
+        const sameUserTenant = await executeQuery(
+          `SELECT COUNT(*) as count FROM audit_log WHERE tenant_id = 1 AND user_id = 1`
+        )
+        expect(sameUserTenant.rows[0]).toMatchObject({ count: '2' })
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-009: Reject composite primary key referencing non-existent field', async () => {
+        // Validation error expected during schema setup - tested in @spec
+        // Skipped in regression (error configuration test)
+      })
+
+      await test.step('APP-TABLES-PRIMARYKEY-010: Reject composite primary key with duplicate field references', async () => {
+        // Validation error expected during schema setup - tested in @spec
+        // Skipped in regression (error configuration test)
       })
     }
   )

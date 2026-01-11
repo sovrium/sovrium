@@ -256,13 +256,18 @@ test.describe('Send verification email', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let userEmail: string
-      const nonExistentEmail = 'nonexistent@example.com'
 
-      await test.step('Setup: Create server and test user', async () => {
+      await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
+            emailTemplates: {
+              verification: {
+                subject: 'Please verify your TestApp account',
+                text: 'Hi $name, please verify your email by clicking: $url',
+              },
+            },
           },
         })
 
@@ -275,32 +280,61 @@ test.describe('Send verification email', () => {
         })
       })
 
-      await test.step('Verify request fails with invalid email format', async () => {
-        const invalidResponse = await page.request.post('/api/auth/send-verification-email', {
-          data: { email: 'not-an-email' },
-        })
-        expect(invalidResponse.status()).toBe(400)
-      })
-
-      await test.step('Send verification email for registered user', async () => {
-        const successResponse = await page.request.post('/api/auth/send-verification-email', {
+      await test.step('API-AUTH-SEND-VERIFICATION-EMAIL-001: Returns 200 OK and sends verification email with custom template', async () => {
+        // WHEN: User requests verification email
+        const response = await page.request.post('/api/auth/send-verification-email', {
           data: { email: userEmail },
         })
-        expect(successResponse.status()).toBe(200)
+
+        // THEN: Returns 200 OK and sends verification email with custom template
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
 
         const email = await mailpit.waitForEmail(
-          (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+          (e) => e.To[0]?.Address === userEmail && e.Subject.includes('TestApp')
         )
-        expect(email).toBeDefined()
+        expect(email.Subject).toBe('Please verify your TestApp account')
       })
 
-      await test.step('Verify non-existent email succeeds (prevent enumeration)', async () => {
-        await page.request.post('/api/auth/sign-out')
-
-        const nonExistentResponse = await page.request.post('/api/auth/send-verification-email', {
-          data: { email: nonExistentEmail },
+      await test.step('API-AUTH-SEND-VERIFICATION-EMAIL-002: Returns 400 Bad Request without email', async () => {
+        // WHEN: User submits request without email field
+        const response = await page.request.post('/api/auth/send-verification-email', {
+          data: {},
         })
-        expect(nonExistentResponse.status()).toBe(200)
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-SEND-VERIFICATION-EMAIL-003: Returns 400 Bad Request with invalid email format', async () => {
+        // WHEN: User submits request with invalid email format
+        const response = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: 'not-an-email' },
+        })
+
+        // THEN: Returns 400 Bad Request with validation error
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('message')
+      })
+
+      await test.step('API-AUTH-SEND-VERIFICATION-EMAIL-006: Returns 200 OK for non-existent email', async () => {
+        // WHEN: User requests verification email for non-existent email
+        const response = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: 'nonexistent@example.com' },
+        })
+
+        // THEN: Returns 200 OK (same response to prevent email enumeration)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('status', true)
       })
     }
   )
