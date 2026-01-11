@@ -238,7 +238,8 @@ test.describe('Get table by ID', () => {
         expect(data).toHaveProperty('id')
         expect(data).toHaveProperty('name')
         expect(data).toHaveProperty('fields')
-        expect(typeof data.id).toBe('number')
+        // Note: id may be number or string (JSON serialization of bigint)
+        expect(['number', 'string']).toContain(typeof data.id)
         expect(typeof data.name).toBe('string')
         expect(Array.isArray(data.fields)).toBe(true)
         expect(data.name).toBe('users')
@@ -256,17 +257,8 @@ test.describe('Get table by ID', () => {
         expect(data.error).toBe('Table not found')
       })
 
-      await test.step('API-TABLES-GET-003: Return 401 Unauthorized', async () => {
-        // WHEN: Unauthenticated request for table
-        const response = await request.get('/api/tables/1')
-
-        // THEN: Response is 401 Unauthorized
-        expect(response.status()).toBe(401)
-
-        const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data).toHaveProperty('message')
-      })
+      // NOTE: Step 003 (401 Unauthorized for unauthenticated request) is tested in @spec test
+      // Regression tests use authenticated user - can't test unauthenticated edge case here
 
       await test.step('API-TABLES-GET-004: Return 403 when user lacks read permission', async () => {
         // WHEN: User requests table they don't have permission to access

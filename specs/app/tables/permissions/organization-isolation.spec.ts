@@ -1169,7 +1169,7 @@ test.describe('Organization Data Isolation', () => {
       })
 
       await test.step('APP-TABLES-ORG-ISOLATION-010: Enforce dual-layer organization isolation (Better Auth validates membership → RLS filters rows)', async () => {
-        // Restart server after error-testing steps (008-009 tried invalid configs)
+        // Note: startServerWithSchema creates fresh database, so we need fresh organizations
         await startServerWithSchema({
           name: 'test-app-dual-layer',
           auth: {
@@ -1179,83 +1179,85 @@ test.describe('Organization Data Isolation', () => {
           tables: [
             {
               id: 10,
-              name: 'company_secrets',
+              name: 'company_data',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'confidential', type: 'single-line-text' },
                 { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
+                read: { type: 'roles', roles: ['member', 'admin', 'owner'] },
+                update: { type: 'roles', roles: ['admin', 'owner'] },
                 organizationScoped: true,
               },
             },
           ],
         })
 
-        // Note: Users and organizations from earlier steps still exist in database (persist across server restarts)
-        // Fetch organization IDs from database
-        const orgsResult = await executeQuery(`
-          SELECT id, slug FROM organization WHERE slug IN ('company-a', 'company-b') ORDER BY slug
-        `)
-        const orgAId = orgsResult.rows.find((r: any) => r.slug === 'company-a')?.id
-        const orgBId = orgsResult.rows.find((r: any) => r.slug === 'company-b')?.id
+        // Create fresh organizations (following @spec test 010 pattern)
+        await createAuthenticatedUser({ email: 'user1@example.com' })
+        const org1 = await createOrganization({ name: 'Company A' })
 
-        if (!orgAId || !orgBId) {
-          throw new Error('Organizations from earlier steps not found in database')
-        }
+        await createAuthenticatedUser({ email: 'user2@example.com' })
+        const org2 = await createOrganization({ name: 'Company B' })
 
-        // Insert confidential data for existing organizations
+        // Insert confidential data for each organization
         await executeQuery([
-          `INSERT INTO company_secrets (id, name, organization_id) VALUES
-           (30, 'Company A Secret', '${orgAId}'),
-           (31, 'Company B Secret', '${orgBId}')`,
+          `INSERT INTO company_data (id, confidential, organization_id) VALUES
+           (1, 'Company A Secret', '${org1.organization.id}'),
+           (2, 'Company B Secret', '${org2.organization.id}')`,
         ])
 
-        // User1 (member of Org A) accesses company data
-        await signIn({ email: 'usera@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(orgAId)
+        // User1 (member of Company A) accesses company data
+        await signIn({ email: 'user1@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(org1.organization.id)
 
-        const user1Response = await page.request.get('/api/tables/company_secrets/records')
+        const user1Response = await page.request.get('/api/tables/company_data/records')
 
         // Better Auth validates organization membership (passes)
         expect(user1Response.status()).toBe(200)
 
         // RLS filters rows by organization_id (only Company A visible)
         const user1Data = await user1Response.json()
-        expect(user1Data.records.some((r: any) => r.fields.name === 'Company A Secret')).toBe(true)
-        expect(user1Data.records.every((r: any) => r.fields.organization_id === orgAId)).toBe(true)
+        expect(
+          user1Data.records.some((r: any) => r.fields.confidential === 'Company A Secret')
+        ).toBe(true)
+        expect(
+          user1Data.records.every((r: any) => r.fields.organization_id === org1.organization.id)
+        ).toBe(true)
 
         // Unauthenticated user attempts to access company data
         await signOut()
-        const unauthResponse = await page.request.get('/api/tables/company_secrets/records')
+        const unauthResponse = await page.request.get('/api/tables/company_data/records')
 
         // Better Auth blocks at API level (not authenticated)
         expect(unauthResponse.status()).toBe(401)
+
+        // Store org IDs for step 011 (same server instance)
+        orgA = org1
+        orgB = org2
       })
 
       await test.step('APP-TABLES-ORG-ISOLATION-011: Prevent cross-organization data manipulation (both layers validate)', async () => {
-        // Reuse organization IDs from database (same server instance as step 010)
-        const orgsResult = await executeQuery(`
-          SELECT id, slug FROM organization WHERE slug IN ('company-a', 'company-b') ORDER BY slug
-        `)
-        const orgAId = orgsResult.rows.find((r: any) => r.slug === 'company-a')?.id
-        const orgBId = orgsResult.rows.find((r: any) => r.slug === 'company-b')?.id
+        // Use organization IDs from step 010 (same server instance, orgs stored in orgA/orgB)
+        const orgAId = orgA.organization.id
+        const orgBId = orgB.organization.id
 
-        // Insert resources for existing organizations
+        // Insert resources for existing organizations (using company_data table from step 010)
         await executeQuery([
-          `INSERT INTO company_secrets (id, name, organization_id) VALUES
-           (40, 'Team A Resource', '${orgAId}'),
-           (41, 'Team B Resource', '${orgBId}')`,
+          `INSERT INTO company_data (id, confidential, organization_id) VALUES
+           (10, 'Team A Resource', '${orgAId}'),
+           (11, 'Team B Resource', '${orgBId}')`,
         ])
 
-        // Admin (user A, owner of org A) attempts to update Org B's resource (cross-org manipulation)
-        await signIn({ email: 'usera@example.com', password: 'TestPassword123!' })
+        // User1 (owner of Company A) attempts to update Company B's resource (cross-org manipulation)
+        await signIn({ email: 'user1@example.com', password: 'TestPassword123!' })
         await setActiveOrganization(orgAId)
 
         const crossOrgUpdateResponse = await page.request.patch(
-          '/api/tables/company_secrets/records/41',
+          '/api/tables/company_data/records/11',
           {
-            data: { name: 'Hacked Resource' },
+            data: { confidential: 'Hacked Resource' },
           }
         )
 
@@ -1263,14 +1265,14 @@ test.describe('Organization Data Isolation', () => {
         expect([403, 404]).toContain(crossOrgUpdateResponse.status())
 
         // Database unchanged (RLS prevented cross-org update)
-        const dbCheck = await executeQuery('SELECT name FROM company_secrets WHERE id = 41')
-        expect(dbCheck.rows[0].name).toBe('Team B Resource')
+        const dbCheck = await executeQuery('SELECT confidential FROM company_data WHERE id = 11')
+        expect(dbCheck.rows[0].confidential).toBe('Team B Resource')
 
-        // Admin attempts to update their own resource (same org)
+        // User1 attempts to update their own resource (same org)
         const sameOrgUpdateResponse = await page.request.patch(
-          '/api/tables/company_secrets/records/40',
+          '/api/tables/company_data/records/10',
           {
-            data: { name: 'Updated Team A Resource' },
+            data: { confidential: 'Updated Team A Resource' },
           }
         )
 
@@ -1278,8 +1280,8 @@ test.describe('Organization Data Isolation', () => {
         expect(sameOrgUpdateResponse.status()).toBe(200)
 
         // Database updated (both layers granted permission)
-        const dbUpdate = await executeQuery('SELECT name FROM company_secrets WHERE id = 40')
-        expect(dbUpdate.rows[0].name).toBe('Updated Team A Resource')
+        const dbUpdate = await executeQuery('SELECT confidential FROM company_data WHERE id = 10')
+        expect(dbUpdate.rows[0].confidential).toBe('Updated Team A Resource')
       })
     }
   )

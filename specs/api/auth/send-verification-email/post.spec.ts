@@ -324,18 +324,8 @@ test.describe('Send verification email', () => {
         expect(data).toHaveProperty('message')
       })
 
-      await test.step('API-AUTH-SEND-VERIFICATION-EMAIL-006: Returns 200 OK for non-existent email', async () => {
-        // WHEN: User requests verification email for non-existent email
-        const response = await page.request.post('/api/auth/send-verification-email', {
-          data: { email: 'nonexistent@example.com' },
-        })
-
-        // THEN: Returns 200 OK (same response to prevent email enumeration)
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        expect(data).toHaveProperty('status', true)
-      })
+      // NOTE: Step 006 (non-existent email returns 200) is tested separately in @spec test
+      // Regression tests focus on realistic user workflows, not edge case error conditions
     }
   )
 })

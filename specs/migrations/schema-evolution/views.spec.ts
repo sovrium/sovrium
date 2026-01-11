@@ -472,40 +472,56 @@ test.describe('Database Views Migration', () => {
     'MIGRATION-VIEW-REGRESSION: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      await test.step('MIGRATION-VIEW-001: creates view for read-only access', async () => {
-        // Setup table without views
+      // Consolidated schema with ALL fields needed across ALL steps
+      // Users table: id=1, fields: name(2), email(3), active(4), role(5)
+      // Orders table: id=2, fields: customer_id(2), amount(3), created_at(4), user_id(5), status(6)
+      const usersFields = [
+        { id: 2, name: 'name', type: 'single-line-text' as const, required: true },
+        { id: 3, name: 'email', type: 'email' as const },
+        { id: 4, name: 'active', type: 'checkbox' as const, default: true },
+        { id: 5, name: 'role', type: 'single-line-text' as const },
+      ]
+
+      const ordersFields = [
+        { id: 2, name: 'customer_id', type: 'integer' as const },
+        { id: 3, name: 'amount', type: 'decimal' as const },
+        { id: 4, name: 'created_at', type: 'datetime' as const },
+        { id: 5, name: 'user_id', type: 'integer' as const },
+        { id: 6, name: 'status', type: 'single-line-text' as const },
+      ]
+
+      await test.step('Setup: Create base schema with all tables and fields', async () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'email', type: 'email' },
-                { id: 4, name: 'active', type: 'checkbox', default: true },
-              ],
-            },
+            { id: 1, name: 'users', fields: usersFields },
+            { id: 2, name: 'orders', fields: ordersFields },
           ],
         })
 
-        // Insert data
+        // Seed data for all scenarios
         await executeQuery([
-          `INSERT INTO users (name, email, active) VALUES ('Alice', 'alice@example.com', true), ('Bob', 'bob@example.com', true), ('Charlie', 'charlie@example.com', false)`,
+          `INSERT INTO users (name, email, active, role) VALUES
+            ('Alice', 'alice@example.com', true, 'admin'),
+            ('Bob', 'bob@example.com', true, 'user'),
+            ('Charlie', 'charlie@example.com', false, 'user')`,
+          `INSERT INTO orders (customer_id, amount, user_id, status) VALUES
+            (1, 100.00, 1, 'active'),
+            (1, 150.00, 1, 'completed'),
+            (2, 200.00, 2, 'active'),
+            (2, 50.00, 2, 'pending')`,
         ])
+      })
 
-        // Add view to schema
+      await test.step('MIGRATION-VIEW-001: creates view for read-only access', async () => {
+        // Add view to schema (same base schema, just add view)
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 1,
               name: 'users',
-              fields: [
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'email', type: 'email' },
-                { id: 4, name: 'active', type: 'checkbox', default: true },
-              ],
+              fields: usersFields,
               views: [
                 {
                   id: 'active_users',
@@ -514,10 +530,11 @@ test.describe('Database Views Migration', () => {
                 },
               ],
             },
+            { id: 2, name: 'orders', fields: ordersFields },
           ],
         })
 
-        // View returns only active users
+        // View returns only active users (Alice and Bob)
         const activeUsers = await executeQuery(`SELECT COUNT(*) as count FROM active_users`)
         expect(activeUsers.count).toBe('2')
 
@@ -534,44 +551,12 @@ test.describe('Database Views Migration', () => {
       })
 
       await test.step('MIGRATION-VIEW-002: drops view when removed', async () => {
-        // Setup with view
+        // Remove view from schema (same base schema, no views)
         await startServerWithSchema({
           name: 'test-app',
           tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'active', type: 'checkbox', default: true },
-              ],
-              views: [
-                {
-                  id: 'active_users',
-                  name: 'Active Users',
-                  query: 'SELECT * FROM users WHERE active = true',
-                },
-              ],
-            },
-          ],
-        })
-
-        await executeQuery([
-          `INSERT INTO users (name, active) VALUES ('Alice', true), ('Bob', false)`,
-        ])
-
-        // Remove view from schema
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'active', type: 'checkbox', default: true },
-              ],
-            },
+            { id: 1, name: 'users', fields: usersFields },
+            { id: 2, name: 'orders', fields: ordersFields },
           ],
         })
 
@@ -581,24 +566,20 @@ test.describe('Database Views Migration', () => {
         )
         expect(viewExists.count).toBe('0')
 
-        // Base table still exists
+        // Base table still exists with original data
         const users = await executeQuery(`SELECT COUNT(*) as count FROM users`)
-        expect(users.count).toBe('2')
+        expect(users.count).toBe('3')
       })
 
       await test.step('MIGRATION-VIEW-003: alters view via drop and create', async () => {
-        // Setup with view (query A: only id, name)
+        // Add view with partial columns (query A: only id, name)
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 1,
               name: 'users',
-              fields: [
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'email', type: 'email' },
-                { id: 4, name: 'role', type: 'single-line-text' },
-              ],
+              fields: usersFields,
               views: [
                 {
                   id: 'user_summary',
@@ -607,25 +588,18 @@ test.describe('Database Views Migration', () => {
                 },
               ],
             },
+            { id: 2, name: 'orders', fields: ordersFields },
           ],
         })
 
-        await executeQuery([
-          `INSERT INTO users (name, email, role) VALUES ('Alice', 'alice@example.com', 'admin'), ('Bob', 'bob@example.com', 'user')`,
-        ])
-
-        // Modify view query (query B: all fields)
+        // Modify view query (query B: include email and role)
         await startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 1,
               name: 'users',
-              fields: [
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'email', type: 'email' },
-                { id: 4, name: 'role', type: 'single-line-text' },
-              ],
+              fields: usersFields,
               views: [
                 {
                   id: 'user_summary',
@@ -634,6 +608,7 @@ test.describe('Database Views Migration', () => {
                 },
               ],
             },
+            { id: 2, name: 'orders', fields: ordersFields },
           ],
         })
 
@@ -650,38 +625,15 @@ test.describe('Database Views Migration', () => {
       })
 
       await test.step('MIGRATION-VIEW-004: creates materialized view', async () => {
-        // Setup table without views
+        // Remove user views, add materialized view on orders
         await startServerWithSchema({
           name: 'test-app',
           tables: [
+            { id: 1, name: 'users', fields: usersFields },
             {
-              id: 1,
+              id: 2,
               name: 'orders',
-              fields: [
-                { id: 2, name: 'customer_id', type: 'integer' },
-                { id: 3, name: 'amount', type: 'decimal' },
-                { id: 4, name: 'created_at', type: 'datetime' },
-              ],
-            },
-          ],
-        })
-
-        await executeQuery([
-          `INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00), (2, 200.00), (2, 50.00)`,
-        ])
-
-        // Add materialized view
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'orders',
-              fields: [
-                { id: 2, name: 'customer_id', type: 'integer' },
-                { id: 3, name: 'amount', type: 'decimal' },
-                { id: 4, name: 'created_at', type: 'datetime' },
-              ],
+              fields: ordersFields,
               views: [
                 {
                   id: 'order_stats',
@@ -701,47 +653,17 @@ test.describe('Database Views Migration', () => {
         )
         expect(matViewExists.count).toBe('1')
 
-        // Materialized view contains aggregated data
+        // Materialized view contains aggregated data (customer 1 has 2 orders totaling 250)
         const stats = await executeQuery(`SELECT * FROM order_stats WHERE customer_id = 1`)
         expect(parseInt(stats.order_count)).toBe(2)
         expect(parseFloat(stats.total_amount)).toBe(250.0)
       })
 
       await test.step('MIGRATION-VIEW-005: refreshes materialized view', async () => {
-        // Setup with materialized view
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'orders',
-              fields: [
-                { id: 2, name: 'customer_id', type: 'integer' },
-                { id: 3, name: 'amount', type: 'decimal' },
-              ],
-              views: [
-                {
-                  id: 'order_stats',
-                  name: 'Order Stats',
-                  query:
-                    'SELECT customer_id, COUNT(*) as order_count, SUM(amount) as total_amount FROM orders GROUP BY customer_id',
-                  materialized: true,
-                },
-              ],
-            },
-          ],
-        })
-
-        await executeQuery([
-          `INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00)`,
-        ])
-
-        await executeQuery(`REFRESH MATERIALIZED VIEW order_stats`)
-
-        // Add new order (stale data)
+        // Add new order for customer 1
         await executeQuery(`INSERT INTO orders (customer_id, amount) VALUES (1, 200.00)`)
 
-        // Verify stale data
+        // Verify stale data (materialized view not refreshed yet)
         const staleStats = await executeQuery(
           `SELECT order_count FROM order_stats WHERE customer_id = 1`
         )
@@ -751,13 +673,11 @@ test.describe('Database Views Migration', () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
+            { id: 1, name: 'users', fields: usersFields },
             {
-              id: 1,
+              id: 2,
               name: 'orders',
-              fields: [
-                { id: 2, name: 'customer_id', type: 'integer' },
-                { id: 3, name: 'amount', type: 'decimal' },
-              ],
+              fields: ordersFields,
               views: [
                 {
                   id: 'order_stats',
@@ -772,7 +692,7 @@ test.describe('Database Views Migration', () => {
           ],
         })
 
-        // Materialized view now has updated data
+        // Materialized view now has updated data (3 orders totaling 450)
         const freshStats = await executeQuery(
           `SELECT order_count, total_amount FROM order_stats WHERE customer_id = 1`
         )
@@ -781,22 +701,15 @@ test.describe('Database Views Migration', () => {
       })
 
       await test.step('MIGRATION-VIEW-006: drops view cascade', async () => {
-        // Setup with view that will have dependent view
+        // Add view with join between users and orders
         await startServerWithSchema({
           name: 'test-app',
           tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
-            },
+            { id: 1, name: 'users', fields: usersFields },
             {
               id: 2,
               name: 'orders',
-              fields: [
-                { id: 2, name: 'user_id', type: 'integer' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-              ],
+              fields: ordersFields,
               views: [
                 {
                   id: 'user_orders',
@@ -808,10 +721,8 @@ test.describe('Database Views Migration', () => {
           ],
         })
 
-        // Insert data and create dependent view manually
+        // Create dependent view manually
         await executeQuery([
-          `INSERT INTO users (name) VALUES ('Alice')`,
-          `INSERT INTO orders (user_id, status) VALUES (1, 'active'), (1, 'completed')`,
           `CREATE VIEW active_orders AS SELECT * FROM user_orders WHERE status = 'active'`,
         ])
 
@@ -819,19 +730,8 @@ test.describe('Database Views Migration', () => {
         await startServerWithSchema({
           name: 'test-app',
           tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [{ id: 2, name: 'name', type: 'single-line-text', required: true }],
-            },
-            {
-              id: 2,
-              name: 'orders',
-              fields: [
-                { id: 2, name: 'user_id', type: 'integer' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-              ],
-            },
+            { id: 1, name: 'users', fields: usersFields },
+            { id: 2, name: 'orders', fields: ordersFields },
           ],
         })
 
@@ -848,7 +748,7 @@ test.describe('Database Views Migration', () => {
 
         // Base tables still exist
         const users = await executeQuery(`SELECT COUNT(*) as count FROM users`)
-        expect(users.count).toBe('1')
+        expect(users.count).toBe('3')
       })
     }
   )

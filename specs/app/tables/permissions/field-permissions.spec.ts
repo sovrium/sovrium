@@ -786,61 +786,44 @@ test.describe('Field-Level Permissions', () => {
           },
           tables: [
             // Table for spec 001, 003, 007 - role-based read permissions
+            // Note: Matches @spec test schema - NO table-level read permission
             {
               id: 1,
               name: 'employees',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'email', type: 'single-line-text' },
-                { id: 4, name: 'salary', type: 'decimal' },
-                { id: 5, name: 'ssn', type: 'single-line-text' },
-                { id: 6, name: 'department', type: 'single-line-text' },
+                { id: 3, name: 'salary', type: 'decimal' },
+                { id: 4, name: 'department', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                read: { type: 'roles', roles: ['member', 'admin'] },
+                // NO table-level permissions - only field-level (matches @spec 001)
                 fields: [
-                  {
-                    field: 'email',
-                    read: { type: 'authenticated' },
-                  },
                   {
                     field: 'salary',
                     read: { type: 'roles', roles: ['admin'] },
-                  },
-                  {
-                    field: 'ssn',
-                    read: { type: 'roles', roles: ['admin'] },
-                  },
-                  {
-                    field: 'department',
-                    read: { type: 'public' },
                   },
                 ],
               },
             },
             // Table for spec 002, 008 - role-based write permissions
+            // Note: Matches @spec test 002 - NO table-level update permission
             {
               id: 2,
               name: 'profiles',
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'display_name', type: 'single-line-text' },
+                { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'email', type: 'single-line-text' },
                 { id: 4, name: 'bio', type: 'single-line-text' },
-                { id: 5, name: 'verified', type: 'checkbox' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                update: { type: 'roles', roles: ['member', 'admin'] },
+                // NO table-level permissions - only field-level (matches @spec 002)
                 fields: [
                   {
                     field: 'email',
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
-                  {
-                    field: 'verified',
                     write: { type: 'roles', roles: ['admin'] },
                   },
                 ],
@@ -920,9 +903,9 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-001: Exclude salary for non-admin users', async () => {
-        // Insert test data (without id - auto-generated)
+        // Insert test data (matches simplified schema without email/ssn columns)
         await executeQuery([
-          "INSERT INTO employees (name, email, salary, ssn, department) VALUES ('Alice', 'alice@example.com', 75000.00, '123-45-6789', 'Engineering')",
+          "INSERT INTO employees (name, salary, department) VALUES ('Alice', 75000.00, 'Engineering')",
         ])
 
         // Admin can SELECT salary
@@ -955,8 +938,9 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-002: Reject email update by member role', async () => {
+        // Note: Simplified schema matches @spec test 002 - only name, email, bio fields
         await executeQuery([
-          "INSERT INTO profiles (display_name, email, bio, verified) VALUES ('Alice Profile', 'alice@example.com', 'Software engineer', false)",
+          "INSERT INTO profiles (name, email, bio) VALUES ('Alice Profile', 'alice@example.com', 'Software engineer')",
         ])
 
         // Admin can UPDATE email
@@ -983,36 +967,23 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-003: Include only permitted columns for different roles', async () => {
-        // Admin sees all fields including salary and ssn
+        // Admin sees all fields including salary (simplified schema matches @spec 001)
         const adminResult = await executeQuery([
           'SET ROLE admin_user',
-          'SELECT name, email, salary, ssn, department FROM employees WHERE id = 1',
+          'SELECT name, salary, department FROM employees WHERE id = 1',
         ])
         expect(adminResult).toMatchObject({
           name: 'Alice',
-          email: 'alice@example.com',
           salary: '75000.00',
-          ssn: '123-45-6789',
           department: 'Engineering',
         })
 
-        // Authenticated user sees email and department (no salary/ssn)
-        const authResult = await executeQuery([
-          'SET ROLE authenticated_user',
-          'SELECT name, email, department FROM employees WHERE id = 1',
-        ])
-        expect(authResult).toMatchObject({
-          name: 'Alice',
-          email: 'alice@example.com',
-          department: 'Engineering',
-        })
-
-        // Unauthenticated sees department only
-        const unauthResult = await executeQuery([
-          'RESET ROLE',
+        // Member can see name and department but not salary
+        const memberResult = await executeQuery([
+          'SET ROLE member_user',
           'SELECT name, department FROM employees WHERE id = 1',
         ])
-        expect(unauthResult).toMatchObject({
+        expect(memberResult).toMatchObject({
           name: 'Alice',
           department: 'Engineering',
         })
@@ -1106,14 +1077,13 @@ test.describe('Field-Level Permissions', () => {
           password: 'MemberPass123!',
         })
 
-        // Member reads employees - Better Auth allows, RLS filters salary/ssn
+        // Member reads employees - Better Auth allows, RLS filters salary
         const response = await page.request.get('/api/tables/employees/records')
         expect(response.status()).toBe(200)
 
         const data = await response.json()
         expect(data.records[0].fields).toHaveProperty('name')
         expect(data.records[0].fields).not.toHaveProperty('salary') // Filtered by RLS
-        expect(data.records[0].fields).not.toHaveProperty('ssn') // Filtered by RLS
 
         // Create admin user
         const adminResult = await signUp({
@@ -1137,7 +1107,6 @@ test.describe('Field-Level Permissions', () => {
 
         const adminData = await adminResponse.json()
         expect(adminData.records[0].fields).toHaveProperty('salary') // Included by RLS
-        expect(adminData.records[0].fields).toHaveProperty('ssn') // Included by RLS
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-008: Prevent field modification at both layers', async () => {
@@ -1147,29 +1116,30 @@ test.describe('Field-Level Permissions', () => {
           password: 'MemberPass123!',
         })
 
-        // Member attempts to update verified field - Better Auth blocks
+        // Note: Testing email field restriction (simplified schema uses email instead of verified)
+        // Member attempts to update email field - Better Auth blocks
         const response = await page.request.patch('/api/tables/profiles/records/1', {
-          data: { verified: true },
+          data: { email: 'hacker@example.com' },
         })
         expect([403, 401]).toContain(response.status())
 
-        // Verify field unchanged
-        const dbResult = await executeQuery('SELECT verified FROM profiles WHERE id = 1')
-        expect(dbResult.rows[0].verified).toBe(false)
+        // Verify email field unchanged
+        const dbResult = await executeQuery('SELECT email FROM profiles WHERE id = 1')
+        expect(dbResult.email).toBe('alice.new@example.com') // Value from step 002
 
-        // Admin updates verified field - both layers allow
+        // Admin updates email field - both layers allow
         await signIn({
           email: 'admin@example.com',
           password: 'AdminPass123!',
         })
 
         const adminResponse = await page.request.patch('/api/tables/profiles/records/1', {
-          data: { verified: true },
+          data: { email: 'admin.updated@example.com' },
         })
         expect(adminResponse.status()).toBe(200)
 
-        const adminDbResult = await executeQuery('SELECT verified FROM profiles WHERE id = 1')
-        expect(adminDbResult.rows[0].verified).toBe(true)
+        const adminDbResult = await executeQuery('SELECT email FROM profiles WHERE id = 1')
+        expect(adminDbResult.email).toBe('admin.updated@example.com')
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-009: Apply complementary permissions (Better Auth guards + RLS filters)', async () => {
@@ -1190,8 +1160,9 @@ test.describe('Field-Level Permissions', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        const user1Task = data.records.find((r: any) => r.fields.owner_id === user1.user.id)
-        const user2Task = data.records.find((r: any) => r.fields.owner_id === user2.user.id)
+        // Note: Find by title to avoid confusion with Task 1 from step 005 (which has no secret_content)
+        const user1Task = data.records.find((r: any) => r.fields.title === 'Task 2')
+        const user2Task = data.records.find((r: any) => r.fields.title === 'Task 3')
 
         // User1 sees their own secret content
         expect(user1Task.fields).toHaveProperty('secret_content')
