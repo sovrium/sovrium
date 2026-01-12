@@ -83,6 +83,7 @@ test.describe('List Team Members', () => {
       expect(members.length).toBe(0)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-LIST-MEMBERS-003: should return 403 when user not in organization',
     { tag: '@spec' },
@@ -121,6 +122,7 @@ test.describe('List Team Members', () => {
       expect(response.status()).toBe(403)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-LIST-MEMBERS-004: should return 404 when team does not exist',
     { tag: '@spec' },
@@ -147,6 +149,7 @@ test.describe('List Team Members', () => {
       expect(response.status()).toBe(404)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-LIST-MEMBERS-005: should return 400 when teamId missing',
     { tag: '@spec' },
@@ -173,6 +176,7 @@ test.describe('List Team Members', () => {
       expect(error.message).toContain('teamId')
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-LIST-MEMBERS-006: should return 401 when not authenticated',
     { tag: '@spec' },

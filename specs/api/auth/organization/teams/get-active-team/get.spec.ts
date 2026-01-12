@@ -77,6 +77,7 @@ test.describe('Get Active Team', () => {
       expect(data).toBeNull()
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-003: should include team organizationId in response',
     { tag: '@spec' },
@@ -114,6 +115,7 @@ test.describe('Get Active Team', () => {
       expect(team).toHaveProperty('organizationId', organization.id)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-004: should return 401 when not authenticated',
     { tag: '@spec' },
@@ -136,6 +138,7 @@ test.describe('Get Active Team', () => {
       expect(response.status()).toBe(401)
     }
   )
+
   test(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-005: placeholder',
     { tag: '@spec' },
@@ -149,6 +152,7 @@ test.describe('Get Active Team', () => {
       expect(true).toBe(true)
     }
   )
+
   test(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-006: placeholder',
     { tag: '@spec' },
@@ -162,6 +166,7 @@ test.describe('Get Active Team', () => {
       expect(true).toBe(true)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-GET-ACTIVE-REGRESSION: user can verify active team context persists across requests',
     { tag: '@regression' },

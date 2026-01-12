@@ -356,13 +356,11 @@ export const validateStoredChecksum = (
       const errorMsg =
         'Schema drift detected: checksum mismatch. The stored checksum does not match the recalculated checksum from the stored schema. This indicates database tampering or corruption.'
       logInfo(`[validateStoredChecksum] ${errorMsg}`)
-      return yield* Effect.fail(
-        new SQLExecutionError({
-          message: errorMsg,
-          sql: 'validateStoredChecksum',
-          cause: new Error(errorMsg),
-        })
-      )
+      return yield* new SQLExecutionError({
+        message: errorMsg,
+        sql: 'validateStoredChecksum',
+        cause: new Error(errorMsg),
+      })
     }
 
     logInfo('[validateStoredChecksum] Checksum validation passed')

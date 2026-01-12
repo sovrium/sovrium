@@ -325,7 +325,7 @@ const executeSchemaInit = (
 
             yield* logRollback
             // Re-throw the original error after logging rollback
-            return yield* Effect.fail(error)
+            return yield* error
           })
         )
       )
@@ -459,12 +459,10 @@ const initializeSchemaInternal = (
     logInfo(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
 
     if (tablesNeedUsersTable && !hasAuthConfig) {
-      return yield* Effect.fail(
-        new AuthConfigRequiredForUserFields({
-          message:
-            'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { methods: ["email-and-password"] } to your app schema.',
-        })
-      )
+      return yield* new AuthConfigRequiredForUserFields({
+        message:
+          'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { methods: ["email-and-password"] } to your app schema.',
+      })
     }
 
     // Get database URL from Effect Config (reads from environment)

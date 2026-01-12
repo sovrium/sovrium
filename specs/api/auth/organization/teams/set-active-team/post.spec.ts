@@ -80,6 +80,7 @@ test.describe('Set Active Team', () => {
       expect(data).toHaveProperty('activeTeamId', teamId)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-003: should return 400 when user not team member',
     { tag: '@spec' },
@@ -130,6 +131,7 @@ test.describe('Set Active Team', () => {
       expect(error.message).toContain('member')
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-004: should return 404 when team does not exist',
     { tag: '@spec' },
@@ -156,6 +158,7 @@ test.describe('Set Active Team', () => {
       expect(response.status()).toBe(404)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-005: should return 400 when teamId missing',
     { tag: '@spec' },
@@ -184,6 +187,7 @@ test.describe('Set Active Team', () => {
       expect(error.message).toContain('teamId')
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-006: should return 401 when not authenticated',
     { tag: '@spec' },
@@ -208,6 +212,7 @@ test.describe('Set Active Team', () => {
       expect(response.status()).toBe(401)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-REGRESSION: user can switch between teams and verify context updates',
     { tag: '@regression' },

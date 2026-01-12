@@ -93,20 +93,16 @@ export const ListActivityLogs = (
 
     // If user has no role, deny access
     if (!role) {
-      return yield* Effect.fail(
-        new ForbiddenError({
-          message: 'You do not have permission to access activity logs',
-        })
-      )
+      return yield* new ForbiddenError({
+        message: 'You do not have permission to access activity logs',
+      })
     }
 
     // Domain rule: Viewers cannot access activity logs
     if (role === 'viewer') {
-      return yield* Effect.fail(
-        new ForbiddenError({
-          message: 'You do not have permission to access activity logs',
-        })
-      )
+      return yield* new ForbiddenError({
+        message: 'You do not have permission to access activity logs',
+      })
     }
 
     // List activity logs with organization isolation (multi-tenant)

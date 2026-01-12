@@ -39,6 +39,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
+
   test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: should fallback to user role when not configured',
     { tag: '@spec' },
@@ -60,6 +61,7 @@ test.describe('Admin Default User Role', () => {
       expect((user.user as { role?: string }).role).toBe('user')
     }
   )
+
   test(
     'API-AUTH-ADMIN-OPT-DEFAULT-ROLE-REGRESSION: admin default role assignment workflow',
     { tag: '@regression' },

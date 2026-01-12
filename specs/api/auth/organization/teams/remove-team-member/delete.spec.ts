@@ -129,6 +129,7 @@ test.describe('Remove Team Member', () => {
       expect(response.status()).toBe(403)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-003: should return 400 when user is not team member',
     { tag: '@spec' },
@@ -173,6 +174,7 @@ test.describe('Remove Team Member', () => {
       expect(error.message).toContain('member')
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-004: should return 404 when team does not exist',
     { tag: '@spec' },
@@ -199,6 +201,7 @@ test.describe('Remove Team Member', () => {
       expect(response.status()).toBe(404)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-005: should return 400 when userId or teamId missing',
     { tag: '@spec' },
@@ -242,6 +245,7 @@ test.describe('Remove Team Member', () => {
       expect(error2.message).toContain('teamId')
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-006: should return 401 when not authenticated',
     { tag: '@spec' },
@@ -266,6 +270,7 @@ test.describe('Remove Team Member', () => {
       expect(response.status()).toBe(401)
     }
   )
+
   test.fixme(
     'API-AUTH-ORG-TEAMS-REMOVE-MEMBER-REGRESSION: owner can remove team members with full workflow',
     { tag: '@regression' },
