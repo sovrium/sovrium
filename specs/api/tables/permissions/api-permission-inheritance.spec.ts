@@ -37,7 +37,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   // @spec tests - EXHAUSTIVE coverage of role hierarchy behavior
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-INHERIT-001: owner role has access when explicitly listed',
     { tag: '@spec' },
     async ({
