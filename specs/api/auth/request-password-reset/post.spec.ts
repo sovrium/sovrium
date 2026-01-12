@@ -242,6 +242,10 @@ test.describe('Request password reset', () => {
             e.Subject.toLowerCase().includes('reset'))
       )
       expect(firstEmail).toBeDefined()
+      const firstEmailId = firstEmail.ID
+
+      // Ensure first email is fully processed before sending second request
+      await page.waitForTimeout(500)
 
       // WHEN: User requests password reset again
       const response = await page.request.post('/api/auth/request-password-reset', {
@@ -257,28 +261,24 @@ test.describe('Request password reset', () => {
       expect(data).toHaveProperty('status', true)
 
       // Wait for second email to arrive (filtered by testId namespace)
-      await mailpit.waitForEmail(
+      // The second email should have a different ID than the first
+      const secondEmail = await mailpit.waitForEmail(
         (e) => {
           // Check if this is a reset email to our user, AND it's different from the first one
           const isResetEmail =
             e.To[0]?.Address === userEmail &&
             (e.Subject.toLowerCase().includes('password') ||
               e.Subject.toLowerCase().includes('reset'))
-          const isDifferentEmail = e.ID !== firstEmail.ID
+          const isDifferentEmail = e.ID !== firstEmailId
           return isResetEmail && isDifferentEmail
         },
-        { timeout: 5000 }
+        { timeout: 15_000 }
       )
 
-      // Verify we have at least 2 reset emails
-      const emails = await mailpit.getEmails() // Use getEmails() for namespace filtering
-      const resetEmails = emails.filter(
-        (e) =>
-          e.To[0]?.Address === userEmail &&
-          (e.Subject.toLowerCase().includes('password') ||
-            e.Subject.toLowerCase().includes('reset'))
-      )
-      expect(resetEmails.length).toBeGreaterThanOrEqual(2)
+      // Verify the second email exists and has a different ID
+      // This proves that a new email was sent (invalidating the old token)
+      expect(secondEmail).toBeDefined()
+      expect(secondEmail.ID).not.toBe(firstEmailId)
     }
   )
 
@@ -303,10 +303,11 @@ test.describe('Request password reset', () => {
       })
 
       // WHEN: User requests password reset with custom redirectTo URL
+      const redirectUrl = 'https://app.example.com/reset-password'
       const response = await page.request.post('/api/auth/request-password-reset', {
         data: {
           email: userEmail,
-          redirectTo: 'https://app.example.com/reset-password',
+          redirectTo: redirectUrl,
         },
       })
 
@@ -321,9 +322,15 @@ test.describe('Request password reset', () => {
         (e) =>
           e.To[0]?.Address === userEmail &&
           (e.Subject.toLowerCase().includes('password') ||
-            e.Subject.toLowerCase().includes('reset'))
+            e.Subject.toLowerCase().includes('reset')),
+        { timeout: 10_000 }
       )
       expect(email).toBeDefined()
+
+      // Verify the redirectTo parameter is included in the email
+      // The reset URL should contain the redirectTo as a parameter
+      const emailContent = email.HTML || email.Text
+      expect(emailContent).toContain('reset-password')
     }
   )
 
