@@ -18,7 +18,7 @@ import {
  *
  * Source: src/cli.ts
  * Domain: cli
- * Spec Count: 8
+ * Spec Count: 7
  *
  * YAML Config Behavior:
  * - Starts server from valid YAML configuration file
