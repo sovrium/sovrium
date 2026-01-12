@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createTaggedError } from '@/domain/errors/create-tagged-error'
+
 /**
  * Auth Error
  *
  * Tagged error for authentication failures.
  */
-export class AuthError {
-  readonly _tag = 'AuthError'
-  constructor(readonly cause: unknown) {}
-}
+export const AuthError = createTaggedError('AuthError')
+export type AuthError = InstanceType<typeof AuthError>

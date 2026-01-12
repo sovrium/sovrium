@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createTaggedError } from '@/domain/errors/create-tagged-error'
+
 /**
  * Error class for app validation failures
  */
-export class AppValidationError {
-  readonly _tag = 'AppValidationError'
-  constructor(readonly cause: unknown) {}
-}
+export const AppValidationError = createTaggedError('AppValidationError')
+export type AppValidationError = InstanceType<typeof AppValidationError>

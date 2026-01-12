@@ -153,3 +153,49 @@ export const SchemaOrgImageUrl = Schema.String.annotations({
  * ```
  */
 export const optional = <A, I, R>(schema: Schema.Schema<A, I, R>) => Schema.optional(schema)
+
+/**
+ * Helper: Create Schema.org @type field
+ *
+ * Creates a Schema.Literal for Schema.org @type fields with standard annotation.
+ * Reduces duplication across all structured data schemas.
+ *
+ * @example
+ * ```typescript
+ * // Instead of:
+ * '@type': Schema.Literal('Person').annotations({ description: 'Schema.org type' }),
+ *
+ * // You can use:
+ * '@type': schemaType('Person'),
+ * ```
+ *
+ * Used in: Person, Organization, LocalBusiness, Product, Article, Breadcrumb, FAQPage, EducationEvent
+ */
+export const schemaType = <T extends string>(type: T) =>
+  Schema.Literal(type).annotations({
+    description: 'Schema.org type',
+  })
+
+/**
+ * Helper: Create positive integer field
+ *
+ * Creates a Schema.Int with a minimum value of 1, commonly used for:
+ * - Breadcrumb positions (1-indexed)
+ * - Review counts
+ * - Any count or index that must be positive
+ *
+ * @example
+ * ```typescript
+ * // Instead of:
+ * position: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({ description: 'Position' }),
+ *
+ * // You can use:
+ * position: positiveInt('Position'),
+ * ```
+ *
+ * Used in: BreadcrumbListItem (position), AggregateRating (reviewCount)
+ */
+export const positiveInt = (description: string) =>
+  Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+    description,
+  })

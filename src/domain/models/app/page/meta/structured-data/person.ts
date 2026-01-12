@@ -13,6 +13,7 @@ import {
   SchemaOrgSameAs,
   SchemaOrgTelephone,
   SchemaOrgUrl,
+  schemaType,
 } from './common-fields'
 import { PostalAddressSchema } from './postal-address'
 
@@ -23,9 +24,7 @@ import { PostalAddressSchema } from './postal-address'
  * Links person to their employer organization.
  */
 export const PersonWorksForSchema = Schema.Struct({
-  '@type': Schema.Literal('Organization').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Organization'),
   name: Schema.optional(
     Schema.String.annotations({
       description: 'Organization name',
@@ -96,9 +95,7 @@ export const PersonWorksForSchema = Schema.Struct({
  */
 export const PersonSchema = Schema.Struct({
   '@context': SchemaOrgContext,
-  '@type': Schema.Literal('Person').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Person'),
   name: Schema.String.annotations({
     description: "Person's full name",
   }),

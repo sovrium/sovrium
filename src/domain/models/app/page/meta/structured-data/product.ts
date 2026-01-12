@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SchemaOrgContext, schemaType } from './common-fields'
 
 /**
  * Product brand
@@ -14,9 +15,7 @@ import { Schema } from 'effect'
  * Identifies the product manufacturer or brand.
  */
 export const ProductBrandSchema = Schema.Struct({
-  '@type': Schema.Literal('Brand').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Brand'),
   name: Schema.optional(
     Schema.String.annotations({
       description: 'Brand name',
@@ -54,9 +53,7 @@ export const CurrencyCodeSchema = Schema.String.pipe(
  * - url: URL to purchase page
  */
 export const ProductOfferSchema = Schema.Struct({
-  '@type': Schema.Literal('Offer').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Offer'),
   price: Schema.optional(
     Schema.Union(Schema.String, Schema.Number).annotations({
       description: 'Product price',
@@ -87,9 +84,7 @@ export const ProductOfferSchema = Schema.Struct({
  * - reviewCount: Total number of reviews (integer)
  */
 export const AggregateRatingSchema = Schema.Struct({
-  '@type': Schema.Literal('AggregateRating').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('AggregateRating'),
   ratingValue: Schema.optional(
     Schema.Number.annotations({
       description: 'Average rating value',
@@ -168,12 +163,8 @@ export const AggregateRatingSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/product.schema.json
  */
 export const ProductSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
-  '@type': Schema.Literal('Product').annotations({
-    description: 'Schema.org type',
-  }),
+  '@context': SchemaOrgContext,
+  '@type': schemaType('Product'),
   name: Schema.String.annotations({
     description: 'Product name',
   }),

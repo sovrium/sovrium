@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { schemaType } from './common-fields'
 
 /**
  * ISO 3166-1 alpha-2 country code
@@ -74,9 +75,7 @@ export const CountryCodeSchema = Schema.String.pipe(
  * @see specs/app/pages/meta/structured-data/postal-address.schema.json
  */
 export const PostalAddressSchema = Schema.Struct({
-  '@type': Schema.Literal('PostalAddress').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('PostalAddress'),
   streetAddress: Schema.optional(
     Schema.String.annotations({
       description: 'Street address',

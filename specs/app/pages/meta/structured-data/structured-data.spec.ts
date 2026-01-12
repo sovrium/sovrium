@@ -501,10 +501,6 @@ test.describe('Structured Data', () => {
       })
 
       await test.step('APP-PAGES-STRUCTUREDDATA-001: Include Organization structured data', async () => {
-        const scriptContent = await page
-          .locator('script[type="application/ld+json"]')
-          .first()
-          .textContent()
         const allScripts = await page
           .locator('script[type="application/ld+json"]')
           .allTextContents()

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SchemaOrgContext, schemaType, positiveInt } from './common-fields'
 
 /**
  * Breadcrumb list item
@@ -21,12 +22,8 @@ import { Schema } from 'effect'
  * - item: URL to the breadcrumb page (clickable link)
  */
 export const BreadcrumbListItemSchema = Schema.Struct({
-  '@type': Schema.Literal('ListItem').annotations({
-    description: 'Schema.org type',
-  }),
-  position: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
-    description: 'Item position in breadcrumb trail',
-  }),
+  '@type': schemaType('ListItem'),
+  position: positiveInt('Item position in breadcrumb trail'),
   name: Schema.String.annotations({
     description: 'Breadcrumb label',
   }),
@@ -104,12 +101,8 @@ export const BreadcrumbListItemSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/breadcrumb.schema.json
  */
 export const BreadcrumbSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
-  '@type': Schema.Literal('BreadcrumbList').annotations({
-    description: 'Schema.org type',
-  }),
+  '@context': SchemaOrgContext,
+  '@type': schemaType('BreadcrumbList'),
   itemListElement: Schema.Array(BreadcrumbListItemSchema).annotations({
     description: 'Array of breadcrumb items',
   }),

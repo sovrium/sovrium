@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SchemaOrgContext, schemaType } from './common-fields'
 
 /**
  * FAQ answer
@@ -17,9 +18,7 @@ import { Schema } from 'effect'
  * - text: The answer text/content
  */
 export const FaqAnswerSchema = Schema.Struct({
-  '@type': Schema.Literal('Answer').annotations({
-    description: 'Schema.org Answer type',
-  }),
+  '@type': schemaType('Answer'),
   text: Schema.String.annotations({
     description: 'The answer text',
   }),
@@ -38,9 +37,7 @@ export const FaqAnswerSchema = Schema.Struct({
  * - acceptedAnswer: The answer object (Answer type with text)
  */
 export const FaqQuestionSchema = Schema.Struct({
-  '@type': Schema.Literal('Question').annotations({
-    description: 'Schema.org Question type',
-  }),
+  '@type': schemaType('Question'),
   name: Schema.String.annotations({
     description: 'The question text',
   }),
@@ -115,12 +112,8 @@ export const FaqQuestionSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/faq-page.schema.json
  */
 export const FaqPageSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
-  '@type': Schema.Literal('FAQPage').annotations({
-    description: 'Schema.org type',
-  }),
+  '@context': SchemaOrgContext,
+  '@type': schemaType('FAQPage'),
   mainEntity: Schema.Array(FaqQuestionSchema).annotations({
     description: 'Array of questions and answers',
   }),

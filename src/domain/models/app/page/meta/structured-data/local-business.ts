@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SchemaOrgContext, schemaType } from './common-fields'
 import { PostalAddressSchema } from './postal-address'
 
 /**
@@ -51,9 +52,7 @@ export const TimeSchema = Schema.String.pipe(
  * - closes: Closing time in HH:MM format (e.g., "18:00")
  */
 export const OpeningHoursSpecificationSchema = Schema.Struct({
-  '@type': Schema.Literal('OpeningHoursSpecification').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('OpeningHoursSpecification'),
   dayOfWeek: Schema.optional(
     Schema.Array(DayOfWeekSchema).annotations({
       description: 'Days these hours apply to',
@@ -74,9 +73,7 @@ export const OpeningHoursSpecificationSchema = Schema.Struct({
  * - longitude: Longitude as string (e.g., "7.7521", "144.9631")
  */
 export const GeoCoordinatesSchema = Schema.Struct({
-  '@type': Schema.Literal('GeoCoordinates').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('GeoCoordinates'),
   latitude: Schema.optional(
     Schema.String.annotations({
       description: 'Latitude',
@@ -167,12 +164,8 @@ export const GeoCoordinatesSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/local-business.schema.json
  */
 export const LocalBusinessSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
-  '@type': Schema.Literal('LocalBusiness').annotations({
-    description: 'Schema.org type',
-  }),
+  '@context': SchemaOrgContext,
+  '@type': schemaType('LocalBusiness'),
   name: Schema.String.annotations({
     description: 'Business name',
   }),

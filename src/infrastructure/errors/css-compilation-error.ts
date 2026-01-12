@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createTaggedError } from '@/domain/errors/create-tagged-error'
+
 /**
  * Error class for CSS compilation failures
  */
-export class CSSCompilationError {
-  readonly _tag = 'CSSCompilationError'
-  constructor(readonly cause: unknown) {}
-}
+export const CSSCompilationError = createTaggedError('CSSCompilationError')
+export type CSSCompilationError = InstanceType<typeof CSSCompilationError>

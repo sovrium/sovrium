@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SchemaOrgContext, schemaType } from './common-fields'
 
 /**
  * Article type
@@ -59,9 +60,7 @@ export const ArticleAuthorSchema = Schema.Union(
  * Required for Article structured data to be eligible for rich results.
  */
 export const PublisherLogoSchema = Schema.Struct({
-  '@type': Schema.Literal('ImageObject').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('ImageObject'),
   url: Schema.optional(
     Schema.String.annotations({
       description: 'Logo URL',
@@ -81,9 +80,7 @@ export const PublisherLogoSchema = Schema.Struct({
  * - logo: ImageObject with publisher logo URL
  */
 export const ArticlePublisherSchema = Schema.Struct({
-  '@type': Schema.Literal('Organization').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Organization'),
   name: Schema.optional(
     Schema.String.annotations({
       description: 'Publisher name',
@@ -156,9 +153,7 @@ export const ArticlePublisherSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/article.schema.json
  */
 export const ArticleSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
+  '@context': SchemaOrgContext,
   '@type': ArticleTypeSchema,
   headline: Schema.String.annotations({
     description: 'Article title',

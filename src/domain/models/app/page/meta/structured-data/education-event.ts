@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { positiveInt, schemaType } from './common-fields'
 import { PostalAddressSchema } from './postal-address'
 import { CurrencyCodeSchema } from './product'
 
@@ -52,9 +53,7 @@ export const EventStatusSchema = Schema.Literal(
  * - address: Venue address (PostalAddress object)
  */
 export const EventLocationSchema = Schema.Struct({
-  '@type': Schema.Literal('Place').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Place'),
   name: Schema.optional(
     Schema.String.annotations({
       description: 'Venue name',
@@ -121,9 +120,7 @@ export const TicketAvailabilitySchema = Schema.Literal(
  * - url: URL to ticket purchase page
  */
 export const EventOfferSchema = Schema.Struct({
-  '@type': Schema.Literal('Offer').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('Offer'),
   price: Schema.optional(
     Schema.Union(Schema.String, Schema.Number).annotations({
       description: 'Ticket price',
@@ -219,9 +216,7 @@ export const EventOfferSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/education-event.schema.json
  */
 export const EducationEventSchema = Schema.Struct({
-  '@type': Schema.Literal('EducationEvent').annotations({
-    description: 'Schema.org type',
-  }),
+  '@type': schemaType('EducationEvent'),
   name: Schema.String.annotations({
     description: 'Event name',
   }),
@@ -245,16 +240,8 @@ export const EducationEventSchema = Schema.Struct({
   location: Schema.optional(EventLocationSchema),
   organizer: Schema.optional(EventOrganizerSchema),
   offers: Schema.optional(EventOfferSchema),
-  maximumAttendeeCapacity: Schema.optional(
-    Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
-      description: 'Maximum number of attendees',
-    })
-  ),
-  minimumAttendeeCapacity: Schema.optional(
-    Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
-      description: 'Minimum number of attendees',
-    })
-  ),
+  maximumAttendeeCapacity: Schema.optional(positiveInt('Maximum number of attendees')),
+  minimumAttendeeCapacity: Schema.optional(positiveInt('Minimum number of attendees')),
 }).annotations({
   title: 'Education Event Schema',
   description: 'Schema.org EducationEvent structured data',

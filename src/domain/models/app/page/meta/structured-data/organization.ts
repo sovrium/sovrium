@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SchemaOrgContext, schemaType } from './common-fields'
 import { EducationEventSchema } from './education-event'
 import { PostalAddressSchema } from './postal-address'
 
@@ -80,12 +81,8 @@ import { PostalAddressSchema } from './postal-address'
  * @see specs/app/pages/meta/structured-data/organization.schema.json
  */
 export const OrganizationSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
-  '@type': Schema.Literal('Organization').annotations({
-    description: 'Schema.org type',
-  }),
+  '@context': SchemaOrgContext,
+  '@type': schemaType('Organization'),
   name: Schema.String.annotations({
     description: 'Organization name',
   }),

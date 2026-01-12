@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createTaggedError } from '@/domain/errors/create-tagged-error'
+
 /**
  * Error class for server creation failures
  */
-export class ServerCreationError {
-  readonly _tag = 'ServerCreationError'
-  constructor(readonly cause: unknown) {}
-}
+export const ServerCreationError = createTaggedError('ServerCreationError')
+export type ServerCreationError = InstanceType<typeof ServerCreationError>
