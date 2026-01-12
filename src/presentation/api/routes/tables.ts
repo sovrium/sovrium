@@ -42,6 +42,7 @@ import {
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { filterReadableFields } from '@/presentation/api/utils/field-read-filter'
+import { validateFilterFieldPermissions } from '@/presentation/api/utils/filter-field-validator'
 import {
   transformRecord,
   transformRecords,
@@ -741,6 +742,34 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Query user role from database (for field-level read permissions)
         const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Parse and validate filter parameter if present
+        const filterParam = c.req.query('filter')
+        if (filterParam) {
+          try {
+            const filter = JSON.parse(filterParam)
+            const forbiddenFields = validateFilterFieldPermissions(app, tableName, userRole, filter)
+
+            if (forbiddenFields.length > 0) {
+              return c.json(
+                {
+                  error: 'Forbidden',
+                  message: `Cannot filter by field: ${forbiddenFields[0]}`,
+                },
+                403
+              )
+            }
+          } catch {
+            // If JSON parsing fails, return 400 Bad Request
+            return c.json(
+              {
+                error: 'Bad Request',
+                message: 'Invalid filter parameter',
+              },
+              400
+            )
+          }
+        }
 
         return runEffect(
           c,
