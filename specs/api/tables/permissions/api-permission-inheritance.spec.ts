@@ -93,14 +93,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-INHERIT-002: admin cannot access owner-only resources',
     { tag: '@spec' },
     async ({
       request,
       startServerWithSchema,
       createAuthenticatedUser,
-      createAuthenticatedAdmin,
       createOrganization,
       addMember,
       executeQuery,
@@ -112,6 +111,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         auth: {
           emailAndPassword: true,
           organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -142,7 +142,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
 
       // Create admin user in the same org
       await signOut()
-      const admin = await createAuthenticatedAdmin({ email: 'admin@example.com' })
+      const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
       await addMember({
         organizationId: org.organization.id,
         userId: admin.user.id,
