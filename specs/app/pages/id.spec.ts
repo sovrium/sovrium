@@ -217,10 +217,16 @@ test.describe('Page ID', () => {
     'APP-PAGES-ID-REGRESSION: user can complete full page ID workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-ID-001: Validate as unique identifier', async () => {
+      // OPTIMIZATION: Consolidated from 6 startServerWithSchema calls to 2
+      // Group 1: Tests with explicit IDs (001, 002, 004, 005, 006) - all pages in one setup
+      // Group 2: Test 003 - page WITHOUT explicit ID (conflicting schema)
+
+      // Group 1: Comprehensive setup with all ID formats and multiple pages
+      await test.step('Setup: Start server with comprehensive ID configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
+            // 001: Custom string ID
             {
               id: 'home-page-123',
               name: 'home',
@@ -228,92 +234,31 @@ test.describe('Page ID', () => {
               meta: { lang: 'en-US', title: 'Home', description: 'Home page description' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-page-id="home-page-123"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-ID-002: Follow shared ID pattern from common definitions', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 002: Common pattern ID (page-1 style)
             {
               id: 'page-1',
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              name: 'page_one',
+              path: '/page-one',
+              meta: { lang: 'en-US', title: 'Page One', description: 'Page One' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-page-id="page-1"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-ID-003: Allow auto-generated ID (ID is optional)', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-ID-004: Accept UUID as identifier', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 004: UUID format ID
             {
               id: '550e8400-e29b-41d4-a716-446655440000',
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              name: 'uuid_page',
+              path: '/uuid-page',
+              meta: { lang: 'en-US', title: 'UUID Page', description: 'UUID Page' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/')
-        await expect(
-          page.locator('[data-page-id="550e8400-e29b-41d4-a716-446655440000"]')
-        ).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-ID-005: Accept numeric string identifiers', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 005: Numeric string ID
             {
               id: '12345',
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              name: 'numeric_page',
+              path: '/numeric-page',
+              meta: { lang: 'en-US', title: 'Numeric Page', description: 'Numeric Page' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-page-id="12345"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-ID-006: Ensure uniqueness across all pages', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              id: 'page-1',
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
-              sections: [],
-            },
+            // 006: Additional pages for uniqueness test
             {
               id: 'page-2',
               name: 'about',
@@ -330,12 +275,57 @@ test.describe('Page ID', () => {
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-ID-001: Validate as unique identifier', async () => {
         await page.goto('/')
+        await expect(page.locator('[data-page-id="home-page-123"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-ID-002: Follow shared ID pattern from common definitions', async () => {
+        await page.goto('/page-one')
         await expect(page.locator('[data-page-id="page-1"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-ID-004: Accept UUID as identifier', async () => {
+        await page.goto('/uuid-page')
+        await expect(
+          page.locator('[data-page-id="550e8400-e29b-41d4-a716-446655440000"]')
+        ).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-ID-005: Accept numeric string identifiers', async () => {
+        await page.goto('/numeric-page')
+        await expect(page.locator('[data-page-id="12345"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-ID-006: Ensure uniqueness across all pages', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-page-id="home-page-123"]')).toBeVisible()
         await page.goto('/about')
         await expect(page.locator('[data-page-id="page-2"]')).toBeVisible()
         await page.goto('/contact')
         await expect(page.locator('[data-page-id="page-3"]')).toBeVisible()
+      })
+
+      // Group 2: Test 003 requires page WITHOUT explicit ID (conflicting schema)
+      await test.step('Setup: Start server with auto-generated ID configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
+              sections: [],
+            },
+          ],
+        })
+      })
+
+      await test.step('APP-PAGES-ID-003: Allow auto-generated ID (ID is optional)', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
       })
     }
   )

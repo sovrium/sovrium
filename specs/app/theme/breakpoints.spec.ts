@@ -414,7 +414,13 @@ test.describe('Breakpoints', () => {
     'APP-THEME-BREAKPOINTS-REGRESSION: user can complete full breakpoints workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-BREAKPOINTS-001: Validates Tailwind breakpoint values', async () => {
+      // OPTIMIZATION: Consolidated from 9 startServerWithSchema calls to 3
+      // Group 1 (Tests 001, 003-004, 006-009): Standard Tailwind breakpoints with all section types
+      // Group 2 (Test 002): Custom pixel-based breakpoints (mobile, tablet)
+      // Group 3 (Test 005): Custom semantic breakpoints (tablet, desktop, wide)
+
+      // Group 1: Comprehensive standard breakpoints with all section types
+      await test.step('Setup: Start server with comprehensive standard breakpoints', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -432,6 +438,7 @@ test.describe('Breakpoints', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // For tests 001, 004
                 {
                   type: 'div',
                   props: {
@@ -440,11 +447,35 @@ test.describe('Breakpoints', () => {
                   },
                   children: ['Responsive Content'],
                 },
+                // For test 007
+                {
+                  type: 'grid',
+                  props: {
+                    'data-testid': 'responsive-grid',
+                  },
+                },
+                // For test 008
+                {
+                  type: 'navigation',
+                  props: {
+                    'data-testid': 'main-nav',
+                  },
+                },
+                // For test 009
+                {
+                  type: 'hero',
+                  props: {
+                    'data-testid': 'hero-section',
+                  },
+                },
               ],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-001: Validates Tailwind breakpoint values', async () => {
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -456,7 +487,47 @@ test.describe('Breakpoints', () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-002: Validates pixel-based breakpoints', async () => {
+      await test.step('APP-THEME-BREAKPOINTS-003: Validates progressive enhancement strategy', async () => {
+        const breakpoints = await page.evaluate(() => {
+          const sm = window.matchMedia('(min-width: 640px)').matches
+          const md = window.matchMedia('(min-width: 768px)').matches
+          const lg = window.matchMedia('(min-width: 1024px)').matches
+          return { sm, md, lg }
+        })
+        expect(breakpoints).toBeTruthy()
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-004: Validates lowercase naming convention', async () => {
+        await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-006: Validates consistency across responsive system', async () => {
+        const breakpoints = await page.evaluate(() => {
+          const sm = window.matchMedia('(min-width: 640px)').matches
+          const md = window.matchMedia('(min-width: 768px)').matches
+          const lg = window.matchMedia('(min-width: 1024px)').matches
+          return { sm, md, lg }
+        })
+        expect(breakpoints).toBeTruthy()
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-007: Renders grid with media query at 768px', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="responsive-grid"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-008: Renders hamburger menu below 1024px', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="main-nav"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-009: Renders with increasing padding at breakpoints', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="hero-section"]')).toBeVisible()
+      })
+
+      // Group 2: Custom pixel-based breakpoints (mobile, tablet)
+      await test.step('Setup: Start server with custom pixel-based breakpoints', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -484,70 +555,14 @@ test.describe('Breakpoints', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-002: Validates pixel-based breakpoints', async () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-BREAKPOINTS-003: Validates progressive enhancement strategy', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              sm: '640px',
-              md: '768px',
-              lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const breakpoints = await page.evaluate(() => {
-          const sm = window.matchMedia('(min-width: 640px)').matches
-          const md = window.matchMedia('(min-width: 768px)').matches
-          const lg = window.matchMedia('(min-width: 1024px)').matches
-          return { sm, md, lg }
-        })
-        expect(breakpoints).toBeTruthy()
-      })
-
-      await test.step('APP-THEME-BREAKPOINTS-004: Validates lowercase naming convention', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              sm: '640px',
-              md: '768px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'breakpoints',
-                    className: 'sm:block md:flex',
-                  },
-                  children: ['Responsive Content'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-BREAKPOINTS-005: Validates custom breakpoint naming', async () => {
+      // Group 3: Custom semantic breakpoints (tablet, desktop, wide)
+      await test.step('Setup: Start server with custom semantic breakpoints', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -576,122 +591,10 @@ test.describe('Breakpoints', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-BREAKPOINTS-005: Validates custom breakpoint naming', async () => {
         await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-BREAKPOINTS-006: Validates consistency across responsive system', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              sm: '640px',
-              md: '768px',
-              lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const breakpoints = await page.evaluate(() => {
-          const sm = window.matchMedia('(min-width: 640px)').matches
-          const md = window.matchMedia('(min-width: 768px)').matches
-          const lg = window.matchMedia('(min-width: 1024px)').matches
-          return { sm, md, lg }
-        })
-        expect(breakpoints).toBeTruthy()
-      })
-
-      await test.step('APP-THEME-BREAKPOINTS-007: Renders grid with media query at 768px', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              md: '768px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'grid',
-                  props: {
-                    'data-testid': 'responsive-grid',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="responsive-grid"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-BREAKPOINTS-008: Renders hamburger menu below 1024px', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'navigation',
-                  props: {
-                    'data-testid': 'main-nav',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="main-nav"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-BREAKPOINTS-009: Renders with increasing padding at breakpoints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              sm: '640px',
-              md: '768px',
-              lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'hero',
-                  props: {
-                    'data-testid': 'hero-section',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="hero-section"]')).toBeVisible()
       })
     }
   )

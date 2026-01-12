@@ -671,97 +671,51 @@ test.describe('Pages', () => {
     'APP-PAGES-REGRESSION: user can complete full pages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-001: Validates as pages array with minimum 1 item', async () => {
+      // OPTIMIZATION: Consolidated from 17 startServerWithSchema calls to 3
+      // Group 1: Comprehensive multi-page with layout, scripts, metadata - covers 001-006, 008-010, 012, 016
+      // Group 2: Blocks with multiple pages - covers 007, 011, 015
+      // Group 3: Theme + Languages + Blocks (integration) - covers 013, 014, 017
+
+      // ============================================================================
+      // GROUP 1: Comprehensive multi-page configuration
+      // Covers tests: 001, 002, 003, 004, 005, 006, 008, 009, 010, 012, 016
+      // ============================================================================
+      await test.step('Setup: Start server with comprehensive multi-page configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
+            // 001, 004, 010: home page (root path)
             {
+              id: 'homepage',
               name: 'home',
               path: '/',
-              meta: { lang: 'en-US', title: 'Home Page', description: 'Home page description' },
+              meta: { lang: 'en-US', title: 'Home', description: 'Home page description' },
+              layout: { navigation: { logo: '/logo.svg' } },
               sections: [],
+              scripts: { features: { analytics: true } },
             },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-002: Validates with minimal configuration', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 002, 010: about page
             {
               name: 'about',
               path: '/about',
               meta: { lang: 'en-US', title: 'About Us', description: 'About us page' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/about')
-        await expect(page).toHaveTitle('About Us')
-        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-003: Accepts complete page configuration', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              id: 'homepage',
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Welcome', description: 'Welcome page' },
-              layout: { navigation: { logo: '/logo.svg' } },
-              sections: [],
-              scripts: { features: { analytics: true } },
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-page-id="homepage"]')).toBeVisible()
-        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-004: Accepts root path for homepage', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page).toHaveURL(/\/$/)
-        await expect(page).toHaveTitle('Home')
-      })
-
-      await test.step('APP-PAGES-005: Accepts nested URL paths', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 005: nested path
             {
               name: 'pricing',
               path: '/products/pricing',
               meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/products/pricing')
-        await expect(page).toHaveURL(/\/products\/pricing/)
-        await expect(page).toHaveTitle('Pricing')
-      })
-
-      await test.step('APP-PAGES-006: Supports direct component definitions in sections', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 010: contact page
+            {
+              name: 'contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact', description: 'Contact page' },
+              sections: [],
+            },
+            // 006: direct sections with section#hero h1
             {
               name: 'simple_page',
               path: '/simple',
@@ -774,40 +728,7 @@ test.describe('Pages', () => {
                 },
               ],
             },
-          ],
-        })
-        await page.goto('/simple')
-        await expect(page.locator('section#hero h1')).toHaveText('Welcome')
-      })
-
-      await test.step('APP-PAGES-007: Supports block references with $variable syntax', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [
-            {
-              name: 'hero',
-              type: 'section',
-              props: { id: 'hero' },
-              children: [{ type: 'h1', children: ['$title'] }],
-            },
-          ],
-          pages: [
-            {
-              name: 'landing',
-              path: '/landing',
-              meta: { lang: 'en-US', title: 'Landing', description: 'Landing page' },
-              sections: [{ block: 'hero', vars: { title: 'Welcome to Our Platform' } }],
-            },
-          ],
-        })
-        await page.goto('/landing')
-        await expect(page.locator('section#hero h1')).toHaveText('Welcome to Our Platform')
-      })
-
-      await test.step('APP-PAGES-008: Orchestrates global layout components', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 008: full layout (banner, navigation, footer, sidebar)
             {
               name: 'full_layout',
               path: '/full',
@@ -820,26 +741,7 @@ test.describe('Pages', () => {
               },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/full')
-        await expect(page.locator('body')).toMatchAriaSnapshot(`
-          - banner:
-            - paragraph: New feature available!
-          - navigation:
-            - link "Logo":
-              - /url: /
-              - img "Logo"
-          - complementary
-          - main
-          - contentinfo: © 2025 Company
-        `)
-      })
-
-      await test.step('APP-PAGES-009: Manages client-side scripts and features', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 009: scripts (external)
             {
               name: 'interactive',
               path: '/interactive',
@@ -850,81 +752,7 @@ test.describe('Pages', () => {
               },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/interactive')
-        await expect(page.locator('script[src="https://cdn.example.com/script.js"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-010: Supports multiple page configurations', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-              sections: [],
-            },
-            {
-              name: 'about',
-              path: '/about',
-              meta: { lang: 'en-US', title: 'About', description: 'About page' },
-              sections: [],
-            },
-            {
-              name: 'pricing',
-              path: '/pricing',
-              meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
-              sections: [],
-            },
-            {
-              name: 'contact',
-              path: '/contact',
-              meta: { lang: 'en-US', title: 'Contact', description: 'Contact page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page).toHaveTitle('Home')
-        await page.goto('/about')
-        await expect(page).toHaveTitle('About')
-        await page.goto('/pricing')
-        await expect(page).toHaveTitle('Pricing')
-      })
-
-      await test.step('APP-PAGES-011: Enables block reusability across pages via $ref', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [
-            { name: 'cta', type: 'section', children: [{ type: 'button', children: ['$label'] }] },
-          ],
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-              sections: [{ block: 'cta', vars: { label: 'Get Started' } }],
-            },
-            {
-              name: 'pricing',
-              path: '/pricing',
-              meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
-              sections: [{ block: 'cta', vars: { label: 'Buy Now' } }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('button')).toHaveText('Get Started')
-        await page.goto('/pricing')
-        await expect(page.locator('button')).toHaveText('Buy Now')
-      })
-
-      await test.step('APP-PAGES-012: Supports complete metadata configuration beyond basic SEO', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 012: complete metadata
             {
               name: 'product_page',
               path: '/product',
@@ -949,119 +777,7 @@ test.describe('Pages', () => {
               },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/product')
-        await expect(page).toHaveTitle('Amazing Product')
-        await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
-          'content',
-          'Amazing Product'
-        )
-        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
-          'content',
-          'summary_large_image'
-        )
-      })
-
-      await test.step('APP-PAGES-013: Applies global theme to page elements', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { colors: { primary: '#3B82F6', secondary: '#10B981' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-              sections: [
-                {
-                  type: 'section',
-                  props: { className: 'bg-primary text-white' },
-                  children: [
-                    { type: 'h1', props: { className: 'font-sans' }, children: ['Welcome'] },
-                  ],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const section = page.locator('section')
-        await expect(section).toHaveClass(/bg-primary/)
-        await expect(section).toHaveCSS('background-color', 'rgb(59, 130, 246)')
-      })
-
-      await test.step('APP-PAGES-014: Adapts page content based on selected language', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          languages: {
-            default: 'en',
-            supported: [
-              { code: 'en', locale: 'en-US', label: 'English' },
-              { code: 'fr', locale: 'fr-FR', label: 'Français' },
-            ],
-            translations: { en: { 'hero.title': 'Welcome' }, fr: { 'hero.title': 'Bienvenue' } },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-              sections: [{ type: 'h1', children: ['$t:hero.title'] }],
-            },
-            {
-              name: 'home_french',
-              path: '/fr',
-              meta: { lang: 'fr-FR', title: 'Accueil', description: 'Page accueil' },
-              sections: [{ type: 'h1', children: ['$t:hero.title'] }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('h1')).toHaveText('Welcome')
-        await page.goto('/fr')
-        await expect(page.locator('h1')).toHaveText('Bienvenue')
-      })
-
-      await test.step('APP-PAGES-015: Composes pages from reusable blocks', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [
-            {
-              name: 'hero',
-              type: 'section',
-              children: [
-                { type: 'h1', children: ['$title'] },
-                { type: 'button', children: ['$cta'] },
-              ],
-            },
-          ],
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-              sections: [{ block: 'hero', vars: { title: 'Welcome', cta: 'Get Started' } }],
-            },
-            {
-              name: 'pricing',
-              path: '/pricing',
-              meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
-              sections: [{ block: 'hero', vars: { title: 'Pricing', cta: 'Buy Now' } }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('h1')).toHaveText('Welcome')
-        await expect(page.locator('button')).toHaveText('Get Started')
-        await page.goto('/pricing')
-        await expect(page.locator('h1')).toHaveText('Pricing')
-        await expect(page.locator('button')).toHaveText('Buy Now')
-      })
-
-      await test.step('APP-PAGES-016: Supports responsive design via className utilities', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 016: responsive design
             {
               name: 'responsive',
               path: '/responsive',
@@ -1082,6 +798,85 @@ test.describe('Pages', () => {
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-001: Validates as pages array with minimum 1 item', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-002: Validates with minimal configuration', async () => {
+        await page.goto('/about')
+        await expect(page).toHaveTitle('About Us')
+        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-003: Accepts complete page configuration', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-page-id="homepage"]')).toBeVisible()
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-004: Accepts root path for homepage', async () => {
+        await page.goto('/')
+        await expect(page).toHaveURL(/\/$/)
+        await expect(page).toHaveTitle('Home')
+      })
+
+      await test.step('APP-PAGES-005: Accepts nested URL paths', async () => {
+        await page.goto('/products/pricing')
+        await expect(page).toHaveURL(/\/products\/pricing/)
+        await expect(page).toHaveTitle('Pricing')
+      })
+
+      await test.step('APP-PAGES-006: Supports direct component definitions in sections', async () => {
+        await page.goto('/simple')
+        await expect(page.locator('section#hero h1')).toHaveText('Welcome')
+      })
+
+      await test.step('APP-PAGES-008: Orchestrates global layout components', async () => {
+        await page.goto('/full')
+        await expect(page.locator('body')).toMatchAriaSnapshot(`
+          - banner:
+            - paragraph: New feature available!
+          - navigation:
+            - link "Logo":
+              - /url: /
+              - img "Logo"
+          - complementary
+          - main
+          - contentinfo: © 2025 Company
+        `)
+      })
+
+      await test.step('APP-PAGES-009: Manages client-side scripts and features', async () => {
+        await page.goto('/interactive')
+        await expect(page.locator('script[src="https://cdn.example.com/script.js"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-010: Supports multiple page configurations', async () => {
+        await page.goto('/')
+        await expect(page).toHaveTitle('Home')
+        await page.goto('/about')
+        await expect(page).toHaveTitle('About Us')
+        await page.goto('/products/pricing')
+        await expect(page).toHaveTitle('Pricing')
+      })
+
+      await test.step('APP-PAGES-012: Supports complete metadata configuration beyond basic SEO', async () => {
+        await page.goto('/product')
+        await expect(page).toHaveTitle('Amazing Product')
+        await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+          'content',
+          'Amazing Product'
+        )
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+          'content',
+          'summary_large_image'
+        )
+      })
+
+      await test.step('APP-PAGES-016: Supports responsive design via className utilities', async () => {
         await page.goto('/responsive')
         const section = page.locator('section')
         await expect(section).toHaveClass(/grid/)
@@ -1089,7 +884,91 @@ test.describe('Pages', () => {
         await expect(section).toHaveClass(/md:grid-cols-2/)
       })
 
-      await test.step('APP-PAGES-017: Demonstrates end-to-end integration of all page-building features', async () => {
+      // ============================================================================
+      // GROUP 2: Blocks with multiple pages
+      // Covers tests: 007, 011, 015
+      // ============================================================================
+      await test.step('Setup: Start server with blocks configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            // 007: hero block with $variable
+            {
+              name: 'hero',
+              type: 'section',
+              props: { id: 'hero' },
+              children: [
+                { type: 'h1', children: ['$title'] },
+                { type: 'button', children: ['$cta'] },
+              ],
+            },
+            // 011: cta block
+            {
+              name: 'cta',
+              type: 'section',
+              children: [{ type: 'button', children: ['$label'] }],
+            },
+          ],
+          pages: [
+            // 007: landing page with hero block
+            {
+              name: 'landing',
+              path: '/landing',
+              meta: { lang: 'en-US', title: 'Landing', description: 'Landing page' },
+              sections: [
+                { block: 'hero', vars: { title: 'Welcome to Our Platform', cta: 'Get Started' } },
+              ],
+            },
+            // 011, 015: home with cta/hero blocks
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
+              sections: [
+                { block: 'cta', vars: { label: 'Get Started' } },
+                { block: 'hero', vars: { title: 'Welcome', cta: 'Get Started' } },
+              ],
+            },
+            // 011, 015: pricing with cta/hero blocks
+            {
+              name: 'pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
+              sections: [
+                { block: 'cta', vars: { label: 'Buy Now' } },
+                { block: 'hero', vars: { title: 'Pricing', cta: 'Buy Now' } },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('APP-PAGES-007: Supports block references with $variable syntax', async () => {
+        await page.goto('/landing')
+        await expect(page.locator('section#hero h1')).toHaveText('Welcome to Our Platform')
+      })
+
+      await test.step('APP-PAGES-011: Enables block reusability across pages via $ref', async () => {
+        await page.goto('/')
+        await expect(page.locator('button').first()).toHaveText('Get Started')
+        await page.goto('/pricing')
+        await expect(page.locator('button').first()).toHaveText('Buy Now')
+      })
+
+      await test.step('APP-PAGES-015: Composes pages from reusable blocks', async () => {
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Welcome')
+        await expect(page.locator('button').last()).toHaveText('Get Started')
+        await page.goto('/pricing')
+        await expect(page.locator('h1')).toHaveText('Pricing')
+        await expect(page.locator('button').last()).toHaveText('Buy Now')
+      })
+
+      // ============================================================================
+      // GROUP 3: Theme + Languages + Blocks (integration test)
+      // Covers tests: 013, 014, 017
+      // ============================================================================
+      await test.step('Setup: Start server with theme, languages, and blocks', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: { colors: { primary: '#3B82F6', secondary: '#10B981' } },
@@ -1116,20 +995,54 @@ test.describe('Pages', () => {
             },
           ],
           pages: [
+            // 013: theme colors - page with bg-primary section
+            {
+              name: 'themed_home',
+              path: '/themed',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
+              sections: [
+                {
+                  type: 'section',
+                  props: { className: 'bg-primary text-white' },
+                  children: [
+                    { type: 'h1', props: { className: 'font-sans' }, children: ['Welcome'] },
+                  ],
+                },
+              ],
+            },
+            // 014, 017: English home with translation
             {
               name: 'home_english',
               path: '/',
-              meta: { lang: 'en', title: 'Home', description: 'Home page' },
+              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
               sections: [{ block: 'hero', vars: { title: '$t:hero.title' } }],
             },
+            // 014, 017: French home with translation
             {
               name: 'home_french',
               path: '/fr',
-              meta: { lang: 'fr', title: 'Accueil', description: 'Page accueil' },
+              meta: { lang: 'fr-FR', title: 'Accueil', description: 'Page accueil' },
               sections: [{ block: 'hero', vars: { title: '$t:hero.title' } }],
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-013: Applies global theme to page elements', async () => {
+        await page.goto('/themed')
+        const section = page.locator('section')
+        await expect(section).toHaveClass(/bg-primary/)
+        await expect(section).toHaveCSS('background-color', 'rgb(59, 130, 246)')
+      })
+
+      await test.step('APP-PAGES-014: Adapts page content based on selected language', async () => {
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Welcome')
+        await page.goto('/fr')
+        await expect(page.locator('h1')).toHaveText('Bienvenue')
+      })
+
+      await test.step('APP-PAGES-017: Demonstrates end-to-end integration of all page-building features', async () => {
         await page.goto('/')
         await expect(page.locator('section')).toHaveClass(/bg-primary/)
         await expect(page.locator('h1')).toHaveText('Welcome')

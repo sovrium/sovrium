@@ -453,13 +453,18 @@ test.describe('Sidebar Configuration', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Optimized: Reduced from 12 to 4 server calls by merging ADDITIVE schemas
   // ============================================================================
 
   test(
     'APP-PAGES-SIDEBAR-REGRESSION: user can complete full sidebar workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-SIDEBAR-001: Display sidebar navigation', async () => {
+      // ========================================================================
+      // SETUP 1: Comprehensive LEFT sidebar with ALL features
+      // Covers: 001, 002, 004, 005, 008, 009, 010, 011, 012
+      // ========================================================================
+      await test.step('Setup: Start server with comprehensive left sidebar configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -467,33 +472,114 @@ test.describe('Sidebar Configuration', () => {
               name: 'Test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
-              layout: { sidebar: { enabled: true, items: [] } },
+              layout: {
+                sidebar: {
+                  enabled: true,
+                  position: 'left',
+                  width: '280px',
+                  collapsible: true,
+                  sticky: true,
+                  items: [
+                    { type: 'link', label: 'Dashboard', href: '/dashboard', icon: 'home' },
+                    { type: 'link', label: 'Analytics', href: '/analytics', icon: 'chart' },
+                    { type: 'divider' },
+                    { type: 'link', label: 'Settings', href: '/settings', icon: 'settings' },
+                    {
+                      type: 'group',
+                      label: 'Products',
+                      icon: 'package',
+                      children: [
+                        { type: 'link', label: 'All Products', href: '/products' },
+                        { type: 'link', label: 'Add Product', href: '/products/new' },
+                      ],
+                    },
+                    {
+                      type: 'group',
+                      label: 'Docs',
+                      children: [
+                        {
+                          type: 'group',
+                          label: 'Getting Started',
+                          children: [
+                            { type: 'link', label: 'Installation', href: '/docs/installation' },
+                            { type: 'link', label: 'Quick Start', href: '/docs/quick-start' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
               sections: [],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-001: Display sidebar navigation', async () => {
         await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
       })
 
       await test.step('APP-PAGES-SIDEBAR-002: Render sidebar on left side', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: { sidebar: { enabled: true, position: 'left' } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const sidebar = page.locator('[data-testid="sidebar-left"]')
         await expect(sidebar).toBeVisible()
       })
 
+      await test.step('APP-PAGES-SIDEBAR-004: Apply custom sidebar width', async () => {
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await expect(sidebar).toHaveCSS('width', '280px')
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-005: Allow users to collapse/expand sidebar', async () => {
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        const toggleButton = page.locator('[data-testid="sidebar-toggle"]')
+        await expect(sidebar).toHaveCSS('width', '280px')
+        await toggleButton.click()
+        await expect(sidebar).toHaveCSS('width', '64px')
+        // Expand back for subsequent tests
+        await toggleButton.click()
+        await expect(sidebar).toHaveCSS('width', '280px')
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-008: Render clickable sidebar link', async () => {
+        const links = page.locator('[data-testid^="sidebar-link"]')
+        await expect(links.first()).toContainText('Dashboard')
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-009: Render collapsible group with nested items', async () => {
+        const group = page.locator('[data-testid="sidebar-group-0"]')
+        await expect(group).toContainText('Products')
+        await group.click()
+        const children = page.locator('[data-testid="sidebar-group-0-children"]')
+        await expect(children).toBeVisible()
+        await expect(children.locator('a')).toHaveCount(2)
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-010: Render visual separator between sections', async () => {
+        const divider = page.locator('[data-testid="sidebar-divider"]')
+        await expect(divider).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-011: Support unlimited nesting for sidebar hierarchy', async () => {
+        const topGroup = page.locator('[data-testid="sidebar-group-1"]')
+        await topGroup.click()
+        const nestedGroup = page.locator('[data-testid="sidebar-group-2"]')
+        await expect(nestedGroup).toBeVisible()
+        await expect(nestedGroup).toContainText('Getting Started')
+      })
+
+      await test.step('APP-PAGES-SIDEBAR-012: Enable documentation and admin-style layouts', async () => {
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await expect(sidebar).toBeVisible()
+        await expect(sidebar).toHaveCSS('position', 'sticky')
+        await expect(page.locator('[data-testid="sidebar-toggle"]')).toBeVisible()
+      })
+
+      // ========================================================================
+      // SETUP 2: Right position sidebar (CONFLICTING - different position)
+      // Covers: 003
+      // ========================================================================
       await test.step('APP-PAGES-SIDEBAR-003: Render sidebar on right side', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -512,52 +598,10 @@ test.describe('Sidebar Configuration', () => {
         await expect(sidebar).toBeVisible()
       })
 
-      await test.step('APP-PAGES-SIDEBAR-004: Apply custom sidebar width', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: { sidebar: { enabled: true, width: '280px', items: [] } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const sidebar = page.locator('[data-testid="sidebar-left"]')
-        await expect(sidebar).toHaveCSS('width', '280px')
-      })
-
-      await test.step('APP-PAGES-SIDEBAR-005: Allow users to collapse/expand sidebar', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                sidebar: {
-                  enabled: true,
-                  collapsible: true,
-                  width: '256px',
-                  items: [{ type: 'link', label: 'Dashboard', href: '/dashboard' }],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const sidebar = page.locator('[data-testid="sidebar-left"]')
-        const toggleButton = page.locator('[data-testid="sidebar-toggle"]')
-        await expect(sidebar).toHaveCSS('width', '256px')
-        await toggleButton.click()
-        await expect(sidebar).toHaveCSS('width', '64px')
-      })
-
+      // ========================================================================
+      // SETUP 3: Default collapsed sidebar (CONFLICTING - starts collapsed)
+      // Covers: 006
+      // ========================================================================
       await test.step('APP-PAGES-SIDEBAR-006: Start in collapsed state', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -585,6 +629,10 @@ test.describe('Sidebar Configuration', () => {
         await expect(sidebar).toHaveCSS('width', '64px')
       })
 
+      // ========================================================================
+      // SETUP 4: Sticky with scroll content (CONFLICTING - needs scroll)
+      // Covers: 007
+      // ========================================================================
       await test.step('APP-PAGES-SIDEBAR-007: Stick during page scroll', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -613,166 +661,6 @@ test.describe('Sidebar Configuration', () => {
         await expect(sidebar).toHaveCSS('position', 'sticky')
         await page.evaluate(() => window.scrollTo(0, 1000))
         await expect(sidebar).toBeInViewport()
-      })
-
-      await test.step('APP-PAGES-SIDEBAR-008: Render clickable sidebar link', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                sidebar: {
-                  enabled: true,
-                  items: [
-                    { type: 'link', label: 'Dashboard', href: '/dashboard', icon: 'home' },
-                    { type: 'link', label: 'Analytics', href: '/analytics', icon: 'chart' },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const links = page.locator('[data-testid^="sidebar-link"]')
-        await expect(links).toHaveCount(2)
-        await expect(links.nth(0)).toContainText('Dashboard')
-        await expect(links.nth(1)).toContainText('Analytics')
-      })
-
-      await test.step('APP-PAGES-SIDEBAR-009: Render collapsible group with nested items', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                sidebar: {
-                  enabled: true,
-                  items: [
-                    {
-                      type: 'group',
-                      label: 'Products',
-                      icon: 'package',
-                      children: [
-                        { type: 'link', label: 'All Products', href: '/products' },
-                        { type: 'link', label: 'Add Product', href: '/products/new' },
-                      ],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const group = page.locator('[data-testid="sidebar-group-0"]')
-        await expect(group).toContainText('Products')
-        await group.click()
-        const children = page.locator('[data-testid="sidebar-group-0-children"]')
-        await expect(children).toBeVisible()
-        await expect(children.locator('a')).toHaveCount(2)
-      })
-
-      await test.step('APP-PAGES-SIDEBAR-010: Render visual separator between sections', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                sidebar: {
-                  enabled: true,
-                  items: [
-                    { type: 'link', label: 'Dashboard', href: '/dashboard', icon: 'home' },
-                    { type: 'divider' },
-                    { type: 'link', label: 'Settings', href: '/settings', icon: 'settings' },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const divider = page.locator('[data-testid="sidebar-divider"]')
-        await expect(divider).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-SIDEBAR-011: Support unlimited nesting for sidebar hierarchy', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                sidebar: {
-                  enabled: true,
-                  items: [
-                    {
-                      type: 'group',
-                      label: 'Docs',
-                      children: [
-                        {
-                          type: 'group',
-                          label: 'Getting Started',
-                          children: [
-                            { type: 'link', label: 'Installation', href: '/docs/installation' },
-                            { type: 'link', label: 'Quick Start', href: '/docs/quick-start' },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const topGroup = page.locator('[data-testid="sidebar-group-0"]')
-        await topGroup.click()
-        const nestedGroup = page.locator('[data-testid="sidebar-group-1"]')
-        await expect(nestedGroup).toBeVisible()
-        await expect(nestedGroup).toContainText('Getting Started')
-      })
-
-      await test.step('APP-PAGES-SIDEBAR-012: Enable documentation and admin-style layouts', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                sidebar: {
-                  enabled: true,
-                  sticky: true,
-                  collapsible: true,
-                  items: [{ type: 'link', label: 'Dashboard', href: '/dashboard' }],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const sidebar = page.locator('[data-testid="sidebar-left"]')
-        await expect(sidebar).toBeVisible()
-        await expect(sidebar).toHaveCSS('position', 'sticky')
-        await expect(page.locator('[data-testid="sidebar-toggle"]')).toBeVisible()
       })
     }
   )

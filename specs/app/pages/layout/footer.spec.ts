@@ -564,81 +564,32 @@ test.describe('Footer Configuration', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // OPTIMIZATION: Consolidated server calls - from 14 calls to 3 calls
+  // Steps with ADDITIVE schemas share server setup
+  // Steps with CONFLICTING schemas need separate calls
   // ============================================================================
 
   test(
     'APP-PAGES-FOOTER-REGRESSION: user can complete full footer workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-FOOTER-001: Display footer at bottom of page', async () => {
+      // ========================================================================
+      // SETUP 1: Comprehensive footer with ALL features for most tests
+      // Covers: 001, 002, 003, 004, 005, 006, 007, 009, 010, 011, 013, 014
+      // ========================================================================
+      await test.step('Setup: Start server with comprehensive footer configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
             {
-              name: 'test',
+              name: 'Test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { footer: { enabled: true } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-FOOTER-002: Display footer logo', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: { footer: { enabled: true, logo: './logo-footer.svg' } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="footer-logo"]')).toHaveAttribute(
-          'src',
-          './logo-footer.svg'
-        )
-      })
-
-      await test.step('APP-PAGES-FOOTER-003: Render company description', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: { enabled: true, description: 'Building the future of web applications' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="footer-description"]')).toContainText(
-          'Building the future of web applications'
-        )
-      })
-
-      await test.step('APP-PAGES-FOOTER-004: Render multi-column link layout', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
               layout: {
                 footer: {
                   enabled: true,
+                  logo: './logo-footer.svg',
+                  description: 'Building the future of web applications',
                   columns: [
                     {
                       title: 'Product',
@@ -654,64 +605,6 @@ test.describe('Footer Configuration', () => {
                         { label: 'Blog', href: '/blog' },
                       ],
                     },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const columns = page.locator('[data-testid^="footer-column"]')
-        await expect(columns).toHaveCount(2)
-        await expect(page.locator('[data-testid="footer-column-0"]')).toContainText('Product')
-        await expect(page.locator('[data-testid="footer-column-1"]')).toContainText('Company')
-      })
-
-      await test.step('APP-PAGES-FOOTER-005: Render column heading and link list', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  columns: [
-                    {
-                      title: 'Product',
-                      links: [
-                        { label: 'Features', href: '/features' },
-                        { label: 'Pricing', href: '/pricing' },
-                      ],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="column-title"]')).toContainText('Product')
-        const links = page.locator('[data-testid="column-links"] a')
-        await expect(links).toHaveCount(2)
-      })
-
-      await test.step('APP-PAGES-FOOTER-006: Support external link targets', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  columns: [
                     {
                       title: 'Resources',
                       links: [
@@ -723,12 +616,75 @@ test.describe('Footer Configuration', () => {
                       ],
                     },
                   ],
+                  social: {
+                    title: 'Follow Us',
+                    links: [
+                      {
+                        platform: 'twitter',
+                        url: 'https://twitter.com/company',
+                        icon: 'custom-twitter-brand',
+                      },
+                      { platform: 'github', url: 'https://github.com/company' },
+                    ],
+                  },
+                  newsletter: {
+                    enabled: true,
+                    title: 'Subscribe to our newsletter',
+                    description: 'Get the latest updates',
+                    placeholder: 'Enter your email',
+                    buttonText: 'Subscribe',
+                  },
+                  copyright: '© 2024 Company Inc. All rights reserved.',
+                  legal: [
+                    { label: 'Privacy Policy', href: '/privacy' },
+                    { label: 'Terms of Service', href: '/terms' },
+                  ],
                 },
               },
               sections: [],
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-FOOTER-001: Display footer at bottom of page', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-FOOTER-002: Display footer logo', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="footer-logo"]')).toHaveAttribute(
+          'src',
+          './logo-footer.svg'
+        )
+      })
+
+      await test.step('APP-PAGES-FOOTER-003: Render company description', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="footer-description"]')).toContainText(
+          'Building the future of web applications'
+        )
+      })
+
+      await test.step('APP-PAGES-FOOTER-004: Render multi-column link layout', async () => {
+        await page.goto('/')
+        const columns = page.locator('[data-testid^="footer-column"]')
+        await expect(columns).toHaveCount(3) // Product, Company, Resources
+        await expect(page.locator('[data-testid="footer-column-0"]')).toContainText('Product')
+        await expect(page.locator('[data-testid="footer-column-1"]')).toContainText('Company')
+      })
+
+      await test.step('APP-PAGES-FOOTER-005: Render column heading and link list', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="column-title"]').first()).toContainText('Product')
+        const firstColumnLinks = page.locator(
+          '[data-testid="footer-column-0"] [data-testid="column-links"] a'
+        )
+        await expect(firstColumnLinks).toHaveCount(2)
+      })
+
+      await test.step('APP-PAGES-FOOTER-006: Support external link targets', async () => {
         await page.goto('/')
         const link = page.locator('[data-testid="footer-link-external"]')
         await expect(link).toHaveAttribute('target', '_blank')
@@ -736,29 +692,6 @@ test.describe('Footer Configuration', () => {
       })
 
       await test.step('APP-PAGES-FOOTER-007: Render social media icons', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  social: {
-                    title: 'Follow Us',
-                    links: [
-                      { platform: 'twitter', url: 'https://twitter.com/company' },
-                      { platform: 'github', url: 'https://github.com/company' },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
         await page.goto('/')
         await expect(page.locator('[data-testid="footer-social"]')).toContainText('Follow Us')
         await expect(page.locator('[data-testid="social-twitter"]')).toHaveAttribute(
@@ -771,6 +704,54 @@ test.describe('Footer Configuration', () => {
         )
       })
 
+      await test.step('APP-PAGES-FOOTER-009: Render email subscription form', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="newsletter-title"]')).toContainText(
+          'Subscribe to our newsletter'
+        )
+        await expect(page.locator('[data-testid="newsletter-input"]')).toHaveAttribute(
+          'placeholder',
+          'Enter your email'
+        )
+        await expect(page.locator('[data-testid="newsletter-button"]')).toContainText('Subscribe')
+      })
+
+      await test.step('APP-PAGES-FOOTER-010: Display copyright notice', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="footer-copyright"]')).toContainText(
+          '© 2024 Company Inc. All rights reserved.'
+        )
+      })
+
+      await test.step('APP-PAGES-FOOTER-011: Render legal link list', async () => {
+        await page.goto('/')
+        const legalLinks = page.locator('[data-testid="footer-legal"] a')
+        await expect(legalLinks).toHaveCount(2)
+        await expect(legalLinks.nth(0)).toHaveText('Privacy Policy')
+        await expect(legalLinks.nth(1)).toHaveText('Terms of Service')
+      })
+
+      await test.step('APP-PAGES-FOOTER-013: Render comprehensive footer layout', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="footer-logo"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-description"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-column-0"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-social"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-newsletter"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-copyright"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-legal"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-FOOTER-014: Override default platform icon', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="custom-icon-custom-twitter-brand"]')).toBeVisible()
+        await expect(page.locator('[data-testid="default-icon-github"]')).toBeVisible()
+      })
+
+      // ========================================================================
+      // SETUP 2: All 7 social platforms (CONFLICTING - needs all platforms)
+      // Covers: 008
+      // ========================================================================
       await test.step('APP-PAGES-FOOTER-008: Support 7 social platforms with auto icons', async () => {
         const platforms = [
           'facebook',
@@ -780,16 +761,9 @@ test.describe('Footer Configuration', () => {
           'youtube',
           'github',
           'tiktok',
-        ]
+        ] as const
         const socialLinks = platforms.map((platform) => ({
-          platform: platform as
-            | 'facebook'
-            | 'twitter'
-            | 'instagram'
-            | 'linkedin'
-            | 'youtube'
-            | 'github'
-            | 'tiktok',
+          platform,
           url: `https://${platform}.com/company`,
         }))
         await startServerWithSchema({
@@ -810,91 +784,10 @@ test.describe('Footer Configuration', () => {
         }
       })
 
-      await test.step('APP-PAGES-FOOTER-009: Render email subscription form', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  newsletter: {
-                    enabled: true,
-                    title: 'Subscribe to our newsletter',
-                    description: 'Get the latest updates',
-                    placeholder: 'Enter your email',
-                    buttonText: 'Subscribe',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="newsletter-title"]')).toContainText(
-          'Subscribe to our newsletter'
-        )
-        await expect(page.locator('[data-testid="newsletter-input"]')).toHaveAttribute(
-          'placeholder',
-          'Enter your email'
-        )
-        await expect(page.locator('[data-testid="newsletter-button"]')).toContainText('Subscribe')
-      })
-
-      await test.step('APP-PAGES-FOOTER-010: Display copyright notice', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: { enabled: true, copyright: '© 2024 Company Inc. All rights reserved.' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="footer-copyright"]')).toContainText(
-          '© 2024 Company Inc. All rights reserved.'
-        )
-      })
-
-      await test.step('APP-PAGES-FOOTER-011: Render legal link list', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  copyright: '© 2024 Company',
-                  legal: [
-                    { label: 'Privacy Policy', href: '/privacy' },
-                    { label: 'Terms of Service', href: '/terms' },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const legalLinks = page.locator('[data-testid="footer-legal"] a')
-        await expect(legalLinks).toHaveCount(2)
-        await expect(legalLinks.nth(0)).toHaveText('Privacy Policy')
-        await expect(legalLinks.nth(1)).toHaveText('Terms of Service')
-      })
-
+      // ========================================================================
+      // SETUP 3: Disabled footer (CONFLICTING - enabled: false)
+      // Covers: 012
+      // ========================================================================
       await test.step('APP-PAGES-FOOTER-012: Not render footer when disabled', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -910,74 +803,6 @@ test.describe('Footer Configuration', () => {
         })
         await page.goto('/')
         await expect(page.locator('[data-testid="footer"]')).toBeHidden()
-      })
-
-      await test.step('APP-PAGES-FOOTER-013: Render comprehensive footer layout', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  logo: './logo.svg',
-                  description: 'Building the future',
-                  columns: [
-                    { title: 'Product', links: [{ label: 'Features', href: '/features' }] },
-                  ],
-                  social: { links: [{ platform: 'twitter', url: 'https://twitter.com/acme' }] },
-                  newsletter: { enabled: true, title: 'Stay updated' },
-                  copyright: '© 2024 Acme Corp.',
-                  legal: [{ label: 'Privacy', href: '/privacy' }],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="footer-logo"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer-description"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer-column-0"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer-social"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer-newsletter"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer-copyright"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer-legal"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-FOOTER-014: Override default platform icon', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                footer: {
-                  enabled: true,
-                  social: {
-                    links: [
-                      {
-                        platform: 'twitter',
-                        url: 'https://twitter.com/company',
-                        icon: 'custom-twitter-brand',
-                      },
-                      { platform: 'github', url: 'https://github.com/company' },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="custom-icon-custom-twitter-brand"]')).toBeVisible()
-        await expect(page.locator('[data-testid="default-icon-github"]')).toBeVisible()
       })
     }
   )

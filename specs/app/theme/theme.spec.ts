@@ -786,13 +786,52 @@ test.describe('Theme Configuration', () => {
     'APP-THEME-REGRESSION: user can complete full theme workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-001: Validates theme with colors as the only design token category', async () => {
+      // OPTIMIZATION: Consolidated from 12 startServerWithSchema calls to 3
+      // Group 1 (Tests 001-005, 007-008): Comprehensive theme with all design tokens
+      // Group 2 (Tests 006, 009-010): Components with animations and page sections
+      // Group 3 (Tests 011-012): Responsive layouts and keyframe animations
+
+      // Group 1: Comprehensive theme with all design token categories
+      await test.step('Setup: Start server with comprehensive theme configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             colors: {
               primary: '#007bff',
               secondary: '#6c757d',
+              text: '#212529',
+              background: '#f8f9fa',
+              'primary-hover': '#0056b3',
+              'primary-light': '#e7f1ff',
+            },
+            fonts: {
+              body: {
+                family: 'Inter',
+                fallback: 'sans-serif',
+              },
+            },
+            spacing: {
+              section: '4rem',
+              container: '80rem',
+              gap: '1rem',
+              gapSmall: '0.5rem',
+              gapLarge: '1.5rem',
+            },
+            animations: {
+              fadeIn: true,
+            },
+            breakpoints: {
+              sm: '640px',
+              md: '768px',
+              lg: '1024px',
+            },
+            shadows: {
+              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+              lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+            },
+            borderRadius: {
+              md: '0.375rem',
             },
           },
           pages: [
@@ -801,11 +840,10 @@ test.describe('Theme Configuration', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // Test 001: Color tokens
                 {
                   type: 'div',
-                  props: {
-                    'data-testid': 'theme-colors',
-                  },
+                  props: { 'data-testid': 'theme-colors' },
                   children: [
                     {
                       type: 'div',
@@ -817,11 +855,49 @@ test.describe('Theme Configuration', () => {
                     },
                   ],
                 },
+                // Test 004: All design token elements
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'theme-fonts', className: 'font-body' },
+                  children: ['Fonts'],
+                },
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'theme-spacing', className: 'p-section' },
+                  children: ['Spacing'],
+                },
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'theme-animations' },
+                  children: ['Animations'],
+                },
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'theme-breakpoints' },
+                  children: ['Breakpoints'],
+                },
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'theme-shadows', className: 'shadow-md' },
+                  children: ['Shadows'],
+                },
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'theme-border-radius', className: 'rounded-md border' },
+                  children: ['Border Radius'],
+                },
+                // Test 007: Buttons for consistency test
+                { type: 'button', content: 'Button 1', props: { 'data-testid': 'button' } },
+                { type: 'button', content: 'Button 2', props: { 'data-testid': 'button' } },
+                { type: 'button', content: 'Button 3', props: { 'data-testid': 'button' } },
               ],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-001: Validates theme with colors as the only design token category', async () => {
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -838,39 +914,6 @@ test.describe('Theme Configuration', () => {
       })
 
       await test.step('APP-THEME-002: Validates color palette and typography system', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            colors: {
-              primary: '#007bff',
-              text: '#212529',
-            },
-            fonts: {
-              body: {
-                family: 'Inter',
-                fallback: 'sans-serif',
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'color-primary',
-                    className: 'bg-primary p-4',
-                  },
-                  children: ['Primary Color'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('body')).toHaveCSS('font-family', /Inter/)
         const primaryColor = await page
           .locator('[data-testid="color-primary"]')
@@ -879,125 +922,11 @@ test.describe('Theme Configuration', () => {
       })
 
       await test.step('APP-THEME-003: Validates visual identity, typography, and layout tokens', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            colors: {
-              primary: '#007bff',
-            },
-            fonts: {
-              body: {
-                family: 'Inter',
-              },
-            },
-            spacing: {
-              section: '4rem',
-              gap: '1rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('[data-testid="section"]')).toHaveCSS('padding', '64px')
         await expect(page.locator('body')).toHaveCSS('font-family', /Inter/)
       })
 
       await test.step('APP-THEME-004: Validates and orchestrates all design token categories', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            colors: {
-              primary: '#007bff',
-            },
-            fonts: {
-              body: {
-                family: 'Inter',
-              },
-            },
-            spacing: {
-              section: '4rem',
-            },
-            animations: {
-              fadeIn: true,
-            },
-            breakpoints: {
-              md: '768px',
-            },
-            shadows: {
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-            },
-            borderRadius: {
-              md: '0.375rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'theme-colors',
-                    className: 'bg-primary p-4',
-                  },
-                  children: ['Colors'],
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'theme-fonts',
-                    className: 'font-body',
-                  },
-                  children: ['Fonts'],
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'theme-spacing',
-                    className: 'p-section',
-                  },
-                  children: ['Spacing'],
-                },
-                {
-                  type: 'div',
-                  props: { 'data-testid': 'theme-animations' },
-                  children: ['Animations'],
-                },
-                {
-                  type: 'div',
-                  props: { 'data-testid': 'theme-breakpoints' },
-                  children: ['Breakpoints'],
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'theme-shadows',
-                    className: 'shadow-md',
-                  },
-                  children: ['Shadows'],
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'theme-border-radius',
-                    className: 'rounded-md border',
-                  },
-                  children: ['Border Radius'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1017,25 +946,6 @@ test.describe('Theme Configuration', () => {
       })
 
       await test.step('APP-THEME-005: Ensures consistency between breakpoints and responsive variants', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            breakpoints: {
-              sm: '640px',
-              md: '768px',
-              lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const breakpoints = await page.evaluate(() => {
           const sm = window.matchMedia('(min-width: 640px)').matches
           const md = window.matchMedia('(min-width: 768px)').matches
@@ -1045,94 +955,7 @@ test.describe('Theme Configuration', () => {
         expect(breakpoints).toBeTruthy()
       })
 
-      await test.step('APP-THEME-006: Provides animations reusable in interactions', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              fadeIn: true,
-              slideIn: 'slide-in 0.5s ease-out',
-              pulse: {
-                duration: '2s',
-                easing: 'ease-in-out',
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'animated-element',
-                    style: {
-                      animation: 'fadeIn 1s ease-in-out',
-                    },
-                  },
-                  children: ['Animated Content'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const element = page.locator('[data-testid="animated-element"]')
-        await expect(element).toBeVisible()
-        const animationName = await element.evaluate(
-          (el) => window.getComputedStyle(el).animationName
-        )
-        expect(['fade-in', 'slide-in', 'pulse']).toContain(animationName)
-      })
-
       await test.step('APP-THEME-007: Enables consistent UI across entire application', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            colors: {
-              primary: '#007bff',
-              'primary-hover': '#0056b3',
-              'primary-light': '#e7f1ff',
-            },
-            spacing: {
-              gap: '1rem',
-              gapSmall: '0.5rem',
-              gapLarge: '1.5rem',
-            },
-            shadows: {
-              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-              lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'button',
-                  content: 'Button 1',
-                  props: { 'data-testid': 'button' },
-                },
-                {
-                  type: 'button',
-                  content: 'Button 2',
-                  props: { 'data-testid': 'button' },
-                },
-                {
-                  type: 'button',
-                  content: 'Button 3',
-                  props: { 'data-testid': 'button' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const buttons = page.locator('[data-testid="button"]')
         await expect(buttons.first()).toBeVisible()
         const buttonStyles = await buttons.first().evaluate((el) => ({
@@ -1143,39 +966,18 @@ test.describe('Theme Configuration', () => {
       })
 
       await test.step('APP-THEME-008: Integrates seamlessly with Tailwind CSS', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              section: '4rem',
-              container: '80rem',
-            },
-            breakpoints: {
-              sm: '640px',
-              md: '768px',
-              lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('[data-testid="section"]')).toHaveCSS('padding', '64px')
         await expect(page.locator('[data-testid="container"]')).toHaveCSS('max-width', '1280px')
       })
 
-      await test.step('APP-THEME-009: Renders cohesive UI with all theme tokens applied together', async () => {
+      // Group 2: Components with animations and page sections
+      await test.step('Setup: Start server with animation and component configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             colors: {
               primary: '#007bff',
+              secondary: '#6c757d',
               text: '#212529',
               background: '#ffffff',
             },
@@ -1195,7 +997,16 @@ test.describe('Theme Configuration', () => {
               container: '80rem',
               gap: '1.5rem',
             },
+            animations: {
+              fadeIn: true,
+              slideIn: 'slide-in 0.5s ease-out',
+              pulse: {
+                duration: '2s',
+                easing: 'ease-in-out',
+              },
+            },
             shadows: {
+              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
               md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
             },
             borderRadius: {
@@ -1206,43 +1017,20 @@ test.describe('Theme Configuration', () => {
             {
               name: 'Home',
               path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // Test 006: Animated element
                 {
-                  type: 'hero-section',
-                  component: 'hero',
+                  type: 'div',
+                  props: {
+                    'data-testid': 'animated-element',
+                    style: { animation: 'fadeIn 1s ease-in-out' },
+                  },
+                  children: ['Animated Content'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const heroSection = page.locator('[data-testid="hero-section"]')
-        await expect(heroSection).toBeVisible()
-      })
-
-      await test.step('APP-THEME-010: Maintains visual consistency across entire page layout', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            colors: {
-              primary: '#007bff',
-              secondary: '#6c757d',
-              background: '#f8f9fa',
-            },
-            spacing: {
-              section: '4rem',
-              container: '80rem',
-            },
-            shadows: {
-              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-            },
-          },
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              sections: [
+                // Tests 009-010: Hero section and page layout
                 { type: 'header' },
+                { type: 'hero-section', component: 'hero' },
                 { type: 'hero' },
                 { type: 'section' },
                 { type: 'footer' },
@@ -1251,14 +1039,37 @@ test.describe('Theme Configuration', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-006: Provides animations reusable in interactions', async () => {
+        const element = page.locator('[data-testid="animated-element"]')
+        await expect(element).toBeVisible()
+        const animationName = await element.evaluate(
+          (el) => window.getComputedStyle(el).animationName
+        )
+        expect(['fade-in', 'slide-in', 'pulse']).toContain(animationName)
+      })
+
+      await test.step('APP-THEME-009: Renders cohesive UI with all theme tokens applied together', async () => {
+        const heroSection = page.locator('[data-testid="hero-section"]')
+        await expect(heroSection).toBeVisible()
+      })
+
+      await test.step('APP-THEME-010: Maintains visual consistency across entire page layout', async () => {
         const header = page.locator('header')
         await expect(header).toBeVisible()
       })
 
-      await test.step('APP-THEME-011: Renders adaptive layouts that respond to screen size', async () => {
+      // Group 3: Responsive layouts and keyframe animations
+      await test.step('Setup: Start server with responsive and keyframe configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
+            colors: {
+              primary: '#007bff',
+              accent: '#ffc107',
+              success: '#28a745',
+            },
             spacing: {
               section: '2rem',
               sectionMd: '4rem',
@@ -1268,34 +1079,6 @@ test.describe('Theme Configuration', () => {
             breakpoints: {
               md: '768px',
               lg: '1024px',
-            },
-          },
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              sections: [
-                {
-                  type: 'responsive-grid',
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        const section = page.locator('[data-testid="responsive-section"]')
-        await expect(section).toBeVisible()
-      })
-
-      await test.step('APP-THEME-012: Creates cohesive branded motion with theme-aware animations', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            colors: {
-              primary: '#007bff',
-              accent: '#ffc107',
-              success: '#28a745',
             },
             animations: {
               duration: {
@@ -1339,7 +1122,11 @@ test.describe('Theme Configuration', () => {
             {
               name: 'Home',
               path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // Test 011: Responsive grid
+                { type: 'responsive-grid' },
+                // Test 012: Animated CTA
                 {
                   type: 'hero',
                   children: [
@@ -1357,7 +1144,16 @@ test.describe('Theme Configuration', () => {
             },
           ],
         })
+        await page.setViewportSize({ width: 375, height: 667 })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-011: Renders adaptive layouts that respond to screen size', async () => {
+        const section = page.locator('[data-testid="responsive-section"]')
+        await expect(section).toBeVisible()
+      })
+
+      await test.step('APP-THEME-012: Creates cohesive branded motion with theme-aware animations', async () => {
         const ctaButton = page.locator('[data-testid="animated-cta"]')
         await expect(ctaButton).toBeVisible()
       })

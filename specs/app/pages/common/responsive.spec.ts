@@ -559,14 +559,21 @@ test.describe('Responsive Variants', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test covering all 10 @spec scenarios via multi-server steps
+  // ONE OPTIMIZED test covering all 10 @spec scenarios via consolidated server setups
   // ============================================================================
 
   test(
     'APP-PAGES-RESPONSIVE-REGRESSION: user can complete full responsive workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-RESPONSIVE-001: Apply mobile className and styles', async () => {
+      // OPTIMIZATION: Consolidated from 10 startServerWithSchema calls to 4
+      // Group 1 (001, 002, 008): Heading-based responsive tests
+      // Group 2 (003, 005): Single-line-text visibility/props tests
+      // Group 3 (004, 006, 007, 009, 010): Container/button/navigation tests
+      // Note: Some tests require specific element combinations that conflict, requiring separate setups
+
+      // Group 1: Heading-based tests (001, 002, 008)
+      await test.step('Setup: Start server with heading-based responsive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -574,8 +581,10 @@ test.describe('Responsive Variants', () => {
               name: 'home',
               path: '/',
               sections: [
+                // For 001: Mobile className heading
                 {
                   type: 'heading',
+                  props: { 'data-testid': 'heading-001' },
                   responsive: {
                     mobile: {
                       props: {
@@ -584,27 +593,10 @@ test.describe('Responsive Variants', () => {
                     },
                   },
                 },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        const heading = page.locator('h1')
-        await expect(heading).toHaveClass(/text-2xl/)
-        await expect(heading).toHaveClass(/text-center/)
-      })
-
-      await test.step('APP-PAGES-RESPONSIVE-002: Content updates to match breakpoint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // For 002: Content per breakpoint heading
                 {
                   type: 'heading',
+                  props: { 'data-testid': 'heading-002' },
                   content: 'Default Content',
                   responsive: {
                     mobile: { content: 'Mobile!' },
@@ -612,20 +604,60 @@ test.describe('Responsive Variants', () => {
                     lg: { content: 'Desktop Welcome' },
                   },
                 },
+                // For 008: Progressive enhancement heading
+                {
+                  type: 'heading',
+                  props: { 'data-testid': 'heading-008' },
+                  content: 'Responsive Heading',
+                  responsive: {
+                    mobile: { props: { className: 'text-xl' } },
+                    sm: { props: { className: 'text-2xl' } },
+                    md: { props: { className: 'text-3xl' } },
+                    lg: { props: { className: 'text-4xl' } },
+                  },
+                },
               ],
             },
           ],
         })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('h1')).toHaveText('Mobile!', { useInnerText: true })
-        await page.setViewportSize({ width: 768, height: 1024 })
-        await expect(page.locator('h1')).toHaveText('Tablet Welcome', { useInnerText: true })
-        await page.setViewportSize({ width: 1024, height: 768 })
-        await expect(page.locator('h1')).toHaveText('Desktop Welcome', { useInnerText: true })
       })
 
-      await test.step('APP-PAGES-RESPONSIVE-003: Component hidden on mobile, shown on large', async () => {
+      await test.step('APP-PAGES-RESPONSIVE-001: Apply mobile className and styles', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await page.goto('/')
+        const heading = page.locator('[data-testid="heading-001"]')
+        await expect(heading).toHaveClass(/text-2xl/)
+        await expect(heading).toHaveClass(/text-center/)
+      })
+
+      await test.step('APP-PAGES-RESPONSIVE-002: Content updates to match breakpoint', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="heading-002"]')).toHaveText('Mobile!', {
+          useInnerText: true,
+        })
+        await page.setViewportSize({ width: 768, height: 1024 })
+        await expect(page.locator('[data-testid="heading-002"]')).toHaveText('Tablet Welcome', {
+          useInnerText: true,
+        })
+        await page.setViewportSize({ width: 1024, height: 768 })
+        await expect(page.locator('[data-testid="heading-002"]')).toHaveText('Desktop Welcome', {
+          useInnerText: true,
+        })
+      })
+
+      await test.step('APP-PAGES-RESPONSIVE-008: Progressive enhancement through breakpoints', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="heading-008"]')).toHaveClass(/text-xl/)
+        await page.setViewportSize({ width: 640, height: 480 })
+        await expect(page.locator('[data-testid="heading-008"]')).toHaveClass(/text-2xl/)
+        await page.setViewportSize({ width: 768, height: 1024 })
+        await expect(page.locator('[data-testid="heading-008"]')).toHaveClass(/text-3xl/)
+        await page.setViewportSize({ width: 1024, height: 768 })
+        await expect(page.locator('[data-testid="heading-008"]')).toHaveClass(/text-4xl/)
+      })
+
+      // Group 2: Single-line-text tests (003, 005)
+      await test.step('Setup: Start server with single-line-text responsive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -633,25 +665,96 @@ test.describe('Responsive Variants', () => {
               name: 'home',
               path: '/',
               sections: [
+                // For 003: Visibility toggle
                 {
                   type: 'single-line-text',
-                  props: { 'data-testid': 'text' },
+                  props: { 'data-testid': 'text-003' },
                   content: 'Desktop Only Content',
                   responsive: {
                     mobile: { visible: false },
                     lg: { visible: true },
                   },
                 },
+                // For 005: sm-specific props
+                {
+                  type: 'single-line-text',
+                  content: 'Text content',
+                  props: { 'data-testid': 'text-005', className: 'text-base' },
+                  responsive: {
+                    sm: { props: { className: 'text-lg font-semibold' } },
+                  },
+                },
               ],
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-RESPONSIVE-003: Component hidden on mobile, shown on large', async () => {
         await page.setViewportSize({ width: 375, height: 667 })
         await page.goto('/')
-        await expect(page.locator('[data-testid="text"]')).toBeHidden()
+        await expect(page.locator('[data-testid="text-003"]')).toBeHidden()
         await page.setViewportSize({ width: 1024, height: 768 })
-        await expect(page.locator('[data-testid="text"]')).toBeVisible()
+        await expect(page.locator('[data-testid="text-003"]')).toBeVisible()
       })
+
+      await test.step('APP-PAGES-RESPONSIVE-005: Apply sm-specific props', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await expect(page.locator('[data-testid="text-005"]')).toHaveClass(/text-base/)
+        await page.setViewportSize({ width: 640, height: 480 })
+        await expect(page.locator('[data-testid="text-005"]')).toHaveClass(/text-lg/)
+      })
+
+      // Group 3: Container tests (006, 007)
+      await test.step('Setup: Start server with container responsive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                // For 006: md-specific props
+                {
+                  type: 'container',
+                  props: { 'data-testid': 'container-006', className: 'p-4' },
+                  responsive: {
+                    md: { props: { className: 'p-8 max-w-4xl' } },
+                  },
+                },
+                // For 007: xl/2xl-specific props
+                {
+                  type: 'container',
+                  props: { 'data-testid': 'container-007', className: 'max-w-md' },
+                  responsive: {
+                    xl: { props: { className: 'max-w-6xl px-8' } },
+                    '2xl': { props: { className: 'max-w-7xl px-12' } },
+                  },
+                },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('APP-PAGES-RESPONSIVE-006: Apply md-specific props', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="container-006"]')).toHaveClass(/p-4/)
+        await page.setViewportSize({ width: 768, height: 1024 })
+        await expect(page.locator('[data-testid="container-006"]')).toHaveClass(/p-8/)
+      })
+
+      await test.step('APP-PAGES-RESPONSIVE-007: Apply xl/2xl-specific props', async () => {
+        await page.setViewportSize({ width: 1280, height: 800 })
+        await expect(page.locator('[data-testid="container-007"]')).toHaveClass(/max-w-6xl/)
+        await page.setViewportSize({ width: 1536, height: 864 })
+        await expect(page.locator('[data-testid="container-007"]')).toHaveClass(/max-w-7xl/)
+      })
+
+      // Group 4: Complex interactive tests (004, 009, 010) - These require isolated setups
+      // because they test button counts, button text content, and navigation elements
+      // which would conflict when combined in a single page
 
       await test.step('APP-PAGES-RESPONSIVE-004: Render different children by breakpoint', async () => {
         await startServerWithSchema({
@@ -700,119 +803,6 @@ test.describe('Responsive Variants', () => {
           })
         )
         expect(visibleDesktopButtons.length).toBe(2)
-      })
-
-      await test.step('APP-PAGES-RESPONSIVE-005: Apply sm-specific props', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'single-line-text',
-                  content: 'Text content',
-                  props: { 'data-testid': 'text', className: 'text-base' },
-                  responsive: {
-                    sm: { props: { className: 'text-lg font-semibold' } },
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="text"]')).toHaveClass(/text-base/)
-        await page.setViewportSize({ width: 640, height: 480 })
-        await expect(page.locator('[data-testid="text"]')).toHaveClass(/text-lg/)
-      })
-
-      await test.step('APP-PAGES-RESPONSIVE-006: Apply md-specific props', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'container',
-                  props: { className: 'p-4' },
-                  responsive: {
-                    md: { props: { className: 'p-8 max-w-4xl' } },
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="container"]')).toHaveClass(/p-4/)
-        await page.setViewportSize({ width: 768, height: 1024 })
-        await expect(page.locator('[data-testid="container"]')).toHaveClass(/p-8/)
-      })
-
-      await test.step('APP-PAGES-RESPONSIVE-007: Apply xl/2xl-specific props', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'container',
-                  props: { className: 'max-w-md' },
-                  responsive: {
-                    xl: { props: { className: 'max-w-6xl px-8' } },
-                    '2xl': { props: { className: 'max-w-7xl px-12' } },
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 1280, height: 800 })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-6xl/)
-        await page.setViewportSize({ width: 1536, height: 864 })
-        await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-7xl/)
-      })
-
-      await test.step('APP-PAGES-RESPONSIVE-008: Progressive enhancement through breakpoints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'heading',
-                  content: 'Responsive Heading',
-                  responsive: {
-                    mobile: { props: { className: 'text-xl' } },
-                    sm: { props: { className: 'text-2xl' } },
-                    md: { props: { className: 'text-3xl' } },
-                    lg: { props: { className: 'text-4xl' } },
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.goto('/')
-        await expect(page.locator('h1')).toHaveClass(/text-xl/)
-        await page.setViewportSize({ width: 640, height: 480 })
-        await expect(page.locator('h1')).toHaveClass(/text-2xl/)
-        await page.setViewportSize({ width: 768, height: 1024 })
-        await expect(page.locator('h1')).toHaveClass(/text-3xl/)
-        await page.setViewportSize({ width: 1024, height: 768 })
-        await expect(page.locator('h1')).toHaveClass(/text-4xl/)
       })
 
       await test.step('APP-PAGES-RESPONSIVE-009: All three override types apply simultaneously', async () => {

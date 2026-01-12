@@ -702,13 +702,27 @@ test.describe('Spacing Configuration', () => {
     'APP-THEME-SPACING-REGRESSION: user can complete full spacing workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-SPACING-001: Validate Tailwind spacing utilities', async () => {
+      // OPTIMIZATION: Consolidated from 13 startServerWithSchema calls to 3
+      // Group 1 (Tests 001-003, 005-006, 008, 010): Tailwind class-based spacing with DOM elements
+      // Group 2 (Tests 004, 007): CSS custom properties for gap/padding scales
+      // Group 3 (Tests 009, 011-013): CSS custom properties with CSS values (not Tailwind)
+
+      // Group 1: Tailwind class-based spacing validation
+      await test.step('Setup: Start server with Tailwind class-based spacing configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             spacing: {
-              section: 'py-16',
-              container: 'px-4',
+              // Comprehensive spacing tokens for Tailwind class tests
+              section: 'py-16 sm:py-20',
+              container: 'max-w-7xl mx-auto px-4',
+              'container-small': 'max-w-4xl mx-auto px-4',
+              'container-xsmall': 'max-w-2xl mx-auto px-4',
+              'margin-small': 'm-4',
+              margin: 'm-6',
+              'margin-large': 'm-8',
+              gap: 'gap-6',
+              padding: 'p-6',
             },
           },
           pages: [
@@ -717,6 +731,7 @@ test.describe('Spacing Configuration', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // Test 001: Basic spacing utilities
                 {
                   type: 'div',
                   props: {
@@ -725,30 +740,7 @@ test.describe('Spacing Configuration', () => {
                   },
                   children: ['Spacing validation test'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="spacing"]')).toBeVisible()
-        await expect(page.locator('[data-testid="spacing"]')).toHaveClass(/py-16/)
-        await expect(page.locator('[data-testid="spacing"]')).toHaveClass(/px-4/)
-      })
-
-      await test.step('APP-THEME-SPACING-002: Validate responsive spacing with Tailwind breakpoints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              section: 'py-16 sm:py-20',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Test 002: Responsive spacing
                 {
                   type: 'div',
                   props: {
@@ -757,157 +749,7 @@ test.describe('Spacing Configuration', () => {
                   },
                   children: ['Responsive spacing test'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="responsive-spacing"]')).toBeVisible()
-        await expect(page.locator('[data-testid="responsive-spacing"]')).toHaveClass(/py-16/)
-        await expect(page.locator('[data-testid="responsive-spacing"]')).toHaveClass(/sm:py-20/)
-      })
-
-      await test.step('APP-THEME-SPACING-003: Validate centering and width constraints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              container: 'max-w-7xl mx-auto px-4',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const container = page.locator('[data-testid="container"]')
-        await expect(container).toHaveClass(/max-w-7xl/)
-        await expect(container).toHaveClass(/mx-auto/)
-      })
-
-      await test.step('APP-THEME-SPACING-004: Validate consistent spacing scale', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              'gap-small': '1rem',
-              gap: '1.5rem',
-              'gap-large': '2rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--spacing-gap-small: 1rem')
-        expect(css).toContain('--spacing-gap: 1.5rem')
-        expect(css).toContain('--spacing-gap-large: 2rem')
-      })
-
-      await test.step('APP-THEME-SPACING-005: Validate visual rhythm between sections', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              section: 'py-16 sm:py-20',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="section"]')).toHaveClass(/py-16/)
-      })
-
-      await test.step('APP-THEME-SPACING-006: Validate hierarchical content width constraints', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              container: 'max-w-7xl mx-auto px-4',
-              'container-small': 'max-w-4xl mx-auto px-4',
-              'container-xsmall': 'max-w-2xl mx-auto px-4',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-7xl/)
-        await expect(page.locator('[data-testid="container-small"]')).toHaveClass(/max-w-4xl/)
-        await expect(page.locator('[data-testid="container-xsmall"]')).toHaveClass(/max-w-2xl/)
-      })
-
-      await test.step('APP-THEME-SPACING-007: Validate consistent internal component spacing', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              'padding-small': '1rem',
-              padding: '1.5rem',
-              'padding-large': '2rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--spacing-padding-small: 1rem')
-        expect(css).toContain('--spacing-padding: 1.5rem')
-        expect(css).toContain('--spacing-padding-large: 2rem')
-      })
-
-      await test.step('APP-THEME-SPACING-008: Validate consistent external component spacing', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              'margin-small': 'm-4',
-              margin: 'm-6',
-              'margin-large': 'm-8',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Test 008: Margin scale
                 {
                   type: 'div',
                   props: {
@@ -938,17 +780,101 @@ test.describe('Spacing Configuration', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-SPACING-001: Validate Tailwind spacing utilities', async () => {
+        await expect(page.locator('[data-testid="spacing"]')).toBeVisible()
+        await expect(page.locator('[data-testid="spacing"]')).toHaveClass(/py-16/)
+        await expect(page.locator('[data-testid="spacing"]')).toHaveClass(/px-4/)
+      })
+
+      await test.step('APP-THEME-SPACING-002: Validate responsive spacing with Tailwind breakpoints', async () => {
+        await expect(page.locator('[data-testid="responsive-spacing"]')).toBeVisible()
+        await expect(page.locator('[data-testid="responsive-spacing"]')).toHaveClass(/py-16/)
+        await expect(page.locator('[data-testid="responsive-spacing"]')).toHaveClass(/sm:py-20/)
+      })
+
+      await test.step('APP-THEME-SPACING-003: Validate centering and width constraints', async () => {
+        const container = page.locator('[data-testid="container"]')
+        await expect(container).toHaveClass(/max-w-7xl/)
+        await expect(container).toHaveClass(/mx-auto/)
+      })
+
+      await test.step('APP-THEME-SPACING-005: Validate visual rhythm between sections', async () => {
+        await expect(page.locator('[data-testid="section"]')).toHaveClass(/py-16/)
+      })
+
+      await test.step('APP-THEME-SPACING-006: Validate hierarchical content width constraints', async () => {
+        await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-7xl/)
+        await expect(page.locator('[data-testid="container-small"]')).toHaveClass(/max-w-4xl/)
+        await expect(page.locator('[data-testid="container-xsmall"]')).toHaveClass(/max-w-2xl/)
+      })
+
+      await test.step('APP-THEME-SPACING-008: Validate consistent external component spacing', async () => {
         await expect(page.locator('[data-testid="margin-small"]')).toHaveClass(/m-4/)
         await expect(page.locator('[data-testid="margin-large"]')).toHaveClass(/m-8/)
       })
 
-      await test.step('APP-THEME-SPACING-009: Validate custom CSS spacing values', async () => {
+      await test.step('APP-THEME-SPACING-010: Validate comprehensive spacing system', async () => {
+        await expect(page.locator('[data-testid="section"]')).toHaveClass(/py-16/)
+        await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-7xl/)
+      })
+
+      // Group 2: CSS custom properties for scale tokens
+      await test.step('Setup: Start server with CSS spacing scale configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             spacing: {
+              // Scale tokens with CSS values (tests 004, 007)
+              'gap-small': '1rem',
+              gap: '1.5rem',
+              'gap-large': '2rem',
+              'padding-small': '1rem',
+              padding: '1.5rem',
+              'padding-large': '2rem',
+            },
+          },
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-THEME-SPACING-004: Validate consistent spacing scale', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--spacing-gap-small: 1rem')
+        expect(css).toContain('--spacing-gap: 1.5rem')
+        expect(css).toContain('--spacing-gap-large: 2rem')
+      })
+
+      await test.step('APP-THEME-SPACING-007: Validate consistent internal component spacing', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--spacing-padding-small: 1rem')
+        expect(css).toContain('--spacing-padding: 1.5rem')
+        expect(css).toContain('--spacing-padding-large: 2rem')
+      })
+
+      // Group 3: CSS custom properties with raw CSS values
+      await test.step('Setup: Start server with CSS value spacing configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            spacing: {
+              // CSS value tokens (tests 009, 011, 012, 013)
               section: '4rem',
-              gap: '1rem',
+              container: '80rem',
+              gap: '1.5rem',
               padding: '16px',
             },
           },
@@ -957,114 +883,15 @@ test.describe('Spacing Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--spacing-section: 4rem')
-        expect(css).toContain('--spacing-gap: 1rem')
-        expect(css).toContain('--spacing-padding: 16px')
-      })
-
-      await test.step('APP-THEME-SPACING-010: Validate comprehensive spacing system', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              section: 'py-16 sm:py-20',
-              container: 'max-w-7xl mx-auto px-4',
-              gap: 'gap-6',
-              padding: 'p-6',
-              margin: 'm-6',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="section"]')).toHaveClass(/py-16/)
-        await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-7xl/)
-      })
-
-      await test.step('APP-THEME-SPACING-011: Render with vertical padding creating rhythm', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              section: '4rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
               sections: [
                 {
                   type: 'section',
                   content: 'Content',
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--spacing-section: 4rem')
-      })
-
-      await test.step('APP-THEME-SPACING-012: Render centered with max-width constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              container: '80rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
                 {
                   type: 'container',
                   content: 'Content',
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--spacing-container: 80rem')
-      })
-
-      await test.step('APP-THEME-SPACING-013: Render with spacing between flex items', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            spacing: {
-              gap: '1.5rem',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
                 {
                   type: 'flex',
                   children: [
@@ -1077,6 +904,32 @@ test.describe('Spacing Configuration', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-SPACING-009: Validate custom CSS spacing values', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--spacing-section: 4rem')
+        expect(css).toContain('--spacing-gap: 1.5rem')
+        expect(css).toContain('--spacing-padding: 16px')
+      })
+
+      await test.step('APP-THEME-SPACING-011: Render with vertical padding creating rhythm', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--spacing-section: 4rem')
+      })
+
+      await test.step('APP-THEME-SPACING-012: Render centered with max-width constraint', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--spacing-container: 80rem')
+      })
+
+      await test.step('APP-THEME-SPACING-013: Render with spacing between flex items', async () => {
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()

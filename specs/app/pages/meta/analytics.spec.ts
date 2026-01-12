@@ -498,7 +498,12 @@ test.describe('Analytics Configuration', () => {
     'APP-PAGES-ANALYTICS-REGRESSION: user can complete full analytics workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-ANALYTICS-001: Support multiple analytics providers', async () => {
+      // OPTIMIZATION: Consolidated from 17 startServerWithSchema calls to 2
+      // Setup 1: Comprehensive config with ALL 6 providers enabled with scripts, initScript, and dnsPrefetch
+      // Setup 2: CONFLICTING config for step 003 (enabled vs disabled on same providers)
+
+      // Setup 1: Comprehensive analytics configuration with all 6 providers
+      await test.step('Setup: Start server with comprehensive analytics configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -511,8 +516,44 @@ test.describe('Analytics Configuration', () => {
                 description: 'Test',
                 analytics: {
                   providers: [
-                    { name: 'plausible', enabled: true },
-                    { name: 'google', enabled: true },
+                    // Google Analytics (001, 002, 006, 008, 009, 011)
+                    {
+                      name: 'google',
+                      enabled: true,
+                      scripts: [
+                        { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
+                      ],
+                      initScript:
+                        "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXX');",
+                    },
+                    // Plausible (001, 002, 004, 005, 007, 010, 011)
+                    {
+                      name: 'plausible',
+                      enabled: true,
+                      scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
+                      dnsPrefetch: 'https://plausible.io',
+                    },
+                    // Matomo (002)
+                    {
+                      name: 'matomo',
+                      enabled: true,
+                    },
+                    // Fathom (002)
+                    {
+                      name: 'fathom',
+                      enabled: true,
+                    },
+                    // PostHog (002, 012)
+                    {
+                      name: 'posthog',
+                      enabled: true,
+                      scripts: [{ src: 'https://app.posthog.com/static/array.js', async: true }],
+                    },
+                    // Mixpanel (002)
+                    {
+                      name: 'mixpanel',
+                      enabled: true,
+                    },
                   ],
                 },
               },
@@ -521,34 +562,67 @@ test.describe('Analytics Configuration', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-001: Support multiple analytics providers', async () => {
         await expect(page.locator('[data-testid="analytics-plausible"]')).toBeAttached()
-        await expect(page.locator('[data-testid="analytics-google"]')).toBeAttached()
+        // Google Analytics creates 2 scripts (loader + config), use .first() to avoid strict mode violation
+        await expect(page.locator('[data-testid="analytics-google"]').first()).toBeAttached()
       })
 
       await test.step('APP-PAGES-ANALYTICS-002: Support 6 analytics providers', async () => {
+        // All 6 providers are in the comprehensive setup
         const providers = ['google', 'plausible', 'matomo', 'fathom', 'posthog', 'mixpanel']
         for (const provider of providers) {
-          await startServerWithSchema({
-            name: 'test-app',
-            pages: [
-              {
-                name: 'Home',
-                path: '/',
-                meta: {
-                  lang: 'en-US',
-                  title: 'Test',
-                  description: 'Test',
-                  analytics: { providers: [{ name: provider, enabled: true }] },
-                },
-                sections: [],
-              },
-            ],
-          })
-          await page.goto('/')
-          await expect(page.locator(`[data-testid="analytics-${provider}"]`)).toBeAttached()
+          // Google Analytics creates 2 scripts (loader + config), use .first() for strict mode
+          const locator = page.locator(`[data-testid="analytics-${provider}"]`)
+          await expect(provider === 'google' ? locator.first() : locator).toBeAttached()
         }
       })
 
+      await test.step('APP-PAGES-ANALYTICS-004: Load provider scripts', async () => {
+        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-005: Load script asynchronously', async () => {
+        const script = page.locator('script[src="https://plausible.io/js/script.js"]')
+        await expect(script).toHaveAttribute('async', '')
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-006: Execute provider initialization code', async () => {
+        const dataLayer = await page.evaluate(() => window.dataLayer)
+        expect(dataLayer).toBeDefined()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-007: Optimize DNS resolution for provider', async () => {
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://plausible.io"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-008: Pass configuration to provider', async () => {
+        const script = page.locator('script[src*="googletagmanager.com"][src*="G-XXXXX"]')
+        await expect(script).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-009: Configure Google Analytics', async () => {
+        await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-010: Configure privacy-friendly Plausible analytics', async () => {
+        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-011: Support multi-provider analytics', async () => {
+        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
+        await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-ANALYTICS-012: Configure event tracking and feature flags', async () => {
+        await expect(page.locator('script[src*="posthog.com"]')).toBeAttached()
+      })
+
+      // Setup 2: CONFLICTING config for step 003 (enabled vs disabled on same providers)
       await test.step('APP-PAGES-ANALYTICS-003: Allow enabling/disabling provider', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -574,279 +648,6 @@ test.describe('Analytics Configuration', () => {
         await page.goto('/')
         await expect(page.locator('[data-testid="analytics-google"]')).toBeAttached()
         await expect(page.locator('[data-testid="analytics-plausible"]')).toBeHidden()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-004: Load provider scripts', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'plausible',
-                      scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-005: Load script asynchronously', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'plausible',
-                      scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('script[src="https://plausible.io/js/script.js"]')
-        await expect(script).toHaveAttribute('async', '')
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-006: Execute provider initialization code', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'google',
-                      initScript:
-                        "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXX');",
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const dataLayer = await page.evaluate(() => window.dataLayer)
-        expect(dataLayer).toBeDefined()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-007: Optimize DNS resolution for provider', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [{ name: 'plausible', dnsPrefetch: 'https://plausible.io' }],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(
-          page.locator('link[rel="dns-prefetch"][href="https://plausible.io"]')
-        ).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-008: Pass configuration to provider', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'google',
-                      enabled: true,
-                      scripts: [
-                        { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
-                      ],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('script[src*="googletagmanager.com"][src*="G-XXXXX"]')
-        await expect(script).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-009: Configure Google Analytics', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'google',
-                      enabled: true,
-                      scripts: [
-                        {
-                          src: 'https://www.googletagmanager.com/gtag/js?id=G-ABC123XYZ',
-                          async: true,
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-010: Configure privacy-friendly Plausible analytics', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'plausible',
-                      enabled: true,
-                      scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-011: Support multi-provider analytics', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Home',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'plausible',
-                      enabled: true,
-                      scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
-                    },
-                    {
-                      name: 'google',
-                      enabled: true,
-                      scripts: [
-                        { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
-                      ],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
-        await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-ANALYTICS-012: Configure event tracking and feature flags', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'posthog',
-                      enabled: true,
-                      scripts: [{ src: 'https://app.posthog.com/static/array.js', async: true }],
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[src*="posthog.com"]')).toBeAttached()
       })
     }
   )

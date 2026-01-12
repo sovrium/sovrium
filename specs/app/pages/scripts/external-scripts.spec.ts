@@ -383,14 +383,22 @@ test.describe('External Scripts', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test covering all 12 @spec scenarios via multi-server steps
+  // OPTIMIZED: Consolidated from 14 startServerWithSchema calls to 6
+  // Group 1: Additive script attributes (001, 004, 005, 010, 011)
+  // Group 2: Async attribute (002)
+  // Group 3: Defer attribute (003)
+  // Group 4: Position-based tests (007, 008, 009)
+  // Group 5: Crossorigin tests (006) - anonymous and use-credentials
+  // Group 6: Default settings (012) - no async, no defer
   // ============================================================================
 
   test(
     'APP-PAGES-EXTERNAL-REGRESSION: user can complete full external scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-EXTERNAL-001: Load external JavaScript from CDN', async () => {
+      // Group 1: Comprehensive setup with additive script attributes
+      // Covers: 001 (CDN), 004 (module), 005 (integrity), 010 (multiple), 011 (local)
+      await test.step('Setup: Start server with comprehensive script configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -399,201 +407,16 @@ test.describe('External Scripts', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test' },
               scripts: {
-                externalScripts: [{ src: 'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js' }],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(
-          page.locator('script[src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"]')
-        ).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-002: Load script asynchronously', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
-                externalScripts: [{ src: 'https://cdn.example.com/script.js', async: true }],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('script[src="https://cdn.example.com/script.js"]')
-        await expect(script).toHaveAttribute('async', '')
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-003: Defer script execution until DOM loaded', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
-                externalScripts: [{ src: 'https://cdn.example.com/script.js', defer: true }],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('script[src="https://cdn.example.com/script.js"]')
-        await expect(script).toHaveAttribute('defer', '')
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-004: Load script with type=module', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: { externalScripts: [{ src: './js/app.js', module: true }] },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('script[src="./js/app.js"]')
-        await expect(script).toHaveAttribute('type', 'module')
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-005: Verify subresource integrity for security', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
                 externalScripts: [
-                  { src: 'https://cdn.example.com/lib.js', integrity: 'sha384-abc123' },
-                ],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('script[src="https://cdn.example.com/lib.js"]')
-        await expect(script).toHaveAttribute('integrity', 'sha384-abc123')
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-006: Set CORS policy for script loading', async () => {
-        const crossorigins = ['anonymous', 'use-credentials'] as const
-        for (const crossorigin of crossorigins) {
-          await startServerWithSchema({
-            name: 'test-app',
-            pages: [
-              {
-                name: 'Test',
-                path: '/',
-                meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-                scripts: {
-                  externalScripts: [{ src: 'https://cdn.example.com/lib.js', crossorigin }],
-                },
-                sections: [],
-              },
-            ],
-          })
-          await page.goto('/')
-          const script = page.locator('script[src="https://cdn.example.com/lib.js"]')
-          await expect(script).toHaveAttribute('crossorigin', crossorigin)
-        }
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-007: Insert script in document head', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
-                externalScripts: [
-                  { src: 'https://cdn.example.com/head-script.js', position: 'head' },
-                ],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('head script[src="https://cdn.example.com/head-script.js"]')
-        await expect(script).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-008: Insert script at end of body', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
-                externalScripts: [
-                  { src: 'https://cdn.example.com/body-script.js', position: 'body-end' },
-                ],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator('body script[src="https://cdn.example.com/body-script.js"]')
-        await expect(script).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-009: Insert script at start of body', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
-                externalScripts: [
-                  { src: 'https://cdn.example.com/body-start-script.js', position: 'body-start' },
-                ],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const script = page.locator(
-          'body script[src="https://cdn.example.com/body-start-script.js"]'
-        )
-        await expect(script).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-EXTERNAL-010: Load multiple external scripts in order', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: {
-                externalScripts: [
+                  // 001: CDN script
                   { src: 'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js' },
+                  // 004: Module script
+                  { src: './js/module-app.js', module: true },
+                  // 005: Script with integrity
+                  { src: 'https://cdn.example.com/lib.js', integrity: 'sha384-abc123' },
+                  // 010: Additional scripts for multiple test
                   { src: 'https://cdn.jsdelivr.net/npm/chart.js' },
+                  // 011: Local JavaScript file
                   { src: './js/app.js' },
                 ],
               },
@@ -602,6 +425,25 @@ test.describe('External Scripts', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-001: Load external JavaScript from CDN', async () => {
+        await expect(
+          page.locator('script[src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-004: Load script with type=module', async () => {
+        const script = page.locator('script[src="./js/module-app.js"]')
+        await expect(script).toHaveAttribute('type', 'module')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-005: Verify subresource integrity for security', async () => {
+        const script = page.locator('script[src="https://cdn.example.com/lib.js"]')
+        await expect(script).toHaveAttribute('integrity', 'sha384-abc123')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-010: Load multiple external scripts in order', async () => {
         await expect(
           page.locator('script[src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"]')
         ).toBeAttached()
@@ -612,23 +454,11 @@ test.describe('External Scripts', () => {
       })
 
       await test.step('APP-PAGES-EXTERNAL-011: Load local JavaScript file', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: { externalScripts: [{ src: './js/app.js' }] },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('script[src="./js/app.js"]')).toBeAttached()
       })
 
-      await test.step('APP-PAGES-EXTERNAL-012: Load script with default settings', async () => {
+      // Group 2: Async attribute (conflicts with defer and default)
+      await test.step('Setup: Start server with async script configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -636,13 +466,136 @@ test.describe('External Scripts', () => {
               name: 'Test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-              scripts: { externalScripts: [{ src: 'https://cdn.example.com/script.js' }] },
+              scripts: {
+                externalScripts: [{ src: 'https://cdn.example.com/async-script.js', async: true }],
+              },
               sections: [],
             },
           ],
         })
         await page.goto('/')
-        const script = page.locator('script[src="https://cdn.example.com/script.js"]')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-002: Load script asynchronously', async () => {
+        const script = page.locator('script[src="https://cdn.example.com/async-script.js"]')
+        await expect(script).toHaveAttribute('async', '')
+      })
+
+      // Group 3: Defer attribute (conflicts with async and default)
+      await test.step('Setup: Start server with defer script configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                externalScripts: [{ src: 'https://cdn.example.com/defer-script.js', defer: true }],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-003: Defer script execution until DOM loaded', async () => {
+        const script = page.locator('script[src="https://cdn.example.com/defer-script.js"]')
+        await expect(script).toHaveAttribute('defer', '')
+      })
+
+      // Group 4: Position-based tests (all three positions in one schema)
+      await test.step('Setup: Start server with position-based script configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                externalScripts: [
+                  // 007: head position
+                  { src: 'https://cdn.example.com/head-script.js', position: 'head' },
+                  // 008: body-end position
+                  { src: 'https://cdn.example.com/body-script.js', position: 'body-end' },
+                  // 009: body-start position
+                  { src: 'https://cdn.example.com/body-start-script.js', position: 'body-start' },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-007: Insert script in document head', async () => {
+        const script = page.locator('head script[src="https://cdn.example.com/head-script.js"]')
+        await expect(script).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-008: Insert script at end of body', async () => {
+        const script = page.locator('body script[src="https://cdn.example.com/body-script.js"]')
+        await expect(script).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-009: Insert script at start of body', async () => {
+        const script = page.locator(
+          'body script[src="https://cdn.example.com/body-start-script.js"]'
+        )
+        await expect(script).toBeAttached()
+      })
+
+      // Group 5: Crossorigin tests (both values in one schema)
+      await test.step('Setup: Start server with crossorigin script configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                externalScripts: [
+                  { src: 'https://cdn.example.com/anon-lib.js', crossorigin: 'anonymous' },
+                  { src: 'https://cdn.example.com/cred-lib.js', crossorigin: 'use-credentials' },
+                ],
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-006: Set CORS policy for script loading', async () => {
+        const anonScript = page.locator('script[src="https://cdn.example.com/anon-lib.js"]')
+        await expect(anonScript).toHaveAttribute('crossorigin', 'anonymous')
+        const credScript = page.locator('script[src="https://cdn.example.com/cred-lib.js"]')
+        await expect(credScript).toHaveAttribute('crossorigin', 'use-credentials')
+      })
+
+      // Group 6: Default settings (no async, no defer)
+      await test.step('Setup: Start server with default script configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: { externalScripts: [{ src: 'https://cdn.example.com/default-script.js' }] },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-EXTERNAL-012: Load script with default settings', async () => {
+        const script = page.locator('script[src="https://cdn.example.com/default-script.js"]')
         await expect(script).toBeAttached()
         await expect(script).not.toHaveAttribute('async')
         await expect(script).not.toHaveAttribute('defer')

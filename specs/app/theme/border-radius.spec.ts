@@ -839,11 +839,17 @@ test.describe('Border Radius', () => {
     'APP-THEME-RADIUS-REGRESSION: user can complete full border-radius workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-RADIUS-001: Validate radius tokens from 0 to 1.5rem', async () => {
+      // OPTIMIZATION: Consolidated from 14 startServerWithSchema calls to 1
+      // All radius token names are unique and can be combined:
+      // - Standard scale: none, sm, md, lg, xl, 2xl, 3xl, full
+      // - Custom kebab-case: button-radius, card-radius
+
+      await test.step('Setup: Start server with comprehensive border-radius configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             borderRadius: {
+              // Standard elevation scale (tests 001, 002, 003, 004, 006)
               none: '0',
               sm: '0.125rem',
               md: '0.375rem',
@@ -851,6 +857,10 @@ test.describe('Border Radius', () => {
               xl: '0.75rem',
               '2xl': '1rem',
               '3xl': '1.5rem',
+              full: '9999px',
+              // Custom kebab-case tokens (test 005)
+              'button-radius': '0.5rem',
+              'card-radius': '1rem',
             },
           },
           pages: [
@@ -859,6 +869,7 @@ test.describe('Border Radius', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // Test 001: Radius scale progression
                 {
                   type: 'div',
                   props: { 'data-testid': 'radius-scale', className: 'grid grid-cols-4 gap-4 p-5' },
@@ -872,34 +883,7 @@ test.describe('Border Radius', () => {
                     { type: 'div', props: { className: 'w-20 h-20 bg-blue-500 rounded-3xl' } },
                   ],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--radius-none: 0')
-        expect(css).toContain('--radius-sm: 0.125rem')
-        expect(css).toContain('--radius-md: 0.375rem')
-        expect(css).toContain('--radius-lg: 0.5rem')
-        expect(css).toContain('--radius-xl: 0.75rem')
-        expect(css).toContain('--radius-2xl: 1rem')
-        expect(css).toContain('--radius-3xl: 1.5rem')
-        await expect(page.locator('[data-testid="radius-scale"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-002: Validate no rounding', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { none: '0' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Test 002: No rounding
                 {
                   type: 'div',
                   props: {
@@ -907,25 +891,7 @@ test.describe('Border Radius', () => {
                     className: 'w-20 h-20 bg-blue-500 rounded-none',
                   },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const element = page.locator('[data-testid="radius-none"]')
-        await expect(element).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-003: Validate fully rounded elements', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { full: '9999px' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Test 003: Fully rounded
                 {
                   type: 'div',
                   props: {
@@ -933,25 +899,7 @@ test.describe('Border Radius', () => {
                     className: 'w-20 h-20 bg-purple-500 rounded-full',
                   },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const element = page.locator('[data-testid="radius-full"]')
-        await expect(element).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-004: Validate rem-based radius values', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { sm: '0.125rem', md: '0.375rem', lg: '0.5rem' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Test 004: rem-based values
                 {
                   type: 'div',
                   props: { 'data-testid': 'rem-radius', className: 'flex gap-4 p-5' },
@@ -982,30 +930,7 @@ test.describe('Border Radius', () => {
                     },
                   ],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--radius-sm: 0.125rem')
-        expect(css).toContain('--radius-md: 0.375rem')
-        expect(css).toContain('--radius-lg: 0.5rem')
-        await expect(page.locator('[data-testid="rem-radius"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-005: Validate kebab-case convention', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { 'button-radius': '0.5rem', 'card-radius': '1rem' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Test 005: kebab-case convention
                 {
                   type: 'div',
                   props: { 'data-testid': 'kebab-case-radius', className: 'flex gap-4 p-5' },
@@ -1028,221 +953,30 @@ test.describe('Border Radius', () => {
                     },
                   ],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="radius-button-radius"]')).toBeVisible()
-        await expect(page.locator('[data-testid="radius-card-radius"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-006: Validate complete rounding system', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            borderRadius: {
-              none: '0',
-              sm: '0.125rem',
-              md: '0.375rem',
-              lg: '0.5rem',
-              xl: '0.75rem',
-              '2xl': '1rem',
-              '3xl': '1.5rem',
-              full: '9999px',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'radius-none',
-                    className: 'w-20 h-20 bg-blue-500 rounded-none',
-                  },
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'radius-full',
-                    className: 'w-20 h-20 bg-purple-500 rounded-full',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="radius-none"]')).toBeVisible()
-        await expect(page.locator('[data-testid="radius-full"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-007: Render button with 0.375rem border-radius', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { md: '0.375rem' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 007: Button with md radius
                 { type: 'button', content: 'Click me', props: { 'data-testid': 'primary-button' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--radius-md: 0.375rem')
-        const button = page.locator('[data-testid="primary-button"]')
-        await expect(button).toBeVisible()
-        const borderRadius = await button.evaluate((el) => window.getComputedStyle(el).borderRadius)
-        expect(borderRadius).toBe('6px')
-      })
-
-      await test.step('APP-THEME-RADIUS-008: Render image as circle with 9999px border-radius', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { full: '9999px' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 008: Avatar with full radius
                 {
                   type: 'avatar',
                   props: { 'data-testid': 'user-avatar', src: 'avatar.jpg', alt: 'User' },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const avatar = page.locator('[data-testid="user-avatar"]')
-        await expect(avatar).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-009: Render card with 0.5rem border-radius', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { lg: '0.5rem' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 009: Card with lg radius
                 { type: 'card', content: 'Card content', props: { 'data-testid': 'content-card' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--radius-lg: 0.5rem')
-        const card = page.locator('[data-testid="content-card"]')
-        await expect(card).toBeVisible()
-        const borderRadius = await card.evaluate((el) => window.getComputedStyle(el).borderRadius)
-        expect(borderRadius).toBe('8px')
-      })
-
-      await test.step('APP-THEME-RADIUS-010: Apply responsive radius for mobile and desktop', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { sm: '0.125rem', lg: '0.5rem' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 010: Responsive button
                 {
                   type: 'button',
                   content: 'Get Started',
                   props: { 'data-testid': 'responsive-button' },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--radius-sm: 0.125rem')
-        expect(css).toContain('--radius-lg: 0.5rem')
-        await expect(page.locator('[data-testid="responsive-button"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-011: Render element with custom radius on each corner', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { md: '0.375rem', none: '0' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 011: Speech bubble with per-corner radius
                 {
                   type: 'speech-bubble',
                   content: 'Hello!',
                   props: { 'data-testid': 'message-bubble' },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const bubble = page.locator('[data-testid="message-bubble"]')
-        await expect(bubble).toBeVisible()
-        const borderRadius = await bubble.evaluate((el) => window.getComputedStyle(el).borderRadius)
-        expect(borderRadius).toBeTruthy()
-      })
-
-      await test.step('APP-THEME-RADIUS-012: Render badge as pill with fully rounded edges', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { full: '9999px' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 012: Badge as pill
                 { type: 'badge', content: 'New', props: { 'data-testid': 'status-badge' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--radius-full: 9999px')
-        const badge = page.locator('[data-testid="status-badge"]')
-        await expect(badge).toBeVisible()
-        const borderRadius = await badge.evaluate((el) => window.getComputedStyle(el).borderRadius)
-        expect(borderRadius).toBe('9999px')
-      })
-
-      await test.step('APP-THEME-RADIUS-013: Apply appropriate radius for each image context', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { full: '9999px', md: '0.375rem', lg: '0.5rem', none: '0' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'avatar',
-                  props: { 'data-testid': 'user-avatar', src: 'avatar.jpg', alt: 'User' },
-                },
+                // Test 013: Image contexts (avatar already added above)
                 {
                   type: 'thumbnail',
                   props: { 'data-testid': 'post-thumbnail', src: 'thumbnail.jpg', alt: 'Post' },
@@ -1251,25 +985,7 @@ test.describe('Border Radius', () => {
                   type: 'hero-image',
                   props: { 'data-testid': 'hero-image', src: 'hero.jpg', alt: 'Hero' },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="user-avatar"]')).toBeVisible()
-        await expect(page.locator('[data-testid="post-thumbnail"]')).toBeVisible()
-        await expect(page.locator('[data-testid="hero-image"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-RADIUS-014: Apply radius for cohesive nested component design', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { borderRadius: { lg: '0.5rem', md: '0.375rem', none: '0' } },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
+                // Test 014: Nested card components
                 {
                   type: 'card-with-header',
                   props: { 'data-testid': 'product-card' },
@@ -1296,6 +1012,113 @@ test.describe('Border Radius', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-RADIUS-001: Validate radius tokens from 0 to 1.5rem', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-none: 0')
+        expect(css).toContain('--radius-sm: 0.125rem')
+        expect(css).toContain('--radius-md: 0.375rem')
+        expect(css).toContain('--radius-lg: 0.5rem')
+        expect(css).toContain('--radius-xl: 0.75rem')
+        expect(css).toContain('--radius-2xl: 1rem')
+        expect(css).toContain('--radius-3xl: 1.5rem')
+        await expect(page.locator('[data-testid="radius-scale"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-002: Validate no rounding', async () => {
+        const element = page.locator('[data-testid="radius-none"]')
+        await expect(element).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-003: Validate fully rounded elements', async () => {
+        const element = page.locator('[data-testid="radius-full"]')
+        await expect(element).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-004: Validate rem-based radius values', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-sm: 0.125rem')
+        expect(css).toContain('--radius-md: 0.375rem')
+        expect(css).toContain('--radius-lg: 0.5rem')
+        await expect(page.locator('[data-testid="rem-radius"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-005: Validate kebab-case convention', async () => {
+        await expect(page.locator('[data-testid="radius-button-radius"]')).toBeVisible()
+        await expect(page.locator('[data-testid="radius-card-radius"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-006: Validate complete rounding system', async () => {
+        await expect(page.locator('[data-testid="radius-none"]')).toBeVisible()
+        await expect(page.locator('[data-testid="radius-full"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-007: Render button with 0.375rem border-radius', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-md: 0.375rem')
+        const button = page.locator('[data-testid="primary-button"]')
+        await expect(button).toBeVisible()
+        const borderRadius = await button.evaluate((el) => window.getComputedStyle(el).borderRadius)
+        expect(borderRadius).toBe('6px')
+      })
+
+      await test.step('APP-THEME-RADIUS-008: Render image as circle with 9999px border-radius', async () => {
+        const avatar = page.locator('[data-testid="user-avatar"]')
+        await expect(avatar).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-009: Render card with 0.5rem border-radius', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-lg: 0.5rem')
+        const card = page.locator('[data-testid="content-card"]')
+        await expect(card).toBeVisible()
+        const borderRadius = await card.evaluate((el) => window.getComputedStyle(el).borderRadius)
+        expect(borderRadius).toBe('8px')
+      })
+
+      await test.step('APP-THEME-RADIUS-010: Apply responsive radius for mobile and desktop', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-sm: 0.125rem')
+        expect(css).toContain('--radius-lg: 0.5rem')
+        await expect(page.locator('[data-testid="responsive-button"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-011: Render element with custom radius on each corner', async () => {
+        const bubble = page.locator('[data-testid="message-bubble"]')
+        await expect(bubble).toBeVisible()
+        const borderRadius = await bubble.evaluate((el) => window.getComputedStyle(el).borderRadius)
+        expect(borderRadius).toBeTruthy()
+      })
+
+      await test.step('APP-THEME-RADIUS-012: Render badge as pill with fully rounded edges', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-full: 9999px')
+        const badge = page.locator('[data-testid="status-badge"]')
+        await expect(badge).toBeVisible()
+        const borderRadius = await badge.evaluate((el) => window.getComputedStyle(el).borderRadius)
+        expect(borderRadius).toBe('9999px')
+      })
+
+      await test.step('APP-THEME-RADIUS-013: Apply appropriate radius for each image context', async () => {
+        await expect(page.locator('[data-testid="user-avatar"]')).toBeVisible()
+        await expect(page.locator('[data-testid="post-thumbnail"]')).toBeVisible()
+        await expect(page.locator('[data-testid="hero-image"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-RADIUS-014: Apply radius for cohesive nested component design', async () => {
         await expect(page.locator('[data-testid="product-card"]')).toBeVisible()
         await expect(page.locator('[data-testid="card-header"]')).toBeVisible()
         await expect(page.locator('[data-testid="card-footer"]')).toBeVisible()

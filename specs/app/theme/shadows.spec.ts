@@ -944,16 +944,37 @@ test.describe('Shadows', () => {
     'APP-THEME-SHADOWS-REGRESSION: user can complete full shadows workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-SHADOWS-001: Validate elevation system from subtle to dramatic', async () => {
+      // OPTIMIZATION: Consolidated from 16 startServerWithSchema calls to 1
+      // All shadow names are unique and can be combined: sm, md, lg, xl, 2xl, inner, none,
+      // drop-shadow, card-shadow, brand, neumorphic, focus
+
+      await test.step('Setup: Start server with comprehensive shadow configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             shadows: {
+              // Standard elevation scale (tests 001, 006, 014, 015, 016)
               sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
               md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
               lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
               xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
               '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+              // Inset shadow (tests 003, 009)
+              inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
+              // No shadow (test 004)
+              none: '0 0 #0000',
+              // Kebab-case shadows (test 005)
+              'drop-shadow': '0 4px 6px rgb(0 0 0 / 0.1)',
+              'card-shadow': '0 2px 4px rgb(0 0 0 / 0.05)',
+              // Brand shadow (test 011)
+              brand: '0 4px 14px 0 rgb(59 130 246 / 0.4)',
+              // Neumorphic shadow (test 012)
+              neumorphic: '8px 8px 16px rgb(0 0 0 / 0.1), -8px -8px 16px rgb(255 255 255 / 0.5)',
+              // Focus shadow (test 013)
+              focus: '0 0 0 3px rgb(59 130 246 / 0.5)',
+            },
+            colors: {
+              primary: '#3b82f6',
             },
           },
           pages: [
@@ -962,6 +983,7 @@ test.describe('Shadows', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // Elevation scale elements (tests 001, 006, 015)
                 {
                   type: 'div',
                   props: {
@@ -972,71 +994,18 @@ test.describe('Shadows', () => {
                 {
                   type: 'div',
                   props: {
-                    'data-testid': 'shadow-2xl',
-                    className: 'shadow-2xl w-[50px] h-[50px] bg-white',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
-        expect(css).toContain('--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25)')
-        await expect(page.locator('[data-testid="shadow-sm"]')).toBeVisible()
-        await expect(page.locator('[data-testid="shadow-2xl"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-SHADOWS-002: Validate rgb(0 0 0 / 0.1) format', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
                     'data-testid': 'shadow-md',
                     className: 'shadow-md w-[100px] h-[100px] bg-white',
                   },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
-        await expect(page.locator('[data-testid="shadow-md"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-SHADOWS-003: Validate inset box-shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'shadow-2xl',
+                    className: 'shadow-2xl w-[50px] h-[50px] bg-white',
+                  },
+                },
+                // Inset shadow (test 003)
                 {
                   type: 'div',
                   props: {
@@ -1044,32 +1013,7 @@ test.describe('Shadows', () => {
                     className: 'shadow-inner w-[50px] h-[50px] bg-white',
                   },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
-        await expect(page.locator('[data-testid="shadow-inner"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-SHADOWS-004: Validate shadow removal', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              none: '0 0 #0000',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // No shadow (test 004)
                 {
                   type: 'div',
                   props: {
@@ -1077,33 +1021,7 @@ test.describe('Shadows', () => {
                     className: 'shadow-none w-[50px] h-[50px] bg-white border border-gray-300',
                   },
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cssResponse = await page.request.get('/assets/output.css')
-        expect(cssResponse.ok()).toBeTruthy()
-        const css = await cssResponse.text()
-        expect(css).toContain('--shadow-none: 0 0 #0000')
-        await expect(page.locator('[data-testid="shadow-none"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-SHADOWS-005: Validate kebab-case convention', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              'drop-shadow': '0 4px 6px rgb(0 0 0 / 0.1)',
-              'card-shadow': '0 2px 4px rgb(0 0 0 / 0.05)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // Kebab-case shadows (test 005)
                 {
                   type: 'div',
                   props: {
@@ -1118,11 +1036,115 @@ test.describe('Shadows', () => {
                     className: 'shadow-card-shadow w-[50px] h-[50px] bg-white',
                   },
                 },
+                // Card components (tests 007, 012, 014)
+                {
+                  type: 'card',
+                  content: 'Card content',
+                  props: { 'data-testid': 'product-card' },
+                },
+                {
+                  type: 'card',
+                  content: 'Neumorphic design',
+                  props: { 'data-testid': 'neumorphic-card' },
+                },
+                {
+                  type: 'card',
+                  content: 'Card content',
+                  props: { 'data-testid': 'responsive-card' },
+                },
+                // Modal (test 008)
+                {
+                  type: 'modal',
+                  content: 'Modal content',
+                  props: { 'data-testid': 'confirmation-modal' },
+                },
+                // Input elements (tests 009, 013)
+                {
+                  type: 'input',
+                  props: { 'data-testid': 'text-input', type: 'single-line-text' },
+                },
+                // Button elements (tests 010, 011, 016)
+                {
+                  type: 'button',
+                  content: 'Hover me',
+                  props: { 'data-testid': 'elevated-button' },
+                },
+                {
+                  type: 'button',
+                  content: 'Get Started',
+                  props: { 'data-testid': 'brand-button' },
+                },
+                {
+                  type: 'button',
+                  content: 'Press me',
+                  props: { 'data-testid': 'pressable-button' },
+                },
+                // Elevation hierarchy components (test 015)
+                {
+                  type: 'list-item',
+                  content: 'Item',
+                  props: { 'data-testid': 'list-item' },
+                },
+                {
+                  type: 'card',
+                  content: 'Card',
+                  props: { 'data-testid': 'card' },
+                },
+                {
+                  type: 'dropdown',
+                  content: 'Menu',
+                  props: { 'data-testid': 'dropdown' },
+                },
+                {
+                  type: 'modal',
+                  content: 'Modal',
+                  props: { 'data-testid': 'modal' },
+                },
               ],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-SHADOWS-001: Validate elevation system from subtle to dramatic', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
+        expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25)')
+        await expect(page.locator('[data-testid="shadow-sm"]')).toBeVisible()
+        await expect(page.locator('[data-testid="shadow-2xl"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-SHADOWS-002: Validate rgb(0 0 0 / 0.1) format', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
+        await expect(page.locator('[data-testid="shadow-md"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-SHADOWS-003: Validate inset box-shadow', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
+        await expect(page.locator('[data-testid="shadow-inner"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-SHADOWS-004: Validate shadow removal', async () => {
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--shadow-none: 0 0 #0000')
+        await expect(page.locator('[data-testid="shadow-none"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-SHADOWS-005: Validate kebab-case convention', async () => {
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1133,83 +1155,21 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-006: Validate complete shadow system', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              sm: '0 1px 2px',
-              md: '0 4px 6px',
-              lg: '0 10px 15px',
-              xl: '0 20px 25px',
-              '2xl': '0 25px 50px',
-              inner: 'inset 0 2px 4px',
-              none: '0 0 #0000',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'shadow-sm',
-                    className: 'shadow-sm w-[50px] h-[50px] bg-white',
-                  },
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'shadow-none',
-                    className: 'shadow-none w-[50px] h-[50px] bg-white border border-gray-300',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
-        expect(css).toContain('--shadow-sm: 0 1px 2px')
-        expect(css).toContain('--shadow-md: 0 4px 6px')
-        expect(css).toContain('--shadow-lg: 0 10px 15px')
-        expect(css).toContain('--shadow-xl: 0 20px 25px')
-        expect(css).toContain('--shadow-2xl: 0 25px 50px')
-        expect(css).toContain('--shadow-inner: inset 0 2px 4px')
+        expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
+        expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25)')
+        expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
         expect(css).toContain('--shadow-none: 0 0 #0000')
         await expect(page.locator('[data-testid="shadow-sm"]')).toBeVisible()
         await expect(page.locator('[data-testid="shadow-none"]')).toBeVisible()
       })
 
       await test.step('APP-THEME-SHADOWS-007: Render card with medium box-shadow creating depth', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'card',
-                  content: 'Card content',
-                  props: {
-                    'data-testid': 'product-card',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1218,30 +1178,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-008: Render modal with dramatic shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'modal',
-                  content: 'Modal content',
-                  props: {
-                    'data-testid': 'confirmation-modal',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1250,29 +1186,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-009: Render input with inset shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'input',
-                  props: {
-                    'data-testid': 'text-input',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1281,31 +1194,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-010: Render button with smooth shadow transition', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-              lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'button',
-                  content: 'Hover me',
-                  props: {
-                    'data-testid': 'elevated-button',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1315,33 +1203,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-011: Render button with colored shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              brand: '0 4px 14px 0 rgb(59 130 246 / 0.4)',
-            },
-            colors: {
-              primary: '#3b82f6',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'button',
-                  content: 'Get Started',
-                  props: {
-                    'data-testid': 'brand-button',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1350,30 +1211,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-012: Render element with multi-layered shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              neumorphic: '8px 8px 16px rgb(0 0 0 / 0.1), -8px -8px 16px rgb(255 255 255 / 0.5)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'card',
-                  content: 'Neumorphic design',
-                  props: {
-                    'data-testid': 'neumorphic-card',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1384,33 +1221,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-013: Render input with prominent focus shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              focus: '0 0 0 3px rgb(59 130 246 / 0.5)',
-            },
-            colors: {
-              primary: '#3b82f6',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'input',
-                  props: {
-                    'data-testid': 'text-input',
-                    type: 'single-line-text',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1419,31 +1229,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-014: Render card with appropriate shadow depth', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'card',
-                  content: 'Card content',
-                  props: {
-                    'data-testid': 'responsive-card',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1453,55 +1238,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-015: Render components with consistent elevation scale', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-              lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-              xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-              '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'list-item',
-                  content: 'Item',
-                  props: {
-                    'data-testid': 'list-item',
-                  },
-                },
-                {
-                  type: 'card',
-                  content: 'Card',
-                  props: {
-                    'data-testid': 'card',
-                  },
-                },
-                {
-                  type: 'dropdown',
-                  content: 'Menu',
-                  props: {
-                    'data-testid': 'dropdown',
-                  },
-                },
-                {
-                  type: 'modal',
-                  content: 'Modal',
-                  props: {
-                    'data-testid': 'modal',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()
@@ -1517,31 +1253,6 @@ test.describe('Shadows', () => {
       })
 
       await test.step('APP-THEME-SHADOWS-016: Render button with reduced shadow', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            shadows: {
-              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-              sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'button',
-                  content: 'Press me',
-                  props: {
-                    'data-testid': 'pressable-button',
-                  },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
         const cssResponse = await page.request.get('/assets/output.css')
         expect(cssResponse.ok()).toBeTruthy()
         const css = await cssResponse.text()

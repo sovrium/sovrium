@@ -381,231 +381,33 @@ test.describe('Common Definitions', () => {
 
   // ============================================================================
   // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test covering all 12 @spec scenarios via multi-server steps
+  // ONE OPTIMIZED test covering all 12 @spec scenarios via grouped server setups
+  // OPTIMIZATION: Consolidated from 12 startServerWithSchema calls to 3
   // ============================================================================
 
   test(
     'APP-PAGES-DEFINITIONS-REGRESSION: user can complete full definitions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-DEFINITIONS-001: Validate as nonEmptyString', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'hello',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="page-hello"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-002: Validate as kebabCase pattern', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [{ name: 'my-component-name', type: 'div' }],
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              sections: [{ block: 'my-component-name', vars: {} }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="block-my-component-name"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-003: Validate as variableName pattern', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [{ name: 'test-block', type: 'div', content: '$myVariable123' }],
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              sections: [{ block: 'test-block', vars: { myVariable123: 'Hello' } }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="block-test-block"]')).toHaveText('Hello')
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-004: Validate as variableReference pattern', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [{ name: 'welcome', type: 'div', content: 'Welcome to $siteName' }],
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="block-welcome"]')).toHaveText('Welcome to My Site')
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-005: Validate as hexColor pattern', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: { colors: { custom: '#FF5733' } },
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ type: 'div', props: { className: 'bg-custom' }, children: ['Test'] }],
-            },
-          ],
-        })
-        await page.goto('/')
-        const element = page.locator('div.bg-custom')
-        await expect(element).toHaveCSS('background-color', 'rgb(255, 87, 51)')
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-006: Validate as url with http/https protocol', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                openGraph: { image: 'https://example.com/image.jpg' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
-          'content',
-          'https://example.com/image.jpg'
-        )
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-007: Validate as relativePath pattern', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: { navigation: { logo: './public/logo.svg' } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('img[src="./public/logo.svg"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-008: Validate as emailAddress format', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: { footer: { email: 'user@example.com' } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('a[href="mailto:user@example.com"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-009: Validate as className', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              sections: [
-                {
-                  type: 'div',
-                  props: { className: 'text-center bg-blue-500 p-4' },
-                  children: ['Content'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const element = page.locator('div.text-center')
-        await expect(element).toHaveClass(/text-center/)
-        await expect(element).toHaveClass(/bg-blue-500/)
-        await expect(element).toHaveClass(/p-4/)
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-010: Validate as iconName enum', async () => {
+      // Group 1: Block-based tests with variable substitution (002, 003, 004, 010, 012)
+      // All blocks can coexist in a single schema
+      await test.step('Setup: Start server with block-based configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           blocks: [
+            // 002: kebabCase block
+            { name: 'my-component-name', type: 'div' },
+            // 003: variableName block
+            { name: 'test-block', type: 'div', content: '$myVariable123' },
+            // 004: variableReference block
+            { name: 'welcome', type: 'div', content: 'Welcome to $siteName' },
+            // 010: single icon block
             {
               name: 'icon-block',
               type: 'div',
               children: [{ type: 'icon', props: { name: 'arrow-right' } }],
             },
-          ],
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              sections: [{ block: 'icon-block', vars: {} }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="icon-arrow-right"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-011: Validate as dimensions object', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              sections: [
-                {
-                  type: 'image',
-                  props: { src: '/image.jpg', width: 800, height: 600 },
-                  children: [],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const img = page.locator('img[src="/image.jpg"]')
-        await expect(img).toHaveAttribute('width', '800')
-        await expect(img).toHaveAttribute('height', '600')
-      })
-
-      await test.step('APP-PAGES-DEFINITIONS-012: Provide comprehensive icon set', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          blocks: [
+            // 012: comprehensive icons block
             {
               name: 'icons',
               type: 'div',
@@ -620,19 +422,123 @@ test.describe('Common Definitions', () => {
           ],
           pages: [
             {
-              name: 'Test',
+              name: 'test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
-              sections: [{ block: 'icons', vars: {} }],
+              sections: [
+                { block: 'my-component-name', vars: {} },
+                { block: 'test-block', vars: { myVariable123: 'Hello' } },
+                { block: 'welcome', vars: { siteName: 'My Site' } },
+                { block: 'icon-block', vars: {} },
+                { block: 'icons', vars: {} },
+              ],
             },
           ],
         })
         await page.goto('/')
-        await expect(page.locator('[data-testid="icon-arrow-right"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-002: Validate as kebabCase pattern', async () => {
+        await expect(page.locator('[data-testid="block-my-component-name"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-003: Validate as variableName pattern', async () => {
+        await expect(page.locator('[data-testid="block-test-block"]')).toHaveText('Hello')
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-004: Validate as variableReference pattern', async () => {
+        await expect(page.locator('[data-testid="block-welcome"]')).toHaveText('Welcome to My Site')
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-010: Validate as iconName enum', async () => {
+        await expect(page.locator('[data-testid="icon-arrow-right"]').first()).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-012: Provide comprehensive icon set', async () => {
+        await expect(page.locator('[data-testid="icon-arrow-right"]').first()).toBeVisible()
         await expect(page.locator('[data-testid="icon-check"]')).toBeVisible()
         await expect(page.locator('[data-testid="icon-user"]')).toBeVisible()
         await expect(page.locator('[data-testid="icon-star"]')).toBeVisible()
         await expect(page.locator('[data-testid="icon-heart"]')).toBeVisible()
+      })
+
+      // Group 2: Layout and meta-based tests (001, 005, 006, 007, 008, 009, 011)
+      // All use different page properties that can coexist
+      await test.step('Setup: Start server with layout/meta configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: { colors: { custom: '#FF5733' } }, // 005: hexColor
+          pages: [
+            {
+              name: 'hello', // 001: nonEmptyString
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test page',
+                openGraph: { image: 'https://example.com/image.jpg' }, // 006: url
+              },
+              layout: {
+                navigation: { logo: './public/logo.svg' }, // 007: relativePath
+                footer: { email: 'user@example.com' }, // 008: emailAddress
+              },
+              sections: [
+                // 005: hexColor bg
+                { type: 'div', props: { className: 'bg-custom' }, children: ['Test'] },
+                // 009: className
+                {
+                  type: 'div',
+                  props: { className: 'text-center bg-blue-500 p-4' },
+                  children: ['Content'],
+                },
+                // 011: dimensions
+                {
+                  type: 'image',
+                  props: { src: '/image.jpg', width: 800, height: 600 },
+                  children: [],
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-001: Validate as nonEmptyString', async () => {
+        await expect(page.locator('[data-testid="page-hello"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-005: Validate as hexColor pattern', async () => {
+        const element = page.locator('div.bg-custom')
+        await expect(element).toHaveCSS('background-color', 'rgb(255, 87, 51)')
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-006: Validate as url with http/https protocol', async () => {
+        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+          'content',
+          'https://example.com/image.jpg'
+        )
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-007: Validate as relativePath pattern', async () => {
+        await expect(page.locator('img[src="./public/logo.svg"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-008: Validate as emailAddress format', async () => {
+        await expect(page.locator('a[href="mailto:user@example.com"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-009: Validate as className', async () => {
+        const element = page.locator('div.text-center')
+        await expect(element).toHaveClass(/text-center/)
+        await expect(element).toHaveClass(/bg-blue-500/)
+        await expect(element).toHaveClass(/p-4/)
+      })
+
+      await test.step('APP-PAGES-DEFINITIONS-011: Validate as dimensions object', async () => {
+        const img = page.locator('img[src="/image.jpg"]')
+        await expect(img).toHaveAttribute('width', '800')
+        await expect(img).toHaveAttribute('height', '600')
       })
     }
   )

@@ -479,7 +479,11 @@ test.describe('Twitter Card Metadata', () => {
     'APP-PAGES-TWITTER-REGRESSION: user can complete full Twitter Card workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-TWITTER-001: Validate minimal Twitter Card configuration', async () => {
+      // ============================================================================
+      // SETUP 1: Comprehensive summary_large_image with ALL additive properties
+      // Covers: 001, 003, 006, 007, 008, 009, 010, 011, 012
+      // ============================================================================
+      await test.step('Setup: Start server with comprehensive summary_large_image configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -490,19 +494,106 @@ test.describe('Twitter Card Metadata', () => {
                 lang: 'en-US',
                 title: 'Test',
                 description: 'Test',
-                twitter: { card: 'summary_large_image' },
+                twitter: {
+                  // Card type (001, 003)
+                  card: 'summary_large_image',
+                  // Title and description (006, 007)
+                  title: 'Transform Your Business with AI-Powered Analytics',
+                  description:
+                    'Get real-time insights, automated reporting, and predictive analytics. Start your free 14-day trial today with no credit card required.',
+                  // Image properties (008, 011)
+                  image: 'https://example.com/twitter-800x418.jpg',
+                  imageAlt:
+                    'Product screenshot showing dashboard with three main sections: analytics graphs displaying monthly revenue trends, user activity heatmap with peak usage times highlighted in red, and automated reporting panel with scheduled report configuration options.',
+                  // Attribution (009, 010)
+                  site: '@acmeanalytics',
+                  creator: '@producthunt',
+                },
               },
               sections: [],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-TWITTER-001: Validate minimal Twitter Card configuration', async () => {
+        // Assertions only - card type validation
         await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
           'content',
           'summary_large_image'
         )
       })
 
+      await test.step('APP-PAGES-TWITTER-003: Display large rectangular image card', async () => {
+        // Assertions only - same as 001, verifying summary_large_image type
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+          'content',
+          'summary_large_image'
+        )
+      })
+
+      await test.step('APP-PAGES-TWITTER-006: Enforce title length for Twitter display', async () => {
+        // Assertions only - title length check (70 chars max)
+        const twitterTitle = await page
+          .locator('meta[name="twitter:title"]')
+          .getAttribute('content')
+        expect(twitterTitle?.length).toBeLessThanOrEqual(70)
+      })
+
+      await test.step('APP-PAGES-TWITTER-007: Enforce description length for Twitter cards', async () => {
+        // Assertions only - description length check (200 chars max)
+        const twitterDesc = await page
+          .locator('meta[name="twitter:description"]')
+          .getAttribute('content')
+        expect(twitterDesc?.length).toBeLessThanOrEqual(200)
+      })
+
+      await test.step('APP-PAGES-TWITTER-008: Provide properly sized social image', async () => {
+        // Assertions only - image property
+        await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+          'content',
+          'https://example.com/twitter-800x418.jpg'
+        )
+      })
+
+      await test.step('APP-PAGES-TWITTER-009: Attribute content to website Twitter account', async () => {
+        // Assertions only - site property
+        const site = await page.locator('meta[name="twitter:site"]').getAttribute('content')
+        expect(site).toMatch(/^@[A-Za-z0-9_]+$/)
+      })
+
+      await test.step('APP-PAGES-TWITTER-010: Attribute content to author Twitter account', async () => {
+        // Assertions only - creator property
+        const creator = await page.locator('meta[name="twitter:creator"]').getAttribute('content')
+        expect(creator).toMatch(/^@[A-Za-z0-9_]+$/)
+      })
+
+      await test.step('APP-PAGES-TWITTER-011: Provide accessible image description', async () => {
+        // Assertions only - imageAlt property (420 chars max)
+        const imageAlt = await page
+          .locator('meta[name="twitter:image:alt"]')
+          .getAttribute('content')
+        expect(imageAlt?.length).toBeLessThanOrEqual(420)
+      })
+
+      await test.step('APP-PAGES-TWITTER-012: Display enhanced Twitter sharing card', async () => {
+        // Assertions only - verify all enhanced properties are attached
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+          'content',
+          'summary_large_image'
+        )
+        await expect(page.locator('meta[name="twitter:title"]')).toBeAttached()
+        await expect(page.locator('meta[name="twitter:description"]')).toBeAttached()
+        await expect(page.locator('meta[name="twitter:image"]')).toBeAttached()
+        await expect(page.locator('meta[name="twitter:site"]')).toBeAttached()
+        await expect(page.locator('meta[name="twitter:creator"]')).toBeAttached()
+      })
+
+      // ============================================================================
+      // SETUP 2: Summary card type (small square image)
+      // Covers: 002
+      // ============================================================================
       await test.step('APP-PAGES-TWITTER-002: Display small square image card', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -532,35 +623,10 @@ test.describe('Twitter Card Metadata', () => {
         )
       })
 
-      await test.step('APP-PAGES-TWITTER-003: Display large rectangular image card', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: 'Major Product Launch',
-                  description: 'Introducing our revolutionary new product',
-                  image: 'https://example.com/twitter-image-800x418.jpg',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
-          'content',
-          'summary_large_image'
-        )
-      })
-
+      // ============================================================================
+      // SETUP 3: App card type for mobile app promotion
+      // Covers: 004
+      // ============================================================================
       await test.step('APP-PAGES-TWITTER-004: Promote mobile app downloads', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -593,6 +659,10 @@ test.describe('Twitter Card Metadata', () => {
         await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'app')
       })
 
+      // ============================================================================
+      // SETUP 4: Player card type for video/audio
+      // Covers: 005
+      // ============================================================================
       await test.step('APP-PAGES-TWITTER-005: Embed video/audio player', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -624,216 +694,6 @@ test.describe('Twitter Card Metadata', () => {
           'content',
           'https://example.com/player.html'
         )
-      })
-
-      await test.step('APP-PAGES-TWITTER-006: Enforce title length for Twitter display', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: 'Transform Your Business with AI-Powered Analytics Platform',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const twitterTitle = await page
-          .locator('meta[name="twitter:title"]')
-          .getAttribute('content')
-        expect(twitterTitle?.length).toBeLessThanOrEqual(70)
-      })
-
-      await test.step('APP-PAGES-TWITTER-007: Enforce description length for Twitter cards', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  description:
-                    'Discover how our AI-powered platform helps businesses make data-driven decisions. Get real-time insights and automated reporting. Start your free trial today.',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const twitterDesc = await page
-          .locator('meta[name="twitter:description"]')
-          .getAttribute('content')
-        expect(twitterDesc?.length).toBeLessThanOrEqual(200)
-      })
-
-      await test.step('APP-PAGES-TWITTER-008: Provide properly sized social image', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: 'Product Launch',
-                  description: 'Revolutionary product',
-                  image: 'https://example.com/twitter-800x418.jpg',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
-          'content',
-          'https://example.com/twitter-800x418.jpg'
-        )
-      })
-
-      await test.step('APP-PAGES-TWITTER-009: Attribute content to website Twitter account', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: '10 Ways to Boost Productivity',
-                  description: 'Proven strategies from experts',
-                  image: 'https://example.com/image.jpg',
-                  site: '@acmeblog',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const site = await page.locator('meta[name="twitter:site"]').getAttribute('content')
-        expect(site).toMatch(/^@[A-Za-z0-9_]+$/)
-      })
-
-      await test.step('APP-PAGES-TWITTER-010: Attribute content to author Twitter account', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: 'How I Built a Successful Startup',
-                  description: 'Lessons learned from my journey',
-                  image: 'https://example.com/image.jpg',
-                  site: '@techblog',
-                  creator: '@johndoe',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const creator = await page.locator('meta[name="twitter:creator"]').getAttribute('content')
-        expect(creator).toMatch(/^@[A-Za-z0-9_]+$/)
-      })
-
-      await test.step('APP-PAGES-TWITTER-011: Provide accessible image description', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: 'Product Launch',
-                  description: 'Revolutionary product',
-                  image: 'https://example.com/image.jpg',
-                  imageAlt:
-                    'Product screenshot showing dashboard with three main sections: analytics graphs displaying monthly revenue trends, user activity heatmap with peak usage times highlighted in red, and automated reporting panel with scheduled report configuration options.',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const imageAlt = await page
-          .locator('meta[name="twitter:image:alt"]')
-          .getAttribute('content')
-        expect(imageAlt?.length).toBeLessThanOrEqual(420)
-      })
-
-      await test.step('APP-PAGES-TWITTER-012: Display enhanced Twitter sharing card', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                twitter: {
-                  card: 'summary_large_image',
-                  title: 'Transform Your Business with AI-Powered Analytics',
-                  description:
-                    'Get real-time insights, automated reporting, and predictive analytics. Start your free 14-day trial today with no credit card required.',
-                  image: 'https://example.com/twitter-800x418.jpg',
-                  imageAlt: 'Dashboard screenshot showing analytics graphs and metrics',
-                  site: '@acmeanalytics',
-                  creator: '@producthunt',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
-          'content',
-          'summary_large_image'
-        )
-        await expect(page.locator('meta[name="twitter:title"]')).toBeAttached()
-        await expect(page.locator('meta[name="twitter:description"]')).toBeAttached()
-        await expect(page.locator('meta[name="twitter:image"]')).toBeAttached()
-        await expect(page.locator('meta[name="twitter:site"]')).toBeAttached()
-        await expect(page.locator('meta[name="twitter:creator"]')).toBeAttached()
       })
     }
   )

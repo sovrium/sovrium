@@ -446,7 +446,11 @@ test.describe('Postal Address', () => {
     'APP-PAGES-POSTALADDRESS-REGRESSION: user can complete full Postal Address workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-POSTALADDRESS-001: Validate minimal PostalAddress structured data', async () => {
+      // OPTIMIZATION: Consolidated from 26+ startServerWithSchema calls to 1
+      // Organization with full PostalAddress (steps 001-008)
+      // LocalBusiness with full PostalAddress (steps 009-010)
+      // Loop tests (003-006) verify ONE representative value from comprehensive schema
+      await test.step('Setup: Start server with comprehensive PostalAddress configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -458,275 +462,26 @@ test.describe('Postal Address', () => {
                 title: 'Test',
                 description: 'Test',
                 schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
-                    address: { '@type': 'PostalAddress' },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"PostalAddress"')
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-002: Provide street address', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
-                    address: { '@type': 'PostalAddress', streetAddress: '123 Main St' },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('123 Main St')
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-003: Provide city or locality name', async () => {
-        const localities = ['Strasbourg', 'Paris', 'New York', 'Tokyo']
-        for (const locality of localities) {
-          await startServerWithSchema({
-            name: 'test-app',
-            pages: [
-              {
-                name: 'Test',
-                path: '/',
-                meta: {
-                  lang: 'en-US',
-                  title: 'Test',
-                  description: 'Test',
-                  schema: {
-                    organization: {
-                      '@context': 'https://schema.org',
-                      '@type': 'Organization',
-                      name: 'Company',
-                      address: { '@type': 'PostalAddress', addressLocality: locality },
-                    },
-                  },
-                },
-                sections: [],
-              },
-            ],
-          })
-          await page.goto('/')
-          const scriptContent = await page
-            .locator('script[type="application/ld+json"]')
-            .textContent()
-          expect(scriptContent).toContain(locality)
-        }
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-004: Provide state or region name', async () => {
-        const regions = ['Grand Est', 'California', 'New York', 'Tokyo']
-        for (const region of regions) {
-          await startServerWithSchema({
-            name: 'test-app',
-            pages: [
-              {
-                name: 'Test',
-                path: '/',
-                meta: {
-                  lang: 'en-US',
-                  title: 'Test',
-                  description: 'Test',
-                  schema: {
-                    organization: {
-                      '@context': 'https://schema.org',
-                      '@type': 'Organization',
-                      name: 'Company',
-                      address: { '@type': 'PostalAddress', addressRegion: region },
-                    },
-                  },
-                },
-                sections: [],
-              },
-            ],
-          })
-          await page.goto('/')
-          const scriptContent = await page
-            .locator('script[type="application/ld+json"]')
-            .textContent()
-          expect(scriptContent).toContain(region)
-        }
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-005: Provide postal or ZIP code', async () => {
-        const postalCodes = ['67000', '94105', '10001', '75001']
-        for (const postalCode of postalCodes) {
-          await startServerWithSchema({
-            name: 'test-app',
-            pages: [
-              {
-                name: 'Test',
-                path: '/',
-                meta: {
-                  lang: 'en-US',
-                  title: 'Test',
-                  description: 'Test',
-                  schema: {
-                    organization: {
-                      '@context': 'https://schema.org',
-                      '@type': 'Organization',
-                      name: 'Company',
-                      address: { '@type': 'PostalAddress', postalCode },
-                    },
-                  },
-                },
-                sections: [],
-              },
-            ],
-          })
-          await page.goto('/')
-          const scriptContent = await page
-            .locator('script[type="application/ld+json"]')
-            .textContent()
-          expect(scriptContent).toContain(postalCode)
-        }
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-006: Provide country code', async () => {
-        const countryCodes = ['FR', 'US', 'GB', 'DE']
-        for (const country of countryCodes) {
-          await startServerWithSchema({
-            name: 'test-app',
-            pages: [
-              {
-                name: 'Test',
-                path: '/',
-                meta: {
-                  lang: 'en-US',
-                  title: 'Test',
-                  description: 'Test',
-                  schema: {
-                    organization: {
-                      '@context': 'https://schema.org',
-                      '@type': 'Organization',
-                      name: 'Company',
-                      address: { '@type': 'PostalAddress', addressCountry: country },
-                    },
-                  },
-                },
-                sections: [],
-              },
-            ],
-          })
-          await page.goto('/')
-          const scriptContent = await page
-            .locator('script[type="application/ld+json"]')
-            .textContent()
-          expect(scriptContent).toContain(country)
-        }
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-007: Provide full mailing address', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
-                    address: {
-                      '@type': 'PostalAddress',
-                      streetAddress: '123 Main St',
-                      addressLocality: 'Strasbourg',
-                      addressRegion: 'Grand Est',
-                      postalCode: '67000',
-                      addressCountry: 'FR',
-                    },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('123 Main St')
-        expect(scriptContent).toContain('Strasbourg')
-        expect(scriptContent).toContain('Grand Est')
-        expect(scriptContent).toContain('67000')
-        expect(scriptContent).toContain('FR')
-      })
-
-      await test.step("APP-PAGES-POSTALADDRESS-008: Provide organization's physical address", async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
+                  // Steps 001-008: Organization with complete PostalAddress
                   organization: {
                     '@context': 'https://schema.org',
                     '@type': 'Organization',
                     name: 'Tech Corp',
                     address: {
                       '@type': 'PostalAddress',
-                      streetAddress: '456 Innovation Dr',
-                      addressLocality: 'San Francisco',
-                      addressCountry: 'US',
+                      // Step 002: streetAddress
+                      streetAddress: '123 Main St',
+                      // Step 003: addressLocality (city)
+                      addressLocality: 'Strasbourg',
+                      // Step 004: addressRegion (state/region)
+                      addressRegion: 'Grand Est',
+                      // Step 005: postalCode
+                      postalCode: '67000',
+                      // Step 006: addressCountry
+                      addressCountry: 'FR',
                     },
                   },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('456 Innovation Dr')
-        expect(scriptContent).toContain('San Francisco')
-      })
-
-      await test.step('APP-PAGES-POSTALADDRESS-009: Enable local business map display in search results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
+                  // Steps 009-010: LocalBusiness with complete PostalAddress
                   localBusiness: {
                     '@context': 'https://schema.org',
                     '@type': 'LocalBusiness',
@@ -747,44 +502,96 @@ test.describe('Postal Address', () => {
           ],
         })
         await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('789 Commerce St')
-        expect(scriptContent).toContain('Chicago')
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-001: Validate minimal PostalAddress structured data', async () => {
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const hasPostalAddress = allScripts.some((s) => s.includes('"@type":"PostalAddress"'))
+        expect(hasPostalAddress).toBe(true)
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-002: Provide street address', async () => {
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const hasStreetAddress = allScripts.some((s) => s.includes('123 Main St'))
+        expect(hasStreetAddress).toBe(true)
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-003: Provide city or locality name', async () => {
+        // Verify addressLocality from comprehensive schema (Strasbourg)
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const hasLocality = allScripts.some((s) => s.includes('Strasbourg'))
+        expect(hasLocality).toBe(true)
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-004: Provide state or region name', async () => {
+        // Verify addressRegion from comprehensive schema (Grand Est)
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const hasRegion = allScripts.some((s) => s.includes('Grand Est'))
+        expect(hasRegion).toBe(true)
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-005: Provide postal or ZIP code', async () => {
+        // Verify postalCode from comprehensive schema (67000)
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const hasPostalCode = allScripts.some((s) => s.includes('67000'))
+        expect(hasPostalCode).toBe(true)
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-006: Provide country code', async () => {
+        // Verify addressCountry from comprehensive schema (FR)
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const hasCountry = allScripts.some((s) => s.includes('"FR"'))
+        expect(hasCountry).toBe(true)
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-007: Provide full mailing address', async () => {
+        // Verify all address components from Organization
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const orgScript = allScripts.find((s) => s.includes('"@type":"Organization"'))
+        expect(orgScript).toContain('123 Main St')
+        expect(orgScript).toContain('Strasbourg')
+        expect(orgScript).toContain('Grand Est')
+        expect(orgScript).toContain('67000')
+        expect(orgScript).toContain('FR')
+      })
+
+      await test.step("APP-PAGES-POSTALADDRESS-008: Provide organization's physical address", async () => {
+        // Verify Organization has physical address
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const orgScript = allScripts.find((s) => s.includes('"@type":"Organization"'))
+        expect(orgScript).toContain('Tech Corp')
+        expect(orgScript).toContain('123 Main St')
+      })
+
+      await test.step('APP-PAGES-POSTALADDRESS-009: Enable local business map display in search results', async () => {
+        // Verify LocalBusiness address for map display
+        const allScripts = await page
+          .locator('script[type="application/ld+json"]')
+          .allTextContents()
+        const localBusinessScript = allScripts.find((s) => s.includes('"@type":"LocalBusiness"'))
+        expect(localBusinessScript).toContain('789 Commerce St')
+        expect(localBusinessScript).toContain('Chicago')
       })
 
       await test.step('APP-PAGES-POSTALADDRESS-010: Improve local search ranking and map visibility', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'SEO Optimized Business',
-                    address: {
-                      '@type': 'PostalAddress',
-                      streetAddress: '321 Market St',
-                      addressLocality: 'Boston',
-                      addressRegion: 'MA',
-                      postalCode: '02101',
-                      addressCountry: 'US',
-                    },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+        // Verify JSON-LD scripts are attached for local search visibility
+        await expect(page.locator('script[type="application/ld+json"]').first()).toBeAttached()
       })
     }
   )

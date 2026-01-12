@@ -501,28 +501,9 @@ test.describe('Page Metadata', () => {
     'APP-PAGES-META-REGRESSION: user can complete full metadata workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-META-001: Validate minimal metadata configuration', async () => {
-        await startServerWithSchema({
-          name: 'test_app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'My Page', description: 'Page description' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
-        await expect(page).toHaveTitle('My Page')
-        await expect(page.locator('meta[name="description"]')).toHaveAttribute(
-          'content',
-          'Page description'
-        )
-      })
-
-      await test.step('APP-PAGES-META-002: Enforce title length constraint', async () => {
+      // OPTIMIZATION: Consolidated from 12 startServerWithSchema calls to 1
+      // All meta properties are ADDITIVE - can be combined in single configuration
+      await test.step('Setup: Start server with comprehensive metadata configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -530,158 +511,26 @@ test.describe('Page Metadata', () => {
               name: 'Test',
               path: '/',
               meta: {
+                // Basic metadata (001, 002, 003)
                 lang: 'en-US',
-                title: 'Short Page Title for SEO - Fits in Search Results',
-                description: 'Description',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const title = await page.title()
-        expect(title.length).toBeLessThanOrEqual(60)
-      })
-
-      await test.step('APP-PAGES-META-003: Enforce description length constraint', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
+                title: 'Short Page Title for SEO - Fits in Search',
                 description:
                   'This is a compelling page description that fits within the 160 character limit recommended for optimal display in search engine result snippets.',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const description = await page.locator('meta[name="description"]').getAttribute('content')
-        expect(description?.length).toBeLessThanOrEqual(160)
-      })
-
-      await test.step('APP-PAGES-META-004: Accept keyword string', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
+                // Keywords (004)
                 keywords: 'web development, react, typescript, seo optimization, page builder',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('meta[name="keywords"]')).toHaveAttribute(
-          'content',
-          'web development, react, typescript, seo optimization, page builder'
-        )
-      })
-
-      await test.step('APP-PAGES-META-005: Define canonical URL', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
+                // Canonical URL (005)
                 canonical: 'https://example.com/products/widget',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
-          'href',
-          'https://example.com/products/widget'
-        )
-      })
-
-      await test.step('APP-PAGES-META-006: Support single and multi-favicon configurations', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
+                // Favicons (006)
                 favicons: {
                   icon: '/icon.svg',
                   appleTouchIcon: '/apple-touch-icon.png',
                   sizes: [{ size: '32x32', href: '/favicon-32x32.png' }],
                 },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
-          'href',
-          '/icon.svg'
-        )
-        await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
-          'href',
-          '/apple-touch-icon.png'
-        )
-      })
-
-      await test.step('APP-PAGES-META-007: Include CSS and font resources', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
+                // CSS and fonts (007)
                 stylesheet: '/styles/main.css',
                 googleFonts:
                   'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('link[rel="stylesheet"][href="/styles/main.css"]')).toBeAttached()
-        await expect(
-          page.locator('link[rel="preconnect"][href="https://fonts.googleapis.com"]')
-        ).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-META-008: Enable rich social sharing', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
+                // Social sharing (008)
                 openGraph: {
                   title: 'Amazing Product Launch',
                   description: 'Revolutionary new product',
@@ -694,12 +543,102 @@ test.describe('Page Metadata', () => {
                   description: 'Revolutionary new product',
                   image: 'https://example.com/twitter-image.jpg',
                 },
+                // Structured data (009)
+                schema: {
+                  '@context': 'https://schema.org',
+                  '@type': 'Organization',
+                  name: 'Acme Inc',
+                  url: 'https://example.com',
+                  logo: 'https://example.com/logo.png',
+                },
+                // Performance optimization (010)
+                preload: [
+                  {
+                    href: '/fonts/Inter-Regular.woff2',
+                    as: 'font',
+                    type: 'font/woff2',
+                    crossorigin: true,
+                  },
+                ],
+                dnsPrefetch: ['https://fonts.googleapis.com', 'https://analytics.google.com'],
+                // Analytics (011)
+                analytics: {
+                  providers: [
+                    {
+                      name: 'google',
+                      enabled: true,
+                      scripts: [
+                        {
+                          src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
+                          async: true,
+                        },
+                      ],
+                      initScript:
+                        "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
+                      dnsPrefetch: 'https://www.googletagmanager.com',
+                    },
+                  ],
+                },
               },
               sections: [],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-META-001: Validate minimal metadata configuration', async () => {
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+        await expect(page).toHaveTitle('Short Page Title for SEO - Fits in Search')
+        await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+          'content',
+          'This is a compelling page description that fits within the 160 character limit recommended for optimal display in search engine result snippets.'
+        )
+      })
+
+      await test.step('APP-PAGES-META-002: Enforce title length constraint', async () => {
+        const title = await page.title()
+        expect(title.length).toBeLessThanOrEqual(60)
+      })
+
+      await test.step('APP-PAGES-META-003: Enforce description length constraint', async () => {
+        const description = await page.locator('meta[name="description"]').getAttribute('content')
+        expect(description?.length).toBeLessThanOrEqual(160)
+      })
+
+      await test.step('APP-PAGES-META-004: Accept keyword string', async () => {
+        await expect(page.locator('meta[name="keywords"]')).toHaveAttribute(
+          'content',
+          'web development, react, typescript, seo optimization, page builder'
+        )
+      })
+
+      await test.step('APP-PAGES-META-005: Define canonical URL', async () => {
+        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+          'href',
+          'https://example.com/products/widget'
+        )
+      })
+
+      await test.step('APP-PAGES-META-006: Support single and multi-favicon configurations', async () => {
+        await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
+          'href',
+          '/icon.svg'
+        )
+        await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
+          'href',
+          '/apple-touch-icon.png'
+        )
+      })
+
+      await test.step('APP-PAGES-META-007: Include CSS and font resources', async () => {
+        await expect(page.locator('link[rel="stylesheet"][href="/styles/main.css"]')).toBeAttached()
+        await expect(
+          page.locator('link[rel="preconnect"][href="https://fonts.googleapis.com"]')
+        ).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-META-008: Enable rich social sharing', async () => {
         await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
           'content',
           'Amazing Product Launch'
@@ -711,60 +650,12 @@ test.describe('Page Metadata', () => {
       })
 
       await test.step('APP-PAGES-META-009: Provide search engine understanding', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Organization',
-                  name: 'Acme Inc',
-                  url: 'https://example.com',
-                  logo: 'https://example.com/logo.png',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const jsonLd = await page.locator('script[type="application/ld+json"]').textContent()
         expect(jsonLd).toContain('"@type":"Organization"')
         expect(jsonLd).toContain('"name":"Acme Inc"')
       })
 
       await test.step('APP-PAGES-META-010: Optimize page load performance', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                preload: [
-                  {
-                    href: '/fonts/Inter-Regular.woff2',
-                    as: 'font',
-                    type: 'font/woff2',
-                    crossorigin: true,
-                  },
-                ],
-                dnsPrefetch: ['https://fonts.googleapis.com', 'https://analytics.google.com'],
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()
         await expect(
           page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
@@ -772,86 +663,12 @@ test.describe('Page Metadata', () => {
       })
 
       await test.step('APP-PAGES-META-011: Enable visitor analytics', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                analytics: {
-                  providers: [
-                    {
-                      name: 'google',
-                      enabled: true,
-                      scripts: [
-                        {
-                          src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
-                          async: true,
-                        },
-                      ],
-                      initScript:
-                        "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
-                      dnsPrefetch: 'https://www.googletagmanager.com',
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
       })
 
       await test.step('APP-PAGES-META-012: Provide comprehensive page metadata management', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Complete Page Metadata Example',
-                description:
-                  'Comprehensive metadata with SEO, social, structured data, performance, and analytics.',
-                keywords: 'metadata, seo, social media, structured data',
-                canonical: 'https://example.com/complete',
-                favicons: { icon: '/icon.svg' },
-                openGraph: { title: 'Complete Page Metadata Example' },
-                twitter: { card: 'summary' },
-                schema: { '@type': 'WebPage' },
-                dnsPrefetch: ['https://fonts.googleapis.com'],
-                analytics: {
-                  providers: [
-                    {
-                      name: 'google',
-                      enabled: true,
-                      scripts: [
-                        {
-                          src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
-                          async: true,
-                        },
-                      ],
-                      initScript:
-                        "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
-                      dnsPrefetch: 'https://www.googletagmanager.com',
-                    },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
+        // Verifies all elements work together (comprehensive config already set up)
         await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
-        await expect(page).toHaveTitle('Complete Page Metadata Example')
         await expect(page.locator('link[rel="canonical"]')).toBeAttached()
         await expect(page.locator('meta[property="og:title"]')).toBeAttached()
         await expect(page.locator('meta[name="twitter:card"]')).toBeAttached()

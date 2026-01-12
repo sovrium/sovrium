@@ -617,42 +617,19 @@ test.describe('Local Business Schema', () => {
   // Generated from 14 @spec tests - covers: minimal LocalBusiness, business identity,
   // branding, images, contact info, price range, address, geo coordinates, social profiles,
   // opening hours, days, operating hours, Google Business Profile, map pin
+  //
+  // OPTIMIZATION: Consolidated from 14 startServerWithSchema calls to 1
+  // All LocalBusiness properties are ADDITIVE (non-conflicting)
+  // Comprehensive schema covers: name, description, url, logo, image, email, telephone,
+  // priceRange, address (PostalAddress), geo (GeoCoordinates), sameAs, openingHoursSpecification
   // ============================================================================
 
   test(
     'APP-PAGES-LOCALBUSINESS-REGRESSION: user can complete full Local Business workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-LOCALBUSINESS-001: Validate minimal LocalBusiness structured data', async () => {
-        await startServerWithSchema({
-          name: 'test_app',
-          pages: [
-            {
-              name: 'test_page',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Coffee Shop',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"LocalBusiness"')
-        expect(scriptContent).toContain('Coffee Shop')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-002: Provide business identity', async () => {
+      // Setup: ONE comprehensive LocalBusiness configuration covering all test scenarios
+      await test.step('Setup: Start server with comprehensive LocalBusiness configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -667,258 +644,39 @@ test.describe('Local Business Schema', () => {
                   localBusiness: {
                     '@context': 'https://schema.org',
                     '@type': 'LocalBusiness',
+                    // Steps 001-002: name and description for business identity
                     name: 'Best Coffee Shop',
                     description: 'Artisanal coffee and pastries',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('Best Coffee Shop')
-        expect(scriptContent).toContain('Artisanal coffee and pastries')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-003: Provide business branding', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Coffee Shop',
+                    // Step 003: url and logo for branding
                     url: 'https://example.com',
                     logo: 'https://example.com/logo.png',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('https://example.com')
-        expect(scriptContent).toContain('logo.png')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-004: Support single or multiple business images', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
+                    // Step 004: image array for multiple business images
                     image: ['https://example.com/interior.jpg', 'https://example.com/exterior.jpg'],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('interior.jpg')
-        expect(scriptContent).toContain('exterior.jpg')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-005: Provide business contact information', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
+                    // Step 005: email and telephone for contact info
                     email: 'contact@example.com',
                     telephone: '+1-555-123-4567',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('contact@example.com')
-        expect(scriptContent).toContain('+1-555-123-4567')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-006: Indicate business price level', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Restaurant',
+                    // Step 006: priceRange for price level
                     priceRange: '$$',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('$$')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-007: Include physical address for maps', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
+                    // Steps 007, 013, 014: address for physical location
                     address: {
                       '@type': 'PostalAddress',
                       streetAddress: '123 Main St',
                       addressLocality: 'City',
                       addressCountry: 'US',
                     },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('PostalAddress')
-        expect(scriptContent).toContain('123 Main St')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-008: Provide precise map location', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
-                    geo: { '@type': 'GeoCoordinates', latitude: '48.5734', longitude: '7.7521' },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('GeoCoordinates')
-        expect(scriptContent).toContain('48.5734')
-        expect(scriptContent).toContain('7.7521')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-009: Link business to social profiles', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
+                    // Steps 008, 013, 014: geo for precise map location
+                    geo: {
+                      '@type': 'GeoCoordinates',
+                      latitude: '48.5734',
+                      longitude: '7.7521',
+                    },
+                    // Step 009: sameAs for social profiles
                     sameAs: [
                       'https://facebook.com/shop',
                       'https://twitter.com/shop',
                       'https://instagram.com/shop',
                     ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('facebook.com/shop')
-        expect(scriptContent).toContain('twitter.com/shop')
-      })
-
-      await test.step('APP-PAGES-LOCALBUSINESS-010: Provide business hours for each day', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
+                    // Steps 010-012: openingHoursSpecification for business hours
                     openingHoursSpecification: [
                       {
                         '@type': 'OpeningHoursSpecification',
@@ -935,6 +693,65 @@ test.describe('Local Business Schema', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      // All subsequent steps are assertions-only (no server restart needed)
+
+      await test.step('APP-PAGES-LOCALBUSINESS-001: Validate minimal LocalBusiness structured data', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"LocalBusiness"')
+        expect(scriptContent).toContain('Best Coffee Shop')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-002: Provide business identity', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Best Coffee Shop')
+        expect(scriptContent).toContain('Artisanal coffee and pastries')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-003: Provide business branding', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://example.com')
+        expect(scriptContent).toContain('logo.png')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-004: Support single or multiple business images', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('interior.jpg')
+        expect(scriptContent).toContain('exterior.jpg')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-005: Provide business contact information', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('contact@example.com')
+        expect(scriptContent).toContain('+1-555-123-4567')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-006: Indicate business price level', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('$$')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-007: Include physical address for maps', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('PostalAddress')
+        expect(scriptContent).toContain('123 Main St')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-008: Provide precise map location', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('GeoCoordinates')
+        expect(scriptContent).toContain('48.5734')
+        expect(scriptContent).toContain('7.7521')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-009: Link business to social profiles', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('facebook.com/shop')
+        expect(scriptContent).toContain('twitter.com/shop')
+      })
+
+      await test.step('APP-PAGES-LOCALBUSINESS-010: Provide business hours for each day', async () => {
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
         expect(scriptContent).toContain('OpeningHoursSpecification')
         expect(scriptContent).toContain('09:00')
@@ -942,37 +759,6 @@ test.describe('Local Business Schema', () => {
       })
 
       await test.step('APP-PAGES-LOCALBUSINESS-011: Specify which days hours apply to', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
-                    openingHoursSpecification: [
-                      {
-                        '@type': 'OpeningHoursSpecification',
-                        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday'],
-                        opens: '09:00',
-                        closes: '17:00',
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
         expect(scriptContent).toContain('Monday')
         expect(scriptContent).toContain('Tuesday')
@@ -980,109 +766,16 @@ test.describe('Local Business Schema', () => {
       })
 
       await test.step('APP-PAGES-LOCALBUSINESS-012: Specify daily operating hours', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Shop',
-                    openingHoursSpecification: [
-                      {
-                        '@type': 'OpeningHoursSpecification',
-                        dayOfWeek: ['Monday'],
-                        opens: '09:00',
-                        closes: '18:00',
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
         expect(scriptContent).toMatch(/"opens":\s*"09:00"/)
         expect(scriptContent).toMatch(/"closes":\s*"18:00"/)
       })
 
       await test.step('APP-PAGES-LOCALBUSINESS-013: Enable Google Business Profile rich results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Complete Business',
-                    address: { '@type': 'PostalAddress', streetAddress: '123 Main St' },
-                    geo: { '@type': 'GeoCoordinates', latitude: '48.5734', longitude: '7.7521' },
-                    openingHoursSpecification: [
-                      {
-                        '@type': 'OpeningHoursSpecification',
-                        dayOfWeek: ['Monday'],
-                        opens: '09:00',
-                        closes: '17:00',
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
       })
 
       await test.step('APP-PAGES-LOCALBUSINESS-014: Enable map pin and directions in search results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  localBusiness: {
-                    '@context': 'https://schema.org',
-                    '@type': 'LocalBusiness',
-                    name: 'Mappable Business',
-                    address: {
-                      '@type': 'PostalAddress',
-                      streetAddress: '456 Oak Ave',
-                      addressLocality: 'Springfield',
-                    },
-                    geo: { '@type': 'GeoCoordinates', latitude: '39.7817', longitude: '-89.6501' },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
         expect(scriptContent).toContain('GeoCoordinates')
         expect(scriptContent).toContain('PostalAddress')

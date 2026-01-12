@@ -463,25 +463,57 @@ test.describe('Navigation Configuration', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // OPTIMIZATION: Consolidated from 12 startServerWithSchema calls to 4 calls
+  // - Setup 1: Comprehensive nav with ALL features (covers 001-003, 006-010, 012)
+  // - Setup 2: Sticky nav with scroll content (004)
+  // - Setup 3: Transparent + sticky nav with scroll content (005)
+  // - Setup 4: Minimal nav (011) - CONFLICTING: needs to verify no links exist
   // ============================================================================
 
   test(
     'APP-PAGES-NAV-REGRESSION: user can complete full navigation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-NAV-001: Display logo image', async () => {
+      // ========================================================================
+      // SETUP 1: Comprehensive navigation with ALL features
+      // Covers: 001, 002, 003, 006, 007, 008, 009, 010, 012
+      // ========================================================================
+      await test.step('Setup: Start server with comprehensive navigation configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
             {
-              name: 'test',
+              name: 'Test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { navigation: { logo: './public/logo.svg' } },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  logoMobile: './public/logo-mobile.svg',
+                  logoAlt: 'Acme Inc - Building the Future',
+                  links: {
+                    desktop: [
+                      { label: 'Products', href: '/products' },
+                      { label: 'Pricing', href: '/pricing' },
+                      { label: 'About', href: '/about' },
+                    ],
+                    mobile: [
+                      { label: 'Home', href: '/' },
+                      { label: 'Products', href: '/products' },
+                    ],
+                  },
+                  cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
+                  search: { enabled: true, placeholder: 'Search documentation...' },
+                  user: { enabled: true, loginUrl: '/login', signupUrl: '/signup' },
+                },
+              },
               sections: [],
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-NAV-001: Display logo image', async () => {
         await page.goto('/')
         await expect(page.locator('[data-testid="nav-logo"]')).toHaveAttribute(
           'src',
@@ -491,21 +523,6 @@ test.describe('Navigation Configuration', () => {
       })
 
       await test.step('APP-PAGES-NAV-002: Use alternative logo for mobile devices', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: { logo: './public/logo.svg', logoMobile: './public/logo-mobile.svg' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await page.setViewportSize({ width: 375, height: 667 })
         await expect(page.locator('[data-testid="nav-logo-mobile"]')).toHaveAttribute(
           'src',
@@ -519,30 +536,67 @@ test.describe('Navigation Configuration', () => {
       })
 
       await test.step('APP-PAGES-NAV-003: Provide accessible alt text for logo', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  logoAlt: 'Acme Inc - Building the Future',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('[data-testid="nav-logo"]')).toHaveAttribute(
           'alt',
           'Acme Inc - Building the Future'
         )
       })
 
+      await test.step('APP-PAGES-NAV-006: Render desktop navigation menu', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
+          - navigation "Main navigation":
+            - link "Acme Inc - Building the Future":
+              - img "Acme Inc - Building the Future"
+            - link "Products"
+            - link "Pricing"
+            - link "About"
+            - button "Get Started"
+            - searchbox "Search documentation..."
+            - link "Login"
+            - link "Sign Up"
+        `)
+      })
+
+      await test.step('APP-PAGES-NAV-007: Render different links for mobile menu', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await page.click('[data-testid="mobile-menu-toggle"]')
+        const mobileLinks = page.locator('[data-testid="mobile-menu"] a')
+        await expect(mobileLinks).toHaveCount(2)
+        await expect(mobileLinks.nth(0)).toContainText('Home')
+        await expect(mobileLinks.nth(1)).toContainText('Products')
+        await page.setViewportSize({ width: 1024, height: 768 })
+      })
+
+      await test.step('APP-PAGES-NAV-008: Render prominent call-to-action button', async () => {
+        await page.goto('/')
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta).toContainText('Get Started')
+        await expect(cta).toHaveAttribute('href', '/signup')
+        await expect(cta).toHaveClass(/btn-primary/)
+      })
+
+      await test.step('APP-PAGES-NAV-009: Display search input in navigation', async () => {
+        const search = page.locator('[data-testid="nav-search"] input')
+        await expect(search).toBeVisible()
+        await expect(search).toHaveAttribute('placeholder', 'Search documentation...')
+      })
+
+      await test.step('APP-PAGES-NAV-010: Show user account menu with login/signup links', async () => {
+        await expect(page.locator('[data-testid="login-link"]')).toHaveAttribute('href', '/login')
+        await expect(page.locator('[data-testid="signup-link"]')).toHaveAttribute('href', '/signup')
+      })
+
+      await test.step('APP-PAGES-NAV-012: Compose navigation from modular schemas', async () => {
+        // Verify navigation links exist (comprehensive config has Products, Pricing, About)
+        await expect(page.locator('[data-testid="nav-link"]').first()).toContainText('Products')
+        await expect(page.locator('[data-testid="nav-cta"]')).toContainText('Get Started')
+      })
+
+      // ========================================================================
+      // SETUP 2: Sticky navigation with scroll content
+      // Covers: 004
+      // ========================================================================
       await test.step('APP-PAGES-NAV-004: Stick to top on scroll', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -571,6 +625,10 @@ test.describe('Navigation Configuration', () => {
         await expect(nav).toBeInViewport()
       })
 
+      // ========================================================================
+      // SETUP 3: Transparent + sticky navigation with scroll content
+      // Covers: 005
+      // ========================================================================
       await test.step('APP-PAGES-NAV-005: Have transparent background (becomes opaque on scroll)', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -603,158 +661,11 @@ test.describe('Navigation Configuration', () => {
         expect(scrolledBg).not.toMatch(/rgba?\(.*,\s*0\)|transparent/)
       })
 
-      await test.step('APP-PAGES-NAV-006: Render desktop navigation menu', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  links: {
-                    desktop: [
-                      { label: 'Products', href: '/products' },
-                      { label: 'Pricing', href: '/pricing' },
-                      { label: 'About', href: '/about' },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
-          - navigation "Main navigation":
-            - link:
-              - img "Logo"
-            - link "Products"
-            - link "Pricing"
-            - link "About"
-        `)
-      })
-
-      await test.step('APP-PAGES-NAV-007: Render different links for mobile menu', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  links: {
-                    desktop: [
-                      { label: 'Products', href: '/products' },
-                      { label: 'Pricing', href: '/pricing' },
-                      { label: 'About', href: '/about' },
-                    ],
-                    mobile: [
-                      { label: 'Home', href: '/' },
-                      { label: 'Products', href: '/products' },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await page.setViewportSize({ width: 375, height: 667 })
-        await page.click('[data-testid="mobile-menu-toggle"]')
-        const mobileLinks = page.locator('[data-testid="mobile-menu"] a')
-        await expect(mobileLinks).toHaveCount(2)
-        await expect(mobileLinks.nth(0)).toContainText('Home')
-        await expect(mobileLinks.nth(1)).toContainText('Products')
-      })
-
-      await test.step('APP-PAGES-NAV-008: Render prominent call-to-action button', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  links: {
-                    desktop: [
-                      { label: 'Features', href: '/features' },
-                      { label: 'Pricing', href: '/pricing' },
-                    ],
-                  },
-                  cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const cta = page.locator('[data-testid="nav-cta"]')
-        await expect(cta).toContainText('Get Started')
-        await expect(cta).toHaveAttribute('href', '/signup')
-        await expect(cta).toHaveClass(/btn-primary/)
-      })
-
-      await test.step('APP-PAGES-NAV-009: Display search input in navigation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  links: { desktop: [{ label: 'Docs', href: '/docs' }] },
-                  search: { enabled: true, placeholder: 'Search documentation...' },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const search = page.locator('[data-testid="nav-search"] input')
-        await expect(search).toBeVisible()
-        await expect(search).toHaveAttribute('placeholder', 'Search documentation...')
-      })
-
-      await test.step('APP-PAGES-NAV-010: Show user account menu with login/signup links', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  links: { desktop: [{ label: 'Features', href: '/features' }] },
-                  user: { enabled: true, loginUrl: '/login', signupUrl: '/signup' },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="login-link"]')).toHaveAttribute('href', '/login')
-        await expect(page.locator('[data-testid="signup-link"]')).toHaveAttribute('href', '/signup')
-      })
-
+      // ========================================================================
+      // SETUP 4: Minimal navigation (logo only, no links)
+      // Covers: 011
+      // CONFLICTING: Verifies nav-link count is 0, cannot merge with other tests
+      // ========================================================================
       await test.step('APP-PAGES-NAV-011: Render minimal navigation with logo', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -772,30 +683,6 @@ test.describe('Navigation Configuration', () => {
         await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
         await expect(page.locator('[data-testid="nav-logo"]')).toBeVisible()
         await expect(page.locator('[data-testid="nav-link"]')).toHaveCount(0)
-      })
-
-      await test.step('APP-PAGES-NAV-012: Compose navigation from modular schemas', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: './public/logo.svg',
-                  links: { desktop: [{ label: 'Products', href: '/products' }] },
-                  cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="nav-link"]')).toContainText('Products')
-        await expect(page.locator('[data-testid="nav-cta"]')).toContainText('Get Started')
       })
     }
   )

@@ -260,7 +260,11 @@ test.describe('Favicon', () => {
     'APP-PAGES-FAVICON-REGRESSION: user can complete full favicon workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-FAVICON-001: Reference default favicon file', async () => {
+      // OPTIMIZATION: Consolidated from 8 startServerWithSchema calls to 4
+      // Tests grouped by favicon path value (different paths = conflicting configs)
+
+      // Group 1: Tests using ./public/favicon.ico (001, 005)
+      await test.step('Setup 1: Start server with ./public/favicon.ico', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -278,104 +282,19 @@ test.describe('Favicon', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-FAVICON-001: Reference default favicon file', async () => {
         await expect(page.locator('link[rel="icon"][href="./public/favicon.ico"]')).toBeAttached()
       })
 
-      await test.step('APP-PAGES-FAVICON-002: Support legacy ICO format', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.ico' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const href = await page.locator('link[rel="icon"]').getAttribute('href')
-        expect(href).toMatch(/\.ico$/)
-      })
-
-      await test.step('APP-PAGES-FAVICON-003: Support PNG format', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.png' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const href = await page.locator('link[rel="icon"]').getAttribute('href')
-        expect(href).toMatch(/\.png$/)
-      })
-
-      await test.step('APP-PAGES-FAVICON-004: Support modern SVG format', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                favicon: './assets/favicon.svg',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const href = await page.locator('link[rel="icon"]').getAttribute('href')
-        expect(href).toMatch(/\.svg$/)
-      })
-
       await test.step('APP-PAGES-FAVICON-005: Use relative file paths', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                favicon: './public/favicon.ico',
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         const href = await page.locator('link[rel="icon"]').getAttribute('href')
         expect(href).toMatch(/^\.\//)
       })
 
-      await test.step('APP-PAGES-FAVICON-006: Enable quick favicon setup', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.ico' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('link[rel="icon"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-FAVICON-007: Provide site branding in tabs', async () => {
+      // Group 2: Tests using ./favicon.ico (002, 006, 007, 008)
+      await test.step('Setup 2: Start server with ./favicon.ico', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -393,24 +312,71 @@ test.describe('Favicon', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-FAVICON-002: Support legacy ICO format', async () => {
+        const href = await page.locator('link[rel="icon"]').getAttribute('href')
+        expect(href).toMatch(/\.ico$/)
+      })
+
+      await test.step('APP-PAGES-FAVICON-006: Enable quick favicon setup', async () => {
+        await expect(page.locator('link[rel="icon"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-FAVICON-007: Provide site branding in tabs', async () => {
         await expect(page.locator('link[rel="icon"]')).toBeAttached()
       })
 
       await test.step('APP-PAGES-FAVICON-008: Support both simple and complete configurations', async () => {
+        const iconCount = await page.locator('link[rel="icon"]').count()
+        expect(iconCount).toBeGreaterThan(0)
+      })
+
+      // Group 3: Test using ./favicon.png (003)
+      await test.step('Setup 3: Start server with ./favicon.png', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
             {
               name: 'Test',
               path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.ico' },
+              meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.png' },
               sections: [],
             },
           ],
         })
         await page.goto('/')
-        const iconCount = await page.locator('link[rel="icon"]').count()
-        expect(iconCount).toBeGreaterThan(0)
+      })
+
+      await test.step('APP-PAGES-FAVICON-003: Support PNG format', async () => {
+        const href = await page.locator('link[rel="icon"]').getAttribute('href')
+        expect(href).toMatch(/\.png$/)
+      })
+
+      // Group 4: Test using ./assets/favicon.svg (004)
+      await test.step('Setup 4: Start server with ./assets/favicon.svg', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                favicon: './assets/favicon.svg',
+              },
+              sections: [],
+            },
+          ],
+        })
+        await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-FAVICON-004: Support modern SVG format', async () => {
+        const href = await page.locator('link[rel="icon"]').getAttribute('href')
+        expect(href).toMatch(/\.svg$/)
       })
     }
   )

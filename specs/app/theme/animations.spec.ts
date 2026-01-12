@@ -1090,12 +1090,95 @@ test.describe('Animation Configuration', () => {
     'APP-THEME-ANIMATIONS-REGRESSION: user can complete full animations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-THEME-ANIMATIONS-001: Validate animation enablement', async () => {
+      // OPTIMIZATION: Consolidated from 24 startServerWithSchema calls to 3
+      // Group 1: Tests 001-005, 007-022 - All animations enabled with unique names (ADDITIVE)
+      // Group 2: Test 006 - fadeIn disabled (CONFLICTING with enabled fadeIn)
+      // Group 3: Test 023 - Reduced motion test (requires page.emulateMedia before page.goto)
+
+      // Group 1: Comprehensive setup with all animation types
+      await test.step('Setup: Start server with comprehensive animation configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
             animations: {
+              // 001, 007: fadeIn as boolean true
               fadeIn: true,
+              // 002: CSS animation string
+              slideIn: 'slide-in 0.5s ease-out',
+              // 003, 008: transition timing
+              transition: { duration: '300ms', easing: 'ease-in-out' },
+              // 004: animation delay
+              delayedFade: { duration: '500ms', delay: '200ms' },
+              // 005: custom keyframes
+              custom: {
+                keyframes: {
+                  '0%': { opacity: 0 },
+                  '100%': { opacity: 1 },
+                },
+              },
+              // 007: additional library animations
+              fadeInUp: true,
+              pulse: true,
+              float: true,
+              // 012: fadeInUp with full keyframes
+              // (Note: fadeInUp:true already covers test 007, redefining with keyframes for test 012)
+              // 013: slideIn with keyframes (different from string version)
+              slideInKeyframes: {
+                duration: '400ms',
+                easing: 'ease-out',
+                keyframes: {
+                  '0%': { transform: 'translateX(-100%)' },
+                  '100%': { transform: 'translateX(0)' },
+                },
+              },
+              // 014: fadeOut
+              fadeOut: {
+                duration: '300ms',
+                easing: 'ease-out',
+                keyframes: {
+                  '0%': { opacity: 1 },
+                  '100%': { opacity: 0 },
+                },
+              },
+              // 015: scaleUp
+              scaleUp: {
+                duration: '500ms',
+                easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                keyframes: {
+                  '0%': { opacity: 0, transform: 'scale(0.8)' },
+                  '100%': { opacity: 1, transform: 'scale(1)' },
+                },
+              },
+              // 019: rotate
+              rotate: {
+                duration: '1s',
+                easing: 'linear',
+                keyframes: {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' },
+                },
+              },
+              // 020: shake
+              shake: {
+                duration: '500ms',
+                easing: 'ease-in-out',
+                keyframes: {
+                  '0%, 100%': { transform: 'translateX(0)' },
+                  '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-10px)' },
+                  '20%, 40%, 60%, 80%': { transform: 'translateX(10px)' },
+                },
+              },
+              // 021: parallax
+              parallax: { easing: 'linear' },
+              // 022: typewriter
+              typewriter: {
+                duration: '4s',
+                easing: 'steps(40, end)',
+                keyframes: {
+                  '0%': { width: '0' },
+                  '100%': { width: '100%' },
+                },
+              },
             },
           },
           pages: [
@@ -1104,6 +1187,7 @@ test.describe('Animation Configuration', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
+                // 001, 007: fadeIn div
                 {
                   type: 'div',
                   props: {
@@ -1112,28 +1196,7 @@ test.describe('Animation Configuration', () => {
                   },
                   children: ['Fade In Content'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="animation-fadeIn"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-002: Validate CSS animation string', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              slideIn: 'slide-in 0.5s ease-out',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // 002: slideIn div
                 {
                   type: 'div',
                   props: {
@@ -1142,34 +1205,7 @@ test.describe('Animation Configuration', () => {
                   },
                   children: ['Slide In Content'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const animValue = await page
-          .locator('[data-testid="animation-slideIn"]')
-          .evaluate((el) => window.getComputedStyle(el).animation)
-        expect(animValue).toContain('slide-in')
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-003: Validate timing properties', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              transition: {
-                duration: '300ms',
-                easing: 'ease-in-out',
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // 003, 008: transition div
                 {
                   type: 'div',
                   props: {
@@ -1178,31 +1214,7 @@ test.describe('Animation Configuration', () => {
                   },
                   children: ['Transition Content'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="animation-transition"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-004: Validate animation delay', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              delayedFade: {
-                duration: '500ms',
-                delay: '200ms',
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // 004: delayed fade div
                 {
                   type: 'div',
                   props: {
@@ -1211,33 +1223,7 @@ test.describe('Animation Configuration', () => {
                   },
                   children: ['Delayed Fade Content'],
                 },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="animation-delayedFade"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-005: Validate animation frames definition', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              custom: {
-                keyframes: {
-                  '0%': { opacity: 0 },
-                  '100%': { opacity: 1 },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
+                // 005: custom keyframes div
                 {
                   type: 'div',
                   props: {
@@ -1246,15 +1232,185 @@ test.describe('Animation Configuration', () => {
                   },
                   children: ['Custom Animation Content'],
                 },
+                // 007: pulse div
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'animation-pulse',
+                    style: { animation: 'pulse 2s ease-in-out infinite' },
+                  },
+                  children: ['Pulse'],
+                },
+                // 009: modal
+                { type: 'modal', content: 'Modal content', props: { 'data-testid': 'modal' } },
+                // 010: badge
+                { type: 'badge', content: '3', props: { 'data-testid': 'notification-badge' } },
+                // 011, 017: buttons
+                { type: 'button', content: 'Hover me', props: { 'data-testid': 'action-button' } },
+                { type: 'button', content: 'Buy Now', props: { 'data-testid': 'cta-button' } },
+                // 012: hero section
+                {
+                  type: 'hero',
+                  content: '<h1>Welcome</h1>',
+                  props: { 'data-testid': 'hero-section' },
+                },
+                // 013: sidebar
+                {
+                  type: 'sidebar',
+                  content: '<nav>Menu</nav>',
+                  props: { 'data-testid': 'mobile-sidebar' },
+                },
+                // 014: toast
+                {
+                  type: 'toast',
+                  content: 'Notification message',
+                  props: { 'data-testid': 'toast-notification' },
+                },
+                // 015: card
+                {
+                  type: 'card',
+                  content: '<h3>Feature</h3>',
+                  props: { 'data-testid': 'feature-card' },
+                },
+                // 016: FAB
+                { type: 'fab', content: '+', props: { 'data-testid': 'fab-button' } },
+                // 018: feature list
+                {
+                  type: 'div',
+                  props: { 'data-testid': 'feature-list', role: 'list' },
+                  children: [
+                    { type: 'div', props: { role: 'listitem' }, children: ['Feature 1'] },
+                    { type: 'div', props: { role: 'listitem' }, children: ['Feature 2'] },
+                    { type: 'div', props: { role: 'listitem' }, children: ['Feature 3'] },
+                  ],
+                },
+                // 019: spinner
+                {
+                  type: 'spinner',
+                  content: '<svg>...</svg>',
+                  props: { 'data-testid': 'loading-spinner' },
+                },
+                // 020: input
+                { type: 'input', props: { 'data-testid': 'email-input', 'aria-invalid': 'true' } },
+                // 021: parallax section
+                {
+                  type: 'section',
+                  props: { 'data-testid': 'parallax-section' },
+                  children: [
+                    { type: 'div', props: { 'data-testid': 'hero-background' }, children: [] },
+                    {
+                      type: 'div',
+                      props: { 'data-testid': 'hero-content' },
+                      children: ['Content'],
+                    },
+                  ],
+                },
+                // 022: heading
+                {
+                  type: 'heading',
+                  content: 'Welcome to our website',
+                  props: { 'data-testid': 'hero-heading' },
+                },
               ],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-001: Validate animation enablement', async () => {
+        await expect(page.locator('[data-testid="animation-fadeIn"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-002: Validate CSS animation string', async () => {
+        const animValue = await page
+          .locator('[data-testid="animation-slideIn"]')
+          .evaluate((el) => window.getComputedStyle(el).animation)
+        expect(animValue).toContain('slide-in')
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-003: Validate timing properties', async () => {
+        await expect(page.locator('[data-testid="animation-transition"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-004: Validate animation delay', async () => {
+        await expect(page.locator('[data-testid="animation-delayedFade"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-005: Validate animation frames definition', async () => {
         await expect(page.locator('[data-testid="animation-custom"]')).toBeVisible()
       })
 
-      await test.step('APP-THEME-ANIMATIONS-006: Validate disabled state', async () => {
+      await test.step('APP-THEME-ANIMATIONS-007: Validate reusable animation library', async () => {
+        await expect(page.locator('[data-testid="animation-fadeIn"]')).toBeVisible()
+        await expect(page.locator('[data-testid="animation-pulse"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-008: Validate default transition behavior', async () => {
+        await expect(page.locator('[data-testid="animation-transition"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-009: Render modal with fade-in animation', async () => {
+        await expect(page.locator('[data-testid="modal"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-010: Render badge with pulsing animation', async () => {
+        await expect(page.locator('[data-testid="notification-badge"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-011: Render button with CSS transition', async () => {
+        await expect(page.locator('[data-testid="action-button"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-012: Render hero with fadeInUp animation', async () => {
+        await expect(page.locator('[data-testid="hero-section"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-013: Render sidebar with slideIn animation', async () => {
+        await expect(page.locator('[data-testid="mobile-sidebar"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-014: Render toast with fadeOut animation', async () => {
+        await expect(page.locator('[data-testid="toast-notification"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-015: Render card with scaleUp animation', async () => {
+        await expect(page.locator('[data-testid="feature-card"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-016: Render FAB with float animation', async () => {
+        await expect(page.locator('[data-testid="fab-button"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-017: Render button with hover scale', async () => {
+        await expect(page.locator('[data-testid="cta-button"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-018: Render list items with stagger', async () => {
+        const list = page.locator('[data-testid="feature-list"]')
+        await expect(list).toBeVisible()
+        await expect(list.locator('[role="listitem"]').first()).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-019: Render spinner with rotate', async () => {
+        await expect(page.locator('[data-testid="loading-spinner"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-020: Render input with shake animation', async () => {
+        await expect(page.locator('[data-testid="email-input"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-021: Render parallax effect', async () => {
+        await expect(page.locator('[data-testid="parallax-section"]')).toBeVisible()
+        await expect(page.locator('[data-testid="hero-background"]')).toBeVisible()
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-022: Render typewriter animation', async () => {
+        await expect(page.locator('[data-testid="hero-heading"]')).toBeVisible()
+      })
+
+      // Group 2: Test 006 - fadeIn disabled (CONFLICTING - needs separate server)
+      await test.step('Setup: Start server with disabled animation configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1271,7 +1427,7 @@ test.describe('Animation Configuration', () => {
                 {
                   type: 'div',
                   props: {
-                    'data-testid': 'animation-fadeIn',
+                    'data-testid': 'animation-fadeIn-disabled',
                     style: { animation: 'none' },
                   },
                   children: ['Disabled Animation Content'],
@@ -1281,499 +1437,16 @@ test.describe('Animation Configuration', () => {
           ],
         })
         await page.goto('/')
-        const element = page.locator('[data-testid="animation-fadeIn"]')
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-006: Validate disabled state', async () => {
+        const element = page.locator('[data-testid="animation-fadeIn-disabled"]')
         const animValue = await element.evaluate((el) => window.getComputedStyle(el).animation)
         expect(animValue).toContain('none')
       })
 
-      await test.step('APP-THEME-ANIMATIONS-007: Validate reusable animation library', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              fadeIn: true,
-              fadeInUp: true,
-              pulse: true,
-              float: true,
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'animation-fadeIn',
-                    style: { animation: 'fade-in 1s ease-in' },
-                  },
-                  children: ['Fade In'],
-                },
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'animation-pulse',
-                    style: { animation: 'pulse 2s ease-in-out infinite' },
-                  },
-                  children: ['Pulse'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="animation-fadeIn"]')).toBeVisible()
-        await expect(page.locator('[data-testid="animation-pulse"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-008: Validate default transition behavior', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              transition: {
-                duration: '300ms',
-                easing: 'ease-in-out',
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: {
-                    'data-testid': 'animation-transition',
-                    style: { transition: 'all 300ms ease-in-out' },
-                  },
-                  children: ['Transition Content'],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="animation-transition"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-009: Render modal with fade-in animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              fadeIn: { duration: '300ms', easing: 'ease-in' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                { type: 'modal', content: 'Modal content', props: { 'data-testid': 'modal' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="modal"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-010: Render badge with pulsing animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              pulse: { duration: '2s', easing: 'ease-in-out' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                { type: 'badge', content: '3', props: { 'data-testid': 'notification-badge' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="notification-badge"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-011: Render button with CSS transition', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              transition: { duration: '200ms', easing: 'ease-in-out' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                { type: 'button', content: 'Hover me', props: { 'data-testid': 'action-button' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="action-button"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-012: Render hero with fadeInUp animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              fadeInUp: {
-                duration: '600ms',
-                easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
-                keyframes: {
-                  '0%': { opacity: 0, transform: 'translateY(20px)' },
-                  '100%': { opacity: 1, transform: 'translateY(0)' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'hero',
-                  content: '<h1>Welcome</h1>',
-                  props: { 'data-testid': 'hero-section' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="hero-section"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-013: Render sidebar with slideIn animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              slideIn: {
-                duration: '400ms',
-                easing: 'ease-out',
-                keyframes: {
-                  '0%': { transform: 'translateX(-100%)' },
-                  '100%': { transform: 'translateX(0)' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'sidebar',
-                  content: '<nav>Menu</nav>',
-                  props: { 'data-testid': 'mobile-sidebar' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="mobile-sidebar"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-014: Render toast with fadeOut animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              fadeOut: {
-                duration: '300ms',
-                easing: 'ease-out',
-                keyframes: {
-                  '0%': { opacity: 1 },
-                  '100%': { opacity: 0 },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'toast',
-                  content: 'Notification message',
-                  props: { 'data-testid': 'toast-notification' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="toast-notification"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-015: Render card with scaleUp animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              scaleUp: {
-                duration: '500ms',
-                easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-                keyframes: {
-                  '0%': { opacity: 0, transform: 'scale(0.8)' },
-                  '100%': { opacity: 1, transform: 'scale(1)' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'card',
-                  content: '<h3>Feature</h3>',
-                  props: { 'data-testid': 'feature-card' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="feature-card"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-016: Render FAB with float animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              float: {
-                duration: '3s',
-                easing: 'ease-in-out',
-                keyframes: {
-                  '0%, 100%': { transform: 'translateY(0)' },
-                  '50%': { transform: 'translateY(-10px)' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [{ type: 'fab', content: '+', props: { 'data-testid': 'fab-button' } }],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="fab-button"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-017: Render button with hover scale', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              transition: { duration: '200ms', easing: 'ease-in-out' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                { type: 'button', content: 'Buy Now', props: { 'data-testid': 'cta-button' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const button = page.locator('[data-testid="cta-button"]')
-        await expect(button).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-018: Render list items with stagger', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              fadeIn: { duration: '400ms', easing: 'ease-out' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'div',
-                  props: { 'data-testid': 'feature-list', role: 'list' },
-                  children: [
-                    { type: 'div', props: { role: 'listitem' }, children: ['Feature 1'] },
-                    { type: 'div', props: { role: 'listitem' }, children: ['Feature 2'] },
-                    { type: 'div', props: { role: 'listitem' }, children: ['Feature 3'] },
-                  ],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        const list = page.locator('[data-testid="feature-list"]')
-        await expect(list).toBeVisible()
-        await expect(list.locator('[role="listitem"]').first()).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-019: Render spinner with rotate', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              rotate: {
-                duration: '1s',
-                easing: 'linear',
-                keyframes: {
-                  '0%': { transform: 'rotate(0deg)' },
-                  '100%': { transform: 'rotate(360deg)' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'spinner',
-                  content: '<svg>...</svg>',
-                  props: { 'data-testid': 'loading-spinner' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="loading-spinner"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-020: Render input with shake animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              shake: {
-                duration: '500ms',
-                easing: 'ease-in-out',
-                keyframes: {
-                  '0%, 100%': { transform: 'translateX(0)' },
-                  '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-10px)' },
-                  '20%, 40%, 60%, 80%': { transform: 'translateX(10px)' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                { type: 'input', props: { 'data-testid': 'email-input', 'aria-invalid': 'true' } },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="email-input"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-021: Render parallax effect', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              parallax: { easing: 'linear' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [
-                {
-                  type: 'section',
-                  props: { 'data-testid': 'hero-section' },
-                  children: [
-                    { type: 'div', props: { 'data-testid': 'hero-background' }, children: [] },
-                    {
-                      type: 'div',
-                      props: { 'data-testid': 'hero-content' },
-                      children: ['Content'],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="hero-section"]')).toBeVisible()
-        await expect(page.locator('[data-testid="hero-background"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-022: Render typewriter animation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          theme: {
-            animations: {
-              typewriter: {
-                duration: '4s',
-                easing: 'steps(40, end)',
-                keyframes: {
-                  '0%': { width: '0' },
-                  '100%': { width: '100%' },
-                },
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              sections: [
-                {
-                  type: 'heading',
-                  content: 'Welcome to our website',
-                  props: { 'data-testid': 'hero-heading' },
-                },
-              ],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="hero-heading"]')).toBeVisible()
-      })
-
-      await test.step('APP-THEME-ANIMATIONS-023: Respect reduced motion preference', async () => {
+      // Group 3: Test 023 - Reduced motion (requires emulateMedia before navigation)
+      await test.step('Setup: Start server for reduced motion test', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: {
@@ -1786,14 +1459,21 @@ test.describe('Animation Configuration', () => {
               name: 'home',
               path: '/',
               sections: [
-                { type: 'modal', content: 'Modal content', props: { 'data-testid': 'modal' } },
+                {
+                  type: 'modal',
+                  content: 'Modal content',
+                  props: { 'data-testid': 'modal-reduced' },
+                },
               ],
             },
           ],
         })
         await page.emulateMedia({ reducedMotion: 'reduce' })
         await page.goto('/')
-        const modal = page.locator('[data-testid="modal"]')
+      })
+
+      await test.step('APP-THEME-ANIMATIONS-023: Respect reduced motion preference', async () => {
+        const modal = page.locator('[data-testid="modal-reduced"]')
         await expect(modal).toBeVisible()
         const opacity = await modal.evaluate((el) => window.getComputedStyle(el).opacity)
         expect(opacity).toBe('1')

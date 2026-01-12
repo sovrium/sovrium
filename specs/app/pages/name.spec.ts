@@ -292,64 +292,38 @@ test.describe('Page Name', () => {
     'APP-PAGES-NAME-REGRESSION: user can complete full page name workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-NAME-001: Validate as internal page name', async () => {
+      // OPTIMIZATION: Consolidated from 8 startServerWithSchema calls to 3
+      // Group 1: Tests 001-004, 006-007 - standard lowercase names (data-testid pattern)
+      // Group 2: Test 005 - snake_case names with underscores
+      // Group 3: Test 008 - data-page-name attribute pattern (separate from data-testid)
+
+      // Group 1: Comprehensive setup with standard lowercase page names
+      await test.step('Setup: Start server with standard page name configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
+            // 001, 006, 007: home page
             {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-NAME-002: Follow shared name pattern from common definitions', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 002, 003: about page
             {
               name: 'about',
               path: '/about',
               meta: { lang: 'en-US', title: 'About', description: 'About' },
               sections: [],
             },
-          ],
-        })
-        await page.goto('/about')
-        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-NAME-003: Accept simple lowercase names', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'about',
-              path: '/about',
-              meta: { lang: 'en-US', title: 'About', description: 'About' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/about')
-        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-NAME-004: Accept single-word page identifiers', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
+            // 004, 006: pricing page
             {
               name: 'pricing',
               path: '/pricing',
               meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
               sections: [],
             },
+            // 004, 006: contact page
             {
               name: 'contact',
               path: '/contact',
@@ -358,13 +332,42 @@ test.describe('Page Name', () => {
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-NAME-001: Validate as internal page name', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-NAME-002: Follow shared name pattern from common definitions', async () => {
+        await page.goto('/about')
+        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-NAME-003: Accept simple lowercase names', async () => {
+        await page.goto('/about')
+        await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-NAME-004: Accept single-word page identifiers', async () => {
         await page.goto('/pricing')
         await expect(page.locator('[data-testid="page-pricing"]')).toBeVisible()
         await page.goto('/contact')
         await expect(page.locator('[data-testid="page-contact"]')).toBeVisible()
       })
 
-      await test.step('APP-PAGES-NAME-005: Accept snake_case names with underscores', async () => {
+      await test.step('APP-PAGES-NAME-006: Provide examples for typical page names', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      })
+
+      await test.step('APP-PAGES-NAME-007: Succeed validation when name is provided', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      })
+
+      // Group 2: snake_case names with underscores (different testid format: page-home-page vs page-home)
+      await test.step('Setup: Start server with snake_case name configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -382,63 +385,17 @@ test.describe('Page Name', () => {
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-NAME-005: Accept snake_case names with underscores', async () => {
         await page.goto('/')
         await expect(page.locator('[data-testid="page-home-page"]')).toBeVisible()
         await page.goto('/about')
         await expect(page.locator('[data-testid="page-about-us"]')).toBeVisible()
       })
 
-      await test.step('APP-PAGES-NAME-006: Provide examples for typical page names', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
-              sections: [],
-            },
-            {
-              name: 'about',
-              path: '/about',
-              meta: { lang: 'en-US', title: 'About', description: 'About' },
-              sections: [],
-            },
-            {
-              name: 'pricing',
-              path: '/pricing',
-              meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
-              sections: [],
-            },
-            {
-              name: 'contact',
-              path: '/contact',
-              meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-NAME-007: Succeed validation when name is provided', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Home', description: 'Home' },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
-      })
-
-      await test.step('APP-PAGES-NAME-008: Serve as internal identifier separate from URL', async () => {
+      // Group 3: data-page-name attribute pattern (different attribute from data-testid)
+      await test.step('Setup: Start server with internal identifier configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -462,6 +419,9 @@ test.describe('Page Name', () => {
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-NAME-008: Serve as internal identifier separate from URL', async () => {
         await page.goto('/')
         await expect(page.locator('[data-page-name="homepage"]')).toBeVisible()
         await page.goto('/about')

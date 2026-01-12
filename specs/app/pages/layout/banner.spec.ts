@@ -344,13 +344,23 @@ test.describe('Banner Configuration', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // OPTIMIZATION: Consolidated from 10 startServerWithSchema calls to 5 calls
+  // - Setup 1: Comprehensive banner with ALL visual features (001, 002, 004, 005, 006, 010)
+  // - Setup 2: Banner with link + /features page (003)
+  // - Setup 3: Dismissible banner (007)
+  // - Setup 4: Sticky banner with scroll content (008)
+  // - Setup 5: Disabled banner (009) - CONFLICTING: enabled=false
   // ============================================================================
 
   test(
     'APP-PAGES-BANNER-REGRESSION: user can complete full banner workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-BANNER-001: Display banner at top of page', async () => {
+      // ========================================================================
+      // SETUP 1: Comprehensive banner with ALL visual features
+      // Covers: 001, 002, 004, 005, 006, 010
+      // ========================================================================
+      await test.step('Setup: Start server with comprehensive banner configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -358,18 +368,56 @@ test.describe('Banner Configuration', () => {
               name: 'test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { banner: { enabled: true, text: 'Announcement' } },
+              layout: {
+                banner: {
+                  enabled: true,
+                  text: '🎉🎊🥳 New feature available! Triple celebration emojis!',
+                  gradient: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                  backgroundColor: '#FF5733',
+                  textColor: '#FFFFFF',
+                },
+              },
               sections: [],
             },
           ],
         })
+      })
+
+      await test.step('APP-PAGES-BANNER-001: Display banner at top of page', async () => {
         await page.goto('/')
         const banner = page.locator('[data-testid="banner"]')
         await expect(banner).toBeVisible()
-        await expect(banner).toContainText('Announcement')
+        await expect(banner).toContainText('New feature available!')
       })
 
       await test.step('APP-PAGES-BANNER-002: Render announcement text', async () => {
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toContainText('🎉')
+        await expect(banner).toContainText('New feature available!')
+      })
+
+      await test.step('APP-PAGES-BANNER-004: Apply CSS gradient as background', async () => {
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toHaveCSS('background', /linear-gradient/)
+      })
+
+      await test.step('APP-PAGES-BANNER-006: Apply text color for contrast', async () => {
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toHaveCSS('color', 'rgb(255, 255, 255)')
+      })
+
+      await test.step('APP-PAGES-BANNER-010: Render emojis correctly', async () => {
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toContainText('🎉🎊🥳')
+        await expect(banner).toContainText('Triple celebration emojis!')
+      })
+
+      // ========================================================================
+      // SETUP 2: Banner with solid background color (separate for accurate test)
+      // Covers: 005
+      // Note: Cannot combine with gradient test (gradient overrides backgroundColor)
+      // ========================================================================
+      await test.step('APP-PAGES-BANNER-005: Apply solid background color', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -377,16 +425,22 @@ test.describe('Banner Configuration', () => {
               name: 'test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { banner: { enabled: true, text: '🎉 New feature available!' } },
+              layout: {
+                banner: { enabled: true, text: 'Announcement', backgroundColor: '#FF5733' },
+              },
               sections: [],
             },
           ],
         })
         await page.goto('/')
         const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toContainText('🎉 New feature available!')
+        await expect(banner).toHaveCSS('background-color', 'rgb(255, 87, 51)')
       })
 
+      // ========================================================================
+      // SETUP 3: Banner with clickable link + features page
+      // Covers: 003
+      // ========================================================================
       await test.step('APP-PAGES-BANNER-003: Add clickable link to banner', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -420,75 +474,11 @@ test.describe('Banner Configuration', () => {
         await expect(page).toHaveURL('/features')
       })
 
-      await test.step('APP-PAGES-BANNER-004: Apply CSS gradient as background', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: {
-                banner: {
-                  enabled: true,
-                  text: 'Announcement',
-                  gradient: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toHaveCSS('background', /linear-gradient/)
-      })
-
-      await test.step('APP-PAGES-BANNER-005: Apply solid background color', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: {
-                banner: { enabled: true, text: 'Announcement', backgroundColor: '#FF5733' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toHaveCSS('background-color', 'rgb(255, 87, 51)')
-      })
-
-      await test.step('APP-PAGES-BANNER-006: Apply text color for contrast', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: {
-                banner: {
-                  enabled: true,
-                  text: 'Announcement',
-                  backgroundColor: '#1E40AF',
-                  textColor: '#FFFFFF',
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toHaveCSS('color', 'rgb(255, 255, 255)')
-      })
-
+      // ========================================================================
+      // SETUP 4: Dismissible banner
+      // Covers: 007
+      // Note: Must be separate to test dismiss behavior + persistence
+      // ========================================================================
       await test.step('APP-PAGES-BANNER-007: Allow users to close banner permanently', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -497,7 +487,9 @@ test.describe('Banner Configuration', () => {
               name: 'test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { banner: { enabled: true, text: 'Announcement', dismissible: true } },
+              layout: {
+                banner: { enabled: true, text: 'Dismissible announcement', dismissible: true },
+              },
               sections: [],
             },
           ],
@@ -512,6 +504,10 @@ test.describe('Banner Configuration', () => {
         await expect(banner).toBeHidden()
       })
 
+      // ========================================================================
+      // SETUP 5: Sticky banner with scroll content
+      // Covers: 008
+      // ========================================================================
       await test.step('APP-PAGES-BANNER-008: Remain at top during page scroll', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -520,7 +516,7 @@ test.describe('Banner Configuration', () => {
               name: 'test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { banner: { enabled: true, text: 'Announcement', sticky: true } },
+              layout: { banner: { enabled: true, text: 'Sticky announcement', sticky: true } },
               sections: [
                 { type: 'div', props: { style: 'height: 3000px' }, children: ['Long content'] },
               ],
@@ -535,6 +531,11 @@ test.describe('Banner Configuration', () => {
         await expect(banner).toBeInViewport()
       })
 
+      // ========================================================================
+      // SETUP 6: Disabled banner
+      // Covers: 009
+      // CONFLICTING: enabled=false cannot merge with enabled=true tests
+      // ========================================================================
       await test.step('APP-PAGES-BANNER-009: Not render banner when disabled', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -550,24 +551,6 @@ test.describe('Banner Configuration', () => {
         })
         await page.goto('/')
         await expect(page.locator('[data-testid="banner"]')).toBeHidden()
-      })
-
-      await test.step('APP-PAGES-BANNER-010: Render emojis correctly', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              layout: { banner: { enabled: true, text: '🎉🎊🥳 Triple celebration emojis!' } },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toContainText('🎉🎊🥳 Triple celebration emojis!')
       })
     }
   )

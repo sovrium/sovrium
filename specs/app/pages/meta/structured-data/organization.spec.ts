@@ -586,7 +586,9 @@ test.describe('Organization Schema', () => {
     'APP-PAGES-ORGANIZATION-REGRESSION: user can complete full Organization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-ORGANIZATION-001: Validate minimal Organization structured data', async () => {
+      // SETUP: Comprehensive Organization with ALL properties needed for tests 001-014
+      // All tests use same @type (Organization), so we can merge into ONE config
+      await test.step('Setup: Start server with comprehensive Organization configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -601,239 +603,18 @@ test.describe('Organization Schema', () => {
                   organization: {
                     '@context': 'https://schema.org',
                     '@type': 'Organization',
+                    // Basic info (001, 002, 003, 004)
                     name: 'My Company',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"Organization"')
-        expect(scriptContent).toContain('My Company')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-002: Specify Schema.org vocabulary', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@context":"https://schema.org"')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-003: Identify entity as Organization', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"Organization"')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-004: Provide organization name', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'My Company',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('My Company')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-005: Provide organization website URL', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
+                    description: 'Leading technology company',
+                    // URL and logo (005, 006, 014)
                     url: 'https://example.com',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('https://example.com')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-006: Provide logo for search results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
                     logo: 'https://example.com/logo.png',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('logo.png')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-007: Support single or multiple organization images', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
+                    // Images (007)
                     image: ['https://example.com/office1.jpg', 'https://example.com/office2.jpg'],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('office1.jpg')
-        expect(scriptContent).toContain('office2.jpg')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-008: Provide contact information', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
+                    // Contact info (008)
                     email: 'info@example.com',
                     telephone: '+1-800-555-1234',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('info@example.com')
-        expect(scriptContent).toContain('+1-800-555-1234')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-009: Include PostalAddress structured data', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
+                    // Address (009)
                     address: {
                       '@type': 'PostalAddress',
                       streetAddress: '100 Corporate Blvd',
@@ -842,130 +623,18 @@ test.describe('Organization Schema', () => {
                       postalCode: '94105',
                       addressCountry: 'US',
                     },
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('PostalAddress')
-        expect(scriptContent).toContain('San Francisco')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-010: Link organization to social profiles', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Company',
+                    // Social profiles (010, 014)
                     sameAs: [
                       'https://facebook.com/company',
                       'https://twitter.com/company',
                       'https://linkedin.com/company/company',
                     ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('facebook.com')
-        expect(scriptContent).toContain('twitter.com')
-        expect(scriptContent).toContain('linkedin.com')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-011: Provide organization history', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Tech Startup',
+                    // History (011)
                     founder: 'Jane Doe',
                     foundingDate: '2020-03-15',
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('Jane Doe')
-        expect(scriptContent).toContain('2020-03-15')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-012: Indicate organization size', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Growing Company',
+                    // Size (012)
                     employees: 50,
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('50')
-      })
-
-      await test.step('APP-PAGES-ORGANIZATION-013: Link organization to hosted events', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Event Host',
+                    // Event (013)
                     event: {
                       '@type': 'EducationEvent',
                       name: 'Annual Conference',
@@ -979,39 +648,82 @@ test.describe('Organization Schema', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-001: Validate minimal Organization structured data', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Organization"')
+        expect(scriptContent).toContain('My Company')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-002: Specify Schema.org vocabulary', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@context":"https://schema.org"')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-003: Identify entity as Organization', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Organization"')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-004: Provide organization name', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('My Company')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-005: Provide organization website URL', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('https://example.com')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-006: Provide logo for search results', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('logo.png')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-007: Support single or multiple organization images', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('office1.jpg')
+        expect(scriptContent).toContain('office2.jpg')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-008: Provide contact information', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('info@example.com')
+        expect(scriptContent).toContain('+1-800-555-1234')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-009: Include PostalAddress structured data', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('PostalAddress')
+        expect(scriptContent).toContain('San Francisco')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-010: Link organization to social profiles', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('facebook.com')
+        expect(scriptContent).toContain('twitter.com')
+        expect(scriptContent).toContain('linkedin.com')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-011: Provide organization history', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('Jane Doe')
+        expect(scriptContent).toContain('2020-03-15')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-012: Indicate organization size', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('50')
+      })
+
+      await test.step('APP-PAGES-ORGANIZATION-013: Link organization to hosted events', async () => {
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
         expect(scriptContent).toContain('EducationEvent')
         expect(scriptContent).toContain('Annual Conference')
       })
 
       await test.step('APP-PAGES-ORGANIZATION-014: Enable Google Knowledge Graph panel in search results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  organization: {
-                    '@context': 'https://schema.org',
-                    '@type': 'Organization',
-                    name: 'Notable Company',
-                    description: 'Leading technology company',
-                    url: 'https://example.com',
-                    logo: 'https://example.com/logo.png',
-                    sameAs: ['https://facebook.com/company', 'https://twitter.com/company'],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
         await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
       })
     }

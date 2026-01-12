@@ -484,7 +484,10 @@ test.describe('FAQ Page Schema', () => {
     'APP-PAGES-FAQPAGE-REGRESSION: user can complete full FAQ Page workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-FAQPAGE-001: Validate minimal FAQPage structured data', async () => {
+      // SETUP: Comprehensive FAQPage with ALL properties needed for tests 001-010
+      // All tests use same @type (FAQPage), so we can merge into ONE config
+      // with comprehensive mainEntity covering all Q&A assertions
+      await test.step('Setup: Start server with comprehensive FAQPage configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -496,265 +499,20 @@ test.describe('FAQ Page Schema', () => {
                 title: 'Test',
                 description: 'Test',
                 schema: {
-                  faqPage: { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: [] },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"FAQPage"')
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-002: Contain list of Q&A pairs', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
                   faqPage: {
                     '@context': 'https://schema.org',
                     '@type': 'FAQPage',
                     mainEntity: [
+                      // Q1: Covers refund policy question (002, 003, 004)
                       {
                         '@type': 'Question',
                         name: 'What is the refund policy?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'We offer 30-day returns' },
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('mainEntity')
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-003: Define question structure', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
-                      {
-                        '@type': 'Question',
-                        name: 'What is the refund policy?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'We offer 30-day returns' },
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"Question"')
-        expect(scriptContent).toContain('name')
-        expect(scriptContent).toContain('acceptedAnswer')
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-004: Provide question text', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
-                      {
-                        '@type': 'Question',
-                        name: 'What is the refund policy?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'Answer text' },
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('What is the refund policy?')
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-005: Provide answer structure', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
-                      {
-                        '@type': 'Question',
-                        name: 'Test question?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'Test answer' },
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('"@type":"Answer"')
-        expect(scriptContent).toContain('text')
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-006: Provide answer content', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
-                      {
-                        '@type': 'Question',
-                        name: 'Question?',
                         acceptedAnswer: {
                           '@type': 'Answer',
                           text: 'We offer a 30-day money-back guarantee',
                         },
                       },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        expect(scriptContent).toContain('30-day money-back guarantee')
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-007: Support comprehensive FAQ section', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
-                      {
-                        '@type': 'Question',
-                        name: 'Q1?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'A1' },
-                      },
-                      {
-                        '@type': 'Question',
-                        name: 'Q2?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'A2' },
-                      },
-                      {
-                        '@type': 'Question',
-                        name: 'Q3?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'A3' },
-                      },
-                      {
-                        '@type': 'Question',
-                        name: 'Q4?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'A4' },
-                      },
-                      {
-                        '@type': 'Question',
-                        name: 'Q5?',
-                        acceptedAnswer: { '@type': 'Answer', text: 'A5' },
-                      },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-        const questionCount = (scriptContent?.match(/"@type":"Question"/g) || []).length
-        expect(questionCount).toBeGreaterThanOrEqual(5)
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-008: Display expandable Q&A in Google search results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
+                      // Q2: Covers return question (008)
                       {
                         '@type': 'Question',
                         name: 'How do I return an item?',
@@ -763,34 +521,7 @@ test.describe('FAQ Page Schema', () => {
                           text: 'Visit our returns page and follow the instructions',
                         },
                       },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-009: Reduce support load by surfacing answers', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
+                      // Q3: Covers support question (009)
                       {
                         '@type': 'Question',
                         name: 'Common support question?',
@@ -799,40 +530,22 @@ test.describe('FAQ Page Schema', () => {
                           text: 'Detailed answer to reduce support tickets',
                         },
                       },
-                    ],
-                  },
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
-      })
-
-      await test.step('APP-PAGES-FAQPAGE-010: Increase click-through rate from search results', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: {
-                lang: 'en-US',
-                title: 'Test',
-                description: 'Test',
-                schema: {
-                  faqPage: {
-                    '@context': 'https://schema.org',
-                    '@type': 'FAQPage',
-                    mainEntity: [
+                      // Q4: Covers CTR question (010)
                       {
                         '@type': 'Question',
                         name: 'Why choose us?',
                         acceptedAnswer: {
                           '@type': 'Answer',
                           text: 'We offer the best service in the industry',
+                        },
+                      },
+                      // Q5: Extra question for 5+ count (007)
+                      {
+                        '@type': 'Question',
+                        name: 'What payment methods do you accept?',
+                        acceptedAnswer: {
+                          '@type': 'Answer',
+                          text: 'We accept all major credit cards and PayPal',
                         },
                       },
                     ],
@@ -844,6 +557,56 @@ test.describe('FAQ Page Schema', () => {
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-001: Validate minimal FAQPage structured data', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"FAQPage"')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-002: Contain list of Q&A pairs', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('mainEntity')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-003: Define question structure', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Question"')
+        expect(scriptContent).toContain('name')
+        expect(scriptContent).toContain('acceptedAnswer')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-004: Provide question text', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('What is the refund policy?')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-005: Provide answer structure', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Answer"')
+        expect(scriptContent).toContain('text')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-006: Provide answer content', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('30-day money-back guarantee')
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-007: Support comprehensive FAQ section', async () => {
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        const questionCount = (scriptContent?.match(/"@type":"Question"/g) || []).length
+        expect(questionCount).toBeGreaterThanOrEqual(5)
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-008: Display expandable Q&A in Google search results', async () => {
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-009: Reduce support load by surfacing answers', async () => {
+        await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
+      })
+
+      await test.step('APP-PAGES-FAQPAGE-010: Increase click-through rate from search results', async () => {
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
         expect(scriptContent).toContain('FAQPage')
       })

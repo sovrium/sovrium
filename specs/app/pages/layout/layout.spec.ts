@@ -356,13 +356,18 @@ test.describe('Page Layout', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
+  // Optimized: Reduced from 8 to 4 server calls by merging ADDITIVE schemas
   // ============================================================================
 
   test(
     'APP-PAGES-LAYOUT-REGRESSION: user can complete full layout workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await test.step('APP-PAGES-LAYOUT-001: Orchestrate global page layout', async () => {
+      // ========================================================================
+      // SETUP 1: Comprehensive full layout with ALL visual features
+      // Covers: 001, 003, 004, 005, 007
+      // ========================================================================
+      await test.step('Setup: Start server with comprehensive layout configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -371,25 +376,92 @@ test.describe('Page Layout', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page description' },
               layout: {
-                banner: { enabled: true, text: 'Sale - 50% off' },
+                banner: {
+                  enabled: true,
+                  text: '🎉 Limited time offer - 50% off all plans!',
+                  backgroundColor: '#FF6B6B',
+                  textColor: '#FFFFFF',
+                  gradient: 'linear-gradient(90deg, #FF6B6B 0%, #4ECDC4 100%)',
+                  link: { href: '/pricing', label: 'View Pricing' },
+                  dismissible: true,
+                },
                 navigation: {
                   logo: '/logo.svg',
-                  links: { desktop: [{ label: 'Home', href: '/' }] },
+                  backgroundColor: '#FF6B6B',
+                  textColor: '#FFFFFF',
+                  links: {
+                    desktop: [
+                      { label: 'Home', href: '/' },
+                      { label: 'About', href: '/about' },
+                    ],
+                  },
                 },
-                footer: { enabled: true },
-                sidebar: { enabled: true, links: [{ label: 'Docs', href: '/docs' }] },
+                footer: { enabled: true, backgroundColor: '#2C3E50', textColor: '#FFFFFF' },
+                sidebar: {
+                  enabled: true,
+                  position: 'left',
+                  width: '250px',
+                  links: [
+                    { label: 'Introduction', href: '/docs/intro' },
+                    { label: 'Getting Started', href: '/docs/getting-started' },
+                    { label: 'API Reference', href: '/docs/api' },
+                  ],
+                },
               },
               sections: [],
             },
           ],
         })
         await page.goto('/')
+      })
+
+      await test.step('APP-PAGES-LAYOUT-001: Orchestrate global page layout', async () => {
         await expect(page.locator('[data-testid="banner"]')).toBeVisible()
         await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
         await expect(page.locator('[data-testid="footer"]')).toBeVisible()
         await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
       })
 
+      await test.step('APP-PAGES-LAYOUT-003: Provide header and footer structure', async () => {
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
+        const navLinks = page.locator('[data-testid="navigation"] a')
+        await expect(navLinks).toHaveCount(3) // logo + 2 links
+      })
+
+      await test.step('APP-PAGES-LAYOUT-004: Support sidebar-based layouts', async () => {
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await expect(sidebar).toBeVisible()
+        await expect(sidebar).toHaveCSS('width', '250px')
+        await expect(sidebar).toHaveCSS('position', 'sticky')
+        const sidebarLinks = sidebar.locator('a')
+        await expect(sidebarLinks).toHaveCount(3)
+      })
+
+      await test.step('APP-PAGES-LAYOUT-005: Display top banner above navigation', async () => {
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toBeVisible()
+        // When gradient is specified, it takes precedence over backgroundColor
+        await expect(banner).toHaveCSS('background', /linear-gradient/)
+        await expect(banner).toContainText('🎉 Limited time offer - 50% off all plans!')
+        const bannerBox = await banner.boundingBox()
+        const navBox = await page.locator('[data-testid="navigation"]').boundingBox()
+        expect(bannerBox!.y).toBeLessThan(navBox!.y)
+      })
+
+      await test.step('APP-PAGES-LAYOUT-007: Enable cohesive visual design across layout', async () => {
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toHaveCSS('background', /linear-gradient/)
+        const navigation = page.locator('[data-testid="navigation"]')
+        await expect(navigation).toHaveCSS('background-color', 'rgb(255, 107, 107)')
+        const footer = page.locator('[data-testid="footer"]')
+        await expect(footer).toHaveCSS('background-color', 'rgb(44, 62, 80)')
+      })
+
+      // ========================================================================
+      // SETUP 2: Minimal layout with navigation only (CONFLICTING - minimal)
+      // Covers: 002
+      // ========================================================================
       await test.step('APP-PAGES-LAYOUT-002: Support minimal layout with navigation only', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -415,104 +487,10 @@ test.describe('Page Layout', () => {
         await expect(page.locator('[data-testid="sidebar-left"]')).toBeHidden()
       })
 
-      await test.step('APP-PAGES-LAYOUT-003: Provide header and footer structure', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: {
-                  logo: '/logo.svg',
-                  links: {
-                    desktop: [
-                      { label: 'Home', href: '/' },
-                      { label: 'About', href: '/about' },
-                    ],
-                  },
-                },
-                footer: { enabled: true },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
-        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
-        const navLinks = page.locator('[data-testid="navigation"] a')
-        await expect(navLinks).toHaveCount(3)
-      })
-
-      await test.step('APP-PAGES-LAYOUT-004: Support sidebar-based layouts', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                navigation: { logo: '/logo.svg' },
-                sidebar: {
-                  enabled: true,
-                  position: 'left',
-                  width: '250px',
-                  links: [
-                    { label: 'Introduction', href: '/docs/intro' },
-                    { label: 'Getting Started', href: '/docs/getting-started' },
-                    { label: 'API Reference', href: '/docs/api' },
-                  ],
-                },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const sidebar = page.locator('[data-testid="sidebar-left"]')
-        await expect(sidebar).toBeVisible()
-        await expect(sidebar).toHaveCSS('width', '250px')
-        await expect(sidebar).toHaveCSS('position', 'sticky')
-        const sidebarLinks = sidebar.locator('a')
-        await expect(sidebarLinks).toHaveCount(3)
-      })
-
-      await test.step('APP-PAGES-LAYOUT-005: Display top banner above navigation', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                banner: {
-                  enabled: true,
-                  text: '🎉 Limited time offer - 50% off all plans!',
-                  backgroundColor: '#FF6B6B',
-                  textColor: '#FFFFFF',
-                  link: { href: '/pricing', label: 'View Pricing' },
-                  dismissible: true,
-                },
-                navigation: { logo: '/logo.svg' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toBeVisible()
-        await expect(banner).toHaveCSS('background-color', 'rgb(255, 107, 107)')
-        await expect(banner).toContainText('🎉 Limited time offer - 50% off all plans!')
-        const bannerBox = await banner.boundingBox()
-        const navBox = await page.locator('[data-testid="navigation"]').boundingBox()
-        expect(bannerBox!.y).toBeLessThan(navBox!.y)
-      })
-
+      // ========================================================================
+      // SETUP 3: Blank page with no layout (CONFLICTING - blank)
+      // Covers: 006
+      // ========================================================================
       await test.step('APP-PAGES-LAYOUT-006: Allow pages without global layout', async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -534,36 +512,10 @@ test.describe('Page Layout', () => {
         await expect(page.locator('[data-testid="page-test"]')).toContainText('Content Only')
       })
 
-      await test.step('APP-PAGES-LAYOUT-007: Enable cohesive visual design across layout', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          pages: [
-            {
-              name: 'Test',
-              path: '/',
-              meta: { lang: 'en-US', title: 'Test' },
-              layout: {
-                banner: {
-                  enabled: true,
-                  text: 'New Feature Launch',
-                  gradient: 'linear-gradient(90deg, #FF6B6B 0%, #4ECDC4 100%)',
-                },
-                navigation: { logo: '/logo.svg', backgroundColor: '#FF6B6B', textColor: '#FFFFFF' },
-                footer: { enabled: true, backgroundColor: '#2C3E50', textColor: '#FFFFFF' },
-              },
-              sections: [],
-            },
-          ],
-        })
-        await page.goto('/')
-        const banner = page.locator('[data-testid="banner"]')
-        await expect(banner).toHaveCSS('background', /linear-gradient/)
-        const navigation = page.locator('[data-testid="navigation"]')
-        await expect(navigation).toHaveCSS('background-color', 'rgb(255, 107, 107)')
-        const footer = page.locator('[data-testid="footer"]')
-        await expect(footer).toHaveCSS('background-color', 'rgb(44, 62, 80)')
-      })
-
+      // ========================================================================
+      // SETUP 4: Multi-page layout override (CONFLICTING - multi-page)
+      // Covers: 008
+      // ========================================================================
       await test.step('APP-PAGES-LAYOUT-008: Override or extend default layout per page', async () => {
         await startServerWithSchema({
           name: 'test-app',
