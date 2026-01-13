@@ -934,8 +934,31 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           Object.entries(result.data).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
         )
 
-        // If no fields remain after filtering, return 403
-        if (Object.keys(allowedFieldsData).length === 0) {
+        // Filter out system-managed fields (organization_id) that cannot be changed via API
+        // Rationale: Silently ignore rather than reject to prevent information leakage
+        const updateData = Object.fromEntries(
+          Object.entries(allowedFieldsData).filter(([fieldName]) => fieldName !== 'organization_id')
+        )
+
+        // If ONLY organization_id was provided and filtered out, treat as no-op success
+        // Rationale: Return 200 (success) to avoid leaking information about system fields
+        if (Object.keys(updateData).length === 0 && Object.keys(result.data).length > 0) {
+          // Fetch current record to return it unchanged
+          try {
+            const currentRecord = await Effect.runPromise(
+              getRecord(session, tableName, c.req.param('recordId'))
+            )
+            if (currentRecord === null) {
+              return c.json({ error: 'Record not found' }, 404)
+            }
+            return c.json({ record: transformRecord(currentRecord) }, 200)
+          } catch (error) {
+            return c.json({ error: 'Record not found' }, 404)
+          }
+        }
+
+        // If no fields remain after filtering forbidden fields, return 403
+        if (Object.keys(updateData).length === 0) {
           return c.json(
             {
               error: 'Forbidden',
@@ -948,7 +971,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         // Execute update with RLS enforcement (using only allowed fields)
         try {
           const updateResult = await Effect.runPromise(
-            updateRecordProgram(session, tableName, c.req.param('recordId'), allowedFieldsData)
+            updateRecordProgram(session, tableName, c.req.param('recordId'), updateData)
           )
 
           // Check if update affected any rows (RLS may have blocked it)
