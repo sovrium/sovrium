@@ -362,11 +362,15 @@ function createListRecordsProgram(
   userRole: string
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
-    // Query records with session context (RLS policies automatically applied)
-    const records = yield* listRecords(session, tableName)
+    // Find table schema to check organization-scoped settings
+    const table = app.tables?.find((t) => t.name === tableName)
+
+    // Query records with session context (organization filtering automatically applied if enabled)
+    const records = yield* listRecords(session, tableName, table)
 
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies
+    // Organization-level filtering is handled by listRecords when organizationScoped is true
     // Field-level filtering is handled at application layer
     const { userId } = session
     const filteredRecords = records.map((record) =>

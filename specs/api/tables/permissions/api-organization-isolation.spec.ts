@@ -35,7 +35,7 @@ test.describe('API Organization Isolation', () => {
   // @spec tests - EXHAUSTIVE coverage of organization isolation via API
   // ============================================================================
 
-  test.fixme(
+  test(
     "API-TABLES-PERMISSIONS-ORG-001: should only return records from user's organization in list endpoint",
     { tag: '@spec' },
     async ({
@@ -91,9 +91,11 @@ test.describe('API Organization Isolation', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(2)
-      expect(data.records.every((r: any) => r.organization_id === orgA.organization.id)).toBe(true)
-      expect(data.records.map((r: any) => r.name)).toContain('Org A Project 1')
-      expect(data.records.map((r: any) => r.name)).not.toContain('Org B Project 1')
+      expect(
+        data.records.every((r: any) => r.fields.organization_id === orgA.organization.id)
+      ).toBe(true)
+      expect(data.records.map((r: any) => r.fields.name)).toContain('Org A Project 1')
+      expect(data.records.map((r: any) => r.fields.name)).not.toContain('Org B Project 1')
     }
   )
 

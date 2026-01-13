@@ -46,22 +46,40 @@ const validateColumnName = (columnName: string): void => {
 /**
  * List all records from a table with session context
  *
- * Automatically applies RLS policies based on session variables.
+ * Automatically applies organization-scoped filtering when enabled.
+ * - If table has `permissions.organizationScoped: true`, filters by user's active organization
+ * - Otherwise, returns all accessible records (RLS policies still apply)
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table to query
+ * @param table - Table schema configuration (for checking organizationScoped flag)
  * @returns Effect resolving to array of records
  */
 export function listRecords(
   session: Readonly<Session>,
-  tableName: string
+  tableName: string,
+  table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
         validateTableName(tableName)
-        // Query table using sql.identifier for safe identifier handling
-        // RLS policies automatically applied via session context
+
+        // Check if organization-scoped filtering is enabled
+        const isOrganizationScoped = table?.permissions?.organizationScoped === true
+        const activeOrgId = session.activeOrganizationId
+
+        // Build query with organization filtering if enabled
+        if (isOrganizationScoped && activeOrgId) {
+          // Filter by organization_id when organizationScoped is true
+          // Use text comparison to ensure proper string matching
+          const result = await tx.execute(
+            sql`SELECT * FROM ${sql.identifier(tableName)} WHERE organization_id::text = ${activeOrgId}`
+          )
+          return result as readonly Record<string, unknown>[]
+        }
+
+        // Default: no organization filtering (RLS policies still apply via session context)
         const result = await tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}`)
         return result as readonly Record<string, unknown>[]
       },
