@@ -632,9 +632,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [execute-claude]
+    # Only retry if:
+    # 1. Claude didn't report success AND
+    # 2. No branch was created (branch existence = work completed, just false negative on outcome) AND
+    # 3. The failure was infrastructure-related (not a code/logic error)
     if: |
       always() &&
       needs.execute-claude.outputs.claude_success != 'true' &&
+      needs.execute-claude.outputs.has_branch != 'true' &&
       needs.execute-claude.outputs.is_infrastructure_error == 'true'
     permissions:
       actions: write

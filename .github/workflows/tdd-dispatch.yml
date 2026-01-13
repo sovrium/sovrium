@@ -374,10 +374,19 @@ jobs:
           echo "$RESULT"
 
           # Parse JSON result
-          STATUS=$(echo "$RESULT" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
-          HAS_SRC_CHANGES=$(echo "$RESULT" | grep -o '"hasSrcChanges":[^,}]*' | head -1 | cut -d':' -f2 || echo "false")
-          COMMITTED=$(echo "$RESULT" | grep -o '"committed":[^,}]*' | head -1 | cut -d':' -f2 || echo "false")
-          ISSUE_CLOSED=$(echo "$RESULT" | grep -o '"issueClosed":[^,}]*' | head -1 | cut -d':' -f2 || echo "false")
+          # NOTE: Use extended regex (-E) to handle optional whitespace after colons
+          # The validate-specs.ts script outputs formatted JSON with spaces (e.g., "status": "passed")
+          # Previous regex only matched "status":"passed" (no space), causing silent parsing failures
+          STATUS=$(echo "$RESULT" | grep -oE '"status"\s*:\s*"[^"]*"' | head -1 | sed 's/"status"[[:space:]]*:[[:space:]]*"//' | tr -d '"')
+          HAS_SRC_CHANGES=$(echo "$RESULT" | grep -oE '"hasSrcChanges"\s*:\s*(true|false)' | head -1 | sed 's/"hasSrcChanges"[[:space:]]*:[[:space:]]*//')
+          COMMITTED=$(echo "$RESULT" | grep -oE '"committed"\s*:\s*(true|false)' | head -1 | sed 's/"committed"[[:space:]]*:[[:space:]]*//')
+          ISSUE_CLOSED=$(echo "$RESULT" | grep -oE '"issueClosed"\s*:\s*(true|false)' | head -1 | sed 's/"issueClosed"[[:space:]]*:[[:space:]]*//')
+
+          # Apply defaults if parsing failed
+          STATUS="${STATUS:-unknown}"
+          HAS_SRC_CHANGES="${HAS_SRC_CHANGES:-false}"
+          COMMITTED="${COMMITTED:-false}"
+          ISSUE_CLOSED="${ISSUE_CLOSED:-false}"
 
           echo ""
           echo "Parsed results:"
@@ -385,6 +394,19 @@ jobs:
           echo "  Has src changes: $HAS_SRC_CHANGES"
           echo "  Committed: $COMMITTED"
           echo "  Issue closed: $ISSUE_CLOSED"
+
+          # Validate parsing succeeded - STATUS should be "passed", "failed", or similar
+          if [ "$STATUS" = "unknown" ] || [ -z "$STATUS" ]; then
+            echo ""
+            echo "⚠️  Warning: Failed to parse validation result (status='$STATUS')"
+            echo "   This may indicate a JSON parsing issue or script error."
+            echo "   Proceeding with Claude invocation as fallback."
+
+            echo "test_passed=false" >> $GITHUB_OUTPUT
+            echo "needs_claude=true" >> $GITHUB_OUTPUT
+            echo "should_trigger_next=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
           if [ "$STATUS" = "passed" ]; then
             echo ""
