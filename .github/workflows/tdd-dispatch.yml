@@ -215,18 +215,42 @@ jobs:
 
           echo "🔍 Checking if test $SPEC_ID is already passing in main..."
 
-          # Check if the test file exists
+          # Check if the test file exists at the expected path
           if [ ! -f "$TEST_FILE" ]; then
-            echo "⚠️  Test file $TEST_FILE not found - spec may have been moved"
-            echo "is_superseded=true" >> $GITHUB_OUTPUT
-            exit 0
+            echo "⚠️  Test file $TEST_FILE not found at expected path"
+            echo "   Searching for spec $SPEC_ID in codebase..."
+
+            # Search for the spec ID in all spec files
+            ACTUAL_FILE=$(grep -rl "$SPEC_ID" specs/ 2>/dev/null | head -1)
+
+            if [ -n "$ACTUAL_FILE" ]; then
+              echo "📍 Found spec at: $ACTUAL_FILE (path in issue was stale)"
+              TEST_FILE="$ACTUAL_FILE"
+              # Continue with the corrected path
+            else
+              echo "❌ Spec $SPEC_ID not found anywhere in specs/ - treating as superseded"
+              echo "is_superseded=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
           fi
 
           # Check if spec ID exists in the file
           if ! grep -q "$SPEC_ID" "$TEST_FILE"; then
-            echo "⚠️  Test $SPEC_ID not found in file - may have been removed or renamed"
-            echo "is_superseded=true" >> $GITHUB_OUTPUT
-            exit 0
+            echo "⚠️  Test $SPEC_ID not found in $TEST_FILE"
+            echo "   Searching for spec in other files..."
+
+            # Search for the spec ID in all spec files
+            ACTUAL_FILE=$(grep -rl "$SPEC_ID" specs/ 2>/dev/null | head -1)
+
+            if [ -n "$ACTUAL_FILE" ] && [ "$ACTUAL_FILE" != "$TEST_FILE" ]; then
+              echo "📍 Found spec at: $ACTUAL_FILE"
+              TEST_FILE="$ACTUAL_FILE"
+              # Continue with the corrected path
+            else
+              echo "❌ Spec $SPEC_ID not found in codebase - treating as superseded"
+              echo "is_superseded=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
           fi
 
           # Use multiline grep to check if spec ID is associated with .fixme()
