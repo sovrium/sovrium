@@ -428,7 +428,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-INHERIT-006: empty roles array denies all access',
     { tag: '@spec' },
     async ({
