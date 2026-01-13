@@ -641,7 +641,9 @@ jobs:
           fi
 
       - name: Update issue on failure
-        if: steps.claude.outcome != 'success'
+        # Only post failure comment if Claude failed AND no branch was pushed
+        # Branch existence = work completed successfully (false negative on step outcome)
+        if: steps.claude.outcome != 'success' && steps.set_success.outputs.has_branch != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
