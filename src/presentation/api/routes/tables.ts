@@ -98,8 +98,6 @@ class ForbiddenListTablesError extends Error {
 // Constants
 // ============================================================================
 
-const AUTH_TABLE_MEMBERS = '_sovrium_auth_members'
-const AUTH_TABLE_USERS = '_sovrium_auth_users'
 const AUTH_KEYWORDS = ['not found', 'access denied'] as const
 const ALLOWED_ROLES_TO_LIST_TABLES = ['owner', 'admin', 'member'] as const
 const DEFAULT_ROLE = 'member'
@@ -397,12 +395,16 @@ function createListRecordsProgram(
  */
 async function getUserRole(userId: string, activeOrganizationId?: string | null): Promise<string> {
   const { db } = await import('@/infrastructure/database')
+  const { members, users } = await import('@/infrastructure/auth/better-auth/schema')
+  const { eq, and } = await import('drizzle-orm')
 
   // If active organization, check members table first
   if (activeOrganizationId) {
-    const memberResult = (await db.execute(
-      `SELECT role FROM "${AUTH_TABLE_MEMBERS}" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-    )) as Array<{ role: string | null }>
+    const memberResult = await db
+      .select({ role: members.role })
+      .from(members)
+      .where(and(eq(members.organizationId, activeOrganizationId), eq(members.userId, userId)))
+      .limit(1)
 
     if (memberResult[0]?.role) {
       return memberResult[0].role
@@ -410,9 +412,12 @@ async function getUserRole(userId: string, activeOrganizationId?: string | null)
   }
 
   // Fall back to global user role from users table
-  const userResult = (await db.execute(
-    `SELECT role FROM "${AUTH_TABLE_USERS}" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-  )) as Array<{ role: string | null }>
+  const userResult = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
   return userResult[0]?.role || DEFAULT_ROLE
 }
 
@@ -809,7 +814,6 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           listRecordsResponseSchema
         )
       })
-      // eslint-disable-next-line complexity -- Permission checks require multiple conditional branches
       .post('/api/tables/:tableId/records', async (c) => {
         const session = getSessionFromContext(c)
         if (!session) {
@@ -831,19 +835,14 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Check table-level create permissions
         const table = app.tables?.find((t) => t.name === tableName)
-        const createPermission = table?.permissions?.create
-
-        if (createPermission?.type === 'roles') {
-          const allowedRoles = createPermission.roles || []
-          if (!allowedRoles.includes(userRole)) {
-            return c.json(
-              {
-                error: 'Forbidden',
-                message: 'You do not have permission to create records in this table',
-              },
-              403
-            )
-          }
+        if (!hasCreatePermission(table, userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to create records in this table',
+            },
+            403
+          )
         }
 
         return runEffect(
@@ -1105,11 +1104,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
 
         // Authorization check BEFORE validation (viewers cannot restore, regardless of input validity)
-        const { db } = await import('@/infrastructure/database')
-        const userResult = (await db.execute(
-          `SELECT role FROM "${AUTH_TABLE_USERS}" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-        )) as Array<{ role: string | null }>
-        const userRole = userResult[0]?.role
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
         if (userRole === 'viewer') {
           return c.json(
