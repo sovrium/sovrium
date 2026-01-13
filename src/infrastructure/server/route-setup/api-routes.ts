@@ -102,19 +102,17 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
     }
   })
 
-  // Apply auth middleware to protected routes (conditionally based on tables config)
+  // Apply auth middleware to protected routes
   // This extracts session from Better Auth and attaches to context
-  const honoWithAuth = app.tables
-    ? honoWithHealth
-        .use('/api/tables', authMiddleware(auth))
-        .use('/api/tables/*', authMiddleware(auth))
-        .use('/api/activity', authMiddleware(auth))
-    : honoWithHealth.use('/api/activity', authMiddleware(auth))
+  const honoWithAuth = honoWithHealth
+    .use('/api/tables', authMiddleware(auth))
+    .use('/api/tables/*', authMiddleware(auth))
+    .use('/api/activity', authMiddleware(auth))
 
-  // Chain table routes ONLY if tables are configured
+  // Chain table routes (always register, returns empty array if no tables configured)
   // Routes now have access to session via c.var.session
   // Pass app configuration for table metadata lookup (tableId → table name mapping)
-  const honoWithTables = app.tables ? chainTableRoutes(honoWithAuth, app) : honoWithAuth
+  const honoWithTables = chainTableRoutes(honoWithAuth, app)
 
   // Chain activity routes (activity log access)
   const honoWithActivity = chainActivityRoutes(honoWithTables)
