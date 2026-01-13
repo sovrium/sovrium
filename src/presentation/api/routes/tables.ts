@@ -131,12 +131,12 @@ const containsAuthKeywords = (text: string): boolean =>
   AUTH_KEYWORDS.some((keyword) => text.includes(keyword))
 
 /**
- * Check if error is an authorization error (SessionContextError or access denied)
- *
- * @param error - The error to check
- * @returns true if error is authorization-related (should return 404 instead of 500)
+ * Extract error details from an error object
+ * Centralizes error information extraction logic
  */
-const isAuthorizationError = (error: unknown): boolean => {
+const extractErrorDetails = (
+  error: unknown
+): { message: string; name: string; causeMessage: string; errorString: string } => {
   const errorMessage = error instanceof Error ? error.message : ''
   const errorName = error instanceof Error ? error.name : ''
   const errorString = String(error)
@@ -145,10 +145,22 @@ const isAuthorizationError = (error: unknown): boolean => {
       ? error.cause.message
       : ''
 
+  return { message: errorMessage, name: errorName, causeMessage, errorString }
+}
+
+/**
+ * Check if error is an authorization error (SessionContextError or access denied)
+ *
+ * @param error - The error to check
+ * @returns true if error is authorization-related (should return 404 instead of 500)
+ */
+const isAuthorizationError = (error: unknown): boolean => {
+  const { message, name, causeMessage, errorString } = extractErrorDetails(error)
+
   return (
-    containsAuthKeywords(errorMessage) ||
+    containsAuthKeywords(message) ||
     containsAuthKeywords(causeMessage) ||
-    errorName.includes('SessionContextError') ||
+    name.includes('SessionContextError') ||
     errorString.includes('SessionContextError')
   )
 }
@@ -195,6 +207,26 @@ const handleBatchRestoreError = (c: Context, error: unknown) => {
   }
 
   return c.json({ error: 'Internal server error', message: errorMessage }, 500)
+}
+
+// ============================================================================
+// Validation Helper Functions
+// ============================================================================
+
+/**
+ * Extract session from Hono context
+ * Returns undefined if no session exists
+ */
+const getSessionFromContext = (c: Context): Readonly<Session> | undefined => {
+  return (c as ContextWithSession).var?.session
+}
+
+/**
+ * Validate table exists and return table name
+ * Returns undefined if table not found
+ */
+const validateAndGetTableName = (app: App, tableId: string): string | undefined => {
+  return getTableNameFromId(app, tableId)
 }
 
 // ============================================================================
@@ -728,14 +760,14 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     honoApp
       .get('/api/tables/:tableId/records', async (c) => {
         // Extract session from context (set by auth middleware)
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -778,7 +810,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
       })
       .post('/api/tables/:tableId/records', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
@@ -788,7 +820,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -802,14 +834,14 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       })
       // eslint-disable-next-line complexity -- Error handling for authorization requires multiple checks
       .get('/api/tables/:tableId/records/:recordId', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -859,7 +891,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       })
       // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions
       .patch('/api/tables/:tableId/records/:recordId', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
@@ -869,7 +901,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -959,14 +991,14 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
       })
       .delete('/api/tables/:tableId/records/:recordId', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -998,14 +1030,14 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         }
       })
       .post('/api/tables/:tableId/records/:recordId/restore', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -1046,7 +1078,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     honoApp
       // IMPORTANT: More specific route (batch/restore) must come BEFORE generic batch routes
       .post('/api/tables/:tableId/records/batch/restore', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
@@ -1072,7 +1104,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         if (!result.success) return result.response
 
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -1088,7 +1120,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       })
       // Generic batch routes AFTER more specific batch/restore route
       .post('/api/tables/:tableId/records/batch', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
@@ -1098,7 +1130,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -1143,7 +1175,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
       })
       .patch('/api/tables/:tableId/records/batch', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
@@ -1153,7 +1185,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
@@ -1165,7 +1197,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         )
       })
       .delete('/api/tables/:tableId/records/batch', async (c) => {
-        const { session } = (c as ContextWithSession).var
+        const session = getSessionFromContext(c)
         if (!session) {
           return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
         }
@@ -1175,7 +1207,7 @@ function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Get table name from route parameter
         const tableId = c.req.param('tableId')
-        const tableName = getTableNameFromId(app, tableId)
+        const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
