@@ -76,12 +76,22 @@ test.describe('List all tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-LIST-003: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A running server
-      // No special setup needed
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: A running server with tables configured
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: Unauthenticated user requests list of tables
       const response = await request.get('/api/tables')
