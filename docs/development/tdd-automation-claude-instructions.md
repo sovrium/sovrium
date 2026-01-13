@@ -170,10 +170,10 @@ Domain bases:
 
 ## Usage Limits (Blocking)
 
-| Limit  | Value  |
-| ------ | ------ |
-| Daily  | $15.00 |
-| Weekly | $90.00 |
+| Limit  | Value    |
+| ------ | -------- |
+| Daily  | $200.00  |
+| Weekly | $1000.00 |
 
 Check usage: `bun run scripts/tdd-automation/check-claude-code-usage.ts --check`
 

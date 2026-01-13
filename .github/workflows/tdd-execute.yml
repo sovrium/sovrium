@@ -474,8 +474,8 @@ jobs:
           exit $EXIT_CODE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TDD_DAILY_COST_LIMIT: '15.00'
-          TDD_WEEKLY_COST_LIMIT: '90.00'
+          TDD_DAILY_COST_LIMIT: '200.00'
+          TDD_WEEKLY_COST_LIMIT: '1000.00'
         continue-on-error: true
 
       - name: Fail if usage check crashed (fail-closed safety)
@@ -537,8 +537,8 @@ jobs:
           #
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
-          # - --max-budget-usd: Increased to $10 (e2e-test-fixer only, refactor-auditor runs separately)
-          #   Budget increased from $5 to handle specs with complex context or confusing issue history
+          # - --max-budget-usd: Increased to $50 (e2e-test-fixer only, refactor-auditor runs separately)
+          #   Budget increased from $10 to handle specs with complex context or confusing issue history
           # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
           # - --disallowedTools: Block tools not needed for autonomous code implementation
           #   - AskUserQuestion: No human present in automation (would hang or skip)
@@ -547,7 +547,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-budget-usd 10.00
+            --max-budget-usd 50.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
@@ -852,10 +852,10 @@ jobs:
           github_token: ${{ secrets.GH_PAT_WORKFLOW }}
           additional_permissions: |
             actions: read
-          # Budget reduced to $5 for refactor-auditor phase
+          # Budget set to $25 for refactor-auditor phase
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-budget-usd 5.00
+            --max-budget-usd 25.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 

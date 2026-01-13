@@ -88,8 +88,8 @@ jobs:
       # =========================================================================
       # Uses cost-based limits from historical GitHub Actions logs.
       # Blocks queue processing when:
-      # - Daily cost exceeds $15.00 (15% of weekly)
-      # - Weekly cost exceeds $90.00 (90% of weekly allocation)
+      # - Daily cost exceeds $200.00 (20% of weekly)
+      # - Weekly cost exceeds $1000.00 (weekly allocation)
       # - Usage data unavailable (fail-closed)
       # =========================================================================
       - name: Check usage limits (fail-closed)
@@ -109,8 +109,8 @@ jobs:
           exit $EXIT_CODE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TDD_DAILY_COST_LIMIT: '15.00'
-          TDD_WEEKLY_COST_LIMIT: '90.00'
+          TDD_DAILY_COST_LIMIT: '200.00'
+          TDD_WEEKLY_COST_LIMIT: '1000.00'
         continue-on-error: true
 
       - name: Fail if usage check crashed (fail-closed safety)
