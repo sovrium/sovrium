@@ -247,7 +247,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-INHERIT-004: member role gets read-only access when excluded from create/update',
     { tag: '@spec' },
     async ({

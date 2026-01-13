@@ -809,6 +809,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           listRecordsResponseSchema
         )
       })
+      // eslint-disable-next-line complexity -- Permission checks require multiple conditional branches
       .post('/api/tables/:tableId/records', async (c) => {
         const session = getSessionFromContext(c)
         if (!session) {
@@ -823,6 +824,26 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        // Query user role from database (check org-specific role first)
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level create permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        const createPermission = table?.permissions?.create
+
+        if (createPermission?.type === 'roles') {
+          const allowedRoles = createPermission.roles || []
+          if (!allowedRoles.includes(userRole)) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: 'You do not have permission to create records in this table',
+              },
+              403
+            )
+          }
         }
 
         return runEffect(
