@@ -413,18 +413,19 @@ test.describe('API Field Permission Enforcement', () => {
   // Generated from 5 @spec tests - covers: field read filtering, field write restrictions, partial updates
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-REGRESSION: complete field permission workflow via API',
     { tag: '@regression' },
     async ({
       request,
       startServerWithSchema,
       createAuthenticatedUser,
-      createAuthenticatedAdmin,
       createOrganization,
       addMember,
       executeQuery,
       signOut,
+      signIn,
+      setActiveOrganization,
     }) => {
       let org: { organization: { id: string } }
       let member: { user: { id: string } }
@@ -471,7 +472,13 @@ test.describe('API Field Permission Enforcement', () => {
 
       await test.step('Setup: Create organization with admin and member users', async () => {
         // Admin (becomes owner of org)
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
+
+        // Set admin role via direct database update
+        await executeQuery(`
+          UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'
+        `)
+
         org = await createOrganization({ name: 'Test Org' })
 
         // Member
@@ -495,7 +502,8 @@ test.describe('API Field Permission Enforcement', () => {
       await test.step('API-TABLES-PERMISSIONS-FIELD-001: Excludes salary field from member response', async () => {
         // WHEN: Member user requests employee data via API
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(org.organization.id)
         const response = await request.get('/api/tables/1/records')
 
         // THEN: API response should include name but EXCLUDE salary field
@@ -511,7 +519,8 @@ test.describe('API Field Permission Enforcement', () => {
       await test.step('API-TABLES-PERMISSIONS-FIELD-002: Includes all fields for admin response', async () => {
         // WHEN: Admin user requests employee data via API
         await signOut()
-        await createAuthenticatedAdmin({ email: 'admin@example.com' })
+        await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(org.organization.id)
         const response = await request.get('/api/tables/1/records')
 
         // THEN: Admin should see ALL fields including salary
@@ -526,7 +535,8 @@ test.describe('API Field Permission Enforcement', () => {
       await test.step('API-TABLES-PERMISSIONS-FIELD-003: Rejects write when user lacks field permission', async () => {
         // WHEN: Member tries to update salary field via API
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(org.organization.id)
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { salary: 100_000 }, // Attempting to give themselves a raise!
@@ -546,7 +556,8 @@ test.describe('API Field Permission Enforcement', () => {
       await test.step('API-TABLES-PERMISSIONS-FIELD-004: Allows partial update for permitted fields', async () => {
         // WHEN: Member updates only the name field (which they have permission for)
         await signOut()
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(org.organization.id)
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'John Smith' }, // This should work
