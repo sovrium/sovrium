@@ -83,14 +83,23 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A running server
-      // No setup needed
+    async ({ request, startServerWithSchema }) => {
+      // GIVEN: A running server with a table (ID 1)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
-      // WHEN: User requests non-existent table
+      // WHEN: User requests non-existent table (ID 9999)
       const response = await request.get('/api/tables/9999', {})
 
       // THEN: Response should be 404 Not Found
