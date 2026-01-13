@@ -56,12 +56,19 @@ test.describe('List all tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-LIST-002: should return 200 OK with empty array',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A running server with no tables
-      // Application starts with clean slate for this test
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+      // GIVEN: A running server with no tables configured (tables: undefined)
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        // tables field omitted (undefined) - no tables configured
+      })
+
+      // Create authenticated user (required for the endpoint)
+      await createAuthenticatedUser()
 
       // WHEN: User requests list of all tables
       const response = await request.get('/api/tables', {})
