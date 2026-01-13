@@ -886,9 +886,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [execute-e2e-fixer, execute-refactor-auditor]
+    # Run when refactor-auditor succeeds OR when it made changes (even if Claude failed after)
+    # This ensures changes are pushed even if Claude encounters API errors post-commit
     if: |
       always() &&
-      needs.execute-refactor-auditor.result == 'success'
+      (needs.execute-refactor-auditor.result == 'success' ||
+       needs.execute-refactor-auditor.outputs.has_changes == 'true')
     permissions:
       contents: write
     steps:
@@ -1325,9 +1328,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [execute-e2e-fixer, finalize-fixer, finalize-auditor]
+    # Run when:
+    # - finalize-fixer pushed successfully (test-only changes or src changes before auditor)
+    # - finalize-auditor succeeded (full workflow with src changes)
+    # - has_branch fallback (Claude pushed but success detection failed)
     if: |
       always() &&
-      (needs.finalize-fixer.result == 'success' ||
+      (needs.finalize-fixer.outputs.push_success == 'true' ||
        needs.finalize-auditor.result == 'success' ||
        needs.execute-e2e-fixer.outputs.has_branch == 'true')
     permissions:

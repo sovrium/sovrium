@@ -281,7 +281,16 @@ sovrium/
 
 > **Load detailed instructions**: When triggered by a TDD spec issue (title starts with "🤖"), import `@docs/development/tdd-automation-claude-instructions.md`
 
-**Quick Recognition**: Issue title "🤖 [SPEC-ID]:" + labels `tdd-spec:queued` or `tdd-spec:in-progress`
+**Quick Recognition**: Issue title "🤖 [SPEC-ID]:" with TDD labels
+
+**Label States**:
+- `tdd-spec:queued` → Waiting in queue
+- `tdd-spec:in-progress` → Currently being processed
+- `tdd-spec:completed` → Successfully implemented and merged
+- `tdd-spec:failed` → Failed after max retries
+- `retry:spec:1/2/3` → Code error retry count
+- `retry:infra:1/2/3` → Infrastructure error retry count
+- `failure:spec/regression/infra` → Failure classification
 
 **Essential Workflow**:
 1. Branch auto-created: `claude/issue-{NUMBER}-{timestamp}`
