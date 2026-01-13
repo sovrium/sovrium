@@ -35,6 +35,49 @@ graph TD
 
 > **Priority Order**: APP → MIG → STATIC → API → ADMIN. Within each domain, specs are sorted alphabetically by feature, then by test number (001 before 002, REGRESSION last).
 
+### Hybrid Architecture (Spec-Level vs Codebase-Level)
+
+The TDD automation uses a **hybrid architecture** with two processing paths:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SPEC-LEVEL PROCESSING (triggered by @claude comments)                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  tdd-dispatch.yml ────(@claude)────┐                                        │
+│                                    │                                        │
+│  tdd-monitor.yml ─────(@claude)────┼──▶ tdd-execute.yml                     │
+│    (stuck retry)                   │      ├─ execute-e2e-fixer ($5, 60min)  │
+│    (failed PR recovery)            │      ├─ finalize-fixer (workflow)      │
+│                                    │      ├─ execute-refactor-auditor ◀── CONDITIONAL (src/ modified) │
+│                                    │      ├─ finalize-auditor (workflow)    │
+│                                    │      └─ verify-success (creates PR)    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CODEBASE-LEVEL PROCESSING (standalone scheduled workflow)                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  tdd-refactor.yml (daily 1:30 AM UTC)                                       │
+│      └─ codebase-refactor-auditor ($10, 120min)                             │
+│          ├─ Full codebase audit (not per-spec)                              │
+│          ├─ Creates refactor/daily-YYYYMMDD branch                          │
+│          └─ Auto-merge enabled                                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Design Decisions**:
+
+| Aspect | Spec-Level (tdd-execute) | Codebase-Level (tdd-refactor) |
+|--------|--------------------------|-------------------------------|
+| **Scope** | Single spec implementation | Full codebase audit |
+| **Trigger** | @claude comment | Scheduled (daily) |
+| **Budget** | $5 per agent | $10 total |
+| **Refactoring** | Conditional (if src/ modified) | Always runs |
+| **When to use** | Implementing failing tests | Proactive maintenance |
+
 ## Components
 
 ### 1. Queue Manager (`scripts/tdd-automation/queue-manager.ts`)
@@ -178,12 +221,12 @@ verify-success
 
 **Benefits of Split Architecture**:
 
-| Aspect | Before (Single Job) | After (Split Jobs) |
-|--------|---------------------|-------------------|
-| **Cost (test-only)** | ~$8-10 | ~$3-5 (skip auditor) |
-| **License reliability** | Agent can forget | Workflow guarantees |
-| **Commit format** | Agent can vary | Workflow standardizes |
-| **Failure isolation** | Single point | Per-phase visibility |
+| Aspect                  | Before (Single Job) | After (Split Jobs)    |
+| ----------------------- | ------------------- | --------------------- |
+| **Cost (test-only)**    | ~$8-10              | ~$3-5 (skip auditor)  |
+| **License reliability** | Agent can forget    | Workflow guarantees   |
+| **Commit format**       | Agent can vary      | Workflow standardizes |
+| **Failure isolation**   | Single point        | Per-phase visibility  |
 
 **Retry Logic**:
 
