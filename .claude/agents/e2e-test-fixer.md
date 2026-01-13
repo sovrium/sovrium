@@ -173,6 +173,16 @@ The agent automatically detects pipeline mode when:
 
 When operating in pipeline mode:
 
+**⚠️ WORKFLOW-MANAGED FINALIZATION (Pipeline Mode Only)**:
+In the TDD automation pipeline, finalization tasks are handled by the GitHub Actions workflow, NOT by this agent:
+- ❌ **DO NOT** run `bun run license` (handled by `finalize-fixer` job)
+- ❌ **DO NOT** push to remote (handled by `finalize-fixer` job)
+- ❌ **DO NOT** create PR (handled by `verify-success` job)
+- ✅ **DO** commit changes locally with conventional commit message
+- ✅ **DO** run `bun run quality` to validate before committing
+
+The workflow's `finalize-fixer` job automatically: adds copyright headers, amends the commit if needed, and pushes to remote. This ensures reliable, consistent finalization regardless of agent execution state.
+
 1. **Non-Interactive Execution**:
    - No clarifying questions asked - make best decisions based on tests
    - No user approval prompts - proceed with implementation
