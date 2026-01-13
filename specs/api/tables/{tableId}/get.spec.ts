@@ -86,10 +86,13 @@ test.describe('Get table by ID', () => {
   test(
     'API-TABLES-GET-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A running server with a table (ID 1)
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 1,
@@ -97,6 +100,13 @@ test.describe('Get table by ID', () => {
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
         ],
+      })
+
+      // Create authenticated user
+      await createAuthenticatedUser({
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Test User',
       })
 
       // WHEN: User requests non-existent table (ID 9999)
@@ -112,12 +122,21 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-003: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A running server with existing table
-      // Database setup: CREATE TABLE users (id SERIAL PRIMARY KEY)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [{ id: 1, name: 'id', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: Unauthenticated user requests table by ID
       const response = await request.get('/api/tables/1')
@@ -178,10 +197,13 @@ test.describe('Get table by ID', () => {
   test(
     'API-TABLES-GET-005: should return 404 for cross-org table access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A table belonging to organization org_456
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+        },
         tables: [
           {
             id: 1,
@@ -190,8 +212,21 @@ test.describe('Get table by ID', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
+            permissions: {
+              read: {
+                type: 'roles',
+                roles: ['owner', 'admin', 'member'],
+              },
+            },
           },
         ],
+      })
+
+      // Create authenticated user
+      await createAuthenticatedUser({
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Test User',
       })
 
       // WHEN: User from org_123 attempts to access table from org_456

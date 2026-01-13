@@ -742,8 +742,9 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     })
     .get('/api/tables/:tableId', async (c) => {
       const { session } = (c as ContextWithSession).var
-      // Security: Return 404 (not 401) to prevent table enumeration attacks
-      if (!session) return c.json({ error: 'Table not found' }, 404)
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
       const userRole = await getUserRole(session.userId, session.activeOrganizationId)
       try {
         const program = createGetTableProgram(c.req.param('tableId'), app, userRole)
