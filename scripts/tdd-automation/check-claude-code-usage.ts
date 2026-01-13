@@ -9,14 +9,14 @@
 /**
  * Claude Code Usage Tracker
  *
- * Tracks Claude Code usage by parsing GitHub Actions workflow logs.
+ * Tracks Claude Code cost by parsing GitHub Actions workflow logs.
  * Works with user:inference scope (no OAuth API needed).
  *
  * This script:
  * 1. Fetches recent TDD workflow runs from GitHub
  * 2. Downloads and parses workflow logs
- * 3. Extracts token usage from Claude Code CLI output
- * 4. Calculates costs and checks limits
+ * 3. Extracts cost from Claude Code SDK JSON output
+ * 4. Checks cost against configured limits
  * 5. Outputs usage report and warnings
  *
  * Usage:
@@ -60,7 +60,7 @@ import { Effect, Console } from 'effect'
 import * as JSZip from 'jszip'
 import {
   parseUsageFromClaudeOutput,
-  calculateCost,
+  getCost,
   aggregateUsage,
   checkCostLimits,
   formatCostLimitResult,
@@ -337,12 +337,8 @@ const fetchUsageFromWorkflows = (options: AnalysisOptions) =>
                 if (!file || file.dir || !filename.endsWith('.txt')) continue
 
                 const content = await file.async('string')
-                // Only include if it might contain usage data (text or JSON format)
-                if (
-                  content.includes('Usage:') ||
-                  content.includes('input tokens') ||
-                  content.includes('total_cost_usd') // JSON format from Claude Code SDK
-                ) {
+                // Only include if it contains cost data (JSON format from Claude Code SDK)
+                if (content.includes('total_cost_usd')) {
                   allContent.push(content)
                 }
               }
@@ -400,8 +396,8 @@ const analyzeUsage = (entries: UsageEntry[], options: AnalysisOptions) =>
     const dailyEntries = entries.filter((e) => new Date(e.createdAt) >= oneDayAgo)
     const weeklyEntries = entries.filter((e) => new Date(e.createdAt) >= sevenDaysAgo)
 
-    const dailyCost = dailyEntries.reduce((sum, e) => sum + calculateCost(e.usage), 0)
-    const weeklyCost = weeklyEntries.reduce((sum, e) => sum + calculateCost(e.usage), 0)
+    const dailyCost = dailyEntries.reduce((sum, e) => sum + getCost(e.usage), 0)
+    const weeklyCost = weeklyEntries.reduce((sum, e) => sum + getCost(e.usage), 0)
 
     // Check limits using checkCostLimits
     const limitCheck = checkCostLimits(
@@ -438,11 +434,7 @@ const analyzeUsage = (entries: UsageEntry[], options: AnalysisOptions) =>
         },
         totals: {
           runs: totals.runs,
-          tokens: totals.totalTokens,
-          inputTokens: totals.totalInputTokens,
-          outputTokens: totals.totalOutputTokens,
           cost: totals.totalCost,
-          avgTokensPerRun: totals.avgTokensPerRun,
           avgCostPerRun: totals.avgCostPerRun,
         },
         daily: {
@@ -464,17 +456,12 @@ const analyzeUsage = (entries: UsageEntry[], options: AnalysisOptions) =>
         },
         models: totals.modelBreakdown,
         topConsumers: entries
-          .sort((a, b) => {
-            const aTokens = a.usage.inputTokens + a.usage.outputTokens
-            const bTokens = b.usage.inputTokens + b.usage.outputTokens
-            return bTokens - aTokens
-          })
+          .sort((a, b) => getCost(b.usage) - getCost(a.usage))
           .slice(0, 5)
           .map((e) => ({
             issueNumber: e.issueNumber,
             runNumber: e.runNumber,
-            tokens: e.usage.inputTokens + e.usage.outputTokens,
-            cost: calculateCost(e.usage),
+            cost: getCost(e.usage),
           })),
       }
 
@@ -482,24 +469,15 @@ const analyzeUsage = (entries: UsageEntry[], options: AnalysisOptions) =>
     } else {
       // Display formatted report
       yield* Console.log('═══════════════════════════════════════════════════')
-      yield* Console.log('  CLAUDE CODE USAGE REPORT (TDD Automation)')
+      yield* Console.log('  CLAUDE CODE COST REPORT (TDD Automation)')
       yield* Console.log('═══════════════════════════════════════════════════\n')
 
       yield* Console.log(`📅 Period: Last ${options.days} days`)
       yield* Console.log(`🔄 Total runs: ${totals.runs}`)
-      yield* Console.log(`📊 Total tokens: ${totals.totalTokens.toLocaleString()}`)
-      yield* Console.log(
-        `   ├─ Input:  ${totals.totalInputTokens.toLocaleString()} (${((totals.totalInputTokens / totals.totalTokens) * 100).toFixed(1)}%)`
-      )
-      yield* Console.log(
-        `   └─ Output: ${totals.totalOutputTokens.toLocaleString()} (${((totals.totalOutputTokens / totals.totalTokens) * 100).toFixed(1)}%)`
-      )
       yield* Console.log(`💰 Total cost: $${totals.totalCost.toFixed(2)}`)
-      yield* Console.log(
-        `📈 Average per run: ${totals.avgTokensPerRun.toLocaleString()} tokens ($${totals.avgCostPerRun.toFixed(2)})`
-      )
+      yield* Console.log(`📈 Average per run: $${totals.avgCostPerRun.toFixed(2)}`)
 
-      yield* Console.log('\n📊 USAGE BREAKDOWN')
+      yield* Console.log('\n📊 COST BREAKDOWN')
       yield* Console.log(`   Today (last 24h):`)
       yield* Console.log(`     Runs: ${dailyEntries.length}`)
       yield* Console.log(
@@ -530,22 +508,15 @@ const analyzeUsage = (entries: UsageEntry[], options: AnalysisOptions) =>
         yield* Console.log(`   ${model}: ${count} runs`)
       }
 
-      // Top consumers
-      yield* Console.log('\n🔝 TOP 5 RUNS BY TOKEN USAGE')
-      const topConsumers = entries
-        .sort((a, b) => {
-          const aTokens = a.usage.inputTokens + a.usage.outputTokens
-          const bTokens = b.usage.inputTokens + b.usage.outputTokens
-          return bTokens - aTokens
-        })
-        .slice(0, 5)
+      // Top consumers by cost
+      yield* Console.log('\n🔝 TOP 5 RUNS BY COST')
+      const topConsumers = entries.sort((a, b) => getCost(b.usage) - getCost(a.usage)).slice(0, 5)
 
       for (const entry of topConsumers) {
-        const tokens = entry.usage.inputTokens + entry.usage.outputTokens
-        const cost = calculateCost(entry.usage)
+        const cost = getCost(entry.usage)
         const issueStr = entry.issueNumber ? `#${entry.issueNumber}` : 'N/A'
         yield* Console.log(
-          `   ${issueStr.padEnd(8)} │ Run #${entry.runNumber.toString().padEnd(5)} │ ${tokens.toLocaleString().padStart(8)} tokens │ $${cost.toFixed(2)}`
+          `   ${issueStr.padEnd(8)} │ Run #${entry.runNumber.toString().padEnd(5)} │ $${cost.toFixed(2)}`
         )
       }
 
@@ -602,8 +573,8 @@ const runBlockingCheck = (options: AnalysisOptions) =>
     const dailyEntries = entries.filter((e) => new Date(e.createdAt) >= oneDayAgo)
     const weeklyEntries = entries.filter((e) => new Date(e.createdAt) >= sevenDaysAgo)
 
-    const dailyCost = dailyEntries.reduce((sum, e) => sum + calculateCost(e.usage), 0)
-    const weeklyCost = weeklyEntries.reduce((sum, e) => sum + calculateCost(e.usage), 0)
+    const dailyCost = dailyEntries.reduce((sum, e) => sum + getCost(e.usage), 0)
+    const weeklyCost = weeklyEntries.reduce((sum, e) => sum + getCost(e.usage), 0)
 
     // Check against limits
     const result = checkCostLimits(dailyCost, weeklyCost, options.dailyLimit, options.weeklyLimit)
