@@ -117,28 +117,73 @@ bun run scripts/tdd-automation/queue-manager.ts status
 - Manual @claude mentions by project owner
 - Manual workflow_dispatch for specific issues
 
-**Purpose**: Automatically implements specs using dual-agent workflow with retry logic
+**Purpose**: Automatically implements specs using split-job architecture with workflow-managed finalization
 
-**Key Steps**:
+**Architecture (Split Jobs)**:
 
-1. **Create branch automatically** (Claude Code creates branch with pattern `claude/issue-{ISSUE_NUMBER}-{timestamp}`)
-   - Example: `claude/issue-1319-20251102-2026`
-   - Timestamp ensures uniqueness (no conflicts)
-   - No manual `git checkout -b` needed
-2. **Run @agent-e2e-test-fixer**: Remove `.fixme()`, implement minimal code
-3. **Run @agent-codebase-refactor-auditor**: Review quality, refactor (ALWAYS)
-4. Commit changes (Claude Code account) - includes `bun run license`
-5. **ALWAYS create PR** to main with `tdd-automation` label and **include `Closes #<issue_number>` in PR body** - REQUIRED even if only `.fixme()` removal, NO EXCEPTIONS
-6. **Verify PR creation**: Wait up to 2 minutes for PR to appear
-   - If PR created: Continue to validation
-   - If no PR after 2 minutes: Mark issue `tdd-spec:failed`, comment, exit (pipeline continues with next spec)
-7. **Monitor test.yml validation** with retry loop (max 3 attempts):
-   - Check test.yml CI status
-   - On failure: Analyze errors, fix code, push again
-   - Track retry count with labels (`retry:spec:1/2/3` for code errors, `retry:infra:1/2/3` for infrastructure errors)
-   - After 3 failures: Mark issue `tdd-spec:failed`, comment, exit
-   - On success: Enable PR auto-merge with --squash
-8. **Issue closes automatically** when PR merges to main (handled by test.yml via `Closes #` syntax)
+```
+execute-e2e-fixer ($5, 60 min max)
+    └─ e2e-test-fixer agent only
+           │
+finalize-fixer (workflow step)
+    ├─ checkout branch
+    ├─ bun run license
+    ├─ amend commit if needed
+    ├─ detect src/ changes
+    └─ push
+           │
+execute-refactor-auditor ($5, 30 min max) ─── CONDITIONAL: only if src/ modified
+    └─ codebase-refactor-auditor only
+           │
+finalize-auditor (workflow step)
+    ├─ bun run license
+    └─ amend & push
+           │
+verify-success
+    └─ create PR
+```
+
+**Job Details**:
+
+1. **execute-e2e-fixer** (Claude Code - $5 budget, 60 min timeout):
+   - Creates branch automatically with pattern `claude/issue-{ISSUE_NUMBER}-{timestamp}`
+   - Runs e2e-test-fixer agent ONLY
+   - Removes `.fixme()`, implements minimal code
+   - Commits changes (does NOT push or run license)
+
+2. **finalize-fixer** (Workflow - 5 min timeout):
+   - Checkouts the branch created by execute-e2e-fixer
+   - Runs `bun run license` to add copyright headers
+   - Amends commit if license added changes
+   - Detects if any `src/` files were modified
+   - Pushes to remote
+   - Outputs `src_modified` for conditional job triggering
+
+3. **execute-refactor-auditor** (Claude Code - $5 budget, 30 min timeout):
+   - **CONDITIONAL**: Only runs if `src_modified == 'true'`
+   - Runs codebase-refactor-auditor agent ONLY
+   - Reviews architecture compliance, refactors if needed
+   - Commits changes (does NOT push or run license)
+   - **SKIPPED for test-only changes** (saves ~$5 and ~30 min)
+
+4. **finalize-auditor** (Workflow - 5 min timeout):
+   - Only runs if execute-refactor-auditor succeeded
+   - Runs `bun run license`, amends commit if needed
+   - Pushes to remote
+
+5. **verify-success** (5 min timeout):
+   - Runs when finalize-fixer OR finalize-auditor succeeds
+   - Creates PR to main with `tdd-automation` label
+   - Includes `Closes #<issue_number>` in PR body
+
+**Benefits of Split Architecture**:
+
+| Aspect | Before (Single Job) | After (Split Jobs) |
+|--------|---------------------|-------------------|
+| **Cost (test-only)** | ~$8-10 | ~$3-5 (skip auditor) |
+| **License reliability** | Agent can forget | Workflow guarantees |
+| **Commit format** | Agent can vary | Workflow standardizes |
+| **Failure isolation** | Single point | Per-phase visibility |
 
 **Retry Logic**:
 

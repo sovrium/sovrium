@@ -610,6 +610,10 @@ jobs:
           echo "Posting @claude comment to trigger Claude Code workflow..."
 
           # Add comment with workflow instructions (triggers tdd-execute.yml)
+          # NOTE: Claude runs e2e-test-fixer agent ONLY. The workflow handles:
+          # - bun run license (finalize-fixer job)
+          # - Commit and push (finalize-fixer job)
+          # - codebase-refactor-auditor (execute-refactor-auditor job, conditional on src/ changes)
           gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec using the TDD automation workflow.
 
           ## Spec Details
@@ -626,31 +630,25 @@ jobs:
           - ❌ DO NOT ask questions - proceed with best judgment
           - ❌ DO NOT skip any steps - all are MANDATORY
 
-          ## Critical Steps (ALL REQUIRED)
+          ## Your Task (e2e-test-fixer agent ONLY)
 
-          1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
-          2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\`:
-             - **If src/ files changed**: Full audit (layer architecture, code quality, refactoring) + \`bun run quality\`
-             - **If NO src/ files changed** (test-only): Quick Exit - runs \`bun run quality\` only, skips full audit
-             - Agent auto-detects and handles appropriately - ensures quality passes before proceeding
-          3. **Commit and push** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
+          Run the e2e-test-fixer agent using \`Task\` tool with \`subagent_type='e2e-test-fixer'\`:
+          1. Remove \`.fixme()\` from \`$SPEC_ID\`
+          2. Implement minimal code to pass the test
+          3. Commit changes as \`fix: implement $SPEC_ID\`
+          4. Push to branch \`claude/issue-$ISSUE_NUMBER-*\`
 
-          ⚠️ **IMPORTANT: DO NOT CREATE PR** - The workflow will create the PR automatically after you push.
+          ## What You Should NOT Do
+
+          - ❌ DO NOT run codebase-refactor-auditor (separate workflow job handles this)
+          - ❌ DO NOT run \`bun run license\` (finalization job handles this)
+          - ❌ DO NOT create PR (workflow handles this)
 
           ## Error Handling
 
-          - **If \`bun run quality\` fails**:
-            1. Read the FULL error output carefully
-            2. Fix ALL failing checks (ESLint, TypeScript, Effect diagnostics, unit tests, E2E)
-            3. Re-run \`bun run quality\` until it passes completely
-            4. Only THEN proceed to commit and push
-          - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
-
-          ## MOST COMMON FAILURES (Learn from history)
-
-          - Skipping codebase-refactor-auditor → technical debt accumulates
-          - **Creating commits with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before commit
-          - Not pushing to branch → workflow can't create PR
+          - **If tests fail**: Fix implementation until tests pass
+          - **If layer architecture violations**: Fix cross-layer imports - domain must be pure
+          - **Focus on making the test GREEN**, other quality checks run in finalization
 
           **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 

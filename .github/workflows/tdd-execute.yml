@@ -39,7 +39,7 @@ concurrency:
 
 env:
   MAX_INFRASTRUCTURE_RETRIES: 3
-  CLAUDE_TIMEOUT_MINUTES: 90
+  CLAUDE_TIMEOUT_MINUTES: 60
 
 jobs:
   # Pre-check job: Validate context exists before running Claude Code
@@ -369,10 +369,11 @@ jobs:
           echo "error_type=$ERROR_TYPE" >> $GITHUB_OUTPUT
           echo "should_retry=$SHOULD_RETRY" >> $GITHUB_OUTPUT
 
-  # Main Claude Code execution with timeout monitoring
-  execute-claude:
+  # Phase 1: E2E Test Fixer - Make RED tests GREEN
+  # Only runs e2e-test-fixer agent. Finalization and refactoring handled by separate jobs.
+  execute-e2e-fixer:
     runs-on: ubuntu-latest
-    timeout-minutes: 95 # Slightly longer than Claude timeout (90) to allow cleanup
+    timeout-minutes: 65 # Reduced from 95 (60 min Claude + 5 min cleanup)
     needs: [validate-context, classify-previous-error]
     if: |
       always() &&
@@ -415,6 +416,9 @@ jobs:
       error_type: ${{ steps.detect_error.outputs.error_type }}
       is_infrastructure_error: ${{ steps.detect_error.outputs.is_infrastructure_error }}
       has_branch: ${{ steps.set_success.outputs.has_branch }}
+      branch_name: ${{ steps.set_success.outputs.branch_name }}
+      spec_id: ${{ steps.issue.outputs.spec_id }}
+      issue_number: ${{ steps.issue.outputs.issue_number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -426,11 +430,22 @@ jobs:
         env:
           # Security: Use env var to prevent code injection from untrusted issue body
           ISSUE_BODY_INPUT: ${{ needs.validate-context.outputs.issue_body }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ needs.validate-context.outputs.issue_number }}
         run: |
-          echo "issue_number=${{ needs.validate-context.outputs.issue_number }}" >> $GITHUB_OUTPUT
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
           echo "issue_body<<EOF" >> $GITHUB_OUTPUT
           echo "$ISSUE_BODY_INPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+          # Extract spec ID from issue title or body
+          ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --json title --jq '.title' 2>/dev/null || echo "")
+          SPEC_ID=$(echo "$ISSUE_TITLE" | grep -oE '[A-Z]+-[A-Z]+-[A-Z0-9-]+' | head -1 || echo "")
+          if [ -z "$SPEC_ID" ]; then
+            SPEC_ID=$(echo "$ISSUE_BODY_INPUT" | grep -oE '[A-Z]+-[A-Z]+-[A-Z0-9-]+' | head -1 || echo "unknown-spec")
+          fi
+          echo "spec_id=$SPEC_ID" >> $GITHUB_OUTPUT
+          echo "Extracted spec_id: $SPEC_ID"
 
       # =========================================================================
       # Usage tracking is BLOCKING with fail-closed behavior
@@ -503,10 +518,10 @@ jobs:
 
           exit 0
 
-      - name: Run Claude Code
+      - name: Run Claude Code (e2e-test-fixer only)
         id: claude
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: 90
+        timeout-minutes: 60
         continue-on-error: true # Capture exit code instead of failing immediately
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -522,9 +537,7 @@ jobs:
           #
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
-          # - --max-budget-usd: Cost-based limit instead of turn-based (complex specs need 55-90+ turns)
-          #   Using $10 budget allows complex specs to complete while preventing runaway costs
-          #   The 90-minute timeout acts as the ultimate time-based backstop
+          # - --max-budget-usd: Reduced to $5 (e2e-test-fixer only, refactor-auditor runs separately)
           # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
           # - --disallowedTools: Block tools not needed for autonomous code implementation
           #   - AskUserQuestion: No human present in automation (would hang or skip)
@@ -533,7 +546,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-budget-usd 10.00
+            --max-budget-usd 5.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
@@ -629,14 +642,16 @@ jobs:
           # Also check if a branch was created (fallback indicator)
           # This allows verify-success to run even if claude_success detection fails
           BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
-          BRANCH_EXISTS=$(gh api "/repos/$REPO/branches" \
+          BRANCH_NAME=$(gh api "/repos/$REPO/branches" \
             --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
 
-          if [ -n "$BRANCH_EXISTS" ] && [ "$BRANCH_EXISTS" != "null" ]; then
+          if [ -n "$BRANCH_NAME" ] && [ "$BRANCH_NAME" != "null" ]; then
             echo "has_branch=true" >> $GITHUB_OUTPUT
-            echo "✅ Branch exists: $BRANCH_EXISTS"
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "✅ Branch exists: $BRANCH_NAME"
           else
             echo "has_branch=false" >> $GITHUB_OUTPUT
+            echo "branch_name=" >> $GITHUB_OUTPUT
             echo "⚠️  No branch found with pattern: $BRANCH_PATTERN"
           fi
 
@@ -662,20 +677,274 @@ jobs:
           ---
           *Infrastructure Error Handler*"
 
+  # =========================================================================
+  # PHASE 2: Finalize e2e-test-fixer changes
+  # =========================================================================
+  # Workflow-managed finalization ensures reliability:
+  # - bun run license (Claude can forget)
+  # - Commit amend if changes
+  # - Detect src/ modifications for conditional refactor-auditor
+  # - Push to remote
+  # =========================================================================
+  finalize-fixer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [execute-e2e-fixer]
+    if: |
+      always() &&
+      needs.execute-e2e-fixer.outputs.has_branch == 'true'
+    permissions:
+      contents: write
+      issues: write
+    outputs:
+      src_modified: ${{ steps.detect_changes.outputs.src_modified }}
+      push_success: ${{ steps.push.outputs.success }}
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Configure git
+        run: |
+          USER_NAME=$(gh api user --jq '.login')
+          USER_EMAIL=$(gh api user --jq '.email')
+          git config user.name "$USER_NAME"
+          git config user.email "$USER_EMAIL"
+          echo "Git configured as $USER_NAME <$USER_EMAIL>"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Run license script
+        run: |
+          echo "Running bun run license..."
+          bun run license
+
+      - name: Amend commit if license added files
+        run: |
+          if ! git diff --quiet; then
+            echo "License script made changes - amending commit..."
+            git add -A
+            git commit --amend --no-edit
+            echo "Commit amended with license headers"
+          else
+            echo "No license changes needed"
+          fi
+
+      - name: Detect src/ modifications
+        id: detect_changes
+        run: |
+          echo "Detecting if src/ files were modified..."
+
+          # Compare branch to main
+          git fetch origin main
+          SRC_CHANGES=$(git diff --name-only origin/main...HEAD | grep '^src/' | wc -l | tr -d ' ')
+
+          echo "Files in src/ changed: $SRC_CHANGES"
+
+          if [ "$SRC_CHANGES" -gt 0 ]; then
+            echo "src_modified=true" >> $GITHUB_OUTPUT
+            echo "src/ modifications detected - refactor-auditor will run"
+            git diff --name-only origin/main...HEAD | grep '^src/' | head -10
+          else
+            echo "src_modified=false" >> $GITHUB_OUTPUT
+            echo "No src/ modifications - refactor-auditor will be skipped"
+          fi
+
+      - name: Push changes
+        id: push
+        run: |
+          echo "Pushing finalized changes..."
+          if git push --force-with-lease origin ${{ needs.execute-e2e-fixer.outputs.branch_name }}; then
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "Push successful"
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "Push failed"
+            exit 1
+          fi
+
+  # =========================================================================
+  # PHASE 3: Codebase Refactor Auditor (CONDITIONAL)
+  # =========================================================================
+  # Only runs if src/ files were modified by e2e-test-fixer.
+  # Skipped for test-only changes (saves $5 and 30 min).
+  # =========================================================================
+  execute-refactor-auditor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: [execute-e2e-fixer, finalize-fixer]
+    if: |
+      always() &&
+      needs.finalize-fixer.outputs.src_modified == 'true' &&
+      needs.finalize-fixer.outputs.push_success == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    outputs:
+      claude_success: ${{ steps.set_success.outputs.claude_success }}
+      has_changes: ${{ steps.set_success.outputs.has_changes }}
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Post refactor-auditor comment
+        id: post_comment
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          ISSUE_NUMBER: ${{ needs.execute-e2e-fixer.outputs.issue_number }}
+          SPEC_ID: ${{ needs.execute-e2e-fixer.outputs.spec_id }}
+        run: |
+          echo "Posting @claude comment for refactor-auditor phase..."
+
+          gh issue comment "$ISSUE_NUMBER" --body "@claude run codebase-refactor-auditor for $SPEC_ID
+
+          ## Phase 2: Refactoring Audit
+
+          The e2e-test-fixer phase is complete. Now run codebase-refactor-auditor to ensure code quality.
+
+          **Your Task**:
+          Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` to:
+          1. Audit layer architecture compliance
+          2. Eliminate code duplication
+          3. Run \`bun run quality\` to verify all checks pass
+          4. Commit any improvements as \`refactor: audit $SPEC_ID\`
+          5. Push to branch
+
+          **What You Should NOT Do**:
+          - DO NOT run \`bun run license\` (finalization job handles this)
+          - DO NOT create PR (workflow handles this)
+
+          ---
+          *Automated via TDD Workflow (Phase 2: Refactor Audit)*"
+
+          echo "Comment posted"
+
+      - name: Run Claude Code (codebase-refactor-auditor)
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 30
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          additional_permissions: |
+            actions: read
+          # Budget reduced to $5 for refactor-auditor phase
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-budget-usd 5.00
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
+
+      - name: Set success output
+        id: set_success
+        if: always()
+        run: |
+          CLAUDE_OUTCOME="${{ steps.claude.outcome }}"
+
+          if [ "$CLAUDE_OUTCOME" = "success" ]; then
+            echo "claude_success=true" >> $GITHUB_OUTPUT
+            echo "Refactor-auditor completed successfully"
+          else
+            echo "claude_success=false" >> $GITHUB_OUTPUT
+            echo "Refactor-auditor did not complete successfully (outcome: $CLAUDE_OUTCOME)"
+          fi
+
+          # Check if any changes were made
+          if ! git diff --quiet HEAD~1..HEAD 2>/dev/null; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+  # =========================================================================
+  # PHASE 4: Finalize refactor-auditor changes
+  # =========================================================================
+  finalize-auditor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [execute-e2e-fixer, execute-refactor-auditor]
+    if: |
+      always() &&
+      needs.execute-refactor-auditor.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Configure git
+        run: |
+          USER_NAME=$(gh api user --jq '.login')
+          USER_EMAIL=$(gh api user --jq '.email')
+          git config user.name "$USER_NAME"
+          git config user.email "$USER_EMAIL"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Run license script
+        run: bun run license
+
+      - name: Amend commit if license added files
+        run: |
+          if ! git diff --quiet; then
+            echo "License script made changes - amending commit..."
+            git add -A
+            git commit --amend --no-edit
+            echo "Commit amended"
+          fi
+
+      - name: Push changes
+        run: |
+          git push --force-with-lease origin ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+          echo "Final push complete"
+
   # Retry logic: Automatically retry infrastructure errors
   handle-retry:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [execute-claude]
+    needs: [execute-e2e-fixer]
     # Only retry if:
     # 1. Claude didn't report success AND
     # 2. No branch was created (branch existence = work completed, just false negative on outcome) AND
     # 3. The failure was infrastructure-related (not a code/logic error)
     if: |
       always() &&
-      needs.execute-claude.outputs.claude_success != 'true' &&
-      needs.execute-claude.outputs.has_branch != 'true' &&
-      needs.execute-claude.outputs.is_infrastructure_error == 'true'
+      needs.execute-e2e-fixer.outputs.claude_success != 'true' &&
+      needs.execute-e2e-fixer.outputs.has_branch != 'true' &&
+      needs.execute-e2e-fixer.outputs.is_infrastructure_error == 'true'
     permissions:
       actions: write
       issues: write
@@ -688,7 +957,7 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
           CURRENT_RETRY: ${{ github.event.inputs.retry_attempt || 1 }}
           MAX_RETRIES: ${{ env.MAX_INFRASTRUCTURE_RETRIES }}
-          ERROR_TYPE: ${{ needs.execute-claude.outputs.error_type }}
+          ERROR_TYPE: ${{ needs.execute-e2e-fixer.outputs.error_type }}
         run: |
           echo "Error detected: $ERROR_TYPE"
           echo "Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES"
@@ -1037,25 +1306,30 @@ jobs:
             echo "✅ Fallback retry triggered via issue comment with full context"
           fi
 
-  # Success path: Verify PR was created and handle duplicates
+  # =========================================================================
+  # PHASE 5: Verify success and create PR
+  # =========================================================================
   # IMPORTANT: Claude Code can run for up to 60 minutes. During that time:
   # - Another workflow might have already created and merged a PR for this issue
   # - The issue might have been closed by a merged PR
   # This job detects and handles these duplicate PR scenarios
   #
   # RELIABILITY FIX: Run this job when EITHER:
-  # - claude_success == 'true' (normal case)
+  # - finalize-fixer succeeded (branch was pushed after e2e-test-fixer)
+  # - finalize-auditor succeeded (branch was pushed after refactor-auditor)
   # - has_branch == 'true' (fallback: Claude pushed a branch but success detection failed)
-  # This prevents issues getting stuck when Claude successfully implements code but
-  # the workflow skips PR creation due to output detection issues.
+  #
+  # Note: finalize-auditor may be skipped if no src/ changes were made.
+  # =========================================================================
   verify-success:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [execute-claude]
+    needs: [execute-e2e-fixer, finalize-fixer, finalize-auditor]
     if: |
       always() &&
-      (needs.execute-claude.outputs.claude_success == 'true' ||
-       needs.execute-claude.outputs.has_branch == 'true')
+      (needs.finalize-fixer.result == 'success' ||
+       needs.finalize-auditor.result == 'success' ||
+       needs.execute-e2e-fixer.outputs.has_branch == 'true')
     permissions:
       issues: write
       pull-requests: write  # Need write to close duplicate PRs

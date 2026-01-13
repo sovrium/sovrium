@@ -179,6 +179,19 @@ END: Mode determined
 
 **Manual Mode**: Interactive operation with user prompts and approval requests
 
+**⚠️ CONDITIONAL INVOCATION (Pipeline Mode Only)**:
+In the TDD automation pipeline, this agent is **conditionally invoked** by the GitHub Actions workflow:
+- The `finalize-fixer` job detects if any `src/` files were modified by e2e-test-fixer
+- If `src/` files were modified → `execute-refactor-auditor` job runs this agent
+- If NO `src/` files modified (test-only change) → This agent is SKIPPED entirely
+- This optimization saves ~$5 and ~30 minutes for test-only changes
+
+When invoked in pipeline mode, finalization is also workflow-managed:
+- ❌ **DO NOT** run `bun run license` (handled by `finalize-auditor` job)
+- ❌ **DO NOT** push to remote (handled by `finalize-auditor` job)
+- ✅ **DO** commit changes locally with conventional commit message
+- ✅ **DO** run `bun run quality` to validate before committing
+
 ### Quick Exit for Test-Only Changes (Pipeline Mode)
 
 **CRITICAL**: In pipeline mode, ALWAYS check for test-only changes FIRST before running full audit.
