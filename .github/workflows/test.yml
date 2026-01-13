@@ -1286,12 +1286,17 @@ jobs:
           - **Failure Type**: `$FAILURE_TYPE`
           - **Spec ID**: `$SPEC_ID`
           - **Issue**: #$ISSUE_NUMBER
+          - **PR**: #$PR_NUMBER
 
           ### 🤖 Automation Mode
-          - ✅ Make autonomous decisions - proceed with best judgment
-          - ❌ DO NOT ask questions
 
-          ### ✅ Fix Instructions
+          **You are in pipeline/automation mode**:
+          - ✅ Make autonomous decisions following Sovrium patterns
+          - ✅ Fix the minimum code needed to pass tests
+          - ❌ DO NOT ask questions - proceed with best judgment
+          - ❌ DO NOT modify failing tests - fix the implementation instead
+
+          ### ✅ Critical Steps (ALL REQUIRED)
 
           1. **Checkout the PR branch and pull latest**:
              ```bash
@@ -1306,23 +1311,26 @@ jobs:
              ```
 
           3. **Identify the regression cause**:
-             - Look at what changed in the implementation
+             - Look at what changed in the implementation: `git diff HEAD~1`
              - Common causes: catch-all schemas that are too greedy, validation changes affecting other tests
-             - Check `git diff HEAD~1` to see recent changes
+             - Check which assertions are failing and trace back to your changes
 
           4. **Fix WITHOUT modifying the failing tests**:
              - Preserve existing validation behavior
              - For catch-all schemas: explicitly EXCLUDE known types
              - Ensure backward compatibility
 
-          5. **Verify ALL tests pass**:
+          5. **Run codebase-refactor-auditor** - Use `Task` tool with `subagent_type='codebase-refactor-auditor'` to ensure fix follows architecture patterns
+
+          6. **Verify ALL tests pass**:
              ```bash
              bun run quality
              bun test:e2e -- $TARGET_SPEC
              bun test:e2e -- $REGRESSION_SPECS
              ```
+             ALL checks must pass before proceeding.
 
-          6. **Push the fix**:
+          7. **Push the fix**:
              ```bash
              bun run license
              git add -A
@@ -1330,11 +1338,19 @@ jobs:
              git push
              ```
 
-          7. **Verify auto-merge is still enabled**:
+          8. **Verify auto-merge is still enabled**:
              ```bash
              gh pr view $PR_NUMBER --json autoMergeRequest
              ```
              If null, re-enable: `gh pr merge $PR_NUMBER --auto --squash`
+
+          ### 🚨 MOST COMMON REGRESSION CAUSES
+
+          - **Greedy catch-all schemas**: UnknownFieldSchema with `type: Schema.String` catches valid types
+          - **Validation bypass**: Removing/weakening validation that other tests rely on
+          - **Type signature changes**: Breaking dependent code with new return types
+
+          **Complete workflow documentation**: `@docs/development/tdd-automation-pipeline.md`
 
           ---
           *🤖 Regression Handler (Immediate Response) - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*

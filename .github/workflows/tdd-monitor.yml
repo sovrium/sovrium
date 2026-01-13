@@ -343,30 +343,57 @@ jobs:
 
                 @claude retry implementation for this spec
 
-                ## 📋 Context
-                - **Spec ID**: \`$SPEC_ID\`
+                ## 📋 Spec Details
+
                 - **Test File**: \`$TEST_FILE\`
+                - **Spec ID**: \`$SPEC_ID\`
                 - **Issue**: #$ISSUE_NUMBER
                 - **Retry Attempt**: $NEXT_RETRY of 3
                 - **Previous Failure**: Infrastructure timeout (not code issue)
 
+                ## 🔄 Retry Context
+
+                Check for previous work before starting:
+                1. Run \`git status\` to see if uncommitted changes exist
+                2. Run \`git log --oneline -5\` to see recent commits
+                3. If work exists, continue from where it left off
+                4. If clean state, start fresh with step 1 below
+
                 ## 🤖 Automation Mode
-                - ✅ Make autonomous decisions - proceed with best judgment
-                - ❌ DO NOT ask questions
 
-                ## ✅ Instructions
+                **You are in pipeline/automation mode**:
+                - ✅ Make autonomous decisions following Sovrium patterns
+                - ✅ Implement minimal code to pass the test
+                - ❌ DO NOT ask questions - proceed with best judgment
+                - ❌ DO NOT skip any steps - all are MANDATORY
 
-                1. **Check current state**: Run \`git status\` to see if previous work exists
-                2. **If branch has changes**: Continue from where it left off
-                3. **If no changes**: Start fresh using e2e-test-fixer agent (\`Task\` tool with \`subagent_type='e2e-test-fixer'\`)
-                4. **Run codebase-refactor-auditor**: Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` (MANDATORY)
-                5. **Verify quality**: Run \`bun run quality\` - all checks must pass
-                6. **Commit**: \`fix: implement $SPEC_ID\`
-                7. **Create PR**: \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
-                8. **Enable auto-merge**: \`gh pr merge \$PR_NUMBER --auto --squash\`
-                9. **Verify auto-merge**: \`gh pr view \$PR_NUMBER --json autoMergeRequest\`
+                ## ✅ Critical Steps (ALL REQUIRED)
 
-                **Reference**: \`@docs/development/tdd-automation-pipeline.md\`
+                1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
+                2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\`:
+                   - **If src/ files changed**: Full audit (layer architecture, code quality, refactoring) + \`bun run quality\`
+                   - **If NO src/ files changed** (test-only): Quick Exit - runs \`bun run quality\` only, skips full audit
+                   - Agent auto-detects and handles appropriately - ensures quality passes before proceeding
+                3. **Commit and push** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
+
+                ⚠️ **IMPORTANT: DO NOT CREATE PR** - The workflow will create the PR automatically after you push.
+
+                ## ⚠️ Error Handling
+
+                - **If \`bun run quality\` fails**:
+                  1. Read the FULL error output carefully
+                  2. Fix ALL failing checks (ESLint, TypeScript, Effect diagnostics, unit tests, E2E)
+                  3. Re-run \`bun run quality\` until it passes completely
+                  4. Only THEN proceed to commit and push
+                - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
+
+                ## 🚨 MOST COMMON FAILURES (Learn from history)
+
+                - Skipping codebase-refactor-auditor → technical debt accumulates
+                - **Creating commits with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before commit
+                - Not pushing to branch → workflow can't create PR
+
+                **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 
                 ---
                 *🤖 TDD Monitor*"
@@ -1341,11 +1368,21 @@ jobs:
 
               @claude The CI tests are failing. Please fix the regressions.
 
-              ### 🤖 Automation Mode
-              - ✅ Make autonomous decisions - proceed with best judgment
-              - ❌ DO NOT ask questions
+              ### 📋 Context
+              - **PR**: #$PR_NUMBER
+              - **Branch**: \`$HEAD_REF\`
+              - **Recovery Attempt**: $NEXT_ATTEMPT of 3
+              - **Failure Type**: CI tests failing (regression or quality issue)
 
-              ### ✅ Instructions
+              ### 🤖 Automation Mode
+
+              **You are in pipeline/automation mode**:
+              - ✅ Make autonomous decisions following Sovrium patterns
+              - ✅ Fix the minimum code needed to pass tests
+              - ❌ DO NOT ask questions - proceed with best judgment
+              - ❌ DO NOT modify failing tests - fix the implementation instead
+
+              ### ✅ Critical Steps (ALL REQUIRED)
 
               1. **Pull latest and check test failures**:
                  \`\`\`bash
@@ -1356,7 +1393,7 @@ jobs:
 
               2. **Identify the regression cause**:
                  - Look at which tests are failing (may be different from target spec)
-                 - Check what your changes may have affected
+                 - Check what your changes may have affected: \`git diff HEAD~1\`
                  - Common issue: catch-all schemas that are too greedy
 
               3. **Fix without modifying the failing tests**:
@@ -1373,13 +1410,16 @@ jobs:
                    )
                    \`\`\`
 
-              4. **Verify all tests pass**:
+              4. **Run codebase-refactor-auditor** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` to ensure fix follows architecture patterns
+
+              5. **Verify all tests pass**:
                  \`\`\`bash
                  bun run quality
                  bun test:e2e:regression
                  \`\`\`
+                 ALL checks must pass before proceeding.
 
-              5. **Push the fix**:
+              6. **Push the fix**:
                  \`\`\`bash
                  bun run license
                  git add -A
@@ -1387,10 +1427,18 @@ jobs:
                  git push
                  \`\`\`
 
-              6. **Re-enable auto-merge** (if disabled):
+              7. **Re-enable auto-merge** (if disabled):
                  \`\`\`bash
                  gh pr merge $PR_NUMBER --auto --squash
                  \`\`\`
+
+              ### 🚨 MOST COMMON REGRESSION CAUSES
+
+              - **Greedy catch-all schemas**: UnknownFieldSchema with \`type: Schema.String\` catches valid types
+              - **Validation bypass**: Removing/weakening validation that other tests rely on
+              - **Type signature changes**: Breaking dependent code with new return types
+
+              **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 
               ---
               *🤖 TDD Monitor*"
