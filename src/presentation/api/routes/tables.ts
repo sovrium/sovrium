@@ -1003,7 +1003,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
               return c.json({ error: 'Record not found' }, 404)
             }
             return c.json({ record: transformRecord(currentRecord) }, 200)
-          } catch (error) {
+          } catch {
             return c.json({ error: 'Record not found' }, 404)
           }
         }
