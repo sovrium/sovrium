@@ -92,22 +92,48 @@ jobs:
       # - Weekly cost exceeds $90.00 (90% of weekly allocation)
       # - Usage data unavailable (fail-closed)
       # =========================================================================
-      - name: 💰 Check usage limits (blocking)
+      - name: 💰 Check usage limits (fail-closed)
         id: usage
         run: |
           echo "Checking usage limits before processing..."
+          # Run usage check and capture exit code
+          set +e
           bun run scripts/tdd-automation/check-claude-code-usage.ts --check
+          EXIT_CODE=$?
+          set -e
+
+          # Mark that script completed (even if limits exceeded)
+          echo "script_completed=true" >> $GITHUB_OUTPUT
+
+          # Exit with the script's exit code
+          exit $EXIT_CODE
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TDD_DAILY_COST_LIMIT: '15.00'
           TDD_WEEKLY_COST_LIMIT: '90.00'
         continue-on-error: true
 
-      - name: ⛔ Skip if usage limits exceeded
-        if: steps.usage.outcome == 'failure'
+      - name: 🚨 Fail if usage check crashed (fail-closed safety)
+        if: steps.usage.outcome == 'failure' && steps.usage.outputs.script_completed != 'true'
         run: |
-          echo "⛔ Usage limits exceeded or data unavailable"
-          echo "   Reason: ${{ steps.usage.outputs.reason || 'check_failed' }}"
+          echo "🚨 CRITICAL: Usage check script crashed before completion!"
+          echo ""
+          echo "This is a fail-closed safety mechanism. The workflow cannot proceed"
+          echo "because we cannot verify that usage is within limits."
+          echo ""
+          echo "Possible causes:"
+          echo "  - Network timeout fetching workflow logs"
+          echo "  - GitHub API authentication failure"
+          echo "  - Script parsing error"
+          echo ""
+          echo "Action required: Investigate the usage check step logs above."
+          exit 1
+
+      - name: ⛔ Skip if usage limits exceeded
+        if: steps.usage.outcome == 'failure' && steps.usage.outputs.script_completed == 'true'
+        run: |
+          echo "⛔ Usage limits exceeded - graceful skip"
+          echo "   Reason: ${{ steps.usage.outputs.reason || 'limits_exceeded' }}"
           echo "   Daily cost: ${{ steps.usage.outputs.daily_cost || 'unknown' }}"
           echo "   Weekly cost: ${{ steps.usage.outputs.weekly_cost || 'unknown' }}"
           echo ""
