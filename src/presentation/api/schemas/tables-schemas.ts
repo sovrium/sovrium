@@ -290,10 +290,26 @@ export const tablePermissionSchema = z.object({
 })
 
 /**
+ * Field permission schema
+ */
+export const fieldPermissionSchema = z.object({
+  read: z.boolean().describe('Can read field'),
+  write: z.boolean().describe('Can write field'),
+})
+
+/**
  * Get table permissions response schema
  */
 export const getTablePermissionsResponseSchema = z.object({
-  permissions: tablePermissionSchema.describe('User permissions for table'),
+  table: z
+    .object({
+      read: z.boolean().describe('Can read records'),
+      create: z.boolean().describe('Can create records'),
+      update: z.boolean().describe('Can update records'),
+      delete: z.boolean().describe('Can delete records'),
+    })
+    .describe('Table-level permissions'),
+  fields: z.record(z.string(), fieldPermissionSchema).describe('Field-level permissions'),
 })
 
 // ============================================================================
