@@ -218,7 +218,7 @@ test.describe('API Organization Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-004: should reject create with mismatched organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {

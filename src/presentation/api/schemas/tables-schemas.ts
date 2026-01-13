@@ -154,10 +154,16 @@ export const getRecordResponseSchema = z.object({
 
 /**
  * Create record response schema
+ *
+ * Returns record in flattened format (id, fields, timestamps at root level)
+ * to match test expectations and provide consistent API response structure.
  */
-export const createRecordResponseSchema = z.object({
-  record: recordSchema.describe('Created record'),
-})
+export const createRecordResponseSchema = z
+  .object({
+    id: z.string().describe('Record identifier'),
+    fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
+  })
+  .extend(timestampSchema.shape)
 
 /**
  * Update record response schema
