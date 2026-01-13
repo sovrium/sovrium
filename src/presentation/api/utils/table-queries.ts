@@ -44,25 +44,127 @@ const validateColumnName = (columnName: string): void => {
 }
 
 /**
+ * Filter structure for record queries
+ */
+interface FilterCondition {
+  readonly field: string
+  readonly operator: 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'gt' | 'lt' | 'gte' | 'lte'
+  readonly value: unknown
+}
+
+interface Filter {
+  readonly and?: readonly FilterCondition[]
+  readonly or?: readonly FilterCondition[]
+}
+
+/**
+ * Build WHERE clause from filter structure
+ */
+const buildWhereClause = (filter: Filter | undefined): ReturnType<typeof sql> | undefined => {
+  if (!filter) return undefined
+
+  // Build AND conditions
+  const andConditions =
+    filter.and && filter.and.length > 0
+      ? filter.and.map((condition) => {
+          validateColumnName(condition.field)
+          const column = sql.identifier(condition.field)
+
+          switch (condition.operator) {
+            case 'equals':
+              return sql`${column} = ${condition.value}`
+            case 'contains':
+              return sql`${column} ILIKE ${'%' + String(condition.value) + '%'}`
+            case 'startsWith':
+              return sql`${column} ILIKE ${String(condition.value) + '%'}`
+            case 'endsWith':
+              return sql`${column} ILIKE ${'%' + String(condition.value)}`
+            case 'gt':
+              return sql`${column} > ${condition.value}`
+            case 'lt':
+              return sql`${column} < ${condition.value}`
+            case 'gte':
+              return sql`${column} >= ${condition.value}`
+            case 'lte':
+              return sql`${column} <= ${condition.value}`
+            default:
+              return sql`${column} = ${condition.value}`
+          }
+        })
+      : []
+
+  // Build OR conditions
+  const orConditions =
+    filter.or && filter.or.length > 0
+      ? [
+          sql`(${sql.join(
+            filter.or.map((condition) => {
+              validateColumnName(condition.field)
+              const column = sql.identifier(condition.field)
+
+              switch (condition.operator) {
+                case 'equals':
+                  return sql`${column} = ${condition.value}`
+                case 'contains':
+                  return sql`${column} ILIKE ${'%' + String(condition.value) + '%'}`
+                case 'startsWith':
+                  return sql`${column} ILIKE ${String(condition.value) + '%'}`
+                case 'endsWith':
+                  return sql`${column} ILIKE ${'%' + String(condition.value)}`
+                case 'gt':
+                  return sql`${column} > ${condition.value}`
+                case 'lt':
+                  return sql`${column} < ${condition.value}`
+                case 'gte':
+                  return sql`${column} >= ${condition.value}`
+                case 'lte':
+                  return sql`${column} <= ${condition.value}`
+                default:
+                  return sql`${column} = ${condition.value}`
+              }
+            }),
+            sql.raw(' OR ')
+          )})`,
+        ]
+      : []
+
+  // Combine conditions immutably
+  const conditions = [...andConditions, ...orConditions]
+
+  if (conditions.length === 0) return undefined
+
+  return sql.join(conditions, sql.raw(' AND '))
+}
+
+/**
  * List all records from a table with session context
  *
  * Automatically applies RLS policies based on session variables.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table to query
+ * @param filter - Optional filter conditions
  * @returns Effect resolving to array of records
  */
 export function listRecords(
   session: Readonly<Session>,
-  tableName: string
+  tableName: string,
+  filter?: Filter
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
         validateTableName(tableName)
+
+        const whereClause = buildWhereClause(filter)
+
         // Query table using sql.identifier for safe identifier handling
         // RLS policies automatically applied via session context
-        const result = await tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}`)
+        const query = whereClause
+          ? sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${whereClause}`
+          : sql`SELECT * FROM ${sql.identifier(tableName)}`
+
+        const result = await tx.execute(query)
         return result as readonly Record<string, unknown>[]
       },
       catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),

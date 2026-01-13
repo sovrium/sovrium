@@ -355,15 +355,30 @@ function createGetPermissionsProgram() {
 // Record Route Handlers
 // ============================================================================
 
+/**
+ * Filter structure for record queries
+ */
+interface FilterCondition {
+  readonly field: string
+  readonly operator: 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'gt' | 'lt' | 'gte' | 'lte'
+  readonly value: unknown
+}
+
+interface Filter {
+  readonly and?: readonly FilterCondition[]
+  readonly or?: readonly FilterCondition[]
+}
+
 function createListRecordsProgram(
   session: Readonly<Session>,
   tableName: string,
   app: App,
-  userRole: string
+  userRole: string,
+  filter?: Filter
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
     // Query records with session context (RLS policies automatically applied)
-    const records = yield* listRecords(session, tableName)
+    const records = yield* listRecords(session, tableName, filter)
 
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies
@@ -777,35 +792,52 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         // Parse and validate filter parameter if present
         const filterParam = c.req.query('filter')
-        if (filterParam) {
-          try {
-            const filter = JSON.parse(filterParam)
-            const forbiddenFields = validateFilterFieldPermissions(app, tableName, userRole, filter)
+        const parseFilterResult = filterParam
+          ? (() => {
+              try {
+                const filter = JSON.parse(filterParam)
+                const forbiddenFields = validateFilterFieldPermissions(
+                  app,
+                  tableName,
+                  userRole,
+                  filter
+                )
 
-            if (forbiddenFields.length > 0) {
-              return c.json(
-                {
-                  error: 'Forbidden',
-                  message: `Cannot filter by field: ${forbiddenFields[0]}`,
-                },
-                403
-              )
-            }
-          } catch {
-            // If JSON parsing fails, return 400 Bad Request
-            return c.json(
-              {
-                error: 'Bad Request',
-                message: 'Invalid filter parameter',
-              },
-              400
-            )
-          }
+                if (forbiddenFields.length > 0) {
+                  return {
+                    success: false as const,
+                    error: {
+                      status: 403 as const,
+                      message: `Cannot filter by field: ${forbiddenFields[0]}`,
+                    },
+                  }
+                }
+
+                return { success: true as const, filter: filter as Filter }
+              } catch {
+                return {
+                  success: false as const,
+                  error: {
+                    status: 400 as const,
+                    message: 'Invalid filter parameter',
+                  },
+                }
+              }
+            })()
+          : { success: true as const, filter: undefined }
+
+        if (!parseFilterResult.success) {
+          return c.json(
+            { error: parseFilterResult.error.message },
+            parseFilterResult.error.status
+          )
         }
+
+        const parsedFilter = parseFilterResult.filter
 
         return runEffect(
           c,
-          createListRecordsProgram(session, tableName, app, userRole),
+          createListRecordsProgram(session, tableName, app, userRole, parsedFilter),
           listRecordsResponseSchema
         )
       })

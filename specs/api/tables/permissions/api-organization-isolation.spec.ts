@@ -335,7 +335,7 @@ test.describe('API Organization Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-006: should filter search results by organization',
     { tag: '@spec' },
     async ({
@@ -394,7 +394,7 @@ test.describe('API Organization Isolation', () => {
 
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].id).toBe(1) // User's org version
+      expect(data.records[0].id).toBe('1') // User's org version (ID as string per API contract)
     }
   )
 
