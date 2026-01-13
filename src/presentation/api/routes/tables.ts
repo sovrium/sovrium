@@ -472,6 +472,24 @@ function hasCreatePermission(
   return allowedRoles.includes(userRole)
 }
 
+/**
+ * Check if user has delete permission for the table
+ */
+function hasDeletePermission(
+  table: { permissions?: { delete?: unknown } } | undefined,
+  userRole: string
+): boolean {
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
+  const deletePermission = table?.permissions?.delete as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+  if (deletePermission?.type !== 'roles') return true
+  // Type narrowing: we know it's the 'roles' type here
+  const allowedRoles = (deletePermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}
+
 function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
@@ -825,6 +843,39 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
         }
 
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level create permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        if (!hasCreatePermission(table, userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to create records in this table',
+            },
+            403
+          )
+        }
+
+        // Validate field write permissions
+        const forbiddenFields = validateFieldWritePermissions(
+          app,
+          tableName,
+          userRole,
+          result.data.fields
+        )
+
+        if (forbiddenFields.length > 0) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: `You do not have permission to modify field(s): ${forbiddenFields.join(', ')}`,
+            },
+            403
+          )
+        }
+
         return runEffect(
           c,
           createRecordProgram(session, tableName, result.data.fields),
@@ -1024,6 +1075,21 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const tableName = validateAndGetTableName(app, tableId)
         if (!tableName) {
           return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+        }
+
+        // Query user role from database
+        const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+        // Check table-level delete permissions
+        const table = app.tables?.find((t) => t.name === tableName)
+        if (!hasDeletePermission(table, userRole)) {
+          return c.json(
+            {
+              error: 'Forbidden',
+              message: 'You do not have permission to delete records in this table',
+            },
+            403
+          )
         }
 
         try {
