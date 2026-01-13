@@ -70,13 +70,13 @@ The TDD automation uses a **hybrid architecture** with two processing paths:
 
 **Key Design Decisions**:
 
-| Aspect | Spec-Level (tdd-execute) | Codebase-Level (tdd-refactor) |
-|--------|--------------------------|-------------------------------|
-| **Scope** | Single spec implementation | Full codebase audit |
-| **Trigger** | @claude comment | Scheduled (daily) |
-| **Budget** | $5 per agent | $10 total |
-| **Refactoring** | Conditional (if src/ modified) | Always runs |
-| **When to use** | Implementing failing tests | Proactive maintenance |
+| Aspect          | Spec-Level (tdd-execute)       | Codebase-Level (tdd-refactor) |
+| --------------- | ------------------------------ | ----------------------------- |
+| **Scope**       | Single spec implementation     | Full codebase audit           |
+| **Trigger**     | @claude comment                | Scheduled (daily)             |
+| **Budget**      | $5 per agent                   | $10 total                     |
+| **Refactoring** | Conditional (if src/ modified) | Always runs                   |
+| **When to use** | Implementing failing tests     | Proactive maintenance         |
 
 ## Components
 
