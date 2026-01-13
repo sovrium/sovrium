@@ -160,7 +160,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-INHERIT-003: cascading permission includes multiple roles explicitly',
     { tag: '@spec' },
     async ({
