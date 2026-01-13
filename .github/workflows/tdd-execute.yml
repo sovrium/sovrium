@@ -537,7 +537,8 @@ jobs:
           #
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
-          # - --max-budget-usd: Reduced to $5 (e2e-test-fixer only, refactor-auditor runs separately)
+          # - --max-budget-usd: Increased to $10 (e2e-test-fixer only, refactor-auditor runs separately)
+          #   Budget increased from $5 to handle specs with complex context or confusing issue history
           # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
           # - --disallowedTools: Block tools not needed for autonomous code implementation
           #   - AskUserQuestion: No human present in automation (would hang or skip)
@@ -546,7 +547,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-budget-usd 5.00
+            --max-budget-usd 10.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
@@ -1275,31 +1276,19 @@ jobs:
             - ❌ DO NOT ask questions - proceed with best judgment
             - ❌ DO NOT skip any steps - all are MANDATORY
 
-            ## Critical Steps (ALL REQUIRED)
+            ## ✅ Your Task (e2e-test-fixer agent ONLY)
 
-            1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
-            2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\`:
-               - **If src/ files changed**: Full audit (layer architecture, code quality, refactoring) + \`bun run quality\`
-               - **If NO src/ files changed** (test-only): Quick Exit - runs \`bun run quality\` only, skips full audit
-               - Agent auto-detects and handles appropriately - ensures quality passes before proceeding
-            3. **Commit and push** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
+            Run the e2e-test-fixer agent using \`Task\` tool with \`subagent_type='e2e-test-fixer'\`:
+            1. Remove \`.fixme()\` from \`$SPEC_ID\`
+            2. Implement minimal code to pass the test
+            3. Commit changes as \`fix: implement $SPEC_ID\`
+            4. Push to branch
 
-            ⚠️ **IMPORTANT: DO NOT CREATE PR** - The workflow will create the PR automatically after you push.
+            ## 🚫 DO NOT (workflow handles automatically)
 
-            ## Error Handling
-
-            - **If \`bun run quality\` fails**:
-              1. Read the FULL error output carefully
-              2. Fix ALL failing checks (ESLint, TypeScript, Effect diagnostics, unit tests, E2E)
-              3. Re-run \`bun run quality\` until it passes completely
-              4. Only THEN proceed to commit and push
-            - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
-
-            ## MOST COMMON FAILURES (Learn from history)
-
-            - Skipping codebase-refactor-auditor → technical debt accumulates
-            - **Creating commits with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before commit
-            - Not pushing to branch → workflow can't create PR
+            - ❌ DO NOT run codebase-refactor-auditor (separate conditional workflow job)
+            - ❌ DO NOT run \`bun run license\` (finalize job handles this)
+            - ❌ DO NOT create PR (verify-success job handles this)
 
             **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 
