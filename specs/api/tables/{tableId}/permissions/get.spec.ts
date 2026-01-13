@@ -24,14 +24,15 @@ test.describe('Check table permissions', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CHECK-001: should return all permissions as true for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: An authenticated admin user with an employees table
       // Admin role should have full access regardless of table-level permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -63,7 +64,13 @@ test.describe('Check table permissions', () => {
         ],
       })
 
-      await createAuthenticatedAdmin()
+      // Create user and set role to admin manually
+      const admin = await createAuthenticatedUser()
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'admin'
+        WHERE id = '${admin.user.id}'
+      `)
 
       // WHEN: Admin user checks permissions for a table
       const response = await request.get('/api/tables/1/permissions')

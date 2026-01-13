@@ -339,15 +339,84 @@ function createGetTableProgram(
   })
 }
 
-function createGetPermissionsProgram() {
-  return Effect.succeed({
-    permissions: {
-      read: true,
-      create: true,
-      update: true,
-      delete: true,
-      manage: false,
-    },
+/**
+ * Check if user has permission based on permission configuration
+ */
+function hasPermission(permission: unknown, userRole: string): boolean {
+  // Type assertion for permission configuration
+  const perm = permission as
+    | { type: 'public' }
+    | { type: 'authenticated' }
+    | { type: 'roles'; roles?: string[] }
+    | { type: 'owner' }
+    | undefined
+
+  if (!perm) return false
+
+  switch (perm.type) {
+    case 'public':
+      return true
+    case 'authenticated':
+      return true
+    case 'roles':
+      return perm.roles?.includes(userRole) ?? false
+    case 'owner':
+      return true // Owner check requires row-level context
+    default:
+      return false
+  }
+}
+
+/**
+ * Evaluate table and field permissions for a user
+ */
+function createGetPermissionsProgram(
+  tableId: string,
+  app: App,
+  userRole: string
+): Effect.Effect<
+  {
+    table: { read: boolean; create: boolean; update: boolean; delete: boolean }
+    fields: Record<string, { read: boolean; write: boolean }>
+  },
+  Error
+> {
+  return Effect.gen(function* () {
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
+    }
+
+    // Admin role gets all permissions as true (override)
+    const isAdmin = userRole === 'admin' || userRole === 'owner'
+
+    // Evaluate table-level permissions
+    const tablePermissions = {
+      read: isAdmin || hasPermission(table.permissions?.read, userRole),
+      create: isAdmin || hasPermission(table.permissions?.create, userRole),
+      update: isAdmin || hasPermission(table.permissions?.update, userRole),
+      // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
+      delete: isAdmin || hasPermission(table.permissions?.delete, userRole),
+    }
+
+    // Evaluate field-level permissions (immutable map)
+    const fieldPerms = table.permissions?.fields ?? []
+    const fieldPermissions = Object.fromEntries(
+      fieldPerms.map((fieldPerm) => [
+        fieldPerm.field,
+        {
+          read: isAdmin || hasPermission(fieldPerm.read, userRole),
+          write: isAdmin || hasPermission(fieldPerm.write, userRole),
+        },
+      ])
+    )
+
+    return {
+      table: tablePermissions,
+      fields: fieldPermissions,
+    }
   })
 }
 
@@ -780,7 +849,28 @@ function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       if (!session) {
         return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
       }
-      return runEffect(c, createGetPermissionsProgram(), getTablePermissionsResponseSchema)
+
+      const tableId = c.req.param('tableId')
+      const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+      try {
+        const program = createGetPermissionsProgram(tableId, app, userRole)
+        const result = await Effect.runPromise(program)
+        const validated = getTablePermissionsResponseSchema.parse(result)
+        return c.json(validated, 200)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        if (errorMessage === 'TABLE_NOT_FOUND') {
+          return c.json({ error: 'Table not found' }, 404)
+        }
+        return c.json(
+          {
+            error: 'Internal server error',
+            message: errorMessage,
+          },
+          500
+        )
+      }
     })
 }
 
