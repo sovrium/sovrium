@@ -24,7 +24,7 @@ test.describe('List all tables', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-LIST-001: should return 200 OK with array of tables',
     { tag: '@spec' },
     async ({ request }) => {
