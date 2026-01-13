@@ -73,14 +73,14 @@ jobs:
           # Also skip "Claude Code is working" status comments (prevents self-cancellation)
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
             if [ "$COMMENT_USER" = "claude[bot]" ]; then
-              echo "⚠️  Comment from Claude bot - skipping to prevent cancellation race"
+              echo "Comment from Claude bot - skipping to prevent cancellation race"
               echo "has_context=false" >> $GITHUB_OUTPUT
               echo "issue_number=" >> $GITHUB_OUTPUT
               echo "issue_body<<EOF" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
               exit 0
             elif [[ "$EVENT_COMMENT_BODY" == *"Claude Code is working"* ]]; then
-              echo "⚠️  Claude Code status comment - skipping to prevent self-cancellation"
+              echo "Claude Code status comment - skipping to prevent self-cancellation"
               echo "has_context=false" >> $GITHUB_OUTPUT
               echo "issue_number=" >> $GITHUB_OUTPUT
               echo "issue_body<<EOF" >> $GITHUB_OUTPUT
@@ -93,7 +93,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ISSUE_NUMBER="${{ github.event.inputs.issue_number }}"
             if [ -n "$ISSUE_NUMBER" ]; then
-              echo "🔍 Validating issue #$ISSUE_NUMBER (workflow_dispatch trigger)..."
+              echo "Validating issue #$ISSUE_NUMBER (workflow_dispatch trigger)..."
               if gh issue view "$ISSUE_NUMBER" &>/dev/null; then
                 ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body')
                 HAS_CONTEXT="true"
@@ -148,7 +148,7 @@ jobs:
           # Additional validation: Check if issue is closed or has existing PRs
           if [ "$HAS_CONTEXT" = "true" ] && [ -n "$ISSUE_NUMBER" ]; then
             echo ""
-            echo "🔍 Checking issue state and existing PRs for #$ISSUE_NUMBER..."
+            echo "Checking issue state and existing PRs for #$ISSUE_NUMBER..."
 
             # Check if issue is closed
             ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
@@ -181,7 +181,7 @@ jobs:
                 echo "   If you need to retry, close/delete the existing PR first"
 
                 # Post comment on issue explaining why we're skipping
-                COMMENT_BODY="🤖 **Duplicate PR Prevention**
+                COMMENT_BODY="**Duplicate PR Prevention**
 
                 Skipping Claude Code execution because PR(s) already exist for this issue: $EXISTING_PRS
 
@@ -191,7 +191,7 @@ jobs:
                 3. Post a new @claude comment to trigger the workflow
 
                 ---
-                *🤖 Automated via Claude TDD Workflow*"
+                *Automated via Claude TDD Workflow*"
 
                 gh issue comment "$ISSUE_NUMBER" --body "$COMMENT_BODY" 2>/dev/null || true
 
@@ -220,18 +220,18 @@ jobs:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
         run: |
           echo "═══════════════════════════════════════════════════════════════════"
-          echo "🔄 CONCURRENCY GROUP DEBUG INFO"
+          echo "CONCURRENCY GROUP DEBUG INFO"
           echo "═══════════════════════════════════════════════════════════════════"
 
           CONCURRENCY_GROUP="claude-issue-$ISSUE_NUMBER"
-          echo "📋 Concurrency Group: $CONCURRENCY_GROUP"
-          echo "📅 Triggered at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo "🎯 Event: ${{ github.event_name }}"
-          echo "👤 Sender: ${{ github.event.sender.login }}"
+          echo "Concurrency Group: $CONCURRENCY_GROUP"
+          echo "Triggered at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Event: ${{ github.event_name }}"
+          echo "Sender: ${{ github.event.sender.login }}"
 
           # Check for other running workflows in the same concurrency group
           echo ""
-          echo "🔍 Checking for other running workflows for issue #$ISSUE_NUMBER..."
+          echo "Checking for other running workflows for issue #$ISSUE_NUMBER..."
 
           RUNNING_WORKFLOWS=$(gh run list \
             --workflow="TDD - Execute (Claude Code)" \
@@ -242,7 +242,7 @@ jobs:
           RUNNING_COUNT=$(echo "$RUNNING_WORKFLOWS" | jq 'length' 2>/dev/null || echo "0")
 
           if [ "$RUNNING_COUNT" -gt 1 ]; then
-            echo "⚠️  WARNING: $RUNNING_COUNT workflows running for this issue!"
+            echo "WARNING: $RUNNING_COUNT workflows running for this issue!"
             echo "   This run may be queued due to concurrency group"
             echo ""
             echo "   Running workflows:"
@@ -262,7 +262,7 @@ jobs:
 
           if [ "$QUEUED_WORKFLOWS" -gt 0 ]; then
             echo ""
-            echo "📥 $QUEUED_WORKFLOWS workflow(s) queued for this issue"
+            echo "$QUEUED_WORKFLOWS workflow(s) queued for this issue"
             echo "   These will run after current workflow completes"
           fi
 
@@ -287,7 +287,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
         run: |
-          echo "🔍 Analyzing previous workflow run for error classification..."
+          echo "Analyzing previous workflow run for error classification..."
 
           # Get the most recent failed run for this issue
           RECENT_RUN=$(gh run list \
@@ -299,14 +299,14 @@ jobs:
             | head -1)
 
           if [ -z "$RECENT_RUN" ]; then
-            echo "⚠️  No recent failed run found - assuming infrastructure error"
+            echo "No recent failed run found - assuming infrastructure error"
             echo "is_infrastructure_error=true" >> $GITHUB_OUTPUT
             echo "error_type=unknown" >> $GITHUB_OUTPUT
             echo "should_retry=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "📋 Analyzing run #$RECENT_RUN..."
+          echo "Analyzing run #$RECENT_RUN..."
 
           # Get failure logs
           LOGS=$(gh run view "$RECENT_RUN" --log-failed || echo "")
@@ -319,49 +319,49 @@ jobs:
           if echo "$LOGS" | grep -q "EPERM: Operation not permitted"; then
             IS_INFRA_ERROR=true
             ERROR_TYPE="permission_error"
-            echo "🔧 Detected: Permission error (EPERM)"
+            echo "Detected: Permission error (EPERM)"
           elif echo "$LOGS" | grep -q "ETIMEDOUT\|timeout\|timed out"; then
             IS_INFRA_ERROR=true
             ERROR_TYPE="timeout"
-            echo "⏱️  Detected: Timeout error"
+            echo "Detected: Timeout error"
           elif echo "$LOGS" | grep -q "ECONNRESET\|ENOTFOUND\|socket hang up"; then
             IS_INFRA_ERROR=true
             ERROR_TYPE="network_error"
-            echo "🌐 Detected: Network error"
+            echo "Detected: Network error"
           elif echo "$LOGS" | grep -q "out of memory\|OOM\|killed"; then
             IS_INFRA_ERROR=true
             ERROR_TYPE="resource_exhaustion"
-            echo "💾 Detected: Resource exhaustion"
+            echo "Detected: Resource exhaustion"
           elif echo "$LOGS" | grep -q "ENOSPC\|no space left"; then
             IS_INFRA_ERROR=true
             ERROR_TYPE="disk_full"
-            echo "💽 Detected: Disk space error"
+            echo "Detected: Disk space error"
           elif echo "$LOGS" | grep -q "cancelled\|canceled"; then
             IS_INFRA_ERROR=true
             ERROR_TYPE="workflow_cancelled"
-            echo "🚫 Detected: Workflow cancellation"
+            echo "Detected: Workflow cancellation"
           # Code/test errors - NOW RETRIABLE with error context for Claude to self-correct
           elif echo "$LOGS" | grep -q "lint.*error\|ESLint.*error\|functional/immutable-data\|no-restricted-syntax"; then
             IS_INFRA_ERROR=true  # Treat as retriable
             ERROR_TYPE="lint_error"
-            echo "🔧 Detected: Lint error - WILL RETRY with fix instructions"
+            echo "Detected: Lint error - WILL RETRY with fix instructions"
           elif echo "$LOGS" | grep -q "Test.*failed\|FAIL\|AssertionError"; then
             IS_INFRA_ERROR=true  # Treat as retriable
             ERROR_TYPE="test_failure"
-            echo "🔧 Detected: Test failure - WILL RETRY with fix instructions"
+            echo "Detected: Test failure - WILL RETRY with fix instructions"
           elif echo "$LOGS" | grep -q "SyntaxError\|TypeError\|ReferenceError"; then
             IS_INFRA_ERROR=true  # Treat as retriable
             ERROR_TYPE="code_error"
-            echo "🔧 Detected: Code error - WILL RETRY with fix instructions"
+            echo "Detected: Code error - WILL RETRY with fix instructions"
           fi
 
           # Determine if should retry
           SHOULD_RETRY=false
           if [ "$IS_INFRA_ERROR" = true ]; then
             SHOULD_RETRY=true
-            echo "✅ Error detected - WILL RETRY (Claude can self-correct)"
+            echo "Error detected - WILL RETRY (Claude can self-correct)"
           else
-            echo "⚠️  Unknown error - will NOT retry"
+            echo "Unknown error - will NOT retry"
           fi
 
           # Output results
@@ -442,7 +442,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: 💰 Check usage limits (fail-closed)
+      - name: Check usage limits (fail-closed)
         id: usage
         run: |
           echo "Checking usage limits before Claude Code execution..."
@@ -463,10 +463,10 @@ jobs:
           TDD_WEEKLY_COST_LIMIT: '90.00'
         continue-on-error: true
 
-      - name: 🚨 Fail if usage check crashed (fail-closed safety)
+      - name: Fail if usage check crashed (fail-closed safety)
         if: steps.usage.outcome == 'failure' && steps.usage.outputs.script_completed != 'true'
         run: |
-          echo "🚨 CRITICAL: Usage check script crashed before completion!"
+          echo "CRITICAL: Usage check script crashed before completion!"
           echo ""
           echo "This is a fail-closed safety mechanism. The workflow cannot proceed"
           echo "because we cannot verify that usage is within limits."
@@ -479,13 +479,13 @@ jobs:
           echo "Action required: Investigate the usage check step logs above."
           exit 1
 
-      - name: ⛔ Skip if usage limits exceeded
+      - name: Skip if usage limits exceeded
         if: steps.usage.outcome == 'failure' && steps.usage.outputs.script_completed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
         run: |
-          echo "⛔ Usage limits exceeded - graceful skip"
+          echo "Usage limits exceeded - graceful skip"
           echo "   Reason: ${{ steps.usage.outputs.reason || 'limits_exceeded' }}"
           echo "   Daily cost: ${{ steps.usage.outputs.daily_cost || 'unknown' }}"
           echo "   Weekly cost: ${{ steps.usage.outputs.weekly_cost || 'unknown' }}"
@@ -493,13 +493,13 @@ jobs:
           echo "Skipping Claude Code execution until usage is reduced."
 
           # Post comment on issue explaining the skip
-          gh issue comment "$ISSUE_NUMBER" --body "⏸️ **Usage Limit Reached**: Claude Code execution paused due to usage limits. Will retry when usage is reduced.
+          gh issue comment "$ISSUE_NUMBER" --body "**Usage Limit Reached**: Claude Code execution paused due to usage limits. Will retry when usage is reduced.
 
           - Daily cost: \${{ steps.usage.outputs.daily_cost || 'unknown' }}
           - Weekly cost: \${{ steps.usage.outputs.weekly_cost || 'unknown' }}
 
           ---
-          *🤖 TDD Automation - Usage Tracking*" 2>/dev/null || true
+          *TDD Automation - Usage Tracking*" 2>/dev/null || true
 
           exit 0
 
@@ -541,7 +541,7 @@ jobs:
         id: detect_error
         if: always()
         run: |
-          echo "🔍 Analyzing Claude Code execution..."
+          echo "Analyzing Claude Code execution..."
 
           # Check Claude Code exit behavior
           CLAUDE_OUTCOME="${{ steps.claude.outcome }}"
@@ -560,13 +560,13 @@ jobs:
 
             if [ "$START_EPOCH" -ne 0 ] && [ "$END_EPOCH" -ne 0 ]; then
               DURATION=$((END_EPOCH - START_EPOCH))
-              echo "📊 Step duration: ${DURATION}s"
+              echo "Step duration: ${DURATION}s"
 
               # Timeout detection: anything > 74 minutes (4440 seconds) is likely a timeout
               if [ "$DURATION" -ge 4440 ]; then
                 IS_INFRA_ERROR=true
                 ERROR_TYPE="timeout_confirmed"
-                echo "⏱️ TIMEOUT DETECTED: Step ran for ${DURATION}s (>= 4440s threshold)"
+                echo "TIMEOUT DETECTED: Step ran for ${DURATION}s (>= 4440s threshold)"
               fi
             fi
           fi
@@ -577,12 +577,12 @@ jobs:
               # Cancelled usually means timeout or manual cancellation
               IS_INFRA_ERROR=true
               ERROR_TYPE="cancelled_timeout"
-              echo "⏱️ Step was cancelled - treating as timeout"
+              echo "Step was cancelled - treating as timeout"
             elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
               # For failures, check if it's infrastructure or code issue
               # Look for common infrastructure error patterns in logs if available
               ERROR_TYPE="claude_failure"
-              echo "❌ Claude Code failed - checking for infrastructure issues..."
+              echo "Claude Code failed - checking for infrastructure issues..."
 
               # Default to infrastructure error for retries (conservative approach)
               IS_INFRA_ERROR=true
@@ -590,11 +590,11 @@ jobs:
               # Even success might be a timeout if duration is suspicious
               if [ "$ERROR_TYPE" != "timeout_confirmed" ]; then
                 ERROR_TYPE="success"
-                echo "✅ Claude Code completed successfully"
+                echo "Claude Code completed successfully"
               fi
             else
               ERROR_TYPE="unknown_outcome"
-              echo "❓ Unknown outcome: $CLAUDE_OUTCOME"
+              echo "Unknown outcome: $CLAUDE_OUTCOME"
               IS_INFRA_ERROR=true
             fi
           fi
@@ -614,7 +614,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         run: |
-          echo "🔍 Setting success output..."
+          echo "Setting success output..."
           echo "   Claude outcome: $CLAUDE_OUTCOME"
 
           # Explicitly set claude_success based on outcome
@@ -648,9 +648,9 @@ jobs:
           RETRY_ATTEMPT: ${{ github.event.inputs.retry_attempt || 1 }}
           ERROR_TYPE: ${{ steps.detect_error.outputs.error_type }}
         run: |
-          echo "📝 Updating issue #$ISSUE_NUMBER with failure information..."
+          echo "Updating issue #$ISSUE_NUMBER with failure information..."
 
-          gh issue comment "$ISSUE_NUMBER" --body "⚠️ **Claude Code Execution Failed (Attempt $RETRY_ATTEMPT)**
+          gh issue comment "$ISSUE_NUMBER" --body "**Claude Code Execution Failed (Attempt $RETRY_ATTEMPT)**
 
           **Error Type**: \`$ERROR_TYPE\`
           **Workflow Run**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -658,7 +658,7 @@ jobs:
           The automation system will analyze this error and retry if appropriate.
 
           ---
-          *🤖 Infrastructure Error Handler*"
+          *Infrastructure Error Handler*"
 
   # Retry logic: Automatically retry infrastructure errors
   handle-retry:
@@ -688,8 +688,8 @@ jobs:
           MAX_RETRIES: ${{ env.MAX_INFRASTRUCTURE_RETRIES }}
           ERROR_TYPE: ${{ needs.execute-claude.outputs.error_type }}
         run: |
-          echo "🔄 Error detected: $ERROR_TYPE"
-          echo "📊 Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES"
+          echo "Error detected: $ERROR_TYPE"
+          echo "Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES"
 
           NEXT_RETRY=$((CURRENT_RETRY + 1))
 
@@ -707,12 +707,12 @@ jobs:
 
             # Build retry comment with error-specific instructions
             if [ "$ERROR_TYPE" = "lint_error" ]; then
-              RETRY_COMMENT="🔧 **Automatic Code Fix Retry**
+              RETRY_COMMENT="**Automatic Code Fix Retry**
 
           **Error Type**: \`$ERROR_TYPE\` (ESLint violation)
           **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-          **⚠️ CRITICAL FIX INSTRUCTIONS FOR CLAUDE:**
+          **CRITICAL FIX INSTRUCTIONS FOR CLAUDE:**
           1. Run \`bun run lint\` to see the exact ESLint errors
           2. **Common FP violations to fix:**
              - ❌ \`array.push()\` → ✅ Use \`[...array, item]\`
@@ -724,14 +724,14 @@ jobs:
           Retrying with fix instructions...
 
           ---
-          *🤖 TDD Error Handler*"
+          *TDD Error Handler*"
             elif [ "$ERROR_TYPE" = "test_failure" ]; then
-              RETRY_COMMENT="🔧 **Automatic Test Fix Retry**
+              RETRY_COMMENT="**Automatic Test Fix Retry**
 
           **Error Type**: \`$ERROR_TYPE\`
           **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-          **⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
+          **FIX INSTRUCTIONS FOR CLAUDE:**
           1. Run \`bun test:e2e -- <test-file>\` to see failing tests
           2. Analyze the error output and fix the implementation
           3. Ensure ALL tests in the file pass before committing
@@ -740,14 +740,14 @@ jobs:
           Retrying with fix instructions...
 
           ---
-          *🤖 TDD Error Handler*"
+          *TDD Error Handler*"
             elif [ "$ERROR_TYPE" = "code_error" ]; then
-              RETRY_COMMENT="🔧 **Automatic Code Fix Retry**
+              RETRY_COMMENT="**Automatic Code Fix Retry**
 
           **Error Type**: \`$ERROR_TYPE\` (Syntax/Type error)
           **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-          **⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
+          **FIX INSTRUCTIONS FOR CLAUDE:**
           1. Run \`bun run typecheck\` to see TypeScript errors
           2. Fix all type errors before committing
           3. Run \`bun run quality\` to verify
@@ -755,9 +755,9 @@ jobs:
           Retrying with fix instructions...
 
           ---
-          *🤖 TDD Error Handler*"
+          *TDD Error Handler*"
             else
-              RETRY_COMMENT="🔄 **Automatic Infrastructure Retry**
+              RETRY_COMMENT="**Automatic Infrastructure Retry**
 
           **Error Type**: \`$ERROR_TYPE\`
           **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
@@ -766,7 +766,7 @@ jobs:
           Retrying workflow automatically with exponential backoff...
 
           ---
-          *🤖 Infrastructure Error Handler*"
+          *Infrastructure Error Handler*"
             fi
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$RETRY_COMMENT"
@@ -785,7 +785,7 @@ jobs:
               ACTUAL_DELAY=30
             fi
 
-            echo "⏱️  Waiting ${ACTUAL_DELAY}s before retry (base: ${BASE_DELAY}s, jitter: ${JITTER}s)"
+            echo "Waiting ${ACTUAL_DELAY}s before retry (base: ${BASE_DELAY}s, jitter: ${JITTER}s)"
             sleep "$ACTUAL_DELAY"
           else
             echo "❌ Max retries exhausted ($MAX_RETRIES)"
@@ -806,7 +806,7 @@ jobs:
 
             # Build failure message based on error type
             if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
-              FAILURE_COMMENT="❌ **Code Error - Max Retries Exhausted**
+              FAILURE_COMMENT="**Code Error - Max Retries Exhausted**
 
           **Error Type**: \`$ERROR_TYPE\`
           **Total Attempts**: $MAX_RETRIES
@@ -823,9 +823,9 @@ jobs:
           The queue processor will continue with the next spec.
 
           ---
-          *🤖 TDD Error Handler*"
+          *TDD Error Handler*"
             else
-              FAILURE_COMMENT="❌ **Infrastructure Error - Max Retries Exhausted**
+              FAILURE_COMMENT="**Infrastructure Error - Max Retries Exhausted**
 
           **Error Type**: \`$ERROR_TYPE\`
           **Total Attempts**: $MAX_RETRIES
@@ -842,7 +842,7 @@ jobs:
           The queue processor will continue with the next spec.
 
           ---
-          *🤖 Infrastructure Error Handler*"
+          *Infrastructure Error Handler*"
             fi
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$FAILURE_COMMENT"
@@ -854,7 +854,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           REPO: ${{ github.repository }}
         run: |
-          echo "📊 Checking for high failure rate..."
+          echo "Checking for high failure rate..."
 
           # Count failed specs in last 24 hours
           CUTOFF_DATE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-24H +%Y-%m-%dT%H:%M:%SZ)
@@ -870,7 +870,7 @@ jobs:
 
           # Create incident if >= 5 failures
           if [ "$FAILED_COUNT" -ge 5 ]; then
-            echo "🚨 High failure rate detected - creating incident..."
+            echo "High failure rate detected - creating incident..."
 
             # Check if incident already exists
             EXISTING_INCIDENT=$(gh issue list \
@@ -892,16 +892,16 @@ jobs:
 
               gh issue create \
                 --repo "$REPO" \
-                --title "🚨 TDD Automation: High Failure Rate ($FAILED_COUNT specs failed in 24h)" \
+                --title "TDD Automation: High Failure Rate ($FAILED_COUNT specs failed in 24h)" \
                 --label "incident,high-failure-rate,tdd-automation,priority:high" \
-                --body "## 🚨 High TDD Spec Failure Rate"$'\n\n'"Failed Specs (24h): $FAILED_COUNT"$'\n'"Threshold: 5"$'\n\n'"### Recent Failures"$'\n'"$FAILED_SPECS"$'\n\n'"### Investigation Steps"$'\n'"1. Check for common error patterns: \`gh issue list --label tdd-spec:failed --limit 20\`"$'\n'"2. Review tdd-execute.yml runs: [Workflow History](https://github.com/$REPO/actions/workflows/tdd-execute.yml)"$'\n'"3. Check infrastructure health: \`gh run list --workflow tdd-monitor.yml\`"$'\n\n'"### Possible Causes"$'\n'"- Systemic test issues (flaky tests, environment problems)"$'\n'"- Infrastructure instability (runner timeouts, permission errors)"$'\n'"- Schema/API changes breaking multiple specs"$'\n'"- Claude Code regression (instruction following issues)"$'\n\n'"### Resolution"$'\n'"Once root cause identified and fixed:"$'\n'"1. Re-queue failed specs: \`gh issue edit ISSUE_NUMBER --remove-label tdd-spec:failed --add-label tdd-spec:queued\`"$'\n'"2. Close this incident"$'\n'"3. Document in TDD-TROUBLESHOOTING.md"$'\n\n'"---"$'\n'"🤖 Automated via [TDD Monitor](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+                --body "## High TDD Spec Failure Rate"$'\n\n'"Failed Specs (24h): $FAILED_COUNT"$'\n'"Threshold: 5"$'\n\n'"### Recent Failures"$'\n'"$FAILED_SPECS"$'\n\n'"### Investigation Steps"$'\n'"1. Check for common error patterns: \`gh issue list --label tdd-spec:failed --limit 20\`"$'\n'"2. Review tdd-execute.yml runs: [Workflow History](https://github.com/$REPO/actions/workflows/tdd-execute.yml)"$'\n'"3. Check infrastructure health: \`gh run list --workflow tdd-monitor.yml\`"$'\n\n'"### Possible Causes"$'\n'"- Systemic test issues (flaky tests, environment problems)"$'\n'"- Infrastructure instability (runner timeouts, permission errors)"$'\n'"- Schema/API changes breaking multiple specs"$'\n'"- Claude Code regression (instruction following issues)"$'\n\n'"### Resolution"$'\n'"Once root cause identified and fixed:"$'\n'"1. Re-queue failed specs: \`gh issue edit ISSUE_NUMBER --remove-label tdd-spec:failed --add-label tdd-spec:queued\`"$'\n'"2. Close this incident"$'\n'"3. Document in TDD-TROUBLESHOOTING.md"$'\n\n'"---"$'\n'"Automated via [TDD Monitor](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
               echo "✅ Incident issue created"
             else
-              echo "ℹ️  Incident already exists, skipping creation"
+              echo "Incident already exists, skipping creation"
             fi
           else
-            echo "✅ Failure rate acceptable ($FAILED_COUNT < 5)"
+            echo "Failure rate acceptable ($FAILED_COUNT < 5)"
           fi
 
       - name: Trigger retry workflow
@@ -912,7 +912,7 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
           NEXT_RETRY: ${{ steps.retry.outputs.next_retry }}
         run: |
-          echo "🚀 Triggering retry workflow (attempt $NEXT_RETRY)..."
+          echo "Triggering retry workflow (attempt $NEXT_RETRY)..."
 
           # Trigger the workflow - capture exit status to allow fallback on failure
           # Bug fix: Previously, failure here would exit immediately due to set -e,
@@ -921,7 +921,7 @@ jobs:
           if ! gh workflow run tdd-execute.yml --repo "$REPO" \
             --field issue_number="$ISSUE_NUMBER" \
             --field retry_attempt="$NEXT_RETRY" 2>&1; then
-            echo "⚠️ Workflow dispatch failed (likely 403 permission error) - will use fallback"
+            echo "Workflow dispatch failed (likely 403 permission error) - will use fallback"
             DISPATCH_FAILED=true
           fi
 
@@ -929,7 +929,7 @@ jobs:
           RETRY_STARTED=false
           if [ "$DISPATCH_FAILED" != "true" ]; then
             # Wait for workflow to start
-            echo "⏳ Verifying retry workflow started..."
+            echo "Verifying retry workflow started..."
             sleep 15
 
             # Check if workflow started in the last 20 seconds
@@ -962,13 +962,13 @@ jobs:
                 fi
               done < <(echo "$RECENT_RUNS" | jq -r '.[] | select(.event == "workflow_dispatch")' 2>/dev/null)
             else
-              echo "⚠️ Failed to parse workflow runs (JSON error) - will use fallback method"
+              echo "Failed to parse workflow runs (JSON error) - will use fallback method"
             fi
           fi
 
           # If workflow didn't start, use issue comment as fallback
           if [ "$RETRY_STARTED" != "true" ]; then
-            echo "⚠️ Workflow dispatch may have failed, triggering via issue comment as fallback..."
+            echo "Workflow dispatch may have failed, triggering via issue comment as fallback..."
 
             # Get spec details from issue for context
             SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-([0-9]+|REGRESSION)' || echo "unknown")
@@ -977,7 +977,7 @@ jobs:
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
               --body "@claude retry implementation (automated retry $NEXT_RETRY of 3 - workflow dispatch fallback)
 
-            ## 📋 Spec Details
+            ## Spec Details
 
             - **Test File**: \`$TEST_FILE\`
             - **Spec ID**: \`$SPEC_ID\`
@@ -985,7 +985,7 @@ jobs:
             - **Retry Attempt**: $NEXT_RETRY of 3
             - **Trigger**: Workflow dispatch failed, using comment fallback
 
-            ## 🔄 Retry Context
+            ## Retry Context
 
             Check for previous work before starting:
             1. Run \`git status\` to see if uncommitted changes exist
@@ -993,7 +993,7 @@ jobs:
             3. If work exists, continue from where it left off
             4. If clean state, start fresh with step 1 below
 
-            ## 🤖 Automation Mode
+            ## Automation Mode
 
             **You are in pipeline/automation mode**:
             - ✅ Make autonomous decisions following Sovrium patterns
@@ -1001,7 +1001,7 @@ jobs:
             - ❌ DO NOT ask questions - proceed with best judgment
             - ❌ DO NOT skip any steps - all are MANDATORY
 
-            ## ✅ Critical Steps (ALL REQUIRED)
+            ## Critical Steps (ALL REQUIRED)
 
             1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
             2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\`:
@@ -1012,7 +1012,7 @@ jobs:
 
             ⚠️ **IMPORTANT: DO NOT CREATE PR** - The workflow will create the PR automatically after you push.
 
-            ## ⚠️ Error Handling
+            ## Error Handling
 
             - **If \`bun run quality\` fails**:
               1. Read the FULL error output carefully
@@ -1021,7 +1021,7 @@ jobs:
               4. Only THEN proceed to commit and push
             - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
 
-            ## 🚨 MOST COMMON FAILURES (Learn from history)
+            ## MOST COMMON FAILURES (Learn from history)
 
             - Skipping codebase-refactor-auditor → technical debt accumulates
             - **Creating commits with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before commit
@@ -1030,7 +1030,7 @@ jobs:
             **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 
             ---
-            *🤖 Infrastructure Retry Handler (Fallback)*"
+            *Infrastructure Retry Handler (Fallback)*"
 
             echo "✅ Fallback retry triggered via issue comment with full context"
           fi
@@ -1067,7 +1067,7 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
         run: |
-          echo "🔍 Checking if issue #$ISSUE_NUMBER is still open and needs a PR..."
+          echo "Checking if issue #$ISSUE_NUMBER is still open and needs a PR..."
 
           # Check 1: Is the issue still open?
           ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
@@ -1115,12 +1115,12 @@ jobs:
           REASON: ${{ steps.duplicate_check.outputs.reason }}
           MERGED_PRS: ${{ steps.duplicate_check.outputs.merged_prs }}
         run: |
-          echo "🔄 Handling duplicate scenario: $REASON"
+          echo "Handling duplicate scenario: $REASON"
 
           if [ "$REASON" = "issue_closed" ]; then
             # Issue was closed - likely by another merged PR
             # Any branch/PR created by this Claude run is now obsolete
-            COMMENT_BODY="🔄 **Duplicate Prevention**: Claude Code completed, but issue was already closed.
+            COMMENT_BODY="**Duplicate Prevention**: Claude Code completed, but issue was already closed.
 
           This typically happens when:
           - Another workflow completed and merged a PR for this issue
@@ -1130,14 +1130,14 @@ jobs:
           **No action needed** - the issue is already resolved.
 
           ---
-          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          *Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
 
             # Post comment only if issue is still accessible (it might be closed)
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$COMMENT_BODY" 2>/dev/null || echo "Could not post comment (issue may be closed)"
 
           elif [ "$REASON" = "pr_already_merged" ]; then
             # A PR was already merged for this issue
-            COMMENT_BODY="🔄 **Duplicate Prevention**: Claude Code completed, but a PR was already merged for this issue.
+            COMMENT_BODY="**Duplicate Prevention**: Claude Code completed, but a PR was already merged for this issue.
 
           **Merged PR(s)**: $MERGED_PRS
 
@@ -1146,12 +1146,12 @@ jobs:
           **No action needed** - the work is already complete.
 
           ---
-          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          *Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$COMMENT_BODY" 2>/dev/null || echo "Could not post comment (issue may be closed)"
 
             # Close any open PRs that Claude might have created (they're now duplicates)
-            echo "🔍 Checking for any open PRs created by this run that need to be closed..."
+            echo "Checking for any open PRs created by this run that need to be closed..."
             OPEN_PRS=$(gh pr list \
               --repo "$REPO" \
               --search "Closes #$ISSUE_NUMBER in:body" \
@@ -1164,7 +1164,7 @@ jobs:
               BRANCH=$(echo "$PR_INFO" | cut -d: -f2)
               echo "  Closing duplicate PR #$PR_NUM (branch: $BRANCH)..."
               gh pr close "$PR_NUM" --repo "$REPO" \
-                --comment "🔄 **Closing as duplicate**: PR(s) $MERGED_PRS already merged for issue #$ISSUE_NUMBER." \
+                --comment "**Closing as duplicate**: PR(s) $MERGED_PRS already merged for issue #$ISSUE_NUMBER." \
                 --delete-branch 2>/dev/null || echo "    Could not close PR #$PR_NUM"
             done
           fi
@@ -1208,13 +1208,13 @@ jobs:
             LINKED_ISSUE=$(echo "$PR_BODY" | grep -oE 'Closes #[0-9]+' | grep -oE '[0-9]+' | head -1 || echo "")
 
             if [ -n "$LINKED_ISSUE" ] && [ "$LINKED_ISSUE" != "$ISSUE_NUMBER" ]; then
-              echo "📋 Detected PR context: PR #$ISSUE_NUMBER closes issue #$LINKED_ISSUE"
+              echo "Detected PR context: PR #$ISSUE_NUMBER closes issue #$LINKED_ISSUE"
               echo "   Switching to linked issue number for branch search..."
               ISSUE_NUMBER="$LINKED_ISSUE"
             fi
           fi
 
-          echo "🔍 Looking for branch to create PR for issue #$ISSUE_NUMBER..."
+          echo "Looking for branch to create PR for issue #$ISSUE_NUMBER..."
 
           # Check if PR already exists (Claude might have created one despite instructions)
           EXISTING_PR=$(gh pr list --repo "$REPO" \
@@ -1228,7 +1228,7 @@ jobs:
             AUTO_MERGE_STATUS=$(gh pr view "$EXISTING_PR" --repo "$REPO" --json autoMergeRequest --jq '.autoMergeRequest' 2>/dev/null || echo "null")
 
             if [ "$AUTO_MERGE_STATUS" = "null" ] || [ -z "$AUTO_MERGE_STATUS" ]; then
-              echo "🔄 Auto-merge not enabled on existing PR - enabling now..."
+              echo "Auto-merge not enabled on existing PR - enabling now..."
               if gh pr merge "$EXISTING_PR" --auto --squash --repo "$REPO"; then
                 echo "✅ Auto-merge enabled on PR #$EXISTING_PR"
               else
@@ -1282,7 +1282,7 @@ jobs:
           # Get spec ID from issue body
           SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body' | grep -oE '[A-Z]+-[A-Z]+-[A-Z0-9-]+' | head -1 || echo "unknown-spec")
 
-          echo "📋 Creating PR for $SPEC_ID..."
+          echo "Creating PR for $SPEC_ID..."
 
           # Create PR with guaranteed correct format
           # CRITICAL: Body is EXACTLY "Closes #XXXX" - nothing else
@@ -1350,7 +1350,7 @@ jobs:
 
             # Enable auto-merge
             echo ""
-            echo "🔄 Enabling auto-merge..."
+            echo "Enabling auto-merge..."
             if gh pr merge "$PR_NUMBER" --auto --squash --repo "$REPO"; then
               echo "✅ Auto-merge enabled"
             else
@@ -1366,7 +1366,7 @@ jobs:
           PR will merge automatically when CI passes.
 
           ---
-          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          *Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
           else
             echo "❌ PR creation failed after 3 attempts: $PR_CREATE_ERROR"
 
@@ -1388,7 +1388,7 @@ jobs:
           **Issue Status**: Marked as \`tdd-spec:failed\` - requires manual intervention.
 
           ---
-          *🤖 Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          *Automated via [TDD Workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
 
             exit 1
           fi
@@ -1403,7 +1403,7 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
           CREATED_PR_NUMBER: ${{ steps.create_pr.outputs.pr_number }}
         run: |
-          echo "🔍 Validating PR body contains auto-close keyword..."
+          echo "Validating PR body contains auto-close keyword..."
 
           # Use PR number from create_pr step if available, otherwise find it
           if [ -n "$CREATED_PR_NUMBER" ] && [ "$CREATED_PR_NUMBER" != "" ]; then
@@ -1420,7 +1420,7 @@ jobs:
             exit 0
           fi
 
-          echo "📋 Checking PR #$PR_NUMBER body..."
+          echo "Checking PR #$PR_NUMBER body..."
 
           # Get current PR body
           PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body')
@@ -1444,7 +1444,7 @@ jobs:
 
               # Post comment on issue explaining the fix
               gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
-                --body "🔧 **Auto-Close Keyword Fix Applied**: PR #$PR_NUMBER was missing \`Closes #$ISSUE_NUMBER\` in its body. Added the keyword - issue will now auto-close when PR merges. *🤖 Automated fix*" || true
+                --body "**Auto-Close Keyword Fix Applied**: PR #$PR_NUMBER was missing \`Closes #$ISSUE_NUMBER\` in its body. Added the keyword - issue will now auto-close when PR merges. *Automated fix*" || true
             else
               echo "❌ Failed to update PR body - manual intervention may be needed"
               echo "   PR will merge but issue may not auto-close"

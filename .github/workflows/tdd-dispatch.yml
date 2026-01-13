@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   process-queue:
-    name: 🔄 Process TDD Queue
+    name: Process TDD Queue
     runs-on: ubuntu-latest
     timeout-minutes: 15 # Includes pre-validation step which runs tests
     # Only process queue if:
@@ -56,8 +56,8 @@ jobs:
     steps:
       - name: Log trigger source
         run: |
-          echo "🔍 Queue Processor Triggered"
-          echo "=========================="
+          echo "Queue Processor Triggered"
+          echo "========================="
           echo "Event: ${{ github.event_name }}"
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             echo "Triggered by: ${{ github.event.workflow_run.name }}"
@@ -92,7 +92,7 @@ jobs:
       # - Weekly cost exceeds $90.00 (90% of weekly allocation)
       # - Usage data unavailable (fail-closed)
       # =========================================================================
-      - name: 💰 Check usage limits (fail-closed)
+      - name: Check usage limits (fail-closed)
         id: usage
         run: |
           echo "Checking usage limits before processing..."
@@ -113,10 +113,10 @@ jobs:
           TDD_WEEKLY_COST_LIMIT: '90.00'
         continue-on-error: true
 
-      - name: 🚨 Fail if usage check crashed (fail-closed safety)
+      - name: Fail if usage check crashed (fail-closed safety)
         if: steps.usage.outcome == 'failure' && steps.usage.outputs.script_completed != 'true'
         run: |
-          echo "🚨 CRITICAL: Usage check script crashed before completion!"
+          echo "CRITICAL: Usage check script crashed before completion!"
           echo ""
           echo "This is a fail-closed safety mechanism. The workflow cannot proceed"
           echo "because we cannot verify that usage is within limits."
@@ -129,10 +129,10 @@ jobs:
           echo "Action required: Investigate the usage check step logs above."
           exit 1
 
-      - name: ⛔ Skip if usage limits exceeded
+      - name: Skip if usage limits exceeded
         if: steps.usage.outcome == 'failure' && steps.usage.outputs.script_completed == 'true'
         run: |
-          echo "⛔ Usage limits exceeded - graceful skip"
+          echo "Usage limits exceeded - graceful skip"
           echo "   Reason: ${{ steps.usage.outputs.reason || 'limits_exceeded' }}"
           echo "   Daily cost: ${{ steps.usage.outputs.daily_cost || 'unknown' }}"
           echo "   Weekly cost: ${{ steps.usage.outputs.weekly_cost || 'unknown' }}"
@@ -154,7 +154,7 @@ jobs:
       - name: Get next spec from queue
         id: next
         run: |
-          echo "🔍 Looking for next spec to process..."
+          echo "Looking for next spec to process..."
           bun run scripts/tdd-automation/queue-manager.ts next
         env:
           GITHUB_OUTPUT: ${{ github.output }}
@@ -164,7 +164,7 @@ jobs:
         id: check
         run: |
           if [ "${{ steps.next.outputs.has_next }}" != "true" ]; then
-            echo "📭 No specs available to process"
+            echo "No specs available to process"
             echo "should_process=false" >> $GITHUB_OUTPUT
           else
             echo "✅ Found spec to process: ${{ steps.next.outputs.spec_id }}"
@@ -178,7 +178,7 @@ jobs:
           ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
 
-          echo "🔍 Validating issue #$ISSUE_NUMBER before processing..."
+          echo "Validating issue #$ISSUE_NUMBER before processing..."
 
           # Check if issue is still open
           ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
@@ -217,7 +217,7 @@ jobs:
               --jq "[.[] | select(.body | contains(\"Duplicate PR Prevention\")) | select(.created_at > \"$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
 
             if [ "$RECENT_COMMENT" -eq 0 ]; then
-              gh issue comment "$ISSUE_NUMBER" --body "🤖 Duplicate PR Prevention - Skipping processing because an open PR already exists for this issue (#$EXISTING_PRS). The existing PR will be processed to completion. If the PR is stuck or invalid, please close it manually and the queue will retry this spec."
+              gh issue comment "$ISSUE_NUMBER" --body "Duplicate PR Prevention - Skipping processing because an open PR already exists for this issue (#$EXISTING_PRS). The existing PR will be processed to completion. If the PR is stuck or invalid, please close it manually and the queue will retry this spec."
             else
               echo "   Skipping comment - already posted within last hour"
             fi
@@ -239,7 +239,7 @@ jobs:
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
           TEST_FILE="${{ steps.next.outputs.test_file }}"
 
-          echo "🔍 Checking if test $SPEC_ID is already passing in main..."
+          echo "Checking if test $SPEC_ID is already passing in main..."
 
           # Check if the test file exists at the expected path
           if [ ! -f "$TEST_FILE" ]; then
@@ -250,7 +250,7 @@ jobs:
             ACTUAL_FILE=$(grep -rl "$SPEC_ID" specs/ 2>/dev/null | head -1)
 
             if [ -n "$ACTUAL_FILE" ]; then
-              echo "📍 Found spec at: $ACTUAL_FILE (path in issue was stale)"
+              echo "Found spec at: $ACTUAL_FILE (path in issue was stale)"
               TEST_FILE="$ACTUAL_FILE"
               # Continue with the corrected path
             else
@@ -269,7 +269,7 @@ jobs:
             ACTUAL_FILE=$(grep -rl "$SPEC_ID" specs/ 2>/dev/null | head -1)
 
             if [ -n "$ACTUAL_FILE" ] && [ "$ACTUAL_FILE" != "$TEST_FILE" ]; then
-              echo "📍 Found spec at: $ACTUAL_FILE"
+              echo "Found spec at: $ACTUAL_FILE"
               TEST_FILE="$ACTUAL_FILE"
               # Continue with the corrected path
             else
@@ -318,7 +318,7 @@ jobs:
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
           TEST_FILE="${{ steps.next.outputs.test_file }}"
 
-          echo "📋 Closing superseded issue #$ISSUE_NUMBER..."
+          echo "Closing superseded issue #$ISSUE_NUMBER..."
 
           # Retry logic for transient GitHub API errors (GraphQL errors, rate limits, etc.)
           MAX_RETRIES=3
@@ -340,7 +340,7 @@ jobs:
           No further action needed. The queue will continue with the next spec.
 
           ---
-          *🤖 TDD Queue - Superseded Detection*"; then
+          *TDD Queue - Superseded Detection*"; then
               echo "   ✅ Issue closed successfully"
               break
             else
@@ -376,7 +376,7 @@ jobs:
       - name: Trigger next queue run (after superseded issue closed)
         if: steps.close_superseded.outputs.should_trigger_next == 'true'
         run: |
-          echo "🔄 Superseded issue closed - triggering next queue run..."
+          echo "Superseded issue closed - triggering next queue run..."
           echo ""
           echo "Note: GitHub Actions does not support workflow_run self-triggers."
           echo "Using workflow_dispatch API to continue queue processing."
@@ -409,7 +409,7 @@ jobs:
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
           TEST_FILE="${{ steps.next.outputs.test_file }}"
 
-          echo "🧪 Pre-validating $SPEC_ID..."
+          echo "Pre-validating $SPEC_ID..."
           echo "   This checks if the test passes without any code changes."
           echo "   If it passes, the feature is already implemented → skip Claude."
           echo ""
@@ -466,13 +466,13 @@ jobs:
 
             # Push the commit to main
             echo ""
-            echo "📤 Pushing commit to main..."
+            echo "Pushing commit to main..."
             if git push origin main; then
               echo "✅ Push successful"
 
               # Clean up any orphaned Claude branches for this issue
               echo ""
-              echo "🧹 Cleaning up orphaned claude branches..."
+              echo "Cleaning up orphaned claude branches..."
               ORPHAN_BRANCHES=$(git ls-remote --heads origin "claude/issue-${ISSUE_NUMBER}-*" 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||' || true)
               if [ -n "$ORPHAN_BRANCHES" ]; then
                 echo "Found orphaned branches:"
@@ -487,7 +487,7 @@ jobs:
 
               # Close issue AFTER successful push (atomic: close only when code is in main)
               echo ""
-              echo "🔒 Closing issue #$ISSUE_NUMBER..."
+              echo "Closing issue #$ISSUE_NUMBER..."
 
               # Remove old state labels
               gh issue edit "$ISSUE_NUMBER" \
@@ -507,7 +507,7 @@ jobs:
           - **Commit**: Created and pushed to main
           - **Status**: Complete
 
-          *🤖 TDD Queue - Pre-Validation*" || true
+          *TDD Queue - Pre-Validation*" || true
 
               # Close issue
               gh issue close "$ISSUE_NUMBER" --reason completed || true
@@ -525,7 +525,7 @@ jobs:
                 --remove-label "tdd-spec:in-progress" \
                 --add-label "tdd-spec:queued" 2>/dev/null || true
 
-              gh issue comment "$ISSUE_NUMBER" --body "⚠️ **Push Failed** - Pre-validation passed but push to main failed. Test \\\`$SPEC_ID\\\` passed after removing \\\`.fixme()\\\`, commit created locally, but push failed (network issue, branch protection, etc.). Issue re-queued for retry. *🤖 TDD Queue*"
+              gh issue comment "$ISSUE_NUMBER" --body "**Push Failed** - Pre-validation passed but push to main failed. Test \\\`$SPEC_ID\\\` passed after removing \\\`.fixme()\\\`, commit created locally, but push failed (network issue, branch protection, etc.). Issue re-queued for retry. *TDD Queue*"
 
               echo "test_passed=false" >> $GITHUB_OUTPUT
               echo "needs_claude=false" >> $GITHUB_OUTPUT
@@ -555,7 +555,7 @@ jobs:
       - name: Trigger next queue run (after pre-validation success)
         if: steps.prevalidate.outputs.should_trigger_next == 'true'
         run: |
-          echo "🔄 Pre-validation succeeded - triggering next queue run..."
+          echo "Pre-validation succeeded - triggering next queue run..."
           echo ""
           echo "Note: GitHub Actions does not support workflow_run self-triggers."
           echo "Using workflow_dispatch API to continue queue processing."
@@ -583,7 +583,7 @@ jobs:
           SPEC_ID="${{ steps.next.outputs.spec_id }}"
           TEST_FILE="${{ steps.next.outputs.test_file }}"
 
-          echo "🏃 Marking issue #$ISSUE_NUMBER as in-progress..."
+          echo "Marking issue #$ISSUE_NUMBER as in-progress..."
 
           # RACE CONDITION PREVENTION: Re-verify issue is still queued before claiming
           # Another workflow run could have claimed this issue between validation and now
@@ -607,18 +607,18 @@ jobs:
 
           # NOTE: We only post @claude comment (not workflow_dispatch) to avoid double trigger
           # The @claude comment triggers tdd-execute.yml via issue_comment event
-          echo "🤖 Posting @claude comment to trigger Claude Code workflow..."
+          echo "Posting @claude comment to trigger Claude Code workflow..."
 
           # Add comment with workflow instructions (triggers tdd-execute.yml)
           gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec using the TDD automation workflow.
 
-          ## 📋 Spec Details
+          ## Spec Details
 
           - **Test File**: \`$TEST_FILE\`
           - **Spec ID**: \`$SPEC_ID\`
           - **Issue**: #$ISSUE_NUMBER
 
-          ## 🤖 Automation Mode
+          ## Automation Mode
 
           **You are in pipeline/automation mode**:
           - ✅ Make autonomous decisions following Sovrium patterns
@@ -626,7 +626,7 @@ jobs:
           - ❌ DO NOT ask questions - proceed with best judgment
           - ❌ DO NOT skip any steps - all are MANDATORY
 
-          ## ✅ Critical Steps (ALL REQUIRED)
+          ## Critical Steps (ALL REQUIRED)
 
           1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
           2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\`:
@@ -637,7 +637,7 @@ jobs:
 
           ⚠️ **IMPORTANT: DO NOT CREATE PR** - The workflow will create the PR automatically after you push.
 
-          ## ⚠️ Error Handling
+          ## Error Handling
 
           - **If \`bun run quality\` fails**:
             1. Read the FULL error output carefully
@@ -646,7 +646,7 @@ jobs:
             4. Only THEN proceed to commit and push
           - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
 
-          ## 🚨 MOST COMMON FAILURES (Learn from history)
+          ## MOST COMMON FAILURES (Learn from history)
 
           - Skipping codebase-refactor-auditor → technical debt accumulates
           - **Creating commits with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before commit
@@ -655,7 +655,7 @@ jobs:
           **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 
           ---
-          *🤖 Automated via [Queue Processor](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+          *Automated via [Queue Processor](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
 
           echo "✅ Issue updated and @claude mentioned - Claude Code will trigger automatically"
         env:
