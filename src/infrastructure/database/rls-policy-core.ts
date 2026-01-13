@@ -113,11 +113,18 @@ export const generateAuthenticatedCheck = (permission?: TablePermission): string
 /**
  * Generate role check expression for RLS policies
  *
+ * Empty roles array results in undefined (no policy created = deny all access).
+ *
  * @param permission - Permission configuration
  * @returns SQL expression for role check, or undefined if no role check needed
  */
 export const generateRoleCheck = (permission?: TablePermission): string | undefined => {
   if (!permission || permission.type !== 'roles') {
+    return undefined
+  }
+
+  // Empty roles array = deny all access (no policy created)
+  if (permission.roles.length === 0) {
     return undefined
   }
 

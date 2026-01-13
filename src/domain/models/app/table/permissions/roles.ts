@@ -23,12 +23,12 @@ export const RolesPermissionSchema = Schema.Struct({
   /**
    * List of roles that have access.
    * Multiple roles are OR'd together in the generated policy.
+   * Empty array ([]) denies all access (no roles have permission).
    */
   roles: Schema.Array(Schema.String).pipe(
-    Schema.minItems(1),
     Schema.annotations({
-      description: 'List of roles that have access (e.g., admin, member, editor)',
-      examples: [['admin'], ['admin', 'member'], ['owner', 'admin', 'editor']],
+      description: 'List of roles that have access (e.g., admin, member, editor). Empty array denies all.',
+      examples: [['admin'], ['admin', 'member'], ['owner', 'admin', 'editor'], []],
     })
   ),
 }).pipe(
