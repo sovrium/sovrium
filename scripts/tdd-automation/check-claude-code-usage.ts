@@ -31,8 +31,8 @@
  *
  * Environment Variables:
  *   GH_TOKEN or GITHUB_TOKEN   GitHub Personal Access Token (required)
- *   TDD_DAILY_COST_LIMIT       Daily cost limit in USD (default: 15.00)
- *   TDD_WEEKLY_COST_LIMIT      Weekly cost limit in USD (default: 90.00)
+ *   TDD_DAILY_COST_LIMIT       Daily cost limit in USD (default: 200.00)
+ *   TDD_WEEKLY_COST_LIMIT      Weekly cost limit in USD (default: 1000.00)
  *   GITHUB_OUTPUT              GitHub Actions output file (auto-set in CI)
  *
  * Examples:
@@ -132,8 +132,8 @@ AUTHENTICATION:
      Generate at: https://github.com/settings/tokens
      Required scopes: repo (for workflow logs)
 
-  TDD_DAILY_COST_LIMIT       Daily cost limit in USD (default: $15.00)
-  TDD_WEEKLY_COST_LIMIT      Weekly cost limit in USD (default: $90.00)
+  TDD_DAILY_COST_LIMIT       Daily cost limit in USD (default: $200.00)
+  TDD_WEEKLY_COST_LIMIT      Weekly cost limit in USD (default: $1000.00)
 
 EXAMPLES:
   # Check usage for last 7 days

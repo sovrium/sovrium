@@ -173,8 +173,8 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TDD_DAILY_COST_LIMIT: '15.00'
-          TDD_WEEKLY_COST_LIMIT: '90.00'
+          TDD_DAILY_COST_LIMIT: '200.00'
+          TDD_WEEKLY_COST_LIMIT: '1000.00'
 
       - name: ⛔ Skip refactor if usage limits exceeded
         if: steps.usage.outputs.can_proceed != 'true'
@@ -183,10 +183,19 @@ jobs:
           echo "Skipping refactor execution until usage is reduced."
           echo "The refactor will automatically run again tomorrow if usage limits allow."
 
+      # =========================================================================
+      # NOTE: claude-code-action post-processing 404 error workaround
+      # =========================================================================
+      # The action may fail with "HttpError: Not Found" during post-processing
+      # when comparing commits. This is a known bug (issue #804, #589).
+      # Workaround: Use continue-on-error and verify success via changes/PR.
+      # Track: https://github.com/anthropics/claude-code-action/issues/804
+      # =========================================================================
       - name: Run Claude Code with codebase-refactor-auditor
         id: claude
         if: steps.usage.outputs.can_proceed == 'true'
         uses: anthropics/claude-code-action@v1
+        continue-on-error: true # Required: Action may fail in post-processing even when work completed
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Use PAT with 'workflows' scope for git push operations
@@ -246,7 +255,7 @@ jobs:
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for refactoring)
           # - --max-budget-usd: Cost-based limit instead of turn-based (refactoring can be extensive)
-          #   Using $10 budget allows comprehensive audits while preventing runaway costs
+          #   Using $25 budget allows comprehensive audits while preventing runaway costs
           #   The 120-minute timeout acts as the ultimate time-based backstop
           # - --allowedTools: Principle of least privilege - only tools needed for refactoring
           # - --disallowedTools: Block tools not needed for autonomous refactoring
@@ -256,7 +265,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-budget-usd 10.00
+            --max-budget-usd 25.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
@@ -266,6 +275,7 @@ jobs:
         env:
           BRANCH_NAME: ${{ steps.branch.outputs.branch }}
           GH_TOKEN: ${{ github.token }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         run: |
           echo "🔍 Verifying refactor status..."
 
@@ -276,12 +286,29 @@ jobs:
             echo "⚠️  No PR created - refactor may have found no issues to fix"
             echo "   This is normal if codebase is already clean"
             echo "pr_created=false" >> $GITHUB_OUTPUT
+
+            # WORKAROUND: Check if action failed due to post-processing 404 error
+            # If Claude outcome was failure but no PR was expected, that's OK
+            if [ "$CLAUDE_OUTCOME" = "failure" ]; then
+              echo ""
+              echo "ℹ️  Note: Claude action reported failure (outcome: $CLAUDE_OUTCOME)"
+              echo "   This may be the known post-processing 404 error (issue #804)"
+              echo "   If no refactoring was needed, this is expected behavior"
+            fi
             exit 0
           fi
 
           echo "✅ PR #$PR_NUMBER created successfully"
           echo "pr_created=true" >> $GITHUB_OUTPUT
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+          # WORKAROUND: If PR exists, treat as success regardless of action outcome
+          if [ "$CLAUDE_OUTCOME" = "failure" ]; then
+            echo ""
+            echo "⚠️  WORKAROUND APPLIED: Action reported failure but PR was created"
+            echo "   This is likely the known post-processing 404 error (issue #804)"
+            echo "   Treating as SUCCESS since Claude completed its work"
+          fi
 
           # Check PR status
           PR_STATUS=$(gh pr view "$PR_NUMBER" --json state --jq '.state')

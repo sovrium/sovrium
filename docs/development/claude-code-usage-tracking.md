@@ -28,17 +28,17 @@ This guide explains how to track Claude Code usage for your Max subscription wit
 
 TDD automation workflows implement **fail-closed blocking** based on historical cost data:
 
-| Threshold        | Value  | Description                                  |
-| ---------------- | ------ | -------------------------------------------- |
-| **Daily Limit**  | $15.00 | 15% of estimated ~$100/week Max subscription |
-| **Weekly Limit** | $90.00 | 90% of weekly allocation (10% buffer)        |
+| Threshold        | Value    | Description              |
+| ---------------- | -------- | ------------------------ |
+| **Daily Limit**  | $200.00  | 20% of weekly allocation |
+| **Weekly Limit** | $1000.00 | Weekly budget allocation |
 
 ### When Blocking Occurs
 
 The system blocks Claude Code execution when:
 
-1. **Daily cost exceeds $15.00**: Too many runs in the last 24 hours
-2. **Weekly cost exceeds $90.00**: Approaching weekly subscription limit
+1. **Daily cost exceeds $200.00**: Too many runs in the last 24 hours
+2. **Weekly cost exceeds $1000.00**: Approaching weekly budget limit
 3. **Data unavailable**: Cannot verify usage (fail-closed for safety)
 
 ### Workflows with Blocking
@@ -72,8 +72,8 @@ Configure limits via environment variables:
 ```bash
 # In GitHub Actions workflow
 env:
-  TDD_DAILY_COST_LIMIT: '15.00'   # Default: $15.00
-  TDD_WEEKLY_COST_LIMIT: '90.00'  # Default: $90.00
+  TDD_DAILY_COST_LIMIT: '200.00'   # Default: $200.00
+  TDD_WEEKLY_COST_LIMIT: '1000.00'  # Default: $1000.00
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -90,8 +90,8 @@ env:
     fi
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    TDD_DAILY_COST_LIMIT: '15.00'
-    TDD_WEEKLY_COST_LIMIT: '90.00'
+    TDD_DAILY_COST_LIMIT: '200.00'
+    TDD_WEEKLY_COST_LIMIT: '1000.00'
 
 - name: Run Claude Code
   if: steps.usage.outputs.can_proceed == 'true'
@@ -162,11 +162,11 @@ Average per run: 61,728 tokens ($1.11)
 USAGE BREAKDOWN
    Today (last 24h):
      Runs: 6
-     Cost: $7.23 / $15.00 (48.2% of daily limit)
+     Cost: $7.23 / $200.00 (3.6% of daily limit)
 
    This week (last 7d):
      Runs: 38
-     Cost: $42.18 / $90.00 (46.9% of weekly limit)
+     Cost: $42.18 / $1000.00 (4.2% of weekly limit)
 
    Monthly projection:
      Cost: $180.77

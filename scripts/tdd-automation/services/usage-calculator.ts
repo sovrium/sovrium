@@ -154,13 +154,13 @@ export function aggregateUsage(usageList: UsageData[]): {
 /**
  * Default cost limits for blocking behavior
  *
- * Based on estimated $100/week Claude Code Max subscription:
- * - Daily: $15 (~15% of weekly)
- * - Weekly: $90 (90% of weekly allocation)
+ * Based on Claude Code usage budget allocation:
+ * - Daily: $200 (20% of weekly)
+ * - Weekly: $1000 (weekly allocation)
  */
 export const DEFAULT_COST_LIMITS = {
-  dailyLimitUsd: 15.0,
-  weeklyLimitUsd: 90.0,
+  dailyLimitUsd: 200.0,
+  weeklyLimitUsd: 1000.0,
 } as const
 
 /**
@@ -187,8 +187,8 @@ export type CostLimitCheckResult = {
  *
  * @param dailyCost - Total cost in last 24 hours (USD)
  * @param weeklyCost - Total cost in last 7 days (USD)
- * @param dailyLimit - Maximum allowed daily cost (default: $15.00)
- * @param weeklyLimit - Maximum allowed weekly cost (default: $90.00)
+ * @param dailyLimit - Maximum allowed daily cost (default: $200.00)
+ * @param weeklyLimit - Maximum allowed weekly cost (default: $1000.00)
  * @returns Result with canProceed boolean and detailed breakdown
  */
 export function checkCostLimits(
