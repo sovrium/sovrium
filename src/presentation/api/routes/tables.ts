@@ -827,10 +827,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           : { success: true as const, filter: undefined }
 
         if (!parseFilterResult.success) {
-          return c.json(
-            { error: parseFilterResult.error.message },
-            parseFilterResult.error.status
-          )
+          return c.json({ error: parseFilterResult.error.message }, parseFilterResult.error.status)
         }
 
         const parsedFilter = parseFilterResult.filter
