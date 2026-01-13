@@ -107,6 +107,8 @@ export function getRecord(
  * Create a new record with session context
  *
  * Automatically sets organization_id and owner_id from session.
+ * Security: Silently overrides any user-provided organization_id to prevent
+ * cross-organization data injection attacks.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -129,11 +131,16 @@ export function createRecord(
         )) as readonly Record<string, unknown>[]
 
         const hasOrgId = columnCheck.length > 0
-        const needsOrgId = hasOrgId && !('organization_id' in fields)
 
-        // Build base entries from user fields
-        const baseEntries = Object.entries(fields)
-        if (baseEntries.length === 0 && !needsOrgId) {
+        // Security: Filter out any user-provided organization_id if table has that column
+        // This prevents malicious users from injecting data into other organizations
+        const sanitizedFields = hasOrgId
+          ? Object.fromEntries(Object.entries(fields).filter(([key]) => key !== 'organization_id'))
+          : fields
+
+        // Build base entries from sanitized user fields
+        const baseEntries = Object.entries(sanitizedFields)
+        if (baseEntries.length === 0 && !hasOrgId) {
           // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
           throw new Error('Cannot create record with no fields')
         }
@@ -145,11 +152,11 @@ export function createRecord(
         })
         const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
 
-        // Add organization_id column and value if needed (immutable)
-        const columnIdentifiers = needsOrgId
+        // Add organization_id column and value from session (immutable)
+        const columnIdentifiers = hasOrgId
           ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
           : baseColumnIdentifiers
-        const valueParams = needsOrgId
+        const valueParams = hasOrgId
           ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
           : baseValueParams
 

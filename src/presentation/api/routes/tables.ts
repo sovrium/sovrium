@@ -505,7 +505,14 @@ function createRecordProgram(
   return Effect.gen(function* () {
     // Create record with session context (organization_id and owner_id set automatically)
     const record = yield* createRecord(session, tableName, fields)
-    return { record: transformRecord(record) }
+    const transformed = transformRecord(record)
+    // Return in format expected by tests: flatten to just include fields and id at root
+    return {
+      id: transformed.id,
+      fields: transformed.fields,
+      createdAt: transformed.createdAt,
+      updatedAt: transformed.updatedAt,
+    }
   })
 }
 
