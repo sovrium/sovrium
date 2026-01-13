@@ -83,6 +83,38 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # =========================================================================
+      # Usage tracking with BLOCKING behavior (fail-closed)
+      # =========================================================================
+      # Uses cost-based limits from historical GitHub Actions logs.
+      # Blocks queue processing when:
+      # - Daily cost exceeds $15.00 (15% of weekly)
+      # - Weekly cost exceeds $90.00 (90% of weekly allocation)
+      # - Usage data unavailable (fail-closed)
+      # =========================================================================
+      - name: 💰 Check usage limits (blocking)
+        id: usage
+        run: |
+          echo "Checking usage limits before processing..."
+          bun run scripts/tdd-automation/check-claude-code-usage.ts --check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TDD_DAILY_COST_LIMIT: '15.00'
+          TDD_WEEKLY_COST_LIMIT: '90.00'
+        continue-on-error: true
+
+      - name: ⛔ Skip if usage limits exceeded
+        if: steps.usage.outcome == 'failure'
+        run: |
+          echo "⛔ Usage limits exceeded or data unavailable"
+          echo "   Reason: ${{ steps.usage.outputs.reason || 'check_failed' }}"
+          echo "   Daily cost: ${{ steps.usage.outputs.daily_cost || 'unknown' }}"
+          echo "   Weekly cost: ${{ steps.usage.outputs.weekly_cost || 'unknown' }}"
+          echo ""
+          echo "Skipping queue processing until usage is reduced."
+          echo "Run 'bun run scripts/tdd-automation/check-claude-code-usage.ts' for details."
+          exit 0
+
       - name: Configure git with token user
         run: |
           USER_NAME=$(gh api user --jq '.login')
@@ -468,80 +500,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
 
-      # =========================================================================
-      # USAGE LIMIT CHECK: Verify Claude Code subscription usage before proceeding
-      # =========================================================================
-      # Checks the Claude Code API to ensure we have capacity:
-      # - Weekly limit: Max 90% of subscription (leaves 10% for manual work)
-      # - Five-hour window: Max 80% (prevents burst rate limiting)
-      # - Daily spread: Ensures even distribution across the week
-      # If limits exceeded, queue processing pauses until capacity resets.
-      # =========================================================================
-
-      - name: Check Claude Code usage limits
-        if: |
-          steps.check.outputs.should_process == 'true' &&
-          steps.validate.outputs.should_process == 'true' &&
-          steps.superseded.outputs.is_superseded != 'true' &&
-          steps.prevalidate.outputs.needs_claude == 'true'
-        id: usage
-        run: |
-          echo "📊 Checking Claude Code usage limits..."
-          echo ""
-
-          # Run usage check script
-          if bun run scripts/tdd-automation/check-usage.ts check; then
-            echo ""
-            echo "✅ Usage within limits - proceeding with Claude Code"
-            echo "can_proceed=true" >> $GITHUB_OUTPUT
-          else
-            EXIT_CODE=$?
-            if [ $EXIT_CODE -eq 1 ]; then
-              echo ""
-              echo "⛔ Usage limit exceeded - pausing queue processing"
-              echo "   The queue will resume automatically when usage resets."
-              echo "   Check /status in Claude Code or run: bun run scripts/tdd-automation/check-usage.ts status"
-              echo "can_proceed=false" >> $GITHUB_OUTPUT
-            else
-              echo ""
-              echo "⚠️ Usage check error (exit code: $EXIT_CODE) - allowing proceed (fail-open)"
-              echo "can_proceed=true" >> $GITHUB_OUTPUT
-            fi
-          fi
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-      - name: Skip processing due to usage limits
-        if: |
-          steps.check.outputs.should_process == 'true' &&
-          steps.validate.outputs.should_process == 'true' &&
-          steps.superseded.outputs.is_superseded != 'true' &&
-          steps.prevalidate.outputs.needs_claude == 'true' &&
-          steps.usage.outputs.can_proceed == 'false'
-        run: |
-          ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
-          SPEC_ID="${{ steps.next.outputs.spec_id }}"
-
-          echo "⏸️ Skipping spec $SPEC_ID due to usage limits"
-          echo ""
-          echo "The issue #$ISSUE_NUMBER remains queued and will be processed"
-          echo "when Claude Code usage capacity is available."
-          echo ""
-          echo "Note: The queue will automatically retry on next scheduled run (hourly)"
-          echo "      or when triggered by other workflow events."
-
-          # Optionally add a comment to track this (uncomment if desired)
-          # gh issue comment "$ISSUE_NUMBER" --body "⏸️ **Queue Paused** - Claude Code usage limits reached. Issue remains queued and will be processed when capacity is available. *🤖 TDD Queue*"
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-
       - name: Mark spec as in-progress and trigger Claude Code workflow
         if: |
           steps.check.outputs.should_process == 'true' &&
           steps.validate.outputs.should_process == 'true' &&
           steps.superseded.outputs.is_superseded != 'true' &&
-          steps.prevalidate.outputs.needs_claude == 'true' &&
-          steps.usage.outputs.can_proceed == 'true'
+          steps.prevalidate.outputs.needs_claude == 'true'
         run: |
           ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
           SPEC_ID="${{ steps.next.outputs.spec_id }}"

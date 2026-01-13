@@ -175,7 +175,7 @@ Domain bases:
 | Daily  | $15.00 |
 | Weekly | $90.00 |
 
-Check usage: `bun run scripts/tdd-automation/check-usage-from-logs.ts --check`
+Check usage: `bun run scripts/tdd-automation/check-claude-code-usage.ts --check`
 
 ## Troubleshooting
 

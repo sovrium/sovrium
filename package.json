@@ -85,10 +85,9 @@
     "db:check": "drizzle-kit check",
     "website:build": "bun run website/build.ts",
     "website:serve": "bun --watch run website/serve.ts",
-    "tdd:usage": "bun run scripts/tdd-automation/check-usage.ts",
-    "tdd:usage:check": "bun run scripts/tdd-automation/check-usage.ts check",
-    "tdd:usage:json": "bun run scripts/tdd-automation/check-usage.ts json",
-    "tdd:close-stale-issues": "bun run scripts/tdd-automation/close-stale-issues.ts",
+    "tdd:usage": "bun run scripts/tdd-automation/check-claude-code-usage.ts",
+    "tdd:usage:7d": "bun run scripts/tdd-automation/check-claude-code-usage.ts --days 7",
+    "tdd:usage:30d": "bun run scripts/tdd-automation/check-claude-code-usage.ts --days 30",
     "release": "semantic-release"
   },
   "devDependencies": {
@@ -130,7 +129,9 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "semantic-release": "^25.0.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.53.0"
+    "typescript-eslint": "^8.53.0",
+    "@octokit/rest": "^22.0.1",
+    "jszip": "^3.10.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

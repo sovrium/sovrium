@@ -289,12 +289,12 @@ All configuration is hardcoded in workflow files (no central config file):
 
 **Timeout Configuration** (in `tdd-monitor.yml`):
 
-| Environment Variable          | Value | Purpose                                           |
-| ----------------------------- | ----- | ------------------------------------------------- |
-| `STUCK_TIMEOUT_MINUTES`       | 90    | Specs stuck in-progress >90 min are recovered     |
-| `PR_STUCK_TIMEOUT_MINUTES`    | 120   | PRs stuck >120 min with failures are force-closed |
-| `RETRY_STUCK_TIMEOUT_MINUTES` | 30    | Retries stuck >30 min are recovered               |
-| `FAILED_PR_COOLDOWN_MINUTES`  | 30    | Minimum wait between regression fix attempts      |
+| Environment Variable          | Value | Purpose                                                                             |
+| ----------------------------- | ----- | ----------------------------------------------------------------------------------- |
+| `STUCK_TIMEOUT_MINUTES`       | 105   | Specs stuck in-progress >105 min are recovered (15 min buffer above Claude timeout) |
+| `PR_STUCK_TIMEOUT_MINUTES`    | 120   | PRs stuck >120 min with failures are force-closed                                   |
+| `RETRY_STUCK_TIMEOUT_MINUTES` | 30    | Retries stuck >30 min are recovered                                                 |
+| `FAILED_PR_COOLDOWN_MINUTES`  | 30    | Minimum wait between regression fix attempts                                        |
 
 ### 4. Required Secrets
 
@@ -465,7 +465,7 @@ Every 15 minutes (or manual):
 
 **Recovery workflow runs every 30 minutes**:
 
-1. **Scan for stuck specs**: Find specs `in-progress` with no updates > 90 minutes
+1. **Scan for stuck specs**: Find specs `in-progress` with no updates > 105 minutes
 2. **Automatic re-queue**: Reset stuck specs to `queued` state (preserve retry count)
 3. **Post recovery comment**: Notify about timeout and re-queue
 4. **Queue continues**: Stuck specs don't permanently block the pipeline
