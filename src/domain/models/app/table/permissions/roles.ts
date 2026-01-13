@@ -27,7 +27,8 @@ export const RolesPermissionSchema = Schema.Struct({
    */
   roles: Schema.Array(Schema.String).pipe(
     Schema.annotations({
-      description: 'List of roles that have access (e.g., admin, member, editor). Empty array denies all.',
+      description:
+        'List of roles that have access (e.g., admin, member, editor). Empty array denies all.',
       examples: [['admin'], ['admin', 'member'], ['owner', 'admin', 'editor'], []],
     })
   ),

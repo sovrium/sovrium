@@ -22,13 +22,15 @@ describe('RolesPermissionSchema', () => {
       const result = Schema.decodeUnknownSync(RolesPermissionSchema)(permission)
       expect(result).toEqual(permission)
     })
+
+    test('should accept empty roles array (denies all access)', () => {
+      const permission = { type: 'roles' as const, roles: [] }
+      const result = Schema.decodeUnknownSync(RolesPermissionSchema)(permission)
+      expect(result).toEqual(permission)
+    })
   })
 
   describe('invalid permissions', () => {
-    test('should reject empty roles array', () => {
-      const permission = { type: 'roles', roles: [] }
-      expect(() => Schema.decodeUnknownSync(RolesPermissionSchema)(permission)).toThrow()
-    })
 
     test('should reject missing roles', () => {
       const permission = { type: 'roles' }
