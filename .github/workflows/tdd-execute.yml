@@ -537,7 +537,8 @@ jobs:
           #
           # Claude Code Best Practices (per https://code.claude.com/docs/github-actions):
           # - --model: Explicit model for cost predictability (Sonnet 4 is cost-effective for TDD)
-          # - --max-budget-usd: Reduced to $5 (e2e-test-fixer only, refactor-auditor runs separately)
+          # - --max-budget-usd: Increased to $10 (e2e-test-fixer only, refactor-auditor runs separately)
+          #   Budget increased from $5 to handle specs with complex context or confusing issue history
           # - --allowedTools: Principle of least privilege - only tools needed for TDD workflow
           # - --disallowedTools: Block tools not needed for autonomous code implementation
           #   - AskUserQuestion: No human present in automation (would hang or skip)
@@ -546,7 +547,7 @@ jobs:
           #   - SlashCommand: Prevents unintended command execution
           claude_args: >-
             --model claude-sonnet-4-5-20250929
-            --max-budget-usd 5.00
+            --max-budget-usd 10.00
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
