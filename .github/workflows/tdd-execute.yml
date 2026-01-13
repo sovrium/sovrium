@@ -419,6 +419,8 @@ jobs:
       branch_name: ${{ steps.set_success.outputs.branch_name }}
       spec_id: ${{ steps.issue.outputs.spec_id }}
       issue_number: ${{ steps.issue.outputs.issue_number }}
+      sdk_crash_after_success: ${{ steps.set_success.outputs.sdk_crash_after_success }}
+      claude_work_succeeded: ${{ steps.detect_error.outputs.claude_work_succeeded }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -580,6 +582,46 @@ jobs:
 
           IS_INFRA_ERROR=false
           ERROR_TYPE="unknown"
+          CLAUDE_WORK_SUCCEEDED=false
+
+          # =========================================================================
+          # SDK CRASH DETECTION: Check workflow logs for Claude's success output
+          # =========================================================================
+          # The SDK outputs JSON lines during execution. If we see "subtype": "success"
+          # in the current workflow run logs, Claude completed its work successfully.
+          # A subsequent SDK crash (before push) is a separate infrastructure issue.
+          #
+          # This catches the case where:
+          # - Claude logs: {"type": "result", "subtype": "success", ...}
+          # - SDK then crashes before git push
+          # - Action reports failure, but Claude's work is done
+          # =========================================================================
+          echo "Checking workflow logs for Claude success output..."
+
+          # Get the current job's logs to check for Claude's success output
+          # We look for the JSON result output that indicates Claude completed successfully
+          WORKFLOW_LOG=""
+
+          # Try to get logs from the current run
+          # Note: gh run view --log can be slow, so we use a timeout
+          if timeout 30 gh run view ${{ github.run_id }} --log 2>/dev/null > /tmp/workflow_log.txt; then
+            WORKFLOW_LOG=$(cat /tmp/workflow_log.txt)
+          fi
+
+          # Check for Claude's success output in logs
+          # The SDK outputs: {"type": "result", "subtype": "success", ...}
+          if [ -n "$WORKFLOW_LOG" ]; then
+            # Look for the success result JSON (may be on one line or formatted)
+            if echo "$WORKFLOW_LOG" | grep -q '"subtype"[[:space:]]*:[[:space:]]*"success"'; then
+              echo "FOUND Claude success output in logs"
+              CLAUDE_WORK_SUCCEEDED=true
+            elif echo "$WORKFLOW_LOG" | grep -q '"subtype": "success"'; then
+              echo "FOUND Claude success output in logs (compact format)"
+              CLAUDE_WORK_SUCCEEDED=true
+            fi
+          else
+            echo "Could not retrieve workflow logs for SDK success detection"
+          fi
 
           # Calculate step duration to detect timeout (GitHub marks some timeouts as "success")
           START_TIME="${{ steps.claude.outputs.startedAt || '' }}"
@@ -612,36 +654,52 @@ jobs:
               echo "Step was cancelled - treating as timeout"
             elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
               # =========================================================================
-              # WORKAROUND: Check if this is the known post-processing 404 error
+              # WORKAROUND 1: Check if this is SDK crash AFTER Claude success
               # =========================================================================
-              # The claude-code-action has a known bug where it fails with:
-              # "HttpError: Not Found - compare-two-commits" during post-processing
-              # even when Claude completed successfully and pushed a branch.
-              #
-              # Detection: If outcome=failure but branch exists, treat as success
-              # This is a false negative from the action's internal error handling
-              # Track: https://github.com/anthropics/claude-code-action/issues/804
+              # If we detected Claude's success output in logs but action failed,
+              # the SDK crashed after Claude completed its work (before git push).
+              # This is NOT retriable - Claude's work is done, we need to recover it.
               # =========================================================================
-              echo "Claude Code reported failure - checking if branch was created..."
-
-              BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
-              BRANCH_EXISTS=$(gh api "/repos/$REPO/branches" \
-                --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
-
-              if [ -n "$BRANCH_EXISTS" ] && [ "$BRANCH_EXISTS" != "null" ]; then
-                echo "WORKAROUND: Branch '$BRANCH_EXISTS' exists despite failure outcome"
-                echo "   This is likely the known post-processing 404 error (issue #804)"
-                echo "   Treating as SUCCESS since Claude completed its work"
-                ERROR_TYPE="post_processing_404_false_negative"
-                IS_INFRA_ERROR=false
+              if [ "$CLAUDE_WORK_SUCCEEDED" = "true" ]; then
+                echo "SDK CRASH DETECTED: Claude succeeded but SDK crashed before push"
+                echo "   Claude's work completed (found success in logs)"
+                echo "   SDK crashed during post-processing"
+                echo "   This should NOT trigger a retry - work is done but needs recovery"
+                ERROR_TYPE="sdk_crash_after_success"
+                IS_INFRA_ERROR=false  # Not a retry candidate
               else
-                # For failures, check if it's infrastructure or code issue
-                # Look for common infrastructure error patterns in logs if available
-                ERROR_TYPE="claude_failure"
-                echo "Claude Code failed - checking for infrastructure issues..."
+                # =========================================================================
+                # WORKAROUND 2: Check if this is the known post-processing 404 error
+                # =========================================================================
+                # The claude-code-action has a known bug where it fails with:
+                # "HttpError: Not Found - compare-two-commits" during post-processing
+                # even when Claude completed successfully and pushed a branch.
+                #
+                # Detection: If outcome=failure but branch exists, treat as success
+                # This is a false negative from the action's internal error handling
+                # Track: https://github.com/anthropics/claude-code-action/issues/804
+                # =========================================================================
+                echo "Claude Code reported failure - checking if branch was created..."
 
-                # Default to infrastructure error for retries (conservative approach)
-                IS_INFRA_ERROR=true
+                BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
+                BRANCH_EXISTS=$(gh api "/repos/$REPO/branches" \
+                  --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
+
+                if [ -n "$BRANCH_EXISTS" ] && [ "$BRANCH_EXISTS" != "null" ]; then
+                  echo "WORKAROUND: Branch '$BRANCH_EXISTS' exists despite failure outcome"
+                  echo "   This is likely the known post-processing 404 error (issue #804)"
+                  echo "   Treating as SUCCESS since Claude completed its work"
+                  ERROR_TYPE="post_processing_404_false_negative"
+                  IS_INFRA_ERROR=false
+                else
+                  # For failures, check if it's infrastructure or code issue
+                  # Look for common infrastructure error patterns in logs if available
+                  ERROR_TYPE="claude_failure"
+                  echo "Claude Code failed - checking for infrastructure issues..."
+
+                  # Default to infrastructure error for retries (conservative approach)
+                  IS_INFRA_ERROR=true
+                fi
               fi
             elif [ "$CLAUDE_OUTCOME" = "success" ]; then
               # Even success might be a timeout if duration is suspicious
@@ -658,6 +716,7 @@ jobs:
 
           echo "is_infrastructure_error=$IS_INFRA_ERROR" >> $GITHUB_OUTPUT
           echo "error_type=$ERROR_TYPE" >> $GITHUB_OUTPUT
+          echo "claude_work_succeeded=$CLAUDE_WORK_SUCCEEDED" >> $GITHUB_OUTPUT
 
       # CRITICAL: Explicitly set success output to fix detection issue
       # GitHub Actions has issues with expression-based outputs when steps use continue-on-error
@@ -668,6 +727,10 @@ jobs:
       # in compareCommitsWithBasehead that fails when the branch doesn't exist yet or has
       # URL encoding issues. We use branch existence as the ground truth for success.
       # Track: https://github.com/anthropics/claude-code-action/issues/804
+      #
+      # SDK CRASH HANDLING:
+      # When Claude succeeds but SDK crashes before git push, we detect this via log analysis.
+      # In this case, Claude's work is done but not pushed - manual recovery needed.
       - name: Set success output
         id: set_success
         if: always()
@@ -677,10 +740,12 @@ jobs:
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           ERROR_TYPE: ${{ steps.detect_error.outputs.error_type }}
+          CLAUDE_WORK_SUCCEEDED: ${{ steps.detect_error.outputs.claude_work_succeeded }}
         run: |
           echo "Setting success output..."
           echo "   Claude outcome: $CLAUDE_OUTCOME"
           echo "   Error type: $ERROR_TYPE"
+          echo "   Claude work succeeded (from logs): $CLAUDE_WORK_SUCCEEDED"
 
           # Check if a branch was created (ground truth for success)
           # This is the AUTHORITATIVE check - branch existence means Claude did its job
@@ -702,17 +767,45 @@ jobs:
               echo "   Treating as SUCCESS since Claude completed its work"
             fi
             echo "claude_success=true" >> $GITHUB_OUTPUT
+            echo "sdk_crash_after_success=false" >> $GITHUB_OUTPUT
           else
             echo "has_branch=false" >> $GITHUB_OUTPUT
             echo "branch_name=" >> $GITHUB_OUTPUT
             echo "⚠️  No branch found with pattern: $BRANCH_PATTERN"
 
+            # =========================================================================
+            # SDK CRASH AFTER SUCCESS HANDLING
+            # =========================================================================
+            # If Claude's work succeeded (detected via log analysis) but no branch exists,
+            # the SDK crashed before git push. This is a special case:
+            # - Claude's work is DONE (no retry needed - would waste budget)
+            # - Work exists locally in the runner but was not pushed
+            # - Manual intervention needed to recover
+            # =========================================================================
+            if [ "$ERROR_TYPE" = "sdk_crash_after_success" ] || [ "$CLAUDE_WORK_SUCCEEDED" = "true" ]; then
+              echo ""
+              echo "╔══════════════════════════════════════════════════════════════════════╗"
+              echo "║  SDK CRASH AFTER CLAUDE SUCCESS - WORK NOT PUSHED                    ║"
+              echo "╠══════════════════════════════════════════════════════════════════════╣"
+              echo "║  Claude completed its work successfully (verified via log analysis)  ║"
+              echo "║  BUT the SDK crashed before git push could execute.                  ║"
+              echo "║                                                                       ║"
+              echo "║  ACTION REQUIRED:                                                     ║"
+              echo "║  - DO NOT retry (wastes budget, Claude already did the work)         ║"
+              echo "║  - Manual retry may help if SDK issue was transient                  ║"
+              echo "║  - Check GitHub Actions runner for any recoverable state             ║"
+              echo "╚══════════════════════════════════════════════════════════════════════╝"
+              echo ""
+              echo "claude_success=false" >> $GITHUB_OUTPUT
+              echo "sdk_crash_after_success=true" >> $GITHUB_OUTPUT
             # No branch = genuine failure
-            if [ "$CLAUDE_OUTCOME" = "success" ]; then
+            elif [ "$CLAUDE_OUTCOME" = "success" ]; then
               echo "claude_success=true" >> $GITHUB_OUTPUT
+              echo "sdk_crash_after_success=false" >> $GITHUB_OUTPUT
               echo "✅ Claude completed successfully (but no branch created - may be no changes needed)"
             else
               echo "claude_success=false" >> $GITHUB_OUTPUT
+              echo "sdk_crash_after_success=false" >> $GITHUB_OUTPUT
               echo "❌ Claude did not complete successfully (outcome: $CLAUDE_OUTCOME)"
             fi
           fi
@@ -726,10 +819,44 @@ jobs:
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
           RETRY_ATTEMPT: ${{ github.event.inputs.retry_attempt || 1 }}
           ERROR_TYPE: ${{ steps.detect_error.outputs.error_type }}
+          SDK_CRASH_AFTER_SUCCESS: ${{ steps.set_success.outputs.sdk_crash_after_success }}
         run: |
           echo "Updating issue #$ISSUE_NUMBER with failure information..."
 
-          gh issue comment "$ISSUE_NUMBER" --body "**Claude Code Execution Failed (Attempt $RETRY_ATTEMPT)**
+          # Special handling for SDK crash after Claude success
+          if [ "$SDK_CRASH_AFTER_SUCCESS" = "true" ]; then
+            echo "SDK crash after Claude success detected - posting special guidance..."
+
+            gh issue comment "$ISSUE_NUMBER" --body "**SDK Crash After Claude Success - Work Not Pushed**
+
+          **Error Type**: \`$ERROR_TYPE\`
+          **Workflow Run**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ## What Happened
+
+          Claude completed its work **successfully** (verified via log analysis showing \`\"subtype\": \"success\"\`), but the SDK crashed before the git push operation could execute. Claude's work is done, but it was never pushed to the repository.
+
+          ## Why This Won't Be Retried
+
+          **Retrying would waste budget** - Claude already did the work. The SDK crash is a separate infrastructure issue that occurred after Claude finished.
+
+          ## Recovery Options
+
+          1. **Manual Retry (Recommended)**: Re-run this workflow - Claude will detect the previous work context and may complete more quickly
+          2. **Check for Transient Issues**: The SDK crash may have been a temporary network/API issue
+          3. **Report to Anthropic**: If this happens frequently, report to [claude-code-action issues](https://github.com/anthropics/claude-code-action/issues)
+
+          ## Technical Details
+
+          - Claude's JSON output showed: \`{\"type\": \"result\", \"subtype\": \"success\"}\`
+          - SDK then crashed with error before git push
+          - No branch was created on the remote repository
+
+          ---
+          *SDK Crash Handler - Not Retrying to Save Budget*"
+          else
+            # Standard failure comment
+            gh issue comment "$ISSUE_NUMBER" --body "**Claude Code Execution Failed (Attempt $RETRY_ATTEMPT)**
 
           **Error Type**: \`$ERROR_TYPE\`
           **Workflow Run**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -738,6 +865,7 @@ jobs:
 
           ---
           *Infrastructure Error Handler*"
+          fi
 
   # =========================================================================
   # PHASE 2: Finalize e2e-test-fixer changes
@@ -1018,12 +1146,14 @@ jobs:
     # Only retry if:
     # 1. Claude didn't report success AND
     # 2. No branch was created (branch existence = work completed, just false negative on outcome) AND
-    # 3. The failure was infrastructure-related (not a code/logic error)
+    # 3. The failure was infrastructure-related (not a code/logic error) AND
+    # 4. NOT an SDK crash after Claude success (retrying would waste budget)
     if: |
       always() &&
       needs.execute-e2e-fixer.outputs.claude_success != 'true' &&
       needs.execute-e2e-fixer.outputs.has_branch != 'true' &&
-      needs.execute-e2e-fixer.outputs.is_infrastructure_error == 'true'
+      needs.execute-e2e-fixer.outputs.is_infrastructure_error == 'true' &&
+      needs.execute-e2e-fixer.outputs.sdk_crash_after_success != 'true'
     permissions:
       actions: write
       issues: write
