@@ -173,15 +173,29 @@ The agent automatically detects pipeline mode when:
 
 When operating in pipeline mode:
 
-**⚠️ WORKFLOW-MANAGED FINALIZATION (Pipeline Mode Only)**:
-In the TDD automation pipeline, finalization tasks are handled by the GitHub Actions workflow, NOT by this agent:
-- ❌ **DO NOT** run `bun run license` (handled by `finalize-fixer` job)
-- ❌ **DO NOT** push to remote (handled by `finalize-fixer` job)
-- ❌ **DO NOT** create PR (handled by `verify-success` job)
-- ✅ **DO** commit changes locally with conventional commit message
-- ✅ **DO** run `bun run quality` to validate before committing
+**⚠️ GIT WORKFLOW (Pipeline Mode - CRITICAL)**:
+In the TDD automation pipeline, you MUST complete the full git workflow. The `finalize-fixer` job handles post-processing but REQUIRES you to push first:
 
-The workflow's `finalize-fixer` job automatically: adds copyright headers, amends the commit if needed, and pushes to remote. This ensures reliable, consistent finalization regardless of agent execution state.
+- ❌ **DO NOT** run `bun run license` (handled by `finalize-fixer` job)
+- ❌ **DO NOT** create PR (handled by `verify-success` job)
+- ✅ **DO** run `bun run quality` to validate before committing
+- ✅ **DO** commit changes locally with conventional commit message
+- ✅ **DO** push to remote (**MANDATORY** - workflow cannot proceed without it)
+
+**MANDATORY GIT SEQUENCE** (execute ALL steps in order):
+```bash
+git add -A
+git commit -m "fix: implement SPEC-ID"
+git push origin HEAD
+```
+
+**WHY PUSH IS MANDATORY**:
+- The `finalize-fixer` job only runs if your branch EXISTS on GitHub
+- If you report success but don't push, the workflow detects an anomaly
+- This will trigger an automatic retry (wasting time and budget)
+- **VERIFY**: After `git push`, confirm output shows branch was pushed
+
+The workflow's `finalize-fixer` job then: adds copyright headers, amends the commit if needed, and force-pushes. But it REQUIRES your branch to exist on GitHub first.
 
 1. **Non-Interactive Execution**:
    - No clarifying questions asked - make best decisions based on tests
@@ -996,13 +1010,26 @@ Skill({ command: "effect-schema-generator" })
 - Use Bun Test framework
 - **Tests run automatically**: Hooks will automatically run your unit tests after you Edit/Write the test file
 
-### Step 8: Commit
+### Step 8: Commit and Push (MANDATORY)
 - Make a conventional commit with appropriate type:
   - `feat:` for new features
   - `fix:` for bug fixes
   - `test:` for test-only changes
 - Include clear description of what test was fixed
 - Example: `feat: implement login form to satisfy auth E2E test`
+
+**⚠️ PIPELINE MODE: MANDATORY GIT SEQUENCE**
+In automated pipeline mode (branch matches `claude/issue-*`), you MUST execute ALL steps:
+```bash
+git add -A
+git commit -m "fix: implement SPEC-ID"
+git push origin HEAD
+```
+
+**VERIFY PUSH SUCCEEDED**: Check the output shows the branch was pushed to origin. If push fails:
+1. Check for network errors in output
+2. Retry the push command
+3. If still failing, report the error (do NOT report success without successful push)
 
 ### Step 8: Move to Next Test (OR Hand Off to codebase-refactor-auditor)
 

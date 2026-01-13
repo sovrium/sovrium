@@ -420,6 +420,7 @@ jobs:
       spec_id: ${{ steps.issue.outputs.spec_id }}
       issue_number: ${{ steps.issue.outputs.issue_number }}
       sdk_crash_after_success: ${{ steps.set_success.outputs.sdk_crash_after_success }}
+      no_branch_after_success: ${{ steps.set_success.outputs.no_branch_after_success }}
       claude_work_succeeded: ${{ steps.detect_error.outputs.claude_work_succeeded }}
     steps:
       - name: Checkout repository
@@ -768,6 +769,7 @@ jobs:
             fi
             echo "claude_success=true" >> $GITHUB_OUTPUT
             echo "sdk_crash_after_success=false" >> $GITHUB_OUTPUT
+            echo "no_branch_after_success=false" >> $GITHUB_OUTPUT
           else
             echo "has_branch=false" >> $GITHUB_OUTPUT
             echo "branch_name=" >> $GITHUB_OUTPUT
@@ -798,14 +800,35 @@ jobs:
               echo ""
               echo "claude_success=false" >> $GITHUB_OUTPUT
               echo "sdk_crash_after_success=true" >> $GITHUB_OUTPUT
+              echo "no_branch_after_success=false" >> $GITHUB_OUTPUT
             # No branch = genuine failure
             elif [ "$CLAUDE_OUTCOME" = "success" ]; then
-              echo "claude_success=true" >> $GITHUB_OUTPUT
+              # ANOMALY: Claude reported success but no branch was pushed
+              # In TDD automation, there are ALWAYS changes (at minimum .fixme() removal)
+              # This indicates Claude forgot to push or push failed silently
+              echo ""
+              echo "╔══════════════════════════════════════════════════════════════════════╗"
+              echo "║  ⚠️  ANOMALY: Claude reported SUCCESS but NO BRANCH was pushed        ║"
+              echo "╠══════════════════════════════════════════════════════════════════════╣"
+              echo "║  In TDD automation, there are ALWAYS changes to commit:              ║"
+              echo "║  - At minimum: .fixme() removal from test files                      ║"
+              echo "║  - Usually: Implementation code in src/                              ║"
+              echo "║                                                                      ║"
+              echo "║  This indicates ONE of:                                              ║"
+              echo "║  1. Claude forgot to run: git add -A && git commit && git push      ║"
+              echo "║  2. Git push failed silently (network issue, permissions)            ║"
+              echo "║  3. Claude committed but forgot to push                              ║"
+              echo "║                                                                      ║"
+              echo "║  RECOVERY: Will trigger retry with explicit push instructions        ║"
+              echo "╚══════════════════════════════════════════════════════════════════════╝"
+              echo ""
+              echo "claude_success=false" >> $GITHUB_OUTPUT
               echo "sdk_crash_after_success=false" >> $GITHUB_OUTPUT
-              echo "✅ Claude completed successfully (but no branch created - may be no changes needed)"
+              echo "no_branch_after_success=true" >> $GITHUB_OUTPUT
             else
               echo "claude_success=false" >> $GITHUB_OUTPUT
               echo "sdk_crash_after_success=false" >> $GITHUB_OUTPUT
+              echo "no_branch_after_success=false" >> $GITHUB_OUTPUT
               echo "❌ Claude did not complete successfully (outcome: $CLAUDE_OUTCOME)"
             fi
           fi
@@ -1138,22 +1161,29 @@ jobs:
           git push --force-with-lease origin ${{ needs.execute-e2e-fixer.outputs.branch_name }}
           echo "Final push complete"
 
-  # Retry logic: Automatically retry infrastructure errors
+  # Retry logic: Automatically retry infrastructure errors and anomalies
   handle-retry:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [execute-e2e-fixer]
-    # Only retry if:
-    # 1. Claude didn't report success AND
-    # 2. No branch was created (branch existence = work completed, just false negative on outcome) AND
-    # 3. The failure was infrastructure-related (not a code/logic error) AND
-    # 4. NOT an SDK crash after Claude success (retrying would waste budget)
+    # Retry if ANY of these conditions are met:
+    # A) Standard infrastructure error retry:
+    #    - Claude didn't report success AND
+    #    - No branch was created AND
+    #    - Infrastructure-related error AND
+    #    - NOT an SDK crash after success (would waste budget)
+    # B) Success-without-branch anomaly:
+    #    - Claude reported success but no branch pushed
+    #    - In TDD automation, there are ALWAYS changes (.fixme() removal at minimum)
+    #    - This is an agent/infrastructure issue that retry can fix
     if: |
       always() &&
-      needs.execute-e2e-fixer.outputs.claude_success != 'true' &&
       needs.execute-e2e-fixer.outputs.has_branch != 'true' &&
-      needs.execute-e2e-fixer.outputs.is_infrastructure_error == 'true' &&
-      needs.execute-e2e-fixer.outputs.sdk_crash_after_success != 'true'
+      needs.execute-e2e-fixer.outputs.sdk_crash_after_success != 'true' &&
+      (
+        (needs.execute-e2e-fixer.outputs.claude_success != 'true' && needs.execute-e2e-fixer.outputs.is_infrastructure_error == 'true') ||
+        needs.execute-e2e-fixer.outputs.no_branch_after_success == 'true'
+      )
     permissions:
       actions: write
       issues: write
@@ -1167,8 +1197,10 @@ jobs:
           CURRENT_RETRY: ${{ github.event.inputs.retry_attempt || 1 }}
           MAX_RETRIES: ${{ env.MAX_INFRASTRUCTURE_RETRIES }}
           ERROR_TYPE: ${{ needs.execute-e2e-fixer.outputs.error_type }}
+          NO_BRANCH_AFTER_SUCCESS: ${{ needs.execute-e2e-fixer.outputs.no_branch_after_success }}
         run: |
           echo "Error detected: $ERROR_TYPE"
+          echo "No branch after success: $NO_BRANCH_AFTER_SUCCESS"
           echo "Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES"
 
           NEXT_RETRY=$((CURRENT_RETRY + 1))
@@ -1186,7 +1218,39 @@ jobs:
             fi
 
             # Build retry comment with error-specific instructions
-            if [ "$ERROR_TYPE" = "lint_error" ]; then
+            # Check for success-without-branch anomaly first (special case)
+            if [ "$NO_BRANCH_AFTER_SUCCESS" = "true" ]; then
+              RETRY_COMMENT="**Automatic Retry: Success Without Branch Anomaly**
+
+          **Issue**: Claude reported success but NO branch was pushed
+          **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+          **Reason**: In TDD automation, there are ALWAYS changes (.fixme() removal at minimum)
+
+          **CRITICAL INSTRUCTIONS FOR CLAUDE:**
+          This is a known issue where Claude completes work but forgets to push. You MUST:
+
+          1. **Complete ALL your work** (remove .fixme(), implement code)
+          2. **Run quality checks**: \`bun run quality\`
+          3. **MANDATORY GIT SEQUENCE** (do NOT skip any step):
+             \`\`\`bash
+             git add -A
+             git commit -m \"fix: implement SPEC-ID\"
+             git push origin HEAD
+             \`\`\`
+          4. **VERIFY push succeeded** - check output shows branch pushed to origin
+
+          **Why this happened**:
+          - You likely completed the work but forgot \`git push\`
+          - Or \`git push\` failed silently (network issue)
+          - The workflow detected your success report but no branch on GitHub
+
+          Retrying with explicit push instructions...
+
+          ---
+          *TDD Error Handler - Success Without Branch Recovery*"
+              # Mark as infrastructure retry (agent behavior issue)
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "retry:infra:$CURRENT_RETRY" 2>/dev/null || true
+            elif [ "$ERROR_TYPE" = "lint_error" ]; then
               RETRY_COMMENT="**Automatic Code Fix Retry**
 
           **Error Type**: \`$ERROR_TYPE\` (ESLint violation)
