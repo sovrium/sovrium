@@ -191,7 +191,7 @@ sovrium/
 │           ├── variant-classes.ts        # ✅ EXISTING - Variant utilities
 │           └── render-homepage.tsx       # ✅ EXISTING - SSR homepage
 │
-├── tests/                                # E2E Tests (Playwright)
+├── specs/                                # E2E Tests (Playwright)
 │   ├── config/                           # Configuration tests
 │   │   └── app-schema.spec.ts            # App schema validation tests
 │   │
@@ -290,10 +290,10 @@ This separation supports React SSR (Server-Side Rendering) while keeping concern
 
 E2E tests mirror the feature structure:
 
-- `tests/config/` - App schema tests
-- `tests/tables/` - Table CRUD tests
-- `tests/pages/` - Dynamic routing tests
-- `tests/automations/` - Workflow execution tests
+- `specs/config/` - App schema tests
+- `specs/tables/` - Table CRUD tests
+- `specs/pages/` - Dynamic routing tests
+- `specs/automations/` - Workflow execution tests
 
 This makes it easy to:
 

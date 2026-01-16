@@ -6,7 +6,7 @@
 
 | Test Type      | Timing             | Purpose                                | Location           | Tool       |
 | -------------- | ------------------ | -------------------------------------- | ------------------ | ---------- |
-| **E2E Tests**  | BEFORE (TDD)       | Define feature completion criteria     | `tests/*.spec.ts`  | Playwright |
+| **E2E Tests**  | BEFORE (TDD)       | Define feature completion criteria     | `specs/*.spec.ts`  | Playwright |
 | **Unit Tests** | AFTER (Test-After) | Document implementation and edge cases | `src/**/*.test.ts` | Bun Test   |
 
 ## **Development Flow**: E2E Test (RED) → Implement (GREEN) → Unit Tests (REFACTOR) → Done

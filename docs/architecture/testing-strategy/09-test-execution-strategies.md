@@ -40,7 +40,7 @@ Sovrium uses Playwright's tagging system to categorize E2E tests by purpose:
   **Example:**
 
 ```typescript
-// tests/auth/login.spec.ts
+// specs/auth/login.spec.ts
 import { test, expect } from '@playwright/test'
 test.describe('Login Flow - Specification', () => {
   // @spec - Validates email input behavior
@@ -101,7 +101,7 @@ test.describe('Login Flow - Specification', () => {
 - When you need high confidence with minimal test count
 **Example:**
 ```typescript
-// tests/auth/login.spec.ts (same file as spec tests)
+// specs/auth/login.spec.ts (same file as spec tests)
 import { test, expect } from '@playwright/test'
 test.describe('Login Flow - Regression', () => {
   // @regression - Consolidates all spec tests above into one comprehensive test
@@ -145,7 +145,7 @@ test.describe('Login Flow - Regression', () => {
 - When you need maximum confidence in minimum time
 **Example:**
 ```typescript
-// tests/critical/critical-paths.spec.ts
+// specs/critical/critical-paths.spec.ts
 import { test, expect } from '@playwright/test'
 test.describe('Critical Paths', () => {
   // @spec - Must always work
@@ -372,9 +372,9 @@ test('user can save work', { tag: '@spec' }, ...) // Critical
 
 ```typescript
 // BAD - Same test in two files
-// tests/spec/login.spec.ts
+// specs/spec/login.spec.ts
 test('user can login', ...)
-// tests/regression/login.spec.ts
+// specs/regression/login.spec.ts
 test('user can login', ...) // Duplicate
 // GOOD - One test, tagged appropriately
 test('user can login', { tag: ['@spec', '@regression'] }, ...)

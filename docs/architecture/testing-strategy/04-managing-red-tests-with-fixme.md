@@ -89,7 +89,7 @@ test.skip('should display user profile', async ({ page }) => {
 
 1. **Always add a comment** explaining why `.fixme` is used:
    ```typescript
-   // FIXME: Implement version badge display (see: tests/app/version.spec.ts)
+   // FIXME: Implement version badge display (see: specs/app/version.spec.ts)
    test.fixme('should display version badge', async ({ page }) => {
      // ...
    })

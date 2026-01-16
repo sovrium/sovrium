@@ -115,7 +115,7 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 - F.I.R.S.T principles (Fast, Isolated, Repeatable, Self-validating, Timely)
 - Co-located unit tests (`**/*.test.ts`)
-- Separate E2E tests (`tests/**/*.spec.ts`)
+- Separate E2E tests (`specs/**/*.spec.ts`)
 - Mock dates/random with Bun.spyOn
 
 ---

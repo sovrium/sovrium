@@ -105,7 +105,7 @@ src/presentation/components/pages/LoginPage.tsx
 | `.tsx`      | React components (JSX syntax required)                   |
 | `.test.ts`  | Unit tests (Bun Test, co-located with source)            |
 | `.test.tsx` | React component unit tests                               |
-| `.spec.ts`  | E2E tests (Playwright, in `tests/` directory)            |
+| `.spec.ts`  | E2E tests (Playwright, in `specs/` directory)            |
 
 ### Enterprise Edition Files (`.ee.` Marker)
 
@@ -934,12 +934,12 @@ src / domain / models / app / test - name.ts // Keep source name first
 
 **Pattern**: `{feature}.spec.ts` (descriptive feature name + `.spec.ts`)
 
-**Location**: `tests/{feature-domain}/`
+**Location**: `specs/{feature-domain}/`
 
 **Purpose**: Playwright E2E tests for end-to-end workflows
 
 ```
-tests/
+specs/
 ├── app/
 │   ├── name.spec.ts           # ✅ EXISTING - App name display tests
 │   ├── version.spec.ts        # ✅ EXISTING - App version display tests
@@ -971,12 +971,12 @@ tests / name.spec.ts // Include feature domain (app/)
 
 **Pattern**: `{fixture-name}.ts` or `index.ts`
 
-**Location**: `tests/fixtures/` or `tests/{feature}/fixtures.ts`
+**Location**: `specs/fixtures/` or `specs/{feature}/fixtures.ts`
 
 **Purpose**: Shared test fixtures and utilities
 
 ```
-tests/
+specs/
 ├── fixtures/
 │   └── index.ts               # ✅ EXISTING - Global fixtures
 └── app/
@@ -1016,7 +1016,7 @@ tests/
 | Dynamic Route | `[{param}].ts`            | `[table].ts`              | Presentation   |
 | Middleware    | `{middleware}.ts`         | `auth.ts`                 | Presentation   |
 | Unit Test     | `{source}.test.ts`        | `name.test.ts`            | Co-located     |
-| E2E Test      | `{feature}.spec.ts`       | `name.spec.ts`            | tests/         |
+| E2E Test      | `{feature}.spec.ts`       | `name.spec.ts`            | specs/         |
 
 ### Only Exception (PascalCase)
 
@@ -1256,7 +1256,7 @@ bun run lint --fix        # Auto-fix some violations (cannot rename files automa
 
 - **Cannot Auto-Rename** - ESLint cannot automatically rename files (must be done manually with `git mv`)
 - **Pattern Coverage** - Some patterns (dynamic route brackets `[param].ts`) are not automatically enforced
-- **Folder Scope** - Only `src/` folders enforced, not `tests/`, `scripts/`, `docs/`
+- **Folder Scope** - Only `src/` folders enforced, not `specs/`, `scripts/`, `docs/`
 
 ### Pattern Matching Reference
 

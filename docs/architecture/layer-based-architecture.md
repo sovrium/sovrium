@@ -920,7 +920,7 @@ sovrium/
 │       ├── components/              # React components
 │       └── api/                     # Hono API routes
 │
-└── tests/                           # E2E tests (Playwright)
+└── specs/                           # E2E tests (Playwright)
 ```
 
 ## Best Practices

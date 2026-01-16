@@ -11,16 +11,16 @@ Since the E2E-First TDD with Test-After Unit Tests workflow cannot be fully auto
 The following aspects ARE enforced automatically via ESLint (see `eslint.config.ts`):
 ✅ **Test Tool Usage** (enforced via `no-restricted-imports` rule):
 
-- **E2E tests in `tests/` directory must use Playwright** (not Bun Test)
+- **E2E tests in `specs/` directory must use Playwright** (not Bun Test)
   - Rule: `no-restricted-imports` (lines 591-609 in `eslint.config.ts`)
-  - Restricts: `bun:test` imports in `tests/**/*.{ts,tsx}` files
-  - Error message: "E2E tests (in tests/ directory) must use Playwright, not Bun Test. Import from @playwright/test instead."
+  - Restricts: `bun:test` imports in `specs/**/*.{ts,tsx}` files
+  - Error message: "E2E tests (in specs/ directory) must use Playwright, not Bun Test. Import from @playwright/test instead."
 - **Unit tests in `src/**/\*.test.ts` must use Bun Test\*\* (not Playwright)
   - Rule: `no-restricted-imports` (lines 611-629 in `eslint.config.ts`)
   - Restricts: `@playwright/test` imports in `src/**/*.test.{ts,tsx}` files
   - Error message: "Unit tests (\*.test.ts) must use Bun Test, not Playwright. Import from bun:test instead."
     ✅ **Test File Structure** (enforced via `eslint-plugin-playwright` configuration):
-- E2E tests must have `.spec.ts` extension and be located in `tests/` directory
+- E2E tests must have `.spec.ts` extension and be located in `specs/` directory
 - Unit tests must have `.test.ts` extension and be co-located with source files
 - Configuration: lines 647-665 in `eslint.config.ts`
   ❌ **NOT Enforced** (manual review required):
@@ -35,7 +35,7 @@ Use this checklist during code reviews to ensure the testing strategy is followe
 
 #### For New Features
 
-- [ ] **E2E Test Exists**: Feature has E2E test in `tests/` directory defining completion criteria
+- [ ] **E2E Test Exists**: Feature has E2E test in `specs/` directory defining completion criteria
 - [ ] **E2E Test Timing**: E2E test was committed BEFORE or WITH implementation (check git history)
 - [ ] **E2E Test Quality**: Test clearly defines feature completion criteria (not vague)
 - [ ] **Unit Tests Exist**: Co-located unit tests exist for all implementation files
