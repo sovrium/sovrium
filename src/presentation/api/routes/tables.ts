@@ -61,6 +61,7 @@ import {
   batchDeleteRecords,
 } from '@/presentation/api/utils/table-queries'
 import type { App } from '@/domain/models/app'
+import type { TablePermissions, TableFieldPermissions } from '@/domain/models/app/table/permissions'
 // eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
@@ -368,6 +369,61 @@ function hasPermission(permission: unknown, userRole: string): boolean {
 }
 
 /**
+ * Check if user role has admin privileges
+ */
+function isAdminRole(userRole: string): boolean {
+  return userRole === 'admin' || userRole === 'owner'
+}
+
+/**
+ * Check permission with admin override
+ */
+function checkPermissionWithAdminOverride(
+  isAdmin: boolean,
+  permission: unknown,
+  userRole: string
+): boolean {
+  return isAdmin || hasPermission(permission, userRole)
+}
+
+/**
+ * Evaluate table-level permissions for a user
+ */
+function evaluateTablePermissions(
+  tablePermissions: TablePermissions | undefined,
+  userRole: string,
+  isAdmin: boolean
+): { read: boolean; create: boolean; update: boolean; delete: boolean } {
+  return {
+    read: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.read, userRole),
+    create: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.create, userRole),
+    update: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.update, userRole),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
+    delete: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.delete, userRole),
+  }
+}
+
+/**
+ * Evaluate field-level permissions for a user
+ */
+function evaluateFieldPermissions(
+  fieldPerms: TableFieldPermissions | undefined,
+  userRole: string,
+  isAdmin: boolean
+): Record<string, { read: boolean; write: boolean }> {
+  const fields = fieldPerms ?? []
+  return Object.fromEntries(
+    fields.map((fieldPerm) => [
+      fieldPerm.field,
+      {
+        read: checkPermissionWithAdminOverride(isAdmin, fieldPerm.read, userRole),
+        write: checkPermissionWithAdminOverride(isAdmin, fieldPerm.write, userRole),
+      },
+    ])
+  )
+}
+
+/**
  * Evaluate table and field permissions for a user
  */
 function createGetPermissionsProgram(
@@ -390,32 +446,11 @@ function createGetPermissionsProgram(
     }
 
     // Admin role gets all permissions as true (override)
-    const isAdmin = userRole === 'admin' || userRole === 'owner'
-
-    // Evaluate table-level permissions
-    const tablePermissions = {
-      read: isAdmin || hasPermission(table.permissions?.read, userRole),
-      create: isAdmin || hasPermission(table.permissions?.create, userRole),
-      update: isAdmin || hasPermission(table.permissions?.update, userRole),
-      // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
-      delete: isAdmin || hasPermission(table.permissions?.delete, userRole),
-    }
-
-    // Evaluate field-level permissions (immutable map)
-    const fieldPerms = table.permissions?.fields ?? []
-    const fieldPermissions = Object.fromEntries(
-      fieldPerms.map((fieldPerm) => [
-        fieldPerm.field,
-        {
-          read: isAdmin || hasPermission(fieldPerm.read, userRole),
-          write: isAdmin || hasPermission(fieldPerm.write, userRole),
-        },
-      ])
-    )
+    const isAdmin = isAdminRole(userRole)
 
     return {
-      table: tablePermissions,
-      fields: fieldPermissions,
+      table: evaluateTablePermissions(table.permissions, userRole, isAdmin),
+      fields: evaluateFieldPermissions(table.permissions?.fields, userRole, isAdmin),
     }
   })
 }
