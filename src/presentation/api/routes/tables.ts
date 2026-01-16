@@ -428,14 +428,15 @@ function createListRecordsProgram(
   session: Readonly<Session>,
   tableName: string,
   app: App,
-  userRole: string
+  userRole: string,
+  filter?: unknown
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
     // Find table schema to check organization-scoped settings
     const table = app.tables?.find((t) => t.name === tableName)
 
     // Query records with session context (organization filtering automatically applied if enabled)
-    const records = yield* listRecords(session, tableName, table)
+    const records = yield* listRecords(session, tableName, table, filter as Parameters<typeof listRecords>[3])
 
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies
@@ -896,6 +897,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
         // Parse and validate filter parameter if present
+        let parsedFilter: unknown = undefined
         const filterParam = c.req.query('filter')
         if (filterParam) {
           try {
@@ -911,6 +913,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
                 403
               )
             }
+            parsedFilter = filter
           } catch {
             // If JSON parsing fails, return 400 Bad Request
             return c.json(
@@ -925,7 +928,7 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         return runEffect(
           c,
-          createListRecordsProgram(session, tableName, app, userRole),
+          createListRecordsProgram(session, tableName, app, userRole, parsedFilter),
           listRecordsResponseSchema
         )
       })

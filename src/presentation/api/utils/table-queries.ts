@@ -44,6 +44,64 @@ const validateColumnName = (columnName: string): void => {
 }
 
 /**
+ * Filter condition for querying records
+ */
+interface FilterCondition {
+  readonly field: string
+  readonly operator: 'contains' | 'equals' | 'notEquals' | 'greaterThan' | 'lessThan'
+  readonly value: unknown
+}
+
+/**
+ * Filter object for querying records
+ */
+interface Filter {
+  readonly and?: readonly FilterCondition[]
+  readonly or?: readonly FilterCondition[]
+}
+
+/**
+ * Build SQL WHERE clause from filter conditions
+ */
+function buildFilterClause(filter: Filter | undefined, tableName: string): typeof sql | undefined {
+  if (!filter || (!filter.and && !filter.or)) {
+    return undefined
+  }
+
+  const buildCondition = (condition: FilterCondition): typeof sql => {
+    validateColumnName(condition.field)
+    const columnIdent = sql.identifier(condition.field)
+
+    switch (condition.operator) {
+      case 'contains':
+        return sql`${columnIdent}::text ILIKE ${`%${condition.value}%`}`
+      case 'equals':
+        return sql`${columnIdent} = ${condition.value}`
+      case 'notEquals':
+        return sql`${columnIdent} != ${condition.value}`
+      case 'greaterThan':
+        return sql`${columnIdent} > ${condition.value}`
+      case 'lessThan':
+        return sql`${columnIdent} < ${condition.value}`
+      default:
+        return sql`TRUE`
+    }
+  }
+
+  if (filter.and && filter.and.length > 0) {
+    const conditions = filter.and.map(buildCondition)
+    return sql.join(conditions, sql.raw(' AND '))
+  }
+
+  if (filter.or && filter.or.length > 0) {
+    const conditions = filter.or.map(buildCondition)
+    return sql.join(conditions, sql.raw(' OR '))
+  }
+
+  return undefined
+}
+
+/**
  * List all records from a table with session context
  *
  * Automatically applies organization-scoped filtering when enabled.
@@ -53,12 +111,14 @@ const validateColumnName = (columnName: string): void => {
  * @param session - Better Auth session
  * @param tableName - Name of the table to query
  * @param table - Table schema configuration (for checking organizationScoped flag)
+ * @param filter - Optional filter conditions to apply
  * @returns Effect resolving to array of records
  */
 export function listRecords(
   session: Readonly<Session>,
   tableName: string,
-  table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
+  table?: { readonly permissions?: { readonly organizationScoped?: boolean } },
+  filter?: Filter
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
@@ -69,17 +129,35 @@ export function listRecords(
         const isOrganizationScoped = table?.permissions?.organizationScoped === true
         const activeOrgId = session.activeOrganizationId
 
+        // Build filter clause from filter parameter
+        const filterClause = buildFilterClause(filter, tableName)
+
         // Build query with organization filtering if enabled
         if (isOrganizationScoped && activeOrgId) {
           // Filter by organization_id when organizationScoped is true
           // Use text comparison to ensure proper string matching
+          if (filterClause) {
+            // Combine organization filter with custom filter
+            const result = await tx.execute(
+              sql`SELECT * FROM ${sql.identifier(tableName)} WHERE organization_id::text = ${activeOrgId} AND (${filterClause})`
+            )
+            return result as readonly Record<string, unknown>[]
+          } else {
+            const result = await tx.execute(
+              sql`SELECT * FROM ${sql.identifier(tableName)} WHERE organization_id::text = ${activeOrgId}`
+            )
+            return result as readonly Record<string, unknown>[]
+          }
+        }
+
+        // Default: no organization filtering (RLS policies still apply via session context)
+        if (filterClause) {
           const result = await tx.execute(
-            sql`SELECT * FROM ${sql.identifier(tableName)} WHERE organization_id::text = ${activeOrgId}`
+            sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${filterClause}`
           )
           return result as readonly Record<string, unknown>[]
         }
 
-        // Default: no organization filtering (RLS policies still apply via session context)
         const result = await tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}`)
         return result as readonly Record<string, unknown>[]
       },
