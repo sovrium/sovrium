@@ -223,7 +223,7 @@ test.describe('Check table permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CHECK-005: should show sensitive fields as blocked',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -231,6 +231,7 @@ test.describe('Check table permissions', () => {
       // Authenticated user with restricted access to salary field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
