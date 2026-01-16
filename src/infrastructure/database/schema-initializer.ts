@@ -35,7 +35,12 @@ import {
   renameTablesIfNeeded,
   syncForeignKeyConstraints,
 } from './schema-migration-helpers'
-import { tableExists, executeSQL } from './sql-execution'
+import {
+  tableExists,
+  executeSQL,
+  type SQLExecutionError,
+  type TransactionLike,
+} from './sql-execution'
 import { generateJunctionTableDDL, generateJunctionTableName } from './sql-generators'
 import {
   createOrMigrateTableEffect,
@@ -53,6 +58,254 @@ export { BetterAuthUsersTableRequired } from './auth-validation'
 export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
+
+// Type for lookup view module (dynamic import)
+type LookupViewModule = {
+  readonly shouldUseView: (table: Table) => boolean
+  readonly getBaseTableName: (tableName: string) => string
+}
+
+// Type for view generators module (dynamic import)
+type ViewGeneratorsModule = {
+  readonly dropAllObsoleteViews: (tx: TransactionLike, tables: readonly Table[]) => Promise<void>
+}
+
+/** Ensure Better Auth prerequisites exist (users table + updated-by trigger) */
+const ensureAuthPrerequisites = (
+  tx: TransactionLike,
+  tables: readonly Table[]
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
+    const needs = needsUsersTable(tables)
+    logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
+    if (needs) {
+      logInfo('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
+      yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
+    } else {
+      logInfo('[executeSchemaInit] Better Auth users table not needed')
+    }
+
+    if (needsUpdatedByTrigger(tables)) {
+      yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
+    }
+  })
+
+/** Build map of which tables use VIEWs (have lookup fields) */
+const buildTableUsesViewMap = (
+  tables: readonly Table[],
+  lookupViewModule: LookupViewModule
+): ReadonlyMap<string, boolean> =>
+  new Map(tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)]))
+
+// Configuration for createMigrateTables
+type CreateMigrateTablesConfig = {
+  readonly tx: TransactionLike
+  readonly sortedTables: readonly Table[]
+  readonly tableUsesView: ReadonlyMap<string, boolean>
+  readonly circularTables: ReadonlySet<string>
+  readonly previousSchema: { readonly tables: readonly object[] } | undefined
+  readonly lookupViewModule: LookupViewModule
+}
+
+/** Create or migrate each table in sorted order */
+const createMigrateTables = (
+  config: CreateMigrateTablesConfig
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const { tx, sortedTables, tableUsesView, circularTables, previousSchema, lookupViewModule } =
+      config
+    /* eslint-disable functional/no-loop-statements */
+    for (const table of sortedTables) {
+      const physicalTableName = lookupViewModule.shouldUseView(table)
+        ? lookupViewModule.getBaseTableName(table.name)
+        : table.name
+      const exists = yield* tableExists(tx, physicalTableName)
+      logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
+      yield* createOrMigrateTableEffect({
+        tx,
+        table,
+        exists,
+        tableUsesView,
+        previousSchema,
+        skipForeignKeys: circularTables.has(table.name),
+      })
+      logInfo(`[Created/migrated table] ${table.name}`)
+    }
+    /* eslint-enable functional/no-loop-statements */
+  })
+
+/** Add foreign key constraints for tables with circular dependencies */
+const addCircularFKConstraints = (
+  tx: TransactionLike,
+  sortedTables: readonly Table[],
+  circularTables: ReadonlySet<string>,
+  tableUsesView: ReadonlyMap<string, boolean>
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    if (circularTables.size === 0) return
+    logInfo(`[Adding FK constraints for circular dependencies]`)
+    /* eslint-disable functional/no-loop-statements */
+    for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
+      yield* syncForeignKeyConstraints(tx, table, tableUsesView)
+      logInfo(`[Added FK constraints] ${table.name}`)
+    }
+    /* eslint-enable functional/no-loop-statements */
+  })
+
+/** Collect junction table specs for many-to-many relationships */
+const collectJunctionTableSpecs = (
+  sortedTables: readonly Table[],
+  tableUsesView: ReadonlyMap<string, boolean>
+): ReadonlyMap<string, { readonly name: string; readonly ddl: string }> => {
+  const specs = new Map<string, { name: string; ddl: string }>()
+  sortedTables.forEach((table) => {
+    const manyToManyFields = table.fields.filter(isManyToManyRelationship)
+    manyToManyFields.forEach((field) => {
+      const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
+      if (!specs.has(junctionTableName)) {
+        const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
+        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
+        specs.set(junctionTableName, { name: junctionTableName, ddl })
+      }
+    })
+  })
+  return specs
+}
+
+/** Create junction tables for many-to-many relationships */
+const createJunctionTables = (
+  tx: TransactionLike,
+  junctionTableSpecs: ReadonlyMap<string, { readonly name: string; readonly ddl: string }>
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    if (junctionTableSpecs.size === 0) return
+    logInfo(`[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`)
+    yield* Effect.all(
+      Array.from(junctionTableSpecs.values()).map((spec) =>
+        executeSQL(tx, spec.ddl).pipe(
+          Effect.tap(() => logInfo(`[Created junction table] ${spec.name}`))
+        )
+      ),
+      { concurrency: 'unbounded' }
+    )
+  })
+
+/** Drop obsolete views and create all views (lookup + user-defined) */
+const createAllViews = (
+  tx: TransactionLike,
+  sortedTables: readonly Table[],
+  viewGeneratorsModule: ViewGeneratorsModule
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
+    yield* Effect.all(
+      sortedTables.map((table) => createLookupViewsEffect(tx, table)),
+      { concurrency: 'unbounded' }
+    )
+    yield* Effect.all(
+      sortedTables.map((table) => createTableViewsEffect(tx, table)),
+      { concurrency: 'unbounded' }
+    )
+  })
+
+/** Execute all migration steps within a transaction */
+const executeMigrationSteps = (
+  tx: TransactionLike,
+  tables: readonly Table[],
+  app: App
+): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    // Step 0: Validate stored checksum to detect tampering
+    yield* validateStoredChecksum(tx)
+
+    // Steps 1-2: Ensure Better Auth prerequisites
+    yield* ensureAuthPrerequisites(tx, tables)
+
+    // Step 3: Load previous schema for field rename detection
+    const previousSchema = yield* getPreviousSchema(tx)
+
+    // Step 3.5: Rename tables that have changed names
+    yield* renameTablesIfNeeded(tx, tables, previousSchema)
+
+    // Step 4: Drop tables that exist in database but not in schema
+    yield* dropObsoleteTables(tx, tables)
+
+    // Step 5: Build view map and detect circular dependencies
+    const lookupViewModule = yield* Effect.promise(() => import('./lookup-view-generators'))
+    const tableUsesView = buildTableUsesViewMap(tables, lookupViewModule)
+    const circularTables = detectCircularDependenciesWithOptionalFK(tables)
+    if (circularTables.size > 0) {
+      logInfo(`[Circular dependencies detected] ${Array.from(circularTables).join(', ')}`)
+    }
+
+    // Sort and log table creation order
+    const sortedTables = sortTablesByDependencies(tables)
+    logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
+
+    // Step 6: Create or migrate tables
+    yield* createMigrateTables({
+      tx,
+      sortedTables,
+      tableUsesView,
+      circularTables,
+      previousSchema,
+      lookupViewModule,
+    })
+
+    // Step 7: Add FK constraints for circular dependencies
+    yield* addCircularFKConstraints(tx, sortedTables, circularTables, tableUsesView)
+
+    // Step 8: Create junction tables for many-to-many relationships
+    const junctionTableSpecs = collectJunctionTableSpecs(sortedTables, tableUsesView)
+    yield* createJunctionTables(tx, junctionTableSpecs)
+
+    // Steps 9-11: Create all views
+    const viewGeneratorsModule = yield* Effect.promise(() => import('./view-generators'))
+    yield* createAllViews(tx, sortedTables, viewGeneratorsModule)
+
+    // Steps 12-13: Record migration and store checksum
+    yield* recordMigration(tx, app)
+    yield* storeSchemaChecksum(tx, app)
+  })
+
+/** Log rollback operation in a separate transaction */
+const logRollbackError = (
+  databaseUrl: string,
+  errorMessage: string,
+  runtime: Runtime.Runtime<never>
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    logInfo(`[executeSchemaInit] CATCH HANDLER - Error caught: ${errorMessage}`)
+    const logDb = new SQL(databaseUrl)
+
+    yield* Effect.tryPromise({
+      try: async () => {
+        /* eslint-disable-next-line functional/no-expression-statements */
+        await logDb.begin(async (logTx) => {
+          /* eslint-disable-next-line functional/no-expression-statements */
+          await Runtime.runPromise(runtime)(
+            logRollbackOperation(logTx, errorMessage).pipe(
+              Effect.catchAll((logError) => {
+                logInfo(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
+                return Effect.void
+              })
+            )
+          )
+        })
+        logInfo('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
+      },
+      catch: () => undefined, // Non-fatal
+    }).pipe(
+      Effect.ensuring(
+        Effect.gen(function* () {
+          yield* Effect.promise(() => logDb.close())
+          logInfo('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
+        })
+      ),
+      Effect.ignore
+    )
+  })
 
 /**
  * Execute schema initialization using bun:sql with transaction support
@@ -81,198 +334,24 @@ export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
  * This pattern is standard for schema migration tools (Drizzle, Prisma, etc.)
  * which all generate and execute DDL strings directly.
  */
-/* eslint-disable max-lines-per-function */
 const executeSchemaInit = (
   databaseUrl: string,
   tables: readonly Table[],
   app: App
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
-    // Create SQL connection with max: 1 for transaction safety
-    // This ensures only one connection is used, preventing transaction isolation issues
     const db = new SQL({ url: databaseUrl, max: 1 })
-    // Extract runtime to use in async callback (avoids Effect.runPromise inside Effect)
     const runtime = yield* Effect.runtime<never>()
 
     try {
-      // Run transaction using bun:sql's db.begin() for proper transaction management
       yield* Effect.tryPromise({
         try: async () => {
-          // Use db.begin() callback-based transaction API
-          // CRITICAL: db.begin() only rolls back if the callback throws (rejects the Promise)
-          // We use Effect.runPromise which will reject on Effect failure
           /* eslint-disable-next-line functional/no-expression-statements */
           await db.begin(async (tx) => {
-            // Run the migration logic within Effect.gen
-            // Effect.runPromise will throw (reject) if any Effect fails, triggering ROLLBACK
             /* eslint-disable-next-line functional/no-expression-statements */
-            await Runtime.runPromise(runtime)(
-              Effect.gen(function* () {
-                // Migration process - tables are created by Drizzle migrations
-                // Step 0: Validate stored checksum to detect tampering (MIGRATION-ROLLBACK-001)
-                yield* validateStoredChecksum(tx)
-
-                // Step 1: Verify Better Auth users table exists if any table needs it for foreign keys
-                logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
-                const needs = needsUsersTable(tables)
-                logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
-                if (needs) {
-                  logInfo(
-                    '[executeSchemaInit] Better Auth users table is needed, verifying it exists...'
-                  )
-                  yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
-                } else {
-                  logInfo('[executeSchemaInit] Better Auth users table not needed')
-                }
-
-                // Step 2: Ensure updated-by trigger function exists if any table needs it
-                if (needsUpdatedByTrigger(tables)) {
-                  yield* Effect.promise(() => ensureUpdatedByTriggerFunction(tx))
-                }
-
-                // Step 3: Load previous schema for field rename detection
-                const previousSchema = yield* getPreviousSchema(tx)
-
-                // Step 3.5: Rename tables that have changed names (same ID, different name)
-                yield* renameTablesIfNeeded(tx, tables, previousSchema)
-
-                // Step 4: Drop tables that exist in database but not in schema
-                yield* dropObsoleteTables(tx, tables)
-
-                // Step 5: Build map of which tables use VIEWs (have lookup fields)
-                // This is needed for foreign key generation to reference base tables correctly
-                const lookupViewModule = yield* Effect.promise(
-                  () => import('./lookup-view-generators')
-                )
-
-                const tableUsesView = new Map<string, boolean>(
-                  tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)])
-                )
-
-                // Detect circular dependencies with optional FK (allows INSERT-UPDATE pattern)
-                const circularTables = detectCircularDependenciesWithOptionalFK(tables)
-                if (circularTables.size > 0) {
-                  logInfo(
-                    `[Circular dependencies detected] ${Array.from(circularTables).join(', ')} - FK constraints will be added later`
-                  )
-                }
-
-                // Sort tables by dependencies to ensure referenced tables are created first
-                const sortedTables = sortTablesByDependencies(tables)
-
-                // Debug: log table creation order
-                logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
-
-                // Step 6: Create or migrate tables defined in schema (base tables only, defer VIEWs)
-                /* eslint-disable functional/no-loop-statements */
-                for (const table of sortedTables) {
-                  // Check if the physical table exists (base table for tables with lookup fields)
-                  const physicalTableName = lookupViewModule.shouldUseView(table)
-                    ? lookupViewModule.getBaseTableName(table.name)
-                    : table.name
-                  const exists = yield* tableExists(tx, physicalTableName)
-                  logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
-                  yield* createOrMigrateTableEffect({
-                    tx,
-                    table,
-                    exists,
-                    tableUsesView,
-                    previousSchema,
-                    skipForeignKeys: circularTables.has(table.name),
-                  })
-                  logInfo(`[Created/migrated table] ${table.name}`)
-                }
-                /* eslint-enable functional/no-loop-statements */
-
-                // Step 7: Add foreign key constraints for circular dependencies
-                // These were skipped during CREATE TABLE to avoid "relation does not exist" errors
-                if (circularTables.size > 0) {
-                  logInfo(`[Adding FK constraints for circular dependencies]`)
-                  /* eslint-disable functional/no-loop-statements */
-                  for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
-                    yield* syncForeignKeyConstraints(tx, table, tableUsesView)
-                    logInfo(`[Added FK constraints] ${table.name}`)
-                  }
-                  /* eslint-enable functional/no-loop-statements */
-                }
-
-                // Step 8: Create junction tables for many-to-many relationships (after all base tables exist)
-                // Junction tables must be created after both source and related tables exist
-                // Collect unique junction table DDLs first, then execute in parallel
-                const junctionTableSpecs = new Map<string, { name: string; ddl: string }>()
-                sortedTables.forEach((table) => {
-                  const manyToManyFields = table.fields.filter(isManyToManyRelationship)
-                  manyToManyFields.forEach((field) => {
-                    const junctionTableName = generateJunctionTableName(
-                      table.name,
-                      field.relatedTable
-                    )
-                    // Avoid creating duplicate junction tables (if both sides define the relationship)
-                    if (!junctionTableSpecs.has(junctionTableName)) {
-                      const ddl = generateJunctionTableDDL(
-                        table.name,
-                        field.relatedTable,
-                        tableUsesView
-                      )
-                      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-                      junctionTableSpecs.set(junctionTableName, { name: junctionTableName, ddl })
-                    }
-                  })
-                })
-
-                // Execute junction table creation in parallel
-                if (junctionTableSpecs.size > 0) {
-                  logInfo(
-                    `[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`
-                  )
-                  yield* Effect.all(
-                    Array.from(junctionTableSpecs.values()).map((spec) =>
-                      executeSQL(tx, spec.ddl).pipe(
-                        Effect.tap(() => logInfo(`[Created junction table] ${spec.name}`))
-                      )
-                    ),
-                    { concurrency: 'unbounded' }
-                  )
-                }
-
-                // Step 9: Drop all obsolete views (CASCADE)
-                // This must happen before creating new views to ensure clean state
-                // Drops views that exist in DB but not in any table's schema
-                const viewGeneratorsModule = yield* Effect.promise(
-                  () => import('./view-generators')
-                )
-                yield* Effect.promise(() =>
-                  viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables)
-                )
-
-                // Step 10: Create VIEWs for tables with lookup fields (after all base tables exist)
-                // This ensures lookup VIEWs can reference other tables without dependency issues
-                // Execute in parallel - each table's lookup VIEW is independent
-                yield* Effect.all(
-                  sortedTables.map((table) => createLookupViewsEffect(tx, table)),
-                  { concurrency: 'unbounded' }
-                )
-
-                // Step 11: Create user-defined VIEWs from table.views configuration
-                // This is done after lookup views to ensure all base tables and lookup views exist
-                // Execute in parallel - each table's user-defined VIEWs are independent
-                yield* Effect.all(
-                  sortedTables.map((table) => createTableViewsEffect(tx, table)),
-                  { concurrency: 'unbounded' }
-                )
-
-                // Step 12: Record migration in history table
-                // Tables are created by Drizzle migrations (drizzle/0006_*.sql)
-                yield* recordMigration(tx, app)
-
-                // Step 13: Store schema checksum
-                yield* storeSchemaChecksum(tx, app)
-              })
-            )
-            // db.begin() automatically COMMITs if callback completes successfully
+            await Runtime.runPromise(runtime)(executeMigrationSteps(tx, tables, app))
             logInfo('[executeSchemaInit] Transaction completed successfully (auto-commit)')
           })
-          // If db.begin() callback throws, it automatically ROLLBACKs
         },
         catch: (error) =>
           new SchemaInitializationError({
@@ -282,59 +361,15 @@ const executeSchemaInit = (
       }).pipe(
         Effect.catchAll((error) =>
           Effect.gen(function* () {
-            // Log rollback in separate transaction after error is caught
-            logInfo(`[executeSchemaInit] CATCH HANDLER - Error caught: ${error.message}`)
-            const logDb = new SQL(databaseUrl)
-
-            const logRollback = Effect.gen(function* () {
-              logInfo(
-                '[executeSchemaInit] CATCH HANDLER - Logging rollback in separate transaction...'
-              )
-              yield* Effect.tryPromise({
-                try: async () => {
-                  // Use a transaction to ensure rollback logging is atomic and committed
-                  /* eslint-disable-next-line functional/no-expression-statements */
-                  await logDb.begin(async (logTx) => {
-                    // Table is created by Drizzle migrations (drizzle/0006_*.sql)
-                    /* eslint-disable-next-line functional/no-expression-statements */
-                    await Runtime.runPromise(runtime)(
-                      logRollbackOperation(logTx, error.message).pipe(
-                        Effect.catchAll((logError) => {
-                          logInfo(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
-                          return Effect.void
-                        })
-                      )
-                    )
-                  })
-                  logInfo('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
-                },
-                catch: (logError) =>
-                  new SchemaInitializationError({
-                    message: `Failed to log rollback: ${String(logError)}`,
-                    cause: logError,
-                  }),
-              }).pipe(Effect.ignore) // Non-fatal - continue with error propagation
-            }).pipe(
-              Effect.ensuring(
-                Effect.gen(function* () {
-                  yield* Effect.promise(() => logDb.close())
-                  logInfo('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
-                })
-              )
-            )
-
-            yield* logRollback
-            // Re-throw the original error after logging rollback
+            yield* logRollbackError(databaseUrl, error.message, runtime)
             return yield* error
           })
         )
       )
     } finally {
-      // Close connection
       yield* Effect.promise(() => db.close())
     }
   })
-/* eslint-enable max-lines-per-function */
 
 /**
  * Check if schema checksum matches saved checksum (fast path optimization)
