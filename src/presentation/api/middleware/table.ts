@@ -94,7 +94,7 @@ export function validateTable(app: App) {
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
 
     if (!table) {
-      return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+      return c.json({ error: 'Table not found' }, 404)
     }
 
     // Attach to context for downstream handlers

@@ -85,8 +85,9 @@ export async function handleCreateRecord(c: Context, app: App) {
 
   return runEffect(
     c,
-    createRecordProgram(session, tableName, result.data),
-    createRecordResponseSchema
+    createRecordProgram(session, tableName, result.data.fields),
+    createRecordResponseSchema,
+    201
   )
 }
 
@@ -166,7 +167,8 @@ export async function handleDeleteRecord(c: Context, app: App) {
     return c.json({ error: 'Record not found' }, 404)
   }
 
-  return c.json({ success: true }, 200)
+  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
+  return c.body(null, 204)
 }
 
 export async function handleRestoreRecord(c: Context, app: App) {

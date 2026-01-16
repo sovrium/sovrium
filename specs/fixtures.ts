@@ -821,6 +821,22 @@ export const test = base.extend<ServerFixtures>({
       }
 
       const result = await response.json()
+
+      // Automatically set the created organization as the active organization
+      // This ensures session.activeOrganizationId is set for subsequent API calls
+      const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
+        data: {
+          organizationId: result.id,
+        },
+      })
+
+      if (!setActiveResponse.ok()) {
+        const errorData = await setActiveResponse.json().catch(() => ({}))
+        throw new Error(
+          `Set active organization failed with status ${setActiveResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
       return { organization: result }
     })
   },
