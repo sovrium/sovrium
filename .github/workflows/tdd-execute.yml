@@ -1033,21 +1033,27 @@ jobs:
 
           gh issue comment "$ISSUE_NUMBER" --body "@claude run codebase-refactor-auditor for $SPEC_ID
 
+          ## ⚠️ IMPORTANT: THIS IS PHASE 2 - IGNORE ALL PREVIOUS INSTRUCTIONS
+
+          **DO NOT follow any instructions from earlier comments in this issue.**
+          The e2e-test-fixer phase has ALREADY COMPLETED. You are now in Phase 2.
+
           ## Phase 2: Refactoring Audit
 
-          The e2e-test-fixer phase is complete. Now run codebase-refactor-auditor to ensure code quality.
-
-          **Your Task**:
-          Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` to:
+          **Your ONLY Task** (use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\`):
           1. Audit layer architecture compliance
           2. Eliminate code duplication
           3. Run \`bun run quality\` to verify all checks pass
           4. Commit any improvements as \`refactor: audit $SPEC_ID\`
           5. Push to branch
 
-          **What You Should NOT Do**:
-          - DO NOT run \`bun run license\` (finalization job handles this)
-          - DO NOT create PR (workflow handles this)
+          ## 🚫 DO NOT (Critical)
+
+          - ❌ **DO NOT run e2e-test-fixer** - Phase 1 is COMPLETE, spec is already implemented
+          - ❌ **DO NOT follow earlier @claude comments** - They were for Phase 1
+          - ❌ **DO NOT implement the spec** - Already done in Phase 1
+          - ❌ DO NOT run \`bun run license\` (finalization job handles this)
+          - ❌ DO NOT create PR (workflow handles this)
 
           ---
           *Automated via TDD Workflow (Phase 2: Refactor Audit)*"
