@@ -16,9 +16,25 @@ import type { Hono } from 'hono'
 /**
  * Chain table routes onto a Hono app
  *
- * Applies middleware chain for routes with :tableId parameter:
- * 1. validateTable() - Validates table exists, attaches tableName to context
- * 2. enrichUserRole() - Fetches user role, attaches userRole to context
+ * **Middleware Chain** (applied before all :tableId routes):
+ * ```
+ * requireAuth() → validateTable() → enrichUserRole() → Handler
+ * ```
+ * - `requireAuth`: Ensures session exists (applied in api-routes.ts)
+ * - `validateTable`: Validates table exists, attaches tableName + tableId
+ * - `enrichUserRole`: Fetches user role from DB, attaches userRole
+ *
+ * **IMPORTANT**: Hono requires middleware registration for BOTH patterns:
+ * 1. `/api/tables/:tableId` - Exact match (e.g., GET /api/tables/123)
+ * 2. `/api/tables/:tableId/*` - Nested routes (e.g., GET /api/tables/123/records)
+ *
+ * Without both patterns, middleware won't run for all routes.
+ *
+ * **Context Variables Available After Chain** (via `ContextWithTableAndRole`):
+ * - `session`: Session (non-optional, guaranteed by requireAuth)
+ * - `tableName`: string (resolved table name)
+ * - `tableId`: string (original parameter)
+ * - `userRole`: string (user's role in organization)
  *
  * Uses method chaining for proper Hono RPC type inference.
  *

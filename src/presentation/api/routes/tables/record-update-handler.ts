@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { handleGetRecordError, handleInternalError } from './error-handlers'
@@ -18,21 +17,7 @@ import type { Context } from 'hono'
 const SYSTEM_PROTECTED_FIELDS = new Set(['organization_id', 'user_id', 'owner_id'])
 
 /**
- * Check if user has table-level update permission
- * @deprecated Use checkTableUpdatePermissionWithRole with middleware-provided userRole
- */
-export async function checkTableUpdatePermission(
-  app: App,
-  tableName: string,
-  session: Session,
-  c: Context
-): Promise<{ allowed: true } | { allowed: false; response: Response }> {
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
-  return checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
-}
-
-/**
- * Check if user has table-level update permission (using pre-fetched role)
+ * Check if user has table-level update permission (using pre-fetched role from middleware)
  */
 export function checkTableUpdatePermissionWithRole(
   app: App,
@@ -63,24 +48,7 @@ export function checkTableUpdatePermissionWithRole(
 }
 
 /**
- * Filter update data to only include fields user has permission to modify
- * @deprecated Use filterAllowedFieldsWithRole with middleware-provided userRole
- */
-export async function filterAllowedFields(
-  app: App,
-  tableName: string,
-  session: Session,
-  data: Record<string, unknown>
-): Promise<{
-  allowedData: Record<string, unknown>
-  forbiddenFields: readonly string[]
-}> {
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
-  return filterAllowedFieldsWithRole(app, tableName, userRole, data)
-}
-
-/**
- * Filter update data to only include fields user has permission to modify (using pre-fetched role)
+ * Filter update data to only include fields user has permission to modify (using pre-fetched role from middleware)
  */
 export function filterAllowedFieldsWithRole(
   app: App,
@@ -193,7 +161,13 @@ async function handleUpdateError(config: {
 
     // If we can read the record but couldn't update it, return 403 Forbidden
     if (readResult !== null) {
-      return c.json({ error: 'Forbidden: You do not have permission to update this record' }, 403)
+      return c.json(
+        {
+          error: 'Forbidden',
+          message: 'You do not have permission to update this record',
+        },
+        403
+      )
     }
 
     return c.json({ error: 'Record not found' }, 404)
