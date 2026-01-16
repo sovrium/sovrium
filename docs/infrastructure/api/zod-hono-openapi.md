@@ -1,4 +1,4 @@
-# Zod + Hono + OpenAPI Integration v4.2.1
+# Zod + Hono + OpenAPI Integration v4.3.5
 
 ## Overview
 
@@ -12,8 +12,8 @@
 
 | Library           | Version | Usage                     | Allowed Locations                            | Why                                |
 | ----------------- | ------- | ------------------------- | -------------------------------------------- | ---------------------------------- |
-| **Effect Schema** | 3.19.13 | Server validation, domain | All `src/` files (default)                   | Project standard, Effect ecosystem |
-| **Zod**           | 4.2.1   | OpenAPI + client forms    | `src/presentation/api/schemas/` + forms only | OpenAPI tooling compatibility      |
+| **Effect Schema** | 3.19.14 | Server validation, domain | All `src/` files (default)                   | Project standard, Effect ecosystem |
+| **Zod**           | 4.3.5   | OpenAPI + client forms    | `src/presentation/api/schemas/` + forms only | OpenAPI tooling compatibility      |
 
 **Why This Separation Exists**:
 

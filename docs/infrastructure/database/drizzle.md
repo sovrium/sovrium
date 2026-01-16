@@ -76,6 +76,57 @@ export type DrizzleDB = typeof db
 DATABASE_URL=postgres://user:password@localhost:5432/sovrium
 ```
 
+### PostgreSQL with postgres.js (Node.js Compatibility)
+
+Sovrium uses a **dual-driver architecture** to support both Bun runtime and Node.js environments (e.g., testing with Node.js-based tools):
+
+```typescript
+// src/infrastructure/database/drizzle/db.ts (runtime selection)
+const isBun = typeof Bun !== 'undefined'
+const dbModule = isBun ? './db-bun' : './db-node'
+const { db } = await import(dbModule)
+
+export { db }
+```
+
+**Bun Runtime** (`db-bun.ts`):
+
+```typescript
+import { drizzle } from 'drizzle-orm/bun-sql'
+
+export const db = drizzle(process.env.DATABASE_URL!)
+```
+
+**Node.js Runtime** (`db-node.ts`):
+
+```typescript
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
+
+// Use max 1 connection to avoid pool issues in test environments
+const client = postgres(process.env.DATABASE_URL!, { max: 1 })
+export const db = drizzle({ client, schema })
+```
+
+**Why Two Drivers?**
+
+| Driver                    | Package           | Runtime | Use Case                             |
+| ------------------------- | ----------------- | ------- | ------------------------------------ |
+| `drizzle-orm/bun-sql`     | Built-in Bun      | Bun     | Production, development              |
+| `drizzle-orm/postgres-js` | `postgres` ^3.4.8 | Node.js | Testing, CI (when Bun not available) |
+
+**Key Differences**:
+
+1. **Connection Pool**: `postgres.js` uses connection pooling configured via options (`max: 1` for tests)
+2. **Performance**: Bun's native driver has lower latency and better memory efficiency
+3. **Compatibility**: `postgres.js` is the fallback for Node.js-only environments
+
+**When Each Driver is Used**:
+
+- **Bun runtime**: Uses `bun:sql` (native, faster, recommended)
+- **Node.js runtime**: Uses `postgres.js` (Playwright tests, legacy Node.js tools)
+- **Detection**: Automatic via `typeof Bun !== 'undefined'` check
+
 ### Effect Layer for Database
 
 Provide database as Effect Context service:

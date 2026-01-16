@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^3.19.13 (minimum 3.19.13, allows patch/minor updates)
+**Version**: ^3.19.14 (minimum 3.19.14, allows patch/minor updates)
 **Purpose**: Comprehensive typed functional programming library for building robust, composable, and maintainable TypeScript applications with explicit error handling, dependency injection, and structured concurrency
 
 Effect.ts is a powerful library that brings advanced functional programming patterns to TypeScript. It provides a complete toolkit for managing complexity in modern applications through type-safe effects, composable operations, and declarative error handling.
@@ -784,6 +784,62 @@ export default app
 - Simple synchronous functions (use pure functions)
 - Trivial async operations (use promises directly)
 - Performance-critical hot paths (measure first)
+
+## Experimental Packages
+
+Sovrium uses additional Effect ecosystem packages for development tooling:
+
+### @effect/experimental (^0.58.0)
+
+Provides experimental Effect features not yet in the core package. Currently used for **DevTools integration**.
+
+**Usage in Sovrium**: `src/infrastructure/devtools/devtools-layer.ts`
+
+```typescript
+import { DevTools } from '@effect/experimental'
+import { Layer } from 'effect'
+
+// Effect DevTools layer for development debugging
+export const DevToolsLayer = DevTools.layer()
+
+// Check if DevTools should be enabled
+export const isDevToolsEnabled = (): boolean => process.env['EFFECT_DEVTOOLS'] === '1'
+
+// Conditionally provide DevTools layer
+export const DevToolsLayerOptional = isDevToolsEnabled() ? DevToolsLayer : Layer.empty
+```
+
+**How to Use DevTools**:
+
+1. Install VS Code/Cursor Effect extension
+2. Set `EFFECT_DEVTOOLS=1` in your environment
+3. Run: `EFFECT_DEVTOOLS=1 bun run start`
+4. Open Effect panel in your editor to see telemetry
+
+**Stability Note**: Experimental packages may have breaking changes between minor versions. Version tracking is important for upgrade planning.
+
+### @effect/language-service (^0.64.1)
+
+TypeScript language service plugin providing enhanced IDE support for Effect.ts code.
+
+**Configuration** (`tsconfig.json`):
+
+```json
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "@effect/language-service" }]
+  }
+}
+```
+
+**Features**:
+
+- Enhanced type inference display for Effect types
+- Better error messages for Effect-specific patterns
+- Quick fixes for common Effect idioms
+- Hover information for Effect combinators
+
+**IDE Setup**: Most modern editors (VS Code, Cursor, WebStorm) automatically detect the plugin from `tsconfig.json`.
 
 ## Full Documentation Reference
 

@@ -2,8 +2,8 @@
 
 ## Overview
 
-**Version**: ^5.90.12
-**DevTools Version**: ^5.91.1
+**Version**: ^5.90.16
+**DevTools Version**: ^5.91.2
 **Purpose**: Powerful data fetching and server-state management library for React applications. Handles caching, background updates, request deduplication, and synchronization with minimal boilerplate.
 
 > **Note**: This document provides a high-level summary with essential patterns. For comprehensive coverage including all hooks, advanced patterns, query cancellation strategies, and detailed performance optimizations, see the full documentation in the TanStack Query reference.
