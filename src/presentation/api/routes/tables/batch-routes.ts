@@ -6,6 +6,15 @@
  */
 
 import { Effect } from 'effect'
+import { hasCreatePermission } from '@/application/use-cases/tables/permissions/permissions'
+import {
+  batchCreateProgram,
+  batchUpdateProgram,
+  batchDeleteProgram,
+  batchRestoreProgram,
+  upsertProgram,
+} from '@/application/use-cases/tables/programs'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   batchCreateRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
@@ -21,20 +30,7 @@ import {
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
-import { hasCreatePermission } from './permissions'
-import {
-  batchCreateProgram,
-  batchUpdateProgram,
-  batchDeleteProgram,
-  batchRestoreProgram,
-  upsertProgram,
-} from './programs'
-import {
-  getSessionFromContext,
-  validateAndGetTableName,
-  getUserRole,
-  handleBatchRestoreError,
-} from './utils'
+import { getSessionFromContext, validateAndGetTableName, handleBatchRestoreError } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 

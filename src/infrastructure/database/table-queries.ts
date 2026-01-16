@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
+import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -82,12 +83,10 @@ export function listRecords(
             ? [`organization_id::text = '${activeOrgId.replace(/'/g, "''")}'`]
             : []
 
-        // Add user-provided filters
+        // Add user-provided filters (static import - no performance overhead)
         const userFilterConditions =
           filter?.and && filter.and.length > 0
-            ? await (async () => {
-                const { generateSqlCondition } =
-                  await import('@/infrastructure/database/filter-operators')
+            ? (() => {
                 const andConditions = filter.and ?? [] // Type narrowing
                 return andConditions
                   .map((f) => {

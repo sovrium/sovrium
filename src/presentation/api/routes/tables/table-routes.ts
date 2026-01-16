@@ -8,15 +8,15 @@
 import { Effect } from 'effect'
 import { z } from 'zod'
 import {
-  getTableResponseSchema,
-  getTablePermissionsResponseSchema,
-} from '@/presentation/api/schemas/tables-schemas'
-import {
   createListTablesProgram,
   createGetTableProgram,
   createGetPermissionsProgram,
-} from './programs'
-import { getUserRole } from './utils'
+} from '@/application/use-cases/tables/programs'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import {
+  getTableResponseSchema,
+  getTablePermissionsResponseSchema,
+} from '@/presentation/api/schemas/tables-schemas'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'

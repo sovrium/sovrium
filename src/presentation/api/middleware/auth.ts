@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// eslint-disable-next-line boundaries/element-types -- Middleware needs to access infrastructure types for session extraction
+// eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { Context, Next } from 'hono'
 

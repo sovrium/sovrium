@@ -6,7 +6,7 @@
  */
 
 import type { App } from '@/domain/models/app'
-// eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
+// eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context } from 'hono'
@@ -15,10 +15,7 @@ import type { Context } from 'hono'
 // Constants
 // ============================================================================
 
-const AUTH_TABLE_MEMBERS = '_sovrium_auth_members'
-const AUTH_TABLE_USERS = '_sovrium_auth_users'
 const AUTH_KEYWORDS = ['not found', 'access denied'] as const
-const DEFAULT_ROLE = 'member'
 
 // ============================================================================
 // Table ID Resolution
@@ -143,36 +140,4 @@ export const getSessionFromContext = (c: Context): Readonly<Session> | undefined
  */
 export const validateAndGetTableName = (app: App, tableId: string): string | undefined => {
   return getTableNameFromId(app, tableId)
-}
-
-/**
- * Retrieves the user's role from the database
- *
- * Role resolution priority:
- * 1. If active organization: check members table for org-specific role
- * 2. If no active organization or no membership: check global user role from users table
- * 3. Default: 'member'
- */
-export async function getUserRole(
-  userId: string,
-  activeOrganizationId?: string | null
-): Promise<string> {
-  const { db } = await import('@/infrastructure/database')
-
-  // If active organization, check members table first
-  if (activeOrganizationId) {
-    const memberResult = (await db.execute(
-      `SELECT role FROM "${AUTH_TABLE_MEMBERS}" WHERE organization_id = '${activeOrganizationId.replace(/'/g, "''")}' AND user_id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-    )) as Array<{ role: string | null }>
-
-    if (memberResult[0]?.role) {
-      return memberResult[0].role
-    }
-  }
-
-  // Fall back to global user role from users table
-  const userResult = (await db.execute(
-    `SELECT role FROM "${AUTH_TABLE_USERS}" WHERE id = '${userId.replace(/'/g, "''")}' LIMIT 1`
-  )) as Array<{ role: string | null }>
-  return userResult[0]?.role || DEFAULT_ROLE
 }

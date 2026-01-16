@@ -165,6 +165,11 @@ export default [
           mode: 'file',
         },
         { type: 'presentation-util', pattern: 'src/presentation/utils/**/*', mode: 'file' },
+        {
+          type: 'presentation-api-util',
+          pattern: 'src/presentation/api/utils/**/*',
+          mode: 'file',
+        },
       ],
     },
     rules: {
@@ -518,6 +523,7 @@ export default [
                 'application-use-case',
                 'application-error',
                 'presentation-api-middleware',
+                'presentation-api-util',
                 'presentation-util',
               ],
               message:
@@ -575,6 +581,26 @@ export default [
               ],
               message:
                 'Presentation util violation: Can only import domain models and other utils. Keep utilities pure.',
+            },
+
+            // API utils - Can import domain and other presentation utils only (NO infrastructure)
+            {
+              from: ['presentation-api-util'],
+              allow: [
+                'domain-model-app',
+                'domain-model-table',
+                'domain-model-page',
+                'domain-model-automation',
+                'domain-validator',
+                'domain-service',
+                'domain-factory',
+                'domain-error',
+                'presentation-api-util',
+                'presentation-api-middleware',
+                'presentation-util',
+              ],
+              message:
+                'API util violation: Cannot import from Infrastructure layer. Use Application layer use cases instead.',
             },
           ],
         },

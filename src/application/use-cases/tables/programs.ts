@@ -6,28 +6,31 @@
  */
 
 import { Effect } from 'effect'
-// eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure for session context
 import { SessionContextError, ForbiddenError } from '@/infrastructure/database/session-context'
-import { filterReadableFields } from '@/presentation/api/utils/field-read-filter'
-import {
-  transformRecord,
-  transformRecords,
-  type TransformedRecord,
-} from '@/presentation/api/utils/record-transformer'
 import {
   listRecords,
   getRecord,
   createRecord,
   updateRecord,
+  deleteRecord,
   restoreRecord,
   batchCreateRecords,
   batchRestoreRecords,
   batchUpdateRecords,
   batchDeleteRecords,
-} from '@/presentation/api/utils/table-queries'
-import { isAdminRole, evaluateTablePermissions, evaluateFieldPermissions } from './permissions'
+} from '@/infrastructure/database/table-queries'
+import {
+  isAdminRole,
+  evaluateTablePermissions,
+  evaluateFieldPermissions,
+} from './permissions/permissions'
+import { filterReadableFields } from './utils/field-read-filter'
+import {
+  transformRecord,
+  transformRecords,
+  type TransformedRecord,
+} from './utils/record-transformer'
 import type { App } from '@/domain/models/app'
-// eslint-disable-next-line boundaries/element-types -- Route handlers need auth types for session management
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {
   GetTableResponse,
@@ -444,6 +447,30 @@ export function batchRestoreProgram(
       restored,
     }
   })
+}
+
+/**
+ * Raw record retrieval program (no permission filtering)
+ * Used for internal checks like record existence verification
+ */
+export function rawGetRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
+  return getRecord(session, tableName, recordId)
+}
+
+/**
+ * Delete record program
+ * Wraps Infrastructure deleteRecord for proper layer architecture
+ */
+export function deleteRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<boolean, SessionContextError> {
+  return deleteRecord(session, tableName, recordId)
 }
 
 export function upsertProgram(

@@ -6,12 +6,16 @@
  */
 
 import {
+  listViewsProgram,
+  getViewProgram,
+  getViewRecordsProgram,
+} from '@/application/use-cases/tables/programs'
+import {
   listViewsResponseSchema,
   getViewResponseSchema,
   getViewRecordsResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect } from '@/presentation/api/utils'
-import { listViewsProgram, getViewProgram, getViewRecordsProgram } from './programs'
 import type { Hono } from 'hono'
 
 export function chainViewRoutesMethods<T extends Hono>(honoApp: T) {

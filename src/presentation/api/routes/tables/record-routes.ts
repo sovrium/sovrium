@@ -7,6 +7,21 @@
 
 import { Effect } from 'effect'
 import {
+  hasCreatePermission,
+  hasDeletePermission,
+} from '@/application/use-cases/tables/permissions/permissions'
+import {
+  createListRecordsProgram,
+  createGetRecordProgram,
+  createRecordProgram,
+  updateRecordProgram,
+  restoreRecordProgram,
+  rawGetRecordProgram,
+  deleteRecordProgram,
+} from '@/application/use-cases/tables/programs'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
+import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
 } from '@/presentation/api/schemas/request-schemas'
@@ -17,82 +32,17 @@ import {
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
-import { validateFilterFieldPermissions } from '@/presentation/api/utils/filter-field-validator'
-import { transformRecord } from '@/presentation/api/utils/record-transformer'
-import { getRecord, deleteRecord } from '@/presentation/api/utils/table-queries'
-import { hasCreatePermission, hasDeletePermission } from './permissions'
 import {
-  createListRecordsProgram,
-  createGetRecordProgram,
-  createRecordProgram,
-  updateRecordProgram,
-  restoreRecordProgram,
-} from './programs'
-import {
-  getSessionFromContext,
-  validateAndGetTableName,
-  getUserRole,
-  isAuthorizationError,
-} from './utils'
+  handleGetRecordError,
+  handleRestoreRecordError,
+  handleInternalError,
+} from './error-handlers'
+import { parseFilterParameter } from './filter-parser'
+import { getSessionFromContext, validateAndGetTableName, isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
-
-/**
- * Filter parameter type matching the expected shape
- */
-type FilterParameter =
-  | {
-      readonly and?: readonly {
-        readonly field: string
-        readonly operator: string
-        readonly value: unknown
-      }[]
-    }
-  | undefined
-
-/**
- * Parse and validate filter parameter from query string
- */
-function parseFilterParameter(config: {
-  filterParam: string | undefined
-  app: App
-  tableName: string
-  userRole: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono context type is complex and not worth importing
-  c: any
-}):
-  | { success: true; filter: FilterParameter }
-  | { success: false; error: ReturnType<typeof config.c.json> } {
-  const { filterParam, app, tableName, userRole, c } = config
-
-  if (!filterParam) {
-    return { success: true, filter: undefined }
-  }
-
-  try {
-    const filter = JSON.parse(filterParam)
-    const forbiddenFields = validateFilterFieldPermissions(app, tableName, userRole, filter)
-
-    if (forbiddenFields.length > 0) {
-      return {
-        success: false,
-        error: c.json(
-          { error: 'Forbidden', message: `Cannot filter by field: ${forbiddenFields[0]}` },
-          403
-        ),
-      }
-    }
-
-    return { success: true, filter }
-  } catch {
-    return {
-      success: false,
-      error: c.json({ error: 'Bad Request', message: 'Invalid filter parameter' }, 400),
-    }
-  }
-}
 
 // eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
 export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
@@ -192,7 +142,6 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           201
         )
       })
-      // eslint-disable-next-line complexity -- Error handling for authorization requires multiple checks
       .get('/api/tables/:tableId/records/:recordId', async (c) => {
         const session = getSessionFromContext(c)
         if (!session) {
@@ -221,32 +170,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           const validated = getRecordResponseSchema.parse(result)
           return c.json(validated, 200)
         } catch (error) {
-          // Check if error indicates authorization failure or record not found
-          // Effect wraps errors, so check both message and error name
-          const errorMessage = error instanceof Error ? error.message : String(error)
-          const errorName = error instanceof Error ? error.name : ''
-          const errorString = String(error)
-
-          // Check if it's a SessionContextError (authorization/not found)
-          if (
-            errorMessage.includes('Record not found') ||
-            errorMessage.includes('not found') ||
-            errorMessage.includes('access denied') ||
-            errorName.includes('SessionContextError') ||
-            errorString.includes('SessionContextError')
-          ) {
-            // Return 404 for authorization failures to prevent enumeration
-            return c.json({ error: 'Record not found' }, 404)
-          }
-
-          // For other errors, return 500
-          return c.json(
-            {
-              error: 'Internal server error',
-              message: errorMessage,
-            },
-            500
-          )
+          return handleGetRecordError(c, error)
         }
       })
       // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions
@@ -320,7 +244,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         if (Object.keys(allowedFieldsData).length === 0) {
           try {
             const recordId = c.req.param('recordId')
-            const record = await Effect.runPromise(getRecord(session, tableName, recordId))
+            const record = await Effect.runPromise(
+              rawGetRecordProgram(session, tableName, recordId)
+            )
 
             if (!record) {
               return c.json({ error: 'Record not found' }, 404)
@@ -328,11 +254,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
             return c.json({ record: transformRecord(record) }, 200)
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            if (errorMessage.includes('Record not found') || errorMessage.includes('not found')) {
-              return c.json({ error: 'Record not found' }, 404)
-            }
-            return c.json({ error: 'Internal server error', message: errorMessage }, 500)
+            return handleGetRecordError(c, error)
           }
         }
 
@@ -354,7 +276,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
             // Check if the record exists with read permission
             try {
               const recordId = c.req.param('recordId')
-              const readResult = await Effect.runPromise(getRecord(session, tableName, recordId))
+              const readResult = await Effect.runPromise(
+                rawGetRecordProgram(session, tableName, recordId)
+              )
 
               // If we can read the record but couldn't update it, return 403 Forbidden
               if (readResult !== null) {
@@ -364,21 +288,13 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
                 )
               }
 
-              // If we can't read the record either, return 404 Not Found
               return c.json({ error: 'Record not found' }, 404)
             } catch {
-              // If getRecord also fails, return 404 (record doesn't exist or not readable)
               return c.json({ error: 'Record not found' }, 404)
             }
           }
 
-          return c.json(
-            {
-              error: 'Internal server error',
-              message: error instanceof Error ? error.message : 'Unknown error',
-            },
-            500
-          )
+          return handleInternalError(c, error)
         }
       })
       .delete('/api/tables/:tableId/records/:recordId', async (c) => {
@@ -411,7 +327,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
         try {
           const deleted = await Effect.runPromise(
-            deleteRecord(session, tableName, c.req.param('recordId'))
+            deleteRecordProgram(session, tableName, c.req.param('recordId'))
           )
 
           if (!deleted) {
@@ -425,14 +341,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           if (isAuthorizationError(error)) {
             return c.json({ error: 'Record not found' }, 404)
           }
-
-          return c.json(
-            {
-              error: 'Internal server error',
-              message: error instanceof Error ? error.message : 'Unknown error',
-            },
-            500
-          )
+          return handleInternalError(c, error)
         }
       })
       .post('/api/tables/:tableId/records/:recordId/restore', async (c) => {
@@ -455,24 +364,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
           return c.json(result, 200)
         } catch (error) {
-          // Handle specific error messages
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-          if (errorMessage === 'Record not found') {
-            return c.json({ error: 'Record not found' }, 404)
-          }
-
-          if (errorMessage === 'Record is not deleted') {
-            return c.json({ error: 'Bad Request', message: 'Record is not deleted' }, 400)
-          }
-
-          return c.json(
-            {
-              error: 'Internal server error',
-              message: errorMessage,
-            },
-            500
-          )
+          return handleRestoreRecordError(c, error)
         }
       })
   )
