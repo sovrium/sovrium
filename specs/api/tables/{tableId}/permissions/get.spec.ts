@@ -350,21 +350,21 @@ test.describe('Check table permissions', () => {
   // unauthenticated access, not found, field-level permissions, viewer role
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CHECK-REGRESSION: user can complete full permissions check workflow',
     { tag: '@regression' },
     async ({
       request,
       startServerWithSchema,
-      createAuthenticatedAdmin,
       createAuthenticatedUser,
-      createAuthenticatedViewer,
       signOut,
+      executeQuery,
     }) => {
       await test.step('Setup: Start server with comprehensive permissions configuration', async () => {
         // Consolidated schema covering all @spec test scenarios
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 1,
@@ -412,7 +412,12 @@ test.describe('Check table permissions', () => {
 
       await test.step('API-TABLES-PERMISSIONS-CHECK-001: Returns all permissions as true for admin', async () => {
         // WHEN: Admin user checks permissions for a table
-        await createAuthenticatedAdmin()
+        const admin = await createAuthenticatedUser()
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'admin'
+          WHERE id = '${admin.user.id}'
+        `)
         const response = await request.get('/api/tables/1/permissions')
 
         // THEN: All table and field permissions should be returned as true
@@ -460,7 +465,12 @@ test.describe('Check table permissions', () => {
 
       await test.step('API-TABLES-PERMISSIONS-CHECK-004: Returns 404 Not Found', async () => {
         // WHEN: User checks permissions for invalid table ID
-        await createAuthenticatedAdmin()
+        const admin = await createAuthenticatedUser()
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'admin'
+          WHERE id = '${admin.user.id}'
+        `)
         const response = await request.get('/api/tables/9999/permissions')
 
         // THEN: 404 Not Found error should be returned
@@ -492,7 +502,12 @@ test.describe('Check table permissions', () => {
       await test.step('API-TABLES-PERMISSIONS-CHECK-006: Shows all write operations as false for viewer', async () => {
         // WHEN: Viewer user checks permissions
         await signOut()
-        await createAuthenticatedViewer()
+        const viewer = await createAuthenticatedUser()
+        await executeQuery(`
+          UPDATE "_sovrium_auth_users"
+          SET role = 'viewer'
+          WHERE id = '${viewer.user.id}'
+        `)
         const response = await request.get('/api/tables/1/permissions')
 
         // THEN: All write operations should be false (create, update, delete)
