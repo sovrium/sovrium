@@ -184,13 +184,14 @@ test.describe('Check table permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CHECK-004: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: An authenticated user checking a non-existent table
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
