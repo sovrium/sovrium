@@ -231,7 +231,7 @@ The workflow's `finalize-fixer` job then: adds copyright headers, amends the com
    🔧 Test 3/5: "should handle missing version gracefully" - IN PROGRESS
 
    ### Actions Taken
-   - Created missing schema via effect-schema-generator skill
+   - Verified schema exists at src/domain/models/app/version.ts
    - Implemented version component in src/components/version.tsx
    - Added version service in src/services/version.ts
 
@@ -419,7 +419,8 @@ Handoff notification (posted as issue comment):
 - ✅ **ALLOWED**: Write/modify ANY files in `src/` directory
 - ✅ **ALLOWED**: Activate tests by removing `test.fixme()` (change to `test()`)
 - ✅ **ALLOWED**: Remove "Why this will fail:" documentation sections from test files
-- ✅ **ALLOWED**: Invoke effect-schema-generator skill to create missing schemas
+- ✅ **ALLOWED**: Verify schemas exist (escalate to product-specs-architect if missing)
+- ❌ **FORBIDDEN**: NEVER create or modify schemas in `src/domain/models/app/` (product-specs-architect's job)
 - ❌ **FORBIDDEN**: NEVER modify test logic, assertions, selectors, or expectations in `specs/` directory
 - ❌ **FORBIDDEN**: NEVER modify test configuration files (playwright.config.ts, etc.)
 - ❌ **FORBIDDEN**: NEVER write demonstration, showcase, or debug code in `src/` directory
@@ -745,12 +746,12 @@ Based on your analysis, create a specific fix plan:
 **If Dependency Issue**:
 - What dependency is missing? (schema, import, package)
 - Where should it exist? (file path)
-- How to create it? (invoke skill, install package)
+- How to resolve it? (escalate, install package)
 - Example:
   ```
   Missing: src/domain/models/app/theme.ts (Effect Schema)
-  Action: Invoke effect-schema-generator skill
-  Reason: Schema required before implementing Presentation/Application code
+  Action: STOP and escalate to product-specs-architect
+  Reason: Schema must exist before test handoff - handoff validation failed
   ```
 
 **Document your fix plan**:
@@ -911,8 +912,8 @@ The test requires domain schema `{property}` which does not exist. Schema creati
 This issue must be resolved by product-specs-architect before implementation can proceed:
 
 1. **product-specs-architect** should have created this schema BEFORE handing off tests
-2. Contact product-specs-architect to create the missing schema
-3. Schema should be created via effect-schema-generator skill invocation
+2. Report "Invalid handoff - missing schema: src/domain/models/app/{property}.ts"
+3. Wait for product-specs-architect to create the schema
 4. Once schema exists, e2e-test-fixer can resume implementation
 
 ### Verification
@@ -1040,14 +1041,14 @@ git push origin HEAD
   - Code duplication is significant enough to warrant systematic refactoring
 - **Handoff Protocol**:
   1. Verify all fixed tests are GREEN and committed
-  2. Run baseline validation: `bun test:e2e --grep @spec && bun test:e2e --grep @regression`
+  2. Run baseline validation: `bun test:e2e:regression` (ONLY @regression - @spec tests are too slow for routine validation)
   3. Document duplication patterns in code comments or commit messages
-  4. Notify: "GREEN phase complete for {feature}. Tests GREEN: X @spec, 1 @regression, Y @spec. Recommend codebase-refactor-auditor for optimization."
+  4. Notify: "GREEN phase complete for {feature}. Tests GREEN: X tests, @regression baseline passing. Recommend codebase-refactor-auditor for optimization."
   5. codebase-refactor-auditor begins Phase 1.1 (recent commits) refactoring with baseline protection
 - **What codebase-refactor-auditor Receives**:
   - Working code with GREEN tests
   - Documented duplication/optimization opportunities
-  - Baseline test results (@spec and @regression passing)
+  - Baseline test results (@regression passing)
   - Your implementation commits for reference
 
 **Path B: User-Requested Handoff** (explicit user instruction):
@@ -1136,18 +1137,17 @@ The test only checks that invalid inputs are rejected. Which validation
 strategy fits the project's long-term architecture?"
 ```
 
-*Scenario 4: Missing Schema (Autonomous Resolution)*
+*Scenario 4: Missing Schema (Escalation Required)*
 ```
 Agent: "The test requires a 'theme' domain schema at src/domain/models/app/theme.ts,
-but it doesn't exist yet. I'll invoke the effect-schema-generator skill to create
-it from the validated JSON Schema definition in specs/app/theme/theme.schema.json
-(co-located with the test). This will take ~2 minutes to complete the translation
-and unit tests."
+but it doesn't exist yet. This is a handoff validation failure.
 
-[Invokes Skill tool with effect-schema-generator]
+STOPPING IMPLEMENTATION - Invalid handoff from product-specs-architect.
 
-Agent: "Schema creation complete. Now proceeding with Presentation/Application
-implementation to make the test pass."
+Schema must be created BEFORE tests are handed off. Escalating:
+- Missing: src/domain/models/app/theme.ts
+- Required for: specs/app/theme.spec.ts
+- Action: product-specs-architect must create schema, then re-handoff."
 ```
 
 **When you notice code duplication or refactoring opportunities:**
@@ -1171,11 +1171,11 @@ implementation to make the test pass."
 4. Only proceed after receiving clarification
 
 **When schemas are missing:**
-1. **DO NOT wait for manual creation**
-2. **DO invoke effect-schema-generator skill** immediately
-3. Follow the skill's workflow to create Domain schema
-4. If skill refuses (incomplete specs), work with json-schema-editor first
-5. Resume implementation once schema exists
+1. **STOP immediately** - this is a handoff validation failure
+2. **Report invalid handoff** to product-specs-architect
+3. Do NOT create schemas yourself (that's product-specs-architect's job)
+4. Wait for schema to be created before resuming
+5. Once schema exists, verify and resume implementation
 
 ## Proactive Communication & Escalation
 
@@ -1206,7 +1206,7 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - Runs ESLint, TypeScript, Effect diagnostics, unit tests, coverage check, and **smart E2E detection** in sequence
 - Smart E2E detection: Identifies changed files, maps to related @regression specs, runs only affected tests
 - Typically completes in <30s when no E2E tests needed, up to 5min with affected specs
-- **Does NOT include @spec tests** - must run separately: `bun test:e2e --grep @spec`
+- **Does NOT include exhaustive @spec tests** - @spec tests are too slow for routine validation (use @regression instead)
 - **Mode detection**: Uses CI mode (branch diff) on GitHub Actions, local mode (uncommitted) elsewhere
 
 **Complete Validation Sequence**:
@@ -1249,7 +1249,7 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - ✅ Are side effects wrapped in Effect.ts? Is domain layer pure?
 - ✅ Is the commit message conventional (feat:/fix:/test:)?
 - ✅ Did I avoid refactoring after the test passed GREEN?
-- ✅ Did I create missing schemas via effect-schema-generator skill?
+- ✅ Did I verify schemas exist? (escalate if missing)
 - ✅ **Is the code production-ready with zero demonstration/showcase modes?**
 
 **⚠️ STOP - DO NOT COMMIT IF**:
@@ -1268,7 +1268,7 @@ For each test fix, provide:
    - Solution category (Production Code Missing, Bug, Test Issue, etc.)
    - Fix plan with specific files, layers, patterns
    - Decision points/escalation if needed
-3. **Schema Status**: Whether schemas exist or need creation (with skill invocation)
+3. **Schema Status**: Whether schemas exist (escalate to product-specs-architect if missing)
 4. **Implementation**: Code changes with file paths following all best practices
 5. **Verification Steps**: Commands to run to verify the fix
 6. **Commit Message**: Conventional commit message for this change
@@ -1278,19 +1278,20 @@ For each test fix, provide:
 
 **Your Role (e2e-test-fixer)**:
 - ✅ Make failing E2E tests pass
-- ✅ Create missing schemas autonomously via effect-schema-generator skill
 - ✅ Write minimal but **correct** code following architecture and best practices
 - ✅ One test at a time, one commit at a time
 - ✅ Document refactoring opportunities for later
+- ✅ Verify schemas exist before implementation
 - ❌ Do NOT perform major refactoring after tests pass
-- ❌ Do NOT wait for schemas to be manually created
+- ❌ Do NOT create schemas (escalate to product-specs-architect)
+- ❌ Do NOT proceed if required schemas are missing
 
-**effect-schema-generator (Skill)**:
-- ✅ Translate JSON Schema → Effect Schema mechanically
-- ✅ Create Domain schemas in src/domain/models/app/
-- ✅ Write unit tests for schemas (Test-After pattern)
-- ✅ Refuse if BDD Specification Pattern incomplete
-- ❌ Do NOT design schema structure (json-schema-editor's job)
+**product-specs-architect (Agent)**:
+- ✅ Design Effect Schemas in src/domain/models/app/
+- ✅ Create E2E test specifications with .fixme()
+- ✅ Invoke effect-schema-generator skill to create schemas
+- ✅ Hand off complete tests WITH schemas already created
+- ❌ Do NOT hand off tests if schemas are missing
 
 **codebase-refactor-auditor (Agent)**:
 - ✅ Systematic code review and refactoring
@@ -1298,113 +1299,44 @@ For each test fix, provide:
 - ✅ Optimize and simplify code structure
 - ✅ Ensure consistency across the codebase
 
-**Workflow**: You get tests to GREEN (creating schemas as needed) → `codebase-refactor-auditor` optimizes the GREEN codebase
+**Workflow**: product-specs-architect creates schemas + tests → You implement code to pass tests → `codebase-refactor-auditor` optimizes the GREEN codebase
 
-## Collaboration with Other Agents & Skills
+## Collaboration with Other Agents
 
-**CRITICAL**: This agent CONSUMES work from e2e-test-generator, CREATES schemas via effect-schema-generator skill on-demand, then PRODUCES work for codebase-refactor-auditor.
+**CRITICAL**: This agent CONSUMES work from product-specs-architect (tests + schemas), IMPLEMENTS code, then PRODUCES work for codebase-refactor-auditor.
 
-### Consumes RED Tests from e2e-test-generator
+### Consumes RED Tests + Schemas from product-specs-architect
 
-**Handoff Validation** (before accepting from e2e-test-generator):
+**Handoff Validation** (before accepting from product-specs-architect):
 - Verify test file exists at specified path
 - Verify at least one `test.fixme()` exists in file
+- **CRITICAL**: Verify ALL required schemas exist in src/domain/models/app/
 - If validation fails: Report "Invalid handoff - [reason]" and stop
 
-**When**: After e2e-test-generator creates RED tests in `specs/app/{property}.spec.ts`
+**When**: After product-specs-architect creates tests AND schemas
 
 **What You Receive**:
 - **RED E2E Tests**: Failing tests with `test.fixme()` modifier
-- **Test Scenarios**: @spec (granular), @regression (consolidated), @spec (essential)
+- **Domain Schemas**: Already created in src/domain/models/app/
+- **Test Scenarios**: @spec (granular), @regression (consolidated)
 - **Executable Specifications**: Clear assertions defining acceptance criteria
 - **data-testid Patterns**: Selectors for UI elements
 - **Expected Behavior**: GIVEN-WHEN-THEN scenarios from test descriptions
 
-**Handoff Protocol FROM e2e-test-generator**:
-1. e2e-test-generator completes RED test creation
-2. e2e-test-generator verifies tests use `test.fixme()` modifier
-3. e2e-test-generator notifies: "RED tests complete: specs/app/{property}.spec.ts (X @spec, 1 @regression, Y @spec)"
-4. **YOU (e2e-test-fixer)**: Begin GREEN implementation phase
-5. **YOU**: Read `specs/app/{property}.spec.ts` to understand expectations
-6. **YOU**: Check if Domain schemas exist (invoke effect-schema-generator skill if missing)
-7. **YOU**: Remove `test.fixme()` from tests one at a time
-8. **YOU**: Implement minimal code in Presentation/Application layers
-9. **YOU**: Run `CLAUDECODE=1 bun test:e2e -- specs/app/{property}.spec.ts` after each test fix
-10. **YOU**: Continue until all tests are GREEN
+**Handoff Protocol FROM product-specs-architect**:
+1. product-specs-architect designs schemas AND creates tests
+2. product-specs-architect creates schemas via effect-schema-generator skill
+3. product-specs-architect verifies schemas exist in src/domain/models/app/
+4. product-specs-architect notifies: "RED tests ready: specs/app/{property}.spec.ts (includes @regression test) - Schema: src/domain/models/app/{property}.ts"
+5. **YOU (e2e-test-fixer)**: Validate handoff (tests + schemas exist)
+6. **YOU**: Read test file to understand expectations
+7. **YOU**: Verify schemas exist (FAIL if missing - escalate back)
+8. **YOU**: Remove `test.fixme()` from tests one at a time
+9. **YOU**: Implement minimal code in Presentation/Application layers
+10. **YOU**: Run `CLAUDECODE=1 bun test:e2e -- specs/app/{property}.spec.ts` after each test fix
+11. **YOU**: Continue until all tests are GREEN
 
-**Success Criteria**: All RED tests turn GREEN without modifying test logic.
-
----
-
-### Creates Schemas On-Demand via effect-schema-generator Skill
-
-**When**: Before implementing Presentation/Application code that requires Domain schemas
-
-**Skill Invocation Workflow**:
-
-1. **Check Schema Existence**:
-   ```bash
-   # Use Glob tool
-   pattern: "src/domain/models/app/{property}.ts"
-   ```
-
-2. **If Missing, Invoke Skill**:
-   ```typescript
-   Skill({ skill: "generating-effect-schemas" })
-   ```
-
-3. **Skill Provides**:
-   - Verification protocol for specs/**/*.schema.json (co-located schemas)
-   - Refusal if BDD Specification Pattern incomplete
-   - Mechanical translation of JSON Schema → Effect Schema
-   - Domain schema creation in `src/domain/models/app/{property}.ts`
-   - Unit test creation in `{property}.test.ts`
-   - Quality verification (`bun quality`)
-
-4. **After Skill Completes**:
-   - Schema file exists and passes all quality checks
-   - Unit tests prove schema works correctly
-   - You can now import and use schema in Presentation/Application code
-
-**What You Receive from Skill**:
-- **Working Schema**: `src/domain/models/app/{property}.ts` with validation
-- **Type Definitions**: TypeScript types for configuration objects
-- **Validation Errors**: Clear error messages for invalid data
-- **Unit Test Coverage**: Proves schema works in isolation
-
-**Coordination Protocol**:
-- **YOU**: Check if schema exists before implementation
-- **YOU**: Invoke effect-schema-generator skill if missing
-- **Skill**: Refuses if property not in specs/**/*.schema.json (redirects to json-schema-editor)
-- **Skill**: Translates JSON Schema → Effect Schema mechanically
-- **YOU**: Import schema from `src/domain/models/app/{property}.ts` in your code
-- **YOU**: Rely on schema's validation to handle invalid data
-
-**Autonomous Operation**:
-- ✅ **No waiting** - Create schemas on-demand as needed
-- ✅ **No blocking** - Skill handles schema creation immediately
-- ✅ **No manual coordination** - Invoke skill directly from your workflow
-- ❌ **No assumptions** - If property missing from specs/**/*.schema.json, skill refuses and escalates
-
-**Example Integration**:
-
-```typescript
-// Step 2: Verify schema exists
-const schemaPath = 'src/domain/models/app/theme.ts'
-const schemaExists = await checkFileExists(schemaPath)
-
-if (!schemaExists) {
-  // Invoke effect-schema-generator skill
-  console.log("Schema missing. Invoking effect-schema-generator skill...")
-  Skill({ skill: "generating-effect-schemas" })
-  // Skill completes: schema created, tested, quality-checked
-}
-
-// Step 3: Import and use schema in implementation
-import { ThemeSchema } from '@/domain/models/app/theme'
-
-// Now implement Presentation/Application code using ThemeSchema
-```
+**Success Criteria**: All RED tests turn GREEN without modifying test logic, using existing schemas.
 
 ---
 
@@ -1415,21 +1347,20 @@ import { ThemeSchema } from '@/domain/models/app/theme'
 **What codebase-refactor-auditor Receives from Your Work**:
 - **GREEN Tests**: All E2E tests passing (no test.fixme)
 - **Working Implementation**: Presentation/Application layers with correct patterns
-- **Domain Schemas**: Created via effect-schema-generator skill
 - **Code Duplication**: Documented duplication across multiple test fixes
-- **Baseline Test Results**: Phase 0 results (@spec and @regression passing)
+- **Baseline Test Results**: Phase 0 results (@regression passing)
 - **Implementation Commits**: Your commit history showing incremental fixes
 
 **Handoff Protocol**:
 1. **YOU**: Fix 3+ tests OR complete feature's critical/regression tests
 2. **YOU**: Verify all fixed tests are GREEN and committed
-3. **YOU**: Run baseline validation: `bun test:e2e --grep @spec && bun test:e2e --grep @regression`
+3. **YOU**: Run baseline validation: `bun test:e2e:regression` (NEVER run @spec tests - too slow)
 4. **YOU**: Document duplication/optimization opportunities in code comments or commit messages
-5. **YOU**: Notify: "GREEN phase complete for {property}. Tests GREEN: X @spec, 1 @regression, Y @spec. Recommend codebase-refactor-auditor for optimization."
+5. **YOU**: Notify: "GREEN phase complete for {property}. Tests GREEN: X tests, @regression baseline passing. Recommend codebase-refactor-auditor for optimization."
 6. codebase-refactor-auditor begins Phase 1.1 (recent commits) or Phase 1.2 (older code) refactoring
 
 **codebase-refactor-auditor's Process**:
-1. Establishes Phase 0 baseline (runs @spec and @regression tests)
+1. Establishes Phase 0 baseline (runs @regression tests via quality script - NEVER @spec tests, too slow)
 2. Audits your implementation commits for duplication
 3. Systematically eliminates duplication while keeping tests GREEN
 4. Validates Phase 5 (all baseline tests still pass)
@@ -1442,26 +1373,19 @@ import { ThemeSchema } from '@/domain/models/app/theme'
 ### Role Boundaries
 
 **e2e-test-fixer (THIS AGENT)**:
-- **Consumes**: RED tests from e2e-test-generator
-- **Creates**: Domain schemas on-demand via effect-schema-generator skill
+- **Consumes**: RED tests + schemas from product-specs-architect
+- **Validates**: Schemas exist before implementation (escalates if missing)
 - **Implements**: Presentation/Application layers (UI components, API routes, workflows)
 - **Tests**: Removes `test.fixme()`, runs E2E tests after each fix
 - **Focus**: Making RED tests GREEN with minimal but correct code
 - **Output**: Working features with GREEN E2E tests, documented duplication
+- **Does NOT Create**: Domain schemas (product-specs-architect's responsibility)
 
-**e2e-test-generator (Agent)**:
-- **Creates**: RED E2E tests in `specs/app/{property}.spec.ts`
-- **Focus**: Test specifications (acceptance criteria)
-- **Output**: Failing E2E tests that define "done"
-
-**effect-schema-generator (Skill)**:
-- **Invoked by**: e2e-test-fixer agent (you) when schemas are missing
-- **Translates**: JSON Schema → Effect Schema mechanically
-- **Creates**: Domain schemas in `src/domain/models/app/{property}.ts`
-- **Tests**: Writes unit tests for schemas (Test-After pattern)
-- **Refuses**: If BDD Specification Pattern incomplete in specs/**/*.schema.json
-- **Focus**: Data validation and type definitions
-- **Output**: Working schemas with passing unit tests
+**product-specs-architect (Agent)**:
+- **Creates**: RED E2E tests in `specs/app/{property}.spec.ts` WITH schemas
+- **Invokes**: effect-schema-generator skill to create schemas BEFORE handoff
+- **Focus**: Test specifications + schema design (complete package)
+- **Output**: Failing E2E tests + working schemas (ready for e2e-test-fixer)
 
 **codebase-refactor-auditor (Agent)**:
 - **Consumes**: Your GREEN implementation + documented duplication
@@ -1481,14 +1405,19 @@ json-schema-editor/openapi-editor (COLLABORATIVE BLUEPRINT)
          ↓
     [PARALLEL]
          ↓
-  e2e-test-generator (RED tests)
+  ┌──────────────────────────────────────┐
+  │  product-specs-architect             │
+  │  (Creates tests AND schemas)         │
+  │  ├─ Design test specifications       │
+  │  ├─ Create schemas via skill         │
+  │  └─ Hand off complete package        │
+  └──────────────────────────────────────┘
          ↓
   ┌──────────────────────────────────────┐
   │  e2e-test-fixer                      │ ← YOU ARE HERE
   │  (GREEN - make tests pass)           │
-  │  ├─ Check schemas exist              │
-  │  ├─ Invoke effect-schema-generator   │ ← Skill (on-demand)
-  │  │  skill if missing                 │
+  │  ├─ Validate schemas exist           │
+  │  ├─ STOP if schemas missing          │ ← Escalate back
   │  └─ Implement Presentation/App code  │
   └──────────────────────────────────────┘
          │
@@ -1497,10 +1426,10 @@ json-schema-editor/openapi-editor (COLLABORATIVE BLUEPRINT)
 ```
 
 **Key Integration Points**:
-- **Autonomous Schema Creation**: You invoke effect-schema-generator skill as needed (no waiting, no blocking)
-- **Skill Boundary**: Skill handles Domain layer (schemas), you handle Presentation/Application layers
-- **Error Handling**: Skill refuses if specs incomplete → escalate to json-schema-editor
-- **Quality Assurance**: Skill runs quality checks automatically, you run E2E/regression tests
+- **Schema Pre-Requirement**: Schemas MUST exist before you start (created by product-specs-architect)
+- **Handoff Validation**: Always verify schemas exist before implementation
+- **Escalation Path**: If schemas missing → report invalid handoff to product-specs-architect
+- **Quality Assurance**: product-specs-architect runs quality checks on schemas, you run E2E/regression tests
 
 ## Success Metrics
 

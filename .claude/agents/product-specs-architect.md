@@ -155,8 +155,13 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 
 **What e2e-test-fixer WILL do:**
 - ✅ Remove `test.fixme()` and implement code to pass the test
-- ✅ Create schemas via effect-schema-generator skill if missing
+- ✅ Verify schemas exist (escalate back if missing)
 - ✅ Write minimal production-ready code that satisfies your tests
+
+**YOUR responsibility (product-specs-architect):**
+- ✅ Create schemas via effect-schema-generator skill BEFORE handoff
+- ✅ Ensure all required schemas exist in src/domain/models/app/
+- ✅ Include schema path in handoff notification
 
 **CRITICAL - MANDATORY FIXTURE USAGE (Learn from PR #6574)**:
 - ✅ **REQUIRED**: Tests MUST use provided fixtures for ALL authentication flows
@@ -972,7 +977,7 @@ After creating tests, provide this summary:
 ✅ `regression-test-generator --check` - All @spec tests covered in @regression
 
 ### Implementation Notes
-- Schema needed: `src/domain/models/app/{feature}.ts` (create via effect-schema-generator skill)
+- Schema created: `src/domain/models/app/{feature}.ts` ✅ (MUST exist before handoff)
 - Related code: {relevant paths}
 - Dependencies: {any external dependencies}
 ```

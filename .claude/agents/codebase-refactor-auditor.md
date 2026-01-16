@@ -61,7 +61,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
   - NO Edit/Write: Recommendations only, awaiting human approval
 
   PHASE 0 & PHASE 5 (Test Validation):
-  - Bash: bun test:e2e --grep @spec/@regression for safety baseline
+  - Bash: bun test:e2e:regression for safety baseline (@regression only - @spec tests are too slow)
   - Note: Unit tests, eslint, typecheck run automatically via hooks after Edit/Write
 
   Cross-Phase Tools:
@@ -76,7 +76,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 
 1. **Phase 0: Safety Check** → Two-step process:
    - **Step 0.1**: Remove eslint-disable comments (size/complexity bypasses) to expose actual violations
-   - **Step 0.2**: Run `bun run quality --include-effect` and `bun test:e2e --grep @spec` to establish baseline
+   - **Step 0.2**: Run `bun run quality --include-effect` and `bun test:e2e:regression` to establish baseline (NEVER run @spec tests - too slow)
 2. **Phase 1.1: Recent Changes** → Analyze last 10 git commits with major changes (>100 lines OR >5 files in `src/`)
    - Immediately refactor issues found in recent commits (including files with bypasses removed)
 3. **Phase 1.2: Older Code** → Scan remaining `src/` files for issues
@@ -84,7 +84,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 4. **Phase 2: Categorize** → Group findings by severity (Critical, High, Medium, Low)
 5. **Phase 3: Strategy** → Present options with trade-offs, seek user confirmation
 6. **Phase 4: Implement** → Apply approved refactoring changes
-7. **Phase 5: Validate** → Run `bun run quality --include-effect` and `bun test:e2e --grep @spec` to confirm no regressions
+7. **Phase 5: Validate** → Run `bun run quality --include-effect` and `bun test:e2e:regression` to confirm no regressions (NEVER run @spec tests - too slow)
 
 **⚠️ CRITICAL Requirements**:
 - `bun run quality` MUST pass - any failure blocks further work
@@ -553,12 +553,13 @@ The `bun run quality` command consolidates multiple quality checks:
 ### Understanding Test Tags
 Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 
-- **@spec**: Core functionality that MUST work
+- **@spec**: Exhaustive core functionality tests that MUST work
   - Examples: Server starts, home page renders, version badge displays
-  - Run with: `bun test:e2e --grep @spec`
-  - **Failures are blocking** - no refactoring can proceed
-  - **Always included** in Phase 0 and Phase 5 validation
-  - **NOT included in quality script** - must run separately
+  - Run with: `bun test:e2e --grep @spec` (command reference only)
+  - **TOO SLOW for routine validation** - takes several minutes, risk of timeout
+  - **NEVER use for baseline checks in this agent** - use @regression instead
+  - **Use case**: Full test suite verification before major releases (not for refactoring audits)
+  - **THIS AGENT NEVER RUNS @spec TESTS** - only @regression tests are used
 
 - **@regression**: Previously broken features that must stay fixed
   - Examples: Features that were broken and subsequently fixed
@@ -575,11 +576,11 @@ Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 ```bash
 # Establish baseline (Phase 0) - For codebase audits, INCLUDE Effect diagnostics
 bun run quality --include-effect  # Runs ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E
-bun test:e2e --grep @spec         # Must pass 100% (not included in quality script)
+# NEVER run: bun test:e2e --grep @spec (too slow - use @regression instead)
 
 # Validate after refactoring (Phase 5)
 bun run quality --include-effect  # Re-validate all quality checks including Effect diagnostics
-bun test:e2e --grep @spec         # Compare to baseline
+# NEVER run: bun test:e2e --grep @spec (too slow - use @regression instead)
 ```
 
 ### Baseline Recording Template
@@ -608,10 +609,10 @@ Use this template to document test baseline state:
   - ✅ Coverage Check (0.5s)
   - ✅ Smart E2E Detection (13.9s) - X affected @regression specs
 
-### Critical E2E Tests (@spec)
+### Critical E2E Tests (@regression)
 - ✅ 5/5 passing
 - ⏱️ Execution time: 2.3s
-- Command: `bun test:e2e --grep @spec`
+- Command: `bun test:e2e:regression` (or via quality script)
 - Tests: [list test names]
 
 ### Baseline Status
@@ -635,7 +636,7 @@ Use this template to document test baseline state:
    - Validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
    - **Note**: Use `--include-effect` for codebase audits to catch Effect-specific issues
    - **If ESLint violations detected**: This is EXPECTED after Step 0.1 - these files need refactoring
-3. Run @spec tests: `bun test:e2e --grep @spec` - must pass 100%
+3. **NEVER run @spec tests** - they are too slow (several minutes) and risk timeout. Use @regression tests from quality script instead.
 4. Document baseline state using template above (including Step 0.1 results)
 5. **Abort if E2E tests fail** - refactoring on broken E2E baseline is forbidden
    - **Note**: ESLint violations after Step 0.1 are EXPECTED and will be fixed in Phase 1
@@ -643,7 +644,7 @@ Use this template to document test baseline state:
 **Phase 5 (Post-Refactoring)**:
 1. Run quality checks: `bun run quality --include-effect`
    - Re-validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
-2. Run @spec tests: `bun test:e2e --grep @spec`
+2. **NEVER run @spec tests** - they are too slow (several minutes) and risk timeout. The @regression tests from quality script are sufficient.
 3. Compare results against Phase 0 baseline
 4. **All baseline passing tests MUST still pass**
 
@@ -1131,10 +1132,10 @@ Adapt this template as needed to best communicate findings for specific contexts
   - ✅ Unit Tests (X.Xs)
   - ✅ E2E Regression Tests (@regression) (X.Xs)
 
-### Critical E2E Tests (@spec)
+### Critical E2E Tests (@regression)
 - ✅ X/X passing
 - ⏱️ Execution time: X.Xs
-- Command: `bun test:e2e --grep @spec`
+- Command: `bun test:e2e:regression` (or via quality script)
 - Tests: [list test names]
 
 ### Baseline Status
@@ -1430,15 +1431,11 @@ Recommendations are prioritized by benefit-to-effort ratio:
 - ✅ X/X passing (no regressions)
 - **Automated via hooks**: Unit tests ran automatically after Edit/Write operations
 
-### Critical E2E Tests (@spec)
+### E2E Regression Tests (@regression)
 - ✅ X/X passing (baseline maintained)
 - ⏱️ Execution time: X.Xs vs X.Xs baseline
-- Command: `bun test:e2e --grep @spec`
-
-### Regression E2E Tests (@regression)
-- ✅ X/X passing (baseline maintained)
-- ⏱️ Execution time: X.Xs vs X.Xs baseline
-- Command: `bun test:e2e --grep @regression`
+- Command: `bun test:e2e:regression` (or via quality script)
+- **Note**: @spec tests are NOT run (too slow - several minutes, risk of timeout)
 
 ### Validation Status
 - ✅ All tests passing - immediate refactorings safe
@@ -1597,9 +1594,9 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 **Handoff Protocol FROM e2e-test-fixer**:
 1. e2e-test-fixer fixes 3+ tests OR completes feature's critical/regression tests
 2. e2e-test-fixer verifies all fixed tests are GREEN and committed
-3. e2e-test-fixer runs baseline validation: `bun test:e2e --grep @spec && bun test:e2e --grep @regression`
+3. e2e-test-fixer runs baseline validation: `bun test:e2e:regression` (NEVER @spec - too slow)
 4. e2e-test-fixer documents duplication/optimization opportunities in code comments or commit messages
-5. e2e-test-fixer notifies: "GREEN phase complete for {property}. Tests GREEN: X @spec, 1 @regression, Y @spec. Recommend codebase-refactor-auditor for optimization."
+5. e2e-test-fixer notifies: "GREEN phase complete for {property}. Tests GREEN: X tests, @regression baseline passing. Recommend codebase-refactor-auditor for optimization."
 6. **YOU (codebase-refactor-auditor)**: Begin Phase 0 baseline validation
 7. **YOU**: Analyze git history to identify recent major commits (Phase 1.1)
 8. **YOU**: Immediately refactor files from recent commits (includes e2e-test-fixer's work)

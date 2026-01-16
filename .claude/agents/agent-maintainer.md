@@ -397,11 +397,12 @@ The TDD automation pipeline coordinates multiple agents in a sequential workflow
 Agents invoke skills at specific points:
 
 ```typescript
-// product-specs-architect: Design phase
+// product-specs-architect: Design phase (creates both tests AND schemas)
 Skill({ skill: "generating-e2e-tests", args: "specs/domain/models/table.schema.json" })
-
-// e2e-test-fixer: Implementation phase (if schema missing)
 Skill({ skill: "generating-effect-schemas", args: "theme" })
+
+// e2e-test-fixer: Implementation phase (uses existing schemas)
+// Does NOT invoke generating-effect-schemas - escalates to product-specs-architect if missing
 ```
 
 ### Error Handling Flow
