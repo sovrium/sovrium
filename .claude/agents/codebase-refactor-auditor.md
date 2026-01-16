@@ -74,15 +74,17 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 
 **When invoked, follow these phases in order:**
 
-1. **Phase 0: Safety Check** → Run `bun test:e2e:regression` to establish GREEN baseline (MANDATORY before any changes)
+1. **Phase 0: Safety Check** → Two-step process:
+   - **Step 0.1**: Remove eslint-disable comments (size/complexity bypasses) to expose actual violations
+   - **Step 0.2**: Run `bun run quality --include-effect` and `bun test:e2e --grep @spec` to establish baseline
 2. **Phase 1.1: Recent Changes** → Analyze last 10 git commits with major changes (>100 lines OR >5 files in `src/`)
-   - Immediately refactor issues found in recent commits
+   - Immediately refactor issues found in recent commits (including files with bypasses removed)
 3. **Phase 1.2: Older Code** → Scan remaining `src/` files for issues
    - Generate recommendations only (no edits without approval)
 4. **Phase 2: Categorize** → Group findings by severity (Critical, High, Medium, Low)
 5. **Phase 3: Strategy** → Present options with trade-offs, seek user confirmation
 6. **Phase 4: Implement** → Apply approved refactoring changes
-7. **Phase 5: Validate** → Run `bun run quality` and `bun test:e2e:regression` to confirm no regressions
+7. **Phase 5: Validate** → Run `bun run quality --include-effect` and `bun test:e2e --grep @spec` to confirm no regressions
 
 **⚠️ CRITICAL Requirements**:
 - `bun run quality` MUST pass - any failure blocks further work
@@ -586,12 +588,20 @@ Use this template to document test baseline state:
 ```markdown
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
-### Quality Check (bun run quality --include-effect)
-- ✅ All checks passing
+### Phase 0.1: ESLint Bypass Removal
+- 🔍 Scanned for bypass comments
+- Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"`
+- **Files with bypasses removed**: X files
+  - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
+  - [list all files]
+- ✅ Bypass comments removed - actual violations now exposed
+
+### Phase 0.2: Quality Check (bun run quality --include-effect)
+- ✅ All checks passing (or ❌ ESLint violations now detected after bypass removal)
 - ⏱️ Execution time: 90.5s
 - Command: `bun run quality --include-effect`
 - Checks:
-  - ✅ ESLint (2.1s)
+  - ✅ ESLint (2.1s) - OR ❌ X violations detected (max-lines, complexity, etc.)
   - ✅ TypeScript (8.3s)
   - ✅ Effect Diagnostics (60.0s) - included for codebase audit
   - ✅ Unit Tests (4.2s)
@@ -606,17 +616,29 @@ Use this template to document test baseline state:
 
 ### Baseline Status
 - ✅ Clean baseline established - safe to proceed with refactoring
+- OR
+- ⚠️ ESLint violations detected after bypass removal - these files need refactoring (expected after Step 0.1)
 ```
 
 ### Validation Procedures
 
 **Phase 0 (Pre-Refactoring)**:
-1. Run quality checks: `bun run quality --include-effect` - must pass 100%
+1. **Step 0.1: Remove ESLint bypass comments** (CRITICAL - run FIRST):
+   ```bash
+   # Detect files with bypasses
+   grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"
+   ```
+   - Remove bypass comments from all detected files
+   - Document which files had bypasses removed
+   - **Expected outcome**: ESLint will now detect actual violations
+2. **Step 0.2: Run quality checks**: `bun run quality --include-effect`
    - Validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
    - **Note**: Use `--include-effect` for codebase audits to catch Effect-specific issues
-2. Run @spec tests: `bun test:e2e --grep @spec` - must pass 100%
-3. Document baseline state using template above
-4. **Abort if any tests fail** - refactoring on broken baseline is forbidden
+   - **If ESLint violations detected**: This is EXPECTED after Step 0.1 - these files need refactoring
+3. Run @spec tests: `bun test:e2e --grep @spec` - must pass 100%
+4. Document baseline state using template above (including Step 0.1 results)
+5. **Abort if E2E tests fail** - refactoring on broken E2E baseline is forbidden
+   - **Note**: ESLint violations after Step 0.1 are EXPECTED and will be fixed in Phase 1
 
 **Phase 5 (Post-Refactoring)**:
 1. Run quality checks: `bun run quality --include-effect`
@@ -638,17 +660,17 @@ Use this template to document test baseline state:
 
 ## Your Operational Framework
 
-**Summary**: This framework defines a 6-phase workflow for safe, systematic refactoring. **In Pipeline Mode, ALWAYS check Quick Exit first** - if no `src/` files changed, skip Phases 0-5 entirely.
+**Summary**: This framework defines a 7-step workflow for safe, systematic refactoring. **In Pipeline Mode, ALWAYS check Quick Exit first** - if no `src/` files changed, skip Phases 0-5 entirely.
 
 | Step | Name | Description |
 |------|------|-------------|
 | **Quick Exit** | Test-Only Check | Pipeline mode: If no `src/` changes, run `bun run quality` and exit |
-| **Phase 0** | Safety Baseline | Establish GREEN E2E baseline (MANDATORY for full audit) |
-| **Phase 1** | Discovery | Two-phase: 1.1 (recent changes) → immediate, 1.2 (older code) → recommendations |
+| **Phase 0** | Safety Baseline | **Step 0.1**: Remove eslint-disable bypasses to expose violations<br>**Step 0.2**: Establish GREEN E2E baseline (MANDATORY) |
+| **Phase 1** | Discovery | Two-phase: 1.1 (recent changes + exposed violations) → immediate, 1.2 (older code) → recommendations |
 | **Phase 2** | Categorization | Classify by severity (Critical/High/Medium/Low) |
 | **Phase 3** | Strategy | Plan immediate vs. recommendation-only actions |
-| **Phase 4** | Implementation | Execute approved refactorings |
-| **Phase 5** | Validation | Verify baseline maintained, no regressions |
+| **Phase 4** | Implementation | Execute approved refactorings (fix size/complexity violations) |
+| **Phase 5** | Validation | Verify baseline maintained, ESLint violations fixed, no regressions |
 
 ### Quick Exit Check (Pipeline Mode First Step)
 
@@ -674,6 +696,66 @@ fi
 
 ### Phase 0: Pre-Refactoring Safety Check (MANDATORY)
 **CRITICAL**: Before proposing ANY refactoring, establish a safety baseline using the Test Validation Framework above.
+
+#### Step 0.1: Remove ESLint Disable Comments (Size/Complexity Bypasses)
+
+**RATIONALE**: Files with `/* eslint-disable max-lines */` and similar comments bypass size/complexity limits entirely, preventing the auditor from detecting files that need refactoring. These bypasses must be removed BEFORE running quality checks so the auditor can identify and fix the actual issues.
+
+**IMPORTANT**: The goal is to **fix the root cause** (oversized/complex code) not just remove comments. The comment removal is only the first step to expose the issues.
+
+**Detection Command**:
+```bash
+# Find all files with size/complexity bypass comments
+grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"
+```
+
+**Bypass Comment Patterns to Remove**:
+- `/* eslint-disable max-lines */` (and variations with `-- reason`)
+- `/* eslint-disable complexity */`
+- `/* eslint-disable max-statements */`
+- `/* eslint-disable max-lines-per-function */`
+- `/* eslint-disable max-depth */`
+- `/* eslint-disable max-params */`
+- Multi-line variations: `/* eslint-disable max-lines -- Routes file with many endpoints */`
+
+**Automated Removal Process**:
+1. **Find affected files**:
+   ```bash
+   grep -l "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/**/*.{ts,tsx}
+   ```
+
+2. **For each file**: Remove the bypass comment (entire line or inline comment)
+   - Use Edit tool to remove comment lines
+   - Preserve code functionality (only remove comments)
+
+3. **Document removed bypasses**:
+   ```markdown
+   ## Phase 0.1: ESLint Bypass Removal
+
+   ### Files with bypasses removed:
+   - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
+   - `src/application/complex-logic.ts` - `/* eslint-disable complexity */`
+   - [list all files]
+
+   ### Status
+   - ✅ Removed X bypass comments from Y files
+   - **These files will now be checked for actual size/complexity violations**
+   ```
+
+4. **Expected outcome**: `bun run quality` will now detect actual size/complexity violations that were previously hidden
+
+**Why This Matters**:
+- **Current Problem**: Files like `src/presentation/api/routes/tables.ts` have bypass comments that hide oversized files (potentially >400 lines or >50 lines per function)
+- **After Removal**: ESLint will flag actual violations, allowing the auditor to split files, extract functions, and reduce complexity
+- **Root Cause Fix**: The agent will then address the underlying issues (split large files, extract functions, reduce complexity) rather than just re-adding the bypass comments
+
+**Integration with Phase 1.1 (Recent Changes)**:
+- If git history shows recent commits added bypass comments → Flag as Critical violations
+- These files get immediate refactoring in Phase 1.1 (split files, extract functions, etc.)
+
+#### Step 0.2: Establish Safety Baseline (Quality Check + E2E Tests)
+
+After removing bypass comments, proceed with standard baseline validation:
 
 ### Phase 1: Discovery & Analysis
 
@@ -1026,12 +1108,24 @@ Adapt this template as needed to best communicate findings for specific contexts
 
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
-### Quality Check (bun run quality --include-effect)
-- ✅ All checks passing
+### Phase 0.1: ESLint Bypass Removal
+- 🔍 Scanned for bypass comments
+- Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"`
+- **Files with bypasses removed**: X files
+  - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
+  - `src/application/complex-logic.ts` - `/* eslint-disable complexity */`
+  - [list all files]
+- ✅ Bypass comments removed - actual violations now exposed
+
+### Phase 0.2: Quality Check (bun run quality --include-effect)
+- ⚠️ ESLint violations detected (EXPECTED after Step 0.1)
 - ⏱️ Execution time: X.Xs
 - Command: `bun run quality --include-effect`
 - Checks:
-  - ✅ ESLint (X.Xs)
+  - ❌ ESLint (X.Xs) - X violations detected:
+    - `src/presentation/api/routes/tables.ts` - max-lines (450 lines, limit 400)
+    - `src/application/complex-logic.ts` - complexity (15, limit 10)
+    - [list all violations]
   - ✅ TypeScript (X.Xs)
   - ✅ Effect Diagnostics (X.Xs)
   - ✅ Unit Tests (X.Xs)
@@ -1044,9 +1138,10 @@ Adapt this template as needed to best communicate findings for specific contexts
 - Tests: [list test names]
 
 ### Baseline Status
-- ✅ Clean baseline established - safe to proceed with refactoring
+- ⚠️ ESLint violations detected after bypass removal - these files need refactoring (expected)
+- ✅ E2E baseline clean - safe to proceed with refactoring
 - OR
-- ❌ Baseline has failures - refactoring BLOCKED until tests are fixed
+- ❌ E2E baseline has failures - refactoring BLOCKED until E2E tests are fixed
 
 ---
 
@@ -1402,17 +1497,18 @@ A successful refactoring audit must meet different criteria for immediate refact
 
 ### Phase 1.1 Success Criteria (Immediate Refactorings)
 The following criteria must ALL be met for Phase 1.1 completion:
+- [ ] **Phase 0.1**: Remove eslint-disable bypass comments to expose violations
+- [ ] **Phase 0.2**: Establish E2E test baseline (must pass 100%)
 - [ ] Analyze git history to identify recent major commits
-- [ ] Establish clean E2E test baseline (Phase 0)
-- [ ] **`bun run quality --include-effect` passes** (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
+- [ ] **`bun run quality --include-effect` passes** AFTER refactoring (ESLint, TypeScript, Effect diagnostics, unit tests, E2E regression)
 - [ ] **Verify layer architecture compliance** (no cross-layer import violations)
-- [ ] Identify architectural issues in recent changes with file/line references
+- [ ] Identify architectural issues in recent changes with file/line references (including exposed violations from Step 0.1)
 - [ ] Propose concrete, code-complete refactorings for recent changes
-- [ ] Execute refactorings incrementally for recent changes
+- [ ] Execute refactorings incrementally for recent changes (fix size/complexity violations exposed by bypass removal)
 - [ ] Maintain 100% E2E test baseline pass rate (Phase 5)
-- [ ] **`bun run quality --include-effect` still passes** after all refactorings
+- [ ] **`bun run quality --include-effect` still passes** after all refactorings (ESLint violations from Step 0.1 now fixed)
 - [ ] Document test results before and after
-- [ ] Leave recent changes in working state (all tests passing)
+- [ ] Leave recent changes in working state (all tests passing, no bypass comments)
 
 ### Phase 1.2 Success Criteria (Recommendations)
 The following criteria must ALL be met for Phase 1.2 completion:

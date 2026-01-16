@@ -1,0 +1,127 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import type { TablePermissions, TableFieldPermissions } from '@/domain/models/app/table/permissions'
+
+/**
+ * Check if user has permission based on permission configuration
+ */
+export function hasPermission(permission: unknown, userRole: string): boolean {
+  // Type assertion for permission configuration
+  const perm = permission as
+    | { type: 'public' }
+    | { type: 'authenticated' }
+    | { type: 'roles'; roles?: string[] }
+    | { type: 'owner' }
+    | undefined
+
+  if (!perm) return false
+
+  switch (perm.type) {
+    case 'public':
+      return true
+    case 'authenticated':
+      return true
+    case 'roles':
+      return perm.roles?.includes(userRole) ?? false
+    case 'owner':
+      return true // Owner check requires row-level context
+    default:
+      return false
+  }
+}
+
+/**
+ * Check if user role has admin privileges
+ */
+export function isAdminRole(userRole: string): boolean {
+  return userRole === 'admin' || userRole === 'owner'
+}
+
+/**
+ * Check permission with admin override
+ */
+export function checkPermissionWithAdminOverride(
+  isAdmin: boolean,
+  permission: unknown,
+  userRole: string
+): boolean {
+  return isAdmin || hasPermission(permission, userRole)
+}
+
+/**
+ * Evaluate table-level permissions for a user
+ */
+export function evaluateTablePermissions(
+  tablePermissions: TablePermissions | undefined,
+  userRole: string,
+  isAdmin: boolean
+): { read: boolean; create: boolean; update: boolean; delete: boolean } {
+  return {
+    read: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.read, userRole),
+    create: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.create, userRole),
+    update: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.update, userRole),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
+    delete: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.delete, userRole),
+  }
+}
+
+/**
+ * Evaluate field-level permissions for a user
+ */
+export function evaluateFieldPermissions(
+  fieldPerms: TableFieldPermissions | undefined,
+  userRole: string,
+  isAdmin: boolean
+): Record<string, { read: boolean; write: boolean }> {
+  const fields = fieldPerms ?? []
+  return Object.fromEntries(
+    fields.map((fieldPerm) => [
+      fieldPerm.field,
+      {
+        read: checkPermissionWithAdminOverride(isAdmin, fieldPerm.read, userRole),
+        write: checkPermissionWithAdminOverride(isAdmin, fieldPerm.write, userRole),
+      },
+    ])
+  )
+}
+
+/**
+ * Check if user has role-based create permission for a table
+ * Returns true if permission granted, false if denied
+ */
+export function hasCreatePermission(
+  table: { permissions?: { create?: unknown } } | undefined,
+  userRole: string
+): boolean {
+  const createPermission = table?.permissions?.create as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+  if (createPermission?.type !== 'roles') return true
+  // Type narrowing: we know it's the 'roles' type here
+  const allowedRoles = (createPermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}
+
+/**
+ * Check if user has delete permission for the table
+ */
+export function hasDeletePermission(
+  table: { permissions?: { delete?: unknown } } | undefined,
+  userRole: string
+): boolean {
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
+  const deletePermission = table?.permissions?.delete as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+  if (deletePermission?.type !== 'roles') return true
+  // Type narrowing: we know it's the 'roles' type here
+  const allowedRoles = (deletePermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}

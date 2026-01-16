@@ -77,6 +77,133 @@ Claude Code uses three distinct mechanisms, each serving different purposes:
 
 **Key Distinction**: Skills are **invoked programmatically** by agents or main Claude (e.g., `Skill(skill: "generating-e2e-tests")`). Agents orchestrate complex workflows with autonomous decision-making.
 
+## Skill Invocation Protocol
+
+Agents and main Claude invoke skills using the `Skill` tool. This section documents the canonical syntax and patterns.
+
+### Invocation Syntax
+
+```typescript
+// Basic invocation (no arguments)
+Skill({ skill: "generating-e2e-tests" })
+
+// With arguments
+Skill({ skill: "generating-e2e-tests", args: "src/domain/models/table.ts" })
+
+// Fully qualified name (for namespaced skills)
+Skill({ skill: "ms-office-suite:pdf" })
+```
+
+### Parameter Reference
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `skill` | string | Yes | Skill name (lowercase, hyphenated, gerund form) |
+| `args` | string | No | Arguments passed to the skill |
+
+### Naming Convention
+
+Skills use **gerund form** (verb + -ing) for naming:
+
+| ✅ Correct | ❌ Incorrect |
+|------------|--------------|
+| `generating-e2e-tests` | `e2e-test-generator` |
+| `generating-effect-schemas` | `effect-schema-generator` |
+| `validating-json-schemas` | `json-schema-validator` |
+| `checking-best-practices` | `best-practices-checker` |
+
+### When to Invoke Skills (for Agents)
+
+Agents should invoke skills when:
+1. **Deterministic processing** is needed (same input → same output)
+2. **Format handling** or transformation is required
+3. **Reusable logic** applies (avoid duplicating skill capabilities)
+4. **Validation** before proceeding with workflow
+
+### Example: Agent Invoking a Skill
+
+```markdown
+## Workflow
+
+1. Read the schema file at `{path}`
+2. **Invoke skill** to generate E2E tests:
+   ```
+   Skill({ skill: "generating-e2e-tests", args: "{path}" })
+   ```
+3. Review generated tests for correctness
+4. Make necessary adjustments
+```
+
+### Common Mistakes
+
+| Issue | Problem | Solution |
+|-------|---------|----------|
+| Using `command` parameter | Old syntax, not recognized | Use `skill` parameter |
+| Imperative naming | Inconsistent with ecosystem | Use gerund form (verb + -ing) |
+| Missing skill invocation | Agent duplicates skill logic | Invoke existing skill instead |
+| No args when needed | Skill fails without context | Pass required file path or parameters |
+
+## Tool Access Documentation Standard
+
+Agent configurations must document tool access. There are two valid patterns:
+
+### Pattern 1: Implicit Tool Access (Default)
+
+Use when the agent requires full tool access for its autonomous operation:
+
+```markdown
+<!-- Tool Access: Inherits all tools -->
+<!-- Justification: This agent requires full tool access to:
+  - Read files (Read, Glob) to analyze codebase
+  - Search patterns (Grep) to find relevant code
+  - Modify files (Edit, Write) to apply changes
+  - Execute commands (Bash) for quality checks
+  - Invoke skills (Skill) for specialized processing
+-->
+```
+
+**When to use**: Agents that perform complex, multi-file operations requiring flexible access.
+
+### Pattern 2: Explicit Tool List
+
+Use when the agent has **restricted** tool access for security, scope control, or CI/automation:
+
+```yaml
+tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite, LSP, WebSearch, WebFetch
+```
+
+**When to use**:
+- **CI/Automation agents**: Explicit tools ensure predictable behavior (e.g., `e2e-test-fixer`)
+- **Security-scoped agents**: Intentionally exclude dangerous operations
+- **Specialized agents**: Exclude unnecessary tools (e.g., `codebase-refactor-auditor` excludes `Skill` as it doesn't invoke skills)
+
+### Current Ecosystem Tool Access
+
+| Agent | Tool Access | Rationale |
+|-------|-------------|-----------|
+| `agent-maintainer` | Inherits all | Meta-agent requires full access for reviews |
+| `e2e-test-fixer` | **Explicit list** | CI automation requires predictable tool set |
+| `codebase-refactor-auditor` | **Explicit list (no Skill)** | Doesn't invoke skills, scope-limited |
+| `architecture-docs-maintainer` | Inherits all | Documentation work needs full access |
+| `infrastructure-docs-maintainer` | Inherits all | Documentation work needs full access |
+| `product-specs-architect` | Inherits all | Design work needs full access |
+| `tdd-workflow-maintainer` | Inherits all | Workflow analysis needs full access |
+
+### Documentation Requirements
+
+Every agent MUST include tool access documentation as an HTML comment after the YAML frontmatter:
+
+```markdown
+---
+name: my-agent
+description: ...
+model: sonnet
+---
+
+<!-- Tool Access: [Inherits all tools | Explicit list: X, Y, Z] -->
+<!-- Justification: [Why these tools are needed/excluded] -->
+```
+
 ## Command/Skill Optimization Framework
 
 When reviewing agents, evaluate if the role should be delegated to a different mechanism:
@@ -174,6 +301,132 @@ Review agents and skills when their core workflows change:
 - Reusable format conversion → Should be skill
 - Multi-step workflow with decision-making → Correctly an agent
 - Programmatically invoked processing → Should be skill
+
+## TDD Pipeline Handoff Diagram
+
+The TDD automation pipeline coordinates multiple agents in a sequential workflow. This diagram documents the handoff points, triggers, and data flow.
+
+### Pipeline Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           TDD AUTOMATION PIPELINE                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────┐     ┌───────────────────────┐     ┌──────────────────────┐
+│  PRODUCT-SPECS-       │     │     GITHUB ACTIONS    │     │    E2E-TEST-FIXER    │
+│    ARCHITECT          │     │    (TDD Automation)   │     │                      │
+│                       │     │                       │     │                      │
+│ ● Design schemas      │────▶│ ● Queue processing    │────▶│ ● Make RED → GREEN   │
+│ ● Create E2E specs    │     │ ● Branch creation     │     │ ● Remove .fixme()    │
+│ ● Generate @spec      │     │ ● Label management    │     │ ● Implement code     │
+│   tests               │     │ ● Retry logic         │     │ ● Run quality checks │
+│                       │     │                       │     │                      │
+│ Model: opus           │     │ Trigger: Issue labels │     │ Model: sonnet        │
+│ Output: spec.ts files │     │ Output: PR branch     │     │ Output: Passing tests│
+└───────────────────────┘     └───────────────────────┘     └──────────┬───────────┘
+                                                                       │
+                                                                       │ (if src/ modified)
+                                                                       ▼
+                                                            ┌──────────────────────┐
+                                                            │ CODEBASE-REFACTOR-   │
+                                                            │    AUDITOR           │
+                                                            │                      │
+                                                            │ ● Eliminate duplication│
+                                                            │ ● Enforce architecture │
+                                                            │ ● Optimize code      │
+                                                            │ ● Security audit     │
+                                                            │                      │
+                                                            │ Model: sonnet        │
+                                                            │ Output: Clean code   │
+                                                            └──────────────────────┘
+```
+
+### Handoff Points
+
+| From | To | Trigger | Data Passed |
+|------|-----|---------|-------------|
+| `product-specs-architect` | GitHub Actions | PR merged with `@spec` tests | `.spec.ts` files with `.fixme()` markers |
+| GitHub Actions | `e2e-test-fixer` | Issue labeled `tdd-spec:in-progress` | Branch name, spec file paths, issue number |
+| `e2e-test-fixer` | `codebase-refactor-auditor` | `src/` files modified + tests GREEN | Changed file list, test results |
+| `codebase-refactor-auditor` | GitHub Actions | Audit complete | PR ready for merge |
+
+### Label State Machine
+
+```
+                    ┌─────────────────┐
+                    │ tdd-spec:queued │ (Initial state)
+                    └────────┬────────┘
+                             │ Queue processor picks up
+                             ▼
+                    ┌─────────────────────┐
+                    │ tdd-spec:in-progress │
+                    └────────┬────────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+              ▼                             ▼
+   ┌─────────────────────┐      ┌────────────────────┐
+   │ tdd-spec:completed  │      │ failure:spec       │
+   │ (Success - PR merged)│      │ failure:regression │
+   └─────────────────────┘      │ failure:infra      │
+                                └─────────┬──────────┘
+                                          │
+                                          ▼
+                                ┌──────────────────┐
+                                │ retry:spec:1/2/3 │
+                                │ retry:infra:1/2/3│
+                                └─────────┬────────┘
+                                          │ (max 3 retries)
+                                          ▼
+                                ┌─────────────────┐
+                                │ tdd-spec:failed │ (Final failure)
+                                └─────────────────┘
+```
+
+### Agent Responsibilities in Pipeline
+
+| Agent | Phase | Input | Output | Exit Criteria |
+|-------|-------|-------|--------|---------------|
+| `product-specs-architect` | Design | Feature requirements | `specs/**/*.spec.ts` with `.fixme()` | Tests RED, schema complete |
+| `e2e-test-fixer` | Implementation | RED tests | GREEN tests + implementation | `bun run quality` passes |
+| `codebase-refactor-auditor` | Optimization | GREEN code + `src/` changes | Refactored code | Architecture compliant |
+
+### Skill Invocations in Pipeline
+
+Agents invoke skills at specific points:
+
+```typescript
+// product-specs-architect: Design phase
+Skill({ skill: "generating-e2e-tests", args: "specs/domain/models/table.schema.json" })
+
+// e2e-test-fixer: Implementation phase (if schema missing)
+Skill({ skill: "generating-effect-schemas", args: "theme" })
+```
+
+### Error Handling Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        ERROR CLASSIFICATION                         │
+├─────────────────┬──────────────────────┬───────────────────────────┤
+│ failure:spec    │ failure:regression   │ failure:infra             │
+│ (Test logic)    │ (Other tests broke)  │ (CI/tooling issue)        │
+├─────────────────┼──────────────────────┼───────────────────────────┤
+│ retry:spec:1    │ retry:spec:1         │ retry:infra:1             │
+│ retry:spec:2    │ retry:spec:2         │ retry:infra:2             │
+│ retry:spec:3    │ retry:spec:3         │ retry:infra:3             │
+├─────────────────┴──────────────────────┴───────────────────────────┤
+│                After 3 retries: tdd-spec:failed                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Pipeline Integration Points
+
+For detailed pipeline documentation, see:
+- `@docs/development/tdd-automation-pipeline.md` - Full pipeline specification
+- `@docs/development/tdd-error-handling.md` - Error classification and retry logic
+- `@docs/development/tdd-conflict-resolution.md` - Merge conflict handling
 
 ## Self-Review Protocol
 
