@@ -141,6 +141,65 @@ jobs:
           echo "Run 'bun run scripts/tdd-automation/check-claude-code-usage.ts' for details."
           exit 0
 
+      # =========================================================================
+      # Check if queue is paused (credit exhaustion)
+      # When Claude Code runs out of credits, tdd-execute.yml pauses the queue
+      # by creating/updating an issue with 'tdd-queue:paused' label.
+      # =========================================================================
+      - name: Check if queue is paused (credit exhaustion)
+        id: queue_status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Checking if TDD queue is paused..."
+
+          # Check for queue pause label
+          PAUSE_ISSUE=$(gh issue list \
+            --repo "$REPO" \
+            --label "tdd-queue-status,tdd-queue:paused" \
+            --state open \
+            --json number,title,updatedAt \
+            --jq '.[0]' 2>/dev/null || echo "{}")
+
+          PAUSE_NUMBER=$(echo "$PAUSE_ISSUE" | jq -r '.number // empty')
+
+          if [ -n "$PAUSE_NUMBER" ]; then
+            PAUSE_TITLE=$(echo "$PAUSE_ISSUE" | jq -r '.title // "Unknown"')
+            PAUSE_TIME=$(echo "$PAUSE_ISSUE" | jq -r '.updatedAt // "Unknown"')
+
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════════════════╗"
+            echo "║  ⏸️  TDD QUEUE IS PAUSED                                               ║"
+            echo "╠══════════════════════════════════════════════════════════════════════╣"
+            echo "║  Status Issue: #$PAUSE_NUMBER"
+            echo "║  Title: $PAUSE_TITLE"
+            echo "║  Paused Since: $PAUSE_TIME"
+            echo "║                                                                      ║"
+            echo "║  Queue will not process new specs until resumed.                    ║"
+            echo "║  Auto-resume: ~2 hours via tdd-monitor.yml                          ║"
+            echo "║                                                                      ║"
+            echo "║  Manual Resume:                                                      ║"
+            echo "║    gh issue edit $PAUSE_NUMBER --remove-label 'tdd-queue:paused'    ║"
+            echo "╚══════════════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "paused=true" >> $GITHUB_OUTPUT
+            echo "pause_issue=$PAUSE_NUMBER" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Queue is active (not paused)"
+            echo "paused=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip if queue is paused
+        if: steps.queue_status.outputs.paused == 'true'
+        run: |
+          echo "Queue is paused due to credit/rate limit exhaustion."
+          echo "Skipping spec processing until queue is resumed."
+          echo ""
+          echo "The queue will auto-resume in ~2 hours or can be manually resumed:"
+          echo "  gh issue edit ${{ steps.queue_status.outputs.pause_issue }} --remove-label 'tdd-queue:paused'"
+          exit 0
+
       - name: Configure git with token user
         run: |
           USER_NAME=$(gh api user --jq '.login')

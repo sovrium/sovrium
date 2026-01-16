@@ -150,6 +150,111 @@ jobs:
             echo "✅ Circuit breaker is CLOSED (queue active)"
           fi
 
+      # =========================================================================
+      # Credit Exhaustion Auto-Resume
+      # When queue is paused due to credit/rate limit exhaustion, automatically
+      # resume after 2 hours (typical credit reset window for Max plan).
+      # =========================================================================
+      - name: Check and auto-resume paused queue
+        id: auto_resume
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Checking for paused queue (credit exhaustion)..."
+
+          # Find queue status issue with pause label
+          PAUSE_ISSUE=$(gh issue list \
+            --repo "$REPO" \
+            --label "tdd-queue-status,tdd-queue:paused" \
+            --state open \
+            --json number,updatedAt,title \
+            --jq '.[0]' 2>/dev/null || echo "{}")
+
+          PAUSE_NUMBER=$(echo "$PAUSE_ISSUE" | jq -r '.number // empty')
+
+          if [ -z "$PAUSE_NUMBER" ] || [ "$PAUSE_NUMBER" = "null" ]; then
+            echo "✅ Queue is not paused"
+            echo "was_paused=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "⏸️  Queue is paused (issue #$PAUSE_NUMBER)"
+          echo "was_paused=true" >> $GITHUB_OUTPUT
+          echo "pause_issue=$PAUSE_NUMBER" >> $GITHUB_OUTPUT
+
+          # Get pause timestamp
+          PAUSE_TIME=$(echo "$PAUSE_ISSUE" | jq -r '.updatedAt')
+          echo "   Paused since: $PAUSE_TIME"
+
+          # Calculate hours since pause
+          PAUSE_EPOCH=$(date -d "$PAUSE_TIME" +%s 2>/dev/null || echo "0")
+          NOW_EPOCH=$(date +%s)
+
+          if [ "$PAUSE_EPOCH" -eq 0 ]; then
+            echo "   Could not parse pause time - skipping auto-resume"
+            echo "resumed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          SECONDS_SINCE_PAUSE=$((NOW_EPOCH - PAUSE_EPOCH))
+          HOURS_SINCE_PAUSE=$((SECONDS_SINCE_PAUSE / 3600))
+          MINUTES_SINCE_PAUSE=$((SECONDS_SINCE_PAUSE / 60))
+
+          echo "   Time since pause: ${HOURS_SINCE_PAUSE}h ${MINUTES_SINCE_PAUSE}m"
+
+          # Auto-resume threshold: 2 hours (Claude Max plan typically resets hourly)
+          AUTO_RESUME_HOURS=2
+
+          if [ "$HOURS_SINCE_PAUSE" -ge "$AUTO_RESUME_HOURS" ]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════════════════╗"
+            echo "║  ▶️  AUTO-RESUMING TDD QUEUE                                           ║"
+            echo "╠══════════════════════════════════════════════════════════════════════╣"
+            echo "║  Queue was paused for ${HOURS_SINCE_PAUSE}+ hours                     "
+            echo "║  Threshold: ${AUTO_RESUME_HOURS} hours                                "
+            echo "║  Credits likely restored - attempting resume                         ║"
+            echo "╚══════════════════════════════════════════════════════════════════════╝"
+            echo ""
+
+            # Remove pause label
+            gh issue edit "$PAUSE_NUMBER" \
+              --repo "$REPO" \
+              --remove-label "tdd-queue:paused"
+
+            # Update title
+            gh issue edit "$PAUSE_NUMBER" \
+              --repo "$REPO" \
+              --title "✅ TDD Queue Status: ACTIVE (Auto-Resumed)"
+
+            # Add comment
+            RESUMED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            gh issue comment "$PAUSE_NUMBER" --repo "$REPO" --body "## ▶️ Queue Auto-Resumed"$'\n\n'"Time Paused: ${HOURS_SINCE_PAUSE} hours"$'\n'"Resumed At: ${RESUMED_AT}"$'\n'"Reason: Credit reset window exceeded (${AUTO_RESUME_HOURS}h threshold)"$'\n\n'"The TDD queue has been automatically resumed. Specs with \`paused:credit-exhaustion\` label will be processed on the next dispatch cycle."$'\n\n'"---"$'\n'"_TDD Automation - Auto-Recovery_"
+
+            # Also remove paused:credit-exhaustion from any specs that have it
+            echo "Cleaning up specs with paused:credit-exhaustion label..."
+            PAUSED_SPECS=$(gh issue list \
+              --repo "$REPO" \
+              --label "paused:credit-exhaustion" \
+              --json number \
+              --jq '.[].number' 2>/dev/null || echo "")
+
+            for SPEC_NUM in $PAUSED_SPECS; do
+              echo "   Cleaning spec #$SPEC_NUM..."
+              gh issue edit "$SPEC_NUM" \
+                --repo "$REPO" \
+                --remove-label "paused:credit-exhaustion" || true
+            done
+
+            echo "resumed=true" >> $GITHUB_OUTPUT
+            echo "✅ Queue auto-resumed successfully"
+          else
+            REMAINING_HOURS=$((AUTO_RESUME_HOURS - HOURS_SINCE_PAUSE))
+            echo "   Not yet time to auto-resume"
+            echo "   Remaining: ~${REMAINING_HOURS}h until auto-resume threshold"
+            echo "resumed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Open circuit breaker
         if: steps.analyze.outputs.should_open_circuit == 'true' && steps.circuit_status.outputs.is_open != 'true'
         env:

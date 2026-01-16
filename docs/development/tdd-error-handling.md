@@ -58,6 +58,124 @@ These errors are **caused by code issues** and should be handled by Claude Code'
 | **Lint Errors**   | ESLint violations               | `lint.*error\|ESLint.*error`             |
 | **Type Errors**   | TypeScript errors               | `TS[0-9]+:`                              |
 
+### Credit/Rate Limit Exhaustion (Queue Pause)
+
+These errors indicate **Claude Code API limits have been reached**. They require **waiting** (not retrying):
+
+| Error Type            | Examples                    | Detection Pattern                                            |
+| --------------------- | --------------------------- | ------------------------------------------------------------ |
+| **Rate Limit**        | HTTP 429, too many requests | `rate.?limit\|429\|too.?many.?requests\|overloaded`          |
+| **Credit Exhaustion** | Max plan credits exceeded   | `insufficient.?credit\|credit.?limit\|usage.?limit\|billing` |
+| **Authentication**    | OAuth token expired/invalid | `unauthorized\|authentication.?failed\|token.?expired`       |
+
+**Key Difference**: Credit exhaustion is NOT an infrastructure retry candidate. The queue should **PAUSE** until credits are restored.
+
+## Credit Exhaustion Handling
+
+When Claude Code runs out of credits or hits rate limits, the TDD automation:
+
+### 1. Detection
+
+The workflow detects credit exhaustion via log patterns in `tdd-execute.yml`:
+
+```bash
+# Rate limit detection
+if echo "$LOGS" | grep -qiE "rate.?limit|429|too.?many.?requests|overloaded"; then
+  ERROR_TYPE="rate_limit_exceeded"
+  IS_INFRA_ERROR=false  # NOT a simple retry - requires pause
+fi
+```
+
+### 2. Queue Pause
+
+When detected, the workflow:
+
+1. Creates/updates a **queue status issue** with labels:
+   - `tdd-queue-status` - Sentinel issue marker
+   - `tdd-queue:paused` - Indicates queue is paused
+
+2. Returns the spec to `tdd-spec:queued` state (not failed)
+
+3. Adds `paused:credit-exhaustion` label to the spec
+
+4. Does **NOT** increment retry count
+
+### 3. Queue Block
+
+The `tdd-dispatch.yml` workflow checks for pause status before processing:
+
+```bash
+PAUSE_ISSUE=$(gh issue list --label "tdd-queue-status,tdd-queue:paused" --state open ...)
+if [ -n "$PAUSE_ISSUE" ]; then
+  echo "Queue is paused - skipping spec processing"
+  exit 0
+fi
+```
+
+### 4. Auto-Resume
+
+The `tdd-monitor.yml` workflow automatically resumes the queue after 2 hours:
+
+```bash
+# Auto-resume threshold: 2 hours (typical credit reset window)
+if [ "$HOURS_SINCE_PAUSE" -ge 2 ]; then
+  gh issue edit "$PAUSE_NUMBER" --remove-label "tdd-queue:paused"
+fi
+```
+
+### Manual Resume
+
+To resume immediately (if you know credits are available):
+
+```bash
+# Find the queue status issue
+gh issue list --label "tdd-queue-status" --state open
+
+# Remove pause label to resume
+gh issue edit <ISSUE_NUMBER> --remove-label 'tdd-queue:paused'
+```
+
+### Labels for Credit Exhaustion
+
+| Label                      | Purpose                               |
+| -------------------------- | ------------------------------------- |
+| `tdd-queue-status`         | Marks the queue status sentinel issue |
+| `tdd-queue:paused`         | Indicates queue is currently paused   |
+| `paused:credit-exhaustion` | Marks specs waiting for credits       |
+
+### Flow Diagram
+
+```
+Credit Exhaustion Detected
+        ↓
+┌───────────────────────────────┐
+│ 1. Create/update status issue │
+│    with tdd-queue:paused      │
+└───────────────┬───────────────┘
+                ↓
+┌───────────────────────────────┐
+│ 2. Return spec to queued      │
+│    (NOT failed)               │
+└───────────────┬───────────────┘
+                ↓
+┌───────────────────────────────┐
+│ 3. tdd-dispatch.yml sees      │
+│    pause → skips processing   │
+└───────────────┬───────────────┘
+                ↓
+        ... 2 hours pass ...
+                ↓
+┌───────────────────────────────┐
+│ 4. tdd-monitor.yml auto-      │
+│    resumes queue              │
+└───────────────┬───────────────┘
+                ↓
+┌───────────────────────────────┐
+│ 5. Specs with paused:credit-  │
+│    exhaustion are processed   │
+└───────────────────────────────┘
+```
+
 ## Architecture
 
 ### Unified Workflow: `tdd-execute.yml`

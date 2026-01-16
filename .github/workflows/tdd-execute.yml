@@ -1053,39 +1053,46 @@ jobs:
           if [ -z "$QUEUE_STATUS_ISSUE" ] || [ "$QUEUE_STATUS_ISSUE" = "null" ]; then
             # Create queue status issue
             echo "Creating queue status issue..."
+            ISSUE_BODY=$(cat <<'ISSUE_EOF'
+          ## TDD Queue Paused
+
+          | Field | Value |
+          |-------|-------|
+          ISSUE_EOF
+          )
+            ISSUE_BODY="$ISSUE_BODY
+          | Reason | \`$ERROR_TYPE\` |
+          | Paused At | $(date -u +%Y-%m-%dT%H:%M:%SZ) |
+          | Triggered By | Issue #$ISSUE_NUMBER |
+
+          ## What This Means
+
+          The TDD automation queue has been paused because Claude Code ran out of credits or hit rate limits. No specs will be processed until the queue is resumed.
+
+          ## Auto-Resume
+
+          The \`tdd-monitor.yml\` workflow will automatically resume the queue after approximately 2 hours (typical credit reset window).
+
+          ## Manual Resume
+
+          To resume immediately (if you know credits are available):
+
+          \`\`\`bash
+          gh issue edit <this-issue> --remove-label 'tdd-queue:paused'
+          \`\`\`
+
+          ## Queue History
+
+          | Time | Event |
+          |------|-------|
+          | $(date -u +%Y-%m-%dT%H:%M:%SZ) | Paused: \$ERROR_TYPE |
+
+          ---
+          _TDD Automation - Credit Management_"
             QUEUE_STATUS_ISSUE=$(gh issue create \
               --repo "$REPO" \
               --title "⏸️ TDD Queue Status: PAUSED (Credit Exhaustion)" \
-              --body "## TDD Queue Paused
-
-**Reason**: \`$ERROR_TYPE\`
-**Paused At**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-**Triggered By**: Issue #$ISSUE_NUMBER
-
-## What This Means
-
-The TDD automation queue has been paused because Claude Code ran out of credits or hit rate limits. No specs will be processed until the queue is resumed.
-
-## Auto-Resume
-
-The \`tdd-monitor.yml\` workflow will automatically resume the queue after approximately 2 hours (typical credit reset window).
-
-## Manual Resume
-
-To resume immediately (if you know credits are available):
-
-\`\`\`bash
-gh issue edit $QUEUE_STATUS_ISSUE --remove-label 'tdd-queue:paused'
-\`\`\`
-
-## Queue History
-
-| Time | Event |
-|------|-------|
-| $(date -u +%Y-%m-%dT%H:%M:%SZ) | Paused: $ERROR_TYPE |
-
----
-*TDD Automation - Credit Management*" \
+              --body "$ISSUE_BODY" \
               --label "tdd-queue-status,tdd-queue:paused" \
               --json number --jq '.number')
             echo "Created queue status issue: #$QUEUE_STATUS_ISSUE"
@@ -1097,16 +1104,19 @@ gh issue edit $QUEUE_STATUS_ISSUE --remove-label 'tdd-queue:paused'
               --title "⏸️ TDD Queue Status: PAUSED (Credit Exhaustion)" \
               --add-label "tdd-queue:paused"
 
+            COMMENT_BODY="## Queue Paused Again
+
+            | Field | Value |
+            |-------|-------|
+            | Reason | \`$ERROR_TYPE\` |
+            | Time | $(date -u +%Y-%m-%dT%H:%M:%SZ) |
+            | Triggered By | Issue #$ISSUE_NUMBER |
+
+            ---
+            _TDD Automation - Credit Management_"
             gh issue comment "$QUEUE_STATUS_ISSUE" \
               --repo "$REPO" \
-              --body "## Queue Paused Again
-
-**Reason**: \`$ERROR_TYPE\`
-**Time**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-**Triggered By**: Issue #$ISSUE_NUMBER
-
----
-*TDD Automation - Credit Management*"
+              --body "$COMMENT_BODY"
           fi
 
           # Return the spec to queued state (not failed, not in-progress)
@@ -1117,22 +1127,25 @@ gh issue edit $QUEUE_STATUS_ISSUE --remove-label 'tdd-queue:paused'
             --add-label "tdd-spec:queued,paused:credit-exhaustion" || true
 
           # Post comment on the spec issue
+          SPEC_COMMENT="## ⏸️ TDD Queue Paused - Credit/Rate Limit Exhaustion
+
+          | Field | Value |
+          |-------|-------|
+          | Error Type | \`$ERROR_TYPE\` |
+
+          This spec execution was halted because Claude Code ran out of credits or hit rate limits. This is NOT a spec failure - the queue will automatically retry when credits are restored.
+
+          ### What Happens Next
+          1. Queue is now paused (no new specs will be processed)
+          2. This spec returns to \`tdd-spec:queued\` state
+          3. Auto-resume in ~2 hours (or manual resume)
+          4. Retry count is NOT incremented
+
+          ---
+          _TDD Automation - Credit Management_"
           gh issue comment "$ISSUE_NUMBER" \
             --repo "$REPO" \
-            --body "**⏸️ TDD Queue Paused - Credit/Rate Limit Exhaustion**
-
-**Error Type**: \`$ERROR_TYPE\`
-
-This spec execution was halted because Claude Code ran out of credits or hit rate limits. This is **not** a spec failure - the queue will automatically retry when credits are restored.
-
-**What Happens Next**:
-1. Queue is now paused (no new specs will be processed)
-2. This spec returns to \`tdd-spec:queued\` state
-3. Auto-resume in ~2 hours (or manual resume)
-4. Retry count is **NOT** incremented
-
----
-*TDD Automation - Credit Management*"
+            --body "$SPEC_COMMENT"
 
           echo "✅ Queue paused, spec preserved for later retry"
 
