@@ -91,13 +91,16 @@ describe('generate-static-helpers', () => {
       expect(result).toEqual([])
     })
 
-    test('should copy assets when publicDir is defined', async () => {
-      const program = copyPublicAssets('/public', '/output')
+    test('should attempt to copy when publicDir is defined (fails if dir does not exist)', async () => {
+      const program = copyPublicAssets('/non-existent-directory', '/output')
 
-      // Just verify it returns an array (actual copy directory logic is tested separately)
-      const result = await Effect.runPromise(program)
+      // When publicDir is defined, the function attempts to copy
+      // This will fail with an error if the directory doesn't exist
+      // (actual successful copy logic is tested separately with real directories)
+      const result = await Effect.runPromise(Effect.either(program))
 
-      expect(Array.isArray(result)).toBe(true)
+      // Verify the copy was attempted (and failed due to non-existent directory)
+      expect(result._tag).toBe('Left')
     })
   })
 })
