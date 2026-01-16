@@ -340,6 +340,59 @@ jobs:
             IS_INFRA_ERROR=true
             ERROR_TYPE="workflow_cancelled"
             echo "Detected: Workflow cancellation"
+          # =========================================================================
+          # Credit/rate limit exhaustion (NOT retriable - requires waiting)
+          # These errors indicate Claude Code API limits have been reached.
+          # The queue should PAUSE (not retry) until credits are restored.
+          #
+          # Based on Anthropic API documentation:
+          # - 429: rate_limit_error - "Your account has hit a rate limit"
+          # - 529: overloaded_error - "The API is temporarily overloaded"
+          # - Claude Code specific: "Claude usage limit reached"
+          # =========================================================================
+          # Pattern 1: Anthropic API rate_limit_error (429)
+          elif echo "$LOGS" | grep -qiE "rate_limit_error|hit a rate limit|would exceed your.*(rate|account).?limit|Error: 429|\"type\".*429"; then
+            IS_INFRA_ERROR=false  # NOT a simple retry - requires pause
+            ERROR_TYPE="rate_limit_exceeded"
+            echo "⚠️  DETECTED: Anthropic API rate limit (429) - TDD queue should PAUSE"
+            echo "   Raw pattern match found - logging for analysis:"
+            echo "$LOGS" | grep -iE "rate_limit|429|hit a rate limit|exceed.*limit" | head -5
+          # Pattern 2: Anthropic API overloaded_error (529)
+          elif echo "$LOGS" | grep -qiE "overloaded_error|529|temporarily overloaded|API is.*overloaded"; then
+            IS_INFRA_ERROR=false  # NOT a simple retry - requires pause
+            ERROR_TYPE="api_overloaded"
+            echo "⚠️  DETECTED: Anthropic API overloaded (529) - TDD queue should PAUSE"
+            echo "   Raw pattern match found - logging for analysis:"
+            echo "$LOGS" | grep -iE "overloaded|529" | head -5
+          # Pattern 3: Claude Code CLI usage limit (Max plan)
+          elif echo "$LOGS" | grep -qiE "Claude.*(usage|AI).?limit.?reached|usage.?limit|limit.?will.?reset|5.?hour.?limit"; then
+            IS_INFRA_ERROR=false  # NOT a simple retry - requires pause
+            ERROR_TYPE="credit_exhausted"
+            echo "⚠️  DETECTED: Claude Code usage limit reached (Max plan) - TDD queue should PAUSE"
+            echo "   Raw pattern match found - logging for analysis:"
+            echo "$LOGS" | grep -iE "usage.?limit|limit.?reached|limit.?will.?reset" | head -5
+          # Pattern 4: Generic credit/quota exhaustion
+          elif echo "$LOGS" | grep -qiE "insufficient.?credit|credit.?limit|quota.?exceeded|billing.?error|account.?suspended"; then
+            IS_INFRA_ERROR=false  # NOT a simple retry - requires pause
+            ERROR_TYPE="credit_exhausted"
+            echo "⚠️  DETECTED: Credit/quota exhausted - TDD queue should PAUSE"
+            echo "   Raw pattern match found - logging for analysis:"
+            echo "$LOGS" | grep -iE "insufficient|credit|quota|billing|suspended" | head -5
+          # Pattern 5: GitHub API rate limits (infrastructure - retriable)
+          # These are different from Anthropic rate limits - GitHub limits reset quickly
+          elif echo "$LOGS" | grep -qiE "API rate limit exceeded for installation|secondary rate limit|abuse detection"; then
+            IS_INFRA_ERROR=true  # GitHub rate limits are retriable after short wait
+            ERROR_TYPE="github_rate_limit"
+            echo "⚠️  DETECTED: GitHub API rate limit - WILL RETRY (infrastructure)"
+            echo "   Raw pattern match found - logging for analysis:"
+            echo "$LOGS" | grep -iE "rate limit|secondary rate|abuse detection" | head -5
+          # Pattern 6: Authentication errors (401/403) - but NOT GitHub rate limits
+          elif echo "$LOGS" | grep -qiE "authentication_error|permission_error|issue with your API key|does not have permission|unauthorized|token.?expired|oauth.?error"; then
+            IS_INFRA_ERROR=false  # NOT a simple retry - requires manual fix
+            ERROR_TYPE="auth_error"
+            echo "⚠️  DETECTED: Authentication/permission error - check CLAUDE_CODE_OAUTH_TOKEN"
+            echo "   Raw pattern match found - logging for analysis:"
+            echo "$LOGS" | grep -iE "authentication|permission|unauthorized|API key|token|oauth" | head -5
           # Code/test errors - NOW RETRIABLE with error context for Claude to self-correct
           elif echo "$LOGS" | grep -q "lint.*error\|ESLint.*error\|functional/immutable-data\|no-restricted-syntax"; then
             IS_INFRA_ERROR=true  # Treat as retriable
@@ -695,11 +748,75 @@ jobs:
                 else
                   # For failures, check if it's infrastructure or code issue
                   # Look for common infrastructure error patterns in logs if available
-                  ERROR_TYPE="claude_failure"
-                  echo "Claude Code failed - checking for infrastructure issues..."
+                  echo "Claude Code failed - checking error type in workflow logs..."
 
-                  # Default to infrastructure error for retries (conservative approach)
-                  IS_INFRA_ERROR=true
+                  # =========================================================================
+                  # Check for credit/rate limit exhaustion (NOT retriable - requires pause)
+                  # These errors indicate Claude Code API limits have been reached.
+                  #
+                  # Based on Anthropic API documentation:
+                  # - 429: rate_limit_error - "Your account has hit a rate limit"
+                  # - 529: overloaded_error - "The API is temporarily overloaded"
+                  # - Claude Code specific: "Claude usage limit reached"
+                  # =========================================================================
+                  if [ -n "$WORKFLOW_LOG" ]; then
+                    # Pattern 1: Anthropic API rate_limit_error (429)
+                    if echo "$WORKFLOW_LOG" | grep -qiE "rate_limit_error|hit a rate limit|would exceed your.*(rate|account).?limit|Error: 429|\"type\".*429"; then
+                      IS_INFRA_ERROR=false  # NOT a simple retry - requires queue pause
+                      ERROR_TYPE="rate_limit_exceeded"
+                      echo "⚠️  DETECTED: Anthropic API rate limit (429) in current run"
+                      echo "   Queue should PAUSE until credits are restored"
+                      echo "   Raw match:"
+                      echo "$WORKFLOW_LOG" | grep -iE "rate_limit|429|hit a rate limit|exceed.*limit" | head -5
+                    # Pattern 2: Anthropic API overloaded_error (529)
+                    elif echo "$WORKFLOW_LOG" | grep -qiE "overloaded_error|529|temporarily overloaded|API is.*overloaded"; then
+                      IS_INFRA_ERROR=false  # NOT a simple retry - requires queue pause
+                      ERROR_TYPE="api_overloaded"
+                      echo "⚠️  DETECTED: Anthropic API overloaded (529) in current run"
+                      echo "   Queue should PAUSE until load decreases"
+                      echo "   Raw match:"
+                      echo "$WORKFLOW_LOG" | grep -iE "overloaded|529" | head -5
+                    # Pattern 3: Claude Code CLI usage limit (Max plan)
+                    elif echo "$WORKFLOW_LOG" | grep -qiE "Claude.*(usage|AI).?limit.?reached|usage.?limit|limit.?will.?reset|5.?hour.?limit"; then
+                      IS_INFRA_ERROR=false  # NOT a simple retry - requires queue pause
+                      ERROR_TYPE="credit_exhausted"
+                      echo "⚠️  DETECTED: Claude Code usage limit reached (Max plan) in current run"
+                      echo "   Queue should PAUSE until credits are restored"
+                      echo "   Raw match:"
+                      echo "$WORKFLOW_LOG" | grep -iE "usage.?limit|limit.?reached|limit.?will.?reset" | head -5
+                    # Pattern 4: Generic credit/quota exhaustion
+                    elif echo "$WORKFLOW_LOG" | grep -qiE "insufficient.?credit|credit.?limit|quota.?exceeded|billing.?error|account.?suspended"; then
+                      IS_INFRA_ERROR=false  # NOT a simple retry - requires queue pause
+                      ERROR_TYPE="credit_exhausted"
+                      echo "⚠️  DETECTED: Credit/quota exhausted in current run"
+                      echo "   Queue should PAUSE until credits are restored"
+                      echo "   Raw match:"
+                      echo "$WORKFLOW_LOG" | grep -iE "insufficient|credit|quota|billing|suspended" | head -5
+                    # Pattern 5: GitHub API rate limits (infrastructure - retriable)
+                    # These are different from Anthropic rate limits - GitHub limits reset quickly
+                    elif echo "$WORKFLOW_LOG" | grep -qiE "API rate limit exceeded for installation|secondary rate limit|abuse detection"; then
+                      IS_INFRA_ERROR=true  # GitHub rate limits are retriable after short wait
+                      ERROR_TYPE="github_rate_limit"
+                      echo "⚠️  DETECTED: GitHub API rate limit - WILL RETRY (infrastructure)"
+                      echo "   Raw match:"
+                      echo "$WORKFLOW_LOG" | grep -iE "rate limit|secondary rate|abuse detection" | head -5
+                    # Pattern 6: Authentication errors (401/403) - but NOT GitHub rate limits
+                    elif echo "$WORKFLOW_LOG" | grep -qiE "authentication_error|permission_error|issue with your API key|does not have permission|unauthorized|token.?expired|oauth.?error"; then
+                      IS_INFRA_ERROR=false  # NOT a simple retry - requires manual fix
+                      ERROR_TYPE="auth_error"
+                      echo "⚠️  DETECTED: Authentication/permission error - check CLAUDE_CODE_OAUTH_TOKEN"
+                      echo "   Raw match:"
+                      echo "$WORKFLOW_LOG" | grep -iE "authentication|permission|unauthorized|API key|token|oauth" | head -5
+                    else
+                      # Default to infrastructure error for retries (conservative approach)
+                      ERROR_TYPE="claude_failure"
+                      IS_INFRA_ERROR=true
+                    fi
+                  else
+                    # No logs available - default to retriable infrastructure error
+                    ERROR_TYPE="claude_failure"
+                    IS_INFRA_ERROR=true
+                  fi
                 fi
               fi
             elif [ "$CLAUDE_OUTCOME" = "success" ]; then
@@ -889,6 +1006,135 @@ jobs:
           ---
           *Infrastructure Error Handler*"
           fi
+
+      # =========================================================================
+      # CREDIT EXHAUSTION: Pause queue and preserve spec state
+      # When credits are exhausted, we don't want to:
+      # - Retry immediately (wastes the retry budget)
+      # - Mark the spec as failed (it's not a spec problem)
+      # Instead, we pause the queue and return the spec to queued state.
+      # =========================================================================
+      - name: Pause queue on credit exhaustion
+        if: |
+          always() &&
+          (steps.detect_error.outputs.error_type == 'credit_exhausted' ||
+           steps.detect_error.outputs.error_type == 'rate_limit_exceeded' ||
+           steps.detect_error.outputs.error_type == 'api_overloaded')
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
+          ERROR_TYPE: ${{ steps.detect_error.outputs.error_type }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════════════╗"
+          echo "║  ⏸️  PAUSING TDD QUEUE - CREDIT/RATE LIMIT EXHAUSTED                   ║"
+          echo "╠══════════════════════════════════════════════════════════════════════╣"
+          echo "║  Error Type: $ERROR_TYPE"
+          echo "║  Issue: #$ISSUE_NUMBER"
+          echo "║                                                                      ║"
+          echo "║  The queue will PAUSE until credits are restored.                   ║"
+          echo "║  This spec will NOT count against retry limits.                     ║"
+          echo "║                                                                      ║"
+          echo "║  Auto-resume: ~2 hours (via tdd-monitor.yml)                        ║"
+          echo "║  Manual resume: gh issue edit <status-issue> --remove-label         ║"
+          echo "║                 'tdd-queue:paused'                                   ║"
+          echo "╚══════════════════════════════════════════════════════════════════════╝"
+          echo ""
+
+          # Check if queue status issue exists
+          QUEUE_STATUS_ISSUE=$(gh issue list \
+            --repo "$REPO" \
+            --label "tdd-queue-status" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -z "$QUEUE_STATUS_ISSUE" ] || [ "$QUEUE_STATUS_ISSUE" = "null" ]; then
+            # Create queue status issue
+            echo "Creating queue status issue..."
+            QUEUE_STATUS_ISSUE=$(gh issue create \
+              --repo "$REPO" \
+              --title "⏸️ TDD Queue Status: PAUSED (Credit Exhaustion)" \
+              --body "## TDD Queue Paused
+
+**Reason**: \`$ERROR_TYPE\`
+**Paused At**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**Triggered By**: Issue #$ISSUE_NUMBER
+
+## What This Means
+
+The TDD automation queue has been paused because Claude Code ran out of credits or hit rate limits. No specs will be processed until the queue is resumed.
+
+## Auto-Resume
+
+The \`tdd-monitor.yml\` workflow will automatically resume the queue after approximately 2 hours (typical credit reset window).
+
+## Manual Resume
+
+To resume immediately (if you know credits are available):
+
+\`\`\`bash
+gh issue edit $QUEUE_STATUS_ISSUE --remove-label 'tdd-queue:paused'
+\`\`\`
+
+## Queue History
+
+| Time | Event |
+|------|-------|
+| $(date -u +%Y-%m-%dT%H:%M:%SZ) | Paused: $ERROR_TYPE |
+
+---
+*TDD Automation - Credit Management*" \
+              --label "tdd-queue-status,tdd-queue:paused" \
+              --json number --jq '.number')
+            echo "Created queue status issue: #$QUEUE_STATUS_ISSUE"
+          else
+            # Update existing status issue
+            echo "Updating existing queue status issue #$QUEUE_STATUS_ISSUE..."
+            gh issue edit "$QUEUE_STATUS_ISSUE" \
+              --repo "$REPO" \
+              --title "⏸️ TDD Queue Status: PAUSED (Credit Exhaustion)" \
+              --add-label "tdd-queue:paused"
+
+            gh issue comment "$QUEUE_STATUS_ISSUE" \
+              --repo "$REPO" \
+              --body "## Queue Paused Again
+
+**Reason**: \`$ERROR_TYPE\`
+**Time**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**Triggered By**: Issue #$ISSUE_NUMBER
+
+---
+*TDD Automation - Credit Management*"
+          fi
+
+          # Return the spec to queued state (not failed, not in-progress)
+          echo "Returning issue #$ISSUE_NUMBER to queued state..."
+          gh issue edit "$ISSUE_NUMBER" \
+            --repo "$REPO" \
+            --remove-label "tdd-spec:in-progress" \
+            --add-label "tdd-spec:queued,paused:credit-exhaustion" || true
+
+          # Post comment on the spec issue
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "$REPO" \
+            --body "**⏸️ TDD Queue Paused - Credit/Rate Limit Exhaustion**
+
+**Error Type**: \`$ERROR_TYPE\`
+
+This spec execution was halted because Claude Code ran out of credits or hit rate limits. This is **not** a spec failure - the queue will automatically retry when credits are restored.
+
+**What Happens Next**:
+1. Queue is now paused (no new specs will be processed)
+2. This spec returns to \`tdd-spec:queued\` state
+3. Auto-resume in ~2 hours (or manual resume)
+4. Retry count is **NOT** incremented
+
+---
+*TDD Automation - Credit Management*"
+
+          echo "✅ Queue paused, spec preserved for later retry"
 
   # =========================================================================
   # PHASE 2: Finalize e2e-test-fixer changes
