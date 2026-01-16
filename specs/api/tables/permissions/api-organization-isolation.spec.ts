@@ -154,7 +154,7 @@ test.describe('API Organization Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-003: should auto-set organization_id on create when organizationScoped is true',
     { tag: '@spec' },
     async ({
@@ -199,8 +199,10 @@ test.describe('API Organization Isolation', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          title: 'New Task',
-          // Note: NOT providing organization_id
+          fields: {
+            title: 'New Task',
+            // Note: NOT providing organization_id
+          },
         },
       })
 
