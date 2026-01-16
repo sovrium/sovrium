@@ -28,7 +28,12 @@ import {
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
+import type {
+  DatabaseConnectionError,
+  MigrationError,
+} from '@/infrastructure/database/drizzle/migrate'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import type { Server } from 'bun'
 
 /**
  * Server configuration options
@@ -113,6 +118,57 @@ const logServerStartup = (url: string): Effect.Effect<void, never> =>
   })
 
 /**
+ * Get database URL from environment configuration
+ */
+const getDatabaseUrl = (): Effect.Effect<string, never> =>
+  Config.string('DATABASE_URL').pipe(
+    Config.withDefault(''),
+    Effect.catchAll(() => Effect.succeed(''))
+  )
+
+/**
+ * Run migrations if database URL is configured
+ */
+const runMigrationsIfConfigured = (
+  databaseUrl: string
+): Effect.Effect<
+  void,
+  DatabaseConnectionError | MigrationError | SchemaInitializationError,
+  never
+> => (databaseUrl ? runMigrations(databaseUrl) : Effect.succeed(undefined))
+
+/**
+ * Compile CSS and log results
+ */
+const compileCSSWithLogging = (
+  app: App
+): Effect.Effect<{ css: string }, CSSCompilationError, never> =>
+  Effect.gen(function* () {
+    yield* Console.log('Compiling CSS...')
+    const cssResult = yield* compileCSS(app)
+    yield* Console.log(`CSS compiled: ${cssResult.css.length} bytes`)
+    return cssResult
+  })
+
+/**
+ * Start Bun HTTP server
+ */
+const startBunServer = (
+  honoApp: Readonly<Hono>,
+  port: number,
+  hostname: string
+): Effect.Effect<Server<undefined>, ServerCreationError, never> =>
+  Effect.try({
+    try: () =>
+      Bun.serve({
+        port,
+        hostname,
+        fetch: honoApp.fetch,
+      }),
+    catch: (error) => new ServerCreationError(error),
+  })
+
+/**
  * Creates and starts a Bun server with Hono
  *
  * This function:
@@ -138,7 +194,6 @@ const logServerStartup = (url: string): Effect.Effect<void, never> =>
  * ```
  */
 // @knip-ignore - Used via dynamic import in StartServer.ts
-// eslint-disable-next-line max-lines-per-function -- Server factory requires comprehensive setup
 export const createServer = (
   config: ServerConfig
 ): Effect.Effect<
@@ -160,29 +215,15 @@ export const createServer = (
       renderErrorPage,
     } = config
 
-    // Get database URL from Effect Config (reads from environment)
-    // Catch ConfigError and convert to empty string (no DATABASE_URL = skip migrations)
-    const databaseUrl = yield* Config.string('DATABASE_URL').pipe(
-      Config.withDefault(''),
-      Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
-    )
-
-    // Run Drizzle migrations (if DATABASE_URL is configured)
-    // This runs Better Auth table creation when auth is enabled
-    // Also validates database connection early to fail fast on connection errors
-    if (databaseUrl) {
-      yield* runMigrations(databaseUrl)
-    }
-
-    // Initialize database schema from app configuration
+    // Initialize database
+    const databaseUrl = yield* getDatabaseUrl()
+    yield* runMigrationsIfConfigured(databaseUrl)
     yield* initializeSchema(app)
 
-    // Pre-compile CSS on startup
-    yield* Console.log('Compiling CSS...')
-    const cssResult = yield* compileCSS(app)
-    yield* Console.log(`CSS compiled: ${cssResult.css.length} bytes`)
+    // Compile CSS
+    yield* compileCSSWithLogging(app)
 
-    // Create Hono app with config object
+    // Create Hono app
     const honoApp = createHonoApp({
       app,
       renderHomePage,
@@ -191,31 +232,17 @@ export const createServer = (
       renderErrorPage,
     })
 
-    // Start Bun server
-    const server = yield* Effect.try({
-      try: () =>
-        Bun.serve({
-          port,
-          hostname,
-          fetch: honoApp.fetch,
-        }),
-      catch: (error) => new ServerCreationError(error),
-    })
+    // Start server
+    const server = yield* startBunServer(honoApp, port, hostname)
+    const url = `http://${hostname}:${server.port}`
 
-    // Use actual port from server (important when port is 0)
-    const actualPort = server.port
-    const url = `http://${hostname}:${actualPort}`
-
-    // Log server startup information
+    // Log and return
     yield* logServerStartup(url)
-
-    // Create stop effect
-    const stop = createStopEffect(server)
 
     return {
       server,
       url,
-      stop,
+      stop: createStopEffect(server),
       app: honoApp,
     }
   })

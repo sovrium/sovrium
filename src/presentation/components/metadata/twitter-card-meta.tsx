@@ -10,34 +10,50 @@ import { renderMetaTags } from './meta-utils'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
+ * Twitter Card field mapping configuration
+ */
+const twitterCardFieldMapping = [
+  { key: 'card', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.card },
+  { key: 'title', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.title },
+  { key: 'description', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.description },
+  { key: 'image', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.image },
+  { key: 'image:alt', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.imageAlt },
+  { key: 'site', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.site },
+  { key: 'creator', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.creator },
+  { key: 'player', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.player },
+  { key: 'player:width', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.playerWidth },
+  { key: 'player:height', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.playerHeight },
+  {
+    key: 'app:name:iphone',
+    getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appName?.iPhone,
+  },
+  { key: 'app:name:ipad', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appName?.iPad },
+  {
+    key: 'app:name:googleplay',
+    getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appName?.googlePlay,
+  },
+  { key: 'app:id:iphone', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appId?.iPhone },
+  { key: 'app:id:ipad', getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appId?.iPad },
+  {
+    key: 'app:id:googleplay',
+    getter: (tc: NonNullable<Page['meta']>['twitter']) => tc?.appId?.googlePlay,
+  },
+] as const
+
+/**
  * Build Twitter Card field array from twitter card configuration
  * Extracts all fields including app metadata for Twitter/X sharing
  *
  * @param twitterCard - Twitter card configuration
  * @returns Array of field key-value pairs
  */
-// eslint-disable-next-line complexity
 function buildTwitterCardFields(
   twitterCard: NonNullable<Page['meta']>['twitter']
 ): ReadonlyArray<{ readonly key: string; readonly value?: string | number }> {
-  return [
-    { key: 'card', value: twitterCard?.card },
-    { key: 'title', value: twitterCard?.title },
-    { key: 'description', value: twitterCard?.description },
-    { key: 'image', value: twitterCard?.image },
-    { key: 'image:alt', value: twitterCard?.imageAlt },
-    { key: 'site', value: twitterCard?.site },
-    { key: 'creator', value: twitterCard?.creator },
-    { key: 'player', value: twitterCard?.player },
-    { key: 'player:width', value: twitterCard?.playerWidth },
-    { key: 'player:height', value: twitterCard?.playerHeight },
-    { key: 'app:name:iphone', value: twitterCard?.appName?.iPhone },
-    { key: 'app:name:ipad', value: twitterCard?.appName?.iPad },
-    { key: 'app:name:googleplay', value: twitterCard?.appName?.googlePlay },
-    { key: 'app:id:iphone', value: twitterCard?.appId?.iPhone },
-    { key: 'app:id:ipad', value: twitterCard?.appId?.iPad },
-    { key: 'app:id:googleplay', value: twitterCard?.appId?.googlePlay },
-  ]
+  return twitterCardFieldMapping.map(({ key, getter }) => ({
+    key,
+    value: getter(twitterCard),
+  }))
 }
 
 /**

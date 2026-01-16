@@ -1,0 +1,369 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { sql } from 'drizzle-orm'
+import { Effect } from 'effect'
+import { withSessionContext, SessionContextError } from '@/infrastructure/database'
+import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
+import { validateTableName, validateColumnName } from './validation'
+import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+/**
+ * List all records from a table with session context
+ *
+ * Automatically applies organization-scoped filtering when enabled.
+ * - If table has `permissions.organizationScoped: true`, filters by user's active organization
+ * - Otherwise, returns all accessible records (RLS policies still apply)
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table to query
+ * @param table - Table schema configuration (for checking organizationScoped flag)
+ * @returns Effect resolving to array of records
+ */
+export function listRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  table?: { readonly permissions?: { readonly organizationScoped?: boolean } },
+  filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        // Check if organization-scoped filtering is enabled
+        const isOrganizationScoped = table?.permissions?.organizationScoped === true
+        const activeOrgId = session.activeOrganizationId
+
+        // Build WHERE conditions using immutable patterns
+        const orgConditions =
+          isOrganizationScoped && activeOrgId
+            ? [`organization_id::text = '${activeOrgId.replace(/'/g, "''")}'`]
+            : []
+
+        // Add user-provided filters (static import - no performance overhead)
+        const userFilterConditions =
+          filter?.and && filter.and.length > 0
+            ? (() => {
+                const andConditions = filter.and ?? [] // Type narrowing
+                return andConditions
+                  .map((f) => {
+                    validateColumnName(f.field)
+                    return generateSqlCondition(f.field, f.operator, f.value, {
+                      useEscapeSqlString: true,
+                    })
+                  })
+                  .filter((c) => c !== '')
+              })()
+            : []
+
+        const conditions = [...orgConditions, ...userFilterConditions]
+
+        // Build final query
+        const whereClause =
+          conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
+
+        const result = await tx.execute(
+          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}`
+        )
+        return result as readonly Record<string, unknown>[]
+      },
+      catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),
+    })
+  )
+}
+
+/**
+ * Get a single record by ID with session context
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to record or null
+ */
+export function getRecord(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        // Use parameterized query for recordId (automatic via template literal)
+        const result = (await tx.execute(
+          sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
+        )) as readonly Record<string, unknown>[]
+
+        // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
+        return result[0] ?? null
+      },
+      catch: (error) => {
+        return new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error)
+      },
+    })
+  )
+}
+
+/**
+ * Create a new record with session context
+ *
+ * Automatically sets organization_id and owner_id from session.
+ * Security: Silently overrides any user-provided organization_id to prevent
+ * cross-organization data injection attacks.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param fields - Record fields
+ * @returns Effect resolving to created record
+ */
+export function createRecord(
+  session: Readonly<Session>,
+  tableName: string,
+  fields: Readonly<Record<string, unknown>>
+): Effect.Effect<Record<string, unknown>, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        // Check if table has organization_id column
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasOrgId = columnCheck.length > 0
+
+        // Security: Filter out any user-provided organization_id if table has that column
+        // This prevents malicious users from injecting data into other organizations
+        const sanitizedFields = hasOrgId
+          ? Object.fromEntries(Object.entries(fields).filter(([key]) => key !== 'organization_id'))
+          : fields
+
+        // Build base entries from sanitized user fields
+        const baseEntries = Object.entries(sanitizedFields)
+        if (baseEntries.length === 0 && !hasOrgId) {
+          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
+          throw new Error('Cannot create record with no fields')
+        }
+
+        // Build column identifiers and values
+        const baseColumnIdentifiers = baseEntries.map(([key]) => {
+          validateColumnName(key)
+          return sql.identifier(key)
+        })
+        const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
+
+        // Add organization_id column and value from session (immutable)
+        const columnIdentifiers = hasOrgId
+          ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
+          : baseColumnIdentifiers
+        const valueParams = hasOrgId
+          ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
+          : baseValueParams
+
+        // Build INSERT query using sql.join for columns and values
+        const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
+        const valuesClause = sql.join(valueParams, sql.raw(', '))
+
+        const result = (await tx.execute(
+          sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+        )) as readonly Record<string, unknown>[]
+
+        return result[0] ?? {}
+      },
+      catch: (error) => new SessionContextError(`Failed to create record in ${tableName}`, error),
+    })
+  )
+}
+
+/**
+ * Update a record with session context
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @param fields - Fields to update
+ * @returns Effect resolving to updated record
+ */
+export function updateRecord(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string,
+  fields: Readonly<Record<string, unknown>>
+): Effect.Effect<Record<string, unknown>, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+        const entries = Object.entries(fields)
+
+        if (entries.length === 0) {
+          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
+          throw new Error('Cannot update record with no fields')
+        }
+
+        // Build SET clause with validated columns and parameterized values
+        const setClauses = entries.map(([key, value]) => {
+          validateColumnName(key)
+          return sql`${sql.identifier(key)} = ${value}`
+        })
+        const setClause = sql.join(setClauses, sql.raw(', '))
+
+        const result = (await tx.execute(
+          sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+        )) as readonly Record<string, unknown>[]
+
+        // If RLS blocked the update, result will be empty
+        if (result.length === 0) {
+          // eslint-disable-next-line functional/no-throw-statements -- RLS blocking requires error propagation
+          throw new Error(`Record not found or access denied`)
+        }
+
+        return result[0]!
+      },
+      catch: (error) => {
+        // Preserve "not found" or "access denied" in wrapper message for API error handling
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {
+          return new SessionContextError(errorMsg, error)
+        }
+        return new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error)
+      },
+    })
+  )
+}
+
+/**
+ * Delete a record with session context (soft delete if deleted_at field exists)
+ *
+ * Implements soft delete pattern:
+ * - If table has deleted_at field: Sets deleted_at to NOW() (soft delete)
+ * - If no deleted_at field: Performs hard delete
+ * - RLS policies automatically applied via session context
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to success boolean
+ */
+export function deleteRecord(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<boolean, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
+        // Check if table has deleted_at column for soft delete
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        if (columnCheck.length > 0) {
+          // Soft delete: set deleted_at timestamp (parameterized)
+          // Use RETURNING to check if update affected any rows (RLS may block access)
+          const result = (await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          // If RLS blocked the update, result will be empty
+          return result.length > 0
+        } else {
+          // Hard delete: remove record (parameterized)
+          // Use RETURNING to check if delete affected any rows (RLS may block access)
+          const result = (await tx.execute(
+            sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
+          )) as readonly Record<string, unknown>[]
+
+          // If RLS blocked the delete, result will be empty
+          return result.length > 0
+        }
+      },
+      catch: (error) =>
+        new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),
+    })
+  )
+}
+
+/**
+ * Restore a soft-deleted record with session context
+ *
+ * Clears the deleted_at timestamp to restore a soft-deleted record.
+ * Returns error if record doesn't exist or is not soft-deleted.
+ * RLS policies automatically applied via session context.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to restored record or error
+ */
+export function restoreRecord(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+        const tableIdent = sql.identifier(tableName)
+
+        // Check if table has organization_id column for multi-tenancy
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasOrgId = columnCheck.length > 0
+
+        // Build query with optional organization filter
+        // Note: org filter uses escaped value since it's part of dynamic SQL construction
+        const orgIdCondition =
+          hasOrgId && session.activeOrganizationId
+            ? sql` AND organization_id = ${session.activeOrganizationId}`
+            : sql``
+
+        // Check if record exists (including soft-deleted records) with organization filtering
+        const checkResult = (await tx.execute(
+          sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId}${orgIdCondition} LIMIT 1`
+        )) as readonly Record<string, unknown>[]
+
+        if (checkResult.length === 0) {
+          // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
+          return null // Record not found (or wrong organization)
+        }
+
+        const record = checkResult[0]
+
+        // Check if record is soft-deleted
+        if (!record?.deleted_at) {
+          // Record exists but is not deleted - return error via special marker
+          return { _error: 'not_deleted' } as Record<string, unknown>
+        }
+
+        // Restore record by clearing deleted_at (with organization filter for safety)
+        const result = (await tx.execute(
+          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId}${orgIdCondition} RETURNING *`
+        )) as readonly Record<string, unknown>[]
+
+        return result[0] ?? {}
+      },
+      catch: (error) =>
+        new SessionContextError(`Failed to restore record ${recordId} from ${tableName}`, error),
+    })
+  )
+}

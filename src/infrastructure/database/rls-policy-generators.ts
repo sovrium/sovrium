@@ -560,33 +560,76 @@ const hasOnlyFieldPermissions = (table: Table): boolean => {
  * 9. Organization-scoped → Organization ID filter
  * 10. Field-only permissions → Default deny with app_user access
  */
+/**
+ * Check if organization-scoped permissions should be used
+ */
+const isOrganizationScoped = (table: Table): boolean => {
+  return table.permissions?.organizationScoped === true
+}
+
+/**
+ * Select policy generator based on table permissions - non-organization-scoped cases
+ */
+const selectNonOrgPolicyGenerator = (
+  table: Table
+): ((table: Table) => readonly string[]) | (() => readonly string[]) | undefined => {
+  if (hasOwnerPermissions(table)) return generateOwnerBasedPolicies
+  if (hasAuthenticatedPermissions(table)) return generateAuthenticatedBasedPolicies
+  if (hasRolePermissions(table)) return generateRoleBasedPolicies
+  return undefined
+}
+
+/**
+ * Select policy generator for field-only permissions
+ */
+const selectFieldPermissionGenerator = (
+  table: Table
+): (() => readonly string[]) | typeof returnEmptyPolicies => {
+  if (shouldSkipRLSForFieldPermissions(table)) {
+    return returnEmptyPolicies
+  }
+  return () => generateDefaultDenyPolicies(table.name)
+}
+
+/**
+ * Select policy generator based on table permissions
+ *
+ * Policy selection priority:
+ * 1. Public permissions → No RLS
+ * 2. Explicit empty permissions → Enable RLS with zero policies (deny all)
+ * 3. No permissions object → Default deny with app_user access
+ * 4. Record-level permissions → Custom RLS conditions
+ * 5. Mixed permissions → Combination of permission types
+ * 6. Owner/Authenticated/Role permissions (non-org) → Specific policy types
+ * 7. Organization-scoped → Organization ID filter
+ * 8. Field-only permissions → Default deny with app_user access
+ */
 const selectPolicyGenerator = (
   table: Table
-  // eslint-disable-next-line complexity
 ): ((table: Table) => readonly string[]) | (() => readonly string[]) => {
+  // Priority 1-3: Special cases
   if (hasOnlyPublicPermissions(table)) return returnEmptyPolicies
   if (hasExplicitEmptyPermissions(table)) return () => generateEnableRLS(table.name)
   if (hasNoPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
+
+  // Priority 4-5: Record-level and mixed permissions
   if (hasRecordLevelPermissions(table)) return generateRecordLevelPolicies
   if (hasMixedPermissions(table)) return generateMixedPermissionPolicies
-  if (hasOwnerPermissions(table) && !table.permissions?.organizationScoped) {
-    return generateOwnerBasedPolicies
+
+  // Priority 6: Non-organization-scoped permission types
+  if (!isOrganizationScoped(table)) {
+    const generator = selectNonOrgPolicyGenerator(table)
+    if (generator) return generator
   }
-  if (hasAuthenticatedPermissions(table) && !table.permissions?.organizationScoped) {
-    return generateAuthenticatedBasedPolicies
-  }
-  if (hasRolePermissions(table) && !table.permissions?.organizationScoped) {
-    return generateRoleBasedPolicies
-  }
-  if (table.permissions?.organizationScoped) return generateOrganizationScopedPolicies
+
+  // Priority 7: Organization-scoped
+  if (isOrganizationScoped(table)) return generateOrganizationScopedPolicies
+
+  // Priority 8: Field-only permissions
   if (hasOnlyFieldPermissions(table)) {
-    // For tables with only role-based field permissions, skip RLS (column-level GRANTs handle access)
-    // For tables with custom/owner field permissions, generate default deny policies
-    if (shouldSkipRLSForFieldPermissions(table)) {
-      return returnEmptyPolicies
-    }
-    return () => generateDefaultDenyPolicies(table.name)
+    return selectFieldPermissionGenerator(table)
   }
+
   return returnEmptyPolicies
 }
 

@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines, max-lines-per-function, max-statements -- Complex component renderer with many helpers */
+
 import { type ReactElement, Fragment, useId } from 'react'
 import {
   StructuredDataFromBlock,
@@ -115,6 +117,145 @@ function renderChildren(
 }
 
 /**
+ * Apply page-level variable substitution to component
+ */
+function applyVariableSubstitution(
+  component: Component,
+  pageVars: ComponentRendererProps['pageVars']
+): Component {
+  if (!pageVars) return component
+
+  return {
+    ...component,
+    props: substitutePropsVariables(component.props, pageVars),
+    children: substituteChildrenVariables(component.children, pageVars),
+    content:
+      typeof component.content === 'string'
+        ? (substituteBlockVariables(component.content, pageVars) as string)
+        : component.content,
+  }
+}
+
+/**
+ * Add data-component-type attribute for testing
+ */
+function addComponentTypeAttribute(
+  elementProps: Record<string, unknown>,
+  type: string
+): Record<string, unknown> {
+  return {
+    ...elementProps,
+    'data-component-type': type,
+  }
+}
+
+/**
+ * Check if component has responsive content overrides
+ */
+function hasResponsiveContentOverrides(responsive: Component['responsive']): boolean {
+  return (
+    !!responsive &&
+    Object.values(responsive).some(
+      (override) => (override as VariantOverrides).content !== undefined
+    )
+  )
+}
+
+/**
+ * Check if component has responsive children overrides
+ */
+function hasResponsiveChildrenOverrides(responsive: Component['responsive']): boolean {
+  return (
+    !!responsive &&
+    Object.values(responsive).some(
+      (override) => (override as VariantOverrides).children !== undefined
+    )
+  )
+}
+
+/**
+ * Render component with responsive content variants
+ */
+function renderWithResponsiveContent(config: {
+  responsive: Component['responsive']
+  type: string
+  finalElementPropsWithType: Record<string, unknown>
+  finalElementPropsWithSpacingAndType: Record<string, unknown>
+  hoverData?: { styleContent: string }
+}): ReactElement | null {
+  const responsiveVariants = buildResponsiveContentVariants(
+    config.responsive!,
+    config.type,
+    config.finalElementPropsWithType,
+    config.finalElementPropsWithSpacingAndType
+  )
+
+  if (config.hoverData) {
+    return (
+      <Fragment>
+        <style>{config.hoverData.styleContent}</style>
+        {responsiveVariants}
+      </Fragment>
+    )
+  }
+
+  return responsiveVariants
+}
+
+/**
+ * Build responsive children with variant rendering
+ */
+function buildResponsiveChildren(
+  responsive: Component['responsive'],
+  baseChildren: readonly ReactElement[],
+  props: ComponentRendererProps
+): readonly ReactElement[] {
+  return buildResponsiveChildrenVariants({
+    responsive: responsive!,
+    baseChildren,
+    renderChild: (child, index, breakpoint, additionalClassName) => {
+      if (typeof child === 'string') {
+        const resolvedText = resolveChildTranslation(child, props.currentLang, props.languages)
+        return (
+          <span
+            key={`${breakpoint}-${index}`}
+            className={additionalClassName}
+            data-responsive-breakpoint={breakpoint}
+          >
+            {resolvedText}
+          </span>
+        )
+      }
+
+      const childWithVisibility: Component = additionalClassName
+        ? {
+            ...child,
+            props: {
+              ...(child.props || {}),
+              className: (child.props as { className?: string } | undefined)?.className
+                ? `${(child.props as { className: string }).className} ${additionalClassName}`
+                : additionalClassName,
+            } as Record<string, unknown>,
+          }
+        : child
+
+      return (
+        <ComponentRenderer
+          key={`${breakpoint}-${index}`}
+          component={childWithVisibility}
+          pageVars={props.pageVars}
+          blocks={props.blocks}
+          theme={props.theme}
+          languages={props.languages}
+          currentLang={props.currentLang}
+          childIndex={index}
+        />
+      )
+    },
+  })
+}
+
+/**
  * Renders direct component (non-block-reference)
  *
  * This is a React component (not a helper function) because it uses the useId hook.
@@ -124,7 +265,6 @@ function renderChildren(
  * @param props - Component renderer props
  * @returns Rendered component
  */
-// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- React component with clear logic flow
 function RenderDirectComponent({
   component,
   props,
@@ -133,17 +273,7 @@ function RenderDirectComponent({
   props: ComponentRendererProps
 }): ReactElement | null {
   // Apply page-level variable substitution if pageVars are provided
-  const substitutedComponent = props.pageVars
-    ? {
-        ...component,
-        props: substitutePropsVariables(component.props, props.pageVars),
-        children: substituteChildrenVariables(component.children, props.pageVars),
-        content:
-          typeof component.content === 'string'
-            ? (substituteBlockVariables(component.content, props.pageVars) as string)
-            : component.content,
-      }
-    : component
+  const substitutedComponent = applyVariableSubstitution(component, props.pageVars)
 
   const {
     type,
@@ -198,101 +328,30 @@ function RenderDirectComponent({
   )
 
   // Add data-component-type attribute for testing
-  const finalElementPropsWithType = {
-    ...finalElementProps,
-    'data-component-type': type,
-  }
-  const finalElementPropsWithSpacingAndType = {
-    ...finalElementPropsWithSpacing,
-    'data-component-type': type,
-  }
+  const finalElementPropsWithType = addComponentTypeAttribute(finalElementProps, type)
+  const finalElementPropsWithSpacingAndType = addComponentTypeAttribute(
+    finalElementPropsWithSpacing,
+    type
+  )
 
   // Check if component has meta property with structured data
   const meta = componentProps?.meta as BlockMeta | undefined
   const structuredDataScript = meta ? <StructuredDataFromBlock meta={meta} /> : undefined
 
   // Check if component has responsive content overrides
-  const hasResponsiveContent =
-    responsive &&
-    Object.values(responsive).some(
-      (override) => (override as VariantOverrides).content !== undefined
-    )
-
-  // Use CSS-based responsive content variants for SSR compatibility
-  if (hasResponsiveContent) {
-    const responsiveVariants = buildResponsiveContentVariants(
-      responsive!,
+  if (hasResponsiveContentOverrides(responsive)) {
+    return renderWithResponsiveContent({
+      responsive,
       type,
       finalElementPropsWithType,
-      finalElementPropsWithSpacingAndType
-    )
-
-    if (hoverData) {
-      return (
-        <Fragment>
-          <style>{hoverData.styleContent}</style>
-          {responsiveVariants}
-        </Fragment>
-      )
-    }
-
-    return responsiveVariants
+      finalElementPropsWithSpacingAndType,
+      hoverData,
+    })
   }
 
   // Check if component has responsive children overrides
-  const hasResponsiveChildren =
-    responsive &&
-    Object.values(responsive).some(
-      (override) => (override as VariantOverrides).children !== undefined
-    )
-
-  // Use CSS-based responsive children variants for SSR compatibility
-  const finalRenderedChildren = hasResponsiveChildren
-    ? buildResponsiveChildrenVariants({
-        responsive: responsive!,
-        baseChildren: baseRenderedChildren,
-        renderChild: (child, index, breakpoint, additionalClassName) => {
-          if (typeof child === 'string') {
-            const resolvedText = resolveChildTranslation(child, props.currentLang, props.languages)
-            // Wrap text in span with visibility class for CSS-based hiding
-            return (
-              <span
-                key={`${breakpoint}-${index}`}
-                className={additionalClassName}
-                data-responsive-breakpoint={breakpoint}
-              >
-                {resolvedText}
-              </span>
-            )
-          }
-
-          // Inject visibility className into child component's props
-          const childWithVisibility: Component = additionalClassName
-            ? {
-                ...child,
-                props: {
-                  ...(child.props || {}),
-                  className: (child.props as { className?: string } | undefined)?.className
-                    ? `${(child.props as { className: string }).className} ${additionalClassName}`
-                    : additionalClassName,
-                } as Record<string, unknown>,
-              }
-            : child
-
-          return (
-            <ComponentRenderer
-              key={`${breakpoint}-${index}`}
-              component={childWithVisibility}
-              pageVars={props.pageVars}
-              blocks={props.blocks}
-              theme={props.theme}
-              languages={props.languages}
-              currentLang={props.currentLang}
-              childIndex={index}
-            />
-          )
-        },
-      })
+  const finalRenderedChildren = hasResponsiveChildrenOverrides(responsive)
+    ? buildResponsiveChildren(responsive, baseRenderedChildren, props)
     : baseRenderedChildren
 
   // Inject structured data script as first child if it exists

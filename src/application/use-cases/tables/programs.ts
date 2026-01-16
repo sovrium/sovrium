@@ -247,7 +247,7 @@ export function createListRecordsProgram(
     )
 
     return {
-      records: transformRecords(filteredRecords),
+      records: transformRecords(filteredRecords) as TransformedRecord[],
       pagination: {
         page: 1,
         limit: 10,
@@ -403,7 +403,10 @@ export function batchUpdateProgram(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly { id: string; [key: string]: unknown }[]
-): Effect.Effect<{ records: TransformedRecord[]; count: number }, SessionContextError> {
+): Effect.Effect<
+  { readonly records: readonly TransformedRecord[]; readonly count: number },
+  SessionContextError
+> {
   return Effect.gen(function* () {
     const updatedRecords = yield* batchUpdateRecords(session, tableName, recordsData)
 
@@ -411,7 +414,7 @@ export function batchUpdateProgram(
     const transformed = transformRecords(updatedRecords)
 
     return {
-      records: transformed,
+      records: transformed as TransformedRecord[],
       count: transformed.length,
     }
   })

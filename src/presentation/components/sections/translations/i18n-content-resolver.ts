@@ -100,17 +100,30 @@ function buildFinalElementProps(
 }
 
 /**
- * Resolves i18n content and builds element props with i18n data attribute
- *
- * @param content - Base content
- * @param i18n - Component i18n translations
- * @param currentLang - Current language code
- * @param languages - Languages configuration
- * @param elementProps - Base element props
- * @param elementPropsWithSpacing - Base element props with spacing
- * @returns Resolved content and element props with i18n data
+ * Configuration for resolving i18n content
  */
-// eslint-disable-next-line max-params -- Extracted helper function maintains original logic
+export interface ResolveI18nContentConfig {
+  readonly content: string | Record<string, unknown> | undefined
+  readonly i18n: Record<string, unknown> | undefined
+  readonly currentLang: string | undefined
+  readonly languages: Languages | undefined
+  readonly elementProps: Record<string, unknown>
+  readonly elementPropsWithSpacing: Record<string, unknown>
+}
+
+/**
+ * Resolves i18n content and builds element props with i18n data attribute (config object signature)
+ */
+export function resolveI18nContent(config: ResolveI18nContentConfig): {
+  readonly resolvedContent: string | undefined
+  readonly finalElementProps: Record<string, unknown>
+  readonly finalElementPropsWithSpacing: Record<string, unknown>
+}
+
+/**
+ * Resolves i18n content and builds element props with i18n data attribute (individual parameters signature)
+ */
+// eslint-disable-next-line max-params -- Function overload signature
 export function resolveI18nContent(
   content: string | Record<string, unknown> | undefined,
   i18n: Record<string, unknown> | undefined,
@@ -122,19 +135,58 @@ export function resolveI18nContent(
   readonly resolvedContent: string | undefined
   readonly finalElementProps: Record<string, unknown>
   readonly finalElementPropsWithSpacing: Record<string, unknown>
+}
+
+/**
+ * Implementation
+ */
+// eslint-disable-next-line max-params -- Implementation handles both signatures
+export function resolveI18nContent(
+  configOrContent: ResolveI18nContentConfig | string | Record<string, unknown> | undefined,
+  i18n?: Record<string, unknown>,
+  currentLang?: string,
+  languages?: Languages,
+  elementProps?: Record<string, unknown>,
+  elementPropsWithSpacing?: Record<string, unknown>
+): {
+  readonly resolvedContent: string | undefined
+  readonly finalElementProps: Record<string, unknown>
+  readonly finalElementPropsWithSpacing: Record<string, unknown>
 } {
+  // Support both config object and individual parameters
+  const config: ResolveI18nContentConfig =
+    configOrContent && typeof configOrContent === 'object' && 'content' in configOrContent
+      ? (configOrContent as ResolveI18nContentConfig)
+      : {
+          content: configOrContent as string | Record<string, unknown> | undefined,
+          i18n: i18n!,
+          currentLang: currentLang!,
+          languages: languages!,
+          elementProps: elementProps!,
+          elementPropsWithSpacing: elementPropsWithSpacing!,
+        }
+
+  const {
+    content,
+    i18n: i18nConfig,
+    currentLang: lang,
+    languages: langs,
+    elementProps: props,
+    elementPropsWithSpacing: propsWithSpacing,
+  } = config
+
   // Resolve content with i18n priority: component.i18n[lang].content > $t: pattern > content
-  const resolvedContent = resolveComponentContent(content, i18n, currentLang, languages)
+  const resolvedContent = resolveComponentContent(content, i18nConfig, lang, langs)
 
   // Build i18n content data attribute and merge into element props (functional approach)
   const i18nContentAttribute =
-    i18n && content
-      ? buildI18nContentAttribute(i18n, content as string, languages?.default)
+    i18nConfig && content
+      ? buildI18nContentAttribute(i18nConfig, content as string, langs?.default)
       : undefined
 
-  const finalElementProps = buildFinalElementProps(elementProps, i18nContentAttribute)
+  const finalElementProps = buildFinalElementProps(props, i18nContentAttribute)
   const finalElementPropsWithSpacing = buildFinalElementProps(
-    elementPropsWithSpacing,
+    propsWithSpacing,
     i18nContentAttribute
   )
 

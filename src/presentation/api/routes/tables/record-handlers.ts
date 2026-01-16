@@ -1,0 +1,260 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect } from 'effect'
+import {
+  hasCreatePermission,
+  hasDeletePermission,
+} from '@/application/use-cases/tables/permissions/permissions'
+import {
+  createListRecordsProgram,
+  createGetRecordProgram,
+  createRecordProgram,
+  restoreRecordProgram,
+  deleteRecordProgram,
+} from '@/application/use-cases/tables/programs'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
+import {
+  createRecordRequestSchema,
+  updateRecordRequestSchema,
+} from '@/presentation/api/schemas/request-schemas'
+import {
+  listRecordsResponseSchema,
+  getRecordResponseSchema,
+  createRecordResponseSchema,
+} from '@/presentation/api/schemas/tables-schemas'
+import { runEffect, validateRequest } from '@/presentation/api/utils'
+import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
+import { parseFilterParameter } from './filter-parser'
+import {
+  checkTableUpdatePermission,
+  filterAllowedFields,
+  handleNoAllowedFields,
+  executeUpdate,
+} from './record-update-handler'
+import { getSessionFromContext, validateAndGetTableName } from './utils'
+import type { App } from '@/domain/models/app'
+import type { Context } from 'hono'
+
+export async function handleListRecords(c: Context, app: App) {
+  const session = getSessionFromContext(c)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const tableId = c.req.param('tableId')
+  const tableName = validateAndGetTableName(app, tableId)
+  if (!tableName) {
+    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+  }
+
+  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+  const parsedFilterResult = parseFilterParameter({
+    filterParam: c.req.query('filter'),
+    app,
+    tableName,
+    userRole,
+    c,
+  })
+
+  if (!parsedFilterResult.success) {
+    return parsedFilterResult.error
+  }
+
+  const parsedFilter = parsedFilterResult.filter
+
+  return runEffect(
+    c,
+    createListRecordsProgram({ session, tableName, app, userRole, filter: parsedFilter }),
+    listRecordsResponseSchema
+  )
+}
+
+export async function handleCreateRecord(c: Context, app: App) {
+  const session = getSessionFromContext(c)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const result = await validateRequest(c, createRecordRequestSchema)
+  if (!result.success) return result.response
+
+  const tableId = c.req.param('tableId')
+  const tableName = validateAndGetTableName(app, tableId)
+  if (!tableName) {
+    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+  }
+
+  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasCreatePermission(table, userRole)) {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: 'You do not have permission to create records in this table',
+      },
+      403
+    )
+  }
+
+  return runEffect(
+    c,
+    createRecordProgram(session, tableName, result.data),
+    createRecordResponseSchema
+  )
+}
+
+export async function handleGetRecord(c: Context, app: App) {
+  const session = getSessionFromContext(c)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const tableId = c.req.param('tableId')
+  const tableName = validateAndGetTableName(app, tableId)
+  if (!tableName) {
+    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+  }
+
+  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  const recordId = c.req.param('recordId')
+
+  try {
+    return await runEffect(
+      c,
+      createGetRecordProgram({ session, tableName, app, userRole, recordId }),
+      getRecordResponseSchema
+    )
+  } catch (error) {
+    return handleGetRecordError(c, error)
+  }
+}
+
+export async function handleUpdateRecord(c: Context, app: App) {
+  const session = getSessionFromContext(c)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const result = await validateRequest(c, updateRecordRequestSchema)
+  if (!result.success) return result.response
+
+  const tableId = c.req.param('tableId')
+  const tableName = validateAndGetTableName(app, tableId)
+  if (!tableName) {
+    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+  }
+
+  const permissionCheck = await checkTableUpdatePermission(app, tableName, session, c)
+  if (!permissionCheck.allowed) {
+    return permissionCheck.response
+  }
+
+  const { allowedData, forbiddenFields } = await filterAllowedFields(
+    app,
+    tableName,
+    session,
+    result.data
+  )
+
+  if (Object.keys(allowedData).length === 0) {
+    return handleNoAllowedFields({
+      session,
+      tableName,
+      recordId: c.req.param('recordId'),
+      forbiddenFields,
+      c,
+    })
+  }
+
+  return executeUpdate({
+    session,
+    tableName,
+    recordId: c.req.param('recordId'),
+    allowedData,
+    c,
+  })
+}
+
+export async function handleDeleteRecord(c: Context, app: App) {
+  const session = getSessionFromContext(c)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const tableId = c.req.param('tableId')
+  const tableName = validateAndGetTableName(app, tableId)
+  if (!tableName) {
+    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+  }
+
+  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasDeletePermission(table, userRole)) {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: 'You do not have permission to delete records in this table',
+      },
+      403
+    )
+  }
+
+  const recordId = c.req.param('recordId')
+  const deleteResult = await Effect.runPromise(deleteRecordProgram(session, tableName, recordId))
+
+  if (!deleteResult) {
+    return c.json({ error: 'Record not found' }, 404)
+  }
+
+  return c.json({ success: true }, 200)
+}
+
+export async function handleRestoreRecord(c: Context, app: App) {
+  const session = getSessionFromContext(c)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+  }
+
+  const tableId = c.req.param('tableId')
+  const tableName = validateAndGetTableName(app, tableId)
+  if (!tableName) {
+    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
+  }
+
+  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasCreatePermission(table, userRole)) {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: 'You do not have permission to restore records in this table',
+      },
+      403
+    )
+  }
+
+  const recordId = c.req.param('recordId')
+
+  try {
+    const restoreResult = await Effect.runPromise(
+      restoreRecordProgram(session, tableName, recordId)
+    )
+
+    if (!restoreResult.success) {
+      return c.json({ error: 'Record not found' }, 404)
+    }
+
+    return c.json(restoreResult, 200)
+  } catch (error) {
+    return handleRestoreRecordError(c, error)
+  }
+}

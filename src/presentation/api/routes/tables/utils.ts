@@ -12,6 +12,16 @@ import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context } from 'hono'
 
 // ============================================================================
+// Type Re-exports
+// ============================================================================
+
+/**
+ * Re-export Session type to avoid layer boundary violations in sibling files
+ * This is the single point of import from infrastructure in this directory
+ */
+export type { Session }
+
+// ============================================================================
 // Constants
 // ============================================================================
 

@@ -37,6 +37,56 @@ export interface SSGOptions {
 }
 
 /**
+ * Register explicit page paths in Hono app for SSG discovery
+ */
+function registerPagePaths(
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono type is mutable
+  app: Hono,
+  pagePaths: readonly string[]
+): void {
+  const mutableApp = app as Hono
+
+  // eslint-disable-next-line functional/no-loop-statements -- Imperative route registration required by Hono's mutable API for toSSG discovery
+  for (const path of pagePaths) {
+    if (path !== '/') {
+      // eslint-disable-next-line functional/no-expression-statements -- Necessary side effect to mutate Hono app for toSSG route discovery
+      mutableApp.get(path, (c) => c.text(''))
+    }
+  }
+}
+
+/**
+ * Check if a route should be excluded from SSG
+ */
+function shouldExcludeRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/health' ||
+    pathname === '/api/openapi.json' ||
+    pathname === '/api/scalar' ||
+    pathname.startsWith('/api/auth/') ||
+    pathname.startsWith('/api/tables/') ||
+    pathname.startsWith('/api/records/') ||
+    pathname.startsWith('/test/')
+  )
+}
+
+/**
+ * Normalize file path to be relative to output directory
+ */
+function normalizeFilePath(file: string, outputDir: string): string {
+  const normalizedOutputDir = outputDir.startsWith('./') ? outputDir.substring(2) : outputDir
+  const normalizedFile = file.startsWith('./') ? file.substring(2) : file
+
+  if (normalizedFile.startsWith(normalizedOutputDir + '/')) {
+    return normalizedFile.substring(normalizedOutputDir.length + 1)
+  }
+  if (normalizedFile.startsWith(normalizedOutputDir)) {
+    return normalizedFile.substring(normalizedOutputDir.length)
+  }
+  return normalizedFile
+}
+
+/**
  * Generate static site using Hono's SSG functionality
  *
  * This adapter wraps Hono's toSSG function with Effect.ts patterns
@@ -46,7 +96,6 @@ export interface SSGOptions {
  * @param options - Static generation options
  * @returns Effect with output directory and generated files
  */
-// eslint-disable-next-line max-lines-per-function -- Complex SSG integration with route registration, toSSG invocation, and result validation. Splitting would harm readability.
 export const generateStaticSite = (
   // eslint-disable-next-line functional/prefer-immutable-types -- Hono is a mutable class from external library
   app: Hono | Readonly<Hono>,
@@ -60,49 +109,17 @@ export const generateStaticSite = (
     try: async () => {
       const outputDir = options.outputDir || './static'
 
-      // If pagePaths are provided, we need to explicitly register them in the app
-      // because Hono's toSSG can only discover routes that are explicitly defined
-      // (it can't auto-discover all paths handled by wildcard routes)
+      // Register explicit page paths for SSG discovery
       if (options.pagePaths && options.pagePaths.length > 0) {
-        // Cast to mutable Hono to register explicit routes for SSG
-        const mutableApp = app as Hono
-
-        // Register explicit GET routes for each page path
-        // These will be discovered by toSSG during route crawling
-        // eslint-disable-next-line functional/no-loop-statements -- Imperative route registration required by Hono's mutable API for toSSG discovery
-        for (const path of options.pagePaths) {
-          // Only register if not already the root path (/ is already registered)
-          if (path !== '/') {
-            // Register the route explicitly so toSSG can discover it
-            // The actual handler doesn't matter because toSSG will fetch it anyway
-            // eslint-disable-next-line functional/no-expression-statements -- Necessary side effect to mutate Hono app for toSSG route discovery
-            mutableApp.get(path, (c) => c.text(''))
-          }
-        }
+        registerPagePaths(app as Hono, options.pagePaths)
       }
 
       // Use Hono's toSSG to generate static files
-      // Cast app as mutable Hono since toSSG expects mutable type
       const result = await toSSG(app as Hono, {
         dir: outputDir,
         beforeRequestHook: (req) => {
           const url = new URL(req.url)
-          // Exclude actual API routes (but not pages that happen to have /api/ in path)
-          // API routes are: /api/health, /api/openapi.json, /api/scalar, /api/auth/*
-          // We explicitly registered page paths, so they will be generated even if they start with /api/
-          // Only exclude routes that match actual API route patterns
-          if (
-            url.pathname === '/api/health' ||
-            url.pathname === '/api/openapi.json' ||
-            url.pathname === '/api/scalar' ||
-            url.pathname.startsWith('/api/auth/') ||
-            url.pathname.startsWith('/api/tables/') ||
-            url.pathname.startsWith('/api/records/') ||
-            url.pathname.startsWith('/test/')
-          ) {
-            return false // Skip this route
-          }
-          return req // Include this route
+          return shouldExcludeRoute(url.pathname) ? false : req
         },
       })
 
@@ -114,26 +131,10 @@ export const generateStaticSite = (
         )
       }
 
-      // Note: HTML formatting is handled in the application layer (generate-static.ts)
-      // to ensure it's applied consistently across all generation methods
-
       // Normalize file paths to be relative to outputDir
-      // Hono's toSSG may return absolute paths, we need relative paths for consistent handling
-      const normalizedFiles = (result.files as readonly string[]).map((file) => {
-        // Normalize both paths by removing leading "./" for comparison
-        const normalizedOutputDir = outputDir.startsWith('./') ? outputDir.substring(2) : outputDir
-        const normalizedFile = file.startsWith('./') ? file.substring(2) : file
-
-        // If file starts with outputDir path, make it relative
-        if (normalizedFile.startsWith(normalizedOutputDir + '/')) {
-          return normalizedFile.substring(normalizedOutputDir.length + 1)
-        }
-        if (normalizedFile.startsWith(normalizedOutputDir)) {
-          return normalizedFile.substring(normalizedOutputDir.length)
-        }
-        // Otherwise, return as-is (already relative)
-        return normalizedFile
-      })
+      const normalizedFiles = (result.files as readonly string[]).map((file) =>
+        normalizeFilePath(file, outputDir)
+      )
 
       // Return output directory and generated files from toSSG
       return {

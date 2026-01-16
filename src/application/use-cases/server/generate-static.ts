@@ -7,7 +7,6 @@
 
 import { Effect, Console, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { StaticGenerationError } from '@/application/errors/static-generation-error'
 import {
   CSSCompiler as CSSCompilerService,
   type CSSCompilationError,
@@ -20,20 +19,23 @@ import {
 } from '@/application/ports/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
 import {
-  formatHtmlWithPrettier,
-  generateClientHydrationScript,
-  generateRobotsContent,
-  generateSitemapContent,
-} from './static-content-generators'
+  importFsModule,
+  importTranslationReplacer,
+  importPathModule,
+  writeCssFile,
+  generateHydrationFiles,
+  copyPublicAssets,
+  formatHtmlFiles,
+  applyHtmlOptimizations,
+  generateSitemapFile,
+  generateRobotsFile,
+  generateGitHubPagesFiles,
+} from './generate-static-helpers'
 import {
   generateMultiLanguageFiles,
   generateSingleLanguageFiles,
 } from './static-language-generators'
-import {
-  injectHydrationScript,
-  isGitHubPagesUrl,
-  rewriteBasePathInHtml,
-} from './static-url-rewriter'
+import type { StaticGenerationError } from '@/application/errors/static-generation-error'
 import type { App } from '@/domain/models/app'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
@@ -67,6 +69,131 @@ export interface GenerateStaticResult {
 }
 
 /**
+ * Validate app schema handling multi-language apps
+ */
+function validateAppSchema(app: unknown): Effect.Effect<App, AppValidationError, never> {
+  const rawApp = app as Record<string, unknown>
+  const hasLanguages = rawApp.languages !== undefined
+
+  return hasLanguages && rawApp.pages
+    ? Effect.gen(function* () {
+        const appWithoutPages = { ...rawApp, pages: undefined }
+        const baseApp = yield* Effect.try({
+          try: (): App => Schema.decodeUnknownSync(AppSchema)(appWithoutPages),
+          catch: (error) => new AppValidationError(error),
+        })
+        return { ...baseApp, pages: rawApp.pages as App['pages'] }
+      })
+    : Effect.gen(function* () {
+        yield* Console.log('🔍 Validating app schema...')
+        return yield* Effect.try({
+          try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
+          catch: (error) => new AppValidationError(error),
+        })
+      })
+}
+
+/**
+ * Get required services from Effect context
+ */
+function getServicesFromContext() {
+  return Effect.gen(function* () {
+    return {
+      serverFactory: yield* ServerFactoryService,
+      pageRenderer: yield* PageRendererService,
+      cssCompiler: yield* CSSCompilerService,
+      staticSiteGenerator: yield* StaticSiteGeneratorService,
+    }
+  })
+}
+
+/**
+ * Generate HTML files for single or multi-language apps
+ */
+function generateHtmlFiles(
+  app: App,
+  outputDir: string,
+  replaceAppTokens: (app: App, lang: string) => App,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  serverFactory: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  pageRenderer: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  staticSiteGenerator: any
+) {
+  return app.languages && app.pages
+    ? generateMultiLanguageFiles(
+        app,
+        outputDir,
+        replaceAppTokens,
+        serverFactory,
+        pageRenderer,
+        staticSiteGenerator
+      )
+    : generateSingleLanguageFiles(app, outputDir, serverFactory, pageRenderer, staticSiteGenerator)
+}
+
+/**
+ * Generate and write CSS file
+ */
+function generateCssFile(
+  outputDir: string,
+  app: App,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  cssCompiler: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  fs: any
+) {
+  return Effect.gen(function* () {
+    yield* Console.log('🎨 Getting compiled CSS...')
+    const { css } = yield* cssCompiler.compile(app)
+    return yield* writeCssFile(outputDir, css, fs)
+  })
+}
+
+/**
+ * Optimize HTML files with formatting and transformations
+ */
+function optimizeHtmlFiles(
+  generatedFiles: readonly string[],
+  outputDir: string,
+  options: GenerateStaticOptions,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  fs: any
+) {
+  return Effect.gen(function* () {
+    const path = yield* importPathModule()
+    yield* formatHtmlFiles(generatedFiles, outputDir, fs, path)
+    yield* applyHtmlOptimizations({
+      generatedFiles,
+      outputDir,
+      options,
+      fs,
+      path,
+    })
+  })
+}
+
+/**
+ * Generate all supporting files (sitemap, robots.txt, GitHub Pages files)
+ */
+function generateSupportingFiles(
+  app: App,
+  outputDir: string,
+  options: GenerateStaticOptions,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  fs: any
+) {
+  return Effect.gen(function* () {
+    const sitemapFiles = yield* generateSitemapFile(app, outputDir, options, fs)
+    const robotsFiles = yield* generateRobotsFile(app, outputDir, options, fs)
+    const githubFiles = yield* generateGitHubPagesFiles(outputDir, options, fs)
+
+    return [...sitemapFiles, ...robotsFiles, ...githubFiles] as readonly string[]
+  })
+}
+
+/**
  * Generate static site from app configuration
  *
  * This use case:
@@ -79,7 +206,6 @@ export interface GenerateStaticResult {
  * @param options - Static generation options
  * @returns Effect with output directory and generated files
  */
-// eslint-disable-next-line max-lines-per-function -- Complex generator function for static generation workflow
 export const generateStatic = (
   app: unknown,
   options: GenerateStaticOptions = {}
@@ -87,325 +213,58 @@ export const generateStatic = (
   GenerateStaticResult,
   | AppValidationError
   | StaticGenerationError
+  | SSGGenerationError
   | CSSCompilationError
   | ServerCreationError
-  | SSGGenerationError
   | FileCopyError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | Error,
   ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
-> =>
-  // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Complex Effect generator with multiple file generation steps and support file creation
-  Effect.gen(function* () {
+> => {
+  const program = Effect.gen(function* () {
     // Step 1: Import dependencies
-    const fs = yield* Effect.tryPromise({
-      try: () => import('node:fs/promises'),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: 'Failed to import fs module',
-          cause: error,
-        }),
-    })
+    const fs = yield* importFsModule()
+    const { replaceAppTokens } = yield* importTranslationReplacer()
 
-    const { replaceAppTokens } = yield* Effect.tryPromise({
-      try: () => import('./translation-replacer'),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: 'Failed to import translation-replacer module',
-          cause: error,
-        }),
-    })
+    // Step 2: Validate app schema
+    const validatedApp = yield* validateAppSchema(app)
 
-    // Step 2: Pre-process app to handle multi-language (replace tokens BEFORE validation)
-    // If languages are configured, we need to skip token validation and handle it specially
-    const rawApp = app as Record<string, unknown>
-    const hasLanguages = rawApp.languages !== undefined
-
-    // For multi-language apps, validate without pages first, then process each language
-    const validatedApp: App =
-      hasLanguages && rawApp.pages
-        ? yield* Effect.gen(function* () {
-            // Validate app without pages (to check languages config)
-            const appWithoutPages = { ...rawApp, pages: undefined }
-            const baseApp = yield* Effect.try({
-              try: (): App => Schema.decodeUnknownSync(AppSchema)(appWithoutPages),
-              catch: (error) => new AppValidationError(error),
-            })
-
-            // Use base app with original pages for now (will process per language)
-            return { ...baseApp, pages: rawApp.pages as App['pages'] }
-          })
-        : yield* Effect.gen(function* () {
-            // No languages or no pages - validate normally
-            yield* Console.log('🔍 Validating app schema...')
-            return yield* Effect.try({
-              try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
-              catch: (error) => new AppValidationError(error),
-            })
-          })
-
-    // Step 3: Get services from context
-    const serverFactory = yield* ServerFactoryService
-    const pageRenderer = yield* PageRendererService
-    const cssCompiler = yield* CSSCompilerService
-    const staticSiteGenerator = yield* StaticSiteGeneratorService
-
+    // Step 3: Get services and initialize
+    const services = yield* getServicesFromContext()
     const outputDir = options.outputDir || './static'
 
-    // Step 4: Generate static files for each language (or once if no languages)
-    const allGeneratedFiles: readonly string[] =
-      validatedApp.languages && validatedApp.pages
-        ? yield* generateMultiLanguageFiles(
-            validatedApp,
-            outputDir,
-            replaceAppTokens,
-            serverFactory,
-            pageRenderer,
-            staticSiteGenerator
-          )
-        : yield* generateSingleLanguageFiles(
-            validatedApp,
-            outputDir,
-            serverFactory,
-            pageRenderer,
-            staticSiteGenerator
-          )
+    // Step 4: Generate HTML files
+    const htmlFiles = yield* generateHtmlFiles(
+      validatedApp,
+      outputDir,
+      replaceAppTokens,
+      services.serverFactory,
+      services.pageRenderer,
+      services.staticSiteGenerator
+    )
 
-    // Step 5: Get CSS from cache (already compiled during server creation)
-    yield* Console.log('🎨 Getting compiled CSS...')
-    const { css } = yield* cssCompiler.compile(validatedApp)
+    // Step 5: Generate CSS and assets
+    const cssFile = yield* generateCssFile(outputDir, validatedApp, services.cssCompiler, fs)
+    const hydrationFiles = yield* generateHydrationFiles(outputDir, options.hydration ?? false, fs)
+    const assetFiles = yield* copyPublicAssets(options.publicDir, outputDir)
 
-    // Create assets directory
-    yield* Effect.tryPromise({
-      try: () => fs.mkdir(`${outputDir}/assets`, { recursive: true }),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: `Failed to create assets directory`,
-          cause: error,
-        }),
-    })
-
-    // Write CSS file
-    yield* Effect.tryPromise({
-      try: () => fs.writeFile(`${outputDir}/assets/output.css`, css, 'utf-8'),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: 'Failed to write CSS file',
-          cause: error,
-        }),
-    })
-
-    // Generate client.js for hydration if enabled
-    const hydrationFiles = yield* Effect.if(options.hydration ?? false, {
-      onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log('💧 Generating client-side hydration script...')
-          const clientJS = generateClientHydrationScript()
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/assets/client.js`, clientJS, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write client.js',
-                cause: error,
-              }),
-          })
-          return ['assets/client.js'] as const
-        }),
-      onFalse: () => Effect.succeed([] as readonly string[]),
-    })
-
-    // Step 6: Copy static assets from publicDir if provided
-    const assetFiles = yield* Effect.if(options.publicDir !== undefined, {
-      onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log(`📁 Copying assets from ${options.publicDir}...`)
-          const { copyDirectory } = yield* Effect.tryPromise({
-            try: () => import('@/infrastructure/filesystem/copy-directory'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to import copy-directory module',
-                cause: error,
-              }),
-          })
-          return yield* copyDirectory(options.publicDir!, outputDir)
-        }),
-      onFalse: () => Effect.succeed([] as readonly string[]),
-    })
-
-    // Collect all generated files (HTML from toSSG + CSS + hydration + assets)
+    // Collect all generated files
     const generatedFiles = [
-      ...allGeneratedFiles,
-      'assets/output.css',
+      ...htmlFiles,
+      cssFile,
       ...hydrationFiles,
       ...assetFiles,
     ] as readonly string[]
 
-    // Step 5a: Format HTML files with Prettier for better readability
-    yield* Console.log('📝 Formatting HTML files with Prettier...')
-    const path = yield* Effect.tryPromise({
-      try: () => import('node:path'),
-      catch: (error) =>
-        new StaticGenerationError({
-          message: 'Failed to import path module',
-          cause: error,
-        }),
-    })
+    // Step 6: Optimize HTML files
+    yield* optimizeHtmlFiles(generatedFiles, outputDir, options, fs)
 
-    // Format each HTML file with Prettier (exclude .js.html and other asset files)
-    yield* Effect.forEach(
-      generatedFiles.filter((f) => f.endsWith('.html') && !f.endsWith('.js.html')),
-      (file) =>
-        Effect.gen(function* () {
-          const filePath = file.startsWith('/') ? file : path.join(outputDir, file)
-          const content = yield* Effect.tryPromise({
-            try: () => fs.readFile(filePath, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to read HTML file for formatting: ${file}`,
-                cause: error,
-              }),
-          })
-          const formatted = yield* Effect.tryPromise({
-            try: () => formatHtmlWithPrettier(content),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to format HTML with Prettier: ${file}`,
-                cause: error,
-              }),
-          })
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(filePath, formatted, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: `Failed to write formatted HTML file: ${file}`,
-                cause: error,
-              }),
-          })
-        }),
-      { concurrency: 'unbounded' }
-    )
-
-    // Step 5b: Apply base path rewriting if basePath is configured
-    yield* Effect.if(options.basePath !== undefined && options.basePath !== '', {
-      onTrue: () =>
-        rewriteBasePathInHtml(generatedFiles, outputDir, options.basePath!, options.baseUrl, fs),
-      onFalse: () => Effect.succeed(undefined),
-    })
-
-    // Step 5c: Inject hydration script into HTML if enabled
-    yield* Effect.if(options.hydration ?? false, {
-      onTrue: () =>
-        injectHydrationScript(generatedFiles, outputDir, options.basePath || '', fs, path),
-      onFalse: () => Effect.succeed(undefined),
-    })
-
-    // Get pages for sitemap generation
-    const pages = validatedApp.pages || []
-
-    // Step 6: Generate supporting files
-    const sitemapFiles = yield* Effect.if(options.generateSitemap ?? false, {
-      onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log('🗺️  Generating sitemap.xml...')
-          // Check if multi-language is enabled
-          const isMultiLanguage =
-            validatedApp.languages !== undefined && options.languages !== undefined
-          const languages = isMultiLanguage ? options.languages : undefined
-          const basePath = options.basePath || ''
-
-          const sitemap = generateSitemapContent(
-            pages,
-            options.baseUrl || 'https://example.com',
-            basePath,
-            languages
-          )
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write sitemap.xml',
-                cause: error,
-              }),
-          })
-          return ['sitemap.xml'] as const
-        }),
-      onFalse: () => Effect.succeed([] as readonly string[]),
-    })
-
-    const robotsFiles = yield* Effect.if(options.generateRobotsTxt ?? false, {
-      onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log('🤖 Generating robots.txt...')
-          const basePath = options.basePath || ''
-          const robots = generateRobotsContent(
-            pages,
-            options.baseUrl || 'https://example.com',
-            basePath,
-            options.generateSitemap
-          )
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/robots.txt`, robots, 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write robots.txt',
-                cause: error,
-              }),
-          })
-          return ['robots.txt'] as const
-        }),
-      onFalse: () => Effect.succeed([] as readonly string[]),
-    })
-
-    const githubFiles = yield* Effect.if(options.deployment === 'github-pages', {
-      onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log('📄 Creating .nojekyll file for GitHub Pages...')
-          yield* Effect.tryPromise({
-            try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
-            catch: (error) =>
-              new StaticGenerationError({
-                message: 'Failed to write .nojekyll',
-                cause: error,
-              }),
-          })
-          return ['.nojekyll'] as const
-        }),
-      onFalse: () => Effect.succeed([] as readonly string[]),
-    })
-
-    // Generate CNAME file for custom domains on GitHub Pages
-    const cnameFiles = yield* Effect.if(
-      options.deployment === 'github-pages' &&
-        options.baseUrl !== undefined &&
-        !isGitHubPagesUrl(options.baseUrl),
-      {
-        onTrue: () =>
-          Effect.gen(function* () {
-            const domain = new URL(options.baseUrl!).hostname
-            yield* Console.log(`📄 Creating CNAME file for custom domain: ${domain}...`)
-            yield* Effect.tryPromise({
-              try: () => fs.writeFile(`${outputDir}/CNAME`, domain, 'utf-8'),
-              catch: (error) =>
-                new StaticGenerationError({
-                  message: 'Failed to write CNAME',
-                  cause: error,
-                }),
-            })
-            return ['CNAME'] as const
-          }),
-        onFalse: () => Effect.succeed([] as readonly string[]),
-      }
-    )
+    // Step 7: Generate supporting files
+    const supportingFiles = yield* generateSupportingFiles(validatedApp, outputDir, options, fs)
 
     // Combine all files immutably
-    const allFiles = [
-      ...generatedFiles,
-      ...sitemapFiles,
-      ...robotsFiles,
-      ...githubFiles,
-      ...cnameFiles,
-    ] as readonly string[]
+    const allFiles = [...generatedFiles, ...supportingFiles] as readonly string[]
 
     yield* Console.log(`✅ Generated ${allFiles.length} files to ${outputDir}`)
 
@@ -414,3 +273,18 @@ export const generateStatic = (
       files: allFiles,
     }
   })
+
+  return program as Effect.Effect<
+    GenerateStaticResult,
+    | AppValidationError
+    | StaticGenerationError
+    | SSGGenerationError
+    | CSSCompilationError
+    | ServerCreationError
+    | FileCopyError
+    | AuthConfigRequiredForUserFields
+    | SchemaInitializationError
+    | Error,
+    ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
+  >
+}
