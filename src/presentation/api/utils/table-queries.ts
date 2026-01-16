@@ -58,7 +58,14 @@ const validateColumnName = (columnName: string): void => {
 export function listRecords(
   session: Readonly<Session>,
   tableName: string,
-  table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
+  table?: { readonly permissions?: { readonly organizationScoped?: boolean } },
+  filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
@@ -69,18 +76,39 @@ export function listRecords(
         const isOrganizationScoped = table?.permissions?.organizationScoped === true
         const activeOrgId = session.activeOrganizationId
 
-        // Build query with organization filtering if enabled
-        if (isOrganizationScoped && activeOrgId) {
-          // Filter by organization_id when organizationScoped is true
-          // Use text comparison to ensure proper string matching
-          const result = await tx.execute(
-            sql`SELECT * FROM ${sql.identifier(tableName)} WHERE organization_id::text = ${activeOrgId}`
-          )
-          return result as readonly Record<string, unknown>[]
-        }
+        // Build WHERE conditions using immutable patterns
+        const orgConditions =
+          isOrganizationScoped && activeOrgId
+            ? [`organization_id::text = '${activeOrgId.replace(/'/g, "''")}'`]
+            : []
 
-        // Default: no organization filtering (RLS policies still apply via session context)
-        const result = await tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}`)
+        // Add user-provided filters
+        const userFilterConditions =
+          filter?.and && filter.and.length > 0
+            ? await (async () => {
+                const { generateSqlCondition } =
+                  await import('@/infrastructure/database/filter-operators')
+                const andConditions = filter.and ?? [] // Type narrowing
+                return andConditions
+                  .map((f) => {
+                    validateColumnName(f.field)
+                    return generateSqlCondition(f.field, f.operator, f.value, {
+                      useEscapeSqlString: true,
+                    })
+                  })
+                  .filter((c) => c !== '')
+              })()
+            : []
+
+        const conditions = [...orgConditions, ...userFilterConditions]
+
+        // Build final query
+        const whereClause =
+          conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
+
+        const result = await tx.execute(
+          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}`
+        )
         return result as readonly Record<string, unknown>[]
       },
       catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),

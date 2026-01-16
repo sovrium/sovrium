@@ -590,11 +590,13 @@ Use this template to document test baseline state:
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
 ### Phase 0.1: ESLint Bypass Removal
-- 🔍 Scanned for bypass comments
-- Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"`
+- 🔍 Scanned for bypass comments (file-level AND inline)
+- Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params" src/ --include="*.ts" --include="*.tsx"`
 - **Files with bypasses removed**: X files
-  - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
+  - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */` (file-level)
+  - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, complexity -- TODO: Refactor handler` (inline)
   - [list all files]
+- **Breakdown**: Y file-level bypasses, Z inline bypasses
 - ✅ Bypass comments removed - actual violations now exposed
 
 ### Phase 0.2: Quality Check (bun run quality --include-effect)
@@ -700,17 +702,19 @@ fi
 
 #### Step 0.1: Remove ESLint Disable Comments (Size/Complexity Bypasses)
 
-**RATIONALE**: Files with `/* eslint-disable max-lines */` and similar comments bypass size/complexity limits entirely, preventing the auditor from detecting files that need refactoring. These bypasses must be removed BEFORE running quality checks so the auditor can identify and fix the actual issues.
+**RATIONALE**: Files with `/* eslint-disable max-lines */` and similar comments (including inline `// eslint-disable-next-line` variants) bypass size/complexity limits entirely, preventing the auditor from detecting files that need refactoring. These bypasses must be removed BEFORE running quality checks so the auditor can identify and fix the actual issues.
 
 **IMPORTANT**: The goal is to **fix the root cause** (oversized/complex code) not just remove comments. The comment removal is only the first step to expose the issues.
 
 **Detection Command**:
 ```bash
-# Find all files with size/complexity bypass comments
-grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"
+# Find all files with size/complexity bypass comments (file-level AND inline)
+grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params" src/ --include="*.ts" --include="*.tsx"
 ```
 
 **Bypass Comment Patterns to Remove**:
+
+**File-Level Bypasses** (entire file):
 - `/* eslint-disable max-lines */` (and variations with `-- reason`)
 - `/* eslint-disable complexity */`
 - `/* eslint-disable max-statements */`
@@ -719,14 +723,31 @@ grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max
 - `/* eslint-disable max-params */`
 - Multi-line variations: `/* eslint-disable max-lines -- Routes file with many endpoints */`
 
+**Inline Function-Level Bypasses** (single function):
+- `// eslint-disable-next-line max-lines-per-function` (and variations with `-- TODO: ...`)
+- `// eslint-disable-next-line max-statements`
+- `// eslint-disable-next-line complexity`
+- `// eslint-disable-next-line max-depth`
+- `// eslint-disable-next-line max-params`
+- Combined patterns: `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions`
+
+**Important Notes on Inline Bypasses**:
+- These are often placed directly before function declarations
+- They frequently include `-- TODO:` notes indicating the code was known to need refactoring
+- Removing them exposes the actual violations that were intentionally deferred
+- They are just as critical to remove as file-level bypasses
+
 **Automated Removal Process**:
 1. **Find affected files**:
    ```bash
-   grep -l "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/**/*.{ts,tsx}
+   # Find files with file-level OR inline bypasses
+   grep -l "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params" src/**/*.{ts,tsx}
    ```
 
-2. **For each file**: Remove the bypass comment (entire line or inline comment)
+2. **For each file**: Remove the bypass comment (entire line for file-level, inline for function-level)
    - Use Edit tool to remove comment lines
+   - **File-level**: Remove entire line containing `/* eslint-disable ... */`
+   - **Inline**: Remove entire line containing `// eslint-disable-next-line ...` (including any TODO notes)
    - Preserve code functionality (only remove comments)
 
 3. **Document removed bypasses**:
@@ -736,11 +757,18 @@ grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max
    ### Files with bypasses removed:
    - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
    - `src/application/complex-logic.ts` - `/* eslint-disable complexity */`
+   - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler`
    - [list all files]
 
+   ### Breakdown by Type:
+   - File-level bypasses: X files
+   - Inline function bypasses: Y files
+   - Total bypasses removed: Z comments
+
    ### Status
-   - ✅ Removed X bypass comments from Y files
+   - ✅ Removed Z bypass comments from X+Y files
    - **These files will now be checked for actual size/complexity violations**
+   - **Inline bypasses with TODO notes indicate known refactoring needs**
    ```
 
 4. **Expected outcome**: `bun run quality` will now detect actual size/complexity violations that were previously hidden
@@ -1110,12 +1138,14 @@ Adapt this template as needed to best communicate findings for specific contexts
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
 ### Phase 0.1: ESLint Bypass Removal
-- 🔍 Scanned for bypass comments
-- Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params" src/ --include="*.ts" --include="*.tsx"`
+- 🔍 Scanned for bypass comments (file-level AND inline)
+- Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params" src/ --include="*.ts" --include="*.tsx"`
 - **Files with bypasses removed**: X files
-  - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
-  - `src/application/complex-logic.ts` - `/* eslint-disable complexity */`
+  - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */` (file-level)
+  - `src/application/complex-logic.ts` - `/* eslint-disable complexity */` (file-level)
+  - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler` (inline)
   - [list all files]
+- **Breakdown**: Y file-level bypasses, Z inline bypasses
 - ✅ Bypass comments removed - actual violations now exposed
 
 ### Phase 0.2: Quality Check (bun run quality --include-effect)

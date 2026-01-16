@@ -18,6 +18,7 @@ import {
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { validateFilterFieldPermissions } from '@/presentation/api/utils/filter-field-validator'
+import { transformRecord } from '@/presentation/api/utils/record-transformer'
 import { getRecord, deleteRecord } from '@/presentation/api/utils/table-queries'
 import { hasCreatePermission, hasDeletePermission } from './permissions'
 import {
@@ -37,6 +38,61 @@ import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
+
+/**
+ * Filter parameter type matching the expected shape
+ */
+type FilterParameter =
+  | {
+      readonly and?: readonly {
+        readonly field: string
+        readonly operator: string
+        readonly value: unknown
+      }[]
+    }
+  | undefined
+
+/**
+ * Parse and validate filter parameter from query string
+ */
+function parseFilterParameter(config: {
+  filterParam: string | undefined
+  app: App
+  tableName: string
+  userRole: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono context type is complex and not worth importing
+  c: any
+}):
+  | { success: true; filter: FilterParameter }
+  | { success: false; error: ReturnType<typeof config.c.json> } {
+  const { filterParam, app, tableName, userRole, c } = config
+
+  if (!filterParam) {
+    return { success: true, filter: undefined }
+  }
+
+  try {
+    const filter = JSON.parse(filterParam)
+    const forbiddenFields = validateFilterFieldPermissions(app, tableName, userRole, filter)
+
+    if (forbiddenFields.length > 0) {
+      return {
+        success: false,
+        error: c.json(
+          { error: 'Forbidden', message: `Cannot filter by field: ${forbiddenFields[0]}` },
+          403
+        ),
+      }
+    }
+
+    return { success: true, filter }
+  } catch {
+    return {
+      success: false,
+      error: c.json({ error: 'Bad Request', message: 'Invalid filter parameter' }, 400),
+    }
+  }
+}
 
 // eslint-disable-next-line max-lines-per-function -- Route chaining requires more lines for session extraction and auth checks
 export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
@@ -60,36 +116,23 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
         // Parse and validate filter parameter if present
-        const filterParam = c.req.query('filter')
-        if (filterParam) {
-          try {
-            const filter = JSON.parse(filterParam)
-            const forbiddenFields = validateFilterFieldPermissions(app, tableName, userRole, filter)
+        const parsedFilterResult = parseFilterParameter({
+          filterParam: c.req.query('filter'),
+          app,
+          tableName,
+          userRole,
+          c,
+        })
 
-            if (forbiddenFields.length > 0) {
-              return c.json(
-                {
-                  error: 'Forbidden',
-                  message: `Cannot filter by field: ${forbiddenFields[0]}`,
-                },
-                403
-              )
-            }
-          } catch {
-            // If JSON parsing fails, return 400 Bad Request
-            return c.json(
-              {
-                error: 'Bad Request',
-                message: 'Invalid filter parameter',
-              },
-              400
-            )
-          }
+        if (!parsedFilterResult.success) {
+          return parsedFilterResult.error
         }
+
+        const parsedFilter = parsedFilterResult.filter
 
         return runEffect(
           c,
-          createListRecordsProgram(session, tableName, app, userRole),
+          createListRecordsProgram({ session, tableName, app, userRole, filter: parsedFilter }),
           listRecordsResponseSchema
         )
       })
@@ -243,23 +286,54 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           }
         }
 
+        // System-protected fields that should never be user-modifiable
+        const systemProtectedFields = new Set(['organization_id', 'user_id', 'owner_id'])
+
         // Validate field write permissions and filter out forbidden fields
         const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, result.data)
 
         // Filter data to only include fields the user has permission to write
+        // Also filter out system-protected fields (silently ignored)
         const allowedFieldsData = Object.fromEntries(
-          Object.entries(result.data).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
+          Object.entries(result.data).filter(
+            ([fieldName]) =>
+              !forbiddenFields.includes(fieldName) && !systemProtectedFields.has(fieldName)
+          )
         )
 
-        // If no fields remain after filtering, return 403
-        if (Object.keys(allowedFieldsData).length === 0) {
+        // If no fields remain after filtering and user tried to modify forbidden fields,
+        // return 403 only if they're not system-protected fields (which are silently ignored)
+        const attemptedForbiddenFields = forbiddenFields.filter(
+          (field) => !systemProtectedFields.has(field)
+        )
+        if (Object.keys(allowedFieldsData).length === 0 && attemptedForbiddenFields.length > 0) {
           return c.json(
             {
               error: 'Forbidden',
-              message: `You do not have permission to modify any of the specified fields: ${forbiddenFields.join(', ')}`,
+              message: `You do not have permission to modify any of the specified fields: ${attemptedForbiddenFields.join(', ')}`,
             },
             403
           )
+        }
+
+        // If only system-protected fields were filtered out, fetch and return unchanged record
+        if (Object.keys(allowedFieldsData).length === 0) {
+          try {
+            const recordId = c.req.param('recordId')
+            const record = await Effect.runPromise(getRecord(session, tableName, recordId))
+
+            if (!record) {
+              return c.json({ error: 'Record not found' }, 404)
+            }
+
+            return c.json({ record: transformRecord(record) }, 200)
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            if (errorMessage.includes('Record not found') || errorMessage.includes('not found')) {
+              return c.json({ error: 'Record not found' }, 404)
+            }
+            return c.json({ error: 'Internal server error', message: errorMessage }, 500)
+          }
         }
 
         // Execute update with RLS enforcement (using only allowed fields)

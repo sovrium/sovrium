@@ -464,7 +464,7 @@ test.describe('API Organization Isolation', () => {
   // Generated from 7 @spec tests - covers organization isolation via API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-REGRESSION: complete multi-org isolation workflow via API',
     { tag: '@regression' },
     async ({
@@ -474,6 +474,8 @@ test.describe('API Organization Isolation', () => {
       createOrganization,
       executeQuery,
       signOut,
+      signIn,
+      setActiveOrganization,
     }) => {
       let orgA: { organization: { id: string } }
       let orgB: { organization: { id: string } }
@@ -521,11 +523,12 @@ test.describe('API Organization Isolation', () => {
       await test.step('API-TABLES-PERMISSIONS-ORG-003: Auto-sets organization_id on create', async () => {
         // WHEN: User creates project without specifying organization_id
         await signOut()
-        await createAuthenticatedUser({ email: 'user-a@example.com' })
+        await signIn({ email: 'user-a@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgA.organization.id)
 
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Org A Project', budget: 100_000 },
+          data: { fields: { name: 'Org A Project', budget: 100_000 } },
         })
 
         // THEN: Record should be created with user's organization_id auto-set
@@ -545,8 +548,10 @@ test.describe('API Organization Isolation', () => {
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'Malicious Project',
-            organization_id: 'other-org-id', // Attempting to inject different org
+            fields: {
+              name: 'Malicious Project',
+              organization_id: 'other-org-id', // Attempting to inject different org
+            },
           },
         })
 
@@ -559,15 +564,17 @@ test.describe('API Organization Isolation', () => {
       await test.step('API-TABLES-PERMISSIONS-ORG-001: Returns only records from users organization', async () => {
         // Insert Org B project
         await signOut()
-        await createAuthenticatedUser({ email: 'user-b@example.com' })
+        await signIn({ email: 'user-b@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgB.organization.id)
         await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Org B Project', budget: 50_000 },
+          data: { fields: { name: 'Org B Project', budget: 50_000 } },
         })
 
         // Switch to user A
         await signOut()
-        await createAuthenticatedUser({ email: 'user-a@example.com' })
+        await signIn({ email: 'user-a@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgA.organization.id)
 
         // WHEN: User from Org A requests projects
         const response = await request.get('/api/tables/1/records')
@@ -622,18 +629,20 @@ test.describe('API Organization Isolation', () => {
       await test.step('API-TABLES-PERMISSIONS-ORG-006: Filters search results by organization', async () => {
         // Insert same-name project in Org B
         await signOut()
-        await createAuthenticatedUser({ email: 'user-b@example.com' })
+        await signIn({ email: 'user-b@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgB.organization.id)
         await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Alpha Project' },
+          data: { fields: { name: 'Alpha Project' } },
         })
 
         // Insert same-name project in Org A
         await signOut()
-        await createAuthenticatedUser({ email: 'user-a@example.com' })
+        await signIn({ email: 'user-a@example.com', password: 'TestPassword123!' })
+        await setActiveOrganization(orgA.organization.id)
         await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Alpha Project' },
+          data: { fields: { name: 'Alpha Project' } },
         })
 
         // WHEN: User searches for "Alpha"

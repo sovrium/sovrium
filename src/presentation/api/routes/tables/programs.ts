@@ -209,18 +209,30 @@ export function createGetPermissionsProgram(
   })
 }
 
+interface ListRecordsConfig {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly app: App
+  readonly userRole: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+}
+
 export function createListRecordsProgram(
-  session: Readonly<Session>,
-  tableName: string,
-  app: App,
-  userRole: string
+  config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
+    const { session, tableName, app, userRole, filter } = config
     // Find table schema to check organization-scoped settings
     const table = app.tables?.find((t) => t.name === tableName)
 
     // Query records with session context (organization filtering automatically applied if enabled)
-    const records = yield* listRecords(session, tableName, table)
+    const records = yield* listRecords(session, tableName, table, filter)
 
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies
