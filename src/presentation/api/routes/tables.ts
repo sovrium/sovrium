@@ -1079,23 +1079,57 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           }
         }
 
+        // Filter out organization_id if table is organization-scoped (system-managed field)
+        const isOrganizationScoped = table?.permissions?.organizationScoped ?? false
+        const dataWithoutOrgId = isOrganizationScoped
+          ? Object.fromEntries(
+              Object.entries(result.data).filter(([fieldName]) => fieldName !== 'organization_id')
+            )
+          : result.data
+
         // Validate field write permissions and filter out forbidden fields
-        const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, result.data)
+        const forbiddenFields = validateFieldWritePermissions(
+          app,
+          tableName,
+          userRole,
+          dataWithoutOrgId
+        )
 
         // Filter data to only include fields the user has permission to write
         const allowedFieldsData = Object.fromEntries(
-          Object.entries(result.data).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
+          Object.entries(dataWithoutOrgId).filter(
+            ([fieldName]) => !forbiddenFields.includes(fieldName)
+          )
         )
 
-        // If no fields remain after filtering, return 403
+        // If no fields remain after filtering, check if it's because all fields were forbidden
+        // vs organization_id was the only field and was silently filtered
         if (Object.keys(allowedFieldsData).length === 0) {
-          return c.json(
-            {
-              error: 'Forbidden',
-              message: `You do not have permission to modify any of the specified fields: ${forbiddenFields.join(', ')}`,
-            },
-            403
-          )
+          // If there were forbidden fields, return 403
+          if (forbiddenFields.length > 0) {
+            return c.json(
+              {
+                error: 'Forbidden',
+                message: `You do not have permission to modify any of the specified fields: ${forbiddenFields.join(', ')}`,
+              },
+              403
+            )
+          }
+
+          // If no forbidden fields but allowedFieldsData is empty, it means organization_id
+          // was the only field and it was silently filtered out.
+          // Treat this as a successful no-op update (return current record state).
+          try {
+            const currentRecord = await Effect.runPromise(
+              getRecord(session, tableName, c.req.param('recordId'))
+            )
+            if (!currentRecord) {
+              return c.json({ error: 'Record not found' }, 404)
+            }
+            return c.json({ record: transformRecord(currentRecord) }, 200)
+          } catch {
+            return c.json({ error: 'Record not found' }, 404)
+          }
         }
 
         // Execute update with RLS enforcement (using only allowed fields)
