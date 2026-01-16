@@ -293,13 +293,14 @@ test.describe('Check table permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-CHECK-006: should show all write operations as false for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -320,8 +321,13 @@ test.describe('Check table permissions', () => {
         ],
       })
 
-      // Viewer role has read-only access
-      await createAuthenticatedViewer()
+      // Create user and set role to viewer manually
+      const viewer = await createAuthenticatedUser()
+      await executeQuery(`
+        UPDATE "_sovrium_auth_users"
+        SET role = 'viewer'
+        WHERE id = '${viewer.user.id}'
+      `)
 
       // WHEN: Viewer user checks permissions
       const response = await request.get('/api/tables/1/permissions')
