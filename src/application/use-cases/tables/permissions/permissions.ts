@@ -60,7 +60,7 @@ export function evaluateTablePermissions(
   tablePermissions: TablePermissions | undefined,
   userRole: string,
   isAdmin: boolean
-): { read: boolean; create: boolean; update: boolean; delete: boolean } {
+): Readonly<{ read: boolean; create: boolean; update: boolean; delete: boolean }> {
   return {
     read: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.read, userRole),
     create: checkPermissionWithAdminOverride(isAdmin, tablePermissions?.create, userRole),
@@ -95,7 +95,7 @@ export function evaluateFieldPermissions(
  * Returns true if permission granted, false if denied
  */
 export function hasCreatePermission(
-  table: { permissions?: { create?: unknown } } | undefined,
+  table: Readonly<{ permissions?: Readonly<{ create?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
   const createPermission = table?.permissions?.create as
@@ -112,7 +112,7 @@ export function hasCreatePermission(
  * Check if user has delete permission for the table
  */
 export function hasDeletePermission(
-  table: { permissions?: { delete?: unknown } } | undefined,
+  table: Readonly<{ permissions?: Readonly<{ delete?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
   // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property

@@ -89,4 +89,4 @@ export const transformRecord = (record: Record<string, unknown>): TransformedRec
  */
 export const transformRecords = (
   records: readonly Record<string, unknown>[]
-): TransformedRecord[] => records.map(transformRecord)
+): readonly TransformedRecord[] => records.map(transformRecord)

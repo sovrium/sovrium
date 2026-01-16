@@ -22,13 +22,15 @@ import type { TablePermission } from '@/domain/models/app/table/permissions'
  * @param params.record - Record object to filter
  * @returns Record with only readable fields
  */
-export function filterReadableFields<T extends Record<string, unknown>>(params: {
-  app: App
-  tableName: string
-  userRole: string
-  userId: string
-  record: T
-}): Record<string, unknown> {
+export function filterReadableFields<T extends Record<string, unknown>>(
+  params: Readonly<{
+    app: App
+    tableName: string
+    userRole: string
+    userId: string
+    record: T
+  }>
+): Record<string, unknown> {
   const { app, tableName, userRole, userId, record } = params
 
   // Find table definition

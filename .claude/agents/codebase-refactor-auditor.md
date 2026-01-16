@@ -75,7 +75,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 **When invoked, follow these phases in order:**
 
 1. **Phase 0: Safety Check** → Two-step process:
-   - **Step 0.1**: Remove eslint-disable comments (size/complexity bypasses) to expose actual violations
+   - **Step 0.1**: Remove ALL eslint-disable comments (file-level AND inline, including multi-rule bypasses like `// eslint-disable-next-line max-lines-per-function, max-statements, complexity`) to expose actual violations
    - **Step 0.2**: Run `bun run quality --include-effect` and `bun test:e2e:regression` to establish baseline (NEVER run @spec tests - too slow)
 2. **Phase 1.1: Recent Changes** → Analyze last 10 git commits with major changes (>100 lines OR >5 files in `src/`)
    - Immediately refactor issues found in recent commits (including files with bypasses removed)
@@ -590,15 +590,16 @@ Use this template to document test baseline state:
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
 ### Phase 0.1: ESLint Bypass Removal
-- 🔍 Scanned for bypass comments (file-level AND inline)
+- 🔍 Scanned for bypass comments (file-level AND inline, single-rule AND multi-rule)
 - Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable boundaries/element-types\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params\|eslint-disable-next-line boundaries/element-types" src/ --include="*.ts" --include="*.tsx"`
 - **Files with bypasses removed**: X files
   - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */` (file-level)
+  - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor handler` (inline multi-rule)
+  - `src/presentation/api/routes/users/update-handler.ts` - `// eslint-disable-next-line max-statements, complexity` (inline multi-rule)
   - `src/presentation/api/routes/tables/record-routes.ts` - `// eslint-disable-next-line boundaries/element-types -- Route handlers need database queries` (inline layer bypass)
-  - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, complexity -- TODO: Refactor handler` (inline)
   - [list all files]
-- **Breakdown**: Y file-level bypasses, Z inline bypasses
-- ✅ Bypass comments removed - actual violations now exposed
+- **Breakdown**: Y file-level bypasses, Z inline single-rule bypasses, M inline multi-rule bypasses, A layer bypasses
+- ✅ Bypass comments removed - actual violations now exposed (including multiple violations from multi-rule bypasses)
 
 ### Phase 0.2: Quality Check (bun run quality --include-effect)
 - ✅ All checks passing (or ❌ ESLint violations now detected after bypass removal)
@@ -629,12 +630,12 @@ Use this template to document test baseline state:
 **Phase 0 (Pre-Refactoring)**:
 1. **Step 0.1: Remove ESLint bypass comments** (CRITICAL - run FIRST):
    ```bash
-   # Detect files with bypasses (size/complexity AND layer architecture)
-   grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable boundaries/element-types\|eslint-disable-next-line boundaries/element-types" src/ --include="*.ts" --include="*.tsx"
+   # Detect ALL bypass files (size/complexity AND layer architecture, file-level AND inline, single-rule AND multi-rule)
+   grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable boundaries/element-types\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params\|eslint-disable-next-line boundaries/element-types" src/ --include="*.ts" --include="*.tsx"
    ```
-   - Remove bypass comments from all detected files
+   - Remove ALL bypass comments from detected files (file-level AND inline, including multi-rule bypasses)
    - Document which files had bypasses removed
-   - **Expected outcome**: ESLint will now detect actual violations
+   - **Expected outcome**: ESLint will now detect actual violations (including multiple violations from multi-rule inline bypasses)
 2. **Step 0.2: Run quality checks**: `bun run quality --include-effect`
    - Validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
    - **Note**: Use `--include-effect` for codebase audits to catch Effect-specific issues
@@ -669,7 +670,7 @@ Use this template to document test baseline state:
 | Step | Name | Description |
 |------|------|-------------|
 | **Quick Exit** | Test-Only Check | Pipeline mode: If no `src/` changes, run `bun run quality` and exit |
-| **Phase 0** | Safety Baseline | **Step 0.1**: Remove eslint-disable bypasses to expose violations<br>**Step 0.2**: Establish GREEN E2E baseline (MANDATORY) |
+| **Phase 0** | Safety Baseline | **Step 0.1**: Remove ALL eslint-disable bypasses (file-level AND inline, including multi-rule) to expose violations<br>**Step 0.2**: Establish GREEN E2E baseline (MANDATORY) |
 | **Phase 1** | Discovery | Two-phase: 1.1 (recent changes + exposed violations) → immediate, 1.2 (older code) → recommendations |
 | **Phase 2** | Categorization | Classify by severity (Critical/High/Medium/Low) |
 | **Phase 3** | Strategy | Plan immediate vs. recommendation-only actions |
@@ -709,11 +710,18 @@ fi
 
 **Detection Command**:
 ```bash
-# Find all files with bypass comments (size/complexity AND layer architecture - file-level AND inline)
+# Find ALL ESLint bypass comments (file-level AND inline, single-rule AND multi-rule)
+# This command catches:
+# - File-level: /* eslint-disable max-lines */
+# - Inline single: // eslint-disable-next-line max-lines-per-function
+# - Inline multi: // eslint-disable-next-line max-lines-per-function, max-statements, complexity
+# - All patterns catch combined multi-rule disables automatically
 grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable boundaries/element-types\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params\|eslint-disable-next-line boundaries/element-types" src/ --include="*.ts" --include="*.tsx"
 ```
 
-**Bypass Comment Patterns to Remove**:
+**IMPORTANT NOTE ON MULTI-RULE BYPASSES**: The grep command above will catch combined inline bypasses like `// eslint-disable-next-line max-lines-per-function, max-statements, complexity` because it searches for the individual rule names. Any line containing one of these patterns will be matched, regardless of whether it's a single-rule or multi-rule disable.
+
+**Bypass Comment Patterns to Remove** (ALL must be eliminated):
 
 **File-Level Bypasses** (entire file):
 - `/* eslint-disable max-lines */` (and variations with `-- reason`)
@@ -726,15 +734,25 @@ grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max
 - Multi-line variations: `/* eslint-disable max-lines -- Routes file with many endpoints */`
 - Layer bypass variations: `/* eslint-disable boundaries/element-types -- Route handlers need database queries for Effect programs */`
 
-**Inline Function-Level Bypasses** (single function/import):
+**Inline Single-Line Bypasses** (single function/import):
 - `// eslint-disable-next-line max-lines-per-function` (and variations with `-- TODO: ...`)
 - `// eslint-disable-next-line max-statements`
 - `// eslint-disable-next-line complexity`
 - `// eslint-disable-next-line max-depth`
 - `// eslint-disable-next-line max-params`
 - `// eslint-disable-next-line boundaries/element-types` (layer architecture bypass on imports)
-- Combined patterns: `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions`
+
+**Inline Multi-Rule Bypasses** (combined patterns - CRITICAL TO REMOVE):
+- `// eslint-disable-next-line max-lines-per-function, max-statements` (two rules)
+- `// eslint-disable-next-line max-lines-per-function, max-statements, complexity` (three rules)
+- `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler into smaller functions` (with TODO note)
+- `// eslint-disable-next-line max-depth, complexity` (any combination of size/complexity rules)
 - Layer bypass patterns: `// eslint-disable-next-line boundaries/element-types -- Route handlers need database infrastructure`
+
+**Common Multi-Rule Patterns Found in Production**:
+- `// eslint-disable-next-line max-lines-per-function, max-statements, complexity` (most common - indicates oversized, complex function)
+- `// eslint-disable-next-line max-statements, complexity` (indicates complex function with many statements)
+- `// eslint-disable-next-line max-depth, complexity` (indicates deeply nested logic)
 
 **Layer Architecture Bypasses** (CRITICAL - expose improper layer dependencies):
 - These bypasses hide Presentation → Infrastructure imports that violate layered architecture
@@ -747,6 +765,8 @@ grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max
 - They frequently include `-- TODO:` notes indicating the code was known to need refactoring
 - Removing them exposes the actual violations that were intentionally deferred
 - They are just as critical to remove as file-level bypasses
+- **Multi-rule bypasses** (e.g., `// eslint-disable-next-line max-lines-per-function, max-statements, complexity`) indicate severe code quality issues with multiple violations in a single function
+- Multi-rule bypasses often combine function size violations with complexity violations, requiring comprehensive refactoring
 
 **Automated Removal Process**:
 1. **Find affected files**:
@@ -758,31 +778,36 @@ grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max
 2. **For each file**: Remove the bypass comment (entire line for file-level, inline for function-level)
    - Use Edit tool to remove comment lines
    - **File-level**: Remove entire line containing `/* eslint-disable ... */`
-   - **Inline**: Remove entire line containing `// eslint-disable-next-line ...` (including any TODO notes)
-   - Preserve code functionality (only remove comments)
+   - **Inline single-rule**: Remove entire line containing `// eslint-disable-next-line max-lines-per-function` (including any TODO notes)
+   - **Inline multi-rule**: Remove entire line containing `// eslint-disable-next-line max-lines-per-function, max-statements, complexity` (including any TODO notes)
+   - Preserve code functionality (only remove comments, never modify the actual code)
+   - **Important**: Multi-rule bypasses indicate multiple simultaneous violations that will ALL be reported by ESLint after removal
 
 3. **Document removed bypasses**:
    ```markdown
    ## Phase 0.1: ESLint Bypass Removal
 
    ### Files with bypasses removed:
-   - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */`
-   - `src/application/complex-logic.ts` - `/* eslint-disable complexity */`
-   - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler`
-   - `src/presentation/api/routes/tables/record-routes.ts` - `// eslint-disable-next-line boundaries/element-types -- Route handlers need database queries` (layer bypass)
-   - `src/presentation/api/routes/tables/programs.ts` - `/* eslint-disable boundaries/element-types -- Route handlers need database queries */` (layer bypass)
+   - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */` (file-level)
+   - `src/application/complex-logic.ts` - `/* eslint-disable complexity */` (file-level)
+   - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler` (inline multi-rule)
+   - `src/presentation/api/routes/users/update-handler.ts` - `// eslint-disable-next-line max-statements, complexity` (inline multi-rule)
+   - `src/presentation/api/routes/tables/record-routes.ts` - `// eslint-disable-next-line boundaries/element-types -- Route handlers need database queries` (inline layer bypass)
+   - `src/presentation/api/routes/tables/programs.ts` - `/* eslint-disable boundaries/element-types -- Route handlers need database queries */` (file-level layer bypass)
    - [list all files]
 
    ### Breakdown by Type:
    - File-level bypasses: X files
-   - Inline function bypasses: Y files
+   - Inline single-rule bypasses: Y files
+   - Inline multi-rule bypasses: M files (CRITICAL - indicate severe quality issues)
    - Layer architecture bypasses: A files
    - Total bypasses removed: Z comments
 
    ### Status
-   - ✅ Removed Z bypass comments from X+Y+A files
+   - ✅ Removed Z bypass comments from X+Y+M+A files
    - **These files will now be checked for actual size/complexity violations**
    - **Inline bypasses with TODO notes indicate known refactoring needs**
+   - **Multi-rule bypasses indicate functions with multiple simultaneous violations**
    - **Layer bypasses indicate Presentation→Infrastructure imports that need Application layer**
    ```
 
@@ -1153,17 +1178,18 @@ Adapt this template as needed to best communicate findings for specific contexts
 ## Phase 0: Safety Baseline (YYYY-MM-DD HH:mm)
 
 ### Phase 0.1: ESLint Bypass Removal
-- 🔍 Scanned for bypass comments (file-level AND inline, including layer architecture bypasses)
+- 🔍 Scanned for bypass comments (file-level AND inline, single-rule AND multi-rule, including layer architecture bypasses)
 - Command: `grep -r "eslint-disable max-lines\|eslint-disable complexity\|eslint-disable max-statements\|eslint-disable max-lines-per-function\|eslint-disable max-depth\|eslint-disable max-params\|eslint-disable boundaries/element-types\|eslint-disable-next-line max-lines\|eslint-disable-next-line complexity\|eslint-disable-next-line max-statements\|eslint-disable-next-line max-lines-per-function\|eslint-disable-next-line max-depth\|eslint-disable-next-line max-params\|eslint-disable-next-line boundaries/element-types" src/ --include="*.ts" --include="*.tsx"`
 - **Files with bypasses removed**: X files
   - `src/presentation/api/routes/tables.ts` - `/* eslint-disable max-lines -- Routes file with many endpoints */` (file-level)
   - `src/application/complex-logic.ts` - `/* eslint-disable complexity */` (file-level)
-  - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler` (inline)
-  - `src/presentation/api/routes/tables/programs.ts` - `/* eslint-disable boundaries/element-types */` (layer bypass)
-  - `src/presentation/api/routes/tables/record-routes.ts` - `// eslint-disable-next-line boundaries/element-types` (layer bypass)
+  - `src/presentation/api/routes/auth.ts` - `// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- TODO: Refactor this handler` (inline multi-rule)
+  - `src/presentation/api/routes/users/update-handler.ts` - `// eslint-disable-next-line max-statements, complexity` (inline multi-rule)
+  - `src/presentation/api/routes/tables/programs.ts` - `/* eslint-disable boundaries/element-types */` (file-level layer bypass)
+  - `src/presentation/api/routes/tables/record-routes.ts` - `// eslint-disable-next-line boundaries/element-types` (inline layer bypass)
   - [list all files]
-- **Breakdown**: Y file-level bypasses, Z inline bypasses, A layer bypasses
-- ✅ Bypass comments removed - actual violations now exposed (including layer architecture violations)
+- **Breakdown**: Y file-level bypasses, Z inline single-rule bypasses, M inline multi-rule bypasses, A layer bypasses
+- ✅ Bypass comments removed - actual violations now exposed (including multiple violations from multi-rule bypasses, layer architecture violations)
 
 ### Phase 0.2: Quality Check (bun run quality --include-effect)
 - ⚠️ ESLint violations detected (EXPECTED after Step 0.1)
