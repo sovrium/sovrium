@@ -14,7 +14,6 @@ import {
   batchRestoreProgram,
   upsertProgram,
 } from '@/application/use-cases/tables/programs'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   batchCreateRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
@@ -30,8 +29,9 @@ import {
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
-import { getSessionFromContext, validateAndGetTableName, handleBatchRestoreError } from './utils'
+import { handleBatchRestoreError } from './utils'
 import type { App } from '@/domain/models/app'
+import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
@@ -39,20 +39,11 @@ import type { Context, Hono } from 'hono'
 /**
  * Handle batch restore endpoint
  */
-async function handleBatchRestore(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+async function handleBatchRestore(c: Context, _app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
-  // Authorization check BEFORE validation
-  const { db } = await import('@/infrastructure/database')
-  const AUTH_TABLE_USERS = '_sovrium_auth_users'
-  const userResult = (await db.execute(
-    `SELECT role FROM "${AUTH_TABLE_USERS}" WHERE id = '${session.userId.replace(/'/g, "''")}' LIMIT 1`
-  )) as Array<{ role: string | null }>
-  const userRole = userResult[0]?.role
-
+  // Authorization check BEFORE validation (viewer role cannot restore)
   if (userRole === 'viewer') {
     return c.json(
       {
@@ -65,12 +56,6 @@ async function handleBatchRestore(c: Context, app: App) {
 
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
   if (!result.success) return result.response
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
 
   try {
     const response = await Effect.runPromise(
@@ -86,21 +71,11 @@ async function handleBatchRestore(c: Context, app: App) {
  * Handle batch create endpoint
  */
 async function handleBatchCreate(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
   const result = await validateRequest(c, batchCreateRecordsRequestSchema)
   if (!result.success) return result.response
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
   const table = app.tables?.find((t) => t.name === tableName)
   if (!hasCreatePermission(table, userRole)) {
@@ -139,20 +114,12 @@ async function handleBatchCreate(c: Context, app: App) {
 /**
  * Handle batch update endpoint
  */
-async function handleBatchUpdate(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+async function handleBatchUpdate(c: Context, _app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName } = (c as ContextWithTableAndRole).var
 
   const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
   if (!result.success) return result.response
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
 
   return runEffect(
     c,
@@ -164,20 +131,12 @@ async function handleBatchUpdate(c: Context, app: App) {
 /**
  * Handle batch delete endpoint
  */
-async function handleBatchDelete(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+async function handleBatchDelete(c: Context, _app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName } = (c as ContextWithTableAndRole).var
 
   const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
   if (!result.success) return result.response
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
 
   return runEffect(
     c,

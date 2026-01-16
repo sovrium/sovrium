@@ -19,15 +19,17 @@ import {
 } from '@/presentation/api/schemas/tables-schemas'
 import type { App } from '@/domain/models/app'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
+import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context, Hono } from 'hono'
 
 // Handler for GET /api/tables
+// Note: This route doesn't have :tableId, so only session is guaranteed by middleware
+// (requireAuth ensures session exists, but validateTable/enrichUserRole don't run)
 async function handleListTables(c: Context, app: App) {
-  const { session } = (c as ContextWithSession).var
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+  // Session is guaranteed by requireAuth() middleware (non-null assertion safe)
+  const session = (c as ContextWithSession).var.session!
 
+  // Fetch userRole manually since enrichUserRole middleware doesn't run on /api/tables
   const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
   try {
@@ -58,13 +60,11 @@ async function handleListTables(c: Context, app: App) {
 
 // Handler for GET /api/tables/:tableId
 async function handleGetTable(c: Context, app: App) {
-  const { session } = (c as ContextWithSession).var
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  // Session, tableId, and userRole are guaranteed by middleware chain
+  const { tableId, userRole } = (c as ContextWithTableAndRole).var
+
   try {
-    const program = createGetTableProgram(c.req.param('tableId'), app, userRole)
+    const program = createGetTableProgram(tableId, app, userRole)
     const result = await Effect.runPromise(program)
     const validated = getTableResponseSchema.parse(result)
     // Return the table object directly (unwrapped) to match test expectations
@@ -95,13 +95,8 @@ async function handleGetTable(c: Context, app: App) {
 
 // Handler for GET /api/tables/:tableId/permissions
 async function handleGetPermissions(c: Context, app: App) {
-  const { session } = (c as ContextWithSession).var
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
-
-  const tableId = c.req.param('tableId')
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  // Session, tableId, and userRole are guaranteed by middleware chain
+  const { tableId, userRole } = (c as ContextWithTableAndRole).var
 
   try {
     const program = createGetPermissionsProgram(tableId, app, userRole)

@@ -19,6 +19,7 @@ const SYSTEM_PROTECTED_FIELDS = new Set(['organization_id', 'user_id', 'owner_id
 
 /**
  * Check if user has table-level update permission
+ * @deprecated Use checkTableUpdatePermissionWithRole with middleware-provided userRole
  */
 export async function checkTableUpdatePermission(
   app: App,
@@ -27,6 +28,18 @@ export async function checkTableUpdatePermission(
   c: Context
 ): Promise<{ allowed: true } | { allowed: false; response: Response }> {
   const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  return checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
+}
+
+/**
+ * Check if user has table-level update permission (using pre-fetched role)
+ */
+export function checkTableUpdatePermissionWithRole(
+  app: App,
+  tableName: string,
+  userRole: string,
+  c: Context
+): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
   const updatePermission = table?.permissions?.update
 
@@ -51,6 +64,7 @@ export async function checkTableUpdatePermission(
 
 /**
  * Filter update data to only include fields user has permission to modify
+ * @deprecated Use filterAllowedFieldsWithRole with middleware-provided userRole
  */
 export async function filterAllowedFields(
   app: App,
@@ -62,6 +76,21 @@ export async function filterAllowedFields(
   forbiddenFields: readonly string[]
 }> {
   const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  return filterAllowedFieldsWithRole(app, tableName, userRole, data)
+}
+
+/**
+ * Filter update data to only include fields user has permission to modify (using pre-fetched role)
+ */
+export function filterAllowedFieldsWithRole(
+  app: App,
+  tableName: string,
+  userRole: string,
+  data: Record<string, unknown>
+): {
+  allowedData: Record<string, unknown>
+  forbiddenFields: readonly string[]
+} {
   const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, data)
 
   const allowedData = Object.fromEntries(

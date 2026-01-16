@@ -17,7 +17,6 @@ import {
   restoreRecordProgram,
   deleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
-import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
@@ -31,28 +30,19 @@ import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
 import { parseFilterParameter } from './filter-parser'
 import {
-  checkTableUpdatePermission,
-  filterAllowedFields,
+  checkTableUpdatePermissionWithRole,
+  filterAllowedFieldsWithRole,
   handleNoAllowedFields,
   executeUpdate,
 } from './record-update-handler'
-import { getSessionFromContext, validateAndGetTableName } from './utils'
 import type { App } from '@/domain/models/app'
+import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context } from 'hono'
 
 export async function handleListRecords(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  // Session, tableName, and userRole are guaranteed by middleware chain:
+  // requireAuth() → validateTable() → enrichUserRole()
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
   const parsedFilterResult = parseFilterParameter({
     filterParam: c.req.query('filter'),
@@ -76,21 +66,11 @@ export async function handleListRecords(c: Context, app: App) {
 }
 
 export async function handleCreateRecord(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
   const result = await validateRequest(c, createRecordRequestSchema)
   if (!result.success) return result.response
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
 
   const table = app.tables?.find((t) => t.name === tableName)
   if (!hasCreatePermission(table, userRole)) {
@@ -111,18 +91,8 @@ export async function handleCreateRecord(c: Context, app: App) {
 }
 
 export async function handleGetRecord(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
   const recordId = c.req.param('recordId')
 
   try {
@@ -137,29 +107,21 @@ export async function handleGetRecord(c: Context, app: App) {
 }
 
 export async function handleUpdateRecord(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
   const result = await validateRequest(c, updateRecordRequestSchema)
   if (!result.success) return result.response
 
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const permissionCheck = await checkTableUpdatePermission(app, tableName, session, c)
+  const permissionCheck = checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
   if (!permissionCheck.allowed) {
     return permissionCheck.response
   }
 
-  const { allowedData, forbiddenFields } = await filterAllowedFields(
+  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
     tableName,
-    session,
+    userRole,
     result.data
   )
 
@@ -183,18 +145,8 @@ export async function handleUpdateRecord(c: Context, app: App) {
 }
 
 export async function handleDeleteRecord(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
   const table = app.tables?.find((t) => t.name === tableName)
   if (!hasDeletePermission(table, userRole)) {
@@ -218,18 +170,8 @@ export async function handleDeleteRecord(c: Context, app: App) {
 }
 
 export async function handleRestoreRecord(c: Context, app: App) {
-  const session = getSessionFromContext(c)
-  if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
-  }
-
-  const tableId = c.req.param('tableId')
-  const tableName = validateAndGetTableName(app, tableId)
-  if (!tableName) {
-    return c.json({ error: 'Not Found', message: `Table ${tableId} not found` }, 404)
-  }
-
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
 
   const table = app.tables?.find((t) => t.name === tableName)
   if (!hasCreatePermission(table, userRole)) {

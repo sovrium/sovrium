@@ -530,18 +530,19 @@ export default [
                 'API route violation: Can import domain and application use cases. FORBIDDEN: Access infrastructure through use cases, not directly.',
             },
 
-            // API middleware - Can import domain, application errors, other middleware
+            // API middleware - Can import domain, application errors/use-cases, other middleware
             {
               from: ['presentation-api-middleware'],
               allow: [
                 'domain-model-app',
                 'domain-error',
                 'application-error',
+                'application-use-case', // Middleware may enrich context via application services
                 'presentation-api-middleware',
                 'presentation-util',
               ],
               message:
-                'API middleware violation: Can import domain models/errors and application errors. Keep middleware lightweight.',
+                'API middleware violation: Can import domain models/errors, application errors/use-cases, and other middleware.',
             },
 
             // React components - Can import domain, use cases, other components

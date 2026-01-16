@@ -7,7 +7,7 @@
 
 import { Effect, Data } from 'effect'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import { authMiddleware } from '@/presentation/api/middleware/auth'
+import { authMiddleware, requireAuth } from '@/presentation/api/middleware/auth'
 import { chainTableRoutes, chainAuthRoutes, chainActivityRoutes } from '@/presentation/api/routes'
 import {
   healthResponseSchema,
@@ -104,10 +104,14 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   // Apply auth middleware to protected routes
   // This extracts session from Better Auth and attaches to context
+  // Middleware order: authMiddleware (extracts session) → requireAuth (enforces auth)
   const honoWithAuth = honoWithHealth
     .use('/api/tables', authMiddleware(auth))
+    .use('/api/tables', requireAuth())
     .use('/api/tables/*', authMiddleware(auth))
+    .use('/api/tables/*', requireAuth())
     .use('/api/activity', authMiddleware(auth))
+    .use('/api/activity', requireAuth())
 
   // Chain table routes (always register, returns empty array if no tables configured)
   // Routes now have access to session via c.var.session
