@@ -18,6 +18,26 @@ interface ParseableSchema<T> {
 }
 
 /**
+ * Check if error indicates a "not found" or authorization failure
+ *
+ * Returns true for errors that should result in 404 responses
+ * (to prevent enumeration attacks)
+ */
+function isNotFoundError(error: unknown): boolean {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  const errorName = error instanceof Error ? error.name : ''
+  const errorString = String(error)
+
+  return (
+    errorMessage.includes('Record not found') ||
+    errorMessage.includes('not found') ||
+    errorMessage.includes('access denied') ||
+    errorName.includes('SessionContextError') ||
+    errorString.includes('SessionContextError')
+  )
+}
+
+/**
  * Run an Effect program and return a Hono JSON response
  *
  * This utility handles:
@@ -52,6 +72,11 @@ export async function runEffect<T, S>(
     const validated = schema.parse(result)
     return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
+    // Check if this is a SessionContextError indicating "not found" - return 404
+    if (isNotFoundError(error)) {
+      return c.json({ error: 'Record not found' }, 404)
+    }
+
     // Debug: Include full error details in response for debugging
     const errorDetails = error instanceof Error ? error.message : 'Internal server error'
     const causeDetails =
