@@ -353,13 +353,7 @@ test.describe('Check table permissions', () => {
   test(
     'API-TABLES-PERMISSIONS-CHECK-REGRESSION: user can complete full permissions check workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      signOut,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, signOut, executeQuery }) => {
       await test.step('Setup: Start server with comprehensive permissions configuration', async () => {
         // Consolidated schema covering all @spec test scenarios
         await startServerWithSchema({

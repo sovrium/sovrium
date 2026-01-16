@@ -274,7 +274,7 @@ test.describe('API Organization Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-ORG-005: should prevent update to change organization_id',
     { tag: '@spec' },
     async ({

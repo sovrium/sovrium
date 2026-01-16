@@ -1079,16 +1079,48 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
           }
         }
 
+        // Filter out system-managed fields that cannot be changed via API
+        // organization_id is auto-set on create and cannot be modified (prevents cross-org data movement)
+        const systemManagedFields = new Set(['organization_id'])
+        const dataWithoutSystemFields = Object.fromEntries(
+          Object.entries(result.data).filter(([fieldName]) => !systemManagedFields.has(fieldName))
+        )
+
         // Validate field write permissions and filter out forbidden fields
-        const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, result.data)
+        const forbiddenFields = validateFieldWritePermissions(
+          app,
+          tableName,
+          userRole,
+          dataWithoutSystemFields
+        )
 
         // Filter data to only include fields the user has permission to write
         const allowedFieldsData = Object.fromEntries(
-          Object.entries(result.data).filter(([fieldName]) => !forbiddenFields.includes(fieldName))
+          Object.entries(dataWithoutSystemFields).filter(
+            ([fieldName]) => !forbiddenFields.includes(fieldName)
+          )
         )
 
-        // If no fields remain after filtering, return 403
+        // If no fields remain after filtering:
+        // - If system fields were filtered out, treat as successful no-op (silent ignore)
+        // - If permission-restricted fields were filtered, return 403
         if (Object.keys(allowedFieldsData).length === 0) {
+          // Check if any system-managed fields were in original request
+          const hadSystemFields = [...systemManagedFields].some((field) => field in result.data)
+
+          if (hadSystemFields && forbiddenFields.length === 0) {
+            // Only system-managed fields were in the request (e.g., only organization_id)
+            // Return success without updating anything (silently ignore system fields)
+            const existingRecord = await Effect.runPromise(
+              getRecord(session, tableName, c.req.param('recordId'))
+            )
+            if (!existingRecord) {
+              return c.json({ error: 'Record not found' }, 404)
+            }
+            return c.json({ record: transformRecord(existingRecord) }, 200)
+          }
+
+          // User tried to modify fields they don't have permission for
           return c.json(
             {
               error: 'Forbidden',
