@@ -45,16 +45,38 @@ jobs:
           echo "⏳ Waiting for TDD queue to become clean..."
           echo "   Checking for in-progress specs and open TDD PRs..."
 
+          # Retry wrapper for gh commands (GitHub API rate limit resilience)
+          gh_retry() {
+            local max_attempts=3
+            local delay=10
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if output=$("$@" 2>&1); then
+                echo "$output"
+                return 0
+              else
+                if [ $attempt -lt $max_attempts ]; then
+                  sleep $delay
+                  delay=$((delay * 2))
+                fi
+                attempt=$((attempt + 1))
+              fi
+            done
+            echo "0"  # Return safe default on failure
+            return 1
+          }
+
           MAX_WAIT_SECONDS=7200  # 2 hours max wait
           POLL_INTERVAL=300       # 5 minutes between checks
           WAITED=0
 
           while [ $WAITED -lt $MAX_WAIT_SECONDS ]; do
-            # Check in-progress specs
-            IN_PROGRESS=$(gh issue list --label "tdd-spec:in-progress" --json number --jq 'length' 2>/dev/null || echo "0")
+            # Check in-progress specs (with retry)
+            IN_PROGRESS=$(gh_retry gh issue list --label "tdd-spec:in-progress" --json number --jq 'length')
 
-            # Check open TDD PRs
-            OPEN_PRS=$(gh pr list --label "tdd-automation" --state open --json number --jq 'length' 2>/dev/null || echo "0")
+            # Check open TDD PRs (with retry)
+            OPEN_PRS=$(gh_retry gh pr list --label "tdd-automation" --state open --json number --jq 'length')
 
             if [ "$IN_PROGRESS" -eq 0 ] && [ "$OPEN_PRS" -eq 0 ]; then
               echo "✅ Queue is clean - ready to proceed with refactor"
@@ -109,10 +131,37 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Need full history for git operations
+      # =========================================================================
+      # Checkout with retry (GitHub API rate limit resilience)
+      # =========================================================================
+      - name: Checkout repository with retry
+        id: checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MAX_ATTEMPTS=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Checkout attempt $attempt/$MAX_ATTEMPTS..."
+
+            # Need full history for git operations (fetch-depth: 0)
+            if git clone "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+              echo "✅ Checkout successful on attempt $attempt"
+              exit 0
+            else
+              echo "❌ Checkout failed on attempt $attempt"
+
+              if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo "   Retrying in ${RETRY_DELAY}s..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "❌ All checkout attempts failed"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

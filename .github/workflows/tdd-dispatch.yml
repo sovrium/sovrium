@@ -70,10 +70,37 @@ jobs:
           fi
           echo ""
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Need full history for git operations
+      # =========================================================================
+      # Checkout with retry (GitHub API rate limit resilience)
+      # =========================================================================
+      - name: Checkout repository with retry
+        id: checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MAX_ATTEMPTS=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Checkout attempt $attempt/$MAX_ATTEMPTS..."
+
+            # Need full history for git operations (fetch-depth: 0)
+            if git clone "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+              echo "✅ Checkout successful on attempt $attempt"
+              exit 0
+            else
+              echo "❌ Checkout failed on attempt $attempt"
+
+              if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo "   Retrying in ${RETRY_DELAY}s..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "❌ All checkout attempts failed"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -154,13 +181,37 @@ jobs:
         run: |
           echo "Checking if TDD queue is paused..."
 
-          # Check for queue pause label
-          PAUSE_ISSUE=$(gh issue list \
+          # Retry wrapper for gh commands (GitHub API rate limit resilience)
+          gh_retry() {
+            local max_attempts=3
+            local delay=10
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if output=$("$@" 2>&1); then
+                echo "$output"
+                return 0
+              else
+                echo "⚠️  gh command failed (attempt $attempt/$max_attempts): $output" >&2
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "   Retrying in ${delay}s..." >&2
+                  sleep $delay
+                  delay=$((delay * 2))
+                fi
+                attempt=$((attempt + 1))
+              fi
+            done
+            echo "{}"  # Return empty JSON on failure
+            return 1
+          }
+
+          # Check for queue pause label (with retry)
+          PAUSE_ISSUE=$(gh_retry gh issue list \
             --repo "$REPO" \
             --label "tdd-queue-status,tdd-queue:paused" \
             --state open \
             --json number,title,updatedAt \
-            --jq '.[0]' 2>/dev/null || echo "{}")
+            --jq '.[0]')
 
           PAUSE_NUMBER=$(echo "$PAUSE_ISSUE" | jq -r '.number // empty')
 
@@ -239,8 +290,31 @@ jobs:
 
           echo "Validating issue #$ISSUE_NUMBER before processing..."
 
-          # Check if issue is still open
-          ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
+          # Retry wrapper for gh commands (GitHub API rate limit resilience)
+          gh_retry() {
+            local max_attempts=3
+            local delay=10
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if output=$("$@" 2>&1); then
+                echo "$output"
+                return 0
+              else
+                echo "⚠️  gh command failed (attempt $attempt/$max_attempts): $output" >&2
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "   Retrying in ${delay}s..." >&2
+                  sleep $delay
+                  delay=$((delay * 2))
+                fi
+                attempt=$((attempt + 1))
+              fi
+            done
+            return 1
+          }
+
+          # Check if issue is still open (with retry)
+          ISSUE_STATE=$(gh_retry gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
 
           if [ "$ISSUE_STATE" = "CLOSED" ]; then
             echo "⚠️  Issue #$ISSUE_NUMBER is already CLOSED"
@@ -253,8 +327,8 @@ jobs:
             exit 0
           fi
 
-          # Check for existing open PRs for this issue
-          EXISTING_PRS=$(gh pr list \
+          # Check for existing open PRs for this issue (with retry)
+          EXISTING_PRS=$(gh_retry gh pr list \
             --label tdd-automation \
             --state open \
             --json number,body \
@@ -267,8 +341,7 @@ jobs:
             # CRITICAL: Change label to in-progress to prevent loop
             # Without this, the issue stays queued and gets picked up again every trigger
             echo "   Updating label to in-progress to prevent reprocessing..."
-            gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued" || true
-            gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress" || true
+            gh_retry gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued" --add-label "tdd-spec:in-progress" || true
 
             # Check if we already posted a duplicate PR comment recently (within 1 hour)
             RECENT_COMMENT=$(gh api \
@@ -644,9 +717,32 @@ jobs:
 
           echo "Marking issue #$ISSUE_NUMBER as in-progress..."
 
+          # Retry wrapper for gh commands (GitHub API rate limit resilience)
+          gh_retry() {
+            local max_attempts=3
+            local delay=10
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if output=$("$@" 2>&1); then
+                echo "$output"
+                return 0
+              else
+                echo "⚠️  gh command failed (attempt $attempt/$max_attempts): $output" >&2
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "   Retrying in ${delay}s..." >&2
+                  sleep $delay
+                  delay=$((delay * 2))
+                fi
+                attempt=$((attempt + 1))
+              fi
+            done
+            return 1
+          }
+
           # RACE CONDITION PREVENTION: Re-verify issue is still queued before claiming
           # Another workflow run could have claimed this issue between validation and now
-          CURRENT_LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name' | tr '\n' ' ')
+          CURRENT_LABELS=$(gh_retry gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name' | tr '\n' ' ')
 
           if echo "$CURRENT_LABELS" | grep -q "tdd-spec:in-progress"; then
             echo "⚠️  Issue #$ISSUE_NUMBER already claimed by another run - exiting gracefully"
@@ -660,9 +756,8 @@ jobs:
             exit 0
           fi
 
-          # Update labels (atomic claim)
-          gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued"
-          gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress"
+          # Update labels (atomic claim - single command to prevent inconsistent state)
+          gh_retry gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued" --add-label "tdd-spec:in-progress"
 
           # NOTE: We only post @claude comment (not workflow_dispatch) to avoid double trigger
           # The @claude comment triggers tdd-execute.yml via issue_comment event
