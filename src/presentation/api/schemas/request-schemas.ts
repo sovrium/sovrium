@@ -23,9 +23,9 @@ import { fieldValueSchema } from './tables-schemas'
  * Schemas are mutually exclusive: flat format explicitly excludes 'fields' key.
  */
 export const createRecordRequestSchema = z.union([
-  // Format 1: Nested format with 'fields' property
+  // Format 1: Nested format with 'fields' property (backward compatible: accepts undefined)
   z.object({
-    fields: z.record(z.string(), fieldValueSchema),
+    fields: z.record(z.string(), fieldValueSchema).optional().default({}),
   }),
   // Format 2: Flat format (any object WITHOUT 'fields' key)
   z

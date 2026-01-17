@@ -150,7 +150,8 @@ export function createRecord(
         // This prevents malicious users from injecting data into other organizations or impersonating other users
         const sanitizedFields = Object.fromEntries(
           Object.entries(fields).filter(
-            ([key]) => !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
+            ([key]) =>
+              !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
           )
         )
 
@@ -180,9 +181,7 @@ export function createRecord(
         const columnIdentifiers = hasOwnerId
           ? [...withOrgColumn, sql.identifier('owner_id')]
           : withOrgColumn
-        const valueParams = hasOwnerId
-          ? [...withOrgValue, sql`${session.userId}`]
-          : withOrgValue
+        const valueParams = hasOwnerId ? [...withOrgValue, sql`${session.userId}`] : withOrgValue
 
         // Build INSERT query using sql.join for columns and values
         const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
