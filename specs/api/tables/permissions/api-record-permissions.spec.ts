@@ -146,7 +146,7 @@ test.describe('API Record-Level Permissions', () => {
         ],
       })
 
-      const _currentUser = await createAuthenticatedUser({
+      await createAuthenticatedUser({
         email: 'user@example.com',
         password: 'password123',
       })

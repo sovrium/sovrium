@@ -1378,3 +1378,230 @@ jobs:
           *🤖 Regression Handler*"
 
           gh issue edit "$ISSUE_NUMBER" --add-label "failure:regression" || true
+
+  # ============================================================================
+  # HANDLE CODE QUALITY FAILURES FOR TDD AUTOMATION
+  # Triggers @claude fix when lint/typecheck/unit-tests fail on TDD PRs
+  # This fills the gap where E2E regression handling doesn't cover code quality
+  # ============================================================================
+
+  handle-code-quality-failure:
+    name: Handle TDD Code Quality Failures
+    needs: [detect-change-type, lint, typecheck, unit-tests]
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+      (needs.lint.result == 'failure' || needs.typecheck.result == 'failure' || needs.unit-tests.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Determine failure type
+        id: failure-type
+        run: |
+          LINT_RESULT="${{ needs.lint.result }}"
+          TYPECHECK_RESULT="${{ needs.typecheck.result }}"
+          UNIT_RESULT="${{ needs.unit-tests.result }}"
+
+          echo "📊 Code quality job results:"
+          echo "  Lint:       $LINT_RESULT"
+          echo "  TypeCheck:  $TYPECHECK_RESULT"
+          echo "  Unit Tests: $UNIT_RESULT"
+          echo ""
+
+          # Prioritize: typecheck > lint > unit-tests
+          if [ "$TYPECHECK_RESULT" = "failure" ]; then
+            echo "type=typecheck" >> $GITHUB_OUTPUT
+            echo "label=failure:typecheck" >> $GITHUB_OUTPUT
+            echo "command=bun run typecheck" >> $GITHUB_OUTPUT
+            echo "message=TypeScript compilation errors detected" >> $GITHUB_OUTPUT
+            echo "❌ Primary failure: TypeCheck"
+          elif [ "$LINT_RESULT" = "failure" ]; then
+            echo "type=lint" >> $GITHUB_OUTPUT
+            echo "label=failure:lint" >> $GITHUB_OUTPUT
+            echo "command=bun run lint" >> $GITHUB_OUTPUT
+            echo "message=ESLint errors detected" >> $GITHUB_OUTPUT
+            echo "❌ Primary failure: Lint"
+          elif [ "$UNIT_RESULT" = "failure" ]; then
+            echo "type=unit-tests" >> $GITHUB_OUTPUT
+            echo "label=failure:unit-tests" >> $GITHUB_OUTPUT
+            echo "command=bun test:unit" >> $GITHUB_OUTPUT
+            echo "message=Unit test failures detected" >> $GITHUB_OUTPUT
+            echo "❌ Primary failure: Unit Tests"
+          fi
+
+      - name: Extract issue details
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "📋 Linked issue: #$ISSUE_NUMBER"
+            ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --json title --jq '.title' 2>/dev/null || echo "")
+            SPEC_ID=$(echo "$ISSUE_TITLE" | grep -oP '[A-Z]+-[A-Z]+-[A-Z]*-?[0-9]+' | head -1 || echo "unknown")
+            echo "spec_id=$SPEC_ID" >> $GITHUB_OUTPUT
+            echo "   Spec ID: $SPEC_ID"
+          else
+            echo "⚠️  No linked issue found"
+            echo "spec_id=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Add failure label to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FAILURE_LABEL: ${{ steps.failure-type.outputs.label }}
+        run: |
+          echo "🏷️  Adding $FAILURE_LABEL label to PR #$PR_NUMBER"
+          gh pr edit "$PR_NUMBER" --add-label "$FAILURE_LABEL" || true
+
+      - name: Check for recent fix attempts (cooldown)
+        id: cooldown
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FAILURE_TYPE: ${{ steps.failure-type.outputs.type }}
+        run: |
+          echo "🕐 Checking for recent fix attempt comments..."
+
+          CUTOFF_TIME=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                        date -u -v-30M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                        echo "1970-01-01T00:00:00Z")
+
+          RECENT_COMMENTS=$(gh api "/repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+            --jq "[.[] | select(.created_at > \"$CUTOFF_TIME\") | select(.body | test(\"Code Quality.*Auto-Fix|$FAILURE_TYPE.*error\"; \"i\"))] | length" \
+            2>/dev/null || echo "0")
+
+          echo "  Recent $FAILURE_TYPE fix comments: $RECENT_COMMENTS"
+
+          if [ "$RECENT_COMMENTS" -gt 0 ]; then
+            echo "⏭️  Skipping: Recent fix attempt exists (cooldown active)"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No recent comments, proceeding with fix request"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post code quality fix request to PR
+        if: steps.cooldown.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
+          SPEC_ID: ${{ steps.issue.outputs.spec_id }}
+          FAILURE_TYPE: ${{ steps.failure-type.outputs.type }}
+          FAILURE_MESSAGE: ${{ steps.failure-type.outputs.message }}
+          FAILURE_COMMAND: ${{ steps.failure-type.outputs.command }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          cat << 'EOF' > /tmp/comment.md
+          @claude fix the $FAILURE_TYPE errors in this PR
+
+          ## 🔧 Code Quality Auto-Fix Required
+
+          This TDD automation PR has **$FAILURE_TYPE errors** that must be fixed before tests can run.
+
+          ### 📊 Error Details
+          - **Failure Type**: `$FAILURE_TYPE`
+          - **Message**: $FAILURE_MESSAGE
+          - **Spec ID**: `$SPEC_ID`
+          - **Issue**: #$ISSUE_NUMBER
+          - **PR**: #$PR_NUMBER
+
+          ### 🤖 Automation Mode
+
+          **You are in pipeline/automation mode**:
+          - ✅ Make autonomous decisions following Sovrium patterns
+          - ✅ Fix the minimum code needed to pass checks
+          - ❌ DO NOT ask questions - proceed with best judgment
+          - ❌ DO NOT modify test assertions
+
+          ### ✅ Steps to Fix
+
+          1. **Checkout the PR branch**:
+             ```bash
+             git fetch origin $BRANCH
+             git checkout $BRANCH
+             git pull origin $BRANCH
+             ```
+
+          2. **Run the failing check to see errors**:
+             ```bash
+             $FAILURE_COMMAND 2>&1 | head -100
+             ```
+
+          3. **Fix all errors**:
+             - For TypeScript errors: Fix type mismatches, unused variables, missing imports
+             - For ESLint errors: Run `bun run lint:fix` first, then fix remaining issues
+             - For unit test errors: Fix the implementation (NOT the tests)
+
+          4. **Verify ALL checks pass**:
+             ```bash
+             bun run quality
+             ```
+             ALL checks must pass before proceeding.
+
+          5. **Push the fix**:
+             ```bash
+             bun run license
+             git add -A
+             git commit -m "fix: resolve $FAILURE_TYPE errors in $SPEC_ID"
+             git push
+             ```
+
+          6. **Verify auto-merge is still enabled**:
+             ```bash
+             gh pr view $PR_NUMBER --json autoMergeRequest
+             ```
+             If null, re-enable: `gh pr merge $PR_NUMBER --auto --squash`
+
+          ### 🚨 Common $FAILURE_TYPE Fixes
+
+          **TypeScript**:
+          - `TS6133` (unused variable): Remove the variable or use it
+          - `TS2322` (type mismatch): Fix the type or add proper casting
+          - `TS2339` (property missing): Add the property to the type or check it exists
+
+          **ESLint**:
+          - Run `bun run lint:fix` to auto-fix most issues
+          - Check for unused imports, missing semicolons (we use no-semicolons)
+
+          **Unit Tests**:
+          - Check test output for specific assertion failures
+          - Fix the implementation, NOT the test expectations
+
+          ---
+          *🤖 Code Quality Handler - [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+          EOF
+
+          envsubst < /tmp/comment.md > /tmp/comment_final.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/comment_final.md
+          echo "✅ Posted @claude $FAILURE_TYPE fix request to PR #$PR_NUMBER"
+
+      - name: Update linked issue with failure status
+        if: steps.cooldown.outputs.skip != 'true' && steps.issue.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
+          FAILURE_TYPE: ${{ steps.failure-type.outputs.type }}
+          FAILURE_MESSAGE: ${{ steps.failure-type.outputs.message }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body "⚠️ **Code Quality Failure**
+
+          The PR for this spec has **$FAILURE_TYPE errors**:
+          - **Error**: $FAILURE_MESSAGE
+
+          Claude Code will attempt to auto-fix the errors.
+
+          ---
+          *🤖 Code Quality Handler*"
+
+          gh issue edit "$ISSUE_NUMBER" --add-label "failure:$FAILURE_TYPE" || true
