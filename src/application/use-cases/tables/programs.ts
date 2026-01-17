@@ -331,10 +331,20 @@ export function createRecordProgram(
   return Effect.gen(function* () {
     // Create record with session context (organization_id and owner_id set automatically)
     const record = yield* createRecord(session, tableName, fields)
+
+    // Extract owner_id and organization_id from raw record BEFORE transformation
+    // (transformRecord moves these into fields.owner_id)
+    const ownerId = record.owner_id
+    const organizationId = record.organization_id
+
     const transformed = transformRecord(record)
-    // Return in format expected by tests: flatten to just include fields and id at root
+
+    // Return in format expected by tests: system fields at root, user fields nested
+    // owner_id and organization_id need to be at root level for API compatibility
     return {
       id: transformed.id,
+      ...(ownerId !== undefined ? { owner_id: ownerId } : {}),
+      ...(organizationId !== undefined ? { organization_id: organizationId } : {}),
       fields: transformed.fields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
