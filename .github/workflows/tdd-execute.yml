@@ -90,6 +90,36 @@ jobs:
               echo "EOF" >> $GITHUB_OUTPUT
               exit 0
             fi
+
+            # =========================================================================
+            # GLOBAL COOLDOWN CHECK: Prevent loops from ANY @claude trigger
+            # This is a centralized gate that catches ALL cooldown violations
+            # before Claude Code execution starts (defense in depth)
+            # =========================================================================
+            ISSUE_NUM="${{ github.event.issue.number }}"
+            COOLDOWN_MINUTES=30
+            CUTOFF_TIME=$(date -u -d "${COOLDOWN_MINUTES} minutes ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                          date -u -v-${COOLDOWN_MINUTES}M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                          echo "1970-01-01T00:00:00Z")
+
+            # Check for ANY recent @claude comments (unified pattern)
+            RECENT_CLAUDE_COMMENTS=$(gh api "/repos/${{ github.repository }}/issues/${ISSUE_NUM}/comments" \
+              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"@claude|Automatic Retry|Failed PR Recovery|Regression Auto-Fix|Code Quality.*Auto-Fix\"; \"i\"))] | length" \
+              2>/dev/null || echo "0")
+
+            # Subtract 1 for the current comment that triggered this workflow
+            RECENT_CLAUDE_COMMENTS=$((RECENT_CLAUDE_COMMENTS - 1))
+
+            if [ "$RECENT_CLAUDE_COMMENTS" -gt 0 ]; then
+              echo "⏳ Global cooldown active: Found ${RECENT_CLAUDE_COMMENTS} recent @claude comment(s) in last ${COOLDOWN_MINUTES} minutes"
+              echo "Skipping to prevent loop - another Claude run is likely in progress or recently completed"
+              echo "has_context=false" >> $GITHUB_OUTPUT
+              echo "issue_number=" >> $GITHUB_OUTPUT
+              echo "issue_body<<EOF" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "✅ Global cooldown check passed - no recent @claude activity"
           fi
 
           # workflow_dispatch: Must have valid issue number
@@ -1023,6 +1053,17 @@ jobs:
 
           ---
           *SDK Crash Handler - Not Retrying to Save Budget*"
+
+            # =========================================================================
+            # CRITICAL: Transition issue out of stuck in-progress state
+            # Without this, the issue remains in tdd-spec:in-progress forever
+            # Mark as failed with sdk-crash classification so it can be manually retried
+            # =========================================================================
+            echo "Transitioning issue #$ISSUE_NUMBER to failed state..."
+            gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:in-progress" --add-label "tdd-spec:failed,failure:sdk-crash" 2>/dev/null || \
+              echo "Warning: Could not update labels (may not have permission or labels don't exist)"
+
+            echo "✅ Issue transitioned to tdd-spec:failed with failure:sdk-crash label"
           else
             # Standard failure comment
             gh issue comment "$ISSUE_NUMBER" --body "**Claude Code Execution Failed (Attempt $RETRY_ATTEMPT)**
@@ -1322,17 +1363,46 @@ jobs:
 
           # Compare branch to main
           git fetch origin main
-          SRC_CHANGES=$(git diff --name-only origin/main...HEAD | grep '^src/' | wc -l | tr -d ' ')
 
-          echo "Files in src/ changed: $SRC_CHANGES"
+          # Count files changed in src/
+          SRC_FILES=$(git diff --name-only origin/main...HEAD | grep '^src/' | wc -l | tr -d ' ')
+          echo "Files in src/ changed: $SRC_FILES"
 
-          if [ "$SRC_CHANGES" -gt 0 ]; then
-            echo "src_modified=true" >> $GITHUB_OUTPUT
-            echo "src/ modifications detected - refactor-auditor will run"
-            git diff --name-only origin/main...HEAD | grep '^src/' | head -10
-          else
+          # =========================================================================
+          # RESOURCE THRESHOLD: Only run refactor-auditor for substantial changes
+          # Single-line fixes don't need expensive architectural auditing ($5, 30min)
+          # Threshold: 50+ lines of src/ changes (additions + deletions)
+          # =========================================================================
+          MIN_LINES_THRESHOLD=50
+
+          if [ "$SRC_FILES" -eq 0 ]; then
             echo "src_modified=false" >> $GITHUB_OUTPUT
+            echo "lines_changed=0" >> $GITHUB_OUTPUT
             echo "No src/ modifications - refactor-auditor will be skipped"
+          else
+            # Count total lines changed (additions + deletions) in src/ files only
+            SRC_LINES=$(git diff --stat origin/main...HEAD -- 'src/' | tail -1 | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | grep -oE '[0-9]+' | paste -sd+ - | bc 2>/dev/null || echo "0")
+
+            # Fallback if bc not available
+            if [ -z "$SRC_LINES" ] || [ "$SRC_LINES" = "0" ]; then
+              # Use numstat as fallback (more reliable)
+              SRC_LINES=$(git diff --numstat origin/main...HEAD -- 'src/' | awk '{sum += $1 + $2} END {print sum}')
+              SRC_LINES=${SRC_LINES:-0}
+            fi
+
+            echo "Lines changed in src/: $SRC_LINES"
+            echo "lines_changed=$SRC_LINES" >> $GITHUB_OUTPUT
+
+            if [ "$SRC_LINES" -ge "$MIN_LINES_THRESHOLD" ]; then
+              echo "src_modified=true" >> $GITHUB_OUTPUT
+              echo "✅ Substantial src/ modifications ($SRC_LINES lines >= $MIN_LINES_THRESHOLD threshold) - refactor-auditor will run"
+              git diff --name-only origin/main...HEAD | grep '^src/' | head -10
+            else
+              echo "src_modified=false" >> $GITHUB_OUTPUT
+              echo "⏭️  Minor src/ modifications ($SRC_LINES lines < $MIN_LINES_THRESHOLD threshold) - refactor-auditor will be SKIPPED"
+              echo "   (Saves ~$5 and 30 minutes for small fixes)"
+              git diff --name-only origin/main...HEAD | grep '^src/' | head -10
+            fi
           fi
 
       - name: Push changes

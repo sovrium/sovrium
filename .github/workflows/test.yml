@@ -1195,8 +1195,86 @@ jobs:
           echo "  Regression specs: $REGRESSION_SPECS"
           echo "  Failure type: $FAILURE_TYPE"
 
+      - name: Check max regression fix attempts
+        id: max-attempts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # =========================================================================
+          # MAX RETRY CHECK: Prevent infinite regression fix loops
+          # After 3 failed attempts, mark PR as needs-manual-resolution
+          # =========================================================================
+          echo "🔢 Checking regression fix attempt count..."
+
+          LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null | tr '\n' ' ' || echo "")
+          echo "  Current labels: $LABELS"
+
+          # Check for max attempts or manual resolution needed
+          if echo "$LABELS" | grep -qE "regression-fix:3|needs-manual-resolution"; then
+            echo "❌ Max regression fix attempts reached or manual resolution required"
+            echo "max_reached=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Count current attempts from label
+          CURRENT_ATTEMPT=0
+          for i in 3 2 1; do
+            if echo "$LABELS" | grep -q "regression-fix:$i"; then
+              CURRENT_ATTEMPT=$i
+              break
+            fi
+          done
+
+          echo "  Current attempt: $CURRENT_ATTEMPT"
+          NEXT_ATTEMPT=$((CURRENT_ATTEMPT + 1))
+          echo "  Next attempt will be: $NEXT_ATTEMPT"
+          echo "current_attempt=$CURRENT_ATTEMPT" >> $GITHUB_OUTPUT
+          echo "next_attempt=$NEXT_ATTEMPT" >> $GITHUB_OUTPUT
+          echo "max_reached=false" >> $GITHUB_OUTPUT
+
+      - name: Update regression fix attempt label
+        if: steps.max-attempts.outputs.max_reached != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CURRENT_ATTEMPT: ${{ steps.max-attempts.outputs.current_attempt }}
+          NEXT_ATTEMPT: ${{ steps.max-attempts.outputs.next_attempt }}
+        run: |
+          # Remove old attempt label if exists
+          if [ "$CURRENT_ATTEMPT" -gt 0 ]; then
+            gh pr edit "$PR_NUMBER" --remove-label "regression-fix:$CURRENT_ATTEMPT" || true
+          fi
+
+          # Add new attempt label
+          gh pr edit "$PR_NUMBER" --add-label "regression-fix:$NEXT_ATTEMPT" || true
+          echo "🏷️  Updated regression-fix attempt to $NEXT_ATTEMPT"
+
+          # If this is attempt 3, also add needs-manual-resolution
+          if [ "$NEXT_ATTEMPT" -ge 3 ]; then
+            echo "⚠️  Max attempts reached - adding needs-manual-resolution label"
+            gh pr edit "$PR_NUMBER" --add-label "needs-manual-resolution" || true
+
+            # Post warning comment
+            gh pr comment "$PR_NUMBER" --body "## ⚠️ Max Regression Fix Attempts Reached
+
+This PR has failed **3 regression fix attempts** and requires manual intervention.
+
+### What Happened
+Claude Code attempted to fix the regressions 3 times but was unable to resolve them automatically.
+
+### Next Steps
+1. Review the regression failures in the CI logs
+2. Manually fix the regressions or revert the breaking changes
+3. Remove the \`needs-manual-resolution\` label when fixed
+
+---
+*This limit prevents infinite retry loops and excessive Claude Code credit usage.*"
+          fi
+
       - name: Check for recent fix attempts (cooldown)
         id: cooldown
+        if: steps.max-attempts.outputs.max_reached != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -1228,7 +1306,7 @@ jobs:
 
       - name: Check if Claude Code is actively processing this spec
         id: claude-check
-        if: steps.cooldown.outputs.skip != 'true'
+        if: steps.max-attempts.outputs.max_reached != 'true' && steps.cooldown.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SPEC_ID: ${{ steps.details.outputs.spec_id }}
@@ -1261,8 +1339,11 @@ jobs:
 
       - name: Post regression fix request to PR (immediate @claude trigger)
         # Uses PAT so @claude triggers Claude Code immediately (no waiting for tdd-monitor.yml)
-        # The cooldown check and claude-check above prevent duplicate triggers
-        if: steps.cooldown.outputs.skip != 'true' && steps.claude-check.outputs.skip != 'true'
+        # The max-attempts, cooldown, and claude-check above prevent loops and duplicate triggers
+        if: |
+          steps.max-attempts.outputs.max_reached != 'true' &&
+          steps.cooldown.outputs.skip != 'true' &&
+          steps.claude-check.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

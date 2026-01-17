@@ -37,10 +37,11 @@ permissions:
   pull-requests: write
   actions: write
 
-# Only one monitor run at a time - cancel queued runs to prevent pile-up
+# Only one monitor run at a time - but DON'T cancel in-progress runs
+# Monitoring/recovery jobs should complete to avoid dropping important updates
 concurrency:
   group: tdd-monitor
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   STUCK_TIMEOUT_MINUTES: 105 # Specs stuck >105 min are recovered (15 min buffer above Claude timeout)
