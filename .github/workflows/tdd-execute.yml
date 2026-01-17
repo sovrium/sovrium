@@ -3,6 +3,9 @@ name: TDD - Execute (Claude Code)
 # This workflow handles all Claude Code execution with infrastructure-level retry logic
 # It handles both automated queue processing and manual @claude mentions
 # Infrastructure errors (EPERM, timeouts, crashes) are automatically retried up to 3 times
+#
+# PRE-PUSH VALIDATION: Unit tests are run before push to prevent CI loops
+# This catches cases where E2E tests pass but existing unit tests are broken
 
 on:
   # Manual trigger: Process specific issue number with optional retry
@@ -1259,6 +1262,57 @@ jobs:
             echo "Commit amended with license headers"
           else
             echo "No license changes needed"
+          fi
+
+      # =========================================================================
+      # CRITICAL: Run unit tests BEFORE push to catch regressions
+      # This prevents the loop where E2E tests pass but unit tests fail,
+      # causing CI to fail and trigger infinite retry attempts.
+      # =========================================================================
+      - name: Run unit tests (pre-push validation)
+        id: unit_tests
+        env:
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🧪 Running unit tests to catch regressions before push..."
+          echo ""
+
+          # Run unit tests and capture output
+          if bun test:unit 2>&1 | tee unit_test_output.txt; then
+            echo ""
+            echo "✅ Unit tests passed - safe to push"
+            echo "unit_tests_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo ""
+            echo "❌ Unit tests FAILED - blocking push to prevent CI loop"
+            echo "unit_tests_passed=false" >> $GITHUB_OUTPUT
+
+            # Extract failed test info for the issue comment
+            FAILED_TESTS=$(grep -E "^(FAIL|✗|×)" unit_test_output.txt | head -10 || echo "See full output above")
+
+            # Post failure comment to issue
+            gh issue comment "$ISSUE_NUMBER" --repo ${{ github.repository }} --body "## ❌ Unit Test Failure (Pre-Push Validation)
+
+          The E2E tests passed, but **unit tests failed**. This would have caused a CI loop.
+
+          ### Failed Tests:
+          \`\`\`
+          $FAILED_TESTS
+          \`\`\`
+
+          ### What Happened:
+          Claude's implementation passed the E2E spec but broke existing unit tests.
+
+          ### Next Steps:
+          1. Review the unit test failures above
+          2. Either fix the implementation to pass both E2E and unit tests
+          3. Or update the unit tests if the behavior change is intentional
+
+          ---
+          *This check prevents infinite retry loops by catching regressions before push.*"
+
+            exit 1
           fi
 
       - name: Detect src/ modifications
