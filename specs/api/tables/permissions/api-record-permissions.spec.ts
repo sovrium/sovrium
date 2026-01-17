@@ -108,7 +108,7 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-002: non-owner cannot read others records',
     { tag: '@spec' },
     async ({
@@ -117,6 +117,8 @@ test.describe('API Record-Level Permissions', () => {
       createAuthenticatedUser,
       createOrganization,
       executeQuery,
+      signIn,
+      setActiveOrganization,
     }) => {
       // GIVEN: Table with owner-based read permission
       await startServerWithSchema({
@@ -132,7 +134,7 @@ test.describe('API Record-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'user' },
               { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -144,14 +146,24 @@ test.describe('API Record-Level Permissions', () => {
         ],
       })
 
-      await createAuthenticatedUser({ email: 'user@example.com' })
+      await createAuthenticatedUser({
+        email: 'user@example.com',
+        password: 'password123',
+      })
       const org = await createOrganization({ name: 'Test Org' })
+
+      // Create another user who will own the record
+      const otherUser = await createAuthenticatedUser({ email: 'otheruser@example.com' })
 
       // Record owned by someone else
       await executeQuery(`
         INSERT INTO personal_notes (id, content, owner_id, organization_id) VALUES
-          (1, 'Someone else private note', 'other-user-id', '${org.organization.id}')
+          (1, 'Someone else private note', '${otherUser.user.id}', '${org.organization.id}')
       `)
+
+      // Sign back in as the first user (since createAuthenticatedUser for otherUser changed the session)
+      await signIn({ email: 'user@example.com', password: 'password123' })
+      await setActiveOrganization(org.organization.id)
 
       // WHEN: Non-owner tries to access by ID
       const response = await request.get('/api/tables/1/records/1')
