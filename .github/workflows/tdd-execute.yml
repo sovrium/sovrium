@@ -476,10 +476,36 @@ jobs:
       no_branch_after_success: ${{ steps.set_success.outputs.no_branch_after_success }}
       claude_work_succeeded: ${{ steps.detect_error.outputs.claude_work_succeeded }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout repository with retry
+        id: checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Retry logic for GitHub API rate limits during checkout
+          MAX_ATTEMPTS=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Checkout attempt $attempt of $MAX_ATTEMPTS..."
+
+            if git clone --depth=0 "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+              echo "✅ Checkout successful on attempt $attempt"
+              exit 0
+            else
+              EXIT_CODE=$?
+              echo "❌ Checkout failed with exit code $EXIT_CODE"
+
+              if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s before retry (GitHub API rate limit may be in effect)..."
+                sleep $RETRY_DELAY
+                # Increase delay for next attempt (exponential backoff)
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "💥 All checkout attempts failed"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Set issue context
         id: issue
@@ -1172,12 +1198,36 @@ jobs:
       src_modified: ${{ steps.detect_changes.outputs.src_modified }}
       push_success: ${{ steps.push.outputs.success }}
     steps:
-      - name: Checkout branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT_WORKFLOW }}
+      - name: Checkout branch with retry
+        id: checkout
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          BRANCH_NAME: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+        run: |
+          # Retry logic for GitHub API rate limits during checkout
+          MAX_ATTEMPTS=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Checkout attempt $attempt of $MAX_ATTEMPTS for branch: $BRANCH_NAME"
+
+            if git clone --depth=0 --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+              echo "✅ Checkout successful on attempt $attempt"
+              exit 0
+            else
+              EXIT_CODE=$?
+              echo "❌ Checkout failed with exit code $EXIT_CODE"
+
+              if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s before retry (GitHub API rate limit may be in effect)..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "💥 All checkout attempts failed"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -1268,12 +1318,36 @@ jobs:
       claude_success: ${{ steps.set_success.outputs.claude_success }}
       has_changes: ${{ steps.set_success.outputs.has_changes }}
     steps:
-      - name: Checkout branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT_WORKFLOW }}
+      - name: Checkout branch with retry
+        id: checkout
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          BRANCH_NAME: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+        run: |
+          # Retry logic for GitHub API rate limits during checkout
+          MAX_ATTEMPTS=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Checkout attempt $attempt of $MAX_ATTEMPTS for branch: $BRANCH_NAME"
+
+            if git clone --depth=0 --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+              echo "✅ Checkout successful on attempt $attempt"
+              exit 0
+            else
+              EXIT_CODE=$?
+              echo "❌ Checkout failed with exit code $EXIT_CODE"
+
+              if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s before retry (GitHub API rate limit may be in effect)..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "💥 All checkout attempts failed"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -1387,12 +1461,36 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT_WORKFLOW }}
+      - name: Checkout branch with retry
+        id: checkout
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          BRANCH_NAME: ${{ needs.execute-e2e-fixer.outputs.branch_name }}
+        run: |
+          # Retry logic for GitHub API rate limits during checkout
+          MAX_ATTEMPTS=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Checkout attempt $attempt of $MAX_ATTEMPTS for branch: $BRANCH_NAME"
+
+            if git clone --depth=0 --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+              echo "✅ Checkout successful on attempt $attempt"
+              exit 0
+            else
+              EXIT_CODE=$?
+              echo "❌ Checkout failed with exit code $EXIT_CODE"
+
+              if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s before retry (GitHub API rate limit may be in effect)..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "💥 All checkout attempts failed"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
