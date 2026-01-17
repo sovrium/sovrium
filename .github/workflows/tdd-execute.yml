@@ -1551,20 +1551,87 @@ jobs:
       actions: write
       issues: write
     steps:
+      # FIX 1: Check for recent retry comments (cooldown) - prevents infinite loops
+      # This catches loops where @claude comments trigger this workflow repeatedly
+      - name: Check for recent retry comments (cooldown)
+        id: cooldown
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          echo "🕐 Checking for recent retry activity (30 min cooldown)..."
+
+          # 30 minute cooldown for retries
+          CUTOFF_TIME=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                        date -u -v-30M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                        echo "1970-01-01T00:00:00Z")
+
+          # Check for ANY retry-related comments in cooldown period
+          RECENT_RETRIES=$(gh api "/repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments" \
+            --jq "[.[] | select(.created_at > \"$CUTOFF_TIME\") | select(.body | test(\"Automatic Retry|@claude retry|Success Without Branch\"; \"i\"))] | length" \
+            2>/dev/null || echo "0")
+
+          echo "  Recent retry comments in last 30 min: $RECENT_RETRIES"
+
+          if [ "$RECENT_RETRIES" -gt 0 ]; then
+            echo "⏭️  Cooldown active - skipping retry to prevent loop"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No recent retries, proceeding"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      # FIX 2: Get retry count from labels (not github.event.inputs which resets on comment triggers)
+      # This is the actual bug fix - comment-triggered workflows had retry count reset to 1
+      - name: Get retry count from labels
+        id: label_retry
+        if: steps.cooldown.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          echo "📊 Getting retry count from issue labels..."
+
+          LABELS=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json labels --jq '.labels[].name' 2>/dev/null | tr '\n' ' ' || echo "")
+          echo "  Labels: $LABELS"
+
+          # FIX 3: Check for max retries or manual resolution BEFORE attempting retry
+          if echo "$LABELS" | grep -qE "retry:(spec|infra):3|tdd-spec:failed|needs-manual-resolution"; then
+            echo "⏭️  Max retries reached or manual resolution needed - skipping"
+            echo "max_reached=true" >> $GITHUB_OUTPUT
+            echo "current_retry=3" >> $GITHUB_OUTPUT
+          else
+            echo "max_reached=false" >> $GITHUB_OUTPUT
+
+            # Extract highest retry count from labels (fixes the reset bug)
+            RETRY_COUNT=0
+            for i in 3 2 1; do
+              if echo "$LABELS" | grep -qE "retry:(infra|spec):$i"; then
+                RETRY_COUNT=$i
+                break
+              fi
+            done
+
+            echo "  Current retry count from labels: $RETRY_COUNT"
+            echo "current_retry=$RETRY_COUNT" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine retry action
         id: retry
+        if: steps.cooldown.outputs.skip != 'true' && steps.label_retry.outputs.max_reached != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
-          CURRENT_RETRY: ${{ github.event.inputs.retry_attempt || 1 }}
+          # FIX: Use label-based retry count, fallback to input only if labels show 0
+          CURRENT_RETRY: ${{ steps.label_retry.outputs.current_retry || github.event.inputs.retry_attempt || 0 }}
           MAX_RETRIES: ${{ env.MAX_INFRASTRUCTURE_RETRIES }}
           ERROR_TYPE: ${{ needs.execute-e2e-fixer.outputs.error_type }}
           NO_BRANCH_AFTER_SUCCESS: ${{ needs.execute-e2e-fixer.outputs.no_branch_after_success }}
         run: |
           echo "Error detected: $ERROR_TYPE"
           echo "No branch after success: $NO_BRANCH_AFTER_SUCCESS"
-          echo "Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES"
+          echo "Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES (from labels)"
 
           NEXT_RETRY=$((CURRENT_RETRY + 1))
 
