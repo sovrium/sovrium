@@ -382,7 +382,22 @@ All configuration is hardcoded in workflow files (no central config file):
 | `STUCK_TIMEOUT_MINUTES`       | 105   | Specs stuck in-progress >105 min are recovered (15 min buffer above Claude timeout) |
 | `PR_STUCK_TIMEOUT_MINUTES`    | 120   | PRs stuck >120 min with failures are force-closed                                   |
 | `RETRY_STUCK_TIMEOUT_MINUTES` | 30    | Retries stuck >30 min are recovered                                                 |
-| `FAILED_PR_COOLDOWN_MINUTES`  | 30    | Minimum wait between regression fix attempts                                        |
+| `FAILED_PR_COOLDOWN_MINUTES`  | 90    | Wait before failed PR recovery attempts (Claude can take 60+ min to run)            |
+
+**Cooldown Configuration** (across multiple workflows):
+
+The system uses **different cooldown values** for different purposes:
+
+| Cooldown Type | Value | Workflow | Purpose |
+| ------------- | ----- | -------- | ------- |
+| **@claude Trigger Cooldown** | 30 min | `tdd-execute.yml` | Prevents @claude comment loops (line 100) |
+| **Retry Comment Cooldown** | 30 min | `tdd-execute.yml` | Prevents duplicate retry comments (line 1688) |
+| **Failed PR Recovery Cooldown** | 90 min | `tdd-monitor.yml` | Wait between fix attempts (Claude runs can take 60+ min) |
+| **Conflict Resolution Cooldown** | 10 min | `tdd-monitor.yml` | Prevents duplicate @claude comments for conflicts |
+
+**Why Different Values?**
+- **30 min for triggers**: Short enough to allow retries, long enough to prevent spam
+- **90 min for failed PR recovery**: Claude Code runs can take 60+ minutes; waiting 90 min ensures the previous attempt completed before starting a new one
 
 ### 4. Required Secrets
 
@@ -571,20 +586,61 @@ When validation passes and PR merges:
 
 ## Labels & States
 
-| Label                                             | State        | Description                                      |
-| ------------------------------------------------- | ------------ | ------------------------------------------------ |
-| `tdd-spec:queued`                                 | Queued       | Spec waiting to be processed                     |
-| `tdd-spec:in-progress`                            | In Progress  | Spec being implemented (branch created)          |
-| `tdd-spec:completed`                              | Completed    | Spec passed validation (issue closed)            |
-| `tdd-spec:failed`                                 | Failed       | Spec failed after 3 retries (needs human review) |
-| `skip-automated`                                  | Skipped      | Human marked as too complex (queue skips it)     |
-| `retry:spec:1`, `retry:spec:2`, `retry:spec:3`    | Retry Count  | Tracks code/logic retry attempts (max 3)         |
-| `retry:infra:1`, `retry:infra:2`, `retry:infra:3` | Retry Count  | Tracks infrastructure retry attempts (max 3)     |
-| `failure:spec`                                    | Failure Type | Target spec itself failing                       |
-| `failure:regression`                              | Failure Type | Changes broke OTHER tests                        |
-| `failure:infra`                                   | Failure Type | Infrastructure/flaky issue                       |
-| `high-failure-rate`                               | Alerting     | Many specs failing (incident)                    |
-| `tdd-automation`                                  | (always)     | All TDD automation issues                        |
+### Primary State Labels (Issue Lifecycle)
+
+| Label                 | State       | Description                                      |
+| --------------------- | ----------- | ------------------------------------------------ |
+| `tdd-spec:queued`     | Queued      | Spec waiting to be processed                     |
+| `tdd-spec:in-progress`| In Progress | Spec being implemented (branch created)          |
+| `tdd-spec:completed`  | Completed   | Spec passed validation (issue closed)            |
+| `tdd-spec:failed`     | Failed      | Spec failed after 3 retries (needs human review) |
+| `skip-automated`      | Skipped     | Human marked as too complex (queue skips it)     |
+| `tdd-automation`      | (always)    | All TDD automation issues                        |
+
+### Retry Tracking Labels (Cumulative)
+
+These labels track retry attempts. They are **cumulative** (highest label indicates total attempts).
+
+| Label Category | Labels | Used By | Description |
+| -------------- | ------ | ------- | ----------- |
+| **Spec Retry** | `retry:spec:1`, `retry:spec:2`, `retry:spec:3` | `tdd-execute.yml` | Code/logic errors in target spec (lint, type, test failures) |
+| **Infra Retry** | `retry:infra:1`, `retry:infra:2`, `retry:infra:3` | `tdd-execute.yml`, `tdd-monitor.yml` | Infrastructure errors (Docker, DB, network, browser issues) |
+| **Regression Fix** | `regression-fix:1`, `regression-fix:2`, `regression-fix:3` | `test.yml` handle-regressions | Regression-specific retries (changes broke OTHER tests) |
+
+**Note**: `retry:spec:N` and `regression-fix:N` serve similar purposes but are used by different workflows:
+- `retry:spec:N`: Used by `tdd-execute.yml` for target spec failures during initial implementation
+- `regression-fix:N`: Used by `test.yml` for regression handling after PR is created
+
+Both are cleaned up when the issue is closed via PR merge.
+
+### Failure Classification Labels (Mutually Exclusive)
+
+These labels classify the **type** of failure. Only one should be active at a time.
+
+| Label | Used By | Description | Cleanup |
+| ----- | ------- | ----------- | ------- |
+| `failure:spec` | `test.yml` e2e-results | Target spec itself is failing | On PR merge |
+| `failure:regression` | `test.yml` e2e-results | Changes broke OTHER tests | On PR merge |
+| `failure:infra` | `test.yml` e2e-results | Infrastructure/flaky issue (Docker, network, browser) | On PR merge |
+| `failure:typecheck` | `test.yml` handle-code-quality-failure | TypeScript compilation errors | On PR merge |
+| `failure:lint` | `test.yml` handle-code-quality-failure | ESLint violations | On PR merge |
+| `failure:unit-tests` | `test.yml` handle-code-quality-failure | Unit test failures | On PR merge |
+
+### Alerting & Manual Intervention Labels
+
+| Label | Description |
+| ----- | ----------- |
+| `high-failure-rate` | Circuit breaker triggered - many specs failing (incident) |
+| `needs-manual-resolution` | Automatic resolution failed - human intervention required |
+| `tdd-queue-status` | Queue status tracking issue (for pause/resume) |
+| `tdd-queue:paused` | Queue is paused (credit exhaustion or high failure rate) |
+
+### Label Cleanup on Success
+
+When a PR merges successfully, `test.yml`'s `close-tdd-issue` job removes:
+- All retry labels: `retry:spec:1/2/3`, `retry:infra:1/2/3`
+- All failure labels: `failure:spec`, `failure:regression`, `failure:infra`
+- State label: `tdd-spec:in-progress` (replaced with `tdd-spec:completed`)
 
 ## CLI Commands
 
