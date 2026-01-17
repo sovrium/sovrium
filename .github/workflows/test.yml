@@ -1472,15 +1472,18 @@ jobs:
         run: |
           echo "🕐 Checking for recent fix attempt comments..."
 
-          CUTOFF_TIME=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
-                        date -u -v-30M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+          # 90 minute cooldown to allow Claude Code runs to complete (can take 60+ min)
+          CUTOFF_TIME=$(date -u -d '90 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                        date -u -v-90M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
                         echo "1970-01-01T00:00:00Z")
 
+          # UNIFIED PATTERN: Detect ANY @claude comment from ANY workflow
+          # This prevents loops between test.yml and tdd-monitor.yml
           RECENT_COMMENTS=$(gh api "/repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
-            --jq "[.[] | select(.created_at > \"$CUTOFF_TIME\") | select(.body | test(\"Code Quality.*Auto-Fix|$FAILURE_TYPE.*error\"; \"i\"))] | length" \
+            --jq "[.[] | select(.created_at > \"$CUTOFF_TIME\") | select(.body | test(\"@claude|Code Quality.*Auto-Fix|Failed PR Recovery|Regression Auto-Fix\"; \"i\"))] | length" \
             2>/dev/null || echo "0")
 
-          echo "  Recent $FAILURE_TYPE fix comments: $RECENT_COMMENTS"
+          echo "  Recent @claude or fix comments: $RECENT_COMMENTS"
 
           if [ "$RECENT_COMMENTS" -gt 0 ]; then
             echo "⏭️  Skipping: Recent fix attempt exists (cooldown active)"
@@ -1490,8 +1493,54 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Post code quality fix request to PR
+      - name: Check max retries reached
+        id: max-retries
         if: steps.cooldown.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🔢 Checking retry count..."
+          LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null | tr '\n' ' ')
+
+          if echo "$LABELS" | grep -qE "retry:(spec|infra):3|needs-manual-resolution"; then
+            echo "⏭️  Skipping - max retries (3) reached or manual resolution needed"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Retries not exhausted, proceeding"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if Claude Code already processing
+        id: claude-running
+        if: steps.cooldown.outputs.skip != 'true' && steps.max-retries.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPEC_ID: ${{ steps.issue.outputs.spec_id }}
+        run: |
+          echo "🤖 Checking if Claude Code already running..."
+
+          if [ -n "$SPEC_ID" ] && [ "$SPEC_ID" != "unknown" ]; then
+            CLAUDE_RUNNING=$(gh run list \
+              --repo ${{ github.repository }} \
+              --workflow "TDD - Execute (Claude Code)" \
+              --json status,displayTitle \
+              --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"$SPEC_ID\"))] | length" 2>/dev/null || echo "0")
+
+            if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+              echo "⏭️  Skipping - Claude Code already processing spec $SPEC_ID"
+              echo "skip=true" >> $GITHUB_OUTPUT
+            else
+              echo "✅ No Claude Code run in progress for $SPEC_ID"
+              echo "skip=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "✅ No spec ID, proceeding (will be general fix)"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post code quality fix request to PR
+        if: steps.cooldown.outputs.skip != 'true' && steps.max-retries.outputs.skip != 'true' && steps.claude-running.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -1587,7 +1636,7 @@ jobs:
           echo "✅ Posted @claude $FAILURE_TYPE fix request to PR #$PR_NUMBER"
 
       - name: Update linked issue with failure status
-        if: steps.cooldown.outputs.skip != 'true' && steps.issue.outputs.issue_number != ''
+        if: steps.cooldown.outputs.skip != 'true' && steps.max-retries.outputs.skip != 'true' && steps.claude-running.outputs.skip != 'true' && steps.issue.outputs.issue_number != ''
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.issue_number }}
