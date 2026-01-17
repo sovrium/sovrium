@@ -19,16 +19,24 @@ import { fieldValueSchema } from './tables-schemas'
  * Supports two formats:
  * 1. Nested format: { fields: {...} }
  * 2. Flat format: { ...fields } (transformed to nested)
+ *
+ * Schemas are mutually exclusive: flat format explicitly excludes 'fields' key.
  */
-export const createRecordRequestSchema = z
-  .object({
+export const createRecordRequestSchema = z.union([
+  // Format 1: Nested format with 'fields' property
+  z.object({
     fields: z.record(z.string(), fieldValueSchema),
-  })
-  .or(
-    z.record(z.string(), fieldValueSchema).transform((data) => ({
+  }),
+  // Format 2: Flat format (any object WITHOUT 'fields' key)
+  z
+    .record(z.string(), fieldValueSchema)
+    .refine((data) => !('fields' in data), {
+      message: 'Flat format should not contain a "fields" key',
+    })
+    .transform((data) => ({
       fields: data,
-    }))
-  )
+    })),
+])
 
 /**
  * Update record request schema
