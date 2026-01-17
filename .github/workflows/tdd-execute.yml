@@ -488,7 +488,7 @@ jobs:
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Checkout attempt $attempt of $MAX_ATTEMPTS..."
 
-            if git clone --depth=0 "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+            if git clone "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
               echo "✅ Checkout successful on attempt $attempt"
               exit 0
             else
@@ -1211,7 +1211,7 @@ jobs:
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Checkout attempt $attempt of $MAX_ATTEMPTS for branch: $BRANCH_NAME"
 
-            if git clone --depth=0 --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+            if git clone --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
               echo "✅ Checkout successful on attempt $attempt"
               exit 0
             else
@@ -1331,7 +1331,7 @@ jobs:
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Checkout attempt $attempt of $MAX_ATTEMPTS for branch: $BRANCH_NAME"
 
-            if git clone --depth=0 --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+            if git clone --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
               echo "✅ Checkout successful on attempt $attempt"
               exit 0
             else
@@ -1474,7 +1474,7 @@ jobs:
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "Checkout attempt $attempt of $MAX_ATTEMPTS for branch: $BRANCH_NAME"
 
-            if git clone --depth=0 --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
+            if git clone --branch "$BRANCH_NAME" "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" . 2>&1; then
               echo "✅ Checkout successful on attempt $attempt"
               exit 0
             else
