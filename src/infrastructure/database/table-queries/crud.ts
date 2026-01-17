@@ -138,22 +138,25 @@ export function createRecord(
       try: async () => {
         validateTableName(tableName)
 
-        // Check if table has organization_id column
+        // Check if table has organization_id or owner_id columns
         const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('organization_id', 'owner_id')`
         )) as readonly Record<string, unknown>[]
 
-        const hasOrgId = columnCheck.length > 0
+        const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
+        const hasOwnerId = columnCheck.some((row) => row.column_name === 'owner_id')
 
-        // Security: Filter out any user-provided organization_id if table has that column
-        // This prevents malicious users from injecting data into other organizations
-        const sanitizedFields = hasOrgId
-          ? Object.fromEntries(Object.entries(fields).filter(([key]) => key !== 'organization_id'))
-          : fields
+        // Security: Filter out any user-provided organization_id or owner_id if table has those columns
+        // This prevents malicious users from injecting data into other organizations or impersonating other users
+        const sanitizedFields = Object.fromEntries(
+          Object.entries(fields).filter(
+            ([key]) => !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
+          )
+        )
 
         // Build base entries from sanitized user fields
         const baseEntries = Object.entries(sanitizedFields)
-        if (baseEntries.length === 0 && !hasOrgId) {
+        if (baseEntries.length === 0 && !hasOrgId && !hasOwnerId) {
           // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
           throw new Error('Cannot create record with no fields')
         }
@@ -166,12 +169,20 @@ export function createRecord(
         const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
 
         // Add organization_id column and value from session (immutable)
-        const columnIdentifiers = hasOrgId
+        const withOrgColumn = hasOrgId
           ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
           : baseColumnIdentifiers
-        const valueParams = hasOrgId
+        const withOrgValue = hasOrgId
           ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
           : baseValueParams
+
+        // Add owner_id column and value from session (immutable)
+        const columnIdentifiers = hasOwnerId
+          ? [...withOrgColumn, sql.identifier('owner_id')]
+          : withOrgColumn
+        const valueParams = hasOwnerId
+          ? [...withOrgValue, sql`${session.userId}`]
+          : withOrgValue
 
         // Build INSERT query using sql.join for columns and values
         const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))

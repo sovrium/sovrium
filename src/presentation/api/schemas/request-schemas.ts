@@ -16,10 +16,19 @@ import { fieldValueSchema } from './tables-schemas'
  * Create record request schema
  *
  * Validates the request body for creating a single record.
+ * Supports two formats:
+ * 1. Nested format: { fields: {...} }
+ * 2. Flat format: { ...fields } (transformed to nested)
  */
-export const createRecordRequestSchema = z.object({
-  fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-})
+export const createRecordRequestSchema = z
+  .object({
+    fields: z.record(z.string(), fieldValueSchema),
+  })
+  .or(
+    z.record(z.string(), fieldValueSchema).transform((data) => ({
+      fields: data,
+    }))
+  )
 
 /**
  * Update record request schema
