@@ -35,7 +35,7 @@ test.describe('API Record-Level Permissions', () => {
   // @spec tests - EXHAUSTIVE coverage of owner-based access via API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-001: owner can read their own records',
     { tag: '@spec' },
     async ({
@@ -44,6 +44,8 @@ test.describe('API Record-Level Permissions', () => {
       createAuthenticatedUser,
       createOrganization,
       executeQuery,
+      signIn,
+      setActiveOrganization,
     }) => {
       // GIVEN: Table with owner-based read permission
       await startServerWithSchema({
@@ -59,7 +61,7 @@ test.describe('API Record-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'user' },
               { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -72,15 +74,26 @@ test.describe('API Record-Level Permissions', () => {
         ],
       })
 
-      const user = await createAuthenticatedUser({ email: 'owner@example.com' })
+      // Create first user and their organization (user becomes owner/member automatically)
+      const user = await createAuthenticatedUser({
+        email: 'owner@example.com',
+        password: 'password123',
+      })
       const org = await createOrganization({ name: 'Test Org' })
 
-      // Insert records owned by this user and another user
+      // Create second user (will be in different organization context)
+      const otherUser = await createAuthenticatedUser({ email: 'otheruser@example.com' })
+
+      // Insert records owned by both users in the FIRST user's organization
       await executeQuery(`
         INSERT INTO personal_notes (id, content, owner_id, organization_id) VALUES
           (1, 'My private note', '${user.user.id}', '${org.organization.id}'),
-          (2, 'Another user note', 'other-user-id', '${org.organization.id}')
+          (2, 'Another user note', '${otherUser.user.id}', '${org.organization.id}')
       `)
+
+      // Sign back in as the first user (since createAuthenticatedUser for otherUser changed the session)
+      await signIn({ email: 'owner@example.com', password: 'password123' })
+      await setActiveOrganization(org.organization.id)
 
       // WHEN: Owner requests their records
       const response = await request.get('/api/tables/1/records')
