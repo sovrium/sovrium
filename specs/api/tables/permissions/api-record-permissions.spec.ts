@@ -211,7 +211,7 @@ test.describe('API Record-Level Permissions', () => {
       })
 
       const user = await createAuthenticatedUser({ email: 'user@example.com' })
-      await createOrganization({ name: 'Test Org' })
+      const org = await createOrganization({ name: 'Test Org' })
 
       // WHEN: User creates a note without specifying owner_id
       const response = await request.post('/api/tables/1/records', {
@@ -230,10 +230,14 @@ test.describe('API Record-Level Permissions', () => {
       const data = await response.json()
       expect(data.owner_id).toBe(user.user.id)
 
-      // Verify in database
-      const dbResult = await executeQuery(
-        "SELECT owner_id FROM personal_notes WHERE content = 'My new note'"
-      )
+      // Verify in database with session context
+      const dbResult = await executeQuery([
+        `SET LOCAL app.user_id = '${user.user.id}'`,
+        `SET LOCAL app.organization_id = '${org.organization.id}'`,
+        `SET LOCAL app.user_role = 'member'`,
+        `SET LOCAL ROLE app_user`,
+        "SELECT owner_id FROM personal_notes WHERE content = 'My new note'",
+      ])
       expect(dbResult.rows[0].owner_id).toBe(user.user.id)
     }
   )
@@ -278,10 +282,13 @@ test.describe('API Record-Level Permissions', () => {
       const user = await createAuthenticatedUser({ email: 'owner@example.com' })
       const org = await createOrganization({ name: 'Test Org' })
 
-      await executeQuery(`
-        INSERT INTO personal_notes (id, content, owner_id, organization_id) VALUES
-          (1, 'Original content', '${user.user.id}', '${org.organization.id}')
-      `)
+      await executeQuery([
+        `SET LOCAL app.user_id = '${user.user.id}'`,
+        `SET LOCAL app.organization_id = '${org.organization.id}'`,
+        `SET LOCAL app.user_role = 'member'`,
+        `SET LOCAL ROLE app_user`,
+        `INSERT INTO personal_notes (id, content, owner_id, organization_id) VALUES (1, 'Original content', '${user.user.id}', '${org.organization.id}')`,
+      ])
 
       // WHEN: Owner updates their record
       const response = await request.patch('/api/tables/1/records/1', {
@@ -296,7 +303,13 @@ test.describe('API Record-Level Permissions', () => {
       // THEN: Update succeeds
       expect(response.status()).toBe(200)
 
-      const dbResult = await executeQuery('SELECT content FROM personal_notes WHERE id = 1')
+      const dbResult = await executeQuery([
+        `SET LOCAL app.user_id = '${user.user.id}'`,
+        `SET LOCAL app.organization_id = '${org.organization.id}'`,
+        `SET LOCAL app.user_role = 'member'`,
+        `SET LOCAL ROLE app_user`,
+        'SELECT content FROM personal_notes WHERE id = 1',
+      ])
       expect(dbResult.rows[0].content).toBe('Updated content')
     }
   )
