@@ -76,7 +76,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -108,7 +108,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-003: should return 404 when table does not exist',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
@@ -431,7 +431,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-011: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
