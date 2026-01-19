@@ -222,8 +222,8 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TDD_DAILY_COST_LIMIT: '200.00'
-          TDD_WEEKLY_COST_LIMIT: '1000.00'
+          TDD_DAILY_COST_LIMIT: ${{ secrets.TDD_DAILY_COST_LIMIT }}
+          TDD_WEEKLY_COST_LIMIT: ${{ secrets.TDD_WEEKLY_COST_LIMIT }}
 
       - name: ⛔ Skip refactor if usage limits exceeded
         if: steps.usage.outputs.can_proceed != 'true'
