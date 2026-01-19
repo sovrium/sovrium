@@ -389,7 +389,7 @@ const checkShouldSkipMigration = (
       try {
         // Quick read-only query to check checksum (no transaction needed)
         const result = (await quickDb.unsafe(
-          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
         )) as readonly { checksum: string }[]
 
         // Early return if checksum doesn't match

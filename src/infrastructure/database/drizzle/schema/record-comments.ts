@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { pgTable, text, timestamp, index } from 'drizzle-orm/pg-core'
+import { text, timestamp, index } from 'drizzle-orm/pg-core'
 import { users, organizations } from '../../../auth/better-auth/schema'
+import { systemSchema } from './migration-audit'
 
 /**
  * Record Comments Table Schema
@@ -33,8 +34,8 @@ import { users, organizations } from '../../../auth/better-auth/schema'
  * - User activity lookups (all comments by a user)
  * - Soft delete filtering (excluding deleted comments by default)
  */
-export const recordComments = pgTable(
-  '_sovrium_record_comments',
+export const recordComments = systemSchema.table(
+  'record_comments',
   {
     // Primary key - UUID for distributed systems compatibility
     id: text('id').primaryKey(),

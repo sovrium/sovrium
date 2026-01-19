@@ -1,5 +1,7 @@
 CREATE SCHEMA "auth";
 --> statement-breakpoint
+CREATE SCHEMA "system";
+--> statement-breakpoint
 CREATE TABLE "auth"."account" (
 	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
@@ -117,7 +119,7 @@ CREATE TABLE "auth"."verification" (
 	"updated_at" timestamp with time zone
 );
 --> statement-breakpoint
-CREATE TABLE "_sovrium_migration_history" (
+CREATE TABLE "system"."migration_history" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"version" integer NOT NULL,
 	"checksum" text NOT NULL,
@@ -126,7 +128,7 @@ CREATE TABLE "_sovrium_migration_history" (
 	"rolled_back_at" timestamp
 );
 --> statement-breakpoint
-CREATE TABLE "_sovrium_migration_log" (
+CREATE TABLE "system"."migration_log" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"operation" text NOT NULL,
 	"from_version" integer,
@@ -136,14 +138,14 @@ CREATE TABLE "_sovrium_migration_log" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "_sovrium_schema_checksum" (
+CREATE TABLE "system"."schema_checksum" (
 	"id" text PRIMARY KEY NOT NULL,
 	"checksum" text NOT NULL,
 	"schema" jsonb NOT NULL,
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "_sovrium_activity_logs" (
+CREATE TABLE "system"."activity_logs" (
 	"id" text PRIMARY KEY NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"organization_id" text,
@@ -158,7 +160,7 @@ CREATE TABLE "_sovrium_activity_logs" (
 	"user_agent" text
 );
 --> statement-breakpoint
-CREATE TABLE "_sovrium_record_comments" (
+CREATE TABLE "system"."record_comments" (
 	"id" text PRIMARY KEY NOT NULL,
 	"record_id" text NOT NULL,
 	"table_id" text NOT NULL,
@@ -181,17 +183,17 @@ ALTER TABLE "auth"."team_member" ADD CONSTRAINT "team_member_team_id_team_id_fk"
 ALTER TABLE "auth"."team_member" ADD CONSTRAINT "team_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth"."team" ADD CONSTRAINT "team_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth"."two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "_sovrium_activity_logs" ADD CONSTRAINT "_sovrium_activity_logs_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "_sovrium_activity_logs" ADD CONSTRAINT "_sovrium_activity_logs_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "_sovrium_record_comments" ADD CONSTRAINT "_sovrium_record_comments_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "_sovrium_record_comments" ADD CONSTRAINT "_sovrium_record_comments_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "activity_logs_created_at_idx" ON "_sovrium_activity_logs" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "activity_logs_org_created_at_idx" ON "_sovrium_activity_logs" USING btree ("organization_id","created_at");--> statement-breakpoint
-CREATE INDEX "activity_logs_user_created_at_idx" ON "_sovrium_activity_logs" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE INDEX "activity_logs_table_record_idx" ON "_sovrium_activity_logs" USING btree ("table_name","record_id");--> statement-breakpoint
-CREATE INDEX "activity_logs_action_idx" ON "_sovrium_activity_logs" USING btree ("action");--> statement-breakpoint
-CREATE INDEX "record_comments_record_created_idx" ON "_sovrium_record_comments" USING btree ("table_id","record_id","created_at");--> statement-breakpoint
-CREATE INDEX "record_comments_org_created_idx" ON "_sovrium_record_comments" USING btree ("organization_id","created_at");--> statement-breakpoint
-CREATE INDEX "record_comments_user_created_idx" ON "_sovrium_record_comments" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE INDEX "record_comments_deleted_at_idx" ON "_sovrium_record_comments" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX "record_comments_org_user_idx" ON "_sovrium_record_comments" USING btree ("organization_id","user_id");
+ALTER TABLE "system"."activity_logs" ADD CONSTRAINT "activity_logs_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "system"."activity_logs" ADD CONSTRAINT "activity_logs_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "system"."record_comments" ADD CONSTRAINT "record_comments_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "system"."record_comments" ADD CONSTRAINT "record_comments_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "activity_logs_created_at_idx" ON "system"."activity_logs" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "activity_logs_org_created_at_idx" ON "system"."activity_logs" USING btree ("organization_id","created_at");--> statement-breakpoint
+CREATE INDEX "activity_logs_user_created_at_idx" ON "system"."activity_logs" USING btree ("user_id","created_at");--> statement-breakpoint
+CREATE INDEX "activity_logs_table_record_idx" ON "system"."activity_logs" USING btree ("table_name","record_id");--> statement-breakpoint
+CREATE INDEX "activity_logs_action_idx" ON "system"."activity_logs" USING btree ("action");--> statement-breakpoint
+CREATE INDEX "record_comments_record_created_idx" ON "system"."record_comments" USING btree ("table_id","record_id","created_at");--> statement-breakpoint
+CREATE INDEX "record_comments_org_created_idx" ON "system"."record_comments" USING btree ("organization_id","created_at");--> statement-breakpoint
+CREATE INDEX "record_comments_user_created_idx" ON "system"."record_comments" USING btree ("user_id","created_at");--> statement-breakpoint
+CREATE INDEX "record_comments_deleted_at_idx" ON "system"."record_comments" USING btree ("deleted_at");--> statement-breakpoint
+CREATE INDEX "record_comments_org_user_idx" ON "system"."record_comments" USING btree ("organization_id","user_id");

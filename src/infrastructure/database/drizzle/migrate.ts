@@ -32,7 +32,7 @@ export class MigrationError extends Data.TaggedError('MigrationError')<{
  *
  * This applies all migrations from the ./drizzle folder:
  * - Better Auth tables (users, sessions, accounts, etc.)
- * - Migration audit tables (_sovrium_migration_history, etc.)
+ * - Migration audit tables (system.migration_history, etc.)
  * - Auth schema with helper functions (auth.is_authenticated, auth.user_has_role)
  *
  * CRITICAL: Must run BEFORE initializeSchema() because:

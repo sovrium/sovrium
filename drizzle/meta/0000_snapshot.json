@@ -1,5 +1,5 @@
 {
-  "id": "e835ec55-ee7c-4645-955c-2ba9f36eb070",
+  "id": "589b4cef-4b2b-428a-99cd-3141d46c1e88",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -782,9 +782,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public._sovrium_migration_history": {
-      "name": "_sovrium_migration_history",
-      "schema": "",
+    "system.migration_history": {
+      "name": "migration_history",
+      "schema": "system",
       "columns": {
         "id": {
           "name": "id",
@@ -832,9 +832,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public._sovrium_migration_log": {
-      "name": "_sovrium_migration_log",
-      "schema": "",
+    "system.migration_log": {
+      "name": "migration_log",
+      "schema": "system",
       "columns": {
         "id": {
           "name": "id",
@@ -888,9 +888,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public._sovrium_schema_checksum": {
-      "name": "_sovrium_schema_checksum",
-      "schema": "",
+    "system.schema_checksum": {
+      "name": "schema_checksum",
+      "schema": "system",
       "columns": {
         "id": {
           "name": "id",
@@ -926,9 +926,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public._sovrium_activity_logs": {
-      "name": "_sovrium_activity_logs",
-      "schema": "",
+    "system.activity_logs": {
+      "name": "activity_logs",
+      "schema": "system",
       "columns": {
         "id": {
           "name": "id",
@@ -1100,9 +1100,9 @@
         }
       },
       "foreignKeys": {
-        "_sovrium_activity_logs_organization_id_organization_id_fk": {
-          "name": "_sovrium_activity_logs_organization_id_organization_id_fk",
-          "tableFrom": "_sovrium_activity_logs",
+        "activity_logs_organization_id_organization_id_fk": {
+          "name": "activity_logs_organization_id_organization_id_fk",
+          "tableFrom": "activity_logs",
           "tableTo": "organization",
           "schemaTo": "auth",
           "columnsFrom": ["organization_id"],
@@ -1110,9 +1110,9 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "_sovrium_activity_logs_user_id_user_id_fk": {
-          "name": "_sovrium_activity_logs_user_id_user_id_fk",
-          "tableFrom": "_sovrium_activity_logs",
+        "activity_logs_user_id_user_id_fk": {
+          "name": "activity_logs_user_id_user_id_fk",
+          "tableFrom": "activity_logs",
           "tableTo": "user",
           "schemaTo": "auth",
           "columnsFrom": ["user_id"],
@@ -1127,9 +1127,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public._sovrium_record_comments": {
-      "name": "_sovrium_record_comments",
-      "schema": "",
+    "system.record_comments": {
+      "name": "record_comments",
+      "schema": "system",
       "columns": {
         "id": {
           "name": "id",
@@ -1296,9 +1296,9 @@
         }
       },
       "foreignKeys": {
-        "_sovrium_record_comments_organization_id_organization_id_fk": {
-          "name": "_sovrium_record_comments_organization_id_organization_id_fk",
-          "tableFrom": "_sovrium_record_comments",
+        "record_comments_organization_id_organization_id_fk": {
+          "name": "record_comments_organization_id_organization_id_fk",
+          "tableFrom": "record_comments",
           "tableTo": "organization",
           "schemaTo": "auth",
           "columnsFrom": ["organization_id"],
@@ -1306,9 +1306,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "_sovrium_record_comments_user_id_user_id_fk": {
-          "name": "_sovrium_record_comments_user_id_user_id_fk",
-          "tableFrom": "_sovrium_record_comments",
+        "record_comments_user_id_user_id_fk": {
+          "name": "record_comments_user_id_user_id_fk",
+          "tableFrom": "record_comments",
           "tableTo": "user",
           "schemaTo": "auth",
           "columnsFrom": ["user_id"],
@@ -1326,7 +1326,8 @@
   },
   "enums": {},
   "schemas": {
-    "auth": "auth"
+    "auth": "auth",
+    "system": "system"
   },
   "sequences": {},
   "roles": {},

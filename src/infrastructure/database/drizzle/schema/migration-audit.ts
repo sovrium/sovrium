@@ -5,7 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { pgTable, serial, integer, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { pgSchema, serial, integer, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
+
+/**
+ * System Schema
+ *
+ * Dedicated PostgreSQL schema for internal Sovrium tables.
+ * Isolates system tables from user data tables.
+ */
+export const systemSchema = pgSchema('system')
 
 /**
  * Migration History Table Schema
@@ -13,7 +21,7 @@ import { pgTable, serial, integer, text, timestamp, jsonb } from 'drizzle-orm/pg
  * Tracks all schema migrations with timestamps and checksums.
  * Each migration is recorded with a version number and the complete schema snapshot.
  */
-export const sovriumMigrationHistory = pgTable('_sovrium_migration_history', {
+export const sovriumMigrationHistory = systemSchema.table('migration_history', {
   id: serial('id').primaryKey(),
   version: integer('version').notNull(),
   checksum: text('checksum').notNull(),
@@ -28,7 +36,7 @@ export const sovriumMigrationHistory = pgTable('_sovrium_migration_history', {
  * Tracks migration operations including rollbacks with status and reason.
  * Used for debugging and audit trail of schema changes.
  */
-export const sovriumMigrationLog = pgTable('_sovrium_migration_log', {
+export const sovriumMigrationLog = systemSchema.table('migration_log', {
   id: serial('id').primaryKey(),
   operation: text('operation').notNull(),
   fromVersion: integer('from_version'),
@@ -44,7 +52,7 @@ export const sovriumMigrationLog = pgTable('_sovrium_migration_log', {
  * Singleton table storing current schema checksum for change detection.
  * Uses a single row with id='singleton' to track the current state.
  */
-export const sovriumSchemaChecksum = pgTable('_sovrium_schema_checksum', {
+export const sovriumSchemaChecksum = systemSchema.table('schema_checksum', {
   id: text('id').primaryKey(),
   checksum: text('checksum').notNull(),
   schema: jsonb('schema').notNull(),

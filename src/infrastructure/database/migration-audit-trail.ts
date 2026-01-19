@@ -55,10 +55,11 @@ export type {
 /**
  * Table name constants derived from Drizzle schema
  * Using getTableName() ensures consistency with schema definitions
+ * Schema-qualified names are used for system schema tables
  */
-const MIGRATION_HISTORY_TABLE = getTableName(sovriumMigrationHistory)
-const MIGRATION_LOG_TABLE = getTableName(sovriumMigrationLog)
-const SCHEMA_CHECKSUM_TABLE = getTableName(sovriumSchemaChecksum)
+const MIGRATION_HISTORY_TABLE = `system.${getTableName(sovriumMigrationHistory)}`
+const MIGRATION_LOG_TABLE = `system.${getTableName(sovriumMigrationLog)}`
+const SCHEMA_CHECKSUM_TABLE = `system.${getTableName(sovriumSchemaChecksum)}`
 
 /**
  * Create schema snapshot object from app configuration
@@ -182,7 +183,7 @@ export const logRollbackOperation = (
   })
 
 /**
- * Store the schema checksum in the _sovrium_schema_checksum table
+ * Store the schema checksum in the system.schema_checksum table
  * Uses a singleton row with id='singleton' to store the current checksum
  */
 export const storeSchemaChecksum = (
@@ -219,7 +220,7 @@ export const storeSchemaChecksum = (
   })
 
 /**
- * Retrieve the previous schema from the _sovrium_schema_checksum table
+ * Retrieve the previous schema from the system.schema_checksum table
  * Returns undefined if no previous schema exists (first migration)
  */
 export const getPreviousSchema = (
@@ -244,7 +245,7 @@ export const getPreviousSchema = (
   })
 
 /**
- * Retrieve the stored checksum from the _sovrium_schema_checksum table
+ * Retrieve the stored checksum from the system.schema_checksum table
  * Returns undefined if no previous checksum exists (first migration)
  */
 export const getStoredChecksum = (
@@ -257,7 +258,7 @@ export const getStoredChecksum = (
     const tableExistsSQL = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables
-        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
+        WHERE table_schema = 'system' AND table_name = 'schema_checksum'
       ) as exists
     `
     const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)
@@ -290,7 +291,7 @@ const checksumTableExists = (tx: TransactionLike): Effect.Effect<boolean, SQLExe
     const tableExistsSQL = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables
-        WHERE table_name = '${SCHEMA_CHECKSUM_TABLE}'
+        WHERE table_schema = 'system' AND table_name = 'schema_checksum'
       ) as exists
     `
     const tableExistsResult = yield* executeSQL(tx, tableExistsSQL)

@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { pgTable, text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { users, organizations } from '../../../auth/better-auth/schema'
+import { systemSchema } from './migration-audit'
 
 /**
  * Activity Action Type
@@ -50,8 +51,8 @@ export type ActivityLogChanges = {
  * - userId and organizationId are nullable to support anonymous activity logging
  * - When Better Auth is not configured, activities are logged without user/org context
  */
-export const activityLogs = pgTable(
-  '_sovrium_activity_logs',
+export const activityLogs = systemSchema.table(
+  'activity_logs',
   {
     // Primary key - UUID for distributed systems compatibility
     id: text('id').primaryKey(),
