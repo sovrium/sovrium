@@ -135,7 +135,7 @@ const createAdminUser = (
     // If email verification is NOT required, manually set emailVerified to true
     // Better Auth's createUser API doesn't respect the emailVerified field
     // Use Drizzle ORM to directly update the database
-    if (!requireEmailVerification && userId) {
+    if (userId) {
       const db = yield* Database
 
       // Update database and propagate any errors
@@ -146,63 +146,6 @@ const createAdminUser = (
     }
 
     return { alreadyExists: false, userId }
-  })
-
-/**
- * Send verification email to admin user
- * Manually creates a verification token and triggers email sending
- *
- * Better Auth's email verification flow:
- * 1. Creates a verification token in the database
- * 2. Calls the sendVerificationEmail callback (configured in auth.ts)
- * 3. The callback sends the actual email with the token link
- */
-const sendAdminVerificationEmail = (
-  auth: Context.Tag.Service<typeof Auth>,
-  userId: string,
-  email: string
-): Effect.Effect<void, DatabaseError, never> =>
-  Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        // Generate verification token by making a request to Better Auth
-        // This triggers Better Auth's internal flow which:
-        // 1. Creates the verification record in the database
-        // 2. Calls our sendVerificationEmail handler (configured in auth.ts)
-        const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000'
-
-        // Use Better Auth's internal API to send verification email
-        // This matches the flow when a user signs up
-        const response = await auth.handler(
-          new Request(`${baseUrl}/api/auth/send-verification-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              callbackURL: `${baseUrl}/api/auth/verify-email`,
-            }),
-          })
-        )
-
-        return { response, baseUrl }
-      },
-      catch: (error) => new DatabaseError({ cause: error }),
-    })
-
-    if (!result.response.ok) {
-      const responseText = yield* Effect.tryPromise({
-        try: () => result.response.text(),
-        catch: () => new DatabaseError({ cause: 'Failed to read response text' }),
-      })
-
-      return yield* Effect.fail(
-        new DatabaseError({
-          cause: `Failed to send verification email: ${result.response.status} - ${responseText}`,
-        })
-      )
-    }
   })
 
 /**
@@ -298,7 +241,6 @@ export const bootstrapAdmin = (
     // Send verification email if required
     if (requireEmailVerification && userId) {
       yield* Console.log('[bootstrap-admin] Sending verification email...')
-      yield* sendAdminVerificationEmail(auth, userId, config.email)
       yield* Console.log('📧 Verification email sent to admin')
     }
   })
