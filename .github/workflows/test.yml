@@ -878,31 +878,32 @@ jobs:
           fi
 
           # Post comment explaining infrastructure error using heredoc
-          cat << EOF > /tmp/infra-error.md
-## 🔧 Infrastructure Error Detected
+          cat << 'EOF' > /tmp/infra-error.md
+          ## 🔧 Infrastructure Error Detected
 
-**This is NOT a code regression** - it's an environment/infrastructure issue.
+          **This is NOT a code regression** - it's an environment/infrastructure issue.
 
-**Error Type**: \`$INFRA_ERROR_TYPE\`
+          **Error Type**: `$INFRA_ERROR_TYPE`
 
-**What this means**:
-- The test failures are caused by CI environment issues, not your code changes
-- The TDD Monitor will automatically retry this PR
-- No code changes are needed to fix this
+          **What this means**:
+          - The test failures are caused by CI environment issues, not your code changes
+          - The TDD Monitor will automatically retry this PR
+          - No code changes are needed to fix this
 
-**Common causes**:
-- \`playwright_browser_missing\`: Playwright browser cache miss
-- \`network_error\`: Transient network connectivity issues
-- \`docker_error\`: Docker service unavailable
-- \`resource_exhaustion\`: Runner ran out of memory
-- \`browser_context_closed\`: Browser context prematurely closed
-- \`test_timeout\`: Test execution timeout exceeded
+          **Common causes**:
+          - `playwright_browser_missing`: Playwright browser cache miss
+          - `network_error`: Transient network connectivity issues
+          - `docker_error`: Docker service unavailable
+          - `resource_exhaustion`: Runner ran out of memory
+          - `browser_context_closed`: Browser context prematurely closed
+          - `test_timeout`: Test execution timeout exceeded
 
----
-*🤖 Infrastructure Error Handler*
-EOF
+          ---
+          *🤖 Infrastructure Error Handler*
+          EOF
 
-          gh pr comment "$PR_NUMBER" --body-file /tmp/infra-error.md
+          envsubst < /tmp/infra-error.md > /tmp/infra-error-final.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/infra-error-final.md
 
       - name: Fail if E2E tests failed
         if: steps.check.outputs.e2e_failed == 'true'
@@ -1261,21 +1262,21 @@ EOF
 
             # Post warning comment using heredoc (consistent with rest of workflow)
             cat << 'EOF' > /tmp/regression-max-attempts.md
-## ⚠️ Max Regression Fix Attempts Reached
+            ## ⚠️ Max Regression Fix Attempts Reached
 
-This PR has failed **3 regression fix attempts** and requires manual intervention.
+            This PR has failed **3 regression fix attempts** and requires manual intervention.
 
-### What Happened
-Claude Code attempted to fix the regressions 3 times but was unable to resolve them automatically.
+            ### What Happened
+            Claude Code attempted to fix the regressions 3 times but was unable to resolve them automatically.
 
-### Next Steps
-1. Review the regression failures in the CI logs
-2. Manually fix the regressions or revert the breaking changes
-3. Remove the `needs-manual-resolution` label when fixed
+            ### Next Steps
+            1. Review the regression failures in the CI logs
+            2. Manually fix the regressions or revert the breaking changes
+            3. Remove the `needs-manual-resolution` label when fixed
 
----
-*This limit prevents infinite retry loops and excessive Claude Code credit usage.*
-EOF
+            ---
+            *This limit prevents infinite retry loops and excessive Claude Code credit usage.*
+            EOF
 
             gh pr comment "$PR_NUMBER" --body-file /tmp/regression-max-attempts.md
           fi
@@ -1456,19 +1457,20 @@ EOF
           ISSUE_NUMBER: ${{ steps.details.outputs.issue_number }}
           REGRESSION_SPECS: ${{ needs.e2e-results.outputs.regression_specs }}
         run: |
-          cat << EOF > /tmp/regression-detected.md
-⚠️ **Regression Detected**
+          cat << 'EOF' > /tmp/regression-detected.md
+          ⚠️ **Regression Detected**
 
-The PR for this spec has introduced regressions in other test files:
-- **Regression specs**: \`$REGRESSION_SPECS\`
+          The PR for this spec has introduced regressions in other test files:
+          - **Regression specs**: `$REGRESSION_SPECS`
 
-Claude Code will attempt to auto-fix the regression.
+          Claude Code will attempt to auto-fix the regression.
 
----
-*🤖 Regression Handler*
-EOF
+          ---
+          *🤖 Regression Handler*
+          EOF
 
-          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/regression-detected.md
+          envsubst < /tmp/regression-detected.md > /tmp/regression-detected-final.md
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/regression-detected-final.md
           gh issue edit "$ISSUE_NUMBER" --add-label "failure:regression" || true
 
   # ============================================================================
@@ -1735,18 +1737,19 @@ EOF
           FAILURE_TYPE: ${{ steps.failure-type.outputs.type }}
           FAILURE_MESSAGE: ${{ steps.failure-type.outputs.message }}
         run: |
-          cat << EOF > /tmp/code-quality-failure.md
-⚠️ **Code Quality Failure**
+          cat << 'EOF' > /tmp/code-quality-failure.md
+          ⚠️ **Code Quality Failure**
 
-The PR for this spec has **$FAILURE_TYPE errors**:
-- **Error**: $FAILURE_MESSAGE
+          The PR for this spec has **$FAILURE_TYPE errors**:
+          - **Error**: $FAILURE_MESSAGE
 
-Claude Code will attempt to auto-fix the errors.
+          Claude Code will attempt to auto-fix the errors.
 
----
-*🤖 Code Quality Handler*
-EOF
+          ---
+          *🤖 Code Quality Handler*
+          EOF
 
-          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/code-quality-failure.md
+          envsubst < /tmp/code-quality-failure.md > /tmp/code-quality-failure-final.md
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/code-quality-failure-final.md
 
           gh issue edit "$ISSUE_NUMBER" --add-label "failure:$FAILURE_TYPE" || true
