@@ -188,7 +188,7 @@ test.describe('Set Active Team', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ORG-TEAMS-SET-ACTIVE-006: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ startServerWithSchema, request }) => {
