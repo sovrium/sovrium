@@ -12,6 +12,41 @@ import { isRateLimitExceeded, recordRateLimitRequest, extractClientIp } from './
 import type { App } from '@/domain/models/app'
 
 /**
+ * Apply authentication check middleware for admin endpoints
+ *
+ * This middleware ensures authentication is checked BEFORE parameter validation,
+ * preventing information leakage through error responses (400/404/403 vs 401).
+ *
+ * Without this middleware, Better Auth's admin endpoints validate parameters first,
+ * allowing unauthenticated users to probe for valid user IDs by observing response codes.
+ *
+ * Returns a Hono app with authentication middleware applied
+ */
+const applyAuthCheckMiddleware = (honoApp: Readonly<Hono>, authInstance: any): Readonly<Hono> => {
+  return honoApp.use('/api/auth/admin/*', async (c, next) => {
+    try {
+      // Check if request has a valid session cookie
+      const session = await authInstance.api.getSession({
+        headers: c.req.raw.headers,
+      })
+
+      // Return 401 if no valid session (BEFORE any parameter validation)
+      if (!session) {
+        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      }
+
+      // Session exists - proceed to next handler
+      // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+      await next()
+    } catch (error) {
+      // If session check fails, return 401 (assume unauthenticated)
+      console.error('[Auth Middleware] Session check error:', error)
+      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+    }
+  })
+}
+
+/**
  * Apply rate limiting middleware for admin endpoints
  * Returns a Hono app with rate limiting middleware applied
  */
@@ -112,8 +147,14 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app.auth)
 
+  // Apply authentication check middleware first (if admin plugin is enabled)
+  // This ensures 401 is returned before any parameter validation, preventing information leakage
+  const appWithAuthCheck = app.auth.admin
+    ? applyAuthCheckMiddleware(honoApp, authInstance)
+    : honoApp
+
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
-  const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(honoApp) : honoApp
+  const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(appWithAuthCheck) : honoApp
 
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively handles:

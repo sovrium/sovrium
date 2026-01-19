@@ -34,23 +34,31 @@ test.describe('Admin: Get user by ID', () => {
   // require proper admin user setup which isn't available via public API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-001: should return 200 OK with user details',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({
+      await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',
-        name: 'Admin User',
       })
       await signUp({
         email: 'target@example.com',
@@ -75,17 +83,26 @@ test.describe('Admin: Get user by ID', () => {
   test(
     'API-AUTH-ADMIN-GET-USER-002: should return 400 Bad Request without userId parameter',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user without userId parameter
       const response = await page.request.get('/api/auth/admin/get-user')
@@ -98,18 +115,27 @@ test.describe('Admin: Get user by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server (no authenticated user)
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       // WHEN: Unauthenticated user attempts to get user
       const response = await page.request.get('/api/auth/admin/get-user?userId=2')
@@ -119,18 +145,27 @@ test.describe('Admin: Get user by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular user (non-admin)
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       await signUp({
         email: 'user@example.com',
@@ -151,20 +186,29 @@ test.describe('Admin: Get user by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user with non-existent ID
       const response = await page.request.get('/api/auth/admin/get-user?userId=999')
@@ -174,20 +218,29 @@ test.describe('Admin: Get user by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-006: should return 200 OK with password field excluded',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an existing user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
 
       // WHEN: Admin requests user details
@@ -208,30 +261,27 @@ test.describe('Admin: Get user by ID', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-GET-USER-REGRESSION: admin can complete full get-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       await test.step('Setup: Start server with comprehensive configuration', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            admin: true,
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
+            },
           },
-        })
-
-        // Create admin and target users for testing
-        await signUp({
-          email: 'admin@example.com',
-          password: 'AdminPass123!',
-          name: 'Admin User',
-        })
-        await signUp({
-          email: 'target@example.com',
-          password: 'TargetPass123!',
-          name: 'Target User',
-        })
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'AdminPass123!',
+              name: 'Admin User',
+            },
+          }
+        )
       })
 
       await test.step('API-AUTH-ADMIN-GET-USER-003: Returns 401 Unauthorized without authentication', async () => {
@@ -240,6 +290,15 @@ test.describe('Admin: Get user by ID', () => {
 
         // THEN: Returns 401 Unauthorized
         expect(response.status()).toBe(401)
+      })
+
+      await test.step('Setup: Create target and regular users', async () => {
+        // Create target user for testing
+        await signUp({
+          email: 'target@example.com',
+          password: 'TargetPass123!',
+          name: 'Target User',
+        })
       })
 
       await test.step('API-AUTH-ADMIN-GET-USER-002: Returns 400 Bad Request without userId parameter', async () => {

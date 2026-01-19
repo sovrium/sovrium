@@ -34,23 +34,31 @@ test.describe('Admin: Create user', () => {
   // require proper admin user setup which isn't available via public API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-001: should return 201 Created with user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({
+      await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',
-        name: 'Admin User',
       })
 
       // WHEN: Admin creates a new user with valid data
@@ -74,20 +82,29 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-002: should return 201 Created with email pre-verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin creates user with emailVerified: true
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -111,17 +128,26 @@ test.describe('Admin: Create user', () => {
   test(
     'API-AUTH-ADMIN-CREATE-USER-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -136,20 +162,29 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-004: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with invalid email format
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -168,20 +203,29 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-005: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -260,20 +304,29 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-008: should return 409 Conflict for duplicate email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
       await signUp({
         email: 'existing@example.com',
         password: 'ExistingPass123!',
@@ -294,20 +347,29 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-009: should return 201 Created with XSS payload sanitized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits name with XSS payload
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -328,20 +390,29 @@ test.describe('Admin: Create user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-010: should return 201 Created with Unicode name preserved',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin creates user with Unicode characters in name
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -365,18 +436,27 @@ test.describe('Admin: Create user', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-CREATE-USER-REGRESSION: admin can complete full create-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // Setup: Start server with admin plugin enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       await test.step('API-AUTH-ADMIN-CREATE-USER-006: Returns 401 without authentication', async () => {
         // WHEN: Unauthenticated user attempts to create user
@@ -392,8 +472,7 @@ test.describe('Admin: Create user', () => {
         expect(response.status()).toBe(401)
       })
 
-      // Setup: Create admin user and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      // Setup: Create regular users (admin already created via adminBootstrap)
       await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
       await signUp({
         email: 'existing@example.com',
