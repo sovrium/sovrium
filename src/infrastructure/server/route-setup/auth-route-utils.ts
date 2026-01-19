@@ -58,3 +58,76 @@ export const recordRateLimitRequest = (ip: string): readonly number[] => {
 export const extractClientIp = (forwardedFor: string | undefined): string => {
   return forwardedFor ? (forwardedFor.split(',')[0]?.trim() ?? '127.0.0.1') : '127.0.0.1'
 }
+
+/**
+ * Rate limiting configuration for authentication endpoints
+ * Security-critical endpoints to prevent brute force attacks
+ */
+interface EndpointRateLimitConfig {
+  readonly windowMs: number
+  readonly maxRequests: number
+}
+
+const AUTH_RATE_LIMIT_CONFIGS: Record<string, EndpointRateLimitConfig> = {
+  '/api/auth/sign-in/email': {
+    windowMs: 60 * 1000, // 60 seconds
+    maxRequests: 5, // 5 attempts per minute (prevent credential stuffing)
+  },
+  '/api/auth/sign-up/email': {
+    windowMs: 60 * 1000, // 60 seconds
+    maxRequests: 5, // 5 signups per minute (prevent account creation abuse)
+  },
+  '/api/auth/request-password-reset': {
+    windowMs: 60 * 1000, // 60 seconds
+    maxRequests: 3, // 3 attempts per minute (prevent email enumeration)
+  },
+}
+
+/**
+ * Rate limiting state for authentication endpoints
+ * Maps endpoint + IP to request timestamps
+ */
+const authRateLimitState = new Map<string, number[]>()
+
+/**
+ * Get rate limit key for endpoint + IP combination
+ */
+const getRateLimitKey = (endpoint: string, ip: string): string => {
+  return `${endpoint}:${ip}`
+}
+
+/**
+ * Get recent requests within the rate limit window for an endpoint + IP
+ */
+export const getAuthRecentRequests = (endpoint: string, ip: string): readonly number[] => {
+  const config = AUTH_RATE_LIMIT_CONFIGS[endpoint]
+  if (!config) return []
+
+  const now = Date.now()
+  const key = getRateLimitKey(endpoint, ip)
+  const requestHistory = authRateLimitState.get(key) ?? []
+  return requestHistory.filter((timestamp) => now - timestamp < config.windowMs)
+}
+
+/**
+ * Check if auth endpoint rate limit is exceeded for an IP
+ */
+export const isAuthRateLimitExceeded = (endpoint: string, ip: string): boolean => {
+  const config = AUTH_RATE_LIMIT_CONFIGS[endpoint]
+  if (!config) return false
+
+  return getAuthRecentRequests(endpoint, ip).length >= config.maxRequests
+}
+
+/**
+ * Record a request for auth endpoint rate limiting
+ */
+export const recordAuthRateLimitRequest = (endpoint: string, ip: string): readonly number[] => {
+  const recentRequests = getAuthRecentRequests(endpoint, ip)
+  const now = Date.now()
+  const key = getRateLimitKey(endpoint, ip)
+  const updated = [...recentRequests, now]
+  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- Rate limiting requires mutable state
+  authRateLimitState.set(key, updated)
+  return updated
+}

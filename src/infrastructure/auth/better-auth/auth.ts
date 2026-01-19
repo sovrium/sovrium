@@ -100,18 +100,20 @@ const buildAuthPlugins = (
 
 /**
  * Build rate limiting configuration for Better Auth
+ *
+ * NOTE: Better Auth's native rate limiting has known issues with customRules not working reliably
+ * (see GitHub issues #392, #1891, #2153). As a workaround, Sovrium uses custom Hono middleware
+ * in auth-routes.ts to implement endpoint-specific rate limiting for sign-in, sign-up, and
+ * password-reset endpoints.
+ *
+ * This configuration keeps Better Auth's rate limiting disabled to avoid conflicts with the
+ * custom middleware implementation.
  */
 function buildRateLimitConfig() {
   return {
-    enabled: true,
+    enabled: false, // Disabled in favor of custom Hono middleware
     window: 60,
-    max: 10,
-    customRules: {
-      '/admin/*': {
-        window: 1,
-        max: 2,
-      },
-    },
+    max: 100,
   }
 }
 /**

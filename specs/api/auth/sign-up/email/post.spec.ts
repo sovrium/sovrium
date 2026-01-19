@@ -532,7 +532,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-UP-EMAIL-015: should allow access to protected resources after email verification',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, mailpit, executeQuery }) => {
@@ -597,7 +597,7 @@ test.describe('Sign up with email and password', () => {
       const apiData = await apiResponse.json()
       expect(apiData).toBeDefined()
       // Should return the task we created
-      expect(Array.isArray(apiData.data)).toBe(true)
+      expect(Array.isArray(apiData.records)).toBe(true)
     }
   )
 

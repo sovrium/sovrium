@@ -34,7 +34,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-001: should return 429 after exceeding sign-in rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
@@ -70,7 +70,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-002: should reset sign-in rate limit after window expires',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
@@ -115,7 +115,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-003: should return 429 after exceeding password reset rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
@@ -150,7 +150,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-004: should return 429 after exceeding sign-up rate limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -191,7 +191,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-005: should include Retry-After header in 429 response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
@@ -226,7 +226,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-006: should rate limit by IP address, not by user',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signUp }) => {
@@ -277,7 +277,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-RATE-REGRESSION: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {

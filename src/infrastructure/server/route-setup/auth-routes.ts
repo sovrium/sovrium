@@ -8,7 +8,13 @@
 import { type Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
-import { isRateLimitExceeded, recordRateLimitRequest, extractClientIp } from './auth-route-utils'
+import {
+  isRateLimitExceeded,
+  recordRateLimitRequest,
+  extractClientIp,
+  isAuthRateLimitExceeded,
+  recordAuthRateLimitRequest,
+} from './auth-route-utils'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -63,6 +69,43 @@ const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
     // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
     await next()
   })
+}
+
+/**
+ * Apply rate limiting middleware for authentication endpoints
+ *
+ * Protects security-critical authentication endpoints from brute force attacks:
+ * - sign-in: 5 attempts per 60 seconds (prevent credential stuffing)
+ * - sign-up: 5 attempts per 60 seconds (prevent account creation abuse)
+ * - request-password-reset: 3 attempts per 60 seconds (prevent email enumeration)
+ *
+ * Returns a Hono app with rate limiting middleware applied
+ */
+const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+  const endpoints = ['/api/auth/sign-in/email', '/api/auth/sign-up/email', '/api/auth/request-password-reset']
+
+  let result = honoApp
+  for (const endpoint of endpoints) {
+    result = result.use(endpoint, async (c, next) => {
+      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const path = c.req.path
+
+      if (isAuthRateLimitExceeded(path, ip)) {
+        return c.json(
+          { error: 'Too many requests', message: 'Too many requests' },
+          429,
+          { 'Retry-After': '60' } // Retry after 60 seconds (window duration)
+        )
+      }
+
+      recordAuthRateLimitRequest(path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+
+      // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+      await next()
+    })
+  }
+
+  return result
 }
 
 /**
@@ -154,7 +197,10 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     : honoApp
 
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
-  const appWithRateLimit = app.auth.admin ? applyRateLimitMiddleware(appWithAuthCheck) : honoApp
+  const appWithAdminRateLimit = app.auth.admin ? applyRateLimitMiddleware(appWithAuthCheck) : appWithAuthCheck
+
+  // Apply rate limiting middleware to authentication endpoints (sign-in, sign-up, password reset)
+  const appWithAuthRateLimit = applyAuthRateLimitMiddleware(appWithAdminRateLimit)
 
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively handles:
@@ -169,7 +215,7 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   //
   // IMPORTANT: Better Auth handles its own routing and expects the FULL request path
   // including the /api/auth prefix. We pass the original request without modification.
-  return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+  return appWithAuthRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
     return authInstance.handler(c.req.raw)
   })
 }
