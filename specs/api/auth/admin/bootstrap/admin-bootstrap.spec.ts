@@ -231,8 +231,16 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-005: should not modify existing user if email already exists with different role',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signUp, signIn: _signIn, executeQuery }) => {
-      // GIVEN: Application started with database containing existing user
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Create existing user in database BEFORE server starts
+      // This simulates a scenario where user exists from previous run
+      await executeQuery([
+        "INSERT INTO auth.user (id, email, name, email_verified, created_at, updated_at) VALUES ('existing-user-id', 'existing-user@example.com', 'Existing User', true, NOW(), NOW())",
+        // Insert session for the existing user (required by Better Auth for password)
+        "INSERT INTO auth.session (id, user_id, expires_at, token, created_at, updated_at) VALUES ('existing-session-id', 'existing-user-id', NOW() + INTERVAL '7 days', 'existing-token', NOW(), NOW())",
+      ])
+
+      // WHEN: Application starts with admin bootstrap for the same email
       await startServerWithSchema(
         {
           name: 'test-app',
@@ -250,15 +258,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         }
       )
 
-      // Create existing user with same email BEFORE bootstrap would run
-      // Note: This simulates a scenario where user exists from previous run
-      await signUp({
-        email: 'existing-user@example.com',
-        password: 'ExistingPass123!',
-        name: 'Existing User',
-      })
-
-      // WHEN: Checking user role in database
+      // THEN: Checking user role in database
       const result = await executeQuery(
         "SELECT role, name FROM auth.user WHERE email = 'existing-user@example.com'"
       )
