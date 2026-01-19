@@ -54,7 +54,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-001: should create admin account on first startup when env vars are set',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, signIn }) => {
+    async ({ startServerWithSchema, signIn }) => {
       // GIVEN: Application started with admin bootstrap environment variables
       // Note: The server fixture will be modified to accept adminBootstrap config
       // which translates to BETTER_AUTH_ADMIN_* environment variables
@@ -93,7 +93,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-002: should create admin with verified email status',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, signIn }) => {
+    async ({ startServerWithSchema, signIn }) => {
       // GIVEN: Application started with admin bootstrap environment variables
       await startServerWithSchema(
         {
@@ -170,7 +170,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-004: should not create duplicate admin on subsequent startups',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, signIn, executeQuery }) => {
+    async ({ startServerWithSchema, signIn, executeQuery }) => {
       // GIVEN: Application started with admin bootstrap
       await startServerWithSchema(
         {
@@ -208,7 +208,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-005: should not modify existing user if email already exists with different role',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, signUp, signIn: _signIn, executeQuery }) => {
+    async ({ startServerWithSchema, signUp, signIn: _signIn, executeQuery }) => {
       // GIVEN: Application started with database containing existing user
       await startServerWithSchema(
         {
@@ -254,7 +254,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-006: should not create admin when email env var is missing',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application started with only password and name (no email)
       await startServerWithSchema(
         {
@@ -286,7 +286,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-007: should not create admin when password env var is missing',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application started with only email and name (no password)
       await startServerWithSchema(
         {
@@ -318,7 +318,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-008: should create admin with default name when name env var is missing',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, signIn }) => {
+    async ({ startServerWithSchema, signIn }) => {
       // GIVEN: Application started with email and password but no name
       await startServerWithSchema(
         {
@@ -358,7 +358,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-009: should not create admin with invalid email format',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application started with invalid email format
       await startServerWithSchema(
         {
@@ -390,7 +390,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-010: should not create admin with password shorter than minimum length',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application started with password shorter than 8 characters
       await startServerWithSchema(
         {
@@ -426,7 +426,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-011: should not create admin when admin plugin is not enabled',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application started with admin env vars but admin plugin disabled
       await startServerWithSchema(
         {
@@ -494,7 +494,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-013: should log admin creation success without exposing password',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, signIn }) => {
+    async ({ startServerWithSchema, signIn }) => {
       // GIVEN: Application started with admin bootstrap
       // Note: This test verifies behavior by checking the admin was created
       // Actual log verification would require log capture infrastructure
