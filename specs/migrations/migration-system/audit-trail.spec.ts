@@ -52,7 +52,7 @@ test.describe('Migration Audit Trail', () => {
 
       // THEN: Migration recorded in history table
       const history = await executeQuery(
-        `SELECT * FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
+        `SELECT * FROM system.migration_history ORDER BY applied_at DESC LIMIT 1`
       )
       expect(history.rows).toHaveLength(1)
       expect(history.rows[0].checksum).toBeDefined()
@@ -84,7 +84,7 @@ test.describe('Migration Audit Trail', () => {
 
       // THEN: Full schema snapshot stored in history
       const history = await executeQuery(
-        `SELECT schema FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
+        `SELECT schema FROM system.migration_history ORDER BY applied_at DESC LIMIT 1`
       )
       expect(history.rows).toHaveLength(1)
 
@@ -114,8 +114,8 @@ test.describe('Migration Audit Trail', () => {
 
       // Setup test data: Replace auto-created entry with version 1
       await executeQuery([
-        `DELETE FROM _sovrium_migration_history`,
-        `INSERT INTO _sovrium_migration_history (version, checksum, schema)
+        `DELETE FROM system.migration_history`,
+        `INSERT INTO system.migration_history (version, checksum, schema)
          VALUES (1, 'checksum_v1', '{"tables":[]}')`,
       ])
 
@@ -136,7 +136,7 @@ test.describe('Migration Audit Trail', () => {
 
       // THEN: Version number incremented (migration system automatically recorded version 2)
       const versions = await executeQuery(
-        `SELECT version FROM _sovrium_migration_history ORDER BY version`
+        `SELECT version FROM system.migration_history ORDER BY version`
       )
       expect(versions.rows).toHaveLength(2)
       expect(versions.rows[0].version).toBe(1)
@@ -187,7 +187,7 @@ test.describe('Migration Audit Trail', () => {
 
       // THEN: Rollback logged with details
       const logs = await executeQuery(
-        `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
+        `SELECT * FROM system.migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
       )
       expect(logs.rows).toHaveLength(1)
       expect(logs.rows[0].reason).toBeTruthy() // Should have an error reason
@@ -214,8 +214,8 @@ test.describe('Migration Audit Trail', () => {
       // GIVEN: Multiple migrations in history
       await executeQuery([
         // Delete auto-created migration entry to start with clean slate
-        `DELETE FROM _sovrium_migration_history`,
-        `INSERT INTO _sovrium_migration_history (version, checksum, schema, applied_at) VALUES
+        `DELETE FROM system.migration_history`,
+        `INSERT INTO system.migration_history (version, checksum, schema, applied_at) VALUES
           (1, 'v1', '{"tables":[]}', '2025-01-01 10:00:00'),
           (2, 'v2', '{"tables":[{"name":"users"}]}', '2025-01-02 10:00:00'),
           (3, 'v3', '{"tables":[{"name":"users"},{"name":"posts"}]}', '2025-01-03 10:00:00')`,
@@ -226,19 +226,19 @@ test.describe('Migration Audit Trail', () => {
 
       // Query all migrations
       const allMigrations = await executeQuery(
-        `SELECT * FROM _sovrium_migration_history ORDER BY version`
+        `SELECT * FROM system.migration_history ORDER BY version`
       )
       expect(allMigrations.rows).toHaveLength(3)
 
       // Query by date range
       const recentMigrations = await executeQuery(
-        `SELECT * FROM _sovrium_migration_history WHERE applied_at >= '2025-01-02'`
+        `SELECT * FROM system.migration_history WHERE applied_at >= '2025-01-02'`
       )
       expect(recentMigrations.rows).toHaveLength(2)
 
       // Query specific version
       const v2Migration = await executeQuery(
-        `SELECT * FROM _sovrium_migration_history WHERE version = 2`
+        `SELECT * FROM system.migration_history WHERE version = 2`
       )
       expect(v2Migration.rows).toHaveLength(1)
       expect(v2Migration.rows[0].checksum).toBe('v2')
@@ -267,7 +267,7 @@ test.describe('Migration Audit Trail', () => {
       // GIVEN: Recorded schema state differs from actual (simulate manual modification)
       await executeQuery([
         // Update recorded schema checksum to have only 2 columns
-        `UPDATE _sovrium_schema_checksum
+        `UPDATE system.schema_checksum
          SET schema = '{"tables":[{"name":"customers","fields":[{"name":"id"},{"name":"email"}]}]}'
          WHERE id = 'singleton'`,
         // Manually add extra column to actual database (simulates drift)
@@ -286,7 +286,7 @@ test.describe('Migration Audit Trail', () => {
 
       // Recorded schema only has 2 columns
       const recordedSchema = await executeQuery(
-        `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT schema FROM system.schema_checksum WHERE id = 'singleton'`
       )
       expect(recordedSchema.rows[0].schema.tables[0].fields).toHaveLength(2)
 
@@ -303,8 +303,8 @@ test.describe('Migration Audit Trail', () => {
   // Generated from 6 @spec tests - covers: migration history, schema snapshots,
   // version tracking, rollback logging, query interface, schema drift detection
   //
-  // IMPORTANT: Steps that manipulate internal tables (_sovrium_migration_history,
-  // _sovrium_schema_checksum) are placed at the END since they corrupt database
+  // IMPORTANT: Steps that manipulate internal tables (system.migration_history,
+  // system.schema_checksum) are placed at the END since they corrupt database
   // integrity for subsequent startServerWithSchema calls.
   // ============================================================================
 
@@ -336,7 +336,7 @@ test.describe('Migration Audit Trail', () => {
         // Migration was applied in Setup step
         // THEN: Migration recorded in history table
         const history = await executeQuery(
-          `SELECT * FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
+          `SELECT * FROM system.migration_history ORDER BY applied_at DESC LIMIT 1`
         )
         expect(history.rows).toHaveLength(1)
         expect(history.rows[0].checksum).toBeDefined()
@@ -346,7 +346,7 @@ test.describe('Migration Audit Trail', () => {
       await test.step('MIGRATION-AUDIT-002: stores complete schema snapshot in migration history', async () => {
         // THEN: Full schema snapshot stored in history (from Setup migration)
         const history = await executeQuery(
-          `SELECT schema FROM _sovrium_migration_history ORDER BY applied_at DESC LIMIT 1`
+          `SELECT schema FROM system.migration_history ORDER BY applied_at DESC LIMIT 1`
         )
         expect(history.rows).toHaveLength(1)
 
@@ -360,7 +360,7 @@ test.describe('Migration Audit Trail', () => {
       await test.step('MIGRATION-AUDIT-003: tracks incremental version numbers for each migration', async () => {
         // Get current version count before applying new migration
         const beforeVersions = await executeQuery(
-          `SELECT version FROM _sovrium_migration_history ORDER BY version`
+          `SELECT version FROM system.migration_history ORDER BY version`
         )
         const versionCountBefore = beforeVersions.rows.length
 
@@ -372,7 +372,7 @@ test.describe('Migration Audit Trail', () => {
 
         // THEN: Version number incremented
         const afterVersions = await executeQuery(
-          `SELECT version FROM _sovrium_migration_history ORDER BY version`
+          `SELECT version FROM system.migration_history ORDER BY version`
         )
         expect(afterVersions.rows.length).toBe(versionCountBefore + 1)
 
@@ -411,7 +411,7 @@ test.describe('Migration Audit Trail', () => {
 
         // THEN: Rollback logged with details
         const logs = await executeQuery(
-          `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
+          `SELECT * FROM system.migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
         )
         expect(logs.rows).toHaveLength(1)
         expect(logs.rows[0].reason).toBeTruthy()
@@ -431,7 +431,7 @@ test.describe('Migration Audit Trail', () => {
         // Setup: Recorded schema state differs from actual (simulate manual modification)
         // This corrupts the schema_checksum table, so no more startServerWithSchema after this
         await executeQuery([
-          `UPDATE _sovrium_schema_checksum
+          `UPDATE system.schema_checksum
            SET schema = '{"tables":[{"name":"products","fields":[{"name":"name"},{"name":"price"}]}]}'
            WHERE id = 'singleton'`,
           `ALTER TABLE products ADD COLUMN extra_column TEXT`,
@@ -446,7 +446,7 @@ test.describe('Migration Audit Trail', () => {
 
         // THEN: Recorded schema only has 2 columns (name, price)
         const recordedSchema = await executeQuery(
-          `SELECT schema FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT schema FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(recordedSchema.rows[0].schema.tables[0].fields).toHaveLength(2)
 
@@ -457,13 +457,13 @@ test.describe('Migration Audit Trail', () => {
       })
 
       await test.step('MIGRATION-AUDIT-005: provides query interface for migration history', async () => {
-        // NOTE: This step is LAST because it corrupts _sovrium_migration_history
+        // NOTE: This step is LAST because it corrupts system.migration_history
         // by deleting real entries and inserting fake test data
 
         // Setup: Multiple migrations in history (replaces actual history with test data)
         await executeQuery([
-          `DELETE FROM _sovrium_migration_history`,
-          `INSERT INTO _sovrium_migration_history (version, checksum, schema, applied_at) VALUES
+          `DELETE FROM system.migration_history`,
+          `INSERT INTO system.migration_history (version, checksum, schema, applied_at) VALUES
             (1, 'v1', '{"tables":[]}', '2025-01-01 10:00:00'),
             (2, 'v2', '{"tables":[{"name":"users"}]}', '2025-01-02 10:00:00'),
             (3, 'v3', '{"tables":[{"name":"users"},{"name":"posts"}]}', '2025-01-03 10:00:00')`,
@@ -471,19 +471,19 @@ test.describe('Migration Audit Trail', () => {
 
         // THEN: Query all migrations
         const allMigrations = await executeQuery(
-          `SELECT * FROM _sovrium_migration_history ORDER BY version`
+          `SELECT * FROM system.migration_history ORDER BY version`
         )
         expect(allMigrations.rows).toHaveLength(3)
 
         // THEN: Query by date range
         const recentMigrations = await executeQuery(
-          `SELECT * FROM _sovrium_migration_history WHERE applied_at >= '2025-01-02'`
+          `SELECT * FROM system.migration_history WHERE applied_at >= '2025-01-02'`
         )
         expect(recentMigrations.rows).toHaveLength(2)
 
         // THEN: Query specific version
         const v2Migration = await executeQuery(
-          `SELECT * FROM _sovrium_migration_history WHERE version = 2`
+          `SELECT * FROM system.migration_history WHERE version = 2`
         )
         expect(v2Migration.rows).toHaveLength(1)
         expect(v2Migration.rows[0].checksum).toBe('v2')

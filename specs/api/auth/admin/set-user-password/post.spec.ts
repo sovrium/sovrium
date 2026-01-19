@@ -324,7 +324,7 @@ test.describe('Admin: Set user password', () => {
 
         // Promote first user to admin via database (bootstrap the first admin)
         await executeQuery(`
-          UPDATE "_sovrium_auth_users"
+          UPDATE "auth.user"
           SET role = 'admin'
           WHERE id = '${adminUserId}'
         `)

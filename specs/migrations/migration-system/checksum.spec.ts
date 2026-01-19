@@ -25,7 +25,7 @@ test.describe('Checksum Optimization', () => {
   // ============================================================================
 
   test(
-    'MIGRATION-CHECKSUM-001: should save SHA-256 checksum to _sovrium_schema_checksum table when runtime migration executes for first time',
+    'MIGRATION-CHECKSUM-001: should save SHA-256 checksum to system.schema_checksum table when runtime migration executes for first time',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table schema configuration with no previous checksum
@@ -41,18 +41,18 @@ test.describe('Checksum Optimization', () => {
         ],
       })
 
-      // THEN: PostgreSQL saves SHA-256 checksum to _sovrium_schema_checksum table
+      // THEN: PostgreSQL saves SHA-256 checksum to system.schema_checksum table
 
       // Checksum table exists
       const tableCheck = await executeQuery(
-        `SELECT table_name FROM information_schema.tables WHERE table_name = '_sovrium_schema_checksum'`
+        `SELECT table_name FROM information_schema.tables WHERE table_name = 'system.schema_checksum'`
       )
       // THEN: assertion
-      expect(tableCheck.table_name).toBe('_sovrium_schema_checksum')
+      expect(tableCheck.table_name).toBe('system.schema_checksum')
 
       // Checksum saved as singleton row
       const singletonCheck = await executeQuery(
-        `SELECT id, LENGTH(checksum) as checksum_length FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT id, LENGTH(checksum) as checksum_length FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(singletonCheck.id).toBe('singleton')
@@ -60,7 +60,7 @@ test.describe('Checksum Optimization', () => {
 
       // Checksum is SHA-256 hex (64 characters)
       const validSha256 = await executeQuery(
-        `SELECT checksum ~ '^[0-9a-f]{64}$' as valid_sha256 FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT checksum ~ '^[0-9a-f]{64}$' as valid_sha256 FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(validSha256.valid_sha256).toBe(true)
@@ -109,7 +109,7 @@ test.describe('Checksum Optimization', () => {
 
       // Verify checksum exists and is valid
       const savedChecksum = await executeQuery(
-        `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(savedChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
@@ -135,7 +135,7 @@ test.describe('Checksum Optimization', () => {
 
       // Get initial checksum
       const initialChecksum = await executeQuery(
-        `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
       )
 
       // WHEN: table schema modified (new field added) - checksum differs from previous run
@@ -164,7 +164,7 @@ test.describe('Checksum Optimization', () => {
 
       // New checksum saved after successful migration
       const newChecksum = await executeQuery(
-        `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(newChecksum.checksum).not.toBe(initialChecksum.checksum)
@@ -172,7 +172,7 @@ test.describe('Checksum Optimization', () => {
       // Updated timestamp reflects migration
       const timestampCheck = await executeQuery(
         `SELECT updated_at > (NOW() - INTERVAL '5 seconds') as recently_updated
-         FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+         FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(timestampCheck.recently_updated).toBe(true)
@@ -198,7 +198,7 @@ test.describe('Checksum Optimization', () => {
 
       // Get initial checksum
       const initialChecksum = await executeQuery(
-        `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
       )
 
       // WHEN: minor schema change occurs (field property change that affects schema)
@@ -224,7 +224,7 @@ test.describe('Checksum Optimization', () => {
 
       // New checksum saved with constraint included
       const newChecksum = await executeQuery(
-        `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(newChecksum.checksum).not.toBe(initialChecksum.checksum)
@@ -257,30 +257,30 @@ test.describe('Checksum Optimization', () => {
           ],
         })
 
-        // THEN: PostgreSQL saves SHA-256 checksum to _sovrium_schema_checksum table
+        // THEN: PostgreSQL saves SHA-256 checksum to system.schema_checksum table
 
         // Checksum table exists
         const tableCheck = await executeQuery(
-          `SELECT table_name FROM information_schema.tables WHERE table_name = '_sovrium_schema_checksum'`
+          `SELECT table_name FROM information_schema.tables WHERE table_name = 'system.schema_checksum'`
         )
-        expect(tableCheck.table_name).toBe('_sovrium_schema_checksum')
+        expect(tableCheck.table_name).toBe('system.schema_checksum')
 
         // Checksum saved as singleton row
         const singletonCheck = await executeQuery(
-          `SELECT id, LENGTH(checksum) as checksum_length FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT id, LENGTH(checksum) as checksum_length FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(singletonCheck.id).toBe('singleton')
         expect(singletonCheck.checksum_length).toBe(64)
 
         // Checksum is SHA-256 hex (64 characters)
         const validSha256 = await executeQuery(
-          `SELECT checksum ~ '^[0-9a-f]{64}$' as valid_sha256 FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT checksum ~ '^[0-9a-f]{64}$' as valid_sha256 FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(validSha256.valid_sha256).toBe(true)
 
         // Save initial checksum for later comparison
         const savedChecksum = await executeQuery(
-          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
         )
         initialChecksum = savedChecksum.checksum
       })
@@ -311,7 +311,7 @@ test.describe('Checksum Optimization', () => {
 
         // Verify checksum exists and is valid
         const savedChecksum = await executeQuery(
-          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(savedChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
       })
@@ -345,14 +345,14 @@ test.describe('Checksum Optimization', () => {
 
         // New checksum saved after successful migration
         const newChecksum = await executeQuery(
-          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(newChecksum.checksum).not.toBe(initialChecksum)
 
         // Updated timestamp reflects migration
         const timestampCheck = await executeQuery(
           `SELECT updated_at > (NOW() - INTERVAL '5 seconds') as recently_updated
-           FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+           FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(timestampCheck.recently_updated).toBe(true)
 
@@ -392,7 +392,7 @@ test.describe('Checksum Optimization', () => {
 
         // New checksum saved with constraint included
         const newChecksum = await executeQuery(
-          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+          `SELECT checksum FROM system.schema_checksum WHERE id = 'singleton'`
         )
         expect(newChecksum.checksum).not.toBe(checksumAfterModification)
       })

@@ -47,7 +47,7 @@ test.describe('Migration Rollback', () => {
 
       // Manually corrupt the checksum to simulate drift
       await executeQuery([
-        `UPDATE _sovrium_schema_checksum SET checksum = 'abc123' WHERE id = 'singleton'`,
+        `UPDATE system.schema_checksum SET checksum = 'abc123' WHERE id = 'singleton'`,
       ])
 
       // WHEN: New schema with different checksum is applied
@@ -169,7 +169,7 @@ test.describe('Migration Rollback', () => {
       // Rollback command would be invoked via CLI or API
       // This test verifies the rollback mechanism exists and works
       const historyBefore = await executeQuery(
-        `SELECT version, rolled_back_at FROM _sovrium_migration_history ORDER BY version DESC`
+        `SELECT version, rolled_back_at FROM system.migration_history ORDER BY version DESC`
       )
       expect(historyBefore.rows).toHaveLength(2)
       expect(historyBefore.rows[0].version).toBe(2)
@@ -346,7 +346,7 @@ test.describe('Migration Rollback', () => {
 
       // Rollback operation logged
       const logs = await executeQuery(
-        `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
+        `SELECT * FROM system.migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
       )
       expect(logs.rows).toHaveLength(1)
       expect(logs.rows[0].status).toBe('COMPLETED')
@@ -515,7 +515,7 @@ test.describe('Migration Rollback', () => {
       await test.step('MIGRATION-ROLLBACK-003: provides manual rollback with migration history', async () => {
         // Get current version count
         const historyBefore = await executeQuery(
-          `SELECT version FROM _sovrium_migration_history ORDER BY version`
+          `SELECT version FROM system.migration_history ORDER BY version`
         )
         const countBefore = historyBefore.rows.length
 
@@ -530,7 +530,7 @@ test.describe('Migration Rollback', () => {
 
         // Verify migration history grew
         const historyAfter = await executeQuery(
-          `SELECT version, rolled_back_at FROM _sovrium_migration_history ORDER BY version DESC`
+          `SELECT version, rolled_back_at FROM system.migration_history ORDER BY version DESC`
         )
         expect(historyAfter.rows.length).toBeGreaterThanOrEqual(countBefore)
         expect(historyAfter.rows[0].rolled_back_at).toBeNull()
@@ -641,7 +641,7 @@ test.describe('Migration Rollback', () => {
 
         // Verify rollback logged
         const logs = await executeQuery(
-          `SELECT * FROM _sovrium_migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
+          `SELECT * FROM system.migration_log WHERE operation = 'ROLLBACK' ORDER BY created_at DESC LIMIT 1`
         )
         expect(logs.rows).toHaveLength(1)
         expect(logs.rows[0].status).toBe('COMPLETED')
@@ -703,7 +703,7 @@ test.describe('Migration Rollback', () => {
         expect(phoneDataAfter.rows[0].count).toBe('2')
       })
 
-      // NOTE: This step is LAST because it corrupts _sovrium_schema_checksum
+      // NOTE: This step is LAST because it corrupts system.schema_checksum
       // which breaks subsequent startServerWithSchema calls
       await test.step('MIGRATION-ROLLBACK-001: detects checksum mismatch and prevents migration', async () => {
         // First reset to ensure valid state before corruption test
@@ -717,7 +717,7 @@ test.describe('Migration Rollback', () => {
 
         // Corrupt checksum to simulate drift (THIS CORRUPTS STATE - NO MORE SERVER STARTS AFTER)
         await executeQuery([
-          `UPDATE _sovrium_schema_checksum SET checksum = 'abc123' WHERE id = 'singleton'`,
+          `UPDATE system.schema_checksum SET checksum = 'abc123' WHERE id = 'singleton'`,
         ])
 
         // Attempt migration with same schema (will detect corrupted checksum)

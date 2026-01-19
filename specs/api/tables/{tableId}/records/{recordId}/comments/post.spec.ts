@@ -82,7 +82,7 @@ test.describe('Create comment on a record', () => {
 
       // Verify comment exists in database
       const result = await executeQuery(`
-        SELECT * FROM _sovrium_record_comments WHERE record_id = '1'
+        SELECT * FROM system.record_comments WHERE record_id = '1'
       `)
       expect(result.rows).toHaveLength(1)
       expect(result.rows[0].content).toBe('This is my first comment on this task.')
@@ -133,7 +133,7 @@ test.describe('Create comment on a record', () => {
 
       // Verify in database
       const result = await executeQuery(`
-        SELECT content FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+        SELECT content FROM system.record_comments WHERE id = '${data.comment.id}'
       `)
       expect(result.rows[0].content).toContain('@[user_2]')
     }
@@ -415,7 +415,7 @@ test.describe('Create comment on a record', () => {
 
       // Verify in database
       const result = await executeQuery(`
-        SELECT user_id FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+        SELECT user_id FROM system.record_comments WHERE id = '${data.comment.id}'
       `)
       expect(result.rows[0].user_id).toBe('user_1')
     }
@@ -466,7 +466,7 @@ test.describe('Create comment on a record', () => {
 
       // Verify in database
       const result = await executeQuery(`
-        SELECT organization_id FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+        SELECT organization_id FROM system.record_comments WHERE id = '${data.comment.id}'
       `)
       expect(result.rows[0].organization_id).toBe('org_123')
     }
@@ -587,7 +587,7 @@ test.describe('Create comment on a record', () => {
 
         // Verify in database
         const result = await executeQuery(`
-          SELECT * FROM _sovrium_record_comments WHERE record_id = '1' AND table_id = '12'
+          SELECT * FROM system.record_comments WHERE record_id = '1' AND table_id = '12'
         `)
         expect(result.rows.length).toBeGreaterThan(0)
       })
@@ -603,7 +603,7 @@ test.describe('Create comment on a record', () => {
         expect(data.comment.content).toBe('Hey @[user_2], can you review this task?')
 
         const result = await executeQuery(`
-          SELECT content FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+          SELECT content FROM system.record_comments WHERE id = '${data.comment.id}'
         `)
         expect(result.rows[0].content).toContain('@[user_2]')
       })
@@ -718,7 +718,7 @@ test.describe('Create comment on a record', () => {
         expect(data.comment.userId).toBe('user_1')
 
         const result = await executeQuery(`
-          SELECT user_id FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+          SELECT user_id FROM system.record_comments WHERE id = '${data.comment.id}'
         `)
         expect(result.rows[0].user_id).toBe('user_1')
       })
@@ -734,7 +734,7 @@ test.describe('Create comment on a record', () => {
         expect(data.comment.organizationId).toBe('org_123')
 
         const result = await executeQuery(`
-          SELECT organization_id FROM _sovrium_record_comments WHERE id = '${data.comment.id}'
+          SELECT organization_id FROM system.record_comments WHERE id = '${data.comment.id}'
         `)
         expect(result.rows[0].organization_id).toBe('org_123')
       })

@@ -137,7 +137,7 @@ test.describe('List all tables', () => {
 
       // Set viewer role manually (admin plugin not enabled in this test)
       await executeQuery(`
-        UPDATE "_sovrium_auth_users"
+        UPDATE "auth.user"
         SET role = 'viewer'
         WHERE id = '${viewer.user.id}'
       `)
@@ -197,7 +197,7 @@ test.describe('List all tables', () => {
 
       // Set member role manually (admin plugin not enabled in this test)
       await executeQuery(`
-        UPDATE "_sovrium_auth_users"
+        UPDATE "auth.user"
         SET role = 'member'
         WHERE id = '${member.user.id}'
       `)
@@ -267,7 +267,7 @@ test.describe('List all tables', () => {
       // Setup: Create authenticated user and set role to 'member'
       const user = await createAuthenticatedUser()
       await executeQuery(`
-        UPDATE "_sovrium_auth_users"
+        UPDATE "auth.user"
         SET role = 'member'
         WHERE id = '${user.user.id}'
       `)

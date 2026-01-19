@@ -778,7 +778,7 @@ test.describe('Create new record', () => {
 
       // THEN: Activity log entry is created with comprehensive data
       const logs = await executeQuery(`
-        SELECT * FROM _sovrium_activity_logs
+        SELECT * FROM system.activity_logs
         WHERE table_name = 'contacts' AND action = 'create'
         ORDER BY created_at DESC
         LIMIT 1
@@ -1170,7 +1170,7 @@ test.describe('Create new record', () => {
         const record = await response.json()
 
         const logs = await executeQuery(`
-          SELECT * FROM _sovrium_activity_logs
+          SELECT * FROM system.activity_logs
           WHERE table_name = 'contacts' AND action = 'create'
           ORDER BY created_at DESC
           LIMIT 1

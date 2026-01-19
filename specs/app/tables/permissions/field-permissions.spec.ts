@@ -516,7 +516,7 @@ test.describe('Field-Level Permissions', () => {
 
       // Manually set user role to member (default role in Better Auth)
       await executeQuery([
-        `UPDATE _sovrium_auth_users SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
+        `UPDATE auth.user SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
       ])
 
       await signIn({
@@ -546,7 +546,7 @@ test.describe('Field-Level Permissions', () => {
 
       // Manually set user role to admin
       await executeQuery([
-        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
+        `UPDATE auth.user SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
       ])
 
       await signIn({
@@ -613,7 +613,7 @@ test.describe('Field-Level Permissions', () => {
 
       // Manually set user role to member (default role in Better Auth)
       await executeQuery([
-        `UPDATE _sovrium_auth_users SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
+        `UPDATE auth.user SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
       ])
 
       await signIn({
@@ -642,7 +642,7 @@ test.describe('Field-Level Permissions', () => {
 
       // Manually set user role to admin
       await executeQuery([
-        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
+        `UPDATE auth.user SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
       ])
 
       await signIn({
@@ -1069,7 +1069,7 @@ test.describe('Field-Level Permissions', () => {
         })
 
         await executeQuery([
-          `UPDATE _sovrium_auth_users SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
+          `UPDATE auth.user SET role = 'member' WHERE id = '${memberResult.user!.id}'`,
         ])
 
         await signIn({
@@ -1093,7 +1093,7 @@ test.describe('Field-Level Permissions', () => {
         })
 
         await executeQuery([
-          `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
+          `UPDATE auth.user SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
         ])
 
         await signIn({

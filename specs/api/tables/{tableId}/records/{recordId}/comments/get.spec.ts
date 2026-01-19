@@ -54,7 +54,7 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
         VALUES
           ('comment_1', '1', '1', 'org_123', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
           ('comment_2', '1', '1', 'org_123', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
@@ -190,7 +190,7 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
       `)
 
@@ -228,7 +228,7 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with deleted comments')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
         VALUES
           ('comment_1', '1', '1', 'org_123', 'user_1', 'Active comment', NULL),
           ('comment_2', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
@@ -273,7 +273,7 @@ test.describe('List comments on a record', () => {
           ('user_2', 'Bob Smith', 'bob@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES
           ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment by Alice'),
           ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
@@ -326,7 +326,7 @@ test.describe('List comments on a record', () => {
         return `('comment_${commentId}', '1', '1', 'org_123', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
       }).join(',')
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
         VALUES ${values}
       `)
 
@@ -374,7 +374,7 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with sorted comments')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
         VALUES
           ('comment_1', '1', '1', 'org_123', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
           ('comment_2', '1', '1', 'org_123', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
@@ -423,7 +423,7 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with edited comment')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
       `)
 
@@ -465,7 +465,7 @@ test.describe('List comments on a record', () => {
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Confidential comment')
       `)
 
@@ -524,7 +524,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
           VALUES
             ('comment_1', '1', '1', 'org_123', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
             ('comment_2', '1', '1', 'org_123', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
@@ -578,7 +578,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title, organization_id) VALUES (4, 'Task in Org 456', 'org_456')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
           VALUES ('comment_org456', '4', '1', 'org_456', 'user_2', 'Comment in org 456')
         `)
 
@@ -596,7 +596,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (5, 'Task with deleted comments')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
           VALUES
             ('comment_active', '5', '1', 'org_123', 'user_1', 'Active comment', NULL),
             ('comment_deleted', '5', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
@@ -616,7 +616,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (6, 'Collaborative Task')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
           VALUES
             ('comment_alice', '6', '1', 'org_123', 'user_1', 'Comment by Alice'),
             ('comment_bob', '6', '1', 'org_123', 'user_2', 'Comment by Bob')
@@ -649,7 +649,7 @@ test.describe('List comments on a record', () => {
           return `('comment_page_${commentId}', '7', '1', 'org_123', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
         }).join(',')
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
           VALUES ${values}
         `)
 
@@ -677,7 +677,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (8, 'Task with sorted comments')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
           VALUES
             ('comment_oldest', '8', '1', 'org_123', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
             ('comment_middle', '8', '1', 'org_123', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
@@ -706,7 +706,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (9, 'Task with edited comment')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
           VALUES ('comment_edited', '9', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
         `)
 
@@ -727,7 +727,7 @@ test.describe('List comments on a record', () => {
           INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
           VALUES ('comment_confidential', '1', '2', 'org_123', 'user_1', 'Confidential comment')
         `)
 

@@ -755,7 +755,7 @@ test.describe('Update record', () => {
 
       // THEN: Activity log entry is created with before and after values
       const logs = await executeQuery(`
-        SELECT * FROM _sovrium_activity_logs
+        SELECT * FROM system.activity_logs
         WHERE table_name = 'tasks' AND action = 'update' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -820,7 +820,7 @@ test.describe('Update record', () => {
 
       // THEN: Activity log captures only changed fields
       const logs = await executeQuery(`
-        SELECT changes FROM _sovrium_activity_logs
+        SELECT changes FROM system.activity_logs
         WHERE table_name = 'contacts' AND action = 'update' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -878,7 +878,7 @@ test.describe('Update record', () => {
 
       // THEN: Activity log correctly attributes update to user1
       const logs = await executeQuery(`
-        SELECT user_id FROM _sovrium_activity_logs
+        SELECT user_id FROM system.activity_logs
         WHERE table_name = 'items' AND action = 'update' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -1196,7 +1196,7 @@ test.describe('Update record', () => {
         expect(response.status()).toBe(200)
 
         const logs = await executeQuery(`
-          SELECT * FROM _sovrium_activity_logs
+          SELECT * FROM system.activity_logs
           WHERE table_name = 'tasks' AND action = 'update' AND record_id = '2'
           ORDER BY created_at DESC
           LIMIT 1
@@ -1230,7 +1230,7 @@ test.describe('Update record', () => {
         expect(response.status()).toBe(200)
 
         const logs = await executeQuery(`
-          SELECT changes FROM _sovrium_activity_logs
+          SELECT changes FROM system.activity_logs
           WHERE table_name = 'employees' AND action = 'update' AND record_id = '100'
           ORDER BY created_at DESC
           LIMIT 1
@@ -1257,7 +1257,7 @@ test.describe('Update record', () => {
         expect(response.status()).toBe(200)
 
         const logs = await executeQuery(`
-          SELECT user_id FROM _sovrium_activity_logs
+          SELECT user_id FROM system.activity_logs
           WHERE table_name = 'tasks' AND action = 'update' AND record_id = '100'
           ORDER BY created_at DESC
           LIMIT 1

@@ -49,7 +49,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
 
       // Create activity logs via direct database insertion
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '5 minutes'),
           ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Task 1", "new": "Updated Task 1"}}', NOW() - INTERVAL '3 minutes'),
@@ -126,7 +126,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW()),
           ('${user.id}', 'create', 'tasks', 2, '{"title": "Task 2"}', NOW()),
@@ -169,7 +169,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW()),
           ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Task 1", "new": "Updated"}}', NOW()),
@@ -214,7 +214,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user1.user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW()),
           ('${user1.user.id}', 'create', 'tasks', 2, '{"title": "Task 2"}', NOW()),
@@ -257,7 +257,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "Old Task"}', NOW() - INTERVAL '10 days'),
           ('${user.id}', 'create', 'tasks', 2, '{"title": "Recent Task"}', NOW() - INTERVAL '2 days'),
@@ -300,7 +300,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "First"}', NOW() - INTERVAL '5 minutes'),
           ('${user.id}', 'create', 'tasks', 2, '{"title": "Second"}', NOW() - INTERVAL '3 minutes'),
@@ -353,7 +353,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         (_, i) => `('${user.id}', 'create', 'tasks', ${i + 1}, '{"title": "Task ${i + 1}"}', NOW())`
       ).join(',')
       await executeQuery(
-        `INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at) VALUES ${insertValues}`
+        `INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at) VALUES ${insertValues}`
       )
 
       // WHEN: User requests page 2 with pageSize 10
@@ -468,7 +468,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
 
       // Create activities in different orgs (simulated via organization_id)
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
         VALUES
           ('${user1.user.id}', 'create', 'tasks', 1, '{"title": "Org1 Task"}', 'org1', NOW()),
           ('${user2.user.id}', 'create', 'tasks', 2, '{"title": "Org2 Task"}', 'org2', NOW())
@@ -512,7 +512,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser({ name: 'Alice Johnson' })
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW())
       `)
 
@@ -554,7 +554,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "Old Activity"}', NOW() - INTERVAL '400 days'),
           ('${user.id}', 'create', 'tasks', 2, '{"title": "Recent Activity"}', NOW() - INTERVAL '30 days'),
@@ -650,7 +650,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
 
       // System-logged activities (e.g., automated background processes) have null user_id
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
         VALUES
           (NULL, NULL, 'create', 'tasks', 1, '{"title": "System-created Task"}', NOW() - INTERVAL '5 minutes'),
           ('${user.id}', NULL, 'update', 'tasks', 1, '{"title": {"old": "System-created Task", "new": "User-updated Task"}}', NOW())
@@ -694,7 +694,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const { user } = await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user.id}', 'create', 'tasks', 1, '{"title": "My Task"}', NOW()),
           ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "My Task", "new": "Updated Task"}}', NOW())
@@ -737,7 +737,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${user1.user.id}', 'create', 'tasks', 1, '{"title": "User1 Task"}', NOW()),
           ('${user2.user.id}', 'create', 'tasks', 2, '{"title": "User2 Task"}', NOW())
@@ -786,7 +786,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
 
       const regularUser = await createAuthenticatedUser({ email: 'regular@example.com' })
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${regularUser.user.id}', 'create', 'tasks', 1, '{"title": "Regular User Task"}', NOW()),
           ('${regularUser.user.id}', 'update', 'tasks', 1, '{"title": {"old": "Regular User Task", "new": "Updated"}}', NOW())
@@ -849,7 +849,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       const userId = user.id
 
       await executeQuery(`
-        INSERT INTO _sovrium_activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
           ('${userId}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
           ('${userId}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),

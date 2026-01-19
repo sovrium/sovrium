@@ -118,7 +118,7 @@ test.describe('Created By Field', () => {
 
       // WHEN: querying with JOIN
       const creatorInfo = await executeQuery(
-        'SELECT d.title, u.name as creator_name FROM documents d JOIN _sovrium_auth_users u ON d.created_by = u.id WHERE d.id = 1'
+        'SELECT d.title, u.name as creator_name FROM documents d JOIN auth.user u ON d.created_by = u.id WHERE d.id = 1'
       )
       // THEN: should return creator info
       expect(creatorInfo.title).toBe('First Doc')
@@ -234,7 +234,7 @@ test.describe('Created By Field', () => {
 
       // WHEN: querying creators with JOIN
       const creatorNames = await executeQuery(
-        `SELECT t.title, u.name as creator FROM tasks t JOIN _sovrium_auth_users u ON t.created_by = u.id WHERE t.created_by IN ('${alice.user.id}', '${charlie.user.id}') ORDER BY t.id`
+        `SELECT t.title, u.name as creator FROM tasks t JOIN auth.user u ON t.created_by = u.id WHERE t.created_by IN ('${alice.user.id}', '${charlie.user.id}') ORDER BY t.id`
       )
       // THEN: should return tasks with creator names
       expect(creatorNames.rows).toEqual([
@@ -380,7 +380,7 @@ test.describe('Created By Field', () => {
         )
         expect(Number(documentCount.count)).toBe(3)
         const creatorInfo = await executeQuery(
-          'SELECT d.title, u.name as creator_name FROM documents d JOIN _sovrium_auth_users u ON d.created_by = u.id WHERE d.id = 1'
+          'SELECT d.title, u.name as creator_name FROM documents d JOIN auth.user u ON d.created_by = u.id WHERE d.id = 1'
         )
         expect(creatorInfo.title).toBe('First Doc')
         expect(creatorInfo.creator_name).toBe('Alice')
@@ -437,7 +437,7 @@ test.describe('Created By Field', () => {
         )
         expect(Number(bobTasks.count)).toBe(1)
         const creatorNames = await executeQuery(
-          `SELECT t.title, u.name as creator FROM tasks t JOIN _sovrium_auth_users u ON t.created_by = u.id WHERE t.created_by IN ('${alice.user.id}', '${charlie.user.id}') ORDER BY t.id`
+          `SELECT t.title, u.name as creator FROM tasks t JOIN auth.user u ON t.created_by = u.id WHERE t.created_by IN ('${alice.user.id}', '${charlie.user.id}') ORDER BY t.id`
         )
         expect(creatorNames.rows).toEqual([
           { title: 'Task 1', creator: 'Alice' },

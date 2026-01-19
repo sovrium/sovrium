@@ -56,7 +56,7 @@ test.describe('Admin: Set user role', () => {
 
       // Promote first user to admin via database (bootstrap the first admin)
       await executeQuery(`
-        UPDATE "_sovrium_auth_users"
+        UPDATE "auth.user"
         SET role = 'admin'
         WHERE id = '${admin.user.id}'
       `)
@@ -361,7 +361,7 @@ test.describe('Admin: Set user role', () => {
 
         // Promote first user to admin via database (bootstrap the first admin)
         await executeQuery(`
-          UPDATE "_sovrium_auth_users"
+          UPDATE "auth.user"
           SET role = 'admin'
           WHERE id = '${adminUserId}'
         `)

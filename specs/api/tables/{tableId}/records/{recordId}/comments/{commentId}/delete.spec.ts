@@ -52,7 +52,7 @@ test.describe('Delete comment', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to delete')
       `)
 
@@ -64,7 +64,7 @@ test.describe('Delete comment', () => {
 
       // Verify comment is soft-deleted (deleted_at IS NOT NULL)
       const result = await executeQuery(`
-        SELECT deleted_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+        SELECT deleted_at FROM system.record_comments WHERE id = 'comment_1'
       `)
       expect(result.rows[0].deleted_at).not.toBeNull()
     }
@@ -96,7 +96,7 @@ test.describe('Delete comment', () => {
           ('user_2', 'Bob', 'bob@example.com', 'member')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
       `)
 
@@ -110,7 +110,7 @@ test.describe('Delete comment', () => {
 
       // Verify comment is soft-deleted
       const result = await executeQuery(`
-        SELECT deleted_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+        SELECT deleted_at FROM system.record_comments WHERE id = 'comment_1'
       `)
       expect(result.rows[0].deleted_at).not.toBeNull()
     }
@@ -136,7 +136,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to delete')
       `)
 
@@ -174,7 +174,7 @@ test.describe('Delete comment', () => {
           ('user_2', 'Bob', 'bob@example.com', 'member')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
       `)
 
@@ -246,7 +246,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
       `)
 
@@ -284,7 +284,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Already deleted comment', NOW())
       `)
 
@@ -320,7 +320,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to soft-delete')
       `)
 
@@ -331,7 +331,7 @@ test.describe('Delete comment', () => {
       expect(response.status()).toBe(204)
 
       const result = await executeQuery(`
-        SELECT id, content, deleted_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+        SELECT id, content, deleted_at FROM system.record_comments WHERE id = 'comment_1'
       `)
       expect(result.rows).toHaveLength(1)
       expect(result.rows[0].content).toBe('Comment to soft-delete')
@@ -363,7 +363,7 @@ test.describe('Delete comment', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to delete')
       `)
 
@@ -421,7 +421,7 @@ test.describe('Delete comment', () => {
             ('admin_1', 'Admin User', 'admin@example.com', 'admin')
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
           VALUES
             ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment by Alice'),
             ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob'),
@@ -436,7 +436,7 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
-            SELECT deleted_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+            SELECT deleted_at FROM system.record_comments WHERE id = 'comment_1'
           `)
         expect(result.rows[0].deleted_at).not.toBeNull()
       })
@@ -447,7 +447,7 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
-            SELECT deleted_at FROM _sovrium_record_comments WHERE id = 'comment_2'
+            SELECT deleted_at FROM system.record_comments WHERE id = 'comment_2'
           `)
         expect(result.rows[0].deleted_at).not.toBeNull()
       })
@@ -460,7 +460,7 @@ test.describe('Delete comment', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-004: Different non-admin user attempts to delete comment and returns 403 Forbidden', async () => {
         await createAuthenticatedUser()
         await executeQuery(`
-            UPDATE _sovrium_record_comments SET user_id = 'user_2' WHERE id = 'comment_3'
+            UPDATE system.record_comments SET user_id = 'user_2' WHERE id = 'comment_3'
           `)
         const response = await request.delete('/api/tables/1/records/1/comments/comment_3', {})
         expect(response.status()).toBe(403)
@@ -480,7 +480,7 @@ test.describe('Delete comment', () => {
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: User from different organization attempts to delete comment and returns 404 Not Found', async () => {
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
             VALUES ('comment_org_456', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
           `)
         const response = await request.delete(
@@ -495,7 +495,7 @@ test.describe('Delete comment', () => {
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-007: User attempts to delete already-deleted comment and returns 404 Not Found', async () => {
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
             VALUES ('comment_deleted', '1', '1', 'org_123', 'user_1', 'Already deleted comment', NOW())
           `)
         const response = await request.delete(
@@ -513,7 +513,7 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
-            SELECT id, content, deleted_at FROM _sovrium_record_comments WHERE id = 'comment_4'
+            SELECT id, content, deleted_at FROM system.record_comments WHERE id = 'comment_4'
           `)
         expect(result.rows).toHaveLength(1)
         expect(result.rows[0].content).toBe('Yet another comment by Alice')

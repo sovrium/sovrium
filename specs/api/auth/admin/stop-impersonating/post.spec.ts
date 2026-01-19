@@ -44,9 +44,7 @@ test.describe('Admin: Stop Impersonating', () => {
       })
 
       // Manually set admin role via database
-      await executeQuery(
-        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'`
-      )
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
 
       const targetUser = await signUp({
         email: 'user@example.com',
@@ -247,9 +245,7 @@ test.describe('Admin: Stop Impersonating', () => {
         password: 'Password123!',
       })
 
-      await executeQuery(
-        `UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'`
-      )
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
 
       const targetUser = await signUp({
         email: 'user@example.com',

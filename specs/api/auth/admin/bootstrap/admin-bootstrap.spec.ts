@@ -197,7 +197,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking user count in database
       const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE email = 'idempotent-admin@example.com'"
+        "SELECT COUNT(*) as count FROM auth.user WHERE email = 'idempotent-admin@example.com'"
       )
 
       // THEN: Only one admin account exists (idempotent)
@@ -237,7 +237,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking user role in database
       const result = await executeQuery(
-        "SELECT role, name FROM _sovrium_auth_users WHERE email = 'existing-user@example.com'"
+        "SELECT role, name FROM auth.user WHERE email = 'existing-user@example.com'"
       )
 
       // THEN: Existing user's role and name are NOT modified
@@ -275,7 +275,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking for admin users in database
       const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE role = 'admin'"
+        "SELECT COUNT(*) as count FROM auth.user WHERE role = 'admin'"
       )
 
       // THEN: No admin account was created
@@ -307,7 +307,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking for admin users in database
       const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE email = 'no-password@example.com'"
+        "SELECT COUNT(*) as count FROM auth.user WHERE email = 'no-password@example.com'"
       )
 
       // THEN: No admin account was created
@@ -379,7 +379,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking for admin users in database
       const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE role = 'admin'"
+        "SELECT COUNT(*) as count FROM auth.user WHERE role = 'admin'"
       )
 
       // THEN: No admin account was created due to invalid email
@@ -411,7 +411,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking for admin users in database
       const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE email = 'short-pass@example.com'"
+        "SELECT COUNT(*) as count FROM auth.user WHERE email = 'short-pass@example.com'"
       )
 
       // THEN: No admin account was created due to weak password
@@ -447,7 +447,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
       // WHEN: Checking for users with admin role
       const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE email = 'no-plugin@example.com' AND role = 'admin'"
+        "SELECT COUNT(*) as count FROM auth.user WHERE email = 'no-plugin@example.com' AND role = 'admin'"
       )
 
       // THEN: No admin account was created (plugin not available)
@@ -590,7 +590,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
       await test.step('API-AUTH-ADMIN-BOOTSTRAP-004: Idempotent - only one admin exists', async () => {
         // WHEN: Counting admin users in database
         const result = await executeQuery(
-          "SELECT COUNT(*) as count FROM _sovrium_auth_users WHERE email = 'regression-admin@example.com'"
+          "SELECT COUNT(*) as count FROM auth.user WHERE email = 'regression-admin@example.com'"
         )
 
         // THEN: Exactly one admin account exists
@@ -607,7 +607,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
 
         // WHEN: Checking regular user role
         const result = await executeQuery(
-          "SELECT role FROM _sovrium_auth_users WHERE email = 'regular-user@example.com'"
+          "SELECT role FROM auth.user WHERE email = 'regular-user@example.com'"
         )
 
         // THEN: Regular user has default role (not admin)
@@ -626,7 +626,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
           data: {
             userId: (
               await executeQuery(
-                "SELECT id FROM _sovrium_auth_users WHERE email = 'regular-user@example.com'"
+                "SELECT id FROM auth.user WHERE email = 'regular-user@example.com'"
               )
             ).id,
             role: 'viewer',

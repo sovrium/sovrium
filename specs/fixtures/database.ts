@@ -187,7 +187,7 @@ export class DatabaseTemplateManager {
       // Clear checksum table to ensure tests start with clean state
       // Migration audit trail tables are created by Drizzle migrations, but may have
       // residual data from previous test runs if template was reused.
-      await templatePool.query(`DELETE FROM _sovrium_schema_checksum`)
+      await templatePool.query(`DELETE FROM system.schema_checksum`)
     } finally {
       await templatePool.end()
     }

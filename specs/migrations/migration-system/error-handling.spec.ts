@@ -71,7 +71,7 @@ test.describe('Error Handling and Rollback', () => {
 
       // Checksum NOT saved on failure
       const checksumCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        `SELECT COUNT(*) as count FROM system.schema_checksum WHERE id = 'singleton'`
       )
       // THEN: assertion
       expect(checksumCheck.count).toBe('0')

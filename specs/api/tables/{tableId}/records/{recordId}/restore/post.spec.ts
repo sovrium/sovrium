@@ -335,7 +335,7 @@ test.describe('Restore record', () => {
 
       // THEN: Activity log entry is created for restore action
       const logs = await executeQuery(`
-        SELECT * FROM _sovrium_activity_logs
+        SELECT * FROM system.activity_logs
         WHERE table_name = 'tasks' AND action = 'restore' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -394,7 +394,7 @@ test.describe('Restore record', () => {
 
       // THEN: Activity log correctly attributes restore to admin user
       const logs = await executeQuery(`
-        SELECT user_id FROM _sovrium_activity_logs
+        SELECT user_id FROM system.activity_logs
         WHERE table_name = 'items' AND action = 'restore' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -584,7 +584,7 @@ test.describe('Restore record', () => {
 
         // Verify activity log entry is created
         const logs = await executeQuery(`
-          SELECT * FROM _sovrium_activity_logs
+          SELECT * FROM system.activity_logs
           WHERE table_name = 'tasks' AND action = 'restore' AND record_id = '7'
           ORDER BY created_at DESC
           LIMIT 1
@@ -620,7 +620,7 @@ test.describe('Restore record', () => {
 
         // Verify activity log attributes restore to admin user
         const logs = await executeQuery(`
-          SELECT user_id FROM _sovrium_activity_logs
+          SELECT user_id FROM system.activity_logs
           WHERE table_name = 'tasks' AND action = 'restore' AND record_id = '8'
           ORDER BY created_at DESC
           LIMIT 1

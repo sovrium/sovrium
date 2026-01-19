@@ -47,7 +47,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'This is a test comment', NOW(), NOW())
       `)
 
@@ -126,7 +126,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Private Task')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Private comment')
       `)
 
@@ -162,7 +162,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
       `)
 
@@ -200,7 +200,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
       `)
 
@@ -236,7 +236,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Confidential comment')
       `)
 
@@ -275,7 +275,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
       `)
 
@@ -325,7 +325,7 @@ test.describe('Get single comment by ID', () => {
             INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
           `)
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
             VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'This is a test comment', NOW(), NOW())
           `)
 
@@ -365,7 +365,7 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-003: Returns 401 for unauthenticated request', async () => {
         // GIVEN: Record with comment in authenticated app
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
             VALUES ('comment_2', '1', '1', 'org_123', 'user_1', 'Private comment')
           `)
 
@@ -379,7 +379,7 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-004: Returns 404 for cross-organization access', async () => {
         // GIVEN: User from different organization
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
             VALUES ('comment_3', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
           `)
 
@@ -398,7 +398,7 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-005: Returns 404 for soft-deleted comment', async () => {
         // GIVEN: Record with soft-deleted comment
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
             VALUES ('comment_4', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
           `)
 
@@ -415,7 +415,7 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-006: Returns 403 for unauthorized access', async () => {
         // GIVEN: User without read permission for the record
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
             VALUES ('comment_5', '1', '1', 'org_123', 'user_1', 'Confidential comment')
           `)
 
@@ -432,7 +432,7 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-007: Shows updated timestamp for edited comments', async () => {
         // GIVEN: Record with an edited comment (updatedAt > createdAt)
         await executeQuery(`
-            INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
             VALUES ('comment_6', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
           `)
 

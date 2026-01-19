@@ -956,10 +956,9 @@ export const test = base.extend<ServerFixtures>({
         let ownerEmail: string
         try {
           // Fetch user to invite
-          const userResult = await client.query(
-            `SELECT email FROM _sovrium_auth_users WHERE id = $1`,
-            [data.userId]
-          )
+          const userResult = await client.query(`SELECT email FROM auth.user WHERE id = $1`, [
+            data.userId,
+          ])
 
           if (userResult.rows.length === 0) {
             throw new Error(`User with id ${data.userId} not found`)
@@ -970,8 +969,8 @@ export const test = base.extend<ServerFixtures>({
           // Fetch organization owner (creator) to sign in as them
           const ownerResult = await client.query(
             `SELECT u.email, u.id
-             FROM _sovrium_auth_users u
-             INNER JOIN _sovrium_auth_members m ON u.id = m.user_id
+             FROM auth.user u
+             INNER JOIN auth.member m ON u.id = m.user_id
              WHERE m.organization_id = $1 AND m.role = 'owner'
              LIMIT 1`,
             [data.organizationId]

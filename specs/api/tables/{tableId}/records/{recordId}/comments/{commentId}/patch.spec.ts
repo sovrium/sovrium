@@ -51,7 +51,7 @@ test.describe('Update comment', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment', NOW(), NOW())
       `)
 
@@ -79,7 +79,7 @@ test.describe('Update comment', () => {
 
       // Verify in database
       const result = await executeQuery(`
-        SELECT content, updated_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+        SELECT content, updated_at FROM system.record_comments WHERE id = 'comment_1'
       `)
       expect(result.rows[0].content).toBe('Updated comment text')
     }
@@ -112,7 +112,7 @@ test.describe('Update comment', () => {
           ('user_3', 'Carol', 'carol@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Hey @[user_2], check this out')
       `)
 
@@ -155,7 +155,7 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
       `)
 
@@ -199,7 +199,7 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
       `)
 
@@ -244,7 +244,7 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
       `)
 
@@ -289,7 +289,7 @@ test.describe('Update comment', () => {
           ('user_2', 'Bob', 'bob@example.com')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
       `)
 
@@ -375,7 +375,7 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
       `)
 
@@ -418,7 +418,7 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
       `)
 
@@ -465,7 +465,7 @@ test.describe('Update comment', () => {
           ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg')
       `)
       await executeQuery(`
-        INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
       `)
 
@@ -532,7 +532,7 @@ test.describe('Update comment', () => {
             ('user_3', 'Carol White', 'carol@example.com', NULL)
         `)
         await executeQuery(`
-          INSERT INTO _sovrium_record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at, deleted_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at, deleted_at)
           VALUES
             ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
             ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob', NOW(), NOW(), NULL),
@@ -558,7 +558,7 @@ test.describe('Update comment', () => {
         )
 
         const result = await executeQuery(`
-          SELECT content, updated_at FROM _sovrium_record_comments WHERE id = 'comment_1'
+          SELECT content, updated_at FROM system.record_comments WHERE id = 'comment_1'
         `)
         expect(result.rows[0].content).toBe('Updated comment text')
       })

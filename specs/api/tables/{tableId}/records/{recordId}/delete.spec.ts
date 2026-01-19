@@ -719,7 +719,7 @@ test.describe('Delete record', () => {
 
       // THEN: Activity log entry is created with before state
       const logs = await executeQuery(`
-        SELECT * FROM _sovrium_activity_logs
+        SELECT * FROM system.activity_logs
         WHERE table_name = 'tasks' AND action = 'delete' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -776,7 +776,7 @@ test.describe('Delete record', () => {
 
       // THEN: Activity log entry is created for permanent delete
       const logs = await executeQuery(`
-        SELECT * FROM _sovrium_activity_logs
+        SELECT * FROM system.activity_logs
         WHERE table_name = 'logs' AND action = 'delete' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1
@@ -829,7 +829,7 @@ test.describe('Delete record', () => {
 
       // THEN: Activity log correctly attributes deletion to admin user
       const logs = await executeQuery(`
-        SELECT user_id FROM _sovrium_activity_logs
+        SELECT user_id FROM system.activity_logs
         WHERE table_name = 'items' AND action = 'delete' AND record_id = '1'
         ORDER BY created_at DESC
         LIMIT 1

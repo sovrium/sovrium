@@ -127,7 +127,7 @@ test.describe('Updated By Field', () => {
 
       // WHEN: querying with JOIN
       const lastEditor = await executeQuery(
-        'SELECT d.title, u.name as last_editor FROM documents d JOIN _sovrium_auth_users u ON d.updated_by = u.id WHERE d.id = 1'
+        'SELECT d.title, u.name as last_editor FROM documents d JOIN auth.user u ON d.updated_by = u.id WHERE d.id = 1'
       )
       // THEN: should return latest editor info
       expect(lastEditor.title).toBe('Updated by Charlie')
@@ -185,7 +185,7 @@ test.describe('Updated By Field', () => {
 
       // WHEN: querying closed tasks with JOIN
       const closedByBob = await executeQuery(
-        "SELECT t.title, t.status, u.name as last_editor FROM tasks t JOIN _sovrium_auth_users u ON t.updated_by = u.id WHERE t.status = 'closed' ORDER BY t.id"
+        "SELECT t.title, t.status, u.name as last_editor FROM tasks t JOIN auth.user u ON t.updated_by = u.id WHERE t.status = 'closed' ORDER BY t.id"
       )
       // THEN: should return closed tasks with Bob as editor
       expect(closedByBob.rows).toEqual([
@@ -234,7 +234,7 @@ test.describe('Updated By Field', () => {
 
       // WHEN: querying the audit trail
       const auditTrail = await executeQuery(
-        'SELECT p.title, uc.name as creator, ue.name as editor FROM pages p JOIN _sovrium_auth_users uc ON p.created_by = uc.id JOIN _sovrium_auth_users ue ON p.updated_by = ue.id WHERE p.id = 1'
+        'SELECT p.title, uc.name as creator, ue.name as editor FROM pages p JOIN auth.user uc ON p.created_by = uc.id JOIN auth.user ue ON p.updated_by = ue.id WHERE p.id = 1'
       )
       // THEN: should show creator and editor
       expect(auditTrail.title).toBe('Page 1 Edited')
@@ -399,7 +399,7 @@ test.describe('Updated By Field', () => {
         )
         expect(charlieUpdate.updated_by).toBe(charlie.user.id)
         const lastEditor = await executeQuery(
-          'SELECT d.title, u.name as last_editor FROM documents d JOIN _sovrium_auth_users u ON d.updated_by = u.id WHERE d.id = 1'
+          'SELECT d.title, u.name as last_editor FROM documents d JOIN auth.user u ON d.updated_by = u.id WHERE d.id = 1'
         )
         expect(lastEditor.title).toBe('Updated by Charlie')
         expect(lastEditor.last_editor).toBe('Charlie')
@@ -425,7 +425,7 @@ test.describe('Updated By Field', () => {
         )
         expect(Number(aliceEdits.count)).toBe(0)
         const closedByBob = await executeQuery(
-          "SELECT t.title, t.status, u.name as last_editor FROM tasks t JOIN _sovrium_auth_users u ON t.updated_by = u.id WHERE t.status = 'closed' ORDER BY t.id"
+          "SELECT t.title, t.status, u.name as last_editor FROM tasks t JOIN auth.user u ON t.updated_by = u.id WHERE t.status = 'closed' ORDER BY t.id"
         )
         expect(closedByBob.rows).toEqual([
           { title: 'Task 1', status: 'closed', last_editor: 'Bob' },
@@ -446,7 +446,7 @@ test.describe('Updated By Field', () => {
           `UPDATE pages SET title = 'Page 1 Edited', updated_by = '${bob.user.id}' WHERE id = 1`
         )
         const auditTrail = await executeQuery(
-          'SELECT p.title, uc.name as creator, ue.name as editor FROM pages p JOIN _sovrium_auth_users uc ON p.created_by = uc.id JOIN _sovrium_auth_users ue ON p.updated_by = ue.id WHERE p.id = 1'
+          'SELECT p.title, uc.name as creator, ue.name as editor FROM pages p JOIN auth.user uc ON p.created_by = uc.id JOIN auth.user ue ON p.updated_by = ue.id WHERE p.id = 1'
         )
         expect(auditTrail.title).toBe('Page 1 Edited')
         expect(auditTrail.creator).toBe('Alice')

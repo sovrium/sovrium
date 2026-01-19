@@ -86,7 +86,7 @@ test.describe('API Field Permission Enforcement', () => {
 
       // Set admin role via direct database update
       await executeQuery(`
-        UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'
+        UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'
       `)
 
       const org = await createOrganization({ name: 'Test Org' })
@@ -167,7 +167,7 @@ test.describe('API Field Permission Enforcement', () => {
 
       // Manually set role to admin via database
       await executeQuery(`
-        UPDATE "_sovrium_auth_users"
+        UPDATE "auth.user"
         SET role = 'admin'
         WHERE id = '${admin.user.id}'
       `)
@@ -476,7 +476,7 @@ test.describe('API Field Permission Enforcement', () => {
 
         // Set admin role via direct database update
         await executeQuery(`
-          UPDATE _sovrium_auth_users SET role = 'admin' WHERE id = '${admin.user.id}'
+          UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'
         `)
 
         org = await createOrganization({ name: 'Test Org' })
