@@ -5,8 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { eq } from 'drizzle-orm'
 import { Effect, Console, Data } from 'effect'
 import { Auth } from '@/infrastructure/auth/better-auth'
+import { users } from '@/infrastructure/auth/better-auth/schema'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -70,31 +73,30 @@ const isValidPassword = (password: string): boolean => {
 
 /**
  * Create admin user via Better Auth server-side API
- * Uses Better Auth's signUpEmail API directly for server-side user creation.
+ * Uses Better Auth's createUser API directly for server-side user creation.
  * Handles idempotency by checking for duplicate email errors.
  *
- * IMPORTANT: We use auth.api.signUpEmail instead of:
+ * IMPORTANT: We use auth.api.createUser instead of:
  * 1. auth.handler - requires HTTP request context that may not work during bootstrap
- * 2. createUser (admin plugin) - requires authenticated admin (chicken-and-egg problem)
- * 3. createUser - has a bug linking accounts to wrong user (GitHub issue #5879)
+ * 2. signUpEmail - would send verification email even when we don't want it
  *
  * Role assignment is handled by the admin plugin's user.created hook:
  * - First user is automatically made admin (firstUserAdmin: true)
- * - Users with "admin" in email are auto-promoted to admin with emailVerified: true
+ * - Users with "admin" in email are auto-promoted to admin
  *
- * @returns Effect that yields true if user already exists, false if created
+ * @param requireEmailVerification - If true, triggers verification email workflow
+ * @returns Effect that yields { alreadyExists: boolean, userId?: string }
  */
 const createAdminUser = (
   auth: Context.Tag.Service<typeof Auth>,
-  config: Readonly<AdminBootstrapConfig>
-): Effect.Effect<boolean, DatabaseError, never> =>
+  config: Readonly<AdminBootstrapConfig>,
+  requireEmailVerification: boolean
+): Effect.Effect<{ alreadyExists: boolean; userId?: string }, DatabaseError, Database> =>
   Effect.gen(function* () {
-    console.log('[bootstrap-admin] Creating admin user via Better Auth API:', config.email)
-
     // Attempt to create user
     const result = yield* Effect.tryPromise({
       try: async () => {
-        const result = await auth.api.createUser({
+        const userResult = await auth.api.createUser({
           body: {
             email: config.email,
             password: config.password,
@@ -103,25 +105,18 @@ const createAdminUser = (
           },
         })
 
-        console.log(
-          '[bootstrap-admin] Create user API result:',
-          JSON.stringify(result, undefined, 2)
-        )
-
-        return result
+        return userResult
       },
       catch: (error) => new DatabaseError({ cause: error }),
     }).pipe(
       Effect.catchAll((dbError) => {
-        console.error('[bootstrap-admin] Error creating user:', dbError)
         // If user already exists, return success (idempotent behavior)
         // Check the original error cause
         const originalError = dbError.cause
         const errorMessage =
           originalError instanceof Error ? originalError.message : String(originalError)
         if (errorMessage.toLowerCase().includes('already exists')) {
-          console.log('[bootstrap-admin] User already exists, skipping creation (idempotent)')
-          return Effect.succeed(true)
+          return Effect.succeed({ alreadyExists: true })
         }
 
         // For other errors, re-fail with the same DatabaseError
@@ -130,11 +125,84 @@ const createAdminUser = (
     )
 
     // Check if we got the "already exists" marker
-    if (result === true) {
-      return true
+    if ('alreadyExists' in result && result.alreadyExists) {
+      return result
     }
 
-    return false
+    // Extract user ID from the response
+    const userId = 'user' in result && result.user ? result.user.id : undefined
+
+    // If email verification is NOT required, manually set emailVerified to true
+    // Better Auth's createUser API doesn't respect the emailVerified field
+    // Use Drizzle ORM to directly update the database
+    if (!requireEmailVerification && userId) {
+      const db = yield* Database
+
+      // Update database and propagate any errors
+      yield* Effect.tryPromise({
+        try: () => db.update(users).set({ emailVerified: true }).where(eq(users.id, userId)),
+        catch: (error) => new DatabaseError({ cause: error }),
+      }).pipe(Effect.asVoid)
+    }
+
+    return { alreadyExists: false, userId }
+  })
+
+/**
+ * Send verification email to admin user
+ * Manually creates a verification token and triggers email sending
+ *
+ * Better Auth's email verification flow:
+ * 1. Creates a verification token in the database
+ * 2. Calls the sendVerificationEmail callback (configured in auth.ts)
+ * 3. The callback sends the actual email with the token link
+ */
+const sendAdminVerificationEmail = (
+  auth: Context.Tag.Service<typeof Auth>,
+  userId: string,
+  email: string
+): Effect.Effect<void, DatabaseError, never> =>
+  Effect.gen(function* () {
+    const result = yield* Effect.tryPromise({
+      try: async () => {
+        // Generate verification token by making a request to Better Auth
+        // This triggers Better Auth's internal flow which:
+        // 1. Creates the verification record in the database
+        // 2. Calls our sendVerificationEmail handler (configured in auth.ts)
+        const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000'
+
+        // Use Better Auth's internal API to send verification email
+        // This matches the flow when a user signs up
+        const response = await auth.handler(
+          new Request(`${baseUrl}/api/auth/send-verification-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              callbackURL: `${baseUrl}/api/auth/verify-email`,
+            }),
+          })
+        )
+
+        return { response, baseUrl }
+      },
+      catch: (error) => new DatabaseError({ cause: error }),
+    })
+
+    if (!result.response.ok) {
+      const responseText = yield* Effect.tryPromise({
+        try: () => result.response.text(),
+        catch: () => new DatabaseError({ cause: 'Failed to read response text' }),
+      })
+
+      return yield* Effect.fail(
+        new DatabaseError({
+          cause: `Failed to send verification email: ${result.response.status} - ${responseText}`,
+        })
+      )
+    }
   })
 
 /**
@@ -162,7 +230,8 @@ const createAdminUser = (
  */
 export const bootstrapAdmin = (
   app: App
-): Effect.Effect<void, InvalidEmailError | WeakPasswordError | DatabaseError, Auth> =>
+): Effect.Effect<void, InvalidEmailError | WeakPasswordError | DatabaseError, Auth | Database> =>
+  // eslint-disable-next-line max-statements, complexity
   Effect.gen(function* () {
     // Parse admin bootstrap config from environment variables
     const config = parseAdminBootstrapConfig()
@@ -205,11 +274,31 @@ export const bootstrapAdmin = (
     // Get Auth service from Effect Context
     const auth = yield* Auth
 
-    // Create admin user via Better Auth API
-    const alreadyExists = yield* createAdminUser(auth, config)
+    // Check if email verification is required
+    const emailAndPasswordConfig =
+      app.auth?.emailAndPassword && typeof app.auth.emailAndPassword === 'object'
+        ? app.auth.emailAndPassword
+        : {}
+    const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
 
-    // Log result
-    yield* alreadyExists
-      ? Console.log(`⏩ Admin bootstrap skipped: User ${config.email} already exists`)
-      : Console.log(`✅ Admin account created: ${config.email}`)
+    yield* Console.log(
+      `[bootstrap-admin] requireEmailVerification=${requireEmailVerification}, will set emailVerified=${!requireEmailVerification}`
+    )
+
+    // Create admin user via Better Auth API
+    const { alreadyExists, userId } = yield* createAdminUser(auth, config, requireEmailVerification)
+
+    if (alreadyExists) {
+      yield* Console.log(`⏩ Admin bootstrap skipped: User ${config.email} already exists`)
+      return
+    }
+
+    yield* Console.log(`✅ Admin account created: ${config.email}`)
+
+    // Send verification email if required
+    if (requireEmailVerification && userId) {
+      yield* Console.log('[bootstrap-admin] Sending verification email...')
+      yield* sendAdminVerificationEmail(auth, userId, config.email)
+      yield* Console.log('📧 Verification email sent to admin')
+    }
   })

@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+import { extractTokenFromUrl } from '@/specs/fixtures/email'
 
 /**
  * E2E Tests for Admin Bootstrap (Automatic Admin Creation)
@@ -51,7 +52,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   // Successful Admin Creation Tests
   // ---------------------------------------------------------------------------
 
-  test.only(
+  test(
     'API-AUTH-ADMIN-BOOTSTRAP-001: should create admin account on first startup when env vars are set',
     { tag: '@spec' },
     async ({ startServerWithSchema, signIn }) => {
@@ -93,13 +94,16 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-002: should create admin with verified email status',
     { tag: '@spec' },
-    async ({ startServerWithSchema, signIn }) => {
+    async ({ page, startServerWithSchema, signIn, mailpit }) => {
       // GIVEN: Application started with admin bootstrap environment variables
+      // AND email verification is required for regular users
       await startServerWithSchema(
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            emailAndPassword: {
+              requireEmailVerification: true, // Regular users must verify email
+            },
             admin: true,
           },
         },
@@ -112,15 +116,34 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         }
       )
 
-      // WHEN: Signing in with the bootstrapped admin credentials
+      // WHEN: Admin bootstrap creates account with email verification required
+      // THEN: Verification email should be sent
+      // Note: Use waitForAnyEmail because bootstrap emails don't have testId in recipient
+      const email = await mailpit.waitForAnyEmail(
+        (e) =>
+          e.To[0]?.Address === 'verified-admin@example.com' &&
+          e.Subject.toLowerCase().includes('verify')
+      )
+      expect(email).toBeDefined()
+
+      // Extract verification token from email
+      const token = extractTokenFromUrl(email.HTML, 'token')
+      expect(token).not.toBeNull()
+
+      // Verify email by clicking the verification link
+      const verifyResponse = await page.request.get(`/api/auth/verify-email?token=${token}`)
+      expect(verifyResponse.status()).toBe(200)
+
+      // WHEN: Signing in with the bootstrapped admin credentials after email verification
       const authResult = await signIn({
         email: 'verified-admin@example.com',
         password: 'VerifiedPass123!',
       })
 
-      // THEN: Admin account has email already verified
+      // THEN: Admin account has email verified and has admin role
       expect(authResult.user).toBeDefined()
       expect(authResult.user.emailVerified).toBe(true)
+      expect(authResult.user.role).toBe('admin')
     }
   )
 

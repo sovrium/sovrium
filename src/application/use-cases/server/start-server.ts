@@ -14,6 +14,7 @@ import { AppSchema } from '@/domain/models/app'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
+import type { Database } from '@/infrastructure/database/drizzle/layer'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
@@ -70,7 +71,7 @@ export const startServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | Error,
-  ServerFactory | PageRenderer | Auth
+  ServerFactory | PageRenderer | Auth | Database
 > =>
   Effect.gen(function* () {
     // Validate app configuration using domain model schema

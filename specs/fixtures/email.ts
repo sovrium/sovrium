@@ -472,6 +472,46 @@ export class MailpitHelper {
   }
 
   /**
+   * Wait for any email matching the predicate (no testId filtering)
+   * Use this for emails sent during bootstrap or other scenarios where
+   * the recipient address doesn't include the testId
+   *
+   * @param predicate - Function to match the expected email
+   * @param options - Timeout and polling options
+   * @returns The matching email
+   * @throws Error if no matching email arrives within timeout
+   *
+   * @example
+   * ```typescript
+   * // Wait for bootstrap admin verification email
+   * const email = await mailpit.waitForAnyEmail(
+   *   (e) => e.To[0]?.Address === 'admin@example.com' &&
+   *          e.Subject.toLowerCase().includes('verify')
+   * )
+   * ```
+   */
+  async waitForAnyEmail(
+    predicate: (email: MailpitEmail) => boolean,
+    options?: { timeout?: number; interval?: number }
+  ): Promise<MailpitEmail> {
+    const timeout = options?.timeout ?? 10_000
+    const interval = options?.interval ?? 100
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < timeout) {
+      const emails = await this.getAllEmails() // Get ALL emails (no testId filtering)
+      const email = emails.find(predicate)
+      if (email) {
+        // Fetch full email details (list API doesn't include HTML/Text body)
+        return this.getEmailById(email.ID)
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval))
+    }
+
+    throw new Error(`Email not found within ${timeout}ms (no testId filter)`)
+  }
+
+  /**
    * Get email by ID (for detailed content)
    */
   async getEmailById(id: string): Promise<MailpitEmail> {

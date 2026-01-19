@@ -11,6 +11,7 @@ import { AppValidationError } from '@/application/errors/app-validation-error'
 import { PageRenderer } from '@/application/ports/page-renderer'
 import { ServerFactory } from '@/application/ports/server-factory'
 import { Auth } from '@/infrastructure/auth/better-auth'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 import { startServer } from './start-server'
 import type { ServerInstance } from '@/application/models/server'
 
@@ -47,9 +48,21 @@ const MockAuth = Layer.succeed(Auth, {
 })
 
 /**
- * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth)
+ * Mock Database service for testing (no actual database operations)
+ * Database is used for admin bootstrap in startServer
  */
-const TestLayer = Layer.mergeAll(MockServerFactory, MockPageRenderer, MockAuth)
+const MockDatabase = Layer.succeed(Database, {
+  update: () => ({
+    set: () => ({
+      where: () => Promise.resolve(),
+    }),
+  }),
+} as any)
+
+/**
+ * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockDatabase)
+ */
+const TestLayer = Layer.mergeAll(MockServerFactory, MockPageRenderer, MockAuth, MockDatabase)
 
 describe('startServer', () => {
   test('should start server with valid app configuration', async () => {
