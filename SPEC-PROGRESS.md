@@ -13076,11 +13076,11 @@ CLI-BUILD-I18N-REGRESSION: user can complete full multi-language workflow
 <summary>Tests</summary>
 
 ✅ **CLI-START-ENV-001** `@spec`
-CLI-START-ENV-001: should load inline JSON from SOVRIUM_APP_SCHEMA environment variable
+CLI-START-ENV-001: should load inline JSON from APP_SCHEMA environment variable
 `G/W/T` Line 122
 
 ✅ **CLI-START-ENV-002** `@spec`
-CLI-START-ENV-002: should load inline YAML from SOVRIUM_APP_SCHEMA environment variable
+CLI-START-ENV-002: should load inline YAML from APP_SCHEMA environment variable
 `G/W/T` Line 146
 
 ✅ **CLI-START-ENV-003** `@spec`

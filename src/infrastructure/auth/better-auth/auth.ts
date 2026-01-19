@@ -126,7 +126,7 @@ export function createAuthInstance(authConfig?: Auth) {
   const handlers = createEmailHandlers(authConfig)
 
   return betterAuth({
-    secret: process.env.BETTER_AUTH_SECRET,
+    secret: process.env.AUTH_SECRET,
     database: drizzleAdapter(db, {
       provider: 'pg',
       usePlural: false,

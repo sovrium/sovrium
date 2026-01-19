@@ -308,15 +308,15 @@ export async function startCliServer(
   const serverProcess = spawn('bun', ['run', 'src/cli.ts'], {
     env: {
       ...process.env,
-      SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
+      APP_SCHEMA: JSON.stringify(appSchema),
       PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit
-      BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars', // Required for Better Auth token signing (min 32 chars)
+      AUTH_SECRET: 'test-secret-for-e2e-testing-32chars', // Required for auth token signing (min 32 chars)
       ...(adminBootstrap && {
-        ...(adminBootstrap.email && { BETTER_AUTH_ADMIN_EMAIL: adminBootstrap.email }),
-        ...(adminBootstrap.password && { BETTER_AUTH_ADMIN_PASSWORD: adminBootstrap.password }),
-        ...(adminBootstrap.name && { BETTER_AUTH_ADMIN_NAME: adminBootstrap.name }),
+        ...(adminBootstrap.email && { AUTH_ADMIN_EMAIL: adminBootstrap.email }),
+        ...(adminBootstrap.password && { AUTH_ADMIN_PASSWORD: adminBootstrap.password }),
+        ...(adminBootstrap.name && { AUTH_ADMIN_NAME: adminBootstrap.name }),
       }),
     },
     stdio: 'pipe',

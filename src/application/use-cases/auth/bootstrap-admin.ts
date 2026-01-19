@@ -40,9 +40,9 @@ export interface AdminBootstrapConfig {
  * Uses "Administrator" as default name if not provided
  */
 export const parseAdminBootstrapConfig = (): AdminBootstrapConfig | undefined => {
-  const email = process.env.BETTER_AUTH_ADMIN_EMAIL
-  const password = process.env.BETTER_AUTH_ADMIN_PASSWORD
-  const name = process.env.BETTER_AUTH_ADMIN_NAME
+  const email = process.env.AUTH_ADMIN_EMAIL
+  const password = process.env.AUTH_ADMIN_PASSWORD
+  const name = process.env.AUTH_ADMIN_NAME
 
   // Email and password are required
   if (!email || !password) {

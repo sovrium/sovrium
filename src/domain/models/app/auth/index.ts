@@ -88,11 +88,11 @@ export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
  * - twoFactor: TOTP-based two-factor authentication
  *
  * Environment Variables (infrastructure config):
- * - BETTER_AUTH_SECRET: Secret key for signing tokens
+ * - AUTH_SECRET: Secret key for signing tokens
  * - BASE_URL: Base URL for email links (default: http://localhost:3000)
  * - {PROVIDER}_CLIENT_ID: OAuth client ID per provider
  * - {PROVIDER}_CLIENT_SECRET: OAuth client secret per provider
- * - ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME: Default admin user (optional)
+ * - AUTH_ADMIN_EMAIL, AUTH_ADMIN_PASSWORD, AUTH_ADMIN_NAME: Default admin user (optional)
  *
  * @example
  * ```typescript

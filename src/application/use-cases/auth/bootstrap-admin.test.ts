@@ -97,13 +97,13 @@ describe('parseAdminBootstrapConfig', () => {
    * Test that config is returned when all env vars are set
    */
   test('should return config when email and password are set', () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
-    const originalName = process.env.BETTER_AUTH_ADMIN_NAME
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
+    const originalName = process.env.AUTH_ADMIN_NAME
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
-    process.env.BETTER_AUTH_ADMIN_NAME = 'Admin User'
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
+    process.env.AUTH_ADMIN_NAME = 'Admin User'
 
     const config = parseAdminBootstrapConfig()
 
@@ -113,22 +113,22 @@ describe('parseAdminBootstrapConfig', () => {
     expect(config?.name).toBe('Admin User')
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
-    process.env.BETTER_AUTH_ADMIN_NAME = originalName
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_NAME = originalName
   })
 
   /**
    * Test that config uses default name when not provided
    */
-  test('should use default name when BETTER_AUTH_ADMIN_NAME is not set', () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
-    const originalName = process.env.BETTER_AUTH_ADMIN_NAME
+  test('should use default name when AUTH_ADMIN_NAME is not set', () => {
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
+    const originalName = process.env.AUTH_ADMIN_NAME
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
-    delete process.env.BETTER_AUTH_ADMIN_NAME
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
+    delete process.env.AUTH_ADMIN_NAME
 
     const config = parseAdminBootstrapConfig()
 
@@ -136,47 +136,47 @@ describe('parseAdminBootstrapConfig', () => {
     expect(config?.name).toBe('Administrator')
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
-    process.env.BETTER_AUTH_ADMIN_NAME = originalName
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_NAME = originalName
   })
 
   /**
    * Test that config is undefined when email is missing
    */
   test('should return undefined when email is missing', () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    delete process.env.BETTER_AUTH_ADMIN_EMAIL
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
+    delete process.env.AUTH_ADMIN_EMAIL
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const config = parseAdminBootstrapConfig()
 
     expect(config).toBeUndefined()
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**
    * Test that config is undefined when password is missing
    */
   test('should return undefined when password is missing', () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    delete process.env.BETTER_AUTH_ADMIN_PASSWORD
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    delete process.env.AUTH_ADMIN_PASSWORD
 
     const config = parseAdminBootstrapConfig()
 
     expect(config).toBeUndefined()
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 })
 
@@ -195,11 +195,11 @@ describe('bootstrapAdmin', () => {
    * Test that bootstrap is skipped when no config is provided
    */
   test('should skip bootstrap when no config is provided', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    delete process.env.BETTER_AUTH_ADMIN_EMAIL
-    delete process.env.BETTER_AUTH_ADMIN_PASSWORD
+    delete process.env.AUTH_ADMIN_EMAIL
+    delete process.env.AUTH_ADMIN_PASSWORD
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(Effect.provide(MockAuthServiceCreate))
 
@@ -209,19 +209,19 @@ describe('bootstrapAdmin', () => {
     expect(result).toBeUndefined()
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**
    * Test that bootstrap is skipped when admin plugin is disabled
    */
   test('should skip bootstrap when admin plugin is disabled', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithoutAdmin).pipe(Effect.provide(MockAuthServiceCreate))
 
@@ -231,19 +231,19 @@ describe('bootstrapAdmin', () => {
     expect(result).toBeUndefined()
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**
    * Test that bootstrap fails with invalid email
    */
   test('should fail with InvalidEmailError for invalid email', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'invalid-email'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
+    process.env.AUTH_ADMIN_EMAIL = 'invalid-email'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
       Effect.provide(MockAuthServiceCreate),
@@ -261,19 +261,19 @@ describe('bootstrapAdmin', () => {
     }
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**
    * Test that bootstrap fails with weak password
    */
   test('should fail with WeakPasswordError for short password', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'short'
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'short'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
       Effect.provide(MockAuthServiceCreate),
@@ -289,21 +289,21 @@ describe('bootstrapAdmin', () => {
     }
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**
    * Test successful admin creation
    */
   test('should successfully create admin user', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
-    const originalName = process.env.BETTER_AUTH_ADMIN_NAME
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
+    const originalName = process.env.AUTH_ADMIN_NAME
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
-    process.env.BETTER_AUTH_ADMIN_NAME = 'Admin User'
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
+    process.env.AUTH_ADMIN_NAME = 'Admin User'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(Effect.provide(MockAuthServiceCreate))
 
@@ -313,20 +313,20 @@ describe('bootstrapAdmin', () => {
     expect(result).toBeUndefined()
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
-    process.env.BETTER_AUTH_ADMIN_NAME = originalName
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_NAME = originalName
   })
 
   /**
    * Test idempotency when user already exists
    */
   test('should be idempotent when user already exists', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(Effect.provide(MockAuthServiceExists))
 
@@ -336,19 +336,19 @@ describe('bootstrapAdmin', () => {
     expect(result).toBeUndefined()
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**
    * Test database error handling
    */
   test('should fail with DatabaseError for database errors', async () => {
-    const originalEmail = process.env.BETTER_AUTH_ADMIN_EMAIL
-    const originalPassword = process.env.BETTER_AUTH_ADMIN_PASSWORD
+    const originalEmail = process.env.AUTH_ADMIN_EMAIL
+    const originalPassword = process.env.AUTH_ADMIN_PASSWORD
 
-    process.env.BETTER_AUTH_ADMIN_EMAIL = 'admin@example.com'
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = 'securePassword123'
+    process.env.AUTH_ADMIN_EMAIL = 'admin@example.com'
+    process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
       Effect.provide(MockAuthServiceError),
@@ -363,8 +363,8 @@ describe('bootstrapAdmin', () => {
     }
 
     // Restore original env vars
-    process.env.BETTER_AUTH_ADMIN_EMAIL = originalEmail
-    process.env.BETTER_AUTH_ADMIN_PASSWORD = originalPassword
+    process.env.AUTH_ADMIN_EMAIL = originalEmail
+    process.env.AUTH_ADMIN_PASSWORD = originalPassword
   })
 
   /**

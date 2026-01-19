@@ -103,7 +103,7 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
     } catch (error) {
       // eslint-disable-next-line functional/no-throw-statements
       throw new Error(
-        `Invalid JSON in SOVRIUM_APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
+        `Invalid JSON in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
       )
     }
   }
@@ -119,7 +119,7 @@ export const parseSchemaFromEnv = async (envValue: string): Promise<AppEncoded> 
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements
     throw new Error(
-      `Invalid YAML in SOVRIUM_APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
+      `Invalid YAML in APP_SCHEMA: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 }
@@ -136,7 +136,7 @@ const showNoConfigError = (command: string): never => {
       yield* Console.error(`  sovrium ${command} <config.json>`)
       yield* Console.error('')
       yield* Console.error('Or with environment variable:')
-      yield* Console.error(`  SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
+      yield* Console.error(`  APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
     })
   )
   // eslint-disable-next-line functional/no-expression-statements
@@ -152,8 +152,8 @@ export const parseAppSchema = async (command: string, filePath?: string): Promis
     return loadSchemaFromFile(filePath, command)
   }
 
-  // Try SOVRIUM_APP_SCHEMA environment variable
-  const appSchemaEnv = Bun.env.SOVRIUM_APP_SCHEMA
+  // Try APP_SCHEMA environment variable
+  const appSchemaEnv = Bun.env.APP_SCHEMA
 
   if (appSchemaEnv) {
     try {

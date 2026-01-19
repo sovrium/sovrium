@@ -129,9 +129,9 @@ EOF
 sovrium start sovrium.yaml
 
 # Or use environment variable (JSON, YAML, or URL)
-SOVRIUM_APP_SCHEMA='{"name":"my-app"}' sovrium start
-SOVRIUM_APP_SCHEMA='name: my-app' sovrium start
-SOVRIUM_APP_SCHEMA='https://example.com/app.yaml' sovrium start
+APP_SCHEMA='{"name":"my-app"}' sovrium start
+APP_SCHEMA='name: my-app' sovrium start
+APP_SCHEMA='https://example.com/app.yaml' sovrium start
 ```
 
 ---

@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  * Spec Count: 11
  *
  * Environment Variable Behavior:
- * - Loads schema from SOVRIUM_APP_SCHEMA environment variable
+ * - Loads schema from APP_SCHEMA environment variable
  * - Supports inline JSON format
  * - Supports inline YAML format
  * - Supports remote JSON URLs
@@ -120,10 +120,10 @@ test.describe('CLI Start Command - Environment Variable Schema', () => {
   // ============================================================================
 
   test(
-    'CLI-START-ENV-001: should load inline JSON from SOVRIUM_APP_SCHEMA environment variable',
+    'CLI-START-ENV-001: should load inline JSON from APP_SCHEMA environment variable',
     { tag: '@spec' },
     async () => {
-      // GIVEN: SOVRIUM_APP_SCHEMA with inline JSON string
+      // GIVEN: APP_SCHEMA with inline JSON string
       const jsonSchema = JSON.stringify({
         name: 'env-json-app',
         description: 'App loaded from inline JSON in environment variable',
@@ -131,7 +131,7 @@ test.describe('CLI Start Command - Environment Variable Schema', () => {
 
       // WHEN: Starting server without file path argument (using env var only)
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: jsonSchema,
+        APP_SCHEMA: jsonSchema,
         PORT: '0', // Auto-select port
       })
 
@@ -144,10 +144,10 @@ test.describe('CLI Start Command - Environment Variable Schema', () => {
   )
 
   test(
-    'CLI-START-ENV-002: should load inline YAML from SOVRIUM_APP_SCHEMA environment variable',
+    'CLI-START-ENV-002: should load inline YAML from APP_SCHEMA environment variable',
     { tag: '@spec' },
     async () => {
-      // GIVEN: SOVRIUM_APP_SCHEMA with inline YAML string
+      // GIVEN: APP_SCHEMA with inline YAML string
       const yamlSchema = `
 name: env-yaml-app
 description: App loaded from inline YAML in environment variable
@@ -156,7 +156,7 @@ version: 1.0.0
 
       // WHEN: Starting server without file path argument (using env var only)
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: yamlSchema,
+        APP_SCHEMA: yamlSchema,
         PORT: '0',
       })
 
@@ -178,9 +178,9 @@ version: 1.0.0
     const mockServer = await createMockHttpServer(jsonSchema, 'application/json')
 
     try {
-      // WHEN: Starting server with URL in SOVRIUM_APP_SCHEMA
+      // WHEN: Starting server with URL in APP_SCHEMA
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: mockServer.url,
+        APP_SCHEMA: mockServer.url,
         PORT: '0',
       })
 
@@ -205,9 +205,9 @@ version: 2.0.0
     const mockServer = await createMockHttpServer(yamlSchema, 'application/x-yaml')
 
     try {
-      // WHEN: Starting server with URL in SOVRIUM_APP_SCHEMA
+      // WHEN: Starting server with URL in APP_SCHEMA
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: mockServer.url,
+        APP_SCHEMA: mockServer.url,
         PORT: '0',
       })
 
@@ -225,7 +225,7 @@ version: 2.0.0
     'CLI-START-ENV-005: should prioritize file path argument over environment variable',
     { tag: '@spec' },
     async () => {
-      // GIVEN: Both file path argument AND SOVRIUM_APP_SCHEMA environment variable
+      // GIVEN: Both file path argument AND APP_SCHEMA environment variable
       const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-test-'))
       const configPath = join(tempDir, 'config.json')
 
@@ -245,7 +245,7 @@ version: 2.0.0
         // WHEN: Starting server with both file path AND environment variable
         const result = await captureCliOutputWithEnv(
           {
-            SOVRIUM_APP_SCHEMA: envSchema,
+            APP_SCHEMA: envSchema,
             PORT: '0',
           },
           [configPath]
@@ -265,12 +265,12 @@ version: 2.0.0
     'CLI-START-ENV-006: should handle invalid JSON in environment variable with clear error',
     { tag: '@spec' },
     async () => {
-      // GIVEN: SOVRIUM_APP_SCHEMA with invalid JSON
+      // GIVEN: APP_SCHEMA with invalid JSON
       const invalidJson = '{ "name": "test", "invalid": }'
 
       // WHEN: Attempting to start server with invalid JSON in environment variable
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: invalidJson,
+        APP_SCHEMA: invalidJson,
       })
 
       // THEN: CLI displays error message about invalid JSON
@@ -284,7 +284,7 @@ version: 2.0.0
     'CLI-START-ENV-007: should handle invalid YAML in environment variable with clear error',
     { tag: '@spec' },
     async () => {
-      // GIVEN: SOVRIUM_APP_SCHEMA with invalid YAML
+      // GIVEN: APP_SCHEMA with invalid YAML
       const invalidYaml = `
 name: test-app
 description: "unclosed quote
@@ -293,7 +293,7 @@ version: 1.0.0
 
       // WHEN: Attempting to start server with invalid YAML in environment variable
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: invalidYaml,
+        APP_SCHEMA: invalidYaml,
       })
 
       // THEN: CLI displays error message about invalid YAML
@@ -307,12 +307,12 @@ version: 1.0.0
     'CLI-START-ENV-008: should handle unreachable URL with clear error message',
     { tag: '@spec' },
     async () => {
-      // GIVEN: SOVRIUM_APP_SCHEMA with unreachable URL
+      // GIVEN: APP_SCHEMA with unreachable URL
       const unreachableUrl = 'http://localhost:99999/nonexistent-schema.json'
 
       // WHEN: Attempting to start server with unreachable URL
       const result = await captureCliOutputWithEnv({
-        SOVRIUM_APP_SCHEMA: unreachableUrl,
+        APP_SCHEMA: unreachableUrl,
       })
 
       // THEN: CLI displays error message about network failure
@@ -334,7 +334,7 @@ version: 1.0.0
       try {
         // WHEN: Attempting to start server with URL returning non-schema content
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: mockServer.url,
+          APP_SCHEMA: mockServer.url,
         })
 
         // THEN: CLI displays error message about invalid schema content
@@ -362,7 +362,7 @@ version: 1.0.0
       try {
         // WHEN: Starting server with URL (format detected from Content-Type)
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: mockServer.url,
+          APP_SCHEMA: mockServer.url,
           PORT: '0',
         })
 
@@ -413,7 +413,7 @@ version: 3.0.0
       try {
         // WHEN: Starting server with .yaml URL (format detected from extension)
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: yamlUrl,
+          APP_SCHEMA: yamlUrl,
           PORT: '0',
         })
 
@@ -446,7 +446,7 @@ version: 3.0.0
         })
 
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: jsonSchema,
+          APP_SCHEMA: jsonSchema,
           PORT: '0',
         })
 
@@ -463,7 +463,7 @@ version: 1.0.0
 `
 
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: yamlSchema,
+          APP_SCHEMA: yamlSchema,
           PORT: '0',
         })
 
@@ -482,7 +482,7 @@ version: 1.0.0
 
         try {
           const result = await captureCliOutputWithEnv({
-            SOVRIUM_APP_SCHEMA: mockServer.url,
+            APP_SCHEMA: mockServer.url,
             PORT: '0',
           })
 
@@ -504,7 +504,7 @@ version: 2.0.0
 
         try {
           const result = await captureCliOutputWithEnv({
-            SOVRIUM_APP_SCHEMA: mockServer.url,
+            APP_SCHEMA: mockServer.url,
             PORT: '0',
           })
 
@@ -530,7 +530,7 @@ version: 2.0.0
         try {
           const result = await captureCliOutputWithEnv(
             {
-              SOVRIUM_APP_SCHEMA: JSON.stringify({
+              APP_SCHEMA: JSON.stringify({
                 name: 'env-config-app',
                 description: 'Should be ignored',
               }),
@@ -550,7 +550,7 @@ version: 2.0.0
         const invalidJson = '{ "name": "test", "invalid": }'
 
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: invalidJson,
+          APP_SCHEMA: invalidJson,
         })
 
         expect(result.output).toContain('Error')
@@ -566,7 +566,7 @@ version: 1.0.0
 `
 
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: invalidYaml,
+          APP_SCHEMA: invalidYaml,
         })
 
         expect(result.output).toContain('Error')
@@ -578,7 +578,7 @@ version: 1.0.0
         const unreachableUrl = 'http://localhost:99999/nonexistent-schema.json'
 
         const result = await captureCliOutputWithEnv({
-          SOVRIUM_APP_SCHEMA: unreachableUrl,
+          APP_SCHEMA: unreachableUrl,
         })
 
         expect(result.output).toContain('Error')
@@ -592,7 +592,7 @@ version: 1.0.0
 
         try {
           const result = await captureCliOutputWithEnv({
-            SOVRIUM_APP_SCHEMA: mockServer.url,
+            APP_SCHEMA: mockServer.url,
           })
 
           expect(result.output).toContain('Error')
@@ -613,7 +613,7 @@ version: 1.0.0
 
         try {
           const result = await captureCliOutputWithEnv({
-            SOVRIUM_APP_SCHEMA: mockServer.url,
+            APP_SCHEMA: mockServer.url,
             PORT: '0',
           })
 
@@ -656,7 +656,7 @@ version: 3.0.0
 
         try {
           const result = await captureCliOutputWithEnv({
-            SOVRIUM_APP_SCHEMA: yamlUrl,
+            APP_SCHEMA: yamlUrl,
             PORT: '0',
           })
 

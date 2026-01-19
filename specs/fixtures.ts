@@ -379,7 +379,7 @@ export const test = base.extend<ServerFixtures>({
         // Build environment variables from config
         const env: Record<string, string> = {
           ...process.env,
-          SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
+          APP_SCHEMA: JSON.stringify(appSchema),
           SOVRIUM_OUTPUT_DIR: outputDir,
         } as Record<string, string>
 
@@ -520,7 +520,7 @@ export const test = base.extend<ServerFixtures>({
           ...(options.hostname && { HOSTNAME: options.hostname }),
           DATABASE_URL: databaseUrl,
           ...smtpEnv,
-          BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars',
+          AUTH_SECRET: 'test-secret-for-e2e-testing-32chars',
         },
         stdio: 'pipe',
       })

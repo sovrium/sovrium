@@ -18,9 +18,9 @@
  * ```bash
  * sovrium start app.json                              # Load from JSON file
  * sovrium start app.yaml                              # Load from YAML file
- * SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium      # Inline JSON
- * SOVRIUM_APP_SCHEMA='name: My App' sovrium           # Inline YAML
- * SOVRIUM_APP_SCHEMA='https://example.com/app.yaml'   # Remote URL
+ * APP_SCHEMA='{"name":"My App"}' sovrium              # Inline JSON
+ * APP_SCHEMA='name: My App' sovrium                   # Inline YAML
+ * APP_SCHEMA='https://example.com/app.yaml'           # Remote URL
  * ```
  *
  * ### sovrium build [config]
@@ -34,12 +34,12 @@
  * - `config` (optional) - Path to config file (JSON or YAML)
  *
  * ## Environment Variables (start command)
- * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
+ * - `APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
  * - `PORT` (optional) - Server port (default: 3000)
  * - `HOSTNAME` (optional) - Server hostname (default: localhost)
  *
  * ## Environment Variables (build command)
- * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
+ * - `APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
  * - `SOVRIUM_OUTPUT_DIR` (optional) - Output directory (default: ./dist)
  * - `SOVRIUM_BASE_URL` (optional) - Base URL for sitemap
  * - `SOVRIUM_BASE_PATH` (optional) - Base path for deployments
@@ -119,7 +119,7 @@ const showHelp = (): void => {
     '  sovrium start app.yaml --watch',
     '',
     '  # Start with environment variable (JSON, YAML, or URL)',
-    '  SOVRIUM_APP_SCHEMA=\'{"name":"My App"}\' sovrium start',
+    '  APP_SCHEMA=\'{"name":"My App"}\' sovrium start',
     '',
     '  # Build static site',
     '  sovrium build app.json',

@@ -20,9 +20,9 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Feature Description:
  * When the application starts with the following environment variables defined:
- * - BETTER_AUTH_ADMIN_EMAIL: Email for the admin account
- * - BETTER_AUTH_ADMIN_PASSWORD: Password for the admin account
- * - BETTER_AUTH_ADMIN_NAME: Display name for the admin account
+ * - AUTH_ADMIN_EMAIL: Email for the admin account
+ * - AUTH_ADMIN_PASSWORD: Password for the admin account
+ * - AUTH_ADMIN_NAME: Display name for the admin account
  *
  * The application should automatically create an admin account if:
  * - All required environment variables are set
@@ -57,7 +57,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
     async ({ startServerWithSchema, signIn }) => {
       // GIVEN: Application started with admin bootstrap environment variables
       // Note: The server fixture will be modified to accept adminBootstrap config
-      // which translates to BETTER_AUTH_ADMIN_* environment variables
+      // which translates to AUTH_ADMIN_* environment variables
       await startServerWithSchema(
         {
           name: 'test-app',
