@@ -238,7 +238,7 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-004: owner can update their own records',
     { tag: '@spec' },
     async ({
@@ -262,7 +262,7 @@ test.describe('API Record-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'user' },
               { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
