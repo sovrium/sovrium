@@ -663,11 +663,11 @@ export const test = base.extend<ServerFixtures>({
               userId: result.user.id,
               token: result.token,
               expiresAt: '', // Not provided by Better Auth sign-up response
-              activeOrganizationId: orgResult.id,
+              activeOrganizationId: undefined,
             }
           : undefined,
         token: result.token,
-        organizationId: orgResult.id,
+        organizationId: undefined,
       }
     })
   },

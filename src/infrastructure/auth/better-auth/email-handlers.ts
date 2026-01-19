@@ -150,7 +150,8 @@ export const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEm
     inviter: { user: { name?: string } }
   }) => {
     const { email, organization, inviter } = data
-    const url = `${process.env.BETTER_AUTH_BASE_URL}/invitation/${data.id}`
+    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000'
+    const url = `${baseUrl}/invitation/${data.id}`
 
     const context = {
       name: undefined,

@@ -89,7 +89,7 @@ export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
  *
  * Environment Variables (infrastructure config):
  * - BETTER_AUTH_SECRET: Secret key for signing tokens
- * - BETTER_AUTH_BASE_URL: Base URL for callbacks (optional)
+ * - BASE_URL: Base URL for email links (default: http://localhost:3000)
  * - {PROVIDER}_CLIENT_ID: OAuth client ID per provider
  * - {PROVIDER}_CLIENT_SECRET: OAuth client secret per provider
  * - ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME: Default admin user (optional)

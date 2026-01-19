@@ -127,7 +127,6 @@ export function createAuthInstance(authConfig?: Auth) {
 
   return betterAuth({
     secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_BASE_URL,
     database: drizzleAdapter(db, {
       provider: 'pg',
       usePlural: false,
@@ -160,31 +159,9 @@ export function createAuthInstance(authConfig?: Auth) {
 }
 
 /**
- * Lazy-initialized Better Auth instance for OpenAPI schema generation
+ * Default Better Auth instance for OpenAPI schema generation
  * Uses default configuration (requireEmailVerification: false)
  *
- * Lazy initialization prevents module-level instance from being created
- * before dynamic instances, which could interfere with Better Auth's
- * internal state.
+ * For app-specific configuration, use createAuthLayer(authConfig) instead.
  */
-// eslint-disable-next-line functional/no-let, unicorn/no-null, functional/prefer-immutable-types -- Lazy initialization pattern
-let _defaultAuthInstance: ReturnType<typeof createAuthInstance> | null = null
-
-// eslint-disable-next-line functional/prefer-immutable-types -- Return type from betterAuth is mutable
-export function getDefaultAuthInstance(): ReturnType<typeof createAuthInstance> {
-  if (_defaultAuthInstance === null) {
-    // eslint-disable-next-line functional/no-expression-statements -- Lazy initialization pattern
-    _defaultAuthInstance = createAuthInstance()
-  }
-  return _defaultAuthInstance
-}
-
-// Keep for backward compatibility but mark as lazy
-export const auth = {
-  get api() {
-    return getDefaultAuthInstance().api
-  },
-  get handler() {
-    return getDefaultAuthInstance().handler
-  },
-}
+export const auth = createAuthInstance()

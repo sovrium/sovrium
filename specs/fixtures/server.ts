@@ -313,7 +313,6 @@ export async function startCliServer(
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit
       BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars', // Required for Better Auth token signing (min 32 chars)
-      BETTER_AUTH_BASE_URL: 'http://localhost', // Base URL without port - Better Auth uses Request URL
       ...(adminBootstrap && {
         ...(adminBootstrap.email && { BETTER_AUTH_ADMIN_EMAIL: adminBootstrap.email }),
         ...(adminBootstrap.password && { BETTER_AUTH_ADMIN_PASSWORD: adminBootstrap.password }),
