@@ -188,7 +188,7 @@ test.describe('Verify Magic Link', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-VERIFY-005: should return 400 when token is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
