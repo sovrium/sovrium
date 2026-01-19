@@ -67,7 +67,7 @@ test.describe('Check table permissions', () => {
       // Create user and set role to admin manually
       const admin = await createAuthenticatedUser()
       await executeQuery(`
-        UPDATE "auth.user"
+        UPDATE auth."user"
         SET role = 'admin'
         WHERE id = '${admin.user.id}'
       `)
@@ -324,7 +324,7 @@ test.describe('Check table permissions', () => {
       // Create user and set role to viewer manually
       const viewer = await createAuthenticatedUser()
       await executeQuery(`
-        UPDATE "auth.user"
+        UPDATE auth."user"
         SET role = 'viewer'
         WHERE id = '${viewer.user.id}'
       `)
@@ -408,7 +408,7 @@ test.describe('Check table permissions', () => {
         // WHEN: Admin user checks permissions for a table
         const admin = await createAuthenticatedUser()
         await executeQuery(`
-          UPDATE "auth.user"
+          UPDATE auth."user"
           SET role = 'admin'
           WHERE id = '${admin.user.id}'
         `)
@@ -461,7 +461,7 @@ test.describe('Check table permissions', () => {
         // WHEN: User checks permissions for invalid table ID
         const admin = await createAuthenticatedUser()
         await executeQuery(`
-          UPDATE "auth.user"
+          UPDATE auth."user"
           SET role = 'admin'
           WHERE id = '${admin.user.id}'
         `)
@@ -498,7 +498,7 @@ test.describe('Check table permissions', () => {
         await signOut()
         const viewer = await createAuthenticatedUser()
         await executeQuery(`
-          UPDATE "auth.user"
+          UPDATE auth."user"
           SET role = 'viewer'
           WHERE id = '${viewer.user.id}'
         `)

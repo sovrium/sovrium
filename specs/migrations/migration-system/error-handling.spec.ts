@@ -572,7 +572,7 @@ test.describe('Error Handling and Rollback', () => {
               },
             ],
           })
-        }).rejects.toThrow(/relatedTable "users" does not exist|relation "users" does not exist/i)
+        }).rejects.toThrow(/relatedTable \\"users\\" does not exist|relation "users" does not exist/i)
 
         // Posts table NOT created
         const postsTable = await executeQuery(

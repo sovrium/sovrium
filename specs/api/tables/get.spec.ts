@@ -267,7 +267,7 @@ test.describe('List all tables', () => {
       // Setup: Create authenticated user and set role to 'member'
       const user = await createAuthenticatedUser()
       await executeQuery(`
-        UPDATE "auth.user"
+        UPDATE auth."user"
         SET role = 'member'
         WHERE id = '${user.user.id}'
       `)

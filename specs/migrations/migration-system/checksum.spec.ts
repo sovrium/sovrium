@@ -261,9 +261,9 @@ test.describe('Checksum Optimization', () => {
 
         // Checksum table exists
         const tableCheck = await executeQuery(
-          `SELECT table_name FROM information_schema.tables WHERE table_name = 'system.schema_checksum'`
+          `SELECT table_schema || '.' || table_name as full_table_name FROM information_schema.tables WHERE table_schema = 'system' AND table_name = 'schema_checksum'`
         )
-        expect(tableCheck.table_name).toBe('system.schema_checksum')
+        expect(tableCheck.full_table_name).toBe('system.schema_checksum')
 
         // Checksum saved as singleton row
         const singletonCheck = await executeQuery(
