@@ -82,7 +82,7 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-002: should return 401 Unauthorized for unauthenticated requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
