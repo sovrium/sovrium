@@ -187,7 +187,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
