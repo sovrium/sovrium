@@ -77,7 +77,7 @@ const drizzleSchema = {
   invitation: invitations,
   team: teams,
   teamMember: teamMembers,
-  role: organizationRoles,
+  organizationRole: organizationRoles,
   twoFactor: twoFactors,
 }
 

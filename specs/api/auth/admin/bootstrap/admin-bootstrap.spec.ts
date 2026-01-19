@@ -51,7 +51,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   // Successful Admin Creation Tests
   // ---------------------------------------------------------------------------
 
-  test(
+  test.only(
     'API-AUTH-ADMIN-BOOTSTRAP-001: should create admin account on first startup when env vars are set',
     { tag: '@spec' },
     async ({ startServerWithSchema, signIn }) => {

@@ -113,6 +113,7 @@ const createAdminUser = (
       catch: (error) => new DatabaseError({ cause: error }),
     }).pipe(
       Effect.catchAll((dbError) => {
+        console.error('[bootstrap-admin] Error creating user:', dbError)
         // If user already exists, return success (idempotent behavior)
         // Check the original error cause
         const originalError = dbError.cause

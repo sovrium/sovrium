@@ -111,6 +111,7 @@ export const organizations = authSchema.table(
     logo: text('logo'),
     metadata: text('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)]
 )

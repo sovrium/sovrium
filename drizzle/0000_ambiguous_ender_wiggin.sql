@@ -22,8 +22,8 @@ CREATE TABLE "auth"."invitation" (
 	"id" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
 	"email" text NOT NULL,
-	"role" text NOT NULL,
-	"status" text NOT NULL,
+	"role" text,
+	"status" text DEFAULT 'pending' NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"inviter_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE "auth"."member" (
 	"id" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
 	"user_id" text NOT NULL,
-	"role" text NOT NULL,
+	"role" text DEFAULT 'member' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -90,8 +90,8 @@ CREATE TABLE "auth"."team" (
 CREATE TABLE "auth"."two_factor" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"secret" text,
-	"backup_codes" text
+	"secret" text NOT NULL,
+	"backup_codes" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "auth"."user" (
@@ -103,10 +103,10 @@ CREATE TABLE "auth"."user" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"role" text,
-	"banned" boolean,
+	"banned" boolean DEFAULT false,
 	"ban_reason" text,
 	"ban_expires" timestamp with time zone,
-	"two_factor_enabled" boolean,
+	"two_factor_enabled" boolean DEFAULT false,
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
@@ -115,8 +115,8 @@ CREATE TABLE "auth"."verification" (
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
-	"created_at" timestamp with time zone,
-	"updated_at" timestamp with time zone
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "system"."migration_history" (
@@ -187,6 +187,16 @@ ALTER TABLE "system"."activity_logs" ADD CONSTRAINT "activity_logs_organization_
 ALTER TABLE "system"."activity_logs" ADD CONSTRAINT "activity_logs_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "system"."record_comments" ADD CONSTRAINT "record_comments_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "auth"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "system"."record_comments" ADD CONSTRAINT "record_comments_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "account_userId_idx" ON "auth"."account" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "invitation_organizationId_idx" ON "auth"."invitation" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "invitation_email_idx" ON "auth"."invitation" USING btree ("email");--> statement-breakpoint
+CREATE INDEX "member_organizationId_idx" ON "auth"."member" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "member_userId_idx" ON "auth"."member" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "organization_slug_uidx" ON "auth"."organization" USING btree ("slug");--> statement-breakpoint
+CREATE INDEX "session_userId_idx" ON "auth"."session" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "twoFactor_secret_idx" ON "auth"."two_factor" USING btree ("secret");--> statement-breakpoint
+CREATE INDEX "twoFactor_userId_idx" ON "auth"."two_factor" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "verification_identifier_idx" ON "auth"."verification" USING btree ("identifier");--> statement-breakpoint
 CREATE INDEX "activity_logs_created_at_idx" ON "system"."activity_logs" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "activity_logs_org_created_at_idx" ON "system"."activity_logs" USING btree ("organization_id","created_at");--> statement-breakpoint
 CREATE INDEX "activity_logs_user_created_at_idx" ON "system"."activity_logs" USING btree ("user_id","created_at");--> statement-breakpoint

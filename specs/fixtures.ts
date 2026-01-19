@@ -653,10 +653,21 @@ export const test = base.extend<ServerFixtures>({
         }
       }
 
+      // Better Auth returns { user, token } directly, not { user, session }
+      // Construct session object from the token for AuthResult compatibility
       return {
         user: result.user,
-        session: result.session,
-        token: result.session?.token,
+        session: result.token
+          ? {
+              id: '', // Not provided by Better Auth sign-up response
+              userId: result.user.id,
+              token: result.token,
+              expiresAt: '', // Not provided by Better Auth sign-up response
+              activeOrganizationId: orgResult.id,
+            }
+          : undefined,
+        token: result.token,
+        organizationId: orgResult.id,
       }
     })
   },
@@ -684,11 +695,22 @@ export const test = base.extend<ServerFixtures>({
       }
 
       const result = await response.json()
+
+      // Better Auth returns { user, token } directly, not { user, session }
+      // Construct session object from the token for AuthResult compatibility
       return {
         user: result.user,
-        session: result.session,
-        token: result.session?.token,
-        organizationId: result.session?.activeOrganizationId,
+        session: result.token
+          ? {
+              id: '', // Not provided by Better Auth sign-in response
+              userId: result.user.id,
+              token: result.token,
+              expiresAt: '', // Not provided by Better Auth sign-in response
+              activeOrganizationId: result.user.activeOrganizationId,
+            }
+          : undefined,
+        token: result.token,
+        organizationId: result.user.activeOrganizationId,
       }
     })
   },

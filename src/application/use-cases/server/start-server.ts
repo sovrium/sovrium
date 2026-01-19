@@ -83,7 +83,19 @@ export const startServer = (
     const serverFactory = yield* ServerFactory
     const pageRenderer = yield* PageRenderer
 
+    // Bootstrap admin account BEFORE starting the server
+    // This ensures admin user exists before server signals "ready"
+    yield* bootstrapAdmin(validatedApp).pipe(
+      Effect.catchAll((error) => {
+        // Log bootstrap errors but don't fail server startup
+        return Effect.sync(() => {
+          console.error('⚠️ Admin bootstrap error:', error.message)
+        })
+      })
+    )
+
     // Create server using injected dependencies
+    // Server only starts listening after bootstrap completes
     const serverInstance = yield* serverFactory.create({
       app: validatedApp,
       port: options.port,
@@ -93,16 +105,6 @@ export const startServer = (
       renderNotFoundPage: pageRenderer.renderNotFound,
       renderErrorPage: pageRenderer.renderError,
     })
-
-    // Bootstrap admin account if configured via environment variables
-    yield* bootstrapAdmin(validatedApp).pipe(
-      Effect.catchAll((error) => {
-        // Log bootstrap errors but don't fail server startup
-        return Effect.sync(() => {
-          console.error('⚠️ Admin bootstrap error:', error.message)
-        })
-      })
-    )
 
     return serverInstance
   })
