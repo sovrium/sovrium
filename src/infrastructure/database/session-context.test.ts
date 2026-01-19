@@ -24,7 +24,7 @@ describe('session-context', () => {
         unsafe: mock(async (sql: string) => {
           executedSql.push(sql)
           // Mock members table response (using actual table name)
-          if (sql.includes('SELECT role FROM "_sovrium_auth_members"')) {
+          if (sql.includes('SELECT role FROM "auth.member"')) {
             return [{ role: 'admin' }]
           }
           return []
@@ -51,7 +51,7 @@ describe('session-context', () => {
       // 2 queries: 1 for member role lookup, 1 for SET LOCAL
       expect(executedSql.length).toBe(2)
       // First query: members table for org-specific role
-      expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_members"')
+      expect(executedSql[0]).toContain('SELECT role FROM "auth.member"')
       // Second query: SET LOCAL session variables
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
       expect(executedSql[1]).toContain("SET LOCAL app.organization_id = 'org_456'")
@@ -87,7 +87,7 @@ describe('session-context', () => {
       // 2 queries: 1 for user role lookup, 1 for SET LOCAL
       expect(executedSql.length).toBe(2)
       // First query: user role lookup
-      expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_users"')
+      expect(executedSql[0]).toContain('SELECT role FROM "auth.user"')
       // Second query: SET LOCAL session variables
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
       expect(executedSql[1]).toContain("SET LOCAL app.organization_id = ''")
@@ -132,7 +132,7 @@ describe('session-context', () => {
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async (sql: string) => {
           executedSql.push(sql)
-          if (sql.includes('SELECT role FROM "_sovrium_auth_members"')) {
+          if (sql.includes('SELECT role FROM "auth.member"')) {
             return [] // No member found
           }
           return []
@@ -159,8 +159,8 @@ describe('session-context', () => {
       // Option B: Only 2 queries - NO fallback to global user role
       expect(executedSql.length).toBe(2)
       // First query: members lookup
-      expect(executedSql[0]).toContain('SELECT role FROM "_sovrium_auth_members"')
-      // NO query to _sovrium_auth_users (global role not used for org-scoped context)
+      expect(executedSql[0]).toContain('SELECT role FROM "auth.member"')
+      // NO query to auth.user (global role not used for org-scoped context)
       // Second query: SET LOCAL with 'guest' role (Option B semantics)
       expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'guest'")
     })

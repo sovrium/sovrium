@@ -124,10 +124,10 @@ export const generateForeignKeyConstraints = (
   }[]
 ): readonly string[] => {
   // Generate foreign keys for user fields (type: 'user')
-  // Uses _sovrium_auth_users for namespace isolation from user-created tables
+  // References auth.user table (Better Auth users in dedicated auth schema)
   const userFieldConstraints = fields.filter(isUserField).map((field) => {
     const constraintName = `${tableName}_${field.name}_fkey`
-    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public._sovrium_auth_users(id)`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES auth.user(id)`
   })
 
   // Generate foreign keys for relationship fields (type: 'relationship')
@@ -152,7 +152,7 @@ export const generateForeignKeyConstraints = (
   //   .filter(isUserReferenceField)
   //   .map((field) => {
   //     const constraintName = `${tableName}_${field.name}_fkey`
-  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public._sovrium_auth_users(id)`
+  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES auth.user(id)`
   //   })
 
   // Generate composite foreign key constraints

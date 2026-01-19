@@ -5,11 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { pgTable, text, boolean, timestamp } from 'drizzle-orm/pg-core'
+import { text, boolean, timestamp, pgSchema } from 'drizzle-orm/pg-core'
 
-// Better Auth Tables (with _sovrium_auth_ prefix for namespace isolation)
-// This prevents conflicts when users create their own tables (e.g., "users" for CRM contacts)
-export const users = pgTable('_sovrium_auth_users', {
+// Better Auth schema - isolated from main app schema
+// All auth tables are created in the "auth" PostgreSQL schema
+export const authSchema = pgSchema('auth')
+
+// Better Auth Tables (using native table names in dedicated auth schema)
+// Schema isolation prevents conflicts when users create their own tables
+export const users = authSchema.table('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
@@ -26,7 +30,7 @@ export const users = pgTable('_sovrium_auth_users', {
   twoFactorEnabled: boolean('two_factor_enabled'),
 })
 
-export const sessions = pgTable('_sovrium_auth_sessions', {
+export const sessions = authSchema.table('session', {
   id: text('id').primaryKey(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   token: text('token').notNull().unique(),
@@ -45,7 +49,7 @@ export const sessions = pgTable('_sovrium_auth_sessions', {
   activeTeamId: text('active_team_id'),
 })
 
-export const accounts = pgTable('_sovrium_auth_accounts', {
+export const accounts = authSchema.table('account', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
@@ -63,7 +67,7 @@ export const accounts = pgTable('_sovrium_auth_accounts', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const verifications = pgTable('_sovrium_auth_verifications', {
+export const verifications = authSchema.table('verification', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
@@ -73,7 +77,7 @@ export const verifications = pgTable('_sovrium_auth_verifications', {
 })
 
 // Organization plugin tables
-export const organizations = pgTable('_sovrium_auth_organizations', {
+export const organizations = authSchema.table('organization', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
@@ -82,7 +86,7 @@ export const organizations = pgTable('_sovrium_auth_organizations', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const members = pgTable('_sovrium_auth_members', {
+export const members = authSchema.table('member', {
   id: text('id').primaryKey(),
   organizationId: text('organization_id')
     .notNull()
@@ -94,7 +98,7 @@ export const members = pgTable('_sovrium_auth_members', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const invitations = pgTable('_sovrium_auth_invitations', {
+export const invitations = authSchema.table('invitation', {
   id: text('id').primaryKey(),
   organizationId: text('organization_id')
     .notNull()
@@ -112,7 +116,7 @@ export const invitations = pgTable('_sovrium_auth_invitations', {
 })
 
 // Teams feature tables
-export const teams = pgTable('_sovrium_auth_teams', {
+export const teams = authSchema.table('team', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   organizationId: text('organization_id')
@@ -122,7 +126,7 @@ export const teams = pgTable('_sovrium_auth_teams', {
   updatedAt: timestamp('updated_at', { withTimezone: true }),
 })
 
-export const teamMembers = pgTable('_sovrium_auth_team_members', {
+export const teamMembers = authSchema.table('team_member', {
   id: text('id').primaryKey(),
   teamId: text('team_id')
     .notNull()
@@ -134,7 +138,7 @@ export const teamMembers = pgTable('_sovrium_auth_team_members', {
 })
 
 // Dynamic access control table (custom roles per organization)
-export const organizationRoles = pgTable('_sovrium_auth_organization_roles', {
+export const organizationRoles = authSchema.table('role', {
   id: text('id').primaryKey(),
   organizationId: text('organization_id')
     .notNull()
@@ -146,7 +150,7 @@ export const organizationRoles = pgTable('_sovrium_auth_organization_roles', {
 })
 
 // Two-factor plugin table
-export const twoFactors = pgTable('_sovrium_auth_two_factors', {
+export const twoFactors = authSchema.table('two_factor', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()

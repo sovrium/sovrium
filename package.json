@@ -123,7 +123,7 @@
     "eslint-plugin-unicorn": "^62.0.0",
     "glob": "^13.0.0",
     "globals": "^17.0.0",
-    "knip": "^5.82.0",
+    "knip": "^5.82.1",
     "pg": "^8.17.1",
     "playwright": "^1.57.0",
     "prettier-plugin-tailwindcss": "^0.7.2",

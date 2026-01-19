@@ -9,9 +9,11 @@ import { Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { PageRenderer } from '@/application/ports/page-renderer'
 import { ServerFactory } from '@/application/ports/server-factory'
+import { bootstrapAdmin } from '@/application/use-cases/auth/bootstrap-admin'
 import { AppSchema } from '@/domain/models/app'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
+import type { Auth } from '@/infrastructure/auth/better-auth'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
@@ -41,6 +43,7 @@ export interface StartOptions {
  * 1. Validates the app configuration using Effect Schema
  * 2. Obtains rendering and server creation services via Effect Context
  * 3. Creates and starts the server via injected dependencies
+ * 4. Bootstraps admin account if configured via environment variables
  *
  * Dependencies are provided via Effect.provide(AppLayer) at the application boundary.
  *
@@ -67,7 +70,7 @@ export const startServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | Error,
-  ServerFactory | PageRenderer
+  ServerFactory | PageRenderer | Auth
 > =>
   Effect.gen(function* () {
     // Validate app configuration using domain model schema
@@ -90,6 +93,16 @@ export const startServer = (
       renderNotFoundPage: pageRenderer.renderNotFound,
       renderErrorPage: pageRenderer.renderError,
     })
+
+    // Bootstrap admin account if configured via environment variables
+    yield* bootstrapAdmin(validatedApp).pipe(
+      Effect.catchAll((error) => {
+        // Log bootstrap errors but don't fail server startup
+        return Effect.sync(() => {
+          console.error('⚠️ Admin bootstrap error:', error.message)
+        })
+      })
+    )
 
     return serverInstance
   })

@@ -58,7 +58,7 @@ const escapeSQL = (value: string): string => {
 /**
  * Get user's global role from Better Auth users table
  *
- * Queries the _sovrium_auth_users table for the user's global role.
+ * Queries the auth.user table for the user's global role.
  * Returns 'authenticated' if no role is set.
  *
  * @param tx - Database transaction
@@ -72,7 +72,7 @@ const getGlobalUserRole = (
   Effect.tryPromise({
     try: async () => {
       const rows = (await tx.unsafe(
-        `SELECT role FROM "_sovrium_auth_users" WHERE id = '${escapeSQL(userId)}' LIMIT 1`
+        `SELECT role FROM "auth.user" WHERE id = '${escapeSQL(userId)}' LIMIT 1`
       )) as Array<{ role: string | null }>
       return rows[0]?.role || 'authenticated'
     },
@@ -124,7 +124,7 @@ const getUserRoleInOrganization = (
     const result = yield* Effect.tryPromise({
       try: async () => {
         const rows = (await tx.unsafe(
-          `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${escapeSQL(session.activeOrganizationId || '')}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
+          `SELECT role FROM "auth.member" WHERE organization_id = '${escapeSQL(session.activeOrganizationId || '')}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
         )) as Member[]
         return rows
       },

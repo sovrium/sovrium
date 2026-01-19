@@ -558,6 +558,20 @@ Handoff notification (posted as issue comment):
 - Use **Bash** for regression tests (`bun test:e2e:regression`) - only AFTER Step 5 passes
 - **Note**: Hooks run after Edit/Write, but `bun run quality` must still be run manually before regression tests
 
+**Debugging Server Issues (DEBUG environment variable):**
+- Use `DEBUG=sovrium:server` to view server stdout/stderr during test execution
+- Server logs appear with `[SERVER:OUT]` and `[SERVER:ERR]` prefixes
+- Useful for diagnosing: HTTP errors (404, 500), server crashes, API response issues, authentication failures
+- Supports wildcards: `DEBUG=*` (all), `DEBUG=sovrium:*` (all sovrium namespaces)
+- Example commands:
+  ```bash
+  # Debug server output for a specific test
+  DEBUG=sovrium:server bun test:e2e -- specs/api/auth/admin/list-users/get.spec.ts
+
+  # Debug all output
+  DEBUG=* bun test:e2e -- specs/api/auth/admin/list-users/get.spec.ts
+  ```
+
 ---
 
 ## Workflow (Red-Green-Refactor Cycle)
@@ -629,18 +643,21 @@ For each failure type, analyze the root cause:
 - Does the endpoint exist? (check Hono routes, Better Auth routes)
 - Is the endpoint path correct? (spec defines authoritative path - DO NOT modify spec)
 - Is authentication required? (401 → missing auth, 403 → wrong permissions)
+- **Use DEBUG for deeper investigation**: `DEBUG=sovrium:server bun test:e2e -- <test-file>` to see server-side logs
 - Example: `POST /api/auth/organization/set-active` returns 404 → Missing Better Auth route
 
 **If Runtime Error**:
 - What code is crashing? (exact line from stack trace)
 - What is the immediate cause? (undefined variable, wrong type, missing import)
 - What is the underlying cause? (missing dependency, wrong data structure)
+- **For server-side crashes**: Use `DEBUG=sovrium:server bun test:e2e -- <test-file>` to capture server error output
 - Example: `TypeError: Cannot read property 'name' of undefined` → Missing user object
 
 **If Database Error**:
 - What database operation failed? (table access, column reference, constraint)
 - Is the migration missing? (table/column doesn't exist)
 - Is the schema mismatched? (wrong column type, missing constraint)
+- **For detailed error messages**: Use `DEBUG=sovrium:server bun test:e2e -- <test-file>` to see full database error stack
 - Example: `column "theme_id" does not exist` → Missing migration
 
 **Document your root cause**:
@@ -1256,6 +1273,63 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - `bun run quality` shows ANY errors (lint, typecheck, Effect diagnostics, format, unused code)
 - ANY test in the test file is failing (even if "your" test passes)
 - Go back to Step 5 and iterate until both pass
+
+## Troubleshooting with DEBUG Logging
+
+When tests fail with server-side issues (HTTP errors, crashes, authentication failures), standard test output may not provide enough information. Use the `DEBUG` environment variable to enable detailed server logging.
+
+**DEBUG Environment Variable:**
+
+| Pattern | Effect | Use Case |
+|---------|--------|----------|
+| `DEBUG=sovrium:server` | Server stdout/stderr only | HTTP errors, API issues, auth failures |
+| `DEBUG=sovrium:*` | All sovrium namespaces | Comprehensive sovrium logging |
+| `DEBUG=*` | All debug output | Maximum verbosity (may be noisy) |
+
+**Server Log Prefixes:**
+- `[SERVER:OUT]` - Server stdout (normal output, startup messages)
+- `[SERVER:ERR]` - Server stderr (errors, warnings, stack traces)
+
+**When to Use DEBUG:**
+
+1. **HTTP 404/500 Errors**: Server may be crashing or endpoint not registered
+   ```bash
+   DEBUG=sovrium:server bun test:e2e -- specs/api/auth/admin/list-users/get.spec.ts
+   ```
+
+2. **Authentication Failures**: Better Auth may be rejecting requests
+   ```bash
+   DEBUG=sovrium:server bun test:e2e -- specs/api/auth/sign-in.spec.ts
+   ```
+
+3. **Database Errors**: Connection issues or migration problems
+   ```bash
+   DEBUG=sovrium:server bun test:e2e -- specs/api/users/create.spec.ts
+   ```
+
+4. **Timeout Issues**: Server may be hanging or not responding
+   ```bash
+   DEBUG=sovrium:server bun test:e2e -- specs/app/slow-feature.spec.ts
+   ```
+
+5. **Mysterious Failures**: When test output doesn't explain the problem
+   ```bash
+   DEBUG=* bun test:e2e -- specs/api/mysterious-failure.spec.ts
+   ```
+
+**Example DEBUG Output:**
+```
+[SERVER:OUT] Starting server on port 3000...
+[SERVER:OUT] Database connected
+[SERVER:ERR] Error: Column "user_id" does not exist
+[SERVER:ERR]     at PostgresError (/node_modules/postgres/src/connection.js:123:11)
+[SERVER:ERR]     at handleMessage (/node_modules/postgres/src/connection.js:456:15)
+```
+
+**Tip**: Combine DEBUG with running a single test for cleaner output:
+```bash
+DEBUG=sovrium:server bun test:e2e -- specs/api/auth/admin/list-users/get.spec.ts --grep "should return 200"
+```
 
 ## Output Format
 

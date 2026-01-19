@@ -12,5 +12,5 @@
  * Re-exports all auth-related services and types.
  */
 export { auth } from './auth'
-export { Auth, AuthLive } from './layer'
+export { Auth, AuthLive, createAuthLayer } from './layer'
 export { AuthError } from '../../errors/auth-error'

@@ -9,64 +9,47 @@ import { admin } from 'better-auth/plugins'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
+ * Admin plugin configuration extracted from auth config
+ */
+export interface AdminPluginConfig {
+  readonly defaultRole: string
+  readonly firstUserAdmin: boolean
+  readonly impersonation: boolean
+}
+
+/**
+ * Parse admin plugin configuration from auth config
+ */
+export const parseAdminConfig = (authConfig?: Auth): AdminPluginConfig | undefined => {
+  if (!authConfig?.admin) return undefined
+
+  const adminConfig = typeof authConfig.admin === 'boolean' ? {} : authConfig.admin
+  return {
+    defaultRole: adminConfig.defaultRole ?? 'user',
+    firstUserAdmin: adminConfig.firstUserAdmin ?? true, // Default to true for easier testing
+    impersonation: adminConfig.impersonation ?? false,
+  }
+}
+
+/**
  * Build admin plugin if enabled in auth configuration
+ *
+ * The admin plugin provides:
+ * - User management (list, ban, unban, impersonate)
+ * - Role-based access control (admin, member, user roles)
+ *
+ * NOTE: Role assignment hooks are now handled via databaseHooks in auth.ts
+ * because Better Auth's admin plugin doesn't support hooks in its options.
  */
 export const buildAdminPlugin = (authConfig?: Auth) => {
-  if (!authConfig?.admin) return []
-
-  // Extract default role from config (supports both boolean and object forms)
-  const adminConfig = typeof authConfig.admin === 'boolean' ? {} : authConfig.admin
-  const defaultRole = adminConfig.defaultRole ?? 'user'
-  const firstUserAdmin = adminConfig.firstUserAdmin ?? true // Default to true for easier testing
-  const impersonation = adminConfig.impersonation ?? false
+  const config = parseAdminConfig(authConfig)
+  if (!config) return []
 
   return [
     admin({
-      defaultRole,
+      defaultRole: config.defaultRole,
       adminRoles: ['admin'], // Users with 'admin' role can impersonate
-      impersonationSessionDuration: impersonation ? 60 * 60 : undefined, // 1 hour in seconds if enabled
-      hooks: {
-        user: {
-          created: {
-            after: async (user: { readonly id: string; readonly email: string }) => {
-              const { db } = await import('@/infrastructure/database')
-              const { users } = await import('../schema')
-              const { eq, sql } = await import('drizzle-orm')
-
-              // First user admin: if enabled, make the first user an admin
-              if (firstUserAdmin) {
-                // Count existing users to determine if this is the first user
-                const userCount = await db
-                  .select({ count: sql<number>`count(*)` })
-                  .from(users)
-                  .then((result: readonly { readonly count: number }[]) =>
-                    Number(result[0]?.count ?? 0)
-                  )
-
-                // If this is the first user (count is 1, including the just-created user), set role to admin
-                if (userCount === 1) {
-                  // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                  await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
-                  return
-                }
-              }
-
-              // Auto-promote users with "admin" in email to admin role (for testing)
-              if (user.email.toLowerCase().includes('admin')) {
-                // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                await db.update(users).set({ role: 'admin' }).where(eq(users.id, user.id))
-                return
-              }
-
-              // Auto-promote users with "member" in email to member role (for testing)
-              if (user.email.toLowerCase().includes('member')) {
-                // eslint-disable-next-line functional/no-expression-statements -- Side effect required for hook
-                await db.update(users).set({ role: 'member' }).where(eq(users.id, user.id))
-              }
-            },
-          },
-        },
-      },
+      impersonationSessionDuration: config.impersonation ? 60 * 60 : undefined, // 1 hour in seconds if enabled
     }),
   ]
 }

@@ -6,11 +6,13 @@
  */
 
 import { Layer } from 'effect'
+import { createAuthLayer } from '@/infrastructure/auth/better-auth'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
+import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
 /**
  * Application layer composition
@@ -25,7 +27,7 @@ import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-gen
  * ```typescript
  * // In src/index.ts (production)
  * const program = startServer(appConfig).pipe(
- *   Effect.provide(AppLayer)
+ *   Effect.provide(createAppLayer(appConfig.auth))
  * )
  *
  * // In tests (with mocks)
@@ -35,10 +37,19 @@ import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-gen
  * )
  * ```
  */
-export const AppLayer = Layer.mergeAll(
-  ServerFactoryLive,
-  PageRendererLive,
-  CSSCompilerLive,
-  StaticSiteGeneratorLive,
-  DevToolsLayerOptional
-)
+export const createAppLayer = (authConfig?: AuthConfig) =>
+  Layer.mergeAll(
+    createAuthLayer(authConfig),
+    ServerFactoryLive,
+    PageRendererLive,
+    CSSCompilerLive,
+    StaticSiteGeneratorLive,
+    DevToolsLayerOptional
+  )
+
+/**
+ * Default application layer with default auth configuration
+ *
+ * @deprecated Use createAppLayer(authConfig) instead for app-specific configuration
+ */
+export const AppLayer = createAppLayer()

@@ -16,10 +16,11 @@
  * - Graceful shutdown handling
  */
 
-import { Console, Effect } from 'effect'
+import { Console, Effect, Schema } from 'effect'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { startServer } from '@/application/use-cases/server/start-server'
-import { AppLayer } from '@/infrastructure/layers/app-layer'
+import { AppSchema } from '@/domain/models/app'
+import { createAppLayer } from '@/infrastructure/layers/app-layer'
 import { withGracefulShutdown } from '@/infrastructure/server/lifecycle'
 import type { ServerInstance } from '@/application/models/server'
 import type {
@@ -27,7 +28,7 @@ import type {
   GenerateStaticResult,
 } from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
-import type { AppEncoded } from '@/domain/models/app'
+import type { App, AppEncoded } from '@/domain/models/app'
 
 /**
  * Simple server interface with Promise-based methods
@@ -103,10 +104,13 @@ const toSimpleServer = (server: Readonly<ServerInstance>): SimpleServer => ({
  * ```
  */
 export const start = async (app: AppEncoded, options: StartOptions = {}): Promise<SimpleServer> => {
+  // Parse app configuration once to extract auth config
+  const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(app)
+
   const program = Effect.gen(function* () {
     yield* Console.log('Starting Sovrium server...')
 
-    // Start the server (dependencies injected via AppLayer)
+    // Start the server (dependencies injected via AppLayer with auth config)
     const server = yield* startServer(app, options)
 
     // Setup graceful shutdown in background (forked so it doesn't block)
@@ -115,8 +119,8 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
     // Return the server instance immediately (don't wait for shutdown)
     return server
   }).pipe(
-    // Provide dependencies (ServerFactory + PageRenderer)
-    Effect.provide(AppLayer)
+    // Provide dependencies (ServerFactory + PageRenderer + Auth with app-specific config)
+    Effect.provide(createAppLayer(validatedApp.auth))
   )
 
   // Run the Effect program and convert to simple server interface
@@ -171,6 +175,9 @@ export const build = async (
   app: AppEncoded,
   options: GenerateStaticOptions = {}
 ): Promise<GenerateStaticResult> => {
+  // Parse app configuration once to extract auth config
+  const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(app)
+
   const program = Effect.gen(function* () {
     yield* Console.log('Generating static site...')
 
@@ -182,8 +189,8 @@ export const build = async (
 
     return result
   }).pipe(
-    // Provide dependencies (ServerFactory + PageRenderer)
-    Effect.provide(AppLayer)
+    // Provide dependencies (ServerFactory + PageRenderer + Auth with app-specific config)
+    Effect.provide(createAppLayer(validatedApp.auth))
   )
 
   // Run the Effect program and return the result

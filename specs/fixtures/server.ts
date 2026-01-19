@@ -34,7 +34,34 @@ function extractPortFromOutput(output: string): number | null {
 }
 
 /**
+ * Helper function to check if DEBUG logging is enabled for a given namespace
+ * Supports wildcards and comma-separated namespaces like debug package
+ * Examples:
+ *   DEBUG=* (all)
+ *   DEBUG=sovrium:* (all sovrium namespaces)
+ *   DEBUG=sovrium:server (specific namespace)
+ *   DEBUG=sovrium:server,sovrium:auth (multiple namespaces)
+ */
+function shouldLogDebug(namespace: string): boolean {
+  const DEBUG = process.env.DEBUG
+  if (!DEBUG) return false
+  if (DEBUG === '*') return true
+
+  const patterns = DEBUG.split(',').map((p) => p.trim())
+  return patterns.some((pattern) => {
+    if (pattern === '*') return true
+    if (pattern.endsWith(':*')) {
+      const prefix = pattern.slice(0, -2)
+      return namespace.startsWith(prefix)
+    }
+    return namespace === pattern
+  })
+}
+
+/**
  * Helper function to wait for server to be ready and extract port
+ * Now supports DEBUG environment variable for filtering server logs
+ * Set DEBUG=sovrium:server to see all server output during tests
  */
 async function waitForServerPort(
   serverProcess: ChildProcess,
@@ -43,10 +70,23 @@ async function waitForServerPort(
   return new Promise((resolve, reject) => {
     let attempts = 0
     const outputBuffer: string[] = []
+    const debugEnabled = shouldLogDebug('sovrium:server')
 
-    const checkOutput = (data: Buffer) => {
+    const checkOutput = (data: Buffer, stream: 'stdout' | 'stderr') => {
       const output = data.toString()
       outputBuffer.push(output)
+
+      // Display server logs if DEBUG is enabled
+      if (debugEnabled) {
+        const prefix = stream === 'stderr' ? '[SERVER:ERR]' : '[SERVER:OUT]'
+        // Split by lines and prefix each line
+        output
+          .split('\n')
+          .filter((line) => line.trim())
+          .forEach((line) => {
+            console.log(`${prefix} ${line}`)
+          })
+      }
 
       const port = extractPortFromOutput(output)
       if (port) {
@@ -54,8 +94,8 @@ async function waitForServerPort(
       }
     }
 
-    serverProcess.stdout?.on('data', checkOutput)
-    serverProcess.stderr?.on('data', checkOutput)
+    serverProcess.stdout?.on('data', (data) => checkOutput(data, 'stdout'))
+    serverProcess.stderr?.on('data', (data) => checkOutput(data, 'stderr'))
 
     serverProcess.on('error', (error) => {
       reject(new Error(`Failed to start server process: ${error.message}`))
@@ -239,12 +279,22 @@ export async function killAllServerProcesses(): Promise<void> {
 }
 
 /**
+ * Admin bootstrap configuration options
+ */
+export interface AdminBootstrapOptions {
+  readonly email?: string
+  readonly password?: string
+  readonly name?: string
+}
+
+/**
  * Helper function to start the CLI server with given app schema
  * Uses port 0 to let Bun automatically select an available port
  */
 export async function startCliServer(
   appSchema: object,
-  databaseUrl?: string
+  databaseUrl?: string,
+  adminBootstrap?: AdminBootstrapOptions
 ): Promise<{
   process: ChildProcess
   url: string
@@ -264,6 +314,11 @@ export async function startCliServer(
       ...smtpEnv, // Configure SMTP to use Mailpit
       BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing-32chars', // Required for Better Auth token signing (min 32 chars)
       BETTER_AUTH_BASE_URL: 'http://localhost', // Base URL without port - Better Auth uses Request URL
+      ...(adminBootstrap && {
+        ...(adminBootstrap.email && { BETTER_AUTH_ADMIN_EMAIL: adminBootstrap.email }),
+        ...(adminBootstrap.password && { BETTER_AUTH_ADMIN_PASSWORD: adminBootstrap.password }),
+        ...(adminBootstrap.name && { BETTER_AUTH_ADMIN_NAME: adminBootstrap.name }),
+      }),
     },
     stdio: 'pipe',
   })

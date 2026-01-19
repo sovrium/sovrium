@@ -7,7 +7,9 @@
 
 import { Context, Effect, Layer } from 'effect'
 import { AuthError } from '../../errors/auth-error'
-import { auth } from './auth'
+import { createAuthInstance } from './auth'
+import type { auth } from './auth'
+import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
 // Re-export AuthError for convenience
 export { AuthError }
@@ -32,7 +34,8 @@ export { AuthError }
 export class Auth extends Context.Tag('Auth')<
   Auth,
   {
-    readonly api: typeof auth.api
+    readonly api: ReturnType<typeof createAuthInstance>['api']
+    readonly handler: ReturnType<typeof createAuthInstance>['handler']
     readonly getSession: (
       headers: Headers
     ) => Effect.Effect<Awaited<ReturnType<typeof auth.api.getSession>>, AuthError>
@@ -43,34 +46,52 @@ export class Auth extends Context.Tag('Auth')<
 >() {}
 
 /**
+ * Create an Auth Layer with a specific auth configuration
+ *
+ * This allows us to create an Auth layer with app-specific configuration
+ * (e.g., with admin plugin enabled) instead of using the default instance.
+ *
+ * @param authConfig - Optional auth configuration from app schema
+ * @returns Layer providing Auth service with the specified configuration
+ */
+export const createAuthLayer = (authConfig?: AuthConfig): Layer.Layer<Auth> => {
+  const authInstance = createAuthInstance(authConfig)
+
+  return Layer.succeed(
+    Auth,
+    Auth.of({
+      api: authInstance.api,
+      handler: authInstance.handler,
+
+      getSession: (headers) =>
+        Effect.tryPromise({
+          try: () => authInstance.api.getSession({ headers }),
+          catch: (error) => new AuthError(error),
+        }),
+
+      requireSession: (headers) =>
+        Effect.gen(function* () {
+          const session = yield* Effect.tryPromise({
+            try: () => authInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          })
+
+          if (!session) {
+            return yield* Effect.fail(new AuthError('Unauthorized'))
+          }
+
+          return session
+        }),
+    })
+  )
+}
+
+/**
  * Live Auth Layer
  *
  * Provides the production authentication service with Effect-wrapped methods.
- * Implementation uses Better Auth library internally.
+ * Implementation uses Better Auth library internally with default configuration.
+ *
+ * @deprecated Use createAuthLayer(authConfig) instead for app-specific configuration
  */
-export const AuthLive = Layer.succeed(
-  Auth,
-  Auth.of({
-    api: auth.api,
-
-    getSession: (headers) =>
-      Effect.tryPromise({
-        try: () => auth.api.getSession({ headers }),
-        catch: (error) => new AuthError(error),
-      }),
-
-    requireSession: (headers) =>
-      Effect.gen(function* () {
-        const session = yield* Effect.tryPromise({
-          try: () => auth.api.getSession({ headers }),
-          catch: (error) => new AuthError(error),
-        })
-
-        if (!session) {
-          return yield* Effect.fail(new AuthError('Unauthorized'))
-        }
-
-        return session
-      }),
-  })
-)
+export const AuthLive = createAuthLayer()

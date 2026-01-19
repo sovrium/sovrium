@@ -144,6 +144,11 @@ export const test = base.extend<ServerFixtures>({
         options?: {
           useDatabase?: boolean
           database?: { url?: string }
+          adminBootstrap?: {
+            email?: string
+            password?: string
+            name?: string
+          }
         }
       ) => {
         let databaseUrl: string | undefined = undefined
@@ -186,7 +191,7 @@ export const test = base.extend<ServerFixtures>({
 
         // SMTP is automatically configured via environment variables from mailpit
         // (configured in startCliServer - no need to pass email config in schema)
-        const server = await startCliServer(appSchema, databaseUrl)
+        const server = await startCliServer(appSchema, databaseUrl, options?.adminBootstrap)
         serverProcess = server.process
         serverUrl = server.url
 

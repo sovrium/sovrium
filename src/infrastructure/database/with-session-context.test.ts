@@ -46,11 +46,11 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock members table for org role lookup
-              if (sqlStr.includes('_sovrium_auth_members')) {
+              if (sqlStr.includes('auth.member')) {
                 return [{ role: 'member' }]
               }
               // Mock users table for fallback
-              if (sqlStr.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('auth.user')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined
@@ -102,7 +102,7 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock users table for global role lookup
-              if (sqlStr.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('auth.user')) {
                 return [{ role: null }]
               }
               return undefined
@@ -152,11 +152,11 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock members table - no role found (triggers fallback)
-              if (sqlStr.includes('_sovrium_auth_members')) {
+              if (sqlStr.includes('auth.member')) {
                 return []
               }
               // Mock users table for fallback
-              if (sqlStr.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('auth.user')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined
@@ -174,8 +174,8 @@ describe('with-session-context', () => {
       await Effect.runPromise(withSessionContext(mockSession, operation))
 
       // Verify SQL injection is escaped in all queries
-      const memberQuery = executedSql.find((s) => s.includes('_sovrium_auth_members'))
-      const userQuery = executedSql.find((s) => s.includes('_sovrium_auth_users'))
+      const memberQuery = executedSql.find((s) => s.includes('auth.member'))
+      const userQuery = executedSql.find((s) => s.includes('auth.user'))
       const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
 
       // All queries should have escaped the injection attempt
@@ -212,7 +212,7 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock members table for org role lookup
-              if (sqlStr.includes('_sovrium_auth_members')) {
+              if (sqlStr.includes('auth.member')) {
                 return [{ role: 'admin' }]
               }
               return undefined
@@ -257,7 +257,7 @@ describe('with-session-context', () => {
               // Extract SQL string from drizzle sql.raw() object
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               // Mock users table for global role lookup
-              if (sqlStr.includes('_sovrium_auth_users')) {
+              if (sqlStr.includes('auth.user')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined

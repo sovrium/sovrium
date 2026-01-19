@@ -12,8 +12,8 @@ import { db } from '@/infrastructure/database'
 import { createEmailHandlers } from './email-handlers'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildMagicLinkPlugin } from './plugins/magic-link'
-import { buildOrganizationPlugin, ORGANIZATION_TABLE_NAMES } from './plugins/organization'
-import { buildTwoFactorPlugin, TWO_FACTOR_TABLE_NAME } from './plugins/two-factor'
+import { buildOrganizationPlugin } from './plugins/organization'
+import { buildTwoFactorPlugin } from './plugins/two-factor'
 import {
   users,
   sessions,
@@ -56,40 +56,29 @@ const buildSocialProviders = (authConfig?: Auth) => {
 }
 
 /**
- * Custom table names with _sovrium_auth_ prefix for namespace isolation
- * This prevents conflicts when users create their own tables (e.g., "users" for CRM contacts)
- */
-const AUTH_TABLE_NAMES = {
-  user: '_sovrium_auth_users',
-  session: '_sovrium_auth_sessions',
-  account: '_sovrium_auth_accounts',
-  verification: '_sovrium_auth_verifications',
-  twoFactor: TWO_FACTOR_TABLE_NAME,
-  ...ORGANIZATION_TABLE_NAMES,
-} as const
-
-/**
  * Schema mapping for Better Auth's drizzle adapter
  *
- * Better Auth looks up schema by modelName, so we need to map:
- * - '_sovrium_auth_users' -> users table definition
- * - '_sovrium_auth_sessions' -> sessions table definition
- * - etc.
+ * IMPORTANT: The keys MUST be Better Auth's internal model names (user, account, session, etc.)
+ * NOT the custom table names. The actual database table name is determined by the Drizzle
+ * table definition (e.g., pgTable('_sovrium_auth_users', ...)).
  *
- * The keys must match the modelName values used in AUTH_TABLE_NAMES
+ * This is a critical fix for GitHub issue #5879 - using table names as keys causes
+ * the adapter to return wrong records, breaking account linking.
+ *
+ * See: https://github.com/better-auth/better-auth/issues/5879
  */
 const drizzleSchema = {
-  [AUTH_TABLE_NAMES.user]: users,
-  [AUTH_TABLE_NAMES.session]: sessions,
-  [AUTH_TABLE_NAMES.account]: accounts,
-  [AUTH_TABLE_NAMES.verification]: verifications,
-  [AUTH_TABLE_NAMES.organization]: organizations,
-  [AUTH_TABLE_NAMES.member]: members,
-  [AUTH_TABLE_NAMES.invitation]: invitations,
-  [AUTH_TABLE_NAMES.team]: teams,
-  [AUTH_TABLE_NAMES.teamMember]: teamMembers,
-  [AUTH_TABLE_NAMES.organizationRole]: organizationRoles,
-  [AUTH_TABLE_NAMES.twoFactor]: twoFactors,
+  user: users,
+  session: sessions,
+  account: accounts,
+  verification: verifications,
+  organization: organizations,
+  member: members,
+  invitation: invitations,
+  team: teams,
+  teamMember: teamMembers,
+  role: organizationRoles,
+  twoFactor: twoFactors,
 }
 
 /**
@@ -125,7 +114,6 @@ function buildRateLimitConfig() {
     },
   }
 }
-
 /**
  * Create Better Auth instance with dynamic configuration
  */
@@ -145,9 +133,8 @@ export function createAuthInstance(authConfig?: Auth) {
       usePlural: false,
       schema: drizzleSchema,
     }),
-    session: { modelName: AUTH_TABLE_NAMES.session },
-    account: { modelName: AUTH_TABLE_NAMES.account },
-    verification: { modelName: AUTH_TABLE_NAMES.verification },
+    // NOTE: modelName options removed - drizzleSchema uses standard model names
+    // and Drizzle pgTable() definitions specify actual database table names
     trustedOrigins: ['*'],
     advanced: {
       useSecureCookies: process.env.NODE_ENV === 'production',
@@ -164,7 +151,6 @@ export function createAuthInstance(authConfig?: Auth) {
       sendVerificationEmail: handlers.verification,
     },
     user: {
-      modelName: AUTH_TABLE_NAMES.user,
       changeEmail: { enabled: true, sendChangeEmailVerification: handlers.verification },
     },
     socialProviders: buildSocialProviders(authConfig),

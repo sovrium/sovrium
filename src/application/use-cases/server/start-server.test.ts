@@ -10,6 +10,7 @@ import { Effect, Layer } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { PageRenderer } from '@/application/ports/page-renderer'
 import { ServerFactory } from '@/application/ports/server-factory'
+import { Auth } from '@/infrastructure/auth/better-auth'
 import { startServer } from './start-server'
 import type { ServerInstance } from '@/application/models/server'
 
@@ -35,9 +36,20 @@ const MockPageRenderer = Layer.succeed(PageRenderer, {
 })
 
 /**
- * Test Layer composition (MockServerFactory + MockPageRenderer)
+ * Mock Auth for testing (no actual auth operations)
+ * Auth is used as a type-only dependency in startServer
  */
-const TestLayer = Layer.mergeAll(MockServerFactory, MockPageRenderer)
+const MockAuth = Layer.succeed(Auth, {
+  api: {} as never,
+  handler: (() => {}) as never,
+  getSession: () => Effect.succeed(null as never),
+  requireSession: () => Effect.fail(new Error('Mock auth - not implemented') as never),
+})
+
+/**
+ * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth)
+ */
+const TestLayer = Layer.mergeAll(MockServerFactory, MockPageRenderer, MockAuth)
 
 describe('startServer', () => {
   test('should start server with valid app configuration', async () => {

@@ -30,29 +30,31 @@ import { test, expect } from '@/specs/fixtures'
 test.describe('Admin: List users', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: These tests are marked .fixme() because the admin endpoints
-  // require proper admin user setup which isn't available via public API
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-001: should return 200 OK with paginated user list',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with multiple users in system
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      // Create multiple users via API
-      await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
-      })
+      // Create additional users via API
       await signUp({
         email: 'user1@example.com',
         password: 'UserPass123!',
@@ -64,7 +66,7 @@ test.describe('Admin: List users', () => {
         name: 'User Two',
       })
 
-      // Sign in as admin (assumes admin role is set via configuration)
+      // Sign in as admin (created via bootstrap)
       await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',
@@ -83,24 +85,38 @@ test.describe('Admin: List users', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-002: should return 200 OK with paginated results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with multiple users in system
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      // Create multiple users
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      // Create additional users
       await signUp({ email: 'user1@example.com', password: 'UserPass123!', name: 'User One' })
       await signUp({ email: 'user2@example.com', password: 'UserPass123!', name: 'User Two' })
       await signUp({ email: 'user3@example.com', password: 'UserPass123!', name: 'User Three' })
+
+      // Sign in as admin
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin requests users with limit and offset
       const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1')
@@ -114,23 +130,37 @@ test.describe('Admin: List users', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-003: should return 200 OK with users sorted correctly',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with multiple users
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'charlie@example.com', password: 'UserPass123!', name: 'Charlie' })
       await signUp({ email: 'alice@example.com', password: 'UserPass123!', name: 'Alice' })
       await signUp({ email: 'bob@example.com', password: 'UserPass123!', name: 'Bob' })
+
+      // Sign in as admin
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin requests users sorted by email ascending
       const response = await page.request.get(
@@ -193,21 +223,35 @@ test.describe('Admin: List users', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-006: should exclude password field from response',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with users in system
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      // Sign in as admin
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin requests list of users
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -225,20 +269,36 @@ test.describe('Admin: List users', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-007: should return 200 OK with empty list when no other users',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user with no other users
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      // Wait briefly to ensure bootstrap is complete
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      // Sign in as admin
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin requests list of users
       const response = await page.request.get('/api/auth/admin/list-users')
@@ -256,18 +316,27 @@ test.describe('Admin: List users', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-LIST-USERS-REGRESSION: admin can complete full list-users workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // Setup: Start server with admin plugin and create users for workflow
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      // Setup: Start server with admin plugin and create admin via bootstrap
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       await test.step('API-AUTH-ADMIN-LIST-USERS-004: returns 401 without authentication', async () => {
         // WHEN: Unauthenticated user attempts to list users
@@ -277,12 +346,7 @@ test.describe('Admin: List users', () => {
         expect(response.status()).toBe(401)
       })
 
-      // Create users for subsequent tests
-      await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
-      })
+      // Create regular users for subsequent tests
       await signUp({
         email: 'user@example.com',
         password: 'UserPass123!',

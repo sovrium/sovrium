@@ -29,6 +29,7 @@ export {
   getTemplateManager,
   generateTestDatabaseName,
 } from './server'
+export type { AdminBootstrapOptions } from './server'
 
 // Export CLI utilities
 export {

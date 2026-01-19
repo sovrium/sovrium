@@ -18,6 +18,7 @@ export type AuthUser = {
   email: string
   name: string
   emailVerified: boolean
+  role?: string
   createdAt: string
   updatedAt: string
 }
@@ -235,6 +236,11 @@ export type ServerFixtures = {
     options?: {
       useDatabase?: boolean
       database?: { url?: string }
+      adminBootstrap?: {
+        email?: string
+        password?: string
+        name?: string
+      }
     }
   ) => Promise<void>
 

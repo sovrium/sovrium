@@ -37,7 +37,7 @@ const getUserRole = async (
   // If active organization, check members table first
   if (session.activeOrganizationId) {
     const memberResult = (await tx.execute(
-      `SELECT role FROM "_sovrium_auth_members" WHERE organization_id = '${escapeSQL(session.activeOrganizationId)}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
+      `SELECT role FROM auth.member WHERE organization_id = '${escapeSQL(session.activeOrganizationId)}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
     )) as Array<{ role: string | null }>
 
     if (memberResult[0]?.role) {
@@ -48,7 +48,7 @@ const getUserRole = async (
   // Fall back to global user role from users table
   try {
     const userResult = (await tx.execute(
-      `SELECT role FROM "_sovrium_auth_users" WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
+      `SELECT role FROM auth.user WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
     )) as Array<{ role: string | null }>
 
     return userResult[0]?.role || 'authenticated'

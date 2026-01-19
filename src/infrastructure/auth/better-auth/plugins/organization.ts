@@ -16,18 +16,6 @@ import {
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
- * Custom table names for organization plugin
- */
-export const ORGANIZATION_TABLE_NAMES = {
-  organization: '_sovrium_auth_organizations',
-  member: '_sovrium_auth_members',
-  invitation: '_sovrium_auth_invitations',
-  team: '_sovrium_auth_teams',
-  teamMember: '_sovrium_auth_team_members',
-  organizationRole: '_sovrium_auth_organization_roles',
-} as const
-
-/**
  * Organization plugin configuration type
  */
 type PluginOrgConfig = Readonly<{
@@ -83,16 +71,8 @@ const buildPluginConfig = (
     ...(orgConfig.allowMultipleOrgs !== undefined && {
       allowUserToCreateOrganization: orgConfig.allowMultipleOrgs,
     }),
-    schema: {
-      organization: { modelName: ORGANIZATION_TABLE_NAMES.organization },
-      member: { modelName: ORGANIZATION_TABLE_NAMES.member },
-      invitation: { modelName: ORGANIZATION_TABLE_NAMES.invitation },
-      team: { modelName: ORGANIZATION_TABLE_NAMES.team },
-      teamMember: { modelName: ORGANIZATION_TABLE_NAMES.teamMember },
-      ...(dynamicRolesEnabled && {
-        role: { modelName: ORGANIZATION_TABLE_NAMES.organizationRole },
-      }),
-    },
+    // NOTE: schema.modelName options removed - drizzleSchema in auth.ts uses standard model names
+    // and Drizzle pgTable() definitions specify actual database table names
   }
 }
 

@@ -9,14 +9,10 @@ import { twoFactor } from 'better-auth/plugins'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
- * Two-factor table name
- */
-export const TWO_FACTOR_TABLE_NAME = '_sovrium_auth_two_factors'
-
-/**
  * Build two-factor plugin if enabled in auth configuration
+ *
+ * NOTE: modelName option removed - drizzleSchema in auth.ts uses standard model names
+ * and Drizzle pgTable() definitions specify actual database table names
  */
 export const buildTwoFactorPlugin = (authConfig?: Auth) =>
-  authConfig?.twoFactor
-    ? [twoFactor({ schema: { twoFactor: { modelName: TWO_FACTOR_TABLE_NAME } } })]
-    : []
+  authConfig?.twoFactor ? [twoFactor()] : []
