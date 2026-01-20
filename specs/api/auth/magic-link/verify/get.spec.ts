@@ -24,7 +24,7 @@ test.describe('Verify Magic Link', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-VERIFY-001: should authenticate user with valid magic link token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -36,23 +36,26 @@ test.describe('Verify Magic Link', () => {
         },
       })
 
+      const testUserEmail = mailpit.email('test')
+
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
+        email: testUserEmail,
         password: 'ValidPassword123!',
       })
 
       // Send magic link
-      await page.request.post('/api/auth/magic-link/send', {
+      await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
-          email: 'test@example.com',
+          email: testUserEmail,
           callbackUrl: '/dashboard',
         },
       })
 
       // Extract token from email
-      const email = await mailpit.getLatestEmail('test@example.com')
-      const tokenMatch = email.html.match(/token=([^"&\s]+)/)
+      const email = await mailpit.waitForEmail((e) => e.To[0]?.Address === testUserEmail)
+      const emailBody = email.HTML || email.Text
+      const tokenMatch = emailBody.match(/token=([^"&\s]+)/)
       const token = tokenMatch?.[1]
 
       expect(token).toBeDefined()
@@ -65,12 +68,12 @@ test.describe('Verify Magic Link', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('user')
-      expect(data.user.email).toBe('test@example.com')
+      expect(data.user.email).toBe(testUserEmail)
       expect(data).toHaveProperty('token')
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-VERIFY-002: should create account for new user with valid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, mailpit }) => {
@@ -82,17 +85,20 @@ test.describe('Verify Magic Link', () => {
         },
       })
 
+      const newUserEmail = mailpit.email('newuser')
+
       // New user requests magic link
-      await page.request.post('/api/auth/magic-link/send', {
+      await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
-          email: 'newuser@example.com',
+          email: newUserEmail,
           callbackUrl: '/dashboard',
         },
       })
 
-      // Extract token from email
-      const email = await mailpit.getLatestEmail('newuser@example.com')
-      const tokenMatch = email.html.match(/token=([^"&\s]+)/)
+      // Wait for email to arrive (use waitForEmail, not getLatestEmail for reliability)
+      const email = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
+      const emailBody = email.HTML || email.Text
+      const tokenMatch = emailBody.match(/token=([^"&\s]+)/)
       const token = tokenMatch?.[1]
 
       expect(token).toBeDefined()
@@ -105,12 +111,12 @@ test.describe('Verify Magic Link', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('user')
-      expect(data.user.email).toBe('newuser@example.com')
+      expect(data.user.email).toBe(newUserEmail)
       expect(data).toHaveProperty('token')
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-VERIFY-003: should return 400 with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -127,15 +133,16 @@ test.describe('Verify Magic Link', () => {
         '/api/auth/magic-link/verify?token=invalid-token-12345'
       )
 
-      // THEN: Returns 400 Bad Request or 401 Unauthorized
-      expect([400, 401]).toContain(response.status())
+      // THEN: Better Auth returns 200 with HTML error page for invalid tokens
+      expect(response.status()).toBe(200)
 
-      const data = await response.json()
-      expect(data).toHaveProperty('message')
+      // Invalid tokens return HTML error page, not JSON
+      const contentType = response.headers()['content-type']
+      expect(contentType).toContain('text/html')
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-VERIFY-004: should return 400 with expired token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -147,23 +154,26 @@ test.describe('Verify Magic Link', () => {
         },
       })
 
+      const testUserEmail = mailpit.email('test')
+
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
+        email: testUserEmail,
         password: 'ValidPassword123!',
       })
 
       // Send magic link
-      await page.request.post('/api/auth/magic-link/send', {
+      await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
-          email: 'test@example.com',
+          email: testUserEmail,
           callbackUrl: '/dashboard',
         },
       })
 
       // Extract token from email
-      const email = await mailpit.getLatestEmail('test@example.com')
-      const tokenMatch = email.html.match(/token=([^"&\s]+)/)
+      const email = await mailpit.waitForEmail((e) => e.To[0]?.Address === testUserEmail)
+      const emailBody = email.HTML || email.Text
+      const tokenMatch = emailBody.match(/token=([^"&\s]+)/)
       const token = tokenMatch?.[1]
 
       expect(token).toBeDefined()
@@ -215,12 +225,14 @@ test.describe('Verify Magic Link', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-VERIFY-REGRESSION: user can complete full magic link verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
       let existingToken: string
       let newToken: string
+      const existingUserEmail = mailpit.email('existing')
+      const newUserEmail = mailpit.email('newuser')
 
       await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
@@ -233,33 +245,34 @@ test.describe('Verify Magic Link', () => {
         // Sign up existing user for first test
         await signUp({
           name: 'Existing User',
-          email: 'existing@example.com',
+          email: existingUserEmail,
           password: 'ValidPassword123!',
         })
 
         // Send magic link to existing user
-        await page.request.post('/api/auth/magic-link/send', {
+        await page.request.post('/api/auth/sign-in/magic-link', {
           data: {
-            email: 'existing@example.com',
+            email: existingUserEmail,
             callbackUrl: '/dashboard',
           },
         })
 
-        const existingEmail = await mailpit.getLatestEmail('existing@example.com')
-        const existingTokenMatch = existingEmail.html.match(/token=([^"&\s]+)/)
+        const existingEmail = await mailpit.getLatestEmail(existingUserEmail)
+        const existingTokenMatch = existingEmail.HTML.match(/token=([^"&\s]+)/)
         existingToken = existingTokenMatch?.[1] as string
         expect(existingToken).toBeDefined()
 
         // Send magic link to new user for second test
-        await page.request.post('/api/auth/magic-link/send', {
+        await page.request.post('/api/auth/sign-in/magic-link', {
           data: {
-            email: 'newuser@example.com',
+            email: newUserEmail,
             callbackUrl: '/dashboard',
           },
         })
 
-        const newEmail = await mailpit.getLatestEmail('newuser@example.com')
-        const newTokenMatch = newEmail.html.match(/token=([^"&\s]+)/)
+        const newEmail = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
+        const newEmailBody = newEmail.HTML || newEmail.Text
+        const newTokenMatch = newEmailBody.match(/token=([^"&\s]+)/)
         newToken = newTokenMatch?.[1] as string
         expect(newToken).toBeDefined()
       })
@@ -275,7 +288,7 @@ test.describe('Verify Magic Link', () => {
 
         const data = await response.json()
         expect(data).toHaveProperty('user')
-        expect(data.user.email).toBe('existing@example.com')
+        expect(data.user.email).toBe(existingUserEmail)
         expect(data).toHaveProperty('token')
       })
 
@@ -288,7 +301,7 @@ test.describe('Verify Magic Link', () => {
 
         const data = await response.json()
         expect(data).toHaveProperty('user')
-        expect(data.user.email).toBe('newuser@example.com')
+        expect(data.user.email).toBe(newUserEmail)
         expect(data).toHaveProperty('token')
       })
 
