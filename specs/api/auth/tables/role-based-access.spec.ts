@@ -142,7 +142,7 @@ test.describe('Role-Based Table Access Control', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-003: org viewer role should have read-only access to org-scoped table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -160,12 +160,13 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['viewer'] },
-              create: { type: 'roles', roles: ['admin'] },
-              update: { type: 'roles', roles: ['admin'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'viewer'] },
+              create: { type: 'roles', roles: ['owner', 'admin'] },
+              update: { type: 'roles', roles: ['owner', 'admin'] },
             },
           },
         ],
@@ -204,7 +205,7 @@ test.describe('Role-Based Table Access Control', () => {
   // Verify global user roles control access to non-org tables
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-004: global admin role should access non-org admin-only table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -220,7 +221,7 @@ test.describe('Role-Based Table Access Control', () => {
             name: 'system_config',
             fields: [
               { id: 1, name: 'id', type: 'integer' },
-              { id: 2, name: 'key', type: 'single-line-text' },
+              { id: 2, name: 'config_key', type: 'single-line-text' },
               { id: 3, name: 'value', type: 'single-line-text' },
             ],
             permissions: {
@@ -292,6 +293,10 @@ test.describe('Role-Based Table Access Control', () => {
     'API-AUTH-TABLES-ROLE-006: global user role should NOT access org-scoped table (Option B)',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
+      // FIXME: Implementation gap - API allows access without organization context
+      // Expected: 403 (user not in any organization)
+      // Actual: 200 (access granted)
+      // Required: Add organization context validation in API route handler
       // GIVEN: An org-scoped table with member permission
       await startServerWithSchema({
         name: 'test-app',
@@ -306,10 +311,11 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'content', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
             },
           },
         ],
@@ -323,7 +329,7 @@ test.describe('Role-Based Table Access Control', () => {
       })
 
       // WHEN: User tries to access org-scoped table without org context
-      const response = await page.request.get('/api/tables/org_data')
+      const response = await page.request.get('/api/tables/1/records')
 
       // THEN: Access should be DENIED (Option B: global user ≠ org member)
       expect(response.status()).toBe(403)
@@ -335,7 +341,7 @@ test.describe('Role-Based Table Access Control', () => {
   // Verify role changes correctly when switching organizations
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-007: switching organizations should apply new org role',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
@@ -353,11 +359,12 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
-              create: { type: 'roles', roles: ['admin'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              create: { type: 'roles', roles: ['owner', 'admin'] },
             },
           },
         ],
@@ -377,7 +384,7 @@ test.describe('Role-Based Table Access Control', () => {
 
       // WHEN: Active in Org A (as admin)
       await setActiveOrganization(orgA.id)
-      const createResponseA = await page.request.post('/api/tables/org_settings', {
+      const createResponseA = await page.request.post('/api/tables/1/records', {
         data: { name: 'setting-a' },
       })
 
@@ -393,6 +400,10 @@ test.describe('Role-Based Table Access Control', () => {
     'API-AUTH-TABLES-ROLE-008: clearing active organization should revoke org-scoped access',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
+      // FIXME: Implementation gap - API allows access after clearing organization context
+      // Expected: 403 (no active organization)
+      // Actual: 200 (access granted)
+      // Required: Add active organization validation in API route handler
       // GIVEN: A user with active organization
       await startServerWithSchema({
         name: 'test-app',
@@ -407,10 +418,11 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'content', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
             },
           },
         ],
@@ -430,19 +442,19 @@ test.describe('Role-Based Table Access Control', () => {
       await setActiveOrganization(organization.id)
 
       // Verify access with active org
-      const withOrgResponse = await page.request.get('/api/tables/team_data')
+      const withOrgResponse = await page.request.get('/api/tables/1/records')
       expect(withOrgResponse.status()).toBe(200)
 
       // WHEN: Clear active organization
       await setActiveOrganization(null as unknown as string)
 
       // THEN: Access should be denied (no org context)
-      const noOrgResponse = await page.request.get('/api/tables/team_data')
+      const noOrgResponse = await page.request.get('/api/tables/1/records')
       expect(noOrgResponse.status()).toBe(403)
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-009: role should be correctly resolved during concurrent requests',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
@@ -460,10 +472,11 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'value', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
             },
           },
         ],
@@ -484,9 +497,9 @@ test.describe('Role-Based Table Access Control', () => {
 
       // WHEN: Multiple concurrent requests
       const responses = await Promise.all([
-        page.request.get('/api/tables/concurrent_data'),
-        page.request.get('/api/tables/concurrent_data'),
-        page.request.get('/api/tables/concurrent_data'),
+        page.request.get('/api/tables/1/records'),
+        page.request.get('/api/tables/1/records'),
+        page.request.get('/api/tables/1/records'),
       ])
 
       // THEN: All should have consistent role resolution
@@ -544,6 +557,10 @@ test.describe('Role-Based Table Access Control', () => {
     'API-AUTH-TABLES-ROLE-011: org owner should have full access to all org-scoped tables',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
+      // FIXME: Implementation gap - DELETE endpoint not working
+      // Expected: 200 (successful delete by owner)
+      // Actual: 500 (Internal Server Error)
+      // Required: Implement DELETE /api/tables/{id}/records/{recordId} endpoint with permission check
       // GIVEN: Org-scoped table with owner-only delete permission
       await startServerWithSchema({
         name: 'test-app',
@@ -558,12 +575,13 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'data', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
-              create: { type: 'roles', roles: ['admin'] },
-              update: { type: 'roles', roles: ['admin'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              create: { type: 'roles', roles: ['owner', 'admin'] },
+              update: { type: 'roles', roles: ['owner', 'admin'] },
               delete: { type: 'roles', roles: ['owner'] },
             },
           },
@@ -584,14 +602,14 @@ test.describe('Role-Based Table Access Control', () => {
       await setActiveOrganization(organization.id)
 
       // First create a record
-      const createResponse = await page.request.post('/api/tables/org_critical', {
+      const createResponse = await page.request.post('/api/tables/1/records', {
         data: { data: 'to-delete' },
       })
       expect(createResponse.status()).toBe(201)
       const created = await createResponse.json()
 
       // WHEN: Owner deletes the record
-      const deleteResponse = await page.request.delete(`/api/tables/org_critical/${created.id}`)
+      const deleteResponse = await page.request.delete(`/api/tables/1/records/${created.id}`)
 
       // THEN: Delete should succeed (owner role)
       expect(deleteResponse.status()).toBe(200)
@@ -602,6 +620,10 @@ test.describe('Role-Based Table Access Control', () => {
     'API-AUTH-TABLES-ROLE-012: user in multiple orgs should only access active org data',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
+      // FIXME: Implementation gap - Field not returned in API response
+      // Expected: data.records[0].org_name = 'Org B Data'
+      // Actual: data.records[0].org_name = undefined
+      // Required: Ensure custom fields are included in API response serialization
       // GIVEN: User in two organizations, each with org-scoped data
       await startServerWithSchema({
         name: 'test-app',
@@ -616,11 +638,12 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'org_name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
-              create: { type: 'roles', roles: ['member'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              create: { type: 'roles', roles: ['owner', 'admin', 'member'] },
             },
           },
         ],
@@ -638,7 +661,7 @@ test.describe('Role-Based Table Access Control', () => {
         slug: 'org-a-isolated',
       })
       await setActiveOrganization(orgA.id)
-      await page.request.post('/api/tables/org_isolated', {
+      await page.request.post('/api/tables/1/records', {
         data: { org_name: 'Org A Data' },
       })
 
@@ -648,12 +671,12 @@ test.describe('Role-Based Table Access Control', () => {
         slug: 'org-b-isolated',
       })
       await setActiveOrganization(orgB.id)
-      await page.request.post('/api/tables/org_isolated', {
+      await page.request.post('/api/tables/1/records', {
         data: { org_name: 'Org B Data' },
       })
 
       // WHEN: Query with Org B active
-      const response = await page.request.get('/api/tables/org_isolated')
+      const response = await page.request.get('/api/tables/1/records')
       const data = await response.json()
 
       // THEN: Should only see Org B data
@@ -666,6 +689,11 @@ test.describe('Role-Based Table Access Control', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
+  // FIXME: Implementation gap - Same as test 008
+  // Test fails at "clearing active organization" step (line 861)
+  // Expected: 403 (no active organization)
+  // Actual: 200 (access granted)
+  // Required: Add active organization validation in API route handler
   test.fixme(
     'API-AUTH-TABLES-ROLE-REGRESSION: user can complete full role-based access workflow',
     { tag: '@regression' },
@@ -692,11 +720,12 @@ test.describe('Role-Based Table Access Control', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer' },
                 { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
                 organizationScoped: true,
-                read: { type: 'roles', roles: ['member'] },
-                create: { type: 'roles', roles: ['admin'] },
+                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                create: { type: 'roles', roles: ['owner', 'admin'] },
               },
             },
             // Org-scoped table for admin tests (002)
@@ -704,15 +733,16 @@ test.describe('Role-Based Table Access Control', () => {
               id: 2,
               name: 'team_settings',
               fields: [
-                { id: 3, name: 'id', type: 'integer' },
-                { id: 4, name: 'key', type: 'single-line-text' },
-                { id: 5, name: 'value', type: 'single-line-text' },
+                { id: 4, name: 'id', type: 'integer' },
+                { id: 5, name: 'setting_key', type: 'single-line-text' },
+                { id: 6, name: 'value', type: 'single-line-text' },
+                { id: 7, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
                 organizationScoped: true,
-                read: { type: 'roles', roles: ['member'] },
-                create: { type: 'roles', roles: ['admin'] },
-                update: { type: 'roles', roles: ['admin'] },
+                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                create: { type: 'roles', roles: ['owner', 'admin'] },
+                update: { type: 'roles', roles: ['owner', 'admin'] },
               },
             },
             // Org-scoped table for owner delete test (011)
@@ -720,14 +750,15 @@ test.describe('Role-Based Table Access Control', () => {
               id: 3,
               name: 'org_critical',
               fields: [
-                { id: 6, name: 'id', type: 'integer' },
-                { id: 7, name: 'data', type: 'single-line-text' },
+                { id: 8, name: 'id', type: 'integer' },
+                { id: 9, name: 'data', type: 'single-line-text' },
+                { id: 10, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
                 organizationScoped: true,
-                read: { type: 'roles', roles: ['member'] },
-                create: { type: 'roles', roles: ['admin'] },
-                update: { type: 'roles', roles: ['admin'] },
+                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                create: { type: 'roles', roles: ['owner', 'admin'] },
+                update: { type: 'roles', roles: ['owner', 'admin'] },
                 delete: { type: 'roles', roles: ['owner'] },
               },
             },
@@ -736,8 +767,8 @@ test.describe('Role-Based Table Access Control', () => {
               id: 4,
               name: 'user_preferences',
               fields: [
-                { id: 8, name: 'id', type: 'integer' },
-                { id: 9, name: 'theme', type: 'single-line-text' },
+                { id: 11, name: 'id', type: 'integer' },
+                { id: 12, name: 'theme', type: 'single-line-text' },
               ],
               permissions: {
                 read: { type: 'roles', roles: ['user'] },
@@ -750,8 +781,8 @@ test.describe('Role-Based Table Access Control', () => {
               id: 5,
               name: 'public_data',
               fields: [
-                { id: 10, name: 'id', type: 'integer' },
-                { id: 11, name: 'content', type: 'single-line-text' },
+                { id: 13, name: 'id', type: 'integer' },
+                { id: 14, name: 'content', type: 'single-line-text' },
               ],
               permissions: {
                 read: { type: 'authenticated' },
@@ -762,13 +793,14 @@ test.describe('Role-Based Table Access Control', () => {
               id: 6,
               name: 'org_isolated',
               fields: [
-                { id: 12, name: 'id', type: 'integer' },
-                { id: 13, name: 'org_name', type: 'single-line-text' },
+                { id: 15, name: 'id', type: 'integer' },
+                { id: 16, name: 'org_name', type: 'single-line-text' },
+                { id: 17, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
                 organizationScoped: true,
-                read: { type: 'roles', roles: ['member'] },
-                create: { type: 'roles', roles: ['member'] },
+                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                create: { type: 'roles', roles: ['owner', 'admin', 'member'] },
               },
             },
           ],
@@ -791,7 +823,7 @@ test.describe('Role-Based Table Access Control', () => {
         await setActiveOrganization(organization.id)
 
         // WHEN: User accesses the org-scoped table
-        const response = await page.request.get('/api/tables/team_docs')
+        const response = await page.request.get('/api/tables/1/records')
 
         // THEN: Access should be granted (member role allows read)
         expect(response.status()).toBe(200)
@@ -799,8 +831,8 @@ test.describe('Role-Based Table Access Control', () => {
 
       await test.step('API-AUTH-TABLES-ROLE-002: Grants org admin elevated access to org-scoped table', async () => {
         // WHEN: Admin creates a new setting
-        const response = await page.request.post('/api/tables/team_settings', {
-          data: { key: 'theme', value: 'dark' },
+        const response = await page.request.post('/api/tables/2/records', {
+          data: { setting_key: 'theme', value: 'dark' },
         })
 
         // THEN: Create should be allowed (admin role grants create permission)
@@ -823,14 +855,14 @@ test.describe('Role-Based Table Access Control', () => {
 
       await test.step('API-AUTH-TABLES-ROLE-008: Clears active organization revokes org-scoped access', async () => {
         // Verify access with active org
-        const withOrgResponse = await page.request.get('/api/tables/team_docs')
+        const withOrgResponse = await page.request.get('/api/tables/1/records')
         expect(withOrgResponse.status()).toBe(200)
 
         // WHEN: Clear active organization
         await setActiveOrganization(null as unknown as string)
 
         // THEN: Access should be denied (no org context)
-        const noOrgResponse = await page.request.get('/api/tables/team_docs')
+        const noOrgResponse = await page.request.get('/api/tables/1/records')
         expect(noOrgResponse.status()).toBe(403)
       })
 
@@ -843,7 +875,7 @@ test.describe('Role-Based Table Access Control', () => {
         })
 
         // WHEN: User accesses authenticated table
-        const response = await page.request.get('/api/tables/public_data')
+        const response = await page.request.get('/api/tables/5/records')
 
         // THEN: Should have access via authenticated permission
         expect(response.status()).toBe(200)
@@ -865,14 +897,14 @@ test.describe('Role-Based Table Access Control', () => {
         await setActiveOrganization(organization.id)
 
         // First create a record
-        const createResponse = await page.request.post('/api/tables/org_critical', {
+        const createResponse = await page.request.post('/api/tables/3/records', {
           data: { data: 'to-delete' },
         })
         expect(createResponse.status()).toBe(201)
         const created = await createResponse.json()
 
         // WHEN: Owner deletes the record
-        const deleteResponse = await page.request.delete(`/api/tables/org_critical/${created.id}`)
+        const deleteResponse = await page.request.delete(`/api/tables/3/records/${created.id}`)
 
         // THEN: Delete should succeed (owner role)
         expect(deleteResponse.status()).toBe(200)
@@ -892,7 +924,7 @@ test.describe('Role-Based Table Access Control', () => {
           slug: 'org-a-isolated',
         })
         await setActiveOrganization(orgA.id)
-        await page.request.post('/api/tables/org_isolated', {
+        await page.request.post('/api/tables/6/records', {
           data: { org_name: 'Org A Data' },
         })
 
@@ -902,12 +934,12 @@ test.describe('Role-Based Table Access Control', () => {
           slug: 'org-b-isolated',
         })
         await setActiveOrganization(orgB.id)
-        await page.request.post('/api/tables/org_isolated', {
+        await page.request.post('/api/tables/6/records', {
           data: { org_name: 'Org B Data' },
         })
 
         // WHEN: Query with Org B active
-        const response = await page.request.get('/api/tables/org_isolated')
+        const response = await page.request.get('/api/tables/6/records')
         const data = await response.json()
 
         // THEN: Should only see Org B data
