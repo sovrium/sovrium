@@ -40,19 +40,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-001: owner role has access when explicitly listed',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedOwner, executeQuery }) => {
       // GIVEN: Table with owner-only read permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -61,11 +55,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'secret', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'roles', roles: ['owner'] }, // Only owner
               create: { type: 'roles', roles: ['owner'] },
             },
@@ -73,13 +65,12 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         ],
       })
 
-      // Organization owner (created with owner role automatically)
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Create user with owner role
+      await createAuthenticatedOwner({ email: 'owner@example.com' })
 
       await executeQuery(`
-        INSERT INTO owner_secrets (id, secret, organization_id) VALUES
-          (1, 'Top secret data', '${org.organization.id}')
+        INSERT INTO owner_secrets (id, secret) VALUES
+          (1, 'Top secret data')
       `)
 
       // WHEN: Owner requests the secrets
@@ -96,21 +87,12 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-002: admin cannot access owner-only resources',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table with owner-only read permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
           admin: true,
         },
         tables: [
@@ -120,34 +102,22 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'secret', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'roles', roles: ['owner'] }, // Only owner, NOT admin
             },
           },
         ],
       })
 
-      // Create owner and org
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Create admin user (non-owner)
+      await createAuthenticatedUser({ email: 'admin@example.com' })
 
       await executeQuery(`
-        INSERT INTO owner_secrets (id, secret, organization_id) VALUES
-          (1, 'Owner secret', '${org.organization.id}')
+        INSERT INTO owner_secrets (id, secret) VALUES
+          (1, 'Owner secret')
       `)
-
-      // Create admin user in the same org
-      await signOut()
-      const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: admin.user.id,
-        role: 'admin',
-      })
 
       // WHEN: Admin tries to access owner-only resources
       const response = await request.get('/api/tables/1/records')
@@ -163,21 +133,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-003: cascading permission includes multiple roles explicitly',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
       // GIVEN: Table with cascading permissions (owner, admin, member all included)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -186,11 +148,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               // Explicit cascading: owner, admin, AND member can all read
               read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
               // Only owner and admin can create
@@ -202,23 +162,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         ],
       })
 
-      // Create owner
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Create member user
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       await executeQuery(`
-        INSERT INTO team_resources (id, name, organization_id) VALUES
-          (1, 'Shared Resource', '${org.organization.id}')
+        INSERT INTO team_resources (id, name) VALUES
+          (1, 'Shared Resource')
       `)
-
-      // Create member
-      await signOut()
-      const member = await createAuthenticatedUser({ email: 'member@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: member.user.id,
-        role: 'member',
-      })
 
       // WHEN: Member reads resources
       const readResponse = await request.get('/api/tables/1/records')
@@ -250,22 +200,14 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-004: member role gets read-only access when excluded from create/update',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
       // GIVEN: Table with member included in read but NOT in create/update/delete
       // This tests read-only permission patterns
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -274,11 +216,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               // Member can read but NOT create/update/delete
               read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
               create: { type: 'roles', roles: ['owner', 'admin'] }, // No member
@@ -289,23 +229,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         ],
       })
 
-      // Create owner
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Create read-only member
+      await createAuthenticatedMember({ email: 'readonly@example.com' })
 
       await executeQuery(`
-        INSERT INTO public_data (id, content, organization_id) VALUES
-          (1, 'Viewable Content', '${org.organization.id}')
+        INSERT INTO public_data (id, content) VALUES
+          (1, 'Viewable Content')
       `)
-
-      // Create read-only member
-      await signOut()
-      const readOnlyMember = await createAuthenticatedUser({ email: 'readonly@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: readOnlyMember.user.id,
-        role: 'member',
-      })
 
       // WHEN: Read-only member reads
       const readResponse = await request.get('/api/tables/1/records')
@@ -342,21 +272,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-005: role escalation attempt fails',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
       // GIVEN: Table where different roles have different field access
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -367,11 +289,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'role_field', type: 'single-line-text' }, // Stores user's role claim
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'authenticated' },
               update: { type: 'roles', roles: ['owner', 'admin'] },
               fields: [
@@ -392,23 +312,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         ],
       })
 
-      // Create owner
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
-
-      // Create member
-      await signOut()
-      const member = await createAuthenticatedUser({ email: 'member@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: member.user.id,
-        role: 'member',
-      })
+      // Create member user
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // Create employee record
       await executeQuery(`
-        INSERT INTO employees (id, name, role_field, salary, organization_id) VALUES
-          (1, 'Test Employee', 'member', 50000, '${org.organization.id}')
+        INSERT INTO employees (id, name, role_field, salary) VALUES
+          (1, 'Test Employee', 'member', 50000)
       `)
 
       // WHEN: Member tries to escalate their role
@@ -431,19 +341,13 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-006: empty roles array denies all access',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedOwner, executeQuery }) => {
       // GIVEN: Table with empty roles array (effectively deny all)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
+          admin: true,
         },
         tables: [
           {
@@ -452,11 +356,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'message', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               // No one can delete (empty roles = deny all)
               read: { type: 'authenticated' },
               delete: { type: 'roles', roles: [] },
@@ -465,12 +367,11 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         ],
       })
 
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      await createAuthenticatedOwner({ email: 'owner@example.com' })
 
       await executeQuery(`
-        INSERT INTO system_logs (id, message, organization_id) VALUES
-          (1, 'Important log', '${org.organization.id}')
+        INSERT INTO system_logs (id, message) VALUES
+          (1, 'Important log')
       `)
 
       // WHEN: Owner tries to delete (even owner is denied)
@@ -496,27 +397,12 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
   test(
     'API-TABLES-PERMISSIONS-INHERIT-REGRESSION: complete role hierarchy workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-      signIn,
-      setActiveOrganization,
-    }) => {
-      let org: { organization: { id: string } }
-      let admin: { user: { id: string } }
-      let member: { user: { id: string } }
-
+    async ({ request, startServerWithSchema, executeQuery, signOut, signIn, page }) => {
       await test.step('Setup: Start server with comprehensive role-based permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            organization: true,
             admin: true,
           },
           tables: [
@@ -527,11 +413,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'secret', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'roles', roles: ['owner'] },
                 create: { type: 'roles', roles: ['owner'] },
               },
@@ -543,11 +427,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
                 create: { type: 'roles', roles: ['owner', 'admin'] },
                 delete: { type: 'roles', roles: ['owner'] },
@@ -560,11 +442,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'content', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
                 create: { type: 'roles', roles: ['owner', 'admin'] },
                 update: { type: 'roles', roles: ['owner', 'admin'] },
@@ -580,11 +460,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
                 { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'role_field', type: 'single-line-text' },
                 { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-                { id: 5, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'authenticated' },
                 update: { type: 'roles', roles: ['owner', 'admin'] },
                 fields: [
@@ -608,11 +486,9 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'message', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'authenticated' },
                 delete: { type: 'roles', roles: [] },
               },
@@ -621,50 +497,55 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         })
       })
 
-      await test.step('Setup: Create organization with all role types', async () => {
-        // Owner (creates org)
-        await createAuthenticatedUser({ email: 'owner@example.com' })
-        org = await createOrganization({ name: 'Test Org' })
+      await test.step('Setup: Create users with different roles', async () => {
+        // Owner
+        await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'owner@example.com',
+            password: 'TestPassword123!',
+            name: 'Owner User',
+          },
+        })
 
         // Admin
-        await signOut()
-        admin = await createAuthenticatedUser({ email: 'admin@example.com' })
-        await addMember({
-          organizationId: org.organization.id,
-          userId: admin.user.id,
-          role: 'admin',
+        await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'admin@example.com',
+            password: 'TestPassword123!',
+            name: 'Admin User',
+          },
         })
 
         // Member
-        await signOut()
-        member = await createAuthenticatedUser({ email: 'member@example.com' })
-        await addMember({
-          organizationId: org.organization.id,
-          userId: member.user.id,
-          role: 'member',
+        await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'member@example.com',
+            password: 'TestPassword123!',
+            name: 'Member User',
+          },
         })
       })
 
       await test.step('Setup: Insert test data for all tables', async () => {
         await executeQuery(`
-          INSERT INTO owner_secrets (id, secret, organization_id) VALUES
-            (1, 'Top secret data', '${org.organization.id}')
+          INSERT INTO owner_secrets (id, secret) VALUES
+            (1, 'Top secret data')
         `)
         await executeQuery(`
-          INSERT INTO team_resources (id, name, organization_id) VALUES
-            (1, 'Shared Resource', '${org.organization.id}')
+          INSERT INTO team_resources (id, name) VALUES
+            (1, 'Shared Resource')
         `)
         await executeQuery(`
-          INSERT INTO public_data (id, content, organization_id) VALUES
-            (1, 'Viewable Content', '${org.organization.id}')
+          INSERT INTO public_data (id, content) VALUES
+            (1, 'Viewable Content')
         `)
         await executeQuery(`
-          INSERT INTO employees (id, name, role_field, salary, organization_id) VALUES
-            (1, 'Test Employee', 'member', 50000, '${org.organization.id}')
+          INSERT INTO employees (id, name, role_field, salary) VALUES
+            (1, 'Test Employee', 'member', 50000)
         `)
         await executeQuery(`
-          INSERT INTO system_logs (id, message, organization_id) VALUES
-            (1, 'Important log', '${org.organization.id}')
+          INSERT INTO system_logs (id, message) VALUES
+            (1, 'Important log')
         `)
       })
 
@@ -672,7 +553,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Owner requests the secrets
         await signOut()
         await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const response = await request.get('/api/tables/1/records')
 
         // THEN: Owner can access
@@ -686,7 +566,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Admin tries to access owner-only resources
         await signOut()
         await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const response = await request.get('/api/tables/1/records')
 
         // THEN: Admin gets empty results (RLS filters, no access)
@@ -699,7 +578,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Member reads resources
         await signOut()
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const readResponse = await request.get('/api/tables/2/records')
 
         // THEN: Member can read (included in roles array)
@@ -727,7 +605,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Read-only member reads
         await signOut()
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const readResponse = await request.get('/api/tables/3/records')
 
         // THEN: Member can read
@@ -758,7 +635,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Member tries to escalate their role
         await signOut()
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const escalateResponse = await request.patch('/api/tables/4/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { role_field: 'admin' },
@@ -776,7 +652,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Owner tries to delete (even owner is denied with empty roles)
         await signOut()
         await signIn({ email: 'owner@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const deleteResponse = await request.delete('/api/tables/5/records/1')
 
         // THEN: Delete is denied

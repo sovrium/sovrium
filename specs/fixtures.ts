@@ -24,9 +24,6 @@ import type {
   AuthResult,
   SignUpData,
   SignInData,
-  OrganizationResult,
-  InvitationResult,
-  MembershipResult,
   ApiKeyResult,
   ApiKeyCreateData,
   ApiKey,
@@ -633,26 +630,6 @@ export const test = base.extend<ServerFixtures>({
 
       const result = await response.json()
 
-      // If createOrganization is true, create an organization for the user
-      if (data.createOrganization && result.user) {
-        const orgResponse = await page.request.post('/api/auth/organization/create', {
-          data: {
-            name: `${result.user.name}'s Organization`,
-            slug: `org-${result.user.id.slice(0, 8)}`,
-          },
-        })
-
-        if (orgResponse.ok()) {
-          const orgResult = await orgResponse.json()
-          return {
-            user: result.user,
-            session: result.session,
-            token: result.session?.token,
-            organizationId: orgResult.id,
-          }
-        }
-      }
-
       // Better Auth returns { user, token } directly, not { user, session }
       // Construct session object from the token for AuthResult compatibility
       return {
@@ -663,11 +640,9 @@ export const test = base.extend<ServerFixtures>({
               userId: result.user.id,
               token: result.token,
               expiresAt: '', // Not provided by Better Auth sign-up response
-              activeOrganizationId: undefined,
             }
           : undefined,
         token: result.token,
-        organizationId: undefined,
       }
     })
   },
@@ -706,11 +681,9 @@ export const test = base.extend<ServerFixtures>({
               userId: result.user.id,
               token: result.token,
               expiresAt: '', // Not provided by Better Auth sign-in response
-              activeOrganizationId: result.user.activeOrganizationId,
             }
           : undefined,
         token: result.token,
-        organizationId: result.user.activeOrganizationId,
       }
     })
   },
@@ -740,11 +713,10 @@ export const test = base.extend<ServerFixtures>({
         email: data?.email || `test-${testId}@example.com`,
         password: data?.password || 'TestPassword123!',
         name: data?.name || `Test User ${testId}`,
-        createOrganization: data?.createOrganization,
       }
 
       // Sign up the user
-      const signUpResult = await signUp(userData)
+      await signUp(userData)
 
       // Sign in to get session cookies
       const signInResult = await signIn({
@@ -752,10 +724,7 @@ export const test = base.extend<ServerFixtures>({
         password: userData.password,
       })
 
-      return {
-        ...signInResult,
-        organizationId: signUpResult.organizationId || signInResult.organizationId,
-      }
+      return signInResult
     })
   },
 
@@ -795,7 +764,7 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  createAuthenticatedViewer: async ({ createAuthenticatedUser, page }, use, testInfo) => {
+  createAuthenticatedViewer: async ({ createAuthenticatedUser, page, signIn }, use, testInfo) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
       const user = await createAuthenticatedUser(data)
@@ -821,212 +790,55 @@ export const test = base.extend<ServerFixtures>({
         )
       }
 
-      return user
+      // Re-authenticate after session revocation (set-role revokes all sessions)
+      const testId = data?.email || user.user.email
+      const password = data?.password || 'TestPassword123!'
+      const signInResult = await signIn({ email: testId, password })
+
+      return signInResult
     })
   },
 
-  // Organization fixtures
-  createOrganization: async ({ page }, use, testInfo) => {
-    await use(async (data: { name: string; slug?: string }): Promise<OrganizationResult> => {
-      const serverUrl = (testInfo as any)._serverUrl
-      if (!serverUrl) {
-        throw new Error('Server not started. Call startServerWithSchema first.')
-      }
+  createAuthenticatedOwner: async (
+    { createAuthenticatedUser, executeQuery, signIn },
+    use,
+    testInfo
+  ) => {
+    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
+      // Create user first
+      const user = await createAuthenticatedUser(data)
 
-      const response = await page.request.post('/api/auth/organization/create', {
-        data: {
-          name: data.name,
-          slug: data.slug || data.name.toLowerCase().replace(/\s+/g, '-'),
-        },
-      })
+      // Set role to owner using direct database update
+      await executeQuery(`UPDATE auth.user SET role = 'owner' WHERE id = $1`, [user.user.id])
 
-      if (!response.ok()) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          `Create organization failed with status ${response.status()}: ${JSON.stringify(errorData)}`
-        )
-      }
+      // Re-authenticate to get session with updated role
+      const testId = data?.email || user.user.email
+      const password = data?.password || 'TestPassword123!'
+      const signInResult = await signIn({ email: testId, password })
 
-      const result = await response.json()
-
-      // Automatically set the created organization as the active organization
-      // This ensures session.activeOrganizationId is set for subsequent API calls
-      const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
-        data: {
-          organizationId: result.id,
-        },
-      })
-
-      if (!setActiveResponse.ok()) {
-        const errorData = await setActiveResponse.json().catch(() => ({}))
-        throw new Error(
-          `Set active organization failed with status ${setActiveResponse.status()}: ${JSON.stringify(errorData)}`
-        )
-      }
-
-      return { organization: result }
+      return signInResult
     })
   },
 
-  setActiveOrganization: async ({ page }, use, testInfo) => {
-    await use(async (organizationId: string): Promise<void> => {
-      const serverUrl = (testInfo as any)._serverUrl
-      if (!serverUrl) {
-        throw new Error('Server not started. Call startServerWithSchema first.')
-      }
+  createAuthenticatedMember: async (
+    { createAuthenticatedUser, executeQuery, signIn },
+    use,
+    testInfo
+  ) => {
+    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
+      // Create user first
+      const user = await createAuthenticatedUser(data)
 
-      const response = await page.request.post('/api/auth/organization/set-active', {
-        data: { organizationId },
-      })
+      // Set role to member using direct database update
+      await executeQuery(`UPDATE auth.user SET role = 'member' WHERE id = $1`, [user.user.id])
 
-      if (!response.ok()) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          `Set active organization failed with status ${response.status()}: ${JSON.stringify(errorData)}`
-        )
-      }
+      // Re-authenticate to get session with updated role
+      const testId = data?.email || user.user.email
+      const password = data?.password || 'TestPassword123!'
+      const signInResult = await signIn({ email: testId, password })
+
+      return signInResult
     })
-  },
-
-  inviteMember: async ({ page }, use, testInfo) => {
-    await use(
-      async (data: {
-        organizationId: string
-        email: string
-        role?: 'admin' | 'member'
-      }): Promise<InvitationResult> => {
-        const serverUrl = (testInfo as any)._serverUrl
-        if (!serverUrl) {
-          throw new Error('Server not started. Call startServerWithSchema first.')
-        }
-
-        const response = await page.request.post('/api/auth/organization/invite-member', {
-          data: {
-            organizationId: data.organizationId,
-            email: data.email,
-            role: data.role || 'member',
-          },
-        })
-
-        if (!response.ok()) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(
-            `Invite member failed with status ${response.status()}: ${JSON.stringify(errorData)}`
-          )
-        }
-
-        const result = await response.json()
-        return { invitation: result }
-      }
-    )
-  },
-
-  acceptInvitation: async ({ page }, use, testInfo) => {
-    await use(async (invitationId: string): Promise<MembershipResult> => {
-      const serverUrl = (testInfo as any)._serverUrl
-      if (!serverUrl) {
-        throw new Error('Server not started. Call startServerWithSchema first.')
-      }
-
-      const response = await page.request.post('/api/auth/organization/accept-invitation', {
-        data: { invitationId },
-      })
-
-      if (!response.ok()) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          `Accept invitation failed with status ${response.status()}: ${JSON.stringify(errorData)}`
-        )
-      }
-
-      const result = await response.json()
-      return { member: result }
-    })
-  },
-
-  addMember: async ({ inviteMember, acceptInvitation, signIn }, use, testInfo) => {
-    await use(
-      async (data: {
-        organizationId: string
-        userId: string
-        role?: 'admin' | 'member'
-      }): Promise<MembershipResult> => {
-        // Get database URL from test context to fetch user email
-        const testDbName = (testInfo as any)._testDatabaseName
-        if (!testDbName) {
-          throw new Error('Server not started. Call startServerWithSchema first.')
-        }
-
-        const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
-        if (!connectionUrl) {
-          throw new Error('Database container not initialized')
-        }
-
-        // Construct database URL
-        const url = new URL(connectionUrl)
-        const pathParts = url.pathname.split('/')
-        pathParts[1] = testDbName
-        url.pathname = pathParts.join('/')
-        const databaseUrl = url.toString()
-
-        // Fetch user email AND organization owner email from database
-        const pg = await import('pg')
-        const client = new pg.default.Client({ connectionString: databaseUrl })
-        await client.connect()
-
-        let userEmail: string
-        let ownerEmail: string
-        try {
-          // Fetch user to invite
-          const userResult = await client.query(`SELECT email FROM auth.user WHERE id = $1`, [
-            data.userId,
-          ])
-
-          if (userResult.rows.length === 0) {
-            throw new Error(`User with id ${data.userId} not found`)
-          }
-
-          userEmail = userResult.rows[0].email
-
-          // Fetch organization owner (creator) to sign in as them
-          const ownerResult = await client.query(
-            `SELECT u.email, u.id
-             FROM auth.user u
-             INNER JOIN auth.member m ON u.id = m.user_id
-             WHERE m.organization_id = $1 AND m.role = 'owner'
-             LIMIT 1`,
-            [data.organizationId]
-          )
-
-          if (ownerResult.rows.length === 0) {
-            throw new Error(`Organization ${data.organizationId} has no owner`)
-          }
-
-          ownerEmail = ownerResult.rows[0].email
-        } finally {
-          await client.end()
-        }
-
-        // Sign in as organization owner to have permission to invite
-        await signIn({ email: ownerEmail, password: 'TestPassword123!' })
-
-        // Use Better Auth's invitation flow
-        // 1. Send invitation (triggers email via Better Auth)
-        const { invitation } = await inviteMember({
-          organizationId: data.organizationId,
-          email: userEmail,
-          role: data.role || 'member',
-        })
-
-        // 2. Sign in as the invited user to accept invitation
-        await signIn({ email: userEmail, password: 'TestPassword123!' })
-
-        // 3. Accept invitation (simulates user clicking invitation link)
-        const membership = await acceptInvitation(invitation.id)
-
-        return membership
-      }
-    )
   },
 
   // Email testing fixture
@@ -1363,23 +1175,18 @@ export {
   expectQueryToReturnZeroRows,
   verifyRecordExists,
   verifyRecordNotExists,
-  createMultiOrgScenario,
 } from './fixtures/database'
 export type {
   RoleContext,
   ExecuteQueryFn,
   RlsPolicyInfo,
   QuerySuccessOptions,
-  MultiOrgScenarioResult,
 } from './fixtures/database'
 export type {
   ServerFixtures,
   AuthResult,
   SignUpData,
   SignInData,
-  OrganizationResult,
-  InvitationResult,
-  MembershipResult,
   ApiKeyResult,
   ApiKeyCreateData,
   ApiKey,
