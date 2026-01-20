@@ -258,7 +258,7 @@ test.describe('Verify Magic Link', () => {
         })
 
         const existingEmail = await mailpit.getLatestEmail(existingUserEmail)
-        const existingTokenMatch = existingEmail.HTML.match(/token=([^"&\s]+)/)
+        const existingTokenMatch = existingEmail.html.match(/token=([^"&\s]+)/)
         existingToken = existingTokenMatch?.[1] as string
         expect(existingToken).toBeDefined()
 
@@ -311,11 +311,12 @@ test.describe('Verify Magic Link', () => {
           '/api/auth/magic-link/verify?token=invalid-token-12345'
         )
 
-        // THEN: Returns 400 Bad Request or 401 Unauthorized
-        expect([400, 401]).toContain(response.status())
+        // THEN: Better Auth returns 200 with HTML error page for invalid tokens
+        expect(response.status()).toBe(200)
 
-        const data = await response.json()
-        expect(data).toHaveProperty('message')
+        // Invalid tokens return HTML error page, not JSON
+        const contentType = response.headers()['content-type']
+        expect(contentType).toContain('text/html')
       })
 
       await test.step('API-AUTH-MAGIC-LINK-VERIFY-005: Returns 400 when token is missing', async () => {

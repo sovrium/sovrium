@@ -10,68 +10,6 @@ import { generateRLSPolicyStatements, generateBasicTableGrants } from './rls-pol
 import type { Table } from '@/domain/models/app/table'
 
 describe('generateRLSPolicyStatements', () => {
-  test('should generate RLS policies for organization-scoped table', () => {
-    const table: Table = {
-      id: 1,
-      name: 'projects',
-      fields: [
-        { id: 1, name: 'id', type: 'integer', required: true },
-        { id: 2, name: 'name', type: 'single-line-text' },
-        { id: 3, name: 'organization_id', type: 'single-line-text' },
-      ],
-      permissions: {
-        organizationScoped: true,
-      },
-    }
-
-    const statements = generateRLSPolicyStatements(table)
-
-    expect(statements).toHaveLength(10) // Enable RLS + Force RLS + 4 drops + 4 creates
-
-    // Check ALTER TABLE ENABLE RLS and FORCE RLS
-    expect(statements[0]).toBe('ALTER TABLE projects ENABLE ROW LEVEL SECURITY')
-    expect(statements[1]).toBe('ALTER TABLE projects FORCE ROW LEVEL SECURITY')
-
-    // Check DROP statements
-    expect(statements[2]).toBe('DROP POLICY IF EXISTS projects_org_select ON projects')
-    expect(statements[3]).toBe('DROP POLICY IF EXISTS projects_org_insert ON projects')
-    expect(statements[4]).toBe('DROP POLICY IF EXISTS projects_org_update ON projects')
-    expect(statements[5]).toBe('DROP POLICY IF EXISTS projects_org_delete ON projects')
-
-    // Check CREATE POLICY statements
-    expect(statements[6]).toContain('CREATE POLICY projects_org_select ON projects FOR SELECT')
-    expect(statements[6]).toContain(
-      "organization_id = current_setting('app.organization_id', true)::TEXT"
-    )
-
-    expect(statements[7]).toContain('CREATE POLICY projects_org_insert ON projects FOR INSERT')
-    expect(statements[7]).toContain('WITH CHECK')
-
-    expect(statements[8]).toContain('CREATE POLICY projects_org_update ON projects FOR UPDATE')
-    expect(statements[8]).toContain('USING')
-    expect(statements[8]).toContain('WITH CHECK')
-
-    expect(statements[9]).toContain('CREATE POLICY projects_org_delete ON projects FOR DELETE')
-    expect(statements[9]).toContain('USING')
-  })
-
-  test('should return empty array when organizationScoped is false', () => {
-    const table: Table = {
-      id: 1,
-      name: 'public_data',
-      fields: [
-        { id: 1, name: 'id', type: 'integer', required: true },
-        { id: 2, name: 'title', type: 'single-line-text' },
-      ],
-      permissions: {
-        organizationScoped: false,
-      },
-    }
-
-    const statements = generateRLSPolicyStatements(table)
-    expect(statements).toEqual([])
-  })
-
   test('should enable RLS with no policies when explicit empty permissions configured (default deny)', () => {
     const table: Table = {
       id: 1,
@@ -117,76 +55,6 @@ describe('generateRLSPolicyStatements', () => {
       'DROP POLICY IF EXISTS unconfigured_table_authenticated_delete ON unconfigured_table',
       "CREATE POLICY unconfigured_table_authenticated_delete ON unconfigured_table FOR DELETE USING (current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != '')",
     ])
-  })
-
-  test('should return empty array when organization_id field is missing', () => {
-    const table: Table = {
-      id: 1,
-      name: 'broken_table',
-      fields: [
-        { id: 1, name: 'id', type: 'integer', required: true },
-        { id: 2, name: 'name', type: 'single-line-text' },
-      ],
-      permissions: {
-        organizationScoped: true,
-      },
-    }
-
-    const statements = generateRLSPolicyStatements(table)
-    expect(statements).toEqual([])
-  })
-
-  test('should combine organization scope with role-based permissions', () => {
-    const table: Table = {
-      id: 1,
-      name: 'internal_docs',
-      fields: [
-        { id: 1, name: 'id', type: 'integer', required: true },
-        { id: 2, name: 'content', type: 'long-text' },
-        { id: 3, name: 'organization_id', type: 'single-line-text' },
-      ],
-      permissions: {
-        organizationScoped: true,
-        read: { type: 'roles', roles: ['admin', 'member'] },
-        create: { type: 'roles', roles: ['admin'] },
-        update: { type: 'roles', roles: ['admin'] },
-        delete: { type: 'roles', roles: ['admin'] },
-      },
-    }
-
-    const statements = generateRLSPolicyStatements(table)
-
-    expect(statements).toHaveLength(10) // Enable RLS + Force RLS + 4 drops + 4 creates
-
-    // Check SELECT policy combines organization + role check
-    expect(statements[6]).toContain('FOR SELECT')
-    expect(statements[6]).toContain(
-      "organization_id = current_setting('app.organization_id', true)::TEXT"
-    )
-    expect(statements[6]).toContain("current_setting('app.user_role', true) = 'admin'")
-    expect(statements[6]).toContain("current_setting('app.user_role', true) = 'member'")
-    expect(statements[6]).toContain('OR') // admin OR member
-
-    // Check INSERT policy combines organization + admin-only
-    expect(statements[7]).toContain('FOR INSERT')
-    expect(statements[7]).toContain(
-      "organization_id = current_setting('app.organization_id', true)::TEXT"
-    )
-    expect(statements[7]).toContain("current_setting('app.user_role', true) = 'admin'")
-
-    // Check UPDATE policy combines organization + admin-only
-    expect(statements[8]).toContain('FOR UPDATE')
-    expect(statements[8]).toContain(
-      "organization_id = current_setting('app.organization_id', true)::TEXT"
-    )
-    expect(statements[8]).toContain("current_setting('app.user_role', true) = 'admin'")
-
-    // Check DELETE policy combines organization + admin-only
-    expect(statements[9]).toContain('FOR DELETE')
-    expect(statements[9]).toContain(
-      "organization_id = current_setting('app.organization_id', true)::TEXT"
-    )
-    expect(statements[9]).toContain("current_setting('app.user_role', true) = 'admin'")
   })
 
   test('should generate owner-based RLS policies for UPDATE operations', () => {
@@ -298,23 +166,6 @@ describe('generateBasicTableGrants', () => {
     expect(statements.some((s) => s.includes('GRANT SELECT ON confidential TO admin_user'))).toBe(
       true
     )
-  })
-
-  test('should return empty array for table with organizationScoped', () => {
-    const table: Table = {
-      id: 1,
-      name: 'org_data',
-      fields: [
-        { id: 1, name: 'id', type: 'integer', required: true },
-        { id: 2, name: 'organization_id', type: 'single-line-text' },
-      ],
-      permissions: {
-        organizationScoped: true,
-      },
-    }
-
-    const statements = generateBasicTableGrants(table)
-    expect(statements).toEqual([])
   })
 
   test('should return empty array for table with read permission', () => {

@@ -93,7 +93,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
   test(
     'API-AUTH-ADMIN-BOOTSTRAP-002: should create admin with verified email status',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signIn, mailpit }) => {
+    async ({ startServerWithSchema, signIn }) => {
       // GIVEN: Application started with admin bootstrap environment variables
       // AND email verification is required for regular users
       await startServerWithSchema(

@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import type { Session, Member } from '@/infrastructure/auth/better-auth/schema'
+import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
  * Database session context error
@@ -80,76 +80,11 @@ const getGlobalUserRole = (
   })
 
 /**
- * Role returned when user is not a member of active organization
- *
- * Option B semantics: Global user role does NOT grant access to org-scoped tables.
- * When a user has an active organization but is NOT a member, they get this role
- * instead of their global role. This ensures org-scoped tables require explicit
- * org membership, even if the user has matching global role (e.g., 'user').
- *
- * The 'guest' role is intentionally chosen to NOT match any standard org roles
- * (owner, admin, member, viewer) or common permission roles.
- */
-const NON_MEMBER_ROLE = 'guest' as const
-
-/**
- * Get user role in active organization from Better Auth members table
- *
- * Role resolution priority:
- * 1. If no active organization: use global user role from users table
- * 2. If active organization AND user is member: use org membership role
- * 3. If active organization AND user is NOT member: use 'guest' role (Option B)
- * 4. Default: 'authenticated'
- *
- * Option B Semantics:
- * Global user roles (admin, user, viewer) do NOT automatically grant access to
- * org-scoped tables. Users must have explicit membership in the organization.
- * A global 'user' role cannot access org tables where 'user' is in the roles list.
- *
- * @param tx - Database transaction
- * @param session - Better Auth session
- * @returns Effect resolving to user role
- */
-const getUserRoleInOrganization = (
-  tx: DatabaseTransaction,
-  session: Readonly<Session>
-): Effect.Effect<string, SessionContextError> =>
-  Effect.gen(function* () {
-    // If no active organization, check global user role
-    if (!session.activeOrganizationId) {
-      return yield* getGlobalUserRole(tx, session.userId)
-    }
-
-    // Query members table for user role in organization
-    const result = yield* Effect.tryPromise({
-      try: async () => {
-        const rows = (await tx.unsafe(
-          `SELECT role FROM "auth.member" WHERE organization_id = '${escapeSQL(session.activeOrganizationId || '')}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
-        )) as Member[]
-        return rows
-      },
-      catch: (error) =>
-        new SessionContextError('Failed to query user role from members table', error),
-    })
-
-    // Option B: If user has active org but is NOT a member, return 'guest' role
-    // This prevents global user roles from accessing org-scoped tables
-    // The 'guest' role won't match any standard permission roles
-    if (!result || result.length === 0) {
-      return NON_MEMBER_ROLE
-    }
-
-    const role = result[0]?.role
-    return role || 'authenticated'
-  })
-
-/**
  * Set database session context for RLS policies
  *
  * Sets PostgreSQL session variables that RLS policies depend on:
  * - app.user_id: Authenticated user ID from Better Auth
- * - app.organization_id: Active organization ID from session (or empty string)
- * - app.user_role: User role in active organization (or 'authenticated' if no org)
+ * - app.user_role: User's global role (or 'authenticated' if no role set)
  *
  * SECURITY: These variables are LOCAL to the transaction and reset after commit.
  * They must be set before executing any queries that rely on RLS policies.
@@ -162,7 +97,7 @@ const getUserRoleInOrganization = (
  * ```typescript
  * await db.transaction(async (tx) => {
  *   await setDatabaseSessionContext(tx, session)
- *   // Queries now have access to app.user_id, app.organization_id, app.user_role
+ *   // Queries now have access to app.user_id, app.user_role
  *   const records = await tx.select().from(tasks)
  *   return records
  * })
@@ -174,14 +109,12 @@ export const setDatabaseSessionContext = (
 ): Effect.Effect<void, SessionContextError> =>
   Effect.gen(function* () {
     const userId = escapeSQL(session.userId)
-    const orgId = escapeSQL(session.activeOrganizationId || '')
-    const role = yield* getUserRoleInOrganization(tx, session)
+    const role = yield* getGlobalUserRole(tx, session.userId)
 
     yield* Effect.tryPromise({
       try: () =>
         tx.unsafe(`
         SET LOCAL app.user_id = '${userId}';
-        SET LOCAL app.organization_id = '${orgId}';
         SET LOCAL app.user_role = '${escapeSQL(role)}';
       `),
       catch: (error) => new SessionContextError('Failed to set session context', error),
@@ -212,7 +145,6 @@ export const clearDatabaseSessionContext = (
     try: () =>
       tx.unsafe(`
       RESET app.user_id;
-      RESET app.organization_id;
       RESET app.user_role;
     `),
     catch: (error) => new SessionContextError('Failed to clear session context', error),
@@ -231,26 +163,23 @@ export const clearDatabaseSessionContext = (
  * ```typescript
  * const context = await getCurrentSessionContext(tx)
  * console.log('User ID:', context.userId)
- * console.log('Organization ID:', context.organizationId)
  * console.log('Role:', context.role)
  * ```
  */
 export const getCurrentSessionContext = (
   tx: DatabaseTransaction
-): Effect.Effect<{ userId: string; organizationId: string; role: string }, SessionContextError> =>
+): Effect.Effect<{ userId: string; role: string }, SessionContextError> =>
   Effect.tryPromise({
     try: async () => {
       const result = (await tx.unsafe(`
         SELECT
           current_setting('app.user_id', true) as user_id,
-          current_setting('app.organization_id', true) as organization_id,
           current_setting('app.user_role', true) as role
-      `)) as Array<{ user_id: string; organization_id: string; role: string }>
+      `)) as Array<{ user_id: string; role: string }>
 
       const row = result[0]
       return {
         userId: row?.user_id || '',
-        organizationId: row?.organization_id || '',
         role: row?.role || '',
       }
     },

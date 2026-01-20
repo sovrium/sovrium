@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
-import { members } from '@/infrastructure/auth/better-auth/schema'
+import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 
 /**
@@ -30,8 +30,7 @@ export class UserRoleService extends Context.Tag('UserRoleService')<
   UserRoleService,
   {
     readonly getUserRole: (
-      userId: string,
-      organizationId?: string
+      userId: string
     ) => Effect.Effect<string | undefined, UserRoleDatabaseError>
   }
 >() {}
@@ -43,28 +42,19 @@ export class UserRoleService extends Context.Tag('UserRoleService')<
  */
 export const UserRoleServiceLive = Layer.succeed(UserRoleService, {
   /**
-   * Get user role from members table
+   * Get user's global role from users table
    *
    * @param userId - User ID to look up
-   * @param organizationId - Optional organization ID to filter by
    * @returns Effect resolving to user role or undefined if not found
    */
-  getUserRole: (userId: string, organizationId?: string) =>
+  getUserRole: (userId: string) =>
     Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
         try: async () => {
-          // Build query with optional organization filter
-          if (organizationId) {
-            return await db
-              .select({ role: members.role })
-              .from(members)
-              .where(and(eq(members.userId, userId), eq(members.organizationId, organizationId)))
-              .limit(1)
-          }
           return await db
-            .select({ role: members.role })
-            .from(members)
-            .where(eq(members.userId, userId))
+            .select({ role: users.role })
+            .from(users)
+            .where(eq(users.id, userId))
             .limit(1)
         },
         catch: (error) => new UserRoleDatabaseError({ cause: error }),

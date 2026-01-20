@@ -15,13 +15,12 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 /**
  * List all records from a table with session context
  *
- * Automatically applies organization-scoped filtering when enabled.
- * - If table has `permissions.organizationScoped: true`, filters by user's active organization
- * - Otherwise, returns all accessible records (RLS policies still apply)
+ * Returns all accessible records (RLS policies apply automatically via session context).
+ * Organization-scoped filtering has been removed.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table to query
- * @param table - Table schema configuration (for checking organizationScoped flag)
+ * @param table - Table schema configuration (unused, kept for backward compatibility)
  * @returns Effect resolving to array of records
  */
 export function listRecords(
@@ -41,16 +40,6 @@ export function listRecords(
       try: async () => {
         validateTableName(tableName)
 
-        // Check if organization-scoped filtering is enabled
-        const isOrganizationScoped = table?.permissions?.organizationScoped === true
-        const activeOrgId = session.activeOrganizationId
-
-        // Build WHERE conditions using immutable patterns
-        const orgConditions =
-          isOrganizationScoped && activeOrgId
-            ? [`organization_id::text = '${activeOrgId.replace(/'/g, "''")}'`]
-            : []
-
         // Add user-provided filters (static import - no performance overhead)
         const userFilterConditions =
           filter?.and && filter.and.length > 0
@@ -67,7 +56,7 @@ export function listRecords(
               })()
             : []
 
-        const conditions = [...orgConditions, ...userFilterConditions]
+        const conditions = userFilterConditions
 
         // Build final query
         const whereClause =
@@ -333,28 +322,14 @@ export function restoreRecord(
         validateTableName(tableName)
         const tableIdent = sql.identifier(tableName)
 
-        // Check if table has organization_id column for multi-tenancy
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
-        )) as readonly Record<string, unknown>[]
-
-        const hasOrgId = columnCheck.length > 0
-
-        // Build query with optional organization filter
-        // Note: org filter uses escaped value since it's part of dynamic SQL construction
-        const orgIdCondition =
-          hasOrgId && session.activeOrganizationId
-            ? sql` AND organization_id = ${session.activeOrganizationId}`
-            : sql``
-
-        // Check if record exists (including soft-deleted records) with organization filtering
+        // Check if record exists (including soft-deleted records)
         const checkResult = (await tx.execute(
-          sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId}${orgIdCondition} LIMIT 1`
+          sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
         )) as readonly Record<string, unknown>[]
 
         if (checkResult.length === 0) {
           // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
-          return null // Record not found (or wrong organization)
+          return null // Record not found
         }
 
         const record = checkResult[0]
@@ -365,9 +340,9 @@ export function restoreRecord(
           return { _error: 'not_deleted' } as Record<string, unknown>
         }
 
-        // Restore record by clearing deleted_at (with organization filter for safety)
+        // Restore record by clearing deleted_at
         const result = (await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId}${orgIdCondition} RETURNING *`
+          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
         )) as readonly Record<string, unknown>[]
 
         return result[0] ?? {}

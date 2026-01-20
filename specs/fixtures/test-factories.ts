@@ -25,7 +25,6 @@
 // ============================================================================
 
 export type UserRole = 'user' | 'admin' | 'member'
-export type OrgRole = 'owner' | 'admin' | 'member'
 
 export interface TestUser {
   id: number
@@ -45,27 +44,12 @@ export interface TestSession {
   expiresAt: Date
 }
 
-export interface TestOrganization {
-  id: number
-  name: string
-  slug: string
-}
-
-export interface TestOrgMember {
-  id: number
-  userId: number
-  organizationId: number
-  role: OrgRole
-}
-
 // ============================================================================
 // Counters for unique IDs
 // ============================================================================
 
 let userIdCounter = 1
 let sessionIdCounter = 1
-let orgIdCounter = 1
-let memberIdCounter = 1
 
 /**
  * Reset all ID counters
@@ -74,8 +58,6 @@ let memberIdCounter = 1
 export function resetFactoryCounters(): void {
   userIdCounter = 1
   sessionIdCounter = 1
-  orgIdCounter = 1
-  memberIdCounter = 1
 }
 
 // ============================================================================
@@ -178,68 +160,6 @@ export function createSession(options: CreateSessionOptions): {
 }
 
 // ============================================================================
-// Organization Factory
-// ============================================================================
-
-export interface CreateOrganizationOptions {
-  id?: number
-  name?: string
-  slug?: string
-}
-
-/**
- * Create a test organization with SQL and data
- */
-export function createOrganization(options: CreateOrganizationOptions = {}): {
-  sql: string
-  organization: TestOrganization
-} {
-  const id = options.id ?? orgIdCounter++
-  const organization: TestOrganization = {
-    id,
-    name: options.name ?? `Organization ${id}`,
-    slug: options.slug ?? `org-${id}`,
-  }
-
-  const sql = `INSERT INTO organizations (id, name, slug, created_at, updated_at)
-    VALUES (${organization.id}, '${organization.name}', '${organization.slug}', NOW(), NOW())`
-
-  return { sql, organization }
-}
-
-// ============================================================================
-// Organization Member Factory
-// ============================================================================
-
-export interface CreateOrgMemberOptions {
-  id?: number
-  userId: number
-  organizationId: number
-  role?: OrgRole
-}
-
-/**
- * Create an organization member with SQL and data
- */
-export function createOrgMember(options: CreateOrgMemberOptions): {
-  sql: string
-  member: TestOrgMember
-} {
-  const id = options.id ?? memberIdCounter++
-  const member: TestOrgMember = {
-    id,
-    userId: options.userId,
-    organizationId: options.organizationId,
-    role: options.role ?? 'member',
-  }
-
-  const sql = `INSERT INTO organization_members (id, user_id, organization_id, role, created_at)
-    VALUES (${member.id}, ${member.userId}, ${member.organizationId}, '${member.role}', NOW())`
-
-  return { sql, member }
-}
-
-// ============================================================================
 // Multi-User Scenario Helpers
 // ============================================================================
 
@@ -295,109 +215,5 @@ export function createAdminAndUserScenario(): AdminAndUserScenario {
     adminSession,
     user,
     userSession,
-  }
-}
-
-export interface OrgScenario {
-  sql: string[]
-  organization: TestOrganization
-  owner: TestUser
-  ownerSession: TestSession
-  member: TestUser
-  memberSession: TestSession
-}
-
-/**
- * Create a scenario with an organization, owner, and member
- */
-export function createOrgScenario(): OrgScenario {
-  const { sql: orgSql, organization } = createOrganization()
-
-  const { sql: ownerUserSql, user: owner } = createUser({ email: 'owner@org.com', name: 'Owner' })
-  const { sql: ownerSessionSql, session: ownerSession } = createSession({ userId: owner.id })
-  const { sql: ownerMemberSql } = createOrgMember({
-    userId: owner.id,
-    organizationId: organization.id,
-    role: 'owner',
-  })
-
-  const { sql: memberUserSql, user: member } = createUser({
-    email: 'member@org.com',
-    name: 'Member',
-  })
-  const { sql: memberSessionSql, session: memberSession } = createSession({ userId: member.id })
-  const { sql: memberMemberSql } = createOrgMember({
-    userId: member.id,
-    organizationId: organization.id,
-    role: 'member',
-  })
-
-  return {
-    sql: [
-      orgSql,
-      ownerUserSql,
-      ownerSessionSql,
-      ownerMemberSql,
-      memberUserSql,
-      memberSessionSql,
-      memberMemberSql,
-    ],
-    organization,
-    owner,
-    ownerSession,
-    member,
-    memberSession,
-  }
-}
-
-export interface TwoOrgScenario {
-  sql: string[]
-  org1: TestOrganization
-  org1User: TestUser
-  org1Session: TestSession
-  org2: TestOrganization
-  org2User: TestUser
-  org2Session: TestSession
-}
-
-/**
- * Create a scenario with two separate organizations for isolation testing
- */
-export function createTwoOrgScenario(): TwoOrgScenario {
-  const { sql: org1Sql, organization: org1 } = createOrganization({ name: 'Org A', slug: 'org-a' })
-  const { sql: org1UserSql, user: org1User } = createUser({ email: 'user@org-a.com' })
-  const { sql: org1SessionSql, session: org1Session } = createSession({ userId: org1User.id })
-  const { sql: org1MemberSql } = createOrgMember({
-    userId: org1User.id,
-    organizationId: org1.id,
-    role: 'member',
-  })
-
-  const { sql: org2Sql, organization: org2 } = createOrganization({ name: 'Org B', slug: 'org-b' })
-  const { sql: org2UserSql, user: org2User } = createUser({ email: 'user@org-b.com' })
-  const { sql: org2SessionSql, session: org2Session } = createSession({ userId: org2User.id })
-  const { sql: org2MemberSql } = createOrgMember({
-    userId: org2User.id,
-    organizationId: org2.id,
-    role: 'member',
-  })
-
-  return {
-    sql: [
-      org1Sql,
-      org1UserSql,
-      org1SessionSql,
-      org1MemberSql,
-      org2Sql,
-      org2UserSql,
-      org2SessionSql,
-      org2MemberSql,
-    ],
-    org1,
-    org1User,
-    org1Session,
-    org2,
-    org2User,
-    org2Session,
   }
 }

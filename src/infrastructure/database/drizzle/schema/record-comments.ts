@@ -6,7 +6,7 @@
  */
 
 import { text, timestamp, index } from 'drizzle-orm/pg-core'
-import { users, organizations } from '../../../auth/better-auth/schema'
+import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
 /**
@@ -16,7 +16,6 @@ import { systemSchema } from './migration-audit'
  * Comments are flat (no threading), chronological, and support @mentions.
  *
  * Features:
- * - Multi-tenant: Isolated by organization_id
  * - Authentication required: Comments must have a user_id (no anonymous comments)
  * - Soft delete: deleted_at for restoration capability
  * - @mentions: Stored as user IDs in content (e.g., @[user_123])
@@ -30,7 +29,6 @@ import { systemSchema } from './migration-audit'
  *
  * Optimized for:
  * - Fetching all comments for a record (most common query)
- * - Organization-scoped queries (multi-tenant isolation)
  * - User activity lookups (all comments by a user)
  * - Soft delete filtering (excluding deleted comments by default)
  */
@@ -43,11 +41,6 @@ export const recordComments = systemSchema.table(
     // Record identification
     recordId: text('record_id').notNull(),
     tableId: text('table_id').notNull(),
-
-    // Multi-tenancy - organization isolation (required - auth must be configured)
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => organizations.id, { onDelete: 'cascade' }),
 
     // User who created the comment (required - no anonymous comments)
     userId: text('user_id')
@@ -71,10 +64,6 @@ export const recordComments = systemSchema.table(
     // Ordered by createdAt for chronological display
     index('record_comments_record_created_idx').on(table.tableId, table.recordId, table.createdAt),
 
-    // Composite index for organization-scoped queries (multi-tenant isolation)
-    // Supports: GET /api/comments?organizationId=...
-    index('record_comments_org_created_idx').on(table.organizationId, table.createdAt),
-
     // Composite index for user activity queries
     // Supports: GET /api/users/:userId/comments
     index('record_comments_user_created_idx').on(table.userId, table.createdAt),
@@ -82,9 +71,6 @@ export const recordComments = systemSchema.table(
     // Index for soft delete filtering
     // Supports: WHERE deleted_at IS NULL (default query behavior)
     index('record_comments_deleted_at_idx').on(table.deletedAt),
-
-    // Composite index for organization + user queries (user's comments in their org)
-    index('record_comments_org_user_idx').on(table.organizationId, table.userId),
   ]
 )
 

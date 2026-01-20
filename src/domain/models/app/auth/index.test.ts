@@ -15,13 +15,11 @@ describe('AuthSchema', () => {
       const input = {
         emailAndPassword: true,
         admin: true,
-        organization: true,
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
         emailAndPassword: true,
         admin: true,
-        organization: true,
       })
     })
 
@@ -44,18 +42,6 @@ describe('AuthSchema', () => {
       expect(result).toEqual({
         emailAndPassword: true,
         admin: true,
-      })
-    })
-
-    test('should accept auth with organization plugin only', () => {
-      const input = {
-        emailAndPassword: true,
-        organization: true,
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-        organization: true,
       })
     })
 

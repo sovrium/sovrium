@@ -9,13 +9,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Pool } from 'pg'
 import * as schema from '@/infrastructure/auth/better-auth/schema'
-import type {
-  ExecuteQueryFn,
-  RoleContext,
-  RlsPolicyInfo,
-  QuerySuccessOptions,
-  MultiOrgScenarioResult,
-} from './types'
+import type { ExecuteQueryFn, RoleContext, RlsPolicyInfo, QuerySuccessOptions } from './types'
 
 // =============================================================================
 // Database Template Manager
@@ -137,10 +131,9 @@ export class DatabaseTemplateManager {
 
       // Configure custom session variables for RLS policies
       // These variables are used by Row-Level Security policies to filter data
-      // based on authenticated user context (user_id, organization_id, role)
+      // based on authenticated user context (user_id, role)
       await templatePool.query(`
         ALTER DATABASE "${this.templateDbName}" SET app.user_id = '';
-        ALTER DATABASE "${this.templateDbName}" SET app.organization_id = '';
         ALTER DATABASE "${this.templateDbName}" SET app.user_role = '';
       `)
 
@@ -464,7 +457,7 @@ export async function executeStatementsInTransaction(
  * Execute SQL queries as a specific database role with session context
  *
  * This helper simplifies RLS testing by:
- * 1. Setting session variables (app.user_id, app.user_role, app.organization_id)
+ * 1. Setting session variables (app.user_id, app.user_role)
  * 2. Switching to a non-superuser database role (SET ROLE)
  * 3. Executing the query
  * 4. Resetting the role back to superuser
@@ -483,19 +476,6 @@ export async function executeStatementsInTransaction(
  * expect(result.rows).toHaveLength(2)
  * ```
  *
- * @example Organization-scoped query
- * ```ts
- * const result = await executeQueryAsRole(
- *   executeQuery,
- *   {
- *     dbRole: 'authenticated_user',
- *     userId: user.id,
- *     organizationId: org.id
- *   },
- *   'SELECT * FROM employees'
- * )
- * ```
- *
  * @example Admin role with full context
  * ```ts
  * const result = await executeQueryAsRole(
@@ -503,8 +483,7 @@ export async function executeStatementsInTransaction(
  *   {
  *     dbRole: 'admin_user',
  *     userId: admin.id,
- *     userRole: 'admin',
- *     organizationId: org.id
+ *     userRole: 'admin'
  *   },
  *   "INSERT INTO confidential (data) VALUES ('secret') RETURNING id"
  * )
@@ -523,9 +502,6 @@ export async function executeQueryAsRole(
   }
   if (context.userRole) {
     setStatements.push(`SET app.user_role = '${context.userRole}'`)
-  }
-  if (context.organizationId) {
-    setStatements.push(`SET app.organization_id = '${context.organizationId}'`)
   }
 
   // SET ROLE to switch database role (preserves session variable visibility)
@@ -821,99 +797,5 @@ export async function verifyRecordNotExists(
   return !exists
 }
 
-/**
- * Create a test scenario with records in multiple organizations
- * Useful for testing organization isolation and cross-org access prevention
- *
- * @example
- * ```ts
- * // Create records in two organizations
- * const { userOrgRecordIds, otherOrgRecordIds } = await createMultiOrgScenario(
- *   executeQuery,
- *   {
- *     table: 'employees',
- *     organizationIdField: 'organization_id',
- *     userOrgId: 'org_123',
- *     otherOrgId: 'org_456',
- *     userOrgRecords: [
- *       { name: 'Alice', email: 'alice@example.com' },
- *       { name: 'Bob', email: 'bob@example.com' },
- *     ],
- *     otherOrgRecords: [
- *       { name: 'Charlie', email: 'charlie@example.com' },
- *     ],
- *   }
- * )
- *
- * // userOrgRecordIds = [1, 2] (IDs of Alice and Bob)
- * // otherOrgRecordIds = [3] (ID of Charlie)
- * ```
- */
-export async function createMultiOrgScenario(
-  executeQuery: ExecuteQueryFn,
-  options: {
-    table: string
-    organizationIdField?: string
-    userOrgId: string
-    otherOrgId: string
-    userOrgRecords: Record<string, unknown>[]
-    otherOrgRecords: Record<string, unknown>[]
-  }
-): Promise<MultiOrgScenarioResult> {
-  const {
-    table,
-    organizationIdField = 'organization_id',
-    userOrgId,
-    otherOrgId,
-    userOrgRecords,
-    otherOrgRecords,
-  } = options
-
-  const userOrgRecordIds: number[] = []
-  const otherOrgRecordIds: number[] = []
-
-  // Insert user org records
-  for (const record of userOrgRecords) {
-    const recordWithOrg = { ...record, [organizationIdField]: userOrgId }
-    const keys = Object.keys(recordWithOrg)
-    const columns = keys.map((k) => `"${k}"`).join(', ')
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
-    const values = keys.map((k) => recordWithOrg[k])
-
-    const result = await executeQuery(
-      `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING id`,
-      values
-    )
-    if (result.rows[0]?.id) {
-      userOrgRecordIds.push(result.rows[0].id)
-    }
-  }
-
-  // Insert other org records
-  for (const record of otherOrgRecords) {
-    const recordWithOrg = { ...record, [organizationIdField]: otherOrgId }
-    const keys = Object.keys(recordWithOrg)
-    const columns = keys.map((k) => `"${k}"`).join(', ')
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
-    const values = keys.map((k) => recordWithOrg[k])
-
-    const result = await executeQuery(
-      `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING id`,
-      values
-    )
-    if (result.rows[0]?.id) {
-      otherOrgRecordIds.push(result.rows[0].id)
-    }
-  }
-
-  return { userOrgRecordIds, otherOrgRecordIds }
-}
-
 // Re-export types from types.ts for convenience
-export type {
-  RoleContext,
-  ExecuteQueryFn,
-  RlsPolicyInfo,
-  QuerySuccessOptions,
-  MultiOrgScenarioResult,
-} from './types'
+export type { RoleContext, ExecuteQueryFn, RlsPolicyInfo, QuerySuccessOptions } from './types'

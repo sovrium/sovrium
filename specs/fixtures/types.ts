@@ -28,14 +28,12 @@ export type AuthSession = {
   userId: string
   token: string
   expiresAt: string
-  activeOrganizationId?: string | null
 }
 
 export type SignUpData = {
   email: string
   password: string
   name: string
-  createOrganization?: boolean // Optional: auto-create organization for user
 }
 
 export type SignInData = {
@@ -48,46 +46,6 @@ export type AuthResult = {
   user: AuthUser
   session?: AuthSession
   token?: string // Convenience alias for session.token
-  organizationId?: string // Convenience alias for session.activeOrganizationId
-}
-
-export type Organization = {
-  id: string
-  name: string
-  slug: string
-  logo?: string
-  metadata?: Record<string, unknown>
-  createdAt: string
-}
-
-export type OrganizationResult = {
-  organization: Organization
-}
-
-export type Invitation = {
-  id: string
-  organizationId: string
-  email: string
-  role: string
-  status: string
-  expiresAt: string
-  inviterId: string
-}
-
-export type InvitationResult = {
-  invitation: Invitation
-}
-
-export type Membership = {
-  id: string
-  organizationId: string
-  userId: string
-  role: string
-  createdAt: string
-}
-
-export type MembershipResult = {
-  member: Membership
 }
 
 /**
@@ -175,8 +133,6 @@ export interface RoleContext {
   userId?: string
   /** Application user role to set in app.user_role session variable */
   userRole?: string
-  /** Organization ID to set in app.organization_id session variable */
-  organizationId?: string
 }
 
 export type ExecuteQueryFn = (
@@ -210,11 +166,6 @@ export interface QuerySuccessOptions {
   requiredFields?: string[]
   /** Fields that must NOT be present in results (for field-level permission tests) */
   forbiddenFields?: string[]
-}
-
-export interface MultiOrgScenarioResult {
-  userOrgRecordIds: number[]
-  otherOrgRecordIds: number[]
 }
 
 /**
@@ -281,21 +232,8 @@ export type ServerFixtures = {
   createAuthenticatedUser: (data?: Partial<SignUpData>) => Promise<AuthResult>
   createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
   createAuthenticatedViewer: (data?: Partial<SignUpData>) => Promise<AuthResult>
-
-  // Organization fixtures
-  createOrganization: (data: { name: string; slug?: string }) => Promise<OrganizationResult>
-  setActiveOrganization: (organizationId: string) => Promise<void>
-  inviteMember: (data: {
-    organizationId: string
-    email: string
-    role?: 'admin' | 'member'
-  }) => Promise<InvitationResult>
-  acceptInvitation: (invitationId: string) => Promise<MembershipResult>
-  addMember: (data: {
-    organizationId: string
-    userId: string
-    role?: 'admin' | 'member'
-  }) => Promise<MembershipResult>
+  createAuthenticatedOwner: (data?: Partial<SignUpData>) => Promise<AuthResult>
+  createAuthenticatedMember: (data?: Partial<SignUpData>) => Promise<AuthResult>
 
   // Email testing
   mailpit: MailpitHelper

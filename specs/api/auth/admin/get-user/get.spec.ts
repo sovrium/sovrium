@@ -60,23 +60,36 @@ test.describe('Admin: Get user by ID', () => {
         email: 'admin@example.com',
         password: 'AdminPass123!',
       })
-      await signUp({
+      const targetUser = await signUp({
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
       })
 
+      // Sign back in as admin (signUp auto-signs in as new user)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
+
       // WHEN: Admin requests user details by ID
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+      const response = await page.request.get(`/api/auth/admin/get-user?id=${targetUser.user.id}`)
+
+      // DEBUG: Log response for troubleshooting
+      if (response.status() !== 200) {
+        const errorBody = await response.text()
+        console.log(
+          `DEBUG: id=${targetUser.user.id}, status=${response.status()}, body=${errorBody}`
+        )
+      }
 
       // THEN: Returns 200 OK with user details
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('user')
-      expect(data.user).toHaveProperty('id')
-      expect(data.user).toHaveProperty('email', 'target@example.com')
-      expect(data.user).toHaveProperty('name', 'Target User')
+      expect(data).toHaveProperty('id', targetUser.user.id)
+      expect(data).toHaveProperty('email', 'target@example.com')
+      expect(data).toHaveProperty('name', 'Target User')
     }
   )
 
@@ -138,7 +151,7 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       // WHEN: Unauthenticated user attempts to get user
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+      const response = await page.request.get('/api/auth/admin/get-user?id=2')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -148,7 +161,7 @@ test.describe('Admin: Get user by ID', () => {
   test(
     'API-AUTH-ADMIN-GET-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema(
         {
@@ -179,9 +192,10 @@ test.describe('Admin: Get user by ID', () => {
       })
 
       // WHEN: Regular user attempts to get another user's details
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+      const response = await page.request.get('/api/auth/admin/get-user?id=2')
 
-      // THEN: Returns 403 Forbidden
+      // THEN: Returns 403 Forbidden (authorization failure)
+      // Note: Better Auth returns 403 for authorization failures (authenticated but not admin)
       expect(response.status()).toBe(403)
     }
   )
@@ -211,9 +225,10 @@ test.describe('Admin: Get user by ID', () => {
       await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user with non-existent ID
-      const response = await page.request.get('/api/auth/admin/get-user?userId=999')
+      const response = await page.request.get('/api/auth/admin/get-user?id=999')
 
       // THEN: Returns 404 Not Found
+      // Note: Better Auth returns 404 for non-existent resources
       expect(response.status()).toBe(404)
     }
   )
@@ -241,19 +256,25 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+      const targetUser = await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+
+      // Sign back in as admin (signUp auto-signs in as new user)
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user details
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+      const response = await page.request.get(`/api/auth/admin/get-user?id=${targetUser.user.id}`)
 
       // THEN: Returns 200 OK with password field excluded for security
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('user')
       // Password should not be exposed
-      expect(data.user).not.toHaveProperty('password')
-      expect(data.user).not.toHaveProperty('password_hash')
+      expect(data).not.toHaveProperty('password')
+      expect(data).not.toHaveProperty('password_hash')
     }
   )
 
@@ -264,7 +285,9 @@ test.describe('Admin: Get user by ID', () => {
   test(
     'API-AUTH-ADMIN-GET-USER-REGRESSION: admin can complete full get-user workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp, signIn, signOut }) => {
+      let targetUserId: string
+
       await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema(
           {
@@ -284,21 +307,25 @@ test.describe('Admin: Get user by ID', () => {
         )
       })
 
-      await test.step('API-AUTH-ADMIN-GET-USER-003: Returns 401 Unauthorized without authentication', async () => {
-        // WHEN: Unauthenticated user attempts to get user
-        const response = await page.request.get('/api/auth/admin/get-user?userId=2')
-
-        // THEN: Returns 401 Unauthorized
-        expect(response.status()).toBe(401)
-      })
-
-      await test.step('Setup: Create target and regular users', async () => {
-        // Create target user for testing
-        await signUp({
+      await test.step('Setup: Create target user for testing', async () => {
+        // Create target user and capture ID
+        const targetUser = await signUp({
           email: 'target@example.com',
           password: 'TargetPass123!',
           name: 'Target User',
         })
+        targetUserId = targetUser.user.id
+      })
+
+      await test.step('API-AUTH-ADMIN-GET-USER-003: Returns 401 Unauthorized without authentication', async () => {
+        // Sign out to become unauthenticated (setup signUp auto-signed in as target user)
+        await signOut()
+
+        // WHEN: Unauthenticated user attempts to get user
+        const response = await page.request.get(`/api/auth/admin/get-user?id=${targetUserId}`)
+
+        // THEN: Returns 401 Unauthorized
+        expect(response.status()).toBe(401)
       })
 
       await test.step('API-AUTH-ADMIN-GET-USER-002: Returns 400 Bad Request without userId parameter', async () => {
@@ -325,9 +352,10 @@ test.describe('Admin: Get user by ID', () => {
         await signIn({ email: 'regular@example.com', password: 'RegularPass123!' })
 
         // WHEN: Regular user attempts to get another user's details
-        const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+        const response = await page.request.get(`/api/auth/admin/get-user?id=${targetUserId}`)
 
-        // THEN: Returns 403 Forbidden
+        // THEN: Returns 403 Forbidden (authorization failure)
+        // Note: Better Auth returns 403 for authorization failures (authenticated but not admin)
         expect(response.status()).toBe(403)
       })
 
@@ -336,38 +364,37 @@ test.describe('Admin: Get user by ID', () => {
         await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
         // WHEN: Admin requests user with non-existent ID
-        const response = await page.request.get('/api/auth/admin/get-user?userId=999')
+        const response = await page.request.get('/api/auth/admin/get-user?id=999')
 
         // THEN: Returns 404 Not Found
+        // Note: Better Auth returns 404 for non-existent resources
         expect(response.status()).toBe(404)
       })
 
       await test.step('API-AUTH-ADMIN-GET-USER-001: Returns 200 OK with user details', async () => {
         // WHEN: Admin requests user details by ID
-        const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+        const response = await page.request.get(`/api/auth/admin/get-user?id=${targetUserId}`)
 
         // THEN: Returns 200 OK with user details
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('user')
-        expect(data.user).toHaveProperty('id')
-        expect(data.user).toHaveProperty('email', 'target@example.com')
-        expect(data.user).toHaveProperty('name', 'Target User')
+        expect(data).toHaveProperty('id', targetUserId)
+        expect(data).toHaveProperty('email', 'target@example.com')
+        expect(data).toHaveProperty('name', 'Target User')
       })
 
       await test.step('API-AUTH-ADMIN-GET-USER-006: Returns 200 OK with password field excluded', async () => {
         // WHEN: Admin requests user details
-        const response = await page.request.get('/api/auth/admin/get-user?userId=2')
+        const response = await page.request.get(`/api/auth/admin/get-user?id=${targetUserId}`)
 
         // THEN: Returns 200 OK with password field excluded for security
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('user')
         // Password should not be exposed
-        expect(data.user).not.toHaveProperty('password')
-        expect(data.user).not.toHaveProperty('password_hash')
+        expect(data).not.toHaveProperty('password')
+        expect(data).not.toHaveProperty('password_hash')
       })
     }
   )

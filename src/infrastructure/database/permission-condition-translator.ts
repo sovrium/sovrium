@@ -10,7 +10,6 @@
  *
  * Variable substitution:
  * - {userId} → current_setting('app.user_id', true)::TEXT
- * - {organizationId} → current_setting('app.organization_id', true)::TEXT
  * - {user.property} → current_setting('app.user_property', true)::TEXT
  *
  * The second parameter (true) makes current_setting return NULL if setting doesn't exist,
@@ -32,5 +31,4 @@
 export const translatePermissionCondition = (condition: string): string =>
   condition
     .replace(/\{userId\}/g, "current_setting('app.user_id', true)::TEXT")
-    .replace(/\{organizationId\}/g, "current_setting('app.organization_id', true)::TEXT")
     .replace(/\{user\.(\w+)\}/g, (_, prop) => `current_setting('app.user_${prop}', true)::TEXT`)

@@ -6,7 +6,7 @@
  */
 
 import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
-import { users, organizations } from '../../../auth/better-auth/schema'
+import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
 /**
@@ -40,16 +40,14 @@ export type ActivityLogChanges = {
  * Central audit log tracking all data modifications across the application.
  * Optimized for:
  * - Time-range queries (recent activity)
- * - Organization-scoped queries (multi-tenant isolation)
  * - User activity lookups (user audit trail)
  * - Record history queries (record-specific changes)
  *
  * Retention: 1 year (compliance requirement)
- * RLS: Filtered by organization_id for multi-tenant security
  *
  * Authentication Optional:
- * - userId and organizationId are nullable to support anonymous activity logging
- * - When Better Auth is not configured, activities are logged without user/org context
+ * - userId is nullable to support anonymous activity logging
+ * - When Better Auth is not configured, activities are logged without user context
  */
 export const activityLogs = systemSchema.table(
   'activity_logs',
@@ -59,11 +57,6 @@ export const activityLogs = systemSchema.table(
 
     // Event metadata
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-
-    // Multi-tenancy - optional for organization isolation (null when auth disabled)
-    organizationId: text('organization_id').references(() => organizations.id, {
-      onDelete: 'set null',
-    }),
 
     // User who performed the action (null when auth disabled)
     userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -93,10 +86,6 @@ export const activityLogs = systemSchema.table(
     // Index for recent activity queries (most common)
     // Supports: GET /api/activity (sorted by createdAt DESC)
     index('activity_logs_created_at_idx').on(table.createdAt),
-
-    // Composite index for organization-scoped time queries
-    // Supports: GET /api/activity?organizationId=... (multi-tenant)
-    index('activity_logs_org_created_at_idx').on(table.organizationId, table.createdAt),
 
     // Composite index for user activity queries
     // Supports: GET /api/users/:userId/activity

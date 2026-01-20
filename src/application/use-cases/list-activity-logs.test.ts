@@ -31,7 +31,6 @@ const mockLogs = [
   {
     id: 'log-1',
     createdAt: new Date('2025-01-01T00:00:00Z'),
-    organizationId: 'org-123',
     userId: 'user-456',
     sessionId: null,
     action: 'create' as const,
@@ -45,7 +44,6 @@ const mockLogs = [
   {
     id: 'log-2',
     createdAt: new Date('2025-01-02T00:00:00Z'),
-    organizationId: 'org-123',
     userId: 'user-456',
     sessionId: null,
     action: 'update' as const,
@@ -59,7 +57,6 @@ const mockLogs = [
 ]
 
 const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
-  listByOrganization: () => Effect.succeed(mockLogs),
   listAll: () => Effect.succeed(mockLogs),
 })
 
@@ -95,7 +92,6 @@ const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
  * Mock ActivityLogService that returns empty array
  */
 const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
-  listByOrganization: () => Effect.succeed([]),
   listAll: () => Effect.succeed([]),
 })
 
@@ -108,25 +104,9 @@ describe('ListActivityLogs', () => {
   test('should have correct input type structure', () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     expect(input.userId).toBe('user-456')
-    expect(input.organizationId).toBe('org-123')
-  })
-
-  /**
-   * Test optional organizationId field
-   *
-   * Verifies that organizationId is optional in the input type.
-   */
-  test('should allow omitting organizationId field', () => {
-    const input: ListActivityLogsInput = {
-      userId: 'user-456',
-    }
-
-    expect(input.userId).toBe('user-456')
-    expect(input.organizationId).toBeUndefined()
   })
 
   /**
@@ -137,7 +117,6 @@ describe('ListActivityLogs', () => {
   test('should return an Effect', () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input)
@@ -154,7 +133,6 @@ describe('ListActivityLogs', () => {
   test('should successfully list logs for admin user', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -178,7 +156,6 @@ describe('ListActivityLogs', () => {
   test('should successfully list logs for member user', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -198,7 +175,6 @@ describe('ListActivityLogs', () => {
   test('should deny access for viewer user', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -222,7 +198,6 @@ describe('ListActivityLogs', () => {
   test('should deny access for user with no role', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -246,7 +221,6 @@ describe('ListActivityLogs', () => {
   test('should return empty array when no logs exist', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -259,29 +233,6 @@ describe('ListActivityLogs', () => {
   })
 
   /**
-   * Test organization isolation
-   *
-   * Verifies that logs are filtered by organization when organizationId is provided.
-   */
-  test('should use organization isolation when organizationId provided', async () => {
-    const input: ListActivityLogsInput = {
-      userId: 'user-456',
-      organizationId: 'org-123',
-    }
-
-    const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
-    )
-    const result = await Effect.runPromise(program)
-
-    // Verify logs are returned (organization filtering happens in service)
-    expect(result.length).toBeGreaterThan(0)
-    result.forEach((log) => {
-      expect(log.organizationId).toBe('org-123')
-    })
-  })
-
-  /**
    * Test activity log output type structure
    *
    * Verifies that ActivityLogOutput has correct shape and types.
@@ -289,7 +240,6 @@ describe('ListActivityLogs', () => {
   test('should map to correct output type structure', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -300,7 +250,6 @@ describe('ListActivityLogs', () => {
     const log = result[0]!
     expect(log).toHaveProperty('id')
     expect(log).toHaveProperty('createdAt')
-    expect(log).toHaveProperty('organizationId')
     expect(log).toHaveProperty('userId')
     expect(log).toHaveProperty('action')
     expect(log).toHaveProperty('tableName')
@@ -320,7 +269,6 @@ describe('ListActivityLogs', () => {
   test('should format dates as ISO strings', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(
@@ -340,7 +288,6 @@ describe('ListActivityLogs', () => {
   test('should allow error handling via Either', async () => {
     const input: ListActivityLogsInput = {
       userId: 'user-456',
-      organizationId: 'org-123',
     }
 
     const program = ListActivityLogs(input).pipe(Effect.either)

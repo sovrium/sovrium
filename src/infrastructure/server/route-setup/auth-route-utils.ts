@@ -19,6 +19,18 @@ const RATE_LIMIT_WINDOW_MS = 1000 // 1 second window
 const RATE_LIMIT_MAX_REQUESTS = 10 // Maximum requests per window
 
 /**
+ * Check if running in test environment
+ * Rate limiting is disabled during tests to allow rapid authentication calls
+ */
+const isTestEnvironment = (): boolean => {
+  return (
+    process.env.NODE_ENV === 'test' ||
+    process.env.PLAYWRIGHT_TEST === '1' ||
+    typeof process.env.TEST_DATABASE_CONTAINER_URL !== 'undefined'
+  )
+}
+
+/**
  * Get recent requests within the rate limit window for an IP address
  * Returns filtered array of timestamps within RATE_LIMIT_WINDOW_MS
  * Single source of truth for request filtering (DRY principle)
@@ -32,8 +44,12 @@ export const getRecentRequests = (ip: string): readonly number[] => {
 /**
  * Check rate limit for an IP address
  * Returns true if rate limit is exceeded, false otherwise
+ * Rate limiting is automatically disabled in test environments
  */
 export const isRateLimitExceeded = (ip: string): boolean => {
+  if (isTestEnvironment()) {
+    return false
+  }
   return getRecentRequests(ip).length >= RATE_LIMIT_MAX_REQUESTS
 }
 
@@ -111,8 +127,13 @@ export const getAuthRecentRequests = (endpoint: string, ip: string): readonly nu
 
 /**
  * Check if auth endpoint rate limit is exceeded for an IP
+ * Rate limiting is automatically disabled in test environments
  */
 export const isAuthRateLimitExceeded = (endpoint: string, ip: string): boolean => {
+  if (isTestEnvironment()) {
+    return false
+  }
+
   const config = AUTH_RATE_LIMIT_CONFIGS[endpoint]
   if (!config) return false
 

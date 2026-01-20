@@ -30,7 +30,7 @@ async function handleListTables(c: Context, app: App) {
   const session = (c as ContextWithSession).var.session!
 
   // Fetch userRole manually since enrichUserRole middleware doesn't run on /api/tables
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  const userRole = await getUserRole(session.userId)
 
   try {
     const program = createListTablesProgram(userRole, app)

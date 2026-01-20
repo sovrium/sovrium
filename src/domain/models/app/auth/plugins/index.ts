@@ -7,12 +7,10 @@
 
 import { Schema } from 'effect'
 import { AdminConfigSchema } from './admin'
-import { OrganizationConfigSchema } from './organization'
 import { TwoFactorConfigSchema } from './two-factor'
 
 // Export individual plugin schemas
 export * from './admin'
-export * from './organization'
 export * from './two-factor'
 
 /**
@@ -24,7 +22,7 @@ export * from './two-factor'
  * - A configuration object for customization
  *
  * Plugin categories:
- * - Organization: admin, organization
+ * - Admin: admin
  * - Security: twoFactor
  *
  * @example
@@ -33,7 +31,6 @@ export * from './two-factor'
  * {
  *   plugins: {
  *     admin: true,
- *     organization: true,
  *     twoFactor: true
  *   }
  * }
@@ -42,16 +39,14 @@ export * from './two-factor'
  * {
  *   plugins: {
  *     admin: { impersonation: true },
- *     organization: { maxMembersPerOrg: 50 },
  *     twoFactor: { issuer: 'MyApp', backupCodes: true }
  *   }
  * }
  * ```
  */
 export const PluginsConfigSchema = Schema.Struct({
-  // Organization features
+  // Admin features
   admin: Schema.optional(AdminConfigSchema),
-  organization: Schema.optional(OrganizationConfigSchema),
 
   // Security plugins
   twoFactor: Schema.optional(TwoFactorConfigSchema),
@@ -59,7 +54,7 @@ export const PluginsConfigSchema = Schema.Struct({
   Schema.annotations({
     title: 'Plugins Configuration',
     description: 'All authentication plugins configuration',
-    examples: [{ admin: true, organization: true }, { twoFactor: { issuer: 'MyApp' } }],
+    examples: [{ admin: true }, { twoFactor: { issuer: 'MyApp' } }],
   })
 )
 

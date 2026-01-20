@@ -117,7 +117,7 @@ async function enrichUserRoleHandler(c: Context, next: Next) {
     return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
   }
 
-  const userRole = await getUserRole(session.userId, session.activeOrganizationId)
+  const userRole = await getUserRole(session.userId)
 
   c.set('userRole', userRole)
 

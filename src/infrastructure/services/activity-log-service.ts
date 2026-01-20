@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc, eq } from 'drizzle-orm'
+import { desc } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
 import { db } from '@/infrastructure/database'
 import {
@@ -28,14 +28,10 @@ export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatab
  * - Effect.ts for functional programming
  * - Drizzle ORM query builder (NO raw SQL)
  * - Context/Layer for dependency injection
- * - Multi-tenant organization isolation
  */
 export class ActivityLogService extends Context.Tag('ActivityLogService')<
   ActivityLogService,
   {
-    readonly listByOrganization: (
-      organizationId: string
-    ) => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
     readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
   }
 >() {}
@@ -47,21 +43,7 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
  */
 export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   /**
-   * List activity logs for a specific organization (multi-tenant isolation)
-   */
-  listByOrganization: (organizationId: string) =>
-    Effect.tryPromise({
-      try: () =>
-        db
-          .select()
-          .from(activityLogs)
-          .where(eq(activityLogs.organizationId, organizationId))
-          .orderBy(desc(activityLogs.createdAt)),
-      catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-    }),
-
-  /**
-   * List all activity logs (no organization filter)
+   * List all activity logs
    */
   listAll: () =>
     Effect.tryPromise({

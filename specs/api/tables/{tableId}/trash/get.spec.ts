@@ -128,7 +128,6 @@ test.describe('GET /trash endpoint', () => {
               { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
             permissions: {
-              organizationScoped: true,
               read: { type: 'roles', roles: ['member', 'admin', 'owner'] }, // Viewer excluded
             },
           },
@@ -292,7 +291,6 @@ test.describe('GET /trash endpoint', () => {
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'roles', roles: ['member', 'admin', 'owner'] },
               },
             },

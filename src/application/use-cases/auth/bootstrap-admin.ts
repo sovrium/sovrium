@@ -90,7 +90,7 @@ const isValidPassword = (password: string): boolean => {
 const createAdminUser = (
   auth: Context.Tag.Service<typeof Auth>,
   config: Readonly<AdminBootstrapConfig>,
-  requireEmailVerification: boolean
+  _requireEmailVerification: boolean
 ): Effect.Effect<{ alreadyExists: boolean; userId?: string }, DatabaseError, Database> =>
   Effect.gen(function* () {
     // Attempt to create user

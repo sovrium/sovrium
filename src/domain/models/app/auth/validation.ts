@@ -9,7 +9,6 @@ import type { EmailAndPasswordConfig } from './methods/email-and-password'
 import type { MagicLinkConfig } from './methods/magic-link'
 import type { OAuthConfig } from './oauth'
 import type { AdminConfig } from './plugins/admin'
-import type { OrganizationConfig } from './plugins/organization'
 import type { TwoFactorConfig } from './plugins/two-factor'
 
 /**
@@ -23,7 +22,6 @@ export interface AuthConfigForValidation {
   readonly magicLink?: MagicLinkConfig
   readonly oauth?: OAuthConfig
   readonly admin?: AdminConfig
-  readonly organization?: OrganizationConfig
   readonly twoFactor?: TwoFactorConfig
 }
 

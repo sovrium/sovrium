@@ -122,21 +122,18 @@ async function checkRestorePermission(
 
 /**
  * Build organization ID filter condition if applicable
+ *
+ * Note: Organization filtering removed - function kept for backward compatibility
+ * but always returns empty SQL (no filtering).
  */
 async function buildOrgIdCondition(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
-  tableName: string,
-  session: Readonly<Session>
+  _tx: any,
+  _tableName: string,
+  _session: Readonly<Session>
 ): Promise<ReturnType<typeof sql.raw>> {
-  const columnCheck = (await tx.execute(
-    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
-  )) as readonly Record<string, unknown>[]
-
-  const hasOrgId = columnCheck.length > 0
-  return hasOrgId && session.activeOrganizationId
-    ? sql` AND organization_id = ${session.activeOrganizationId}`
-    : sql``
+  // Organization filtering removed - return empty SQL
+  return sql``
 }
 
 /**

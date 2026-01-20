@@ -268,17 +268,17 @@ test.describe('Restore record', () => {
         ],
       })
 
-      // Create User A with Organization A (creates organization automatically)
-      const userA = await createAuthenticatedUser({ createOrganization: true })
+      // Create User A
+      const userA = await createAuthenticatedUser()
 
-      // Create a record in User A's organization and soft-delete it
+      // Create a record for User A and soft-delete it
       await executeQuery(`
         INSERT INTO items (id, name, organization_id, deleted_at)
-        VALUES (1, 'User A Item', '${userA.organizationId}', NOW())
+        VALUES (1, 'User A Item', '${userA.user.id}', NOW())
       `)
 
-      // Create User B with Organization B - sets up isolation context for the test
-      await createAuthenticatedUser({ createOrganization: true })
+      // Create User B - sets up isolation context for the test
+      await createAuthenticatedUser()
 
       // WHEN: User B attempts to restore User A's soft-deleted record
       const response = await request.post('/api/tables/1/records/1/restore', {})
@@ -523,12 +523,12 @@ test.describe('Restore record', () => {
 
       await test.step('API-TABLES-RECORDS-RESTORE-006: Return 200 for member with delete permission', async () => {
         // Create authenticated user (member role)
-        const { organizationId } = await createAuthenticatedUser({ createOrganization: true })
+        const { user } = await createAuthenticatedUser()
 
-        // Insert soft-deleted record in member's organization
+        // Insert soft-deleted record for user
         await executeQuery(`
           INSERT INTO tasks (id, title, organization_id, deleted_at)
-          VALUES (5, 'Deleted Item', '${organizationId}', NOW())
+          VALUES (5, 'Deleted Item', '${user.id}', NOW())
         `)
 
         // Member restores record
@@ -543,30 +543,7 @@ test.describe('Restore record', () => {
         expect(result.deleted_at).toBeNull()
       })
 
-      await test.step('API-TABLES-RECORDS-RESTORE-007: Return 404 for cross-org access', async () => {
-        // Create User A with Organization A
-        const userA = await createAuthenticatedUser({ createOrganization: true })
-
-        // Insert soft-deleted record in User A's organization
-        await executeQuery(`
-          INSERT INTO tasks (id, title, organization_id, deleted_at)
-          VALUES (6, 'User A Item', '${userA.organizationId}', NOW())
-        `)
-
-        // Create User B with Organization B (sets up isolation context)
-        await createAuthenticatedUser({ createOrganization: true })
-
-        // User B attempts to restore User A's record
-        const response = await request.post('/api/tables/1/records/6/restore', {})
-
-        expect(response.status()).toBe(404)
-        const data = await response.json()
-        expect(data.error).toBe('Record not found')
-
-        // Verify record remains soft-deleted
-        const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=6`)
-        expect(result.deleted_at).toBeTruthy()
-      })
+      // NOTE: API-TABLES-RECORDS-RESTORE-007 (cross-org access) removed - organization feature removed
 
       await test.step('API-TABLES-RECORDS-RESTORE-008: Create activity log entry when record is restored', async () => {
         // Create authenticated user

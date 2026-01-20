@@ -35,13 +35,12 @@ test.describe('API Session Context Integration', () => {
   test(
     'API-TABLES-SESSION-CTX-INT-001: should set session context from auth token for API requests',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and tables
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -56,7 +55,6 @@ test.describe('API Session Context Integration', () => {
       })
 
       await createAuthenticatedUser({ email: 'user@example.com' })
-      await createOrganization({ name: 'Test Org' })
 
       // WHEN: Making authenticated API request
       const response = await request.get('/api/tables/1/records', {})
@@ -121,89 +119,14 @@ test.describe('API Session Context Integration', () => {
   )
 
   test.fixme(
-    'API-TABLES-SESSION-CTX-INT-003: should enforce organization isolation via API',
-    { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
-      // GIVEN: Organization-scoped table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          organization: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-            permissions: {
-              organizationScoped: true,
-            },
-          },
-        ],
-      })
-
-      // Create two organizations
-      await createAuthenticatedUser({ email: 'user1@example.com' })
-      const org1 = await createOrganization({ name: 'Org 1' })
-
-      await createAuthenticatedUser({ email: 'user2@example.com' })
-      const org2 = await createOrganization({ name: 'Org 2' })
-
-      // Insert projects for both organizations
-      await executeQuery(`
-        INSERT INTO projects (id, name, organization_id)
-        VALUES
-          (1, 'Org 1 Project', '${org1.organization.id}'),
-          (2, 'Org 2 Project', '${org2.organization.id}')
-      `)
-
-      // WHEN: User from org1 requests projects via API
-      await createAuthenticatedUser({ email: 'org1-user@example.com' })
-      // Switch to org1 context
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org1.organization.id,
-        },
-      })
-
-      // THEN: API should return only org1 projects (organization isolation via session context)
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data.records).toHaveLength(1)
-      expect(data.records[0].fields.name).toBe('Org 1 Project')
-      expect(data.records[0].fields.organization_id).toBe(org1.organization.id)
-    }
-  )
-
-  test.fixme(
     'API-TABLES-SESSION-CTX-INT-004: should enforce role-based permissions via API',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, page }) => {
       // GIVEN: Table with role-based read permissions (admin only)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -212,78 +135,80 @@ test.describe('API Session Context Integration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'secret', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
-              organizationScoped: true,
               read: { type: 'roles', roles: ['owner', 'admin'] },
             },
           },
         ],
       })
 
-      // Create organization and users
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Create admin user (global admin role)
+      const admin = await createAuthenticatedUser({
+        email: 'admin@example.com',
+        password: 'admin123',
+      })
+      // Set admin role in database
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
 
-      const member = await createAuthenticatedUser({ email: 'member@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: member.user.id,
-        role: 'member',
+      // Create member user via API
+      await page.request.post('/api/auth/sign-up/email', {
+        data: {
+          email: 'member@example.com',
+          password: 'TestPassword123!',
+          name: 'Member User',
+        },
       })
 
       // Insert confidential data
       await executeQuery(`
-        INSERT INTO confidential (id, secret, organization_id)
-        VALUES (1, 'Top Secret Data', '${org.organization.id}')
+        INSERT INTO confidential (id, secret)
+        VALUES (1, 'Top Secret Data')
       `)
 
       // WHEN: Member tries to read confidential data via API
-      const memberResponse = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
+      await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'member@example.com',
+          password: 'TestPassword123!',
         },
       })
+
+      const memberApiResponse = await request.get('/api/tables/1/records', {})
 
       // THEN: Member should be denied (403 or empty results based on RLS)
       // RLS policies return empty results for unauthorized access
-      const memberData = await memberResponse.json()
-      expect(memberData.records).toHaveLength(0)
+      const memberApiData = await memberApiResponse.json()
+      expect(memberApiData.records).toHaveLength(0)
 
-      // WHEN: Owner (admin) reads confidential data via API
-      const ownerResponse = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
+      // WHEN: Admin reads confidential data via API
+      await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'admin@example.com',
+          password: 'admin123',
         },
       })
 
-      // THEN: Owner should see the data (role-based permission via session context)
-      expect(ownerResponse.status()).toBe(200)
+      const adminResponse = await request.get('/api/tables/1/records', {})
 
-      const ownerData = await ownerResponse.json()
-      expect(ownerData.records).toHaveLength(1)
-      expect(ownerData.records[0].secret).toBe('Top Secret Data')
+      // THEN: Admin should see the data (role-based permission via session context)
+      expect(adminResponse.status()).toBe(200)
+
+      const adminData = await adminResponse.json()
+      expect(adminData.records).toHaveLength(1)
+      expect(adminData.records[0].fields.secret).toBe('Top Secret Data')
     }
   )
 
   test.fixme(
     'API-TABLES-SESSION-CTX-INT-005: should enforce field-level permissions via API',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, page }) => {
       // GIVEN: Table with field-level permissions (salary restricted to admins)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -293,10 +218,8 @@ test.describe('API Session Context Integration', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
-              organizationScoped: true,
               fields: [
                 {
                   field: 'salary',
@@ -308,52 +231,64 @@ test.describe('API Session Context Integration', () => {
         ],
       })
 
-      // Create organization and users
-      await createAuthenticatedUser({ email: 'admin@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Create admin user (global admin role)
+      const admin = await createAuthenticatedUser({
+        email: 'admin@example.com',
+        password: 'admin123',
+      })
+      // Set admin role in database
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
 
-      const member = await createAuthenticatedUser({ email: 'member@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: member.user.id,
-        role: 'member',
+      // Create member user via API
+      await page.request.post('/api/auth/sign-up/email', {
+        data: {
+          email: 'member@example.com',
+          password: 'TestPassword123!',
+          name: 'Member User',
+        },
       })
 
       // Insert employee data
       await executeQuery(`
-        INSERT INTO employees (id, name, salary, organization_id)
-        VALUES (1, 'John Doe', 75000, '${org.organization.id}')
+        INSERT INTO employees (id, name, salary)
+        VALUES (1, 'John Doe', 75000)
       `)
 
       // WHEN: Member requests employee data via API
-      const memberResponse = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
+      await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'member@example.com',
+          password: 'TestPassword123!',
         },
       })
+
+      const memberApiResponse = await request.get('/api/tables/1/records', {})
 
       // THEN: Member should see name but NOT salary (field-level permission via session context)
-      expect(memberResponse.status()).toBe(200)
+      expect(memberApiResponse.status()).toBe(200)
 
-      const memberData = await memberResponse.json()
-      expect(memberData.records).toHaveLength(1)
-      expect(memberData.records[0].fields.name).toBe('John Doe')
-      expect(memberData.records[0].fields).not.toHaveProperty('salary')
+      const memberApiData = await memberApiResponse.json()
+      expect(memberApiData.records).toHaveLength(1)
+      expect(memberApiData.records[0].fields.name).toBe('John Doe')
+      expect(memberApiData.records[0].fields).not.toHaveProperty('salary')
 
       // WHEN: Admin requests employee data via API
-      const adminResponse = await request.get('/api/tables/1/records', {
-        headers: {
-          'X-Organization-Id': org.organization.id,
+      await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'admin@example.com',
+          password: 'admin123',
         },
       })
 
-      // THEN: Admin should see ALL fields including salary
-      expect(adminResponse.status()).toBe(200)
+      const adminApiResponse = await request.get('/api/tables/1/records', {})
 
-      const adminData = await adminResponse.json()
-      expect(adminData.records).toHaveLength(1)
-      expect(adminData.records[0].fields.name).toBe('John Doe')
-      expect(adminData.records[0].fields.salary).toBe(75_000)
+      // THEN: Admin should see ALL fields including salary
+      expect(adminApiResponse.status()).toBe(200)
+
+      const adminApiData = await adminApiResponse.json()
+      expect(adminApiData.records).toHaveLength(1)
+      expect(adminApiData.records[0].fields.name).toBe('John Doe')
+      expect(adminApiData.records[0].fields.salary).toBe(75_000)
     }
   )
 
@@ -393,19 +328,12 @@ test.describe('API Session Context Integration', () => {
   test.fixme(
     'API-TABLES-SESSION-CTX-INT-007: should handle create operations with session context',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
-      // GIVEN: Table with organization scoping
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+      // GIVEN: Table with owner field
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -414,23 +342,23 @@ test.describe('API Session Context Integration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-              { id: 4, name: 'owner_id', type: 'user' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             permissions: {
-              organizationScoped: true,
+              create: { type: 'authenticated' },
             },
           },
         ],
       })
 
-      const user = await createAuthenticatedUser({ email: 'user@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
+      const user = await createAuthenticatedUser({
+        email: 'user@example.com',
+        password: 'password123',
+      })
 
       // WHEN: User creates a new record via API
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          'X-Organization-Id': org.organization.id,
           'Content-Type': 'application/json',
         },
         data: {
@@ -438,19 +366,18 @@ test.describe('API Session Context Integration', () => {
         },
       })
 
-      // THEN: Record should be created with correct organization_id and owner_id (set by session context)
+      // THEN: Record should be created with correct owner_id (set by session context)
       expect(response.status()).toBe(201)
 
       const data = await response.json()
       expect(data.record.fields.name).toBe('New Project')
 
-      // Verify in database that organization_id and owner_id were set correctly
+      // Verify in database that owner_id was set correctly
       const result = await executeQuery(`
         SELECT * FROM projects WHERE name = 'New Project'
       `)
 
       expect(result.rows).toHaveLength(1)
-      expect(result.rows[0].organization_id).toBe(org.organization.id)
       expect(result.rows[0].owner_id).toBe(user.user.id)
     }
   )
@@ -462,22 +389,15 @@ test.describe('API Session Context Integration', () => {
   test(
     'API-TABLES-SESSION-CTX-INT-REGRESSION: user can complete full API session context integration workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, page }) => {
       // NOTE: Regression test focuses on single user's workflow
       // Multi-user session switching (owner/member) is tested in @spec tests
 
-      await test.step('Setup: Start server with organization-scoped table', async () => {
+      await test.step('Setup: Start server with table', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            organization: true,
           },
           tables: [
             {
@@ -487,11 +407,9 @@ test.describe('API Session Context Integration', () => {
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'budget', type: 'currency', currency: 'USD' },
-                { id: 4, name: 'organization_id', type: 'single-line-text' },
-                { id: 5, name: 'owner_id', type: 'user' },
+                { id: 4, name: 'owner_id', type: 'user' },
               ],
               permissions: {
-                organizationScoped: true,
                 read: { type: 'owner', field: 'owner_id' },
                 fields: [
                   {
@@ -507,32 +425,35 @@ test.describe('API Session Context Integration', () => {
 
       // Create users in order: other user first, then owner last (so owner is active session)
       // This allows testing RLS owner filtering without session switching
-      const otherUser = await createAuthenticatedUser({
-        email: 'other@example.com',
-        name: 'Other User',
+      const otherUserResponse = await page.request.post('/api/auth/sign-up/email', {
+        data: {
+          email: 'other@example.com',
+          password: 'TestPassword123!',
+          name: 'Other User',
+        },
       })
+      const otherUserData = await otherUserResponse.json()
+
       const owner = await createAuthenticatedUser({
         email: 'owner@example.com',
+        password: 'owner123',
         name: 'Owner',
       })
-      const org = await createOrganization({ name: 'Test Org' })
+      // Set admin role in database
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${owner.user.id}'`)
 
       await test.step('Setup: Insert test data for both users', async () => {
         await executeQuery(`
-          INSERT INTO projects (id, name, budget, organization_id, owner_id)
+          INSERT INTO projects (id, name, budget, owner_id)
           VALUES
-            (1, 'Owner Project', 100000, '${org.organization.id}', '${owner.user.id}'),
-            (2, 'Other Owner Project', 50000, '${org.organization.id}', '${otherUser.user.id}')
+            (1, 'Owner Project', 100000, '${owner.user.id}'),
+            (2, 'Other Owner Project', 50000, '${otherUserData.user.id}')
         `)
       })
 
       await test.step('API-TABLES-SESSION-CTX-INT-001: Set session context from auth token for API requests', async () => {
         // Authenticated request should succeed (session context is set)
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records', {})
 
         expect(response.status()).toBe(200)
         // Success proves session context was set correctly
@@ -540,11 +461,7 @@ test.describe('API Session Context Integration', () => {
 
       await test.step('API-TABLES-SESSION-CTX-INT-002: Enforce RLS owner filtering via API', async () => {
         // Owner should see only their own projects (RLS owner filtering)
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records', {})
 
         expect(response.status()).toBe(200)
 
@@ -562,11 +479,7 @@ test.describe('API Session Context Integration', () => {
 
       await test.step('API-TABLES-SESSION-CTX-INT-003: Owner sees budget field (role-based permission)', async () => {
         // Owner should see budget field (role-based permission)
-        const response = await request.get('/api/tables/1/records', {
-          headers: {
-            'X-Organization-Id': org.organization.id,
-          },
-        })
+        const response = await request.get('/api/tables/1/records', {})
 
         expect(response.status()).toBe(200)
 
@@ -576,7 +489,7 @@ test.describe('API Session Context Integration', () => {
         expect(Number(data.records[0].fields.budget)).toBe(100_000)
       })
 
-      // NOTE: Steps 004, 005, 006 (organization isolation, field-level for member, unauthenticated)
+      // NOTE: Steps 004, 005, 006 (role-based for member, field-level for member, unauthenticated)
       // require different user sessions and are covered in @spec tests
       // NOTE: Step 007 (create operations with session context) is marked .fixme() in @spec tests
       // - feature is not yet implemented

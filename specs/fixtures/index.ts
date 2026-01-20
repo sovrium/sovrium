@@ -53,7 +53,6 @@ export {
   expectQueryToReturnZeroRows,
   verifyRecordExists,
   verifyRecordNotExists,
-  createMultiOrgScenario,
 } from './database'
 
 // Re-export test and expect from parent fixtures.ts

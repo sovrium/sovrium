@@ -8,7 +8,7 @@
 import { test, expect, describe } from 'bun:test'
 
 // Minimal stub function for testing structure
-const stubGetUserRole = async (_userId: string, _activeOrganizationId?: string | null) => {
+const stubGetUserRole = async (_userId: string) => {
   // Minimal implementation to verify structure
   return 'member'
 }

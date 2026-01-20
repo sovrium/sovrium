@@ -25,8 +25,6 @@ describe('with-session-context', () => {
       const mockSession: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: 'org_456',
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -45,13 +43,9 @@ describe('with-session-context', () => {
               // Structure: { queryChunks: [{ value: ["SQL STRING"] }] }
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
-              // Mock members table for org role lookup
-              if (sqlStr.includes('auth.member')) {
-                return [{ role: 'member' }]
-              }
-              // Mock users table for fallback
+              // Mock users table for role lookup
               if (sqlStr.includes('auth.user')) {
-                return [{ role: 'authenticated' }]
+                return [{ role: 'member' }]
               }
               return undefined
             }),
@@ -74,7 +68,6 @@ describe('with-session-context', () => {
       const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
       expect(setLocalQueries.some((s) => s.includes('SET LOCAL ROLE app_user'))).toBe(true)
       expect(setLocalQueries.some((s) => s.includes("app.user_id = 'user_123'"))).toBe(true)
-      expect(setLocalQueries.some((s) => s.includes("app.organization_id = 'org_456'"))).toBe(true)
       expect(setLocalQueries.some((s) => s.includes("app.user_role = 'member'"))).toBe(true)
     })
 
@@ -82,8 +75,6 @@ describe('with-session-context', () => {
       const mockSession: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: null,
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -122,8 +113,6 @@ describe('with-session-context', () => {
       expect(mockDb.transaction).toHaveBeenCalled()
       // Verify session variables were set (separate SET LOCAL statements)
       const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
-      // Verify empty string for organization when null
-      expect(setLocalQueries.some((s) => s.includes("app.organization_id = ''"))).toBe(true)
       // Verify defaults to 'authenticated' when no role
       expect(setLocalQueries.some((s) => s.includes("app.user_role = 'authenticated'"))).toBe(true)
     })
@@ -132,8 +121,6 @@ describe('with-session-context', () => {
       const mockSession: Session = {
         id: 'session_123',
         userId: "user'; DROP TABLE users; --",
-        activeOrganizationId: "org'; DROP TABLE orgs; --",
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -151,11 +138,7 @@ describe('with-session-context', () => {
               // Extract SQL string from drizzle sql.raw() object
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
-              // Mock members table - no role found (triggers fallback)
-              if (sqlStr.includes('auth.member')) {
-                return []
-              }
-              // Mock users table for fallback
+              // Mock users table for role lookup
               if (sqlStr.includes('auth.user')) {
                 return [{ role: 'authenticated' }]
               }
@@ -174,16 +157,13 @@ describe('with-session-context', () => {
       await Effect.runPromise(withSessionContext(mockSession, operation))
 
       // Verify SQL injection is escaped in all queries
-      const memberQuery = executedSql.find((s) => s.includes('auth.member'))
       const userQuery = executedSql.find((s) => s.includes('auth.user'))
       const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
 
       // All queries should have escaped the injection attempt
-      expect(memberQuery).toContain("org''; DROP TABLE orgs; --")
       expect(userQuery).toContain("user''; DROP TABLE users; --")
-      // Check for escaped values in separate SET LOCAL statements
+      // Check for escaped values in SET LOCAL statements
       expect(setLocalQueries.some((s) => s.includes("user''; DROP TABLE users; --"))).toBe(true)
-      expect(setLocalQueries.some((s) => s.includes("org''; DROP TABLE orgs; --"))).toBe(true)
     })
   })
 
@@ -192,8 +172,6 @@ describe('with-session-context', () => {
       const mockSession: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: 'org_456',
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -211,8 +189,8 @@ describe('with-session-context', () => {
               // Extract SQL string from drizzle sql.raw() object
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
-              // Mock members table for org role lookup
-              if (sqlStr.includes('auth.member')) {
+              // Mock users table for role lookup
+              if (sqlStr.includes('auth.user')) {
                 return [{ role: 'admin' }]
               }
               return undefined
@@ -232,15 +210,12 @@ describe('with-session-context', () => {
       // Verify session variables were set (separate SET LOCAL statements)
       const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
       expect(setLocalQueries.some((s) => s.includes("app.user_id = 'user_123'"))).toBe(true)
-      expect(setLocalQueries.some((s) => s.includes("app.organization_id = 'org_456'"))).toBe(true)
     })
 
     it('should propagate errors from operation', async () => {
       const mockSession: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: null,
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),

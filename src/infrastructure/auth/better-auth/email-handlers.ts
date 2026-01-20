@@ -134,68 +134,6 @@ const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
   )
 
 /**
- * Create organization invitation email handler with optional custom templates
- *
- * Better Auth organization plugin provides inviter and organization context
- */
-export const createOrganizationInvitationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
-  // Data shape is defined by Better Auth's organization plugin callback signature
-  // eslint-disable-next-line functional/prefer-immutable-types
-  return async (data: {
-    id: string
-    role: string
-    email: string
-    organization: { name: string }
-    invitation: { id: string }
-    inviter: { user: { name?: string } }
-  }) => {
-    const { email, organization, inviter } = data
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000'
-    const url = `${baseUrl}/invitation/${data.id}`
-
-    const context = {
-      name: undefined,
-      url,
-      email,
-      organizationName: organization.name,
-      inviterName: inviter.user.name,
-    }
-
-    try {
-      // Custom template takes precedence
-      if (customTemplate?.subject) {
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: email,
-          subject: substituteVariables(customTemplate.subject, context),
-          html: customTemplate.html ? substituteVariables(customTemplate.html, context) : undefined,
-          text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
-        })
-      } else {
-        // Use default template
-        const inviterText = inviter.user.name ?? 'Someone'
-        const defaultTemplate = {
-          subject: `You have been invited to join ${organization.name}`,
-          html: `<p>Hi,</p><p>${inviterText} has invited you to join ${organization.name}.</p><p><a href="${url}">Click here to accept the invitation</a></p>`,
-          text: `Hi,\n\n${inviterText} has invited you to join ${organization.name}.\n\nClick here to accept: ${url}`,
-        }
-
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: email,
-          subject: defaultTemplate.subject,
-          html: defaultTemplate.html,
-          text: defaultTemplate.text,
-        })
-      }
-    } catch (error) {
-      // Don't throw - silent failure prevents user enumeration attacks
-      logError(`[EMAIL] Failed to send organization invitation email to ${email}`, error)
-    }
-  }
-}
-
-/**
  * Create magic link email handler with optional custom templates
  */
 const createMagicLinkEmailHandler = (customTemplate?: AuthEmailTemplate) =>
@@ -219,9 +157,6 @@ export const createEmailHandlers = (authConfig?: Auth) => {
   return {
     passwordReset: createPasswordResetEmailHandler(authConfig?.emailTemplates?.resetPassword),
     verification: createVerificationEmailHandler(authConfig?.emailTemplates?.verification),
-    organizationInvitation: createOrganizationInvitationEmailHandler(
-      authConfig?.emailTemplates?.organizationInvitation
-    ),
     magicLink: createMagicLinkEmailHandler(authConfig?.emailTemplates?.magicLink),
   }
 }

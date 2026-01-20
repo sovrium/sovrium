@@ -19,10 +19,8 @@ const escapeSQL = (value: string): string => value.replace(/'/g, "''")
 /**
  * Get user role for session context
  *
- * Role resolution priority:
- * 1. If active organization: check members table for org-specific role
- * 2. If no active organization or no membership: check global user role from users table
- * 3. Default: 'authenticated'
+ * Fetches the user's global role from the users table.
+ * Defaults to 'authenticated' if no role is set.
  *
  * @param tx - Database transaction
  * @param session - Better Auth session
@@ -34,18 +32,7 @@ const getUserRole = async (
   tx: any,
   session: Readonly<Session>
 ): Promise<string> => {
-  // If active organization, check members table first
-  if (session.activeOrganizationId) {
-    const memberResult = (await tx.execute(
-      `SELECT role FROM auth.member WHERE organization_id = '${escapeSQL(session.activeOrganizationId)}' AND user_id = '${escapeSQL(session.userId)}' LIMIT 1`
-    )) as Array<{ role: string | null }>
-
-    if (memberResult[0]?.role) {
-      return memberResult[0].role
-    }
-  }
-
-  // Fall back to global user role from users table
+  // Fetch global user role from users table
   try {
     const userResult = (await tx.execute(
       `SELECT role FROM auth.user WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
@@ -62,8 +49,8 @@ const getUserRole = async (
  * Execute a database operation with automatic session context
  *
  * This function wraps database operations in a transaction and automatically sets
- * PostgreSQL session variables (app.user_id, app.organization_id, app.user_role)
- * based on the Better Auth session. This enables RLS policies to function correctly.
+ * PostgreSQL session variables (app.user_id, app.user_role) based on the Better Auth
+ * session. This enables RLS policies to function correctly.
  *
  * @param session - Better Auth session object
  * @param operation - Database operation to execute within the session context
@@ -95,7 +82,7 @@ export const withSessionContext = <A, E>(
       try: () =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
         db.transaction(async (tx: any) => {
-          // Get user role (org-specific or global)
+          // Get user's global role
           const userRole = await getUserRole(tx, session)
 
           // CRITICAL ORDER: Set session variables BEFORE role switch
@@ -104,11 +91,6 @@ export const withSessionContext = <A, E>(
           // 2. RLS policies evaluate in the context of the CURRENT role
           // 3. Setting variables after role switch may not be visible to RLS evaluation
           await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
-          await tx.execute(
-            sql.raw(
-              `SET LOCAL app.organization_id = '${escapeSQL(session.activeOrganizationId || '')}'`
-            )
-          )
           await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
 
           // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
@@ -149,7 +131,7 @@ export const withSessionContextSimple = async <A>(
 ): Promise<A> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
   return await db.transaction(async (tx: any) => {
-    // Get user role (org-specific or global)
+    // Get user's global role
     const userRole = await getUserRole(tx, session)
 
     // CRITICAL ORDER: Set session variables BEFORE role switch
@@ -158,9 +140,6 @@ export const withSessionContextSimple = async <A>(
     // 2. RLS policies evaluate in the context of the CURRENT role
     // 3. Setting variables after role switch may not be visible to RLS evaluation
     await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
-    await tx.execute(
-      sql.raw(`SET LOCAL app.organization_id = '${escapeSQL(session.activeOrganizationId || '')}'`)
-    )
     await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
 
     // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)

@@ -239,8 +239,8 @@ test.describe('Send Magic Link', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('sent')
-        expect(data.sent).toBe(true)
+        expect(data).toHaveProperty('status')
+        expect(data.status).toBe(true)
 
         // THEN: Magic link email is sent with custom template
         const email = await mailpit.waitForEmail(
@@ -265,8 +265,8 @@ test.describe('Send Magic Link', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('sent')
-        expect(data.sent).toBe(true)
+        expect(data).toHaveProperty('status')
+        expect(data.status).toBe(true)
 
         // THEN: Magic link email is sent for signup
         const email = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)

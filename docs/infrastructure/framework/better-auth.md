@@ -571,86 +571,6 @@ await authClient.emailOTP.verifyOTP({
 })
 ```
 
-#### Organization (Multi-Tenancy)
-
-The organization plugin provides comprehensive multi-tenancy with role-based access control, dynamic roles, and team management.
-
-**Features** (v1.4.7+):
-
-- Three default roles: `owner`, `admin`, `member` (with customizable permissions)
-- Dynamic role creation at runtime (stored in database)
-- Permission framework for organization, member, and invitation resources
-- Teams feature for grouping members within organizations
-- Configurable organization limits, membership limits, and invitation expiry
-
-```typescript
-import { organization } from 'better-auth/plugins'
-import { organizationClient } from 'better-auth/client/plugins'
-
-// Server - Basic configuration
-export const auth = betterAuth({
-  plugins: [
-    organization({
-      // Allow users to create organizations
-      allowUserToCreateOrganization: true,
-
-      // Limit organizations per user
-      organizationLimit: 10,
-
-      // Member limits per organization
-      membershipLimit: 100,
-
-      // Invitation expiry (default: 7 days)
-      invitationExpiresIn: 60 * 60 * 24 * 7,
-
-      // Require email verification before accepting invitations
-      requireEmailVerificationOnInvitation: true,
-    }),
-  ],
-})
-
-// Client - Create organization
-await authClient.organization.create({
-  name: 'Acme Corp',
-  slug: 'acme-corp',
-})
-
-// Client - Invite member
-await authClient.organization.inviteMember({
-  organizationId: 'org-123',
-  email: 'member@example.com',
-  role: 'member',
-})
-
-// Client - Dynamic role management (v1.4.7+)
-await authClient.organization.createRole({
-  organizationId: 'org-123',
-  name: 'developer',
-  permissions: ['member:create', 'member:update'],
-})
-
-await authClient.organization.updateRole({
-  organizationId: 'org-123',
-  roleId: 'role-456',
-  permissions: ['member:read'],
-})
-
-await authClient.organization.deleteRole({
-  organizationId: 'org-123',
-  roleId: 'role-456',
-})
-
-// Client - List organizations
-const orgs = await authClient.organization.list()
-```
-
-**Dynamic Roles** (v1.4.7+):
-
-- Create organization-specific custom roles at runtime
-- Assign granular permissions per role
-- Permissions are enforced based on the creator's existing role access
-- Stored in database table for persistence
-
 #### Admin Plugin
 
 The admin plugin enables comprehensive user management, including user creation, role assignment, session control, account restrictions, and impersonation.
@@ -1114,7 +1034,6 @@ bunx @better-auth/cli migrate
 
 - Two-Factor: `twoFactor` table
 - Passkey: `passkey` table
-- Organization: `organization`, `member`, `invitation` tables
 
 ## CLI Commands
 
@@ -1255,7 +1174,7 @@ This is a high-level summary of Better Auth. For comprehensive documentation cov
 The full documentation (33,792 lines) is split into 132 major sections covering:
 
 - Complete authentication methods (email, social, passkeys, magic links, OTP)
-- All built-in plugins (2FA, organizations, multi-session, rate limiting, etc.)
+- All built-in plugins (2FA, multi-session, rate limiting, etc.)
 - Database adapters (Drizzle, Prisma, MongoDB, Kysely)
 - Framework integrations (Hono, Next.js, SvelteKit, Nuxt, Remix, etc.)
 - Advanced patterns (custom fields, webhooks, middleware)

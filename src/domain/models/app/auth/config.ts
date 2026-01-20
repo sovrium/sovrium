@@ -94,8 +94,6 @@ export const AuthEmailTemplatesSchema = Schema.Struct({
   magicLink: Schema.optional(AuthEmailTemplateSchema),
   /** Email OTP code email */
   emailOtp: Schema.optional(AuthEmailTemplateSchema),
-  /** Organization invitation email */
-  organizationInvitation: Schema.optional(AuthEmailTemplateSchema),
   /** Two-factor authentication backup codes email */
   twoFactorBackupCodes: Schema.optional(AuthEmailTemplateSchema),
   /** Welcome email after verification */

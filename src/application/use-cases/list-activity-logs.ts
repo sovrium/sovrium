@@ -31,7 +31,6 @@ export class ForbiddenError extends Data.TaggedError('ForbiddenError')<{
  */
 export interface ListActivityLogsInput {
   readonly userId: string
-  readonly organizationId?: string
 }
 
 /**
@@ -42,7 +41,6 @@ export interface ListActivityLogsInput {
 export interface ActivityLogOutput {
   readonly id: string
   readonly createdAt: string
-  readonly organizationId: string | undefined
   readonly userId: string | undefined
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
@@ -56,7 +54,6 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
   return {
     id: log.id,
     createdAt: log.createdAt.toISOString(),
-    organizationId: log.organizationId ?? undefined,
     userId: log.userId ?? undefined,
     action: log.action,
     tableName: log.tableName,
@@ -69,7 +66,7 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
  *
  * Application layer use case that:
  * 1. Checks user role (viewers are forbidden)
- * 2. Lists activity logs with organization isolation
+ * 2. Lists activity logs
  * 3. Maps to presentation-friendly format
  *
  * Follows layer-based architecture:
@@ -88,8 +85,8 @@ export const ListActivityLogs = (
     const userRoleService = yield* UserRoleService
     const activityLogService = yield* ActivityLogService
 
-    // Get user role to enforce permissions (with organization context if available)
-    const role = yield* userRoleService.getUserRole(input.userId, input.organizationId)
+    // Get user role to enforce permissions
+    const role = yield* userRoleService.getUserRole(input.userId)
 
     // If user has no role, deny access
     if (!role) {
@@ -105,10 +102,8 @@ export const ListActivityLogs = (
       })
     }
 
-    // List activity logs with organization isolation (multi-tenant)
-    const logs = input.organizationId
-      ? yield* activityLogService.listByOrganization(input.organizationId)
-      : yield* activityLogService.listAll()
+    // List all activity logs
+    const logs = yield* activityLogService.listAll()
 
     // Map to presentation-friendly format
     return logs.map(mapActivityLog)

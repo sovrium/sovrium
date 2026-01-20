@@ -8,25 +8,13 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI } from 'better-auth/plugins'
+import { createAuthMiddleware, APIError } from 'better-auth/api'
 import { db } from '@/infrastructure/database'
 import { createEmailHandlers } from './email-handlers'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildMagicLinkPlugin } from './plugins/magic-link'
-import { buildOrganizationPlugin } from './plugins/organization'
 import { buildTwoFactorPlugin } from './plugins/two-factor'
-import {
-  users,
-  sessions,
-  accounts,
-  verifications,
-  organizations,
-  members,
-  invitations,
-  teams,
-  teamMembers,
-  organizationRoles,
-  twoFactors,
-} from './schema'
+import { users, sessions, accounts, verifications, twoFactors } from './schema'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
@@ -72,12 +60,6 @@ const drizzleSchema = {
   session: sessions,
   account: accounts,
   verification: verifications,
-  organization: organizations,
-  member: members,
-  invitation: invitations,
-  team: teams,
-  teamMember: teamMembers,
-  organizationRole: organizationRoles,
   twoFactor: twoFactors,
 }
 
@@ -93,7 +75,6 @@ const buildAuthPlugins = (
 ) => [
   openAPI({ disableDefaultReference: true }),
   ...buildAdminPlugin(authConfig),
-  ...buildOrganizationPlugin(handlers.organizationInvitation, authConfig),
   ...buildTwoFactorPlugin(authConfig),
   ...buildMagicLinkPlugin(handlers.magicLink, authConfig),
 ]
@@ -145,6 +126,8 @@ export function createAuthInstance(authConfig?: Auth) {
       enabled: true,
       requireEmailVerification,
       sendResetPassword: handlers.passwordReset,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
     },
     emailVerification: {
       sendOnSignUp: requireEmailVerification,
@@ -157,6 +140,29 @@ export function createAuthInstance(authConfig?: Auth) {
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),
     rateLimit: buildRateLimitConfig(),
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        // Validate password length for admin createUser (Better Auth Issue #4651 workaround)
+        // Admin plugin doesn't respect emailAndPassword validation settings
+        if (ctx.path === '/admin/create-user') {
+          const body = ctx.body as { password?: string }
+          if (body?.password) {
+            const minLength = 8
+            const maxLength = 128
+            if (body.password.length < minLength) {
+              throw new APIError('BAD_REQUEST', {
+                message: `Password must be at least ${minLength} characters`,
+              })
+            }
+            if (body.password.length > maxLength) {
+              throw new APIError('BAD_REQUEST', {
+                message: `Password must not exceed ${maxLength} characters`,
+              })
+            }
+          }
+        }
+      }),
+    },
   })
 }
 

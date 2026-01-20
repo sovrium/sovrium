@@ -38,21 +38,12 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-001: should exclude salary field from API response when member lacks read permission',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table with field-level permissions (salary restricted to admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -63,11 +54,9 @@ test.describe('API Field Permission Enforcement', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'authenticated' },
               fields: [
                 {
@@ -81,29 +70,13 @@ test.describe('API Field Permission Enforcement', () => {
         ],
       })
 
-      // Create admin user and organization (admin becomes owner)
-      const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
-
-      // Set admin role via direct database update
-      await executeQuery(`
-        UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'
-      `)
-
-      const org = await createOrganization({ name: 'Test Org' })
-
-      // Create member user and add to organization
-      await signOut()
-      const member = await createAuthenticatedUser({ email: 'member@example.com' })
-      await addMember({
-        organizationId: org.organization.id,
-        userId: member.user.id,
-        role: 'member',
-      })
+      // Create member user (default role: member)
+      await createAuthenticatedUser({ email: 'member@example.com' })
 
       // Insert test data
       await executeQuery(`
-        INSERT INTO employees (name, email, salary, organization_id)
-        VALUES ('John Doe', 'john@example.com', 75000, '${org.organization.id}')
+        INSERT INTO employees (name, email, salary)
+        VALUES ('John Doe', 'john@example.com', 75000)
       `)
 
       // WHEN: Member user requests employee data via API
@@ -124,13 +97,12 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-002: should include all fields in API response when admin has full read permission',
     { tag: '@spec' },
-    async ({ page, request, startServerWithSchema, signUp, createOrganization, executeQuery }) => {
+    async ({ page, request, startServerWithSchema, signUp, executeQuery }) => {
       // GIVEN: Same table with field-level permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
           admin: true,
         },
         tables: [
@@ -141,11 +113,9 @@ test.describe('API Field Permission Enforcement', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'authenticated' },
               fields: [
                 {
@@ -177,12 +147,10 @@ test.describe('API Field Permission Enforcement', () => {
         data: { email: 'admin@example.com', password: 'AdminPass123!' },
       })
 
-      const org = await createOrganization({ name: 'Test Org' })
-
       // Insert test data
       await executeQuery(`
-        INSERT INTO employees (name, salary, organization_id)
-        VALUES ('Jane Smith', 95000, '${org.organization.id}')
+        INSERT INTO employees (name, salary)
+        VALUES ('Jane Smith', 95000)
       `)
 
       // WHEN: Admin user requests employee data via API
@@ -202,19 +170,12 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-003: should reject write operation when user lacks field write permission',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table where salary field is admin-write only
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -224,11 +185,9 @@ test.describe('API Field Permission Enforcement', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'authenticated' },
               update: { type: 'authenticated' },
               fields: [
@@ -245,12 +204,11 @@ test.describe('API Field Permission Enforcement', () => {
 
       // Create member user
       await createAuthenticatedUser({ email: 'member@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
 
       // Insert test data
       await executeQuery(`
-        INSERT INTO employees (id, name, salary, organization_id)
-        VALUES (1, 'John Doe', 75000, '${org.organization.id}')
+        INSERT INTO employees (id, name, salary)
+        VALUES (1, 'John Doe', 75000)
       `)
 
       // WHEN: Member tries to update salary field via API
@@ -279,19 +237,12 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-004: should allow partial update when user has write permission for some fields',
     { tag: '@spec' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      executeQuery,
-    }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table where member can update name but not salary
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -301,11 +252,9 @@ test.describe('API Field Permission Enforcement', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              organizationScoped: true,
               read: { type: 'authenticated' },
               update: { type: 'authenticated' },
               fields: [
@@ -325,11 +274,10 @@ test.describe('API Field Permission Enforcement', () => {
       })
 
       await createAuthenticatedUser({ email: 'member@example.com' })
-      const org = await createOrganization({ name: 'Test Org' })
 
       await executeQuery(`
-        INSERT INTO employees (id, name, salary, organization_id)
-        VALUES (1, 'John Doe', 75000, '${org.organization.id}')
+        INSERT INTO employees (id, name, salary)
+        VALUES (1, 'John Doe', 75000)
       `)
 
       // WHEN: Member updates only the name field (which they have permission for)
@@ -355,13 +303,12 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-005: should return 403 when filtering by restricted field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, createOrganization }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table where salary field is admin-only
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
-          organization: true,
         },
         tables: [
           {
@@ -387,7 +334,6 @@ test.describe('API Field Permission Enforcement', () => {
       })
 
       await createAuthenticatedUser({ email: 'member@example.com' })
-      await createOrganization({ name: 'Test Org' })
 
       // WHEN: Member tries to filter by salary field they can't read
       const response = await request.get('/api/tables/1/records', {
@@ -416,26 +362,14 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-REGRESSION: complete field permission workflow via API',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createOrganization,
-      addMember,
-      executeQuery,
-      signOut,
-      signIn,
-      setActiveOrganization,
-    }) => {
-      let org: { organization: { id: string } }
-      let member: { user: { id: string } }
+    async ({ request, startServerWithSchema, executeQuery, signOut, signIn, page }) => {
+      let adminUserId: string
 
       await test.step('Setup: Start server with field-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
             emailAndPassword: true,
-            organization: true,
           },
           tables: [
             {
@@ -446,11 +380,9 @@ test.describe('API Field Permission Enforcement', () => {
                 { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'email', type: 'email' },
                 { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-                { id: 5, name: 'organization_id', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                organizationScoped: true,
                 read: { type: 'authenticated' },
                 update: { type: 'authenticated' },
                 fields: [
@@ -470,32 +402,38 @@ test.describe('API Field Permission Enforcement', () => {
         })
       })
 
-      await test.step('Setup: Create organization with admin and member users', async () => {
-        // Admin (becomes owner of org)
-        const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
+      await test.step('Setup: Create admin and member users', async () => {
+        // Create admin user
+        const adminSignupResponse = await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'admin@example.com',
+            password: 'TestPassword123!',
+            name: 'Admin User',
+          },
+        })
+        const adminData = await adminSignupResponse.json()
+        adminUserId = adminData.user.id
 
         // Set admin role via direct database update
         await executeQuery(`
-          UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'
+          UPDATE auth.user SET role = 'admin' WHERE id = '${adminUserId}'
         `)
 
-        org = await createOrganization({ name: 'Test Org' })
-
-        // Member
+        // Create member user
         await signOut()
-        member = await createAuthenticatedUser({ email: 'member@example.com' })
-        await addMember({
-          organizationId: org.organization.id,
-          userId: member.user.id,
-          role: 'member',
+        await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'member@example.com',
+            password: 'TestPassword123!',
+            name: 'Member User',
+          },
         })
       })
 
       await test.step('Setup: Insert test data', async () => {
         await executeQuery(`
-          INSERT INTO employees (id, name, email, salary, organization_id)
-          VALUES
-            (1, 'John Doe', 'john@example.com', 75000, '${org.organization.id}')
+          INSERT INTO employees (id, name, email, salary)
+          VALUES (1, 'John Doe', 'john@example.com', 75000)
         `)
       })
 
@@ -503,7 +441,6 @@ test.describe('API Field Permission Enforcement', () => {
         // WHEN: Member user requests employee data via API
         await signOut()
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const response = await request.get('/api/tables/1/records')
 
         // THEN: API response should include name but EXCLUDE salary field
@@ -520,7 +457,6 @@ test.describe('API Field Permission Enforcement', () => {
         // WHEN: Admin user requests employee data via API
         await signOut()
         await signIn({ email: 'admin@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const response = await request.get('/api/tables/1/records')
 
         // THEN: Admin should see ALL fields including salary
@@ -536,7 +472,6 @@ test.describe('API Field Permission Enforcement', () => {
         // WHEN: Member tries to update salary field via API
         await signOut()
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { salary: 100_000 }, // Attempting to give themselves a raise!
@@ -557,7 +492,6 @@ test.describe('API Field Permission Enforcement', () => {
         // WHEN: Member updates only the name field (which they have permission for)
         await signOut()
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
-        await setActiveOrganization(org.organization.id)
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'John Smith' }, // This should work

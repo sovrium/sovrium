@@ -16,26 +16,6 @@ import { RecordPermissionsSchema } from './record-permission'
  * High-level RBAC permissions for table operations.
  * Each operation maps to a PostgreSQL RLS policy that is auto-generated.
  *
- * ## Organization Scoping Precedence
- *
- * When multiple organization isolation mechanisms are configured, they are applied
- * in the following precedence order (highest to lowest):
- *
- * 1. **Record-level `records` conditions** - Explicit RLS conditions with `{organizationId}`
- *    take highest priority. Example: `{ action: 'read', condition: '{organizationId} = org_id' }`
- *
- * 2. **`organizationScoped: true` flag** - When set, automatically adds
- *    `organization_id = current_organization_id()` to all queries. This is the
- *    recommended approach for multi-tenant data isolation.
- *
- * 3. **Organization plugin configuration** - The auth organization plugin provides
- *    organization context but doesn't enforce table-level isolation unless
- *    `organizationScoped` is explicitly set.
- *
- * **Best Practice**: Use `organizationScoped: true` for most tables in multi-tenant
- * applications. Use explicit `records` conditions only when custom filtering logic
- * is needed beyond simple organization matching.
- *
  * See `@/domain/models/app/permissions` for shared permission schemas.
  *
  * Operations:
@@ -63,14 +43,6 @@ import { RecordPermissionsSchema } from './record-permission'
  *   delete: { type: 'owner', field: 'user_id' },
  * }
  * ```
- *
- * @example With organization isolation
- * ```typescript
- * permissions: {
- *   read: { type: 'authenticated' },
- *   organizationScoped: true,
- * }
- * ```
  */
 export const TablePermissionsSchema = Schema.Struct({
   /**
@@ -96,19 +68,6 @@ export const TablePermissionsSchema = Schema.Struct({
    * Generates RLS policy with USING clause.
    */
   delete: Schema.optional(TablePermissionSchema),
-
-  /**
-   * Organization isolation flag.
-   *
-   * When true, all queries are automatically filtered by `organization_id`
-   * based on the current user's organization. This enforces multi-tenant
-   * data isolation at the database level.
-   *
-   * Generates RLS policy: `USING (organization_id = current_organization_id())`
-   *
-   * Requires the table to have an `organization_id` field.
-   */
-  organizationScoped: Schema.optional(Schema.Boolean),
 
   /**
    * Field-level permissions for granular column access control.
@@ -158,11 +117,6 @@ export const TablePermissionsSchema = Schema.Struct({
         create: { type: 'authenticated' as const },
         update: { type: 'owner' as const, field: 'user_id' },
         delete: { type: 'owner' as const, field: 'user_id' },
-      },
-      // With organization isolation
-      {
-        read: { type: 'authenticated' as const },
-        organizationScoped: true,
       },
     ],
   })

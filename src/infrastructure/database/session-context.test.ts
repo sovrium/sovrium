@@ -18,13 +18,13 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 describe('session-context', () => {
   describe('setDatabaseSessionContext', () => {
-    it('should set session variables for user with organization', async () => {
+    it('should set session variables for authenticated user', async () => {
       const executedSql: string[] = []
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async (sql: string) => {
           executedSql.push(sql)
-          // Mock members table response (using actual table name)
-          if (sql.includes('SELECT role FROM "auth.member"')) {
+          // Mock user table response for role lookup
+          if (sql.includes('SELECT role FROM "auth.user"')) {
             return [{ role: 'admin' }]
           }
           return []
@@ -34,8 +34,6 @@ describe('session-context', () => {
       const session: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: 'org_456',
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -48,21 +46,21 @@ describe('session-context', () => {
       const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
 
       expect(result).toBeUndefined()
-      // 2 queries: 1 for member role lookup, 1 for SET LOCAL
+      // 2 queries: 1 for user role lookup, 1 for SET LOCAL
       expect(executedSql.length).toBe(2)
-      // First query: members table for org-specific role
-      expect(executedSql[0]).toContain('SELECT role FROM "auth.member"')
-      // Second query: SET LOCAL session variables
+      // First query: user table for role
+      expect(executedSql[0]).toContain('SELECT role FROM "auth.user"')
+      // Second query: SET LOCAL session variables (no organization_id)
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
-      expect(executedSql[1]).toContain("SET LOCAL app.organization_id = 'org_456'")
       expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'admin'")
     })
 
-    it('should set session variables for user without organization', async () => {
+    it('should use default authenticated role when user role not found', async () => {
       const executedSql: string[] = []
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async (sql: string) => {
           executedSql.push(sql)
+          // Return empty result for role query (user has no explicit role)
           return []
         }),
       }
@@ -70,8 +68,6 @@ describe('session-context', () => {
       const session: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: null,
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -88,9 +84,8 @@ describe('session-context', () => {
       expect(executedSql.length).toBe(2)
       // First query: user role lookup
       expect(executedSql[0]).toContain('SELECT role FROM "auth.user"')
-      // Second query: SET LOCAL session variables
+      // Second query: SET LOCAL session variables (no organization_id)
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
-      expect(executedSql[1]).toContain("SET LOCAL app.organization_id = ''")
       expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'authenticated'")
     })
 
@@ -106,8 +101,6 @@ describe('session-context', () => {
       const session: Session = {
         id: 'session_123',
         userId: "user'; DROP TABLE users; --",
-        activeOrganizationId: null,
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -127,44 +120,6 @@ describe('session-context', () => {
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user''; DROP TABLE users; --'")
     })
 
-    it('should return guest role when user has active org but is NOT a member (Option B)', async () => {
-      const executedSql: string[] = []
-      const mockTx: DatabaseTransaction = {
-        unsafe: mock(async (sql: string) => {
-          executedSql.push(sql)
-          if (sql.includes('SELECT role FROM "auth.member"')) {
-            return [] // No member found
-          }
-          return []
-        }),
-      }
-
-      const session: Session = {
-        id: 'session_123',
-        userId: 'user_123',
-        activeOrganizationId: 'org_456',
-        activeTeamId: null,
-        token: 'token_123',
-        expiresAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ipAddress: null,
-        userAgent: null,
-        impersonatedBy: null,
-      }
-
-      const result = await Effect.runPromise(setDatabaseSessionContext(mockTx, session))
-
-      expect(result).toBeUndefined()
-      // Option B: Only 2 queries - NO fallback to global user role
-      expect(executedSql.length).toBe(2)
-      // First query: members lookup
-      expect(executedSql[0]).toContain('SELECT role FROM "auth.member"')
-      // NO query to auth.user (global role not used for org-scoped context)
-      // Second query: SET LOCAL with 'guest' role (Option B semantics)
-      expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'guest'")
-    })
-
     it('should fail with SessionContextError on database error', async () => {
       const mockTx: DatabaseTransaction = {
         unsafe: mock(async () => {
@@ -175,8 +130,6 @@ describe('session-context', () => {
       const session: Session = {
         id: 'session_123',
         userId: 'user_123',
-        activeOrganizationId: null,
-        activeTeamId: null,
         token: 'token_123',
         expiresAt: new Date(),
         createdAt: new Date(),
@@ -211,7 +164,6 @@ describe('session-context', () => {
 
       expect(executedSql.length).toBe(1)
       expect(executedSql[0]).toContain('RESET app.user_id')
-      expect(executedSql[0]).toContain('RESET app.organization_id')
       expect(executedSql[0]).toContain('RESET app.user_role')
     })
 
@@ -238,7 +190,6 @@ describe('session-context', () => {
           return [
             {
               user_id: 'user_123',
-              organization_id: 'org_456',
               role: 'admin',
             },
           ]
@@ -249,7 +200,6 @@ describe('session-context', () => {
 
       expect(result).toEqual({
         userId: 'user_123',
-        organizationId: 'org_456',
         role: 'admin',
       })
     })
@@ -260,7 +210,6 @@ describe('session-context', () => {
           return [
             {
               user_id: null,
-              organization_id: null,
               role: null,
             },
           ]
@@ -271,7 +220,6 @@ describe('session-context', () => {
 
       expect(result).toEqual({
         userId: '',
-        organizationId: '',
         role: '',
       })
     })

@@ -14,7 +14,7 @@ import { isAuthorizationError, type Session } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
-const SYSTEM_PROTECTED_FIELDS = new Set(['organization_id', 'user_id', 'owner_id'])
+const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id'])
 
 /**
  * Check if user has table-level update permission (using pre-fetched role from middleware)

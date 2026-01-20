@@ -28,7 +28,10 @@ import type { App } from '@/domain/models/app'
  *
  * Returns a Hono app with authentication middleware applied
  */
-const applyAuthCheckMiddleware = (honoApp: Readonly<Hono>, authInstance: any): Readonly<Hono> => {
+const applyAuthCheckMiddleware = (
+  honoApp: Readonly<Hono>,
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>
+): Readonly<Hono> => {
   return honoApp.use('/api/auth/admin/*', async (c, next) => {
     try {
       // Check if request has a valid session cookie
@@ -88,11 +91,10 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
     '/api/auth/request-password-reset',
   ]
 
-  let result = honoApp
-  for (const endpoint of endpoints) {
-    result = result.use(endpoint, async (c, next) => {
+  const result = endpoints.reduce((app, endpoint) => {
+    return app.use(endpoint, async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
-      const path = c.req.path
+      const { path } = c.req
 
       if (isAuthRateLimitExceeded(path, ip)) {
         return c.json(
@@ -107,7 +109,7 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
       // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
       await next()
     })
-  }
+  }, honoApp)
 
   return result
 }

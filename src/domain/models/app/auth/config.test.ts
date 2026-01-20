@@ -100,7 +100,6 @@ describe('AuthEmailTemplatesSchema', () => {
       resetPassword: { subject: 'Reset' },
       magicLink: { subject: 'Magic Link' },
       emailOtp: { subject: 'Your code: $code' },
-      organizationInvitation: { subject: 'Join $organizationName' },
       twoFactorBackupCodes: { subject: 'Your backup codes' },
       welcome: { subject: 'Welcome!' },
       accountDeletion: { subject: 'Account deleted' },
@@ -110,7 +109,6 @@ describe('AuthEmailTemplatesSchema', () => {
     expect(result.resetPassword?.subject).toBe('Reset')
     expect(result.magicLink?.subject).toBe('Magic Link')
     expect(result.emailOtp?.subject).toBe('Your code: $code')
-    expect(result.organizationInvitation?.subject).toBe('Join $organizationName')
     expect(result.twoFactorBackupCodes?.subject).toBe('Your backup codes')
     expect(result.welcome?.subject).toBe('Welcome!')
     expect(result.accountDeletion?.subject).toBe('Account deleted')

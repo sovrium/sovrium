@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
 import { generateSync } from 'otplib'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Verify Two-Factor Authentication Code

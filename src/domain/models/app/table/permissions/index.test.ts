@@ -56,30 +56,6 @@ describe('TablePermissionsSchema', () => {
     })
   })
 
-  describe('organization scoped permissions', () => {
-    test('should accept organizationScoped true', () => {
-      const permissions = { organizationScoped: true }
-      const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.organizationScoped).toBe(true)
-    })
-
-    test('should accept organizationScoped false', () => {
-      const permissions = { organizationScoped: false }
-      const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.organizationScoped).toBe(false)
-    })
-
-    test('should accept combined CRUD and organizationScoped', () => {
-      const permissions = {
-        read: { type: 'authenticated' as const },
-        organizationScoped: true,
-      }
-      const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.read?.type).toBe('authenticated')
-      expect(result.organizationScoped).toBe(true)
-    })
-  })
-
   describe('owner permission', () => {
     test('should accept owner permission with field', () => {
       const permissions = {

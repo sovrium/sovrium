@@ -39,11 +39,6 @@ export const hasOnlyPublicPermissions = (table: Table): boolean => {
     return false
   }
 
-  // If organizationScoped is set, it's not public
-  if (permissions.organizationScoped) {
-    return false
-  }
-
   // If field-level or record-level permissions exist, it's not fully public
   if (permissions.fields && permissions.fields.length > 0) {
     return false
@@ -104,11 +99,6 @@ export const hasExplicitEmptyPermissions = (table: Table): boolean => {
 
   // Must have a permissions object (not undefined)
   if (!permissions) {
-    return false
-  }
-
-  // If organizationScoped is explicitly set (true or false), it's a configuration
-  if (permissions.organizationScoped !== undefined) {
     return false
   }
 
@@ -213,11 +203,6 @@ export const hasMixedPermissions = (table: Table): boolean => {
 
   // Skip if has record-level permissions (those are handled separately)
   if (hasRecordLevelPermissions(table)) {
-    return false
-  }
-
-  // Skip if organization-scoped (handled separately)
-  if (permissions.organizationScoped) {
     return false
   }
 

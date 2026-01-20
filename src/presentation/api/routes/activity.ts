@@ -23,7 +23,6 @@ import type { Hono } from 'hono'
 interface ActivityLogResponse {
   readonly id: string
   readonly createdAt: string
-  readonly organizationId: string | undefined
   readonly userId: string | undefined
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly table_name: string
@@ -37,7 +36,6 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
   return {
     id: log.id,
     createdAt: log.createdAt,
-    organizationId: log.organizationId,
     userId: log.userId,
     action: log.action,
     table_name: log.tableName,
@@ -64,7 +62,6 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
 
     const program = ListActivityLogs({
       userId: session.userId,
-      organizationId: session.activeOrganizationId ?? undefined,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)

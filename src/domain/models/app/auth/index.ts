@@ -11,7 +11,6 @@ import { EmailAndPasswordConfigSchema } from './methods/email-and-password'
 import { MagicLinkConfigSchema } from './methods/magic-link'
 import { OAuthConfigSchema } from './oauth'
 import { AdminConfigSchema } from './plugins/admin'
-import { OrganizationConfigSchema } from './plugins/organization'
 import { TwoFactorConfigSchema } from './plugins/two-factor'
 
 // Re-export all auth-related schemas and types for convenient imports
@@ -20,7 +19,6 @@ export * from './methods/email-and-password'
 export * from './methods/magic-link'
 export * from './oauth'
 export * from './plugins/admin'
-export * from './plugins/organization'
 export * from './plugins/two-factor'
 
 /**
@@ -72,7 +70,6 @@ export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
  * - magicLink: Passwordless email link authentication (optional)
  * - oauth: Social login configuration (optional)
  * - admin: User management and administrative features (optional)
- * - organization: Multi-tenancy and organization management (optional)
  * - twoFactor: TOTP-based two-factor authentication (optional)
  * - emailTemplates: Custom email templates (optional)
  *
@@ -84,7 +81,6 @@ export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
  *
  * Plugins (v1 - now at root level):
  * - admin: User management, banning, impersonation
- * - organization: Multi-tenancy, team management
  * - twoFactor: TOTP-based two-factor authentication
  *
  * Environment Variables (infrastructure config):
@@ -117,7 +113,6 @@ export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
  *   magicLink: true,
  *   oauth: { providers: ['microsoft', 'google'] },
  *   admin: { impersonation: true },
- *   organization: { maxMembersPerOrg: 50 },
  *   twoFactor: { issuer: 'MyCompany', backupCodes: true }
  * }
  * ```
@@ -197,24 +192,6 @@ export const AuthSchema = Schema.Struct({
    * ```
    */
   admin: Schema.optional(AdminConfigSchema),
-
-  /**
-   * Organization plugin configuration (optional)
-   *
-   * Enable multi-tenancy and organization management. Users can create
-   * organizations, invite members, and manage roles. Can be a boolean
-   * (true to enable) or a configuration object.
-   *
-   * @example
-   * ```typescript
-   * // Simple enable
-   * { organization: true }
-   *
-   * // With configuration
-   * { organization: { maxMembersPerOrg: 50, allowMultipleOrgs: true } }
-   * ```
-   */
-  organization: Schema.optional(OrganizationConfigSchema),
 
   /**
    * Two-factor authentication plugin configuration (optional)
@@ -313,7 +290,6 @@ export const AuthSchema = Schema.Struct({
         magicLink: true,
         oauth: { providers: ['microsoft', 'google'] },
         admin: { impersonation: true },
-        organization: { allowMultipleOrgs: true },
         twoFactor: { issuer: 'MyCompany', backupCodes: true },
       },
     ],
@@ -342,7 +318,7 @@ export const hasAuthenticationMethod = (auth: Auth, methodName: AuthMethodName):
 /**
  * Plugin names that can be checked
  */
-type PluginName = 'admin' | 'organization' | 'twoFactor'
+type PluginName = 'admin' | 'twoFactor'
 
 /**
  * Helper to check if auth has a specific plugin enabled

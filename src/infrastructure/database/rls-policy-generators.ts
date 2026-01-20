@@ -12,7 +12,6 @@
  * Core utilities are in rls-policy-core.ts.
  */
 
-import { logWarning } from '@/infrastructure/logging/effect-logger'
 import { translatePermissionCondition } from './permission-condition-translator'
 import {
   CRUD_TO_SQL_COMMAND,
@@ -31,8 +30,6 @@ import {
   generateOwnerCheck,
   generateAuthenticatedCheck,
   generateRoleCheck,
-  generateDropPolicies,
-  generateCreatePolicies,
   generateAuthenticatedPolicyStatements,
   generateRolePolicyStatements,
   generateOwnerPolicyStatements,
@@ -383,45 +380,6 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
 }
 
 /**
- * Generate RLS policy statements for organization-scoped tables
- *
- * When a table has `permissions.organizationScoped: true`, this generates:
- * 1. ALTER TABLE statement to enable RLS (with FORCE for superusers)
- * 2. CREATE POLICY statements for all CRUD operations
- *
- * @param table - Table definition with organization-scoped permissions
- * @returns Array of SQL statements to enable RLS and create organization-scoped policies
- */
-const generateOrganizationScopedPolicies = (table: Table): readonly string[] => {
-  const tableName = table.name
-
-  // Verify table has organization_id field
-  const hasOrganizationIdField = table.fields.some((field) => field.name === 'organization_id')
-  if (!hasOrganizationIdField) {
-    logWarning(
-      `[RLS] Table "${table.name}" has organizationScoped=true but no organization_id field`
-    )
-    return []
-  }
-
-  const enableRLS = generateEnableRLS(tableName)
-  const orgIdCheck = `organization_id = current_setting('app.organization_id', true)::TEXT`
-
-  const operationChecks = {
-    read: generateOperationCheck(table.permissions?.read),
-    create: generateOperationCheck(table.permissions?.create),
-    update: generateOperationCheck(table.permissions?.update),
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-    delete: generateOperationCheck(table.permissions?.delete),
-  }
-
-  const dropPolicies = generateDropPolicies(tableName)
-  const createPolicies = generateCreatePolicies(tableName, orgIdCheck, operationChecks)
-
-  return [...enableRLS, ...dropPolicies, ...createPolicies]
-}
-
-/**
  * Generate default policies for tables with NO permissions object (undefined)
  *
  * When a table has `permissions: undefined` (not even an empty object), we:
@@ -557,15 +515,8 @@ const hasOnlyFieldPermissions = (table: Table): boolean => {
  * 6. Owner-based → Owner field check
  * 7. Authenticated → auth.is_authenticated()
  * 8. Role-based → Role checks
- * 9. Organization-scoped → Organization ID filter
- * 10. Field-only permissions → Default deny with app_user access
+ * 9. Field-only permissions → Default deny with app_user access
  */
-/**
- * Check if organization-scoped permissions should be used
- */
-const isOrganizationScoped = (table: Table): boolean => {
-  return table.permissions?.organizationScoped === true
-}
 
 /**
  * Select policy generator based on table permissions - non-organization-scoped cases
@@ -600,9 +551,8 @@ const selectFieldPermissionGenerator = (
  * 3. No permissions object → Default deny with app_user access
  * 4. Record-level permissions → Custom RLS conditions
  * 5. Mixed permissions → Combination of permission types
- * 6. Owner/Authenticated/Role permissions (non-org) → Specific policy types
- * 7. Organization-scoped → Organization ID filter
- * 8. Field-only permissions → Default deny with app_user access
+ * 6. Owner/Authenticated/Role permissions → Specific policy types
+ * 7. Field-only permissions → Default deny with app_user access
  */
 const selectPolicyGenerator = (
   table: Table
@@ -616,16 +566,11 @@ const selectPolicyGenerator = (
   if (hasRecordLevelPermissions(table)) return generateRecordLevelPolicies
   if (hasMixedPermissions(table)) return generateMixedPermissionPolicies
 
-  // Priority 6: Non-organization-scoped permission types
-  if (!isOrganizationScoped(table)) {
-    const generator = selectNonOrgPolicyGenerator(table)
-    if (generator) return generator
-  }
+  // Priority 6: Permission types
+  const generator = selectNonOrgPolicyGenerator(table)
+  if (generator) return generator
 
-  // Priority 7: Organization-scoped
-  if (isOrganizationScoped(table)) return generateOrganizationScopedPolicies
-
-  // Priority 8: Field-only permissions
+  // Priority 7: Field-only permissions
   if (hasOnlyFieldPermissions(table)) {
     return selectFieldPermissionGenerator(table)
   }
@@ -658,7 +603,7 @@ const selectPolicyGenerator = (
  *
  * 4. **Record-level permissions** (permissions.records array):
  *    - Custom RLS conditions defined per CRUD action
- *    - Supports variable substitution: {userId}, {organizationId}
+ *    - Supports variable substitution: {userId}
  *
  * 5. **Owner-based permissions** (e.g., read: { type: 'owner', field: 'owner_id' }):
  *    - Filters records by the specified owner field
@@ -668,9 +613,6 @@ const selectPolicyGenerator = (
  *
  * 7. **Role-based permissions** (e.g., read: { type: 'roles', roles: ['admin'] }):
  *    - Checks user's role via current_setting('app.user_role')
- *
- * 8. **Organization-scoped** (permissions.organizationScoped: true):
- *    - Filters by organization_id using current_setting('app.organization_id')
  *
  * @param table - Table definition with permissions
  * @returns Array of SQL statements to enable RLS and create policies

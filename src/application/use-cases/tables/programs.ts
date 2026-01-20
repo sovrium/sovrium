@@ -231,15 +231,12 @@ export function createListRecordsProgram(
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
     const { session, tableName, app, userRole, filter } = config
-    // Find table schema to check organization-scoped settings
-    const table = app.tables?.find((t) => t.name === tableName)
 
-    // Query records with session context (organization filtering automatically applied if enabled)
-    const records = yield* listRecords(session, tableName, table, filter)
+    // Query records with session context (RLS policies apply automatically)
+    const records = yield* listRecords(session, tableName, undefined, filter)
 
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies
-    // Organization-level filtering is handled by listRecords when organizationScoped is true
     // Field-level filtering is handled at application layer
     const { userId } = session
     const filteredRecords = records.map((record) =>
@@ -269,19 +266,6 @@ interface GetRecordConfig {
 }
 
 /**
- * Check if record passes organization isolation check
- * Returns true if access is allowed, false if denied
- */
-function passesOrganizationCheck(
-  record: Readonly<Record<string, unknown>>,
-  activeOrganizationId: string | null | undefined
-): boolean {
-  const recordOrgId = record['organization_id']
-  if (recordOrgId === undefined || !activeOrganizationId) return true
-  return String(recordOrgId) === String(activeOrganizationId)
-}
-
-/**
  * Check if record passes ownership check
  * Returns true if access is allowed, false if denied
  */
@@ -303,15 +287,10 @@ export function createGetRecordProgram(
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
     const { session, tableName, recordId, app, userRole } = config
-    const { userId, activeOrganizationId } = session
+    const { userId } = session
 
     const record = yield* getRecord(session, tableName, recordId)
     if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
-
-    // Enforce organization isolation (return 404 to prevent enumeration)
-    if (!passesOrganizationCheck(record, activeOrganizationId)) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
-    }
 
     // Enforce ownership check (return 404 to prevent enumeration)
     if (!passesOwnershipCheck(record, userId, app, tableName)) {
@@ -329,22 +308,20 @@ export function createRecordProgram(
   fields: Readonly<Record<string, unknown>>
 ) {
   return Effect.gen(function* () {
-    // Create record with session context (organization_id and owner_id set automatically)
+    // Create record with session context (owner_id set automatically)
     const record = yield* createRecord(session, tableName, fields)
 
-    // Extract owner_id and organization_id from raw record BEFORE transformation
+    // Extract owner_id from raw record BEFORE transformation
     // (transformRecord moves these into fields.owner_id)
     const ownerId = record.owner_id
-    const organizationId = record.organization_id
 
     const transformed = transformRecord(record)
 
     // Return in format expected by tests: system fields at root, user fields nested
-    // owner_id and organization_id need to be at root level for API compatibility
+    // owner_id needs to be at root level for API compatibility
     return {
       id: transformed.id,
       ...(ownerId !== undefined ? { owner_id: ownerId } : {}),
-      ...(organizationId !== undefined ? { organization_id: organizationId } : {}),
       fields: transformed.fields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,

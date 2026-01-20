@@ -547,12 +547,13 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-014: should auto-inject organization_id',
+    'API-TABLES-RECORDS-CREATE-014: should auto-inject owner_id',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: User creates record in multi-tenant table
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: User creates record in table with owner_id field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -561,8 +562,8 @@ test.describe('Create new record', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               {
                 id: 2,
-                name: 'organization_id',
-                type: 'single-line-text',
+                name: 'owner_id',
+                type: 'user',
                 required: true,
               },
             ],
@@ -570,7 +571,9 @@ test.describe('Create new record', () => {
         ],
       })
 
-      // WHEN: Organization ID field exists in table
+      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
+
+      // WHEN: owner_id field exists in table
       const response = await request.post('/api/tables/1/records', {
         headers: {
           'Content-Type': 'application/json',
@@ -580,60 +583,20 @@ test.describe('Create new record', () => {
         },
       })
 
-      // THEN: Organization ID is automatically injected from user's session
+      // THEN: owner_id is automatically injected from user's session
       expect(response.status()).toBe(201)
 
       const data = await response.json()
       // THEN: assertion
       expect(data.fields.name).toBe('Alpha Project')
-      expect(data.fields.organization_id).toBe('org_123')
+      expect(data.fields.owner_id).toBe(user.id)
 
-      // Verify database record has correct organization_id
+      // Verify database record has correct owner_id
       const result = await executeQuery(`
-        SELECT organization_id FROM projects WHERE name = 'Alpha Project'
+        SELECT owner_id FROM projects WHERE name = 'Alpha Project'
       `)
       // THEN: assertion
-      expect(result.rows[0].organization_id).toBe('org_123')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-015: should return 403 Forbidden',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: User attempts to create record with different organization_id
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 14,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // WHEN: Request body includes organization_id different from user's org
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Malicious Project',
-          organization_id: 'org_456',
-        },
-      })
-
-      // THEN: Returns 403 Forbidden (cannot set org_id to different org)
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('Cannot create record for a different organization')
+      expect(result.rows[0].owner_id).toBe(user.id)
     }
   )
 
@@ -641,7 +604,7 @@ test.describe('Create new record', () => {
     'API-TABLES-RECORDS-CREATE-016: should return 201 with filtered fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Organization isolation, field write restrictions, and table permission all apply
+      // GIVEN: Field write restrictions and table permission all apply
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -652,7 +615,6 @@ test.describe('Create new record', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'decimal' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -669,14 +631,13 @@ test.describe('Create new record', () => {
         },
       })
 
-      // THEN: Returns 201 Created with auto-injected org_id and filtered fields
+      // THEN: Returns 201 Created with filtered fields (salary not included due to write restrictions)
       expect(response.status()).toBe(201)
 
       const data = await response.json()
       // THEN: assertion
       expect(data.fields.name).toBe('Carol Davis')
       expect(data.fields.email).toBe('carol@example.com')
-      expect(data.fields.organization_id).toBe('org_123')
       expect(data.fields).not.toHaveProperty('salary')
     }
   )
@@ -737,7 +698,7 @@ test.describe('Create new record', () => {
     'API-TABLES-RECORDS-CREATE-018: should create comprehensive activity log entry',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Multi-tenant application with auth and activity logging
+      // GIVEN: Application with auth and activity logging
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
@@ -750,15 +711,13 @@ test.describe('Create new record', () => {
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email', required: true },
               { id: 4, name: 'phone', type: 'phone-number' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
 
-      const { user, organizationId } = await createAuthenticatedUser({
+      const { user } = await createAuthenticatedUser({
         email: 'user@example.com',
-        createOrganization: true,
       })
 
       // WHEN: User creates a new record
@@ -792,7 +751,6 @@ test.describe('Create new record', () => {
       expect(log.user_id).toBe(user.id)
       expect(log.table_id).toBe('1')
       expect(log.record_id).toBe(String(record.id))
-      expect(log.organization_id).toBe(organizationId)
 
       // THEN: All fields are captured in changes.after
       const changes = JSON.parse(log.changes)
@@ -801,7 +759,6 @@ test.describe('Create new record', () => {
       expect(changes.after.name).toBe('John Doe')
       expect(changes.after.email).toBe('john@example.com')
       expect(changes.after.phone).toBe('555-1234')
-      expect(changes.after.organization_id).toBe(organizationId)
     }
   )
 
@@ -832,7 +789,7 @@ test.describe('Create new record', () => {
             name: 'projects',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text', required: true },
+              { id: 2, name: 'owner_id', type: 'user', required: true },
             ],
           },
           {
@@ -842,7 +799,6 @@ test.describe('Create new record', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'decimal', default: 50_000 },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
           {
@@ -861,7 +817,6 @@ test.describe('Create new record', () => {
               { id: 2, name: 'name', type: 'single-line-text', required: true },
               { id: 3, name: 'email', type: 'email', required: true },
               { id: 4, name: 'phone', type: 'phone-number' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -1078,7 +1033,9 @@ test.describe('Create new record', () => {
         expect(data).toHaveProperty('field')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-014: should auto-inject organization_id', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-014: should auto-inject owner_id', async () => {
+        const { user } = await createAuthenticatedUser({ email: 'owner@example.com' })
+
         const response = await request.post('/api/tables/2/records', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Alpha Project' },
@@ -1088,28 +1045,12 @@ test.describe('Create new record', () => {
 
         const data = await response.json()
         expect(data.fields.name).toBe('Alpha Project')
-        expect(data.fields.organization_id).toBe('org_123')
+        expect(data.fields.owner_id).toBe(user.id)
 
         const result = await executeQuery(`
-          SELECT organization_id FROM projects WHERE name = 'Alpha Project'
+          SELECT owner_id FROM projects WHERE name = 'Alpha Project'
         `)
-        expect(result.rows[0].organization_id).toBe('org_123')
-      })
-
-      await test.step('API-TABLES-RECORDS-CREATE-015: should return 403 Forbidden for different organization_id', async () => {
-        const response = await request.post('/api/tables/2/records', {
-          headers: { 'Content-Type': 'application/json' },
-          data: {
-            name: 'Malicious Project',
-            organization_id: 'org_456',
-          },
-        })
-
-        expect(response.status()).toBe(403)
-
-        const data = await response.json()
-        expect(data.error).toBe('Forbidden')
-        expect(data.message).toBe('Cannot create record for a different organization')
+        expect(result.rows[0].owner_id).toBe(user.id)
       })
 
       await test.step('API-TABLES-RECORDS-CREATE-016: should return 201 with filtered fields', async () => {
@@ -1126,7 +1067,6 @@ test.describe('Create new record', () => {
         const data = await response.json()
         expect(data.fields.name).toBe('Carol Davis')
         expect(data.fields.email).toBe('carol@example.com')
-        expect(data.fields.organization_id).toBe('org_123')
         expect(data.fields).not.toHaveProperty('salary')
       })
 
@@ -1152,9 +1092,8 @@ test.describe('Create new record', () => {
       })
 
       await test.step('API-TABLES-RECORDS-CREATE-018: should create comprehensive activity log entry', async () => {
-        const { user, organizationId } = await createAuthenticatedUser({
+        const { user } = await createAuthenticatedUser({
           email: 'user@example.com',
-          createOrganization: true,
         })
 
         const response = await request.post('/api/tables/5/records', {
@@ -1183,7 +1122,6 @@ test.describe('Create new record', () => {
         expect(log.user_id).toBe(user.id)
         expect(log.table_id).toBe('5')
         expect(log.record_id).toBe(String(record.id))
-        expect(log.organization_id).toBe(organizationId)
 
         const changes = JSON.parse(log.changes)
         expect(changes.after).toBeDefined()
@@ -1191,7 +1129,6 @@ test.describe('Create new record', () => {
         expect(changes.after.name).toBe('John Doe')
         expect(changes.after.email).toBe('john.activity@example.com')
         expect(changes.after.phone).toBe('555-1234')
-        expect(changes.after.organization_id).toBe(organizationId)
       })
     }
   )
