@@ -96,6 +96,7 @@
     "@effect/language-service": "^0.64.1",
     "@eslint/compat": "^2.0.1",
     "@eslint/js": "^9.39.2",
+    "@octokit/rest": "^22.0.1",
     "@playwright/test": "^1.57.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/exec": "^7.1.0",
@@ -123,15 +124,15 @@
     "eslint-plugin-unicorn": "^62.0.0",
     "glob": "^13.0.0",
     "globals": "^17.0.0",
+    "jszip": "^3.10.1",
     "knip": "^5.82.1",
+    "otplib": "^13.1.1",
     "pg": "^8.17.1",
     "playwright": "^1.57.0",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "semantic-release": "^25.0.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.53.1",
-    "@octokit/rest": "^22.0.1",
-    "jszip": "^3.10.1"
+    "typescript-eslint": "^8.53.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

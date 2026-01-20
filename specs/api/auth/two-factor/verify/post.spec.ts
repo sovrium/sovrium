@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+import { generateSync } from 'otplib'
 
 /**
  * E2E Tests for Verify Two-Factor Authentication Code
@@ -24,7 +25,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-VERIFY-001: should verify valid TOTP code successfully',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -46,31 +47,43 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // Enable 2FA and get secret
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable')
+      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
+        data: {
+          password: 'ValidPassword123!',
+        },
+      })
+      expect(enableResponse.status()).toBe(200)
 
-      const { secret: _secret } = await enableResponse.json()
+      const { totpURI } = await enableResponse.json()
+      expect(totpURI).toBeDefined()
 
-      // Generate valid TOTP code from secret (using TOTP algorithm)
-      // Note: Implementation will need to use a TOTP library to generate code
-      const totpCode = '123456' // Placeholder - actual implementation will generate from secret
+      // Extract secret from TOTP URI
+      const secretMatch = totpURI.match(/secret=([A-Z2-7]+)/)
+      expect(secretMatch).toBeTruthy()
+      const secret = secretMatch[1]
+
+      // Generate valid TOTP code from secret using otplib functional API
+      const totpCode = generateSync({ secret })
+      expect(totpCode).toBeDefined()
 
       // WHEN: User submits valid TOTP code
-      const response = await page.request.post('/api/auth/two-factor/verify', {
+      const response = await page.request.post('/api/auth/two-factor/verify-totp', {
         data: {
           code: totpCode,
         },
       })
 
-      // THEN: Returns 200 OK confirming verification
+      // THEN: Returns 200 OK confirming verification and returns session
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('verified')
-      expect(data.verified).toBe(true)
+      expect(data).toHaveProperty('token')
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('email', 'test@example.com')
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-VERIFY-002: should reject invalid TOTP code',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -90,10 +103,14 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // Enable 2FA
-      await page.request.post('/api/auth/two-factor/enable')
+      await page.request.post('/api/auth/two-factor/enable', {
+        data: {
+          password: 'ValidPassword123!',
+        },
+      })
 
       // WHEN: User submits invalid TOTP code
-      const response = await page.request.post('/api/auth/two-factor/verify', {
+      const response = await page.request.post('/api/auth/two-factor/verify-totp', {
         data: {
           code: '000000', // Invalid code
         },
@@ -107,7 +124,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-VERIFY-003: should accept backup code when enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -130,28 +147,33 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // Enable 2FA and get backup codes
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable')
+      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
+        data: {
+          password: 'ValidPassword123!',
+        },
+      })
 
       const { backupCodes } = await enableResponse.json()
       const firstBackupCode = backupCodes[0]
 
       // WHEN: User submits backup code instead of TOTP
-      const response = await page.request.post('/api/auth/two-factor/verify', {
+      const response = await page.request.post('/api/auth/two-factor/verify-backup-code', {
         data: {
           code: firstBackupCode,
         },
       })
 
-      // THEN: Returns 200 OK accepting backup code
+      // THEN: Returns 200 OK accepting backup code and returns session
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('verified')
-      expect(data.verified).toBe(true)
+      expect(data).toHaveProperty('token')
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('email', 'test@example.com')
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-VERIFY-004: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -165,7 +187,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // WHEN: Unauthenticated user attempts to verify 2FA code
-      const response = await page.request.post('/api/auth/two-factor/verify', {
+      const response = await page.request.post('/api/auth/two-factor/verify-totp', {
         data: {
           code: '123456',
         },
@@ -179,7 +201,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-VERIFY-005: should return 400 when code is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -198,8 +220,15 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         password: 'ValidPassword123!',
       })
 
+      // Enable 2FA
+      await page.request.post('/api/auth/two-factor/enable', {
+        data: {
+          password: 'ValidPassword123!',
+        },
+      })
+
       // WHEN: User submits verification request without code
-      const response = await page.request.post('/api/auth/two-factor/verify', {
+      const response = await page.request.post('/api/auth/two-factor/verify-totp', {
         data: {},
       })
 
@@ -232,7 +261,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       // WHEN: User attempts to verify 2FA code
-      const response = await page.request.post('/api/auth/two-factor/verify', {
+      const response = await page.request.post('/api/auth/two-factor/verify-totp', {
         data: {
           code: '123456',
         },
@@ -247,7 +276,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-TWO-FACTOR-VERIFY-REGRESSION: user can complete full 2FA verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -272,15 +301,19 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         })
 
         // Enable 2FA and get backup codes
-        const enableResponse = await page.request.post('/api/auth/two-factor/enable')
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
+          data: {
+            password: 'ValidPassword123!',
+          },
+        })
         expect(enableResponse.status()).toBe(200)
-        const { secret: _secret, backupCodes: codes } = await enableResponse.json()
+        const { backupCodes: codes } = await enableResponse.json()
         backupCodes = codes
       })
 
       await test.step('API-AUTH-TWO-FACTOR-VERIFY-002: Rejects invalid TOTP code', async () => {
         // WHEN: User submits invalid TOTP code
-        const response = await page.request.post('/api/auth/two-factor/verify', {
+        const response = await page.request.post('/api/auth/two-factor/verify-totp', {
           data: {
             code: '000000',
           },
@@ -295,23 +328,24 @@ test.describe('Verify Two-Factor Authentication Code', () => {
 
       await test.step('API-AUTH-TWO-FACTOR-VERIFY-003: Accepts backup code when enabled', async () => {
         // WHEN: User submits backup code instead of TOTP
-        const response = await page.request.post('/api/auth/two-factor/verify', {
+        const response = await page.request.post('/api/auth/two-factor/verify-backup-code', {
           data: {
             code: backupCodes[0],
           },
         })
 
-        // THEN: Returns 200 OK accepting backup code
+        // THEN: Returns 200 OK accepting backup code and returns session
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('verified')
-        expect(data.verified).toBe(true)
+        expect(data).toHaveProperty('token')
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('email', 'test@example.com')
       })
 
       await test.step('API-AUTH-TWO-FACTOR-VERIFY-005: Returns 400 when code is missing', async () => {
         // WHEN: User submits verification request without code
-        const response = await page.request.post('/api/auth/two-factor/verify', {
+        const response = await page.request.post('/api/auth/two-factor/verify-totp', {
           data: {},
         })
 
