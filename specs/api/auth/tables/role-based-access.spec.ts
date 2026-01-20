@@ -36,7 +36,7 @@ test.describe('Role-Based Table Access Control', () => {
   // Verify org membership roles control access to org-scoped tables
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-001: org member role should grant access to org-scoped table with member permission',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
@@ -54,11 +54,12 @@ test.describe('Role-Based Table Access Control', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer' },
               { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
-              create: { type: 'roles', roles: ['admin'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              create: { type: 'roles', roles: ['owner', 'admin'] },
             },
           },
         ],
@@ -81,12 +82,12 @@ test.describe('Role-Based Table Access Control', () => {
       // WHEN: User accesses the org-scoped table
       const response = await page.request.get('/api/tables/team_docs')
 
-      // THEN: Access should be granted (member role allows read)
+      // THEN: Access should be granted (owner role allows read)
       expect(response.status()).toBe(200)
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-TABLES-ROLE-002: org admin role should grant elevated access to org-scoped table',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, createOrganization, setActiveOrganization, page }) => {
@@ -103,14 +104,15 @@ test.describe('Role-Based Table Access Control', () => {
             name: 'team_settings',
             fields: [
               { id: 1, name: 'id', type: 'integer' },
-              { id: 2, name: 'key', type: 'single-line-text' },
+              { id: 2, name: 'setting_key', type: 'single-line-text' },
               { id: 3, name: 'value', type: 'single-line-text' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
-              read: { type: 'roles', roles: ['member'] },
-              create: { type: 'roles', roles: ['admin'] },
-              update: { type: 'roles', roles: ['admin'] },
+              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              create: { type: 'roles', roles: ['owner', 'admin'] },
+              update: { type: 'roles', roles: ['owner', 'admin'] },
             },
           },
         ],
@@ -131,11 +133,11 @@ test.describe('Role-Based Table Access Control', () => {
       await setActiveOrganization(organization.id)
 
       // WHEN: Admin creates a new setting
-      const response = await page.request.post('/api/tables/team_settings', {
-        data: { key: 'theme', value: 'dark' },
+      const response = await page.request.post('/api/tables/1/records', {
+        data: { setting_key: 'theme', value: 'dark' },
       })
 
-      // THEN: Create should be allowed (admin role grants create permission)
+      // THEN: Create should be allowed (owner role grants create permission)
       expect(response.status()).toBe(201)
     }
   )
