@@ -14,5 +14,6 @@ import type { Auth } from '@/domain/models/app/auth'
  * NOTE: modelName option removed - drizzleSchema in auth.ts uses standard model names
  * and Drizzle pgTable() definitions specify actual database table names
  */
-export const buildTwoFactorPlugin = (authConfig?: Auth) =>
-  authConfig?.twoFactor ? [twoFactor()] : []
+export const buildTwoFactorPlugin = (authConfig?: Auth) => {
+  return authConfig?.twoFactor ? [twoFactor()] : []
+}

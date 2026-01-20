@@ -82,7 +82,11 @@ const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
  * Returns a Hono app with rate limiting middleware applied
  */
 const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
-  const endpoints = ['/api/auth/sign-in/email', '/api/auth/sign-up/email', '/api/auth/request-password-reset']
+  const endpoints = [
+    '/api/auth/sign-in/email',
+    '/api/auth/sign-up/email',
+    '/api/auth/request-password-reset',
+  ]
 
   let result = honoApp
   for (const endpoint of endpoints) {
@@ -197,7 +201,9 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
     : honoApp
 
   // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
-  const appWithAdminRateLimit = app.auth.admin ? applyRateLimitMiddleware(appWithAuthCheck) : appWithAuthCheck
+  const appWithAdminRateLimit = app.auth.admin
+    ? applyRateLimitMiddleware(appWithAuthCheck)
+    : appWithAuthCheck
 
   // Apply rate limiting middleware to authentication endpoints (sign-in, sign-up, password reset)
   const appWithAuthRateLimit = applyAuthRateLimitMiddleware(appWithAdminRateLimit)

@@ -37,29 +37,24 @@ test.describe('Admin: Set user role', () => {
   test(
     'API-AUTH-ADMIN-SET-ROLE-001: should return 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an existing user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
-
-      // Create admin user
-      const admin = await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
-      })
-
-      // Promote first user to admin via database (bootstrap the first admin)
-      await executeQuery(`
-        UPDATE "auth.user"
-        SET role = 'admin'
-        WHERE id = '${admin.user.id}'
-      `)
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       // Create target user
       const target = await signUp({
@@ -68,10 +63,8 @@ test.describe('Admin: Set user role', () => {
         name: 'Target User',
       })
 
-      // Re-sign in as admin to refresh session with admin role
-      await page.request.post('/api/auth/sign-in/email', {
-        data: { email: 'admin@example.com', password: 'AdminPass123!' },
-      })
+      // Sign in as admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin updates user role to member
       const response = await page.request.post('/api/auth/admin/set-role', {
@@ -118,26 +111,41 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-003: should return 400 Bad Request with invalid role value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
+
+      const target = await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
       })
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+      // Sign in as admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with invalid role value
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
-          userId: '2',
+          userId: target.user.id,
           role: 'superadmin', // Invalid role
         },
       })
@@ -213,25 +221,35 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-006: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      // Sign in as admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to set role for non-existent user
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
-          userId: '999',
+          userId: 'non-existent-uuid-12345',
           role: 'member',
         },
       })
@@ -241,30 +259,41 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-007: should return 200 OK and user gains admin privileges',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and a member user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({
+      const promotee = await signUp({
         email: 'promotee@example.com',
         password: 'PromoteePass123!',
         name: 'Future Admin',
       })
 
+      // Sign in as admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
       // WHEN: Admin promotes member to admin role
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
-          userId: '2',
+          userId: promotee.user.id,
           role: 'admin',
         },
       })
@@ -278,31 +307,46 @@ test.describe('Admin: Set user role', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-008: should return 200 OK when setting same role (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and a member user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
+          },
         },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
+
+      const target = await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
       })
 
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+      // Sign in as admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // First set role to member
       await page.request.post('/api/auth/admin/set-role', {
-        data: { userId: '2', role: 'member' },
+        data: { userId: target.user.id, role: 'member' },
       })
 
       // WHEN: Admin sets user role to their current role (no change)
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
-          userId: '2',
+          userId: target.user.id,
           role: 'member',
         },
       })
@@ -320,14 +364,13 @@ test.describe('Admin: Set user role', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-ADMIN-SET-ROLE-REGRESSION: admin can complete full set-role workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn, executeQuery }) => {
-      let adminUserId: string
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       let targetUserId: string
 
-      await test.step('Setup: Start server with comprehensive configuration', async () => {
+      await test.step('API-AUTH-ADMIN-SET-ROLE-004: Returns 401 Unauthorized without authentication', async () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
@@ -335,9 +378,7 @@ test.describe('Admin: Set user role', () => {
             admin: true,
           },
         })
-      })
 
-      await test.step('API-AUTH-ADMIN-SET-ROLE-004: Returns 401 Unauthorized without authentication', async () => {
         // WHEN: Unauthenticated user attempts to set role
         const response = await page.request.post('/api/auth/admin/set-role', {
           data: {
@@ -351,20 +392,22 @@ test.describe('Admin: Set user role', () => {
       })
 
       await test.step('Setup: Create admin and target users', async () => {
-        // Create admin user
-        const admin = await signUp({
-          email: 'admin@example.com',
-          password: 'AdminPass123!',
-          name: 'Admin User',
-        })
-        adminUserId = admin.user.id
-
-        // Promote first user to admin via database (bootstrap the first admin)
-        await executeQuery(`
-          UPDATE "auth.user"
-          SET role = 'admin'
-          WHERE id = '${adminUserId}'
-        `)
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
+            },
+          },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'AdminPass123!',
+              name: 'Admin User',
+            },
+          }
+        )
 
         // Create target user
         const target = await signUp({

@@ -566,15 +566,17 @@ export class MailpitHelper {
 
       const email = matchingEmails[0]
       if (email) {
+        // Fetch full email details (list API doesn't include HTML/Text body)
+        const fullEmail = await this.getEmailById(email.ID)
         // Return normalized object with lowercase property names for convenience
         return {
-          id: email.ID,
-          from: { name: email.From.Name, address: email.From.Address },
-          to: email.To.map((t) => ({ name: t.Name, address: t.Address })),
-          subject: email.Subject,
-          text: email.Text,
-          html: email.HTML,
-          created: email.Created,
+          id: fullEmail.ID,
+          from: { name: fullEmail.From.Name, address: fullEmail.From.Address },
+          to: fullEmail.To.map((t) => ({ name: t.Name, address: t.Address })),
+          subject: fullEmail.Subject,
+          text: fullEmail.Text,
+          html: fullEmail.HTML,
+          created: fullEmail.Created,
         }
       }
       await new Promise((resolve) => setTimeout(resolve, interval))

@@ -18,8 +18,8 @@ export const buildMagicLinkPlugin = (
     readonly token: string
   }) => Promise<void>,
   authConfig?: Auth
-) =>
-  authConfig?.magicLink
+) => {
+  return authConfig?.magicLink
     ? [
         magicLink({
           sendMagicLink: async ({ email, token, url }) =>
@@ -27,3 +27,4 @@ export const buildMagicLinkPlugin = (
         }),
       ]
     : []
+}

@@ -24,7 +24,7 @@ test.describe('Send Magic Link', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-SEND-001: should send magic link email to registered user with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -52,7 +52,7 @@ test.describe('Send Magic Link', () => {
       })
 
       // WHEN: User requests magic link
-      const response = await page.request.post('/api/auth/magic-link/send', {
+      const response = await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
           email: userEmail,
           callbackUrl: '/dashboard',
@@ -63,8 +63,8 @@ test.describe('Send Magic Link', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('sent')
-      expect(data.sent).toBe(true)
+      expect(data).toHaveProperty('status')
+      expect(data.status).toBe(true)
 
       // THEN: Magic link email is sent with custom template
       const email = await mailpit.waitForEmail(
@@ -77,7 +77,7 @@ test.describe('Send Magic Link', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-SEND-002: should send magic link to unregistered user for signup',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, mailpit }) => {
@@ -92,7 +92,7 @@ test.describe('Send Magic Link', () => {
       const newUserEmail = mailpit.email('newuser')
 
       // WHEN: New user requests magic link
-      const response = await page.request.post('/api/auth/magic-link/send', {
+      const response = await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
           email: newUserEmail,
           callbackUrl: '/dashboard',
@@ -103,8 +103,8 @@ test.describe('Send Magic Link', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('sent')
-      expect(data.sent).toBe(true)
+      expect(data).toHaveProperty('status')
+      expect(data.status).toBe(true)
 
       // THEN: Magic link email is sent for signup
       const email = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
@@ -112,7 +112,7 @@ test.describe('Send Magic Link', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-SEND-003: should return 400 when email is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -125,7 +125,7 @@ test.describe('Send Magic Link', () => {
       })
 
       // WHEN: User submits request without email
-      const response = await page.request.post('/api/auth/magic-link/send', {
+      const response = await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
           callbackUrl: '/dashboard',
         },
@@ -139,7 +139,7 @@ test.describe('Send Magic Link', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-SEND-004: should return 400 with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -152,7 +152,7 @@ test.describe('Send Magic Link', () => {
       })
 
       // WHEN: User submits request with invalid email
-      const response = await page.request.post('/api/auth/magic-link/send', {
+      const response = await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
           email: 'not-an-email',
           callbackUrl: '/dashboard',
@@ -181,7 +181,7 @@ test.describe('Send Magic Link', () => {
       })
 
       // WHEN: User requests magic link
-      const response = await page.request.post('/api/auth/magic-link/send', {
+      const response = await page.request.post('/api/auth/sign-in/magic-link', {
         data: {
           email: 'test@example.com',
           callbackUrl: '/dashboard',
@@ -197,7 +197,7 @@ test.describe('Send Magic Link', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-MAGIC-LINK-SEND-REGRESSION: user can complete full magic link send workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -228,7 +228,7 @@ test.describe('Send Magic Link', () => {
 
       await test.step('API-AUTH-MAGIC-LINK-SEND-001: should send magic link email to registered user with custom template', async () => {
         // WHEN: User requests magic link
-        const response = await page.request.post('/api/auth/magic-link/send', {
+        const response = await page.request.post('/api/auth/sign-in/magic-link', {
           data: {
             email: registeredUserEmail,
             callbackUrl: '/dashboard',
@@ -254,7 +254,7 @@ test.describe('Send Magic Link', () => {
 
       await test.step('API-AUTH-MAGIC-LINK-SEND-002: should send magic link to unregistered user for signup', async () => {
         // WHEN: New user requests magic link
-        const response = await page.request.post('/api/auth/magic-link/send', {
+        const response = await page.request.post('/api/auth/sign-in/magic-link', {
           data: {
             email: newUserEmail,
             callbackUrl: '/dashboard',
@@ -275,7 +275,7 @@ test.describe('Send Magic Link', () => {
 
       await test.step('API-AUTH-MAGIC-LINK-SEND-003: should return 400 when email is missing', async () => {
         // WHEN: User submits request without email
-        const response = await page.request.post('/api/auth/magic-link/send', {
+        const response = await page.request.post('/api/auth/sign-in/magic-link', {
           data: {
             callbackUrl: '/dashboard',
           },
@@ -290,7 +290,7 @@ test.describe('Send Magic Link', () => {
 
       await test.step('API-AUTH-MAGIC-LINK-SEND-004: should return 400 with invalid email format', async () => {
         // WHEN: User submits request with invalid email
-        const response = await page.request.post('/api/auth/magic-link/send', {
+        const response = await page.request.post('/api/auth/sign-in/magic-link', {
           data: {
             email: 'not-an-email',
             callbackUrl: '/dashboard',
