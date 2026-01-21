@@ -11,16 +11,15 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for API Session Context Integration
  *
  * Domain: api/tables
- * Spec Count: 7
+ * Spec Count: 6
  *
  * Test Organization:
- * 1. @spec tests - One per spec (7 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (6 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Critical Integration Scenarios:
  * - API routes set session context before database queries
  * - RLS policies filter data correctly via API
- * - Organization isolation enforced via API
  * - Role-based permissions enforced via API
  * - Field-level permissions enforced via API
  * - Owner-based filtering works via API
@@ -119,7 +118,7 @@ test.describe('API Session Context Integration', () => {
   )
 
   test.fixme(
-    'API-TABLES-SESSION-CTX-INT-004: should enforce role-based permissions via API',
+    'API-TABLES-SESSION-CTX-INT-003: should enforce role-based permissions via API',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
       // GIVEN: Table with role-based read permissions (admin only)
@@ -209,7 +208,7 @@ test.describe('API Session Context Integration', () => {
   )
 
   test.fixme(
-    'API-TABLES-SESSION-CTX-INT-005: should enforce field-level permissions via API',
+    'API-TABLES-SESSION-CTX-INT-004: should enforce field-level permissions via API',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
       // GIVEN: Table with field-level permissions (salary restricted to admins)
@@ -308,7 +307,7 @@ test.describe('API Session Context Integration', () => {
   )
 
   test(
-    'API-TABLES-SESSION-CTX-INT-006: should reject unauthenticated API requests',
+    'API-TABLES-SESSION-CTX-INT-005: should reject unauthenticated API requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with auth enabled
@@ -341,7 +340,7 @@ test.describe('API Session Context Integration', () => {
   )
 
   test.fixme(
-    'API-TABLES-SESSION-CTX-INT-007: should handle create operations with session context',
+    'API-TABLES-SESSION-CTX-INT-006: should handle create operations with session context',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table with owner field
@@ -499,7 +498,7 @@ test.describe('API Session Context Integration', () => {
         ).toBeUndefined()
       })
 
-      await test.step('API-TABLES-SESSION-CTX-INT-003: Owner sees budget field (role-based permission)', async () => {
+      await test.step('API-TABLES-SESSION-CTX-INT-003: Enforce role-based permissions via API', async () => {
         // Owner should see budget field (role-based permission)
         const response = await request.get('/api/tables/1/records', {})
 
@@ -511,9 +510,9 @@ test.describe('API Session Context Integration', () => {
         expect(Number(data.records[0].fields.budget)).toBe(100_000)
       })
 
-      // NOTE: Steps 004, 005, 006 (role-based for member, field-level for member, unauthenticated)
-      // require different user sessions and are covered in @spec tests
-      // NOTE: Step 007 (create operations with session context) is marked .fixme() in @spec tests
+      // NOTE: Additional scenarios (member permissions, field-level permissions, unauthenticated requests)
+      // are covered in @spec tests 003, 004, 005
+      // NOTE: Step 006 (create operations with session context) is marked .fixme() in @spec tests
       // - feature is not yet implemented
     }
   )

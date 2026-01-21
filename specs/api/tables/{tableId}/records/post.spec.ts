@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/post.json
  * Domain: api
- * Spec Count: 18
+ * Spec Count: 17
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (18 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -601,7 +601,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-016: should return 201 with filtered fields',
+    'API-TABLES-RECORDS-CREATE-015: should return 201 with filtered fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Field write restrictions and table permission all apply
@@ -643,7 +643,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-017: should use database defaults',
+    'API-TABLES-RECORDS-CREATE-016: should use database defaults',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record with only permitted fields
@@ -695,7 +695,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-018: should create comprehensive activity log entry',
+    'API-TABLES-RECORDS-CREATE-017: should create comprehensive activity log entry',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging
@@ -1053,7 +1053,7 @@ test.describe('Create new record', () => {
         expect(result.rows[0].owner_id).toBe(user.id)
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-016: should return 201 with filtered fields', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-015: should return 201 with filtered fields', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1070,7 +1070,7 @@ test.describe('Create new record', () => {
         expect(data.fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-017: should use database defaults', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-016: should use database defaults', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1091,7 +1091,7 @@ test.describe('Create new record', () => {
         expect(result.rows[0].salary).toBe('50000')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-018: should create comprehensive activity log entry', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-017: should create comprehensive activity log entry', async () => {
         const { user } = await createAuthenticatedUser({
           email: 'user@example.com',
         })
