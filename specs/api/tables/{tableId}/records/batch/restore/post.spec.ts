@@ -229,7 +229,7 @@ test.describe('Batch Restore records', () => {
 
       // Set viewer role manually (admin plugin not enabled in this test)
       await executeQuery(`
-        UPDATE "auth.user"
+        UPDATE auth.user
         SET role = 'viewer'
         WHERE id = '${viewer.user.id}'
       `)
@@ -377,7 +377,7 @@ test.describe('Batch Restore records', () => {
         const viewer = await createAuthenticatedUser()
 
         await executeQuery(`
-          UPDATE "auth.user"
+          UPDATE auth.user
           SET role = 'viewer'
           WHERE id = '${viewer.user.id}'
         `)

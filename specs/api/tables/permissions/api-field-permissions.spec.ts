@@ -97,54 +97,50 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-002: should include all fields in API response when admin has full read permission',
     { tag: '@spec' },
-    async ({ page, request, startServerWithSchema, signUp, executeQuery }) => {
+    async ({ request, startServerWithSchema, signIn, executeQuery }) => {
       // GIVEN: Same table with field-level permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              read: { type: 'authenticated' },
-              fields: [
-                {
-                  field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
-                },
-              ],
-            },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
           },
-        ],
-      })
+          tables: [
+            {
+              id: 1,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: { type: 'authenticated' },
+                fields: [
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['owner', 'admin'] },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      // Create admin user (following pattern from working admin tests)
-      const admin = await signUp({
+      // Sign in as admin
+      await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',
-        name: 'Admin User',
-      })
-
-      // Manually set role to admin via database
-      await executeQuery(`
-        UPDATE "auth.user"
-        SET role = 'admin'
-        WHERE id = '${admin.user.id}'
-      `)
-
-      // Re-sign in to refresh session with admin role
-      await page.request.post('/api/auth/sign-in/email', {
-        data: { email: 'admin@example.com', password: 'AdminPass123!' },
       })
 
       // Insert test data
@@ -363,61 +359,55 @@ test.describe('API Field Permission Enforcement', () => {
     'API-TABLES-PERMISSIONS-FIELD-REGRESSION: complete field permission workflow via API',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, signOut, signIn, page }) => {
-      let adminUserId: string
-
       await test.step('Setup: Start server with field-level permissions', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-          tables: [
-            {
-              id: 1,
-              name: 'employees',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'email', type: 'email' },
-                { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'authenticated' },
-                update: { type: 'authenticated' },
-                fields: [
-                  {
-                    field: 'name',
-                    write: { type: 'authenticated' }, // Anyone can update name (FIELD-004)
-                  },
-                  {
-                    field: 'salary',
-                    read: { type: 'roles', roles: ['owner', 'admin'] },
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
-                ],
-              },
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
             },
-          ],
-        })
+            tables: [
+              {
+                id: 1,
+                name: 'employees',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'email', type: 'email' },
+                  { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'authenticated' },
+                  update: { type: 'authenticated' },
+                  fields: [
+                    {
+                      field: 'name',
+                      write: { type: 'authenticated' }, // Anyone can update name (FIELD-004)
+                    },
+                    {
+                      field: 'salary',
+                      read: { type: 'roles', roles: ['owner', 'admin'] },
+                      write: { type: 'roles', roles: ['admin'] },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'TestPassword123!',
+              name: 'Admin User',
+            },
+          }
+        )
       })
 
-      await test.step('Setup: Create admin and member users', async () => {
-        // Create admin user
-        const adminSignupResponse = await page.request.post('/api/auth/sign-up/email', {
-          data: {
-            email: 'admin@example.com',
-            password: 'TestPassword123!',
-            name: 'Admin User',
-          },
-        })
-        const adminData = await adminSignupResponse.json()
-        adminUserId = adminData.user.id
-
-        // Set admin role via direct database update
-        await executeQuery(`
-          UPDATE auth.user SET role = 'admin' WHERE id = '${adminUserId}'
-        `)
+      await test.step('Setup: Create member user', async () => {
+        // Admin user is created via adminBootstrap in server configuration
 
         // Create member user
         await signOut()

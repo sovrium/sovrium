@@ -121,35 +121,43 @@ test.describe('API Session Context Integration', () => {
   test.fixme(
     'API-TABLES-SESSION-CTX-INT-004: should enforce role-based permissions via API',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, page }) => {
+    async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
       // GIVEN: Table with role-based read permissions (admin only)
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'confidential',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'secret', type: 'single-line-text' },
-            ],
-            permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin'] },
-            },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
           },
-        ],
-      })
+          tables: [
+            {
+              id: 1,
+              name: 'confidential',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'secret', type: 'single-line-text' },
+              ],
+              permissions: {
+                read: { type: 'roles', roles: ['owner', 'admin'] },
+              },
+            },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'admin123',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      // Create admin user (global admin role)
-      const admin = await createAuthenticatedUser({
+      // Sign in as admin
+      await signIn({
         email: 'admin@example.com',
         password: 'admin123',
       })
-      // Set admin role in database
-      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
 
       // Create member user via API
       await page.request.post('/api/auth/sign-up/email', {
@@ -203,41 +211,48 @@ test.describe('API Session Context Integration', () => {
   test.fixme(
     'API-TABLES-SESSION-CTX-INT-005: should enforce field-level permissions via API',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, page }) => {
+    async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
       // GIVEN: Table with field-level permissions (salary restricted to admins)
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-            ],
-            permissions: {
-              fields: [
-                {
-                  field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
-                },
-              ],
-            },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
           },
-        ],
-      })
+          tables: [
+            {
+              id: 1,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              ],
+              permissions: {
+                fields: [
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['owner', 'admin'] },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'admin123',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      // Create admin user (global admin role)
-      const admin = await createAuthenticatedUser({
+      // Sign in as admin
+      await signIn({
         email: 'admin@example.com',
         password: 'admin123',
       })
-      // Set admin role in database
-      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
 
       // Create member user via API
       await page.request.post('/api/auth/sign-up/email', {
@@ -389,42 +404,51 @@ test.describe('API Session Context Integration', () => {
   test(
     'API-TABLES-SESSION-CTX-INT-REGRESSION: user can complete full API session context integration workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, page }) => {
+    async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
       // NOTE: Regression test focuses on single user's workflow
       // Multi-user session switching (owner/member) is tested in @spec tests
 
       await test.step('Setup: Start server with table', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-          },
-          tables: [
-            {
-              id: 1,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'budget', type: 'currency', currency: 'USD' },
-                { id: 4, name: 'owner_id', type: 'user' },
-              ],
-              permissions: {
-                read: { type: 'owner', field: 'owner_id' },
-                fields: [
-                  {
-                    field: 'budget',
-                    read: { type: 'roles', roles: ['owner', 'admin'] },
-                  },
-                ],
-              },
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
             },
-          ],
-        })
+            tables: [
+              {
+                id: 1,
+                name: 'projects',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'budget', type: 'currency', currency: 'USD' },
+                  { id: 4, name: 'owner_id', type: 'user' },
+                ],
+                permissions: {
+                  read: { type: 'owner', field: 'owner_id' },
+                  fields: [
+                    {
+                      field: 'budget',
+                      read: { type: 'roles', roles: ['owner', 'admin'] },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'AdminPass123!',
+              name: 'Admin User',
+            },
+          }
+        )
       })
 
-      // Create users in order: other user first, then owner last (so owner is active session)
-      // This allows testing RLS owner filtering without session switching
+      // Create other user and then sign in as admin (for testing RLS owner filtering)
       const otherUserResponse = await page.request.post('/api/auth/sign-up/email', {
         data: {
           email: 'other@example.com',
@@ -434,20 +458,18 @@ test.describe('API Session Context Integration', () => {
       })
       const otherUserData = await otherUserResponse.json()
 
-      const owner = await createAuthenticatedUser({
-        email: 'owner@example.com',
-        password: 'owner123',
-        name: 'Owner',
+      // Sign in as admin (who will own the projects)
+      const adminResult = await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
       })
-      // Set admin role in database
-      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${owner.user.id}'`)
 
       await test.step('Setup: Insert test data for both users', async () => {
         await executeQuery(`
           INSERT INTO projects (id, name, budget, owner_id)
           VALUES
-            (1, 'Owner Project', 100000, '${owner.user.id}'),
-            (2, 'Other Owner Project', 50000, '${otherUserData.user.id}')
+            (1, 'Admin Project', 100000, '${adminResult.user.id}'),
+            (2, 'Other User Project', 50000, '${otherUserData.user.id}')
         `)
       })
 
@@ -460,19 +482,19 @@ test.describe('API Session Context Integration', () => {
       })
 
       await test.step('API-TABLES-SESSION-CTX-INT-002: Enforce RLS owner filtering via API', async () => {
-        // Owner should see only their own projects (RLS owner filtering)
+        // Admin should see only their own projects (RLS owner filtering)
         const response = await request.get('/api/tables/1/records', {})
 
         expect(response.status()).toBe(200)
 
         const data = await response.json()
         expect(data.records).toHaveLength(1)
-        expect(data.records[0].fields.name).toBe('Owner Project')
-        expect(data.records[0].fields.owner_id).toBe(owner.user.id)
-        // Should NOT see other owner's project (owner filtering)
+        expect(data.records[0].fields.name).toBe('Admin Project')
+        expect(data.records[0].fields.owner_id).toBe(adminResult.user.id)
+        // Should NOT see other user's project (owner filtering)
         expect(
           data.records.find(
-            (r: { fields: { name: string } }) => r.fields.name === 'Other Owner Project'
+            (r: { fields: { name: string } }) => r.fields.name === 'Other User Project'
           )
         ).toBeUndefined()
       })

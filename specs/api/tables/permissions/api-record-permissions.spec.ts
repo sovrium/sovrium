@@ -187,11 +187,9 @@ test.describe('API Record-Level Permissions', () => {
             id: 1,
             name: 'personal_notes',
             fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
               { id: 3, name: 'owner_id', type: 'user' },
             ],
-            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               read: { type: 'owner', field: 'owner_id' },
               create: { type: 'authenticated' },
@@ -208,8 +206,10 @@ test.describe('API Record-Level Permissions', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          content: 'My new note',
-          // Note: NOT providing owner_id
+          fields: {
+            content: 'My new note',
+          },
+          // Note: NOT providing owner_id (should be auto-set)
         },
       })
 

@@ -329,12 +329,15 @@ test.describe('Admin: Create user', () => {
         }
       )
 
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+      // Create existing user before signing in as admin
       await signUp({
         email: 'existing@example.com',
         password: 'ExistingPass123!',
         name: 'Existing User',
       })
+
+      // Sign in as admin after creating existing user
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to create user with existing email
       const response = await page.request.post('/api/auth/admin/create-user', {

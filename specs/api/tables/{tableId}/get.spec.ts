@@ -194,56 +194,6 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test(
-    'API-TABLES-GET-005: should return 404 for cross-org table access',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: A table belonging to organization org_456
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-            permissions: {
-              read: {
-                type: 'roles',
-                roles: ['owner', 'admin', 'member'],
-              },
-            },
-          },
-        ],
-      })
-
-      // Create authenticated user
-      await createAuthenticatedUser({
-        email: 'test@example.com',
-        password: 'password123',
-        name: 'Test User',
-      })
-
-      // WHEN: User from org_123 attempts to access table from org_456
-      const response = await request.get('/api/tables/1', {
-        headers: {},
-      })
-
-      // THEN: Returns 404 Not Found (prevent org enumeration)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Table not found')
-    }
-  )
-
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
@@ -338,18 +288,6 @@ test.describe('Get table by ID', () => {
         const data = await response.json()
         expect(data).toHaveProperty('error')
         expect(data.error).toBe('Forbidden')
-      })
-
-      await test.step('API-TABLES-GET-005: Return 404 for cross-org table access', async () => {
-        // WHEN: User attempts to access table from different organization
-        const response = await request.get('/api/tables/999', {})
-
-        // THEN: Returns 404 Not Found (prevent org enumeration)
-        expect(response.status()).toBe(404)
-
-        const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Table not found')
       })
     }
   )

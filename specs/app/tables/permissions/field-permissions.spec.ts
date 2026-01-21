@@ -470,38 +470,48 @@ test.describe('Field-Level Permissions', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {
       // GIVEN: Application with BOTH layers configured for field-level permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'salary', type: 'decimal' },
-              { id: 4, name: 'ssn', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
-              fields: [
-                {
-                  field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
-                },
-                {
-                  field: 'ssn',
-                  read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
-                },
-              ],
-            },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
           },
-        ],
-      })
+          tables: [
+            {
+              id: 1,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'salary', type: 'decimal' },
+                { id: 4, name: 'ssn', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
+                fields: [
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
+                  },
+                  {
+                    field: 'ssn',
+                    read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       await executeQuery([
         "INSERT INTO employees (name, salary, ssn) VALUES ('Alice', 75000.00, '123-45-6789'), ('Bob', 65000.00, '987-65-4321')",
@@ -538,17 +548,6 @@ test.describe('Field-Level Permissions', () => {
       expect(data.records[0].fields).not.toHaveProperty('ssn') // Filtered by RLS
 
       // WHEN: Admin user attempts to read employee records
-      const adminResult = await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
-      })
-
-      // Manually set user role to admin
-      await executeQuery([
-        `UPDATE auth.user SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
-      ])
-
       await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',
@@ -572,33 +571,43 @@ test.describe('Field-Level Permissions', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {
       // GIVEN: Application with field write restrictions at both layers
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'profiles',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'display_name', type: 'single-line-text' },
-              { id: 3, name: 'verified', type: 'checkbox' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              update: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
-              fields: [
-                {
-                  field: 'verified',
-                  write: { type: 'roles', roles: ['admin'] }, // RLS: field-level write restriction
-                },
-              ],
-            },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
           },
-        ],
-      })
+          tables: [
+            {
+              id: 1,
+              name: 'profiles',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'display_name', type: 'single-line-text' },
+                { id: 3, name: 'verified', type: 'checkbox' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                update: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
+                fields: [
+                  {
+                    field: 'verified',
+                    write: { type: 'roles', roles: ['admin'] }, // RLS: field-level write restriction
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       await executeQuery([
         "INSERT INTO profiles (display_name, verified) VALUES ('User Profile', false)",
@@ -634,17 +643,6 @@ test.describe('Field-Level Permissions', () => {
       expect(dbResult.rows[0].verified).toBe(false) // Unchanged
 
       // WHEN: Admin attempts to update verified field
-      const adminResult = await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
-      })
-
-      // Manually set user role to admin
-      await executeQuery([
-        `UPDATE auth.user SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
-      ])
-
       await signIn({
         email: 'admin@example.com',
         password: 'AdminPass123!',
@@ -779,127 +777,137 @@ test.describe('Field-Level Permissions', () => {
       let user2: any
 
       await test.step('Setup: Start server with comprehensive field permissions', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
+            },
+            tables: [
+              // Table for spec 001, 003, 007 - role-based read permissions
+              // Note: Matches @spec test schema - NO table-level read permission
+              {
+                id: 1,
+                name: 'employees',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'salary', type: 'decimal' },
+                  { id: 4, name: 'department', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  // NO table-level permissions - only field-level (matches @spec 001)
+                  fields: [
+                    {
+                      field: 'salary',
+                      read: { type: 'roles', roles: ['admin'] },
+                    },
+                  ],
+                },
+              },
+              // Table for spec 002, 008 - role-based write permissions
+              // Note: Matches @spec test 002 - NO table-level update permission
+              {
+                id: 2,
+                name: 'profiles',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'email', type: 'single-line-text' },
+                  { id: 4, name: 'bio', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  // NO table-level permissions - only field-level (matches @spec 002)
+                  fields: [
+                    {
+                      field: 'email',
+                      write: { type: 'roles', roles: ['admin'] },
+                    },
+                  ],
+                },
+              },
+              // Table for spec 004 - public read, admin-only write
+              {
+                id: 3,
+                name: 'tickets',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'status', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  fields: [
+                    {
+                      field: 'status',
+                      read: { type: 'public' },
+                      write: { type: 'roles', roles: ['admin'] },
+                    },
+                  ],
+                },
+              },
+              // Table for spec 005, 009 - custom condition (owner-only)
+              {
+                id: 4,
+                name: 'tasks',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'notes', type: 'single-line-text' },
+                  { id: 4, name: 'secret_content', type: 'long-text' },
+                  { id: 5, name: 'owner_id', type: 'user' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'authenticated' },
+                  update: { type: 'authenticated' },
+                  fields: [
+                    {
+                      field: 'notes',
+                      write: {
+                        type: 'custom',
+                        condition: '{userId} = owner_id',
+                      },
+                    },
+                    {
+                      field: 'secret_content',
+                      read: {
+                        type: 'custom',
+                        condition: '{userId} = owner_id',
+                      },
+                    },
+                  ],
+                },
+              },
+              // Table for spec 006 - no field restrictions (inherit table-level)
+              {
+                id: 5,
+                name: 'posts',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'content', type: 'single-line-text' },
+                  { id: 4, name: 'created_at', type: 'datetime' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'authenticated' },
+                  fields: [],
+                },
+              },
+            ],
           },
-          tables: [
-            // Table for spec 001, 003, 007 - role-based read permissions
-            // Note: Matches @spec test schema - NO table-level read permission
-            {
-              id: 1,
-              name: 'employees',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'salary', type: 'decimal' },
-                { id: 4, name: 'department', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                // NO table-level permissions - only field-level (matches @spec 001)
-                fields: [
-                  {
-                    field: 'salary',
-                    read: { type: 'roles', roles: ['admin'] },
-                  },
-                ],
-              },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'AdminPass123!',
+              name: 'Admin User',
             },
-            // Table for spec 002, 008 - role-based write permissions
-            // Note: Matches @spec test 002 - NO table-level update permission
-            {
-              id: 2,
-              name: 'profiles',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'email', type: 'single-line-text' },
-                { id: 4, name: 'bio', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                // NO table-level permissions - only field-level (matches @spec 002)
-                fields: [
-                  {
-                    field: 'email',
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
-                ],
-              },
-            },
-            // Table for spec 004 - public read, admin-only write
-            {
-              id: 3,
-              name: 'tickets',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'status', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                fields: [
-                  {
-                    field: 'status',
-                    read: { type: 'public' },
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
-                ],
-              },
-            },
-            // Table for spec 005, 009 - custom condition (owner-only)
-            {
-              id: 4,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'notes', type: 'single-line-text' },
-                { id: 4, name: 'secret_content', type: 'long-text' },
-                { id: 5, name: 'owner_id', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'authenticated' },
-                update: { type: 'authenticated' },
-                fields: [
-                  {
-                    field: 'notes',
-                    write: {
-                      type: 'custom',
-                      condition: '{userId} = owner_id',
-                    },
-                  },
-                  {
-                    field: 'secret_content',
-                    read: {
-                      type: 'custom',
-                      condition: '{userId} = owner_id',
-                    },
-                  },
-                ],
-              },
-            },
-            // Table for spec 006 - no field restrictions (inherit table-level)
-            {
-              id: 5,
-              name: 'posts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'content', type: 'single-line-text' },
-                { id: 4, name: 'created_at', type: 'datetime' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'authenticated' },
-                fields: [],
-              },
-            },
-          ],
-        })
+          }
+        )
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-001: Exclude salary for non-admin users', async () => {
@@ -1085,17 +1093,7 @@ test.describe('Field-Level Permissions', () => {
         expect(data.records[0].fields).toHaveProperty('name')
         expect(data.records[0].fields).not.toHaveProperty('salary') // Filtered by RLS
 
-        // Create admin user
-        const adminResult = await signUp({
-          email: 'admin@example.com',
-          password: 'AdminPass123!',
-          name: 'Admin User',
-        })
-
-        await executeQuery([
-          `UPDATE auth.user SET role = 'admin' WHERE id = '${adminResult.user!.id}'`,
-        ])
-
+        // Sign in as admin user
         await signIn({
           email: 'admin@example.com',
           password: 'AdminPass123!',

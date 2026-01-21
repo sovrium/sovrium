@@ -399,102 +399,111 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, signOut, signIn, page }) => {
       await test.step('Setup: Start server with comprehensive role-based permissions', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
-            admin: true,
-          },
-          tables: [
-            // Table for owner-only access tests (INHERIT-001, INHERIT-002)
-            {
-              id: 1,
-              name: 'owner_secrets',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'secret', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'roles', roles: ['owner'] },
-                create: { type: 'roles', roles: ['owner'] },
-              },
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
             },
-            // Table for cascading permissions (INHERIT-003)
-            {
-              id: 2,
-              name: 'team_resources',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-                create: { type: 'roles', roles: ['owner', 'admin'] },
-                delete: { type: 'roles', roles: ['owner'] },
-              },
-            },
-            // Table for read-only member tests (INHERIT-004)
-            {
-              id: 3,
-              name: 'public_data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-                create: { type: 'roles', roles: ['owner', 'admin'] },
-                update: { type: 'roles', roles: ['owner', 'admin'] },
-                delete: { type: 'roles', roles: ['owner', 'admin'] },
-              },
-            },
-            // Table for role escalation tests (INHERIT-005)
-            {
-              id: 4,
-              name: 'employees',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'role_field', type: 'single-line-text' },
-                { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'authenticated' },
-                update: { type: 'roles', roles: ['owner', 'admin'] },
+            tables: [
+              // Table for owner-only access tests (INHERIT-001, INHERIT-002)
+              {
+                id: 1,
+                name: 'owner_secrets',
                 fields: [
-                  {
-                    field: 'salary',
-                    read: { type: 'roles', roles: ['owner', 'admin'] },
-                    write: { type: 'roles', roles: ['owner'] },
-                  },
-                  {
-                    field: 'role_field',
-                    read: { type: 'authenticated' },
-                    write: { type: 'roles', roles: ['owner'] },
-                  },
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'secret', type: 'single-line-text' },
                 ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'roles', roles: ['owner'] },
+                  create: { type: 'roles', roles: ['owner'] },
+                },
               },
-            },
-            // Table for empty roles array tests (INHERIT-006)
-            {
-              id: 5,
-              name: 'system_logs',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'message', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'authenticated' },
-                delete: { type: 'roles', roles: [] },
+              // Table for cascading permissions (INHERIT-003)
+              {
+                id: 2,
+                name: 'team_resources',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                  create: { type: 'roles', roles: ['owner', 'admin'] },
+                  delete: { type: 'roles', roles: ['owner'] },
+                },
               },
+              // Table for read-only member tests (INHERIT-004)
+              {
+                id: 3,
+                name: 'public_data',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'content', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                  create: { type: 'roles', roles: ['owner', 'admin'] },
+                  update: { type: 'roles', roles: ['owner', 'admin'] },
+                  delete: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              },
+              // Table for role escalation tests (INHERIT-005)
+              {
+                id: 4,
+                name: 'employees',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'role_field', type: 'single-line-text' },
+                  { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'authenticated' },
+                  update: { type: 'roles', roles: ['owner', 'admin'] },
+                  fields: [
+                    {
+                      field: 'salary',
+                      read: { type: 'roles', roles: ['owner', 'admin'] },
+                      write: { type: 'roles', roles: ['owner'] },
+                    },
+                    {
+                      field: 'role_field',
+                      read: { type: 'authenticated' },
+                      write: { type: 'roles', roles: ['owner'] },
+                    },
+                  ],
+                },
+              },
+              // Table for empty roles array tests (INHERIT-006)
+              {
+                id: 5,
+                name: 'system_logs',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'message', type: 'single-line-text' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'authenticated' },
+                  delete: { type: 'roles', roles: [] },
+                },
+              },
+            ],
+          },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'TestPassword123!',
+              name: 'Admin User',
             },
-          ],
-        })
+          }
+        )
       })
 
       await test.step('Setup: Create users with different roles', async () => {
@@ -504,15 +513,6 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             email: 'owner@example.com',
             password: 'TestPassword123!',
             name: 'Owner User',
-          },
-        })
-
-        // Admin
-        await page.request.post('/api/auth/sign-up/email', {
-          data: {
-            email: 'admin@example.com',
-            password: 'TestPassword123!',
-            name: 'Admin User',
           },
         })
 
@@ -526,15 +526,11 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         })
 
         // Assign roles directly in database (Better Auth doesn't auto-assign roles)
+        // Admin user is created via adminBootstrap in server configuration
         await executeQuery(`
           UPDATE auth."user"
           SET role = 'owner'
           WHERE email = 'owner@example.com'
-        `)
-        await executeQuery(`
-          UPDATE auth."user"
-          SET role = 'admin'
-          WHERE email = 'admin@example.com'
         `)
         await executeQuery(`
           UPDATE auth."user"

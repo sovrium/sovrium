@@ -68,9 +68,10 @@ test.describe('User Field', () => {
       expect(Number(fkCount.count)).toBe(1)
 
       const referencedTable = await executeQuery(
-        "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='tasks' AND tc.constraint_type='FOREIGN KEY'"
+        "SELECT ccu.table_schema as referenced_schema, ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='tasks' AND tc.constraint_type='FOREIGN KEY'"
       )
-      expect(referencedTable.referenced_table).toBe('auth.user')
+      expect(referencedTable.referenced_schema).toBe('auth')
+      expect(referencedTable.referenced_table).toBe('user')
     }
   )
 

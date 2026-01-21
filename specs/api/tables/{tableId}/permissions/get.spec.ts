@@ -27,50 +27,57 @@ test.describe('Check table permissions', () => {
   test(
     'API-TABLES-PERMISSIONS-CHECK-001: should return all permissions as true for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, signIn }) => {
       // GIVEN: An authenticated admin user with an employees table
       // Admin role should have full access regardless of table-level permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 1,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'email', type: 'email' },
-              { id: 4, name: 'salary', type: 'decimal' },
-              { id: 5, name: 'created_at', type: 'datetime' },
-              { id: 6, name: 'updated_at', type: 'datetime' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              // Even with role restrictions, admin should override
-              read: { type: 'roles', roles: ['admin', 'member'] },
-              create: { type: 'roles', roles: ['admin'] },
-              update: { type: 'roles', roles: ['admin'] },
-              delete: { type: 'roles', roles: ['admin'] },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: { emailAndPassword: true, admin: true },
+          tables: [
+            {
+              id: 1,
+              name: 'employees',
               fields: [
-                {
-                  field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'email', type: 'email' },
+                { id: 4, name: 'salary', type: 'decimal' },
+                { id: 5, name: 'created_at', type: 'datetime' },
+                { id: 6, name: 'updated_at', type: 'datetime' },
               ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                // Even with role restrictions, admin should override
+                read: { type: 'roles', roles: ['admin', 'member'] },
+                create: { type: 'roles', roles: ['admin'] },
+                update: { type: 'roles', roles: ['admin'] },
+                delete: { type: 'roles', roles: ['admin'] },
+                fields: [
+                  {
+                    field: 'salary',
+                    read: { type: 'roles', roles: ['admin'] },
+                    write: { type: 'roles', roles: ['admin'] },
+                  },
+                ],
+              },
             },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
           },
-        ],
-      })
+        }
+      )
 
-      // Create user and set role to admin manually
-      const admin = await createAuthenticatedUser()
-      await executeQuery(`
-        UPDATE auth."user"
-        SET role = 'admin'
-        WHERE id = '${admin.user.id}'
-      `)
+      // Sign in as admin
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin user checks permissions for a table
       const response = await request.get('/api/tables/1/permissions')
@@ -353,65 +360,80 @@ test.describe('Check table permissions', () => {
   test(
     'API-TABLES-PERMISSIONS-CHECK-REGRESSION: user can complete full permissions check workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, signOut, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      createAuthenticatedUser,
+      createAuthenticatedMember,
+      signOut,
+      signIn,
+      executeQuery,
+    }) => {
       await test.step('Setup: Start server with comprehensive permissions configuration', async () => {
         // Consolidated schema covering all @spec test scenarios
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'employees',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'email', type: 'email' },
-                { id: 4, name: 'salary', type: 'decimal' },
-                { id: 5, name: 'created_at', type: 'datetime' },
-                { id: 6, name: 'updated_at', type: 'datetime' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                // Table-level: viewer can read, member can read/update, admin has full access
-                read: { type: 'roles', roles: ['admin', 'member', 'viewer'] },
-                create: { type: 'roles', roles: ['admin', 'member'] },
-                update: { type: 'roles', roles: ['admin', 'member'] },
-                delete: { type: 'roles', roles: ['admin'] },
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: { emailAndPassword: true, admin: true },
+            tables: [
+              {
+                id: 1,
+                name: 'employees',
                 fields: [
-                  {
-                    // Salary field: admin-only for both read and write
-                    field: 'salary',
-                    read: { type: 'roles', roles: ['admin'] },
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
-                  {
-                    // Email field: readable by all authenticated, writable by admin only
-                    field: 'email',
-                    read: { type: 'authenticated' },
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
-                  {
-                    // Name field: readable by all authenticated, writable by admin only
-                    field: 'name',
-                    read: { type: 'authenticated' },
-                    write: { type: 'roles', roles: ['admin'] },
-                  },
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  { id: 3, name: 'email', type: 'email' },
+                  { id: 4, name: 'salary', type: 'decimal' },
+                  { id: 5, name: 'created_at', type: 'datetime' },
+                  { id: 6, name: 'updated_at', type: 'datetime' },
                 ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  // Table-level: viewer can read, member can read/update, admin has full access
+                  read: { type: 'roles', roles: ['admin', 'member', 'viewer'] },
+                  create: { type: 'roles', roles: ['admin', 'member'] },
+                  update: { type: 'roles', roles: ['admin', 'member'] },
+                  delete: { type: 'roles', roles: ['admin'] },
+                  fields: [
+                    {
+                      // Salary field: admin-only for both read and write
+                      field: 'salary',
+                      read: { type: 'roles', roles: ['admin'] },
+                      write: { type: 'roles', roles: ['admin'] },
+                    },
+                    {
+                      // Email field: readable by all authenticated, writable by admin only
+                      field: 'email',
+                      read: { type: 'authenticated' },
+                      write: { type: 'roles', roles: ['admin'] },
+                    },
+                    {
+                      // Name field: readable by all authenticated, writable by admin only
+                      field: 'name',
+                      read: { type: 'authenticated' },
+                      write: { type: 'roles', roles: ['admin'] },
+                    },
+                  ],
+                },
               },
+            ],
+          },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'AdminPass123!',
+              name: 'Admin User',
             },
-          ],
-        })
+          }
+        )
       })
 
       await test.step('API-TABLES-PERMISSIONS-CHECK-001: Returns all permissions as true for admin', async () => {
         // WHEN: Admin user checks permissions for a table
-        const admin = await createAuthenticatedUser()
-        await executeQuery(`
-          UPDATE auth."user"
-          SET role = 'admin'
-          WHERE id = '${admin.user.id}'
-        `)
+        await signIn({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+        })
         const response = await request.get('/api/tables/1/permissions')
 
         // THEN: All table and field permissions should be returned as true
@@ -429,7 +451,7 @@ test.describe('Check table permissions', () => {
       await test.step('API-TABLES-PERMISSIONS-CHECK-002: Reflects role restrictions for member', async () => {
         // WHEN: Member user checks permissions for a table
         await signOut()
-        await createAuthenticatedUser()
+        await createAuthenticatedMember()
         const response = await request.get('/api/tables/1/permissions')
 
         // THEN: Permissions should reflect user's role restrictions
@@ -459,12 +481,11 @@ test.describe('Check table permissions', () => {
 
       await test.step('API-TABLES-PERMISSIONS-CHECK-004: Returns 404 Not Found', async () => {
         // WHEN: User checks permissions for invalid table ID
-        const admin = await createAuthenticatedUser()
-        await executeQuery(`
-          UPDATE auth."user"
-          SET role = 'admin'
-          WHERE id = '${admin.user.id}'
-        `)
+        await signOut()
+        await signIn({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+        })
         const response = await request.get('/api/tables/9999/permissions')
 
         // THEN: 404 Not Found error should be returned
@@ -478,7 +499,7 @@ test.describe('Check table permissions', () => {
       await test.step('API-TABLES-PERMISSIONS-CHECK-005: Shows sensitive fields as blocked for member', async () => {
         // WHEN: User checks permissions
         await signOut()
-        await createAuthenticatedUser()
+        await createAuthenticatedMember()
         const response = await request.get('/api/tables/1/permissions')
 
         // THEN: Sensitive fields should show read: false and write: false

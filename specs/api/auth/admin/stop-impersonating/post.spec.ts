@@ -20,31 +20,26 @@ test.describe('Admin: Stop Impersonating', () => {
   test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-001: should return 200 OK when stopping impersonation',
     { tag: '@spec' },
-    async ({
-      startServerWithSchema,
-      createAuthenticatedUser,
-      signUp,
-      signIn,
-      executeQuery,
-      request,
-    }) => {
+    async ({ startServerWithSchema, signUp, signIn, request }) => {
       // GIVEN: Admin currently impersonating a user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: {
+              impersonation: true,
+            },
           },
         },
-      })
-      const admin = await createAuthenticatedUser({
-        email: 'admin@example.com',
-        password: 'Password123!',
-      })
-
-      // Manually set admin role via database
-      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'Password123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       const targetUser = await signUp({
         email: 'user@example.com',
@@ -73,21 +68,26 @@ test.describe('Admin: Stop Impersonating', () => {
   test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-002: should restore admin session',
     { tag: '@spec' },
-    async ({ startServerWithSchema, createAuthenticatedUser, signUp, signIn, request }) => {
+    async ({ startServerWithSchema, signUp, signIn, request }) => {
       // GIVEN: Admin impersonating a user
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: {
+              impersonation: true,
+            },
           },
         },
-      })
-      const admin = await createAuthenticatedUser({
-        email: 'admin@example.com',
-        password: 'Password123!',
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'Password123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       const targetUser = await signUp({
         email: 'user@example.com',
@@ -96,7 +96,7 @@ test.describe('Admin: Stop Impersonating', () => {
       })
 
       // Re-establish admin session (signUp switched to target user's session)
-      await signIn({
+      const admin = await signIn({
         email: 'admin@example.com',
         password: 'Password123!',
       })
@@ -212,24 +212,26 @@ test.describe('Admin: Stop Impersonating', () => {
   test(
     'API-AUTH-ADMIN-STOP-IMPERSONATING-REGRESSION: admin impersonation lifecycle workflow',
     { tag: '@regression' },
-    async ({
-      startServerWithSchema,
-      createAuthenticatedUser,
-      signUp,
-      signIn,
-      executeQuery,
-      request,
-    }) => {
+    async ({ startServerWithSchema, signUp, signIn, request }) => {
       // Setup: Start server with admin impersonation enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: {
+              impersonation: true,
+            },
           },
         },
-      })
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'Password123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
       await test.step('API-AUTH-ADMIN-STOP-IMPERSONATING-005: Returns 401 when not authenticated', async () => {
         // WHEN: Trying to stop impersonation without authentication
@@ -239,14 +241,7 @@ test.describe('Admin: Stop Impersonating', () => {
         expect(response.status()).toBe(401)
       })
 
-      // Setup: Create admin and target user
-      const admin = await createAuthenticatedUser({
-        email: 'admin@example.com',
-        password: 'Password123!',
-      })
-
-      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = '${admin.user.id}'`)
-
+      // Setup: Create target user
       const targetUser = await signUp({
         email: 'user@example.com',
         password: 'Password123!',
@@ -254,7 +249,7 @@ test.describe('Admin: Stop Impersonating', () => {
       })
 
       // Re-establish admin session (signUp switched to target user's session)
-      await signIn({
+      const admin = await signIn({
         email: 'admin@example.com',
         password: 'Password123!',
       })
