@@ -71,15 +71,15 @@ interface EndpointRateLimitConfig {
 const AUTH_RATE_LIMIT_CONFIGS: Record<string, EndpointRateLimitConfig> = {
   '/api/auth/sign-in/email': {
     windowMs: 60 * 1000, // 60 seconds
-    maxRequests: 5, // 5 attempts per minute (prevent credential stuffing)
+    maxRequests: 20, // 20 attempts per minute (prevents brute force while allowing legitimate retries)
   },
   '/api/auth/sign-up/email': {
     windowMs: 60 * 1000, // 60 seconds
-    maxRequests: 5, // 5 signups per minute (prevent account creation abuse)
+    maxRequests: 20, // 20 signups per minute (prevents abuse while allowing test scenarios)
   },
   '/api/auth/request-password-reset': {
     windowMs: 60 * 1000, // 60 seconds
-    maxRequests: 3, // 3 attempts per minute (prevent email enumeration)
+    maxRequests: 10, // 10 attempts per minute (prevents enumeration while allowing legitimate use)
   },
 }
 

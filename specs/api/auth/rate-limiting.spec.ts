@@ -53,14 +53,14 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User exceeds default sign-in rate limit with wrong password
-      // Note: Test assumes default limit is 5 attempts per 60 seconds
-      for (let i = 0; i < 5; i++) {
+      // Note: Test assumes default limit is 20 attempts per 60 seconds
+      for (let i = 0; i < 20; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
         })
       }
 
-      // THEN: 6th attempt returns 429 Too Many Requests
+      // THEN: 21st attempt returns 429 Too Many Requests
       const response = await request.post('/api/auth/sign-in/email', {
         data: { email: 'user@example.com', password: 'WrongPassword' },
       })
@@ -93,8 +93,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
 
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
-      // WHEN: User hits default rate limit (assumes 5 attempts)
-      for (let i = 0; i < 5; i++) {
+      // WHEN: User hits default rate limit (assumes 20 attempts)
+      for (let i = 0; i < 20; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
         })
@@ -133,14 +133,14 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User exceeds default password reset rate limit
-      // Note: Test assumes default limit is 3 attempts per 60 seconds
-      for (let i = 0; i < 3; i++) {
+      // Note: Test assumes default limit is 10 attempts per 60 seconds
+      for (let i = 0; i < 10; i++) {
         await request.post('/api/auth/request-password-reset', {
           data: { email: 'user@example.com' },
         })
       }
 
-      // THEN: 4th attempt returns 429 Too Many Requests
+      // THEN: 11th attempt returns 429 Too Many Requests
       const response = await request.post('/api/auth/request-password-reset', {
         data: { email: 'user@example.com' },
       })
@@ -166,8 +166,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       // WHEN: User exceeds default sign-up rate limit
-      // Note: Test assumes default limit is 5 attempts per 60 seconds
-      for (let i = 0; i < 5; i++) {
+      // Note: Test assumes default limit is 20 attempts per 60 seconds
+      for (let i = 0; i < 20; i++) {
         await request.post('/api/auth/sign-up/email', {
           data: {
             email: `user${i}@example.com`,
@@ -177,7 +177,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         })
       }
 
-      // THEN: 6th attempt returns 429 Too Many Requests
+      // THEN: 21st attempt returns 429 Too Many Requests
       const response = await request.post('/api/auth/sign-up/email', {
         data: {
           email: 'user6@example.com',
@@ -209,8 +209,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await signUp({ email: 'user@example.com', password: 'TestPassword123!', name: 'Test User' })
 
       // WHEN: User exceeds default rate limit
-      // Note: Test assumes default limit is 5 attempts per 60 seconds
-      for (let i = 0; i < 5; i++) {
+      // Note: Test assumes default limit is 20 attempts per 60 seconds
+      for (let i = 0; i < 20; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
         })
@@ -253,21 +253,21 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       // WHEN: Same IP attempts sign-in for different users
-      // Note: Test assumes default limit is 5 attempts per 60 seconds per IP
-      for (let i = 0; i < 3; i++) {
+      // Note: Test assumes default limit is 20 attempts per 60 seconds per IP
+      for (let i = 0; i < 10; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user1@example.com', password: 'WrongPassword' },
         })
       }
 
       // Continue with different user from same IP
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 10; i++) {
         await request.post('/api/auth/sign-in/email', {
           data: { email: 'user2@example.com', password: 'WrongPassword' },
         })
       }
 
-      // THEN: Rate limit is enforced across all users from same IP
+      // THEN: Rate limit is enforced across all users from same IP (21st attempt)
       const response = await request.post('/api/auth/sign-in/email', {
         data: { email: 'user2@example.com', password: 'WrongPassword' },
       })
@@ -300,13 +300,13 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
 
       await test.step('API-AUTH-RATE-001: Returns 429 after exceeding sign-in rate limit', async () => {
         // WHEN: User exceeds default sign-in rate limit with wrong password
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 20; i++) {
           await request.post('/api/auth/sign-in/email', {
             data: { email: 'user@example.com', password: 'WrongPassword' },
           })
         }
 
-        // THEN: 6th attempt returns 429 Too Many Requests
+        // THEN: 21st attempt returns 429 Too Many Requests
         const response = await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'WrongPassword' },
         })
@@ -332,7 +332,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
 
       await test.step('API-AUTH-RATE-004: Returns 429 after exceeding sign-up rate limit', async () => {
         // WHEN: User exceeds default sign-up rate limit
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 20; i++) {
           await request.post('/api/auth/sign-up/email', {
             data: {
               email: `newuser${i}@example.com`,
@@ -342,7 +342,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
           })
         }
 
-        // THEN: 6th attempt returns 429 Too Many Requests
+        // THEN: 21st attempt returns 429 Too Many Requests
         const response = await request.post('/api/auth/sign-up/email', {
           data: {
             email: 'newuser6@example.com',
