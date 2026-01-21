@@ -93,7 +93,7 @@
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "^15.2.1",
     "@effect/eslint-plugin": "^0.3.2",
-    "@effect/language-service": "^0.71.2",
+    "@effect/language-service": "^0.72.0",
     "@eslint/compat": "^2.0.1",
     "@eslint/js": "^9.39.2",
     "@octokit/rest": "^22.0.1",
