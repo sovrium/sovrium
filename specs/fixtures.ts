@@ -802,7 +802,7 @@ export const test = base.extend<ServerFixtures>({
   createAuthenticatedOwner: async (
     { createAuthenticatedUser, executeQuery, signIn },
     use,
-    testInfo
+    _testInfo
   ) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
@@ -823,7 +823,7 @@ export const test = base.extend<ServerFixtures>({
   createAuthenticatedMember: async (
     { createAuthenticatedUser, executeQuery, signIn },
     use,
-    testInfo
+    _testInfo
   ) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first

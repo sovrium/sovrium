@@ -33,6 +33,7 @@ import { test, expect } from '@/specs/fixtures'
  * behavior and should be re-enabled when testing against production-like environments.
  */
 
+// eslint-disable-next-line playwright/no-skipped-test
 test.describe.skip('Rate Limiting - Security Critical Endpoints', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)

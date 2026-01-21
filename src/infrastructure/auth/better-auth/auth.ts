@@ -7,8 +7,8 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI } from 'better-auth/plugins'
 import { createAuthMiddleware, APIError } from 'better-auth/api'
+import { openAPI } from 'better-auth/plugins'
 import { db } from '@/infrastructure/database'
 import { createEmailHandlers } from './email-handlers'
 import { buildAdminPlugin } from './plugins/admin'
@@ -97,16 +97,67 @@ function buildRateLimitConfig() {
     max: 100,
   }
 }
+
 /**
- * Create Better Auth instance with dynamic configuration
+ * Build email and password configuration from auth config
  */
-export function createAuthInstance(authConfig?: Auth) {
+function buildEmailAndPasswordConfig(
+  authConfig: Auth | undefined,
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>
+) {
   const emailAndPasswordConfig =
     authConfig?.emailAndPassword && typeof authConfig.emailAndPassword === 'object'
       ? authConfig.emailAndPassword
       : {}
   const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
+
+  return {
+    enabled: true,
+    requireEmailVerification,
+    sendResetPassword: handlers.passwordReset,
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+  }
+}
+
+/**
+ * Build auth hooks with password validation middleware
+ *
+ * Validates password length for admin createUser endpoint (Better Auth Issue #4651 workaround).
+ * The admin plugin doesn't respect emailAndPassword validation settings.
+ */
+function buildAuthHooks() {
+  return {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/admin/create-user') {
+        const body = ctx.body as { password?: string }
+        if (body?.password) {
+          const minLength = 8
+          const maxLength = 128
+          if (body.password.length < minLength) {
+            // eslint-disable-next-line functional/no-throw-statements
+            throw new APIError('BAD_REQUEST', {
+              message: `Password must be at least ${minLength} characters`,
+            })
+          }
+          if (body.password.length > maxLength) {
+            // eslint-disable-next-line functional/no-throw-statements
+            throw new APIError('BAD_REQUEST', {
+              message: `Password must not exceed ${maxLength} characters`,
+            })
+          }
+        }
+      }
+    }),
+  }
+}
+/**
+ * Create Better Auth instance with dynamic configuration
+ */
+export function createAuthInstance(authConfig?: Auth) {
   const handlers = createEmailHandlers(authConfig)
+  const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers)
+  const { requireEmailVerification } = emailAndPasswordConfig
 
   return betterAuth({
     secret: process.env.AUTH_SECRET,
@@ -122,13 +173,7 @@ export function createAuthInstance(authConfig?: Auth) {
       useSecureCookies: process.env.NODE_ENV === 'production',
       disableCSRFCheck: process.env.NODE_ENV !== 'production',
     },
-    emailAndPassword: {
-      enabled: true,
-      requireEmailVerification,
-      sendResetPassword: handlers.passwordReset,
-      minPasswordLength: 8,
-      maxPasswordLength: 128,
-    },
+    emailAndPassword: emailAndPasswordConfig,
     emailVerification: {
       sendOnSignUp: requireEmailVerification,
       autoSignInAfterVerification: true,
@@ -140,29 +185,7 @@ export function createAuthInstance(authConfig?: Auth) {
     socialProviders: buildSocialProviders(authConfig),
     plugins: buildAuthPlugins(handlers, authConfig),
     rateLimit: buildRateLimitConfig(),
-    hooks: {
-      before: createAuthMiddleware(async (ctx) => {
-        // Validate password length for admin createUser (Better Auth Issue #4651 workaround)
-        // Admin plugin doesn't respect emailAndPassword validation settings
-        if (ctx.path === '/admin/create-user') {
-          const body = ctx.body as { password?: string }
-          if (body?.password) {
-            const minLength = 8
-            const maxLength = 128
-            if (body.password.length < minLength) {
-              throw new APIError('BAD_REQUEST', {
-                message: `Password must be at least ${minLength} characters`,
-              })
-            }
-            if (body.password.length > maxLength) {
-              throw new APIError('BAD_REQUEST', {
-                message: `Password must not exceed ${maxLength} characters`,
-              })
-            }
-          }
-        }
-      }),
-    },
+    hooks: buildAuthHooks(),
   })
 }
 
