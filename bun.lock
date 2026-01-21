@@ -9,12 +9,12 @@
         "@hono/zod-openapi": "^1.2.0",
         "@hono/zod-validator": "^0.7.6",
         "@hookform/resolvers": "^5.2.2",
-        "@scalar/hono-api-reference": "^0.9.34",
+        "@scalar/hono-api-reference": "^0.9.35",
         "@tailwindcss/postcss": "^4.1.18",
         "@tanstack/react-query": "^5.90.19",
         "@tanstack/react-query-devtools": "^5.91.2",
         "@tanstack/react-table": "^8.21.3",
-        "better-auth": "^1.4.15",
+        "better-auth": "^1.4.17",
         "clsx": "^2.1.1",
         "dompurify": "^3.3.1",
         "drizzle-orm": "^0.45.1",
@@ -39,7 +39,7 @@
       "devDependencies": {
         "@apidevtools/json-schema-ref-parser": "^15.2.1",
         "@effect/eslint-plugin": "^0.3.2",
-        "@effect/language-service": "^0.71.0",
+        "@effect/language-service": "^0.72.0",
         "@eslint/compat": "^2.0.1",
         "@eslint/js": "^9.39.2",
         "@octokit/rest": "^22.0.1",
@@ -73,7 +73,7 @@
         "jszip": "^3.10.1",
         "knip": "^5.82.1",
         "otplib": "^13.1.1",
-        "pg": "^8.17.1",
+        "pg": "^8.17.2",
         "playwright": "^1.57.0",
         "prettier-plugin-tailwindcss": "^0.7.2",
         "semantic-release": "^25.0.2",
@@ -220,7 +220,7 @@
 
     "@effect/experimental": ["@effect/experimental@0.58.0", "", { "dependencies": { "uuid": "^11.0.3" }, "peerDependencies": { "@effect/platform": "^0.94.0", "effect": "^3.19.13", "ioredis": "^5", "lmdb": "^3" }, "optionalPeers": ["ioredis", "lmdb"] }, "sha512-IEP9sapjF6rFy5TkoqDPc86st/fnqUfjT7Xa3pWJrFGr1hzaMXHo+mWsYOZS9LAOVKnpHuVziDK97EP5qsCHVA=="],
 
-    "@effect/language-service": ["@effect/language-service@0.71.2", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-l5MaMxopOMjzSwEmQdIq5KeKqaLVLwkFdWeplCZw58O1kV1TYQIaG6uZ1nb5XvMtldLcfLu+44mdpiaW484fHg=="],
+    "@effect/language-service": ["@effect/language-service@0.72.0", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-MWkyTPCXSs5Q3OIBWR3q24SA+ipkdWW7EBJBt6EPUzlzZxjJLXtLBhXpMoCFheSEM0FTWOHT4BRLh5lufsmjVw=="],
 
     "@effect/platform": ["@effect/platform@0.93.6", "", { "dependencies": { "find-my-way-ts": "^0.1.6", "msgpackr": "^1.11.4", "multipasta": "^0.2.7" }, "peerDependencies": { "effect": "^3.19.8" } }, "sha512-I5lBGQWzWXP4zlIdPs7z7WHmEFVBQhn+74emr/h16GZX96EEJ6I1rjGaKyZF7mtukbMuo9wEckDPssM8vskZ/w=="],
 
