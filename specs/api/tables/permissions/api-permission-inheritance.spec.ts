@@ -524,6 +524,23 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
             name: 'Member User',
           },
         })
+
+        // Assign roles directly in database (Better Auth doesn't auto-assign roles)
+        await executeQuery(`
+          UPDATE auth."user"
+          SET role = 'owner'
+          WHERE email = 'owner@example.com'
+        `)
+        await executeQuery(`
+          UPDATE auth."user"
+          SET role = 'admin'
+          WHERE email = 'admin@example.com'
+        `)
+        await executeQuery(`
+          UPDATE auth."user"
+          SET role = 'member'
+          WHERE email = 'member@example.com'
+        `)
       })
 
       await test.step('Setup: Insert test data for all tables', async () => {

@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1768854416069,
-      "tag": "0000_absent_silvermane",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1768910061689,
-      "tag": "0001_crazy_riptide",
+      "when": 1768980405107,
+      "tag": "0000_broad_vargas",
       "breakpoints": true
     }
   ]

@@ -33,8 +33,7 @@ import { test, expect } from '@/specs/fixtures'
  * behavior and should be re-enabled when testing against production-like environments.
  */
 
-// eslint-disable-next-line playwright/no-skipped-test
-test.describe.skip('Rate Limiting - Security Critical Endpoints', () => {
+test.describe('Rate Limiting - Security Critical Endpoints', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
@@ -282,7 +281,8 @@ test.describe.skip('Rate Limiting - Security Critical Endpoints', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test(
+  // eslint-disable-next-line playwright/no-skipped-test -- Rate limiting intentionally disabled in test environment
+  test.skip(
     'API-AUTH-RATE-REGRESSION: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {
