@@ -28,9 +28,8 @@ import { test, expect } from '@/specs/fixtures'
  * Note: These tests validate default rate limiting behavior. If default limits change,
  * test assertions may need adjustment.
  *
- * SKIPPED: Rate limiting is intentionally disabled in test environments to allow rapid
- * authentication calls in other E2E tests. These tests validate production security
- * behavior and should be re-enabled when testing against production-like environments.
+ * Each test runs in an isolated environment with its own server process and database,
+ * so rate limiting in one test does not affect other tests.
  */
 
 test.describe('Rate Limiting - Security Critical Endpoints', () => {
@@ -281,8 +280,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  // eslint-disable-next-line playwright/no-skipped-test -- Rate limiting intentionally disabled in test environment
-  test.skip(
+  test(
     'API-AUTH-RATE-REGRESSION: rate limiting protects security-critical endpoints',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, signUp }) => {
