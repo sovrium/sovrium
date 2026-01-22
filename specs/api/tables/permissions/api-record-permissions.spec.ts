@@ -495,73 +495,83 @@ test.describe('API Record-Level Permissions', () => {
       let otherUserId: string
 
       await test.step('Setup: Create schema with owner-based permissions and users', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            emailAndPassword: true,
+        await startServerWithSchema(
+          {
+            name: 'test-app',
+            auth: {
+              emailAndPassword: true,
+              admin: true,
+            },
+            tables: [
+              {
+                id: 1,
+                name: 'personal_notes',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'content', type: 'long-text' },
+                  { id: 3, name: 'owner_id', type: 'user' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'owner', field: 'owner_id' },
+                  create: { type: 'authenticated' },
+                  update: { type: 'owner', field: 'owner_id' },
+                  delete: { type: 'owner', field: 'owner_id' },
+                },
+              },
+              {
+                id: 2,
+                name: 'support_tickets',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'subject', type: 'single-line-text' },
+                  { id: 3, name: 'owner_id', type: 'user' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'roles', roles: ['admin'] },
+                  update: { type: 'owner', field: 'owner_id' },
+                },
+              },
+              {
+                id: 3,
+                name: 'documents',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'title', type: 'single-line-text' },
+                  { id: 3, name: 'created_by', type: 'created-by' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'owner', field: 'created_by' },
+                  update: { type: 'owner', field: 'created_by' },
+                  delete: { type: 'owner', field: 'created_by' },
+                },
+              },
+              {
+                id: 4,
+                name: 'public_notes',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'content', type: 'long-text' },
+                  { id: 3, name: 'owner_id', type: 'user' },
+                ],
+                primaryKey: { type: 'composite', fields: ['id'] },
+                permissions: {
+                  read: { type: 'authenticated' },
+                  update: { type: 'owner', field: 'owner_id' },
+                },
+              },
+            ],
           },
-          tables: [
-            {
-              id: 1,
-              name: 'personal_notes',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'owner_id', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'owner', field: 'owner_id' },
-                create: { type: 'authenticated' },
-                update: { type: 'owner', field: 'owner_id' },
-                delete: { type: 'owner', field: 'owner_id' },
-              },
+          {
+            adminBootstrap: {
+              email: 'admin@example.com',
+              password: 'AdminPass123!',
+              name: 'Admin User',
             },
-            {
-              id: 2,
-              name: 'support_tickets',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'subject', type: 'single-line-text' },
-                { id: 3, name: 'owner_id', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'roles', roles: ['admin'] },
-                update: { type: 'owner', field: 'owner_id' },
-              },
-            },
-            {
-              id: 3,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'created-by' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'owner', field: 'created_by' },
-                update: { type: 'owner', field: 'created_by' },
-                delete: { type: 'owner', field: 'created_by' },
-              },
-            },
-            {
-              id: 4,
-              name: 'public_notes',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'owner_id', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'authenticated' },
-                update: { type: 'owner', field: 'owner_id' },
-              },
-            },
-          ],
-        })
+          }
+        )
 
         // Create owner user via API
         const ownerResponse = await page.request.post('/api/auth/sign-up/email', {
@@ -662,10 +672,10 @@ test.describe('API Record-Level Permissions', () => {
       })
 
       await test.step('API-TABLES-PERMISSIONS-RECORD-005: Non-owner cannot update others records', async () => {
-        // Setup: Create public note owned by other user (readable by all, updatable by owner only)
+        // Setup: Create public note owned by owner user (readable by all, updatable by owner only)
         await executeQuery(`
           INSERT INTO public_notes (id, content, owner_id) VALUES
-            (200, 'Original content', '${otherUserId}')
+            (200, 'Original content', '${ownerUserId}')
         `)
 
         // Sign in as other user
@@ -691,19 +701,16 @@ test.describe('API Record-Level Permissions', () => {
         // Setup: Insert ticket owned by regular user
         await executeQuery(`
           INSERT INTO support_tickets (id, subject, owner_id) VALUES
-            (300, 'Help with billing', 'regular-user-id')
+            (300, 'Help with billing', '${otherUserId}')
         `)
 
-        // Create and sign in as admin
-        const adminResponse = await page.request.post('/api/auth/sign-up/email', {
+        // Sign in as admin (admin user was created by adminBootstrap)
+        await page.request.post('/api/auth/sign-in/email', {
           data: {
             email: 'admin@example.com',
-            password: 'TestPassword123!',
-            name: 'Admin User',
-            role: 'admin',
+            password: 'AdminPass123!',
           },
         })
-        await adminResponse.json()
 
         // WHEN: Admin reads the ticket
         const response = await request.get('/api/tables/2/records/300')
@@ -711,7 +718,7 @@ test.describe('API Record-Level Permissions', () => {
         // THEN: Admin can see the record (role-based read)
         expect(response.status()).toBe(200)
         const data = await response.json()
-        expect(data.subject).toBe('Help with billing')
+        expect(data.record.fields.subject).toBe('Help with billing')
       })
 
       await test.step('API-TABLES-PERMISSIONS-RECORD-007: Custom owner field works correctly', async () => {

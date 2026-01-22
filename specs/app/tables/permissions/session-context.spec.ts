@@ -11,17 +11,15 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Database Session Context Integration
  *
  * Domain: app/tables/permissions
- * Spec Count: 5
+ * Spec Count: 3
  *
  * Test Organization:
- * 1. @spec tests - One per spec (5 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec (3 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Session Context Integration Scenarios:
  * - Session context set from Better Auth session
  * - RLS policies work with automatic session context
- * - Organization isolation enforced via session context
- * - Role-based permissions work via session context
  * - Session context cleared after transaction
  *
  * Related Tests:
@@ -129,62 +127,6 @@ test.describe('Database Session Context Integration', () => {
     }
   )
 
-  test.fixme(
-    'APP-TABLES-SESSION-CTX-003: should enforce organization isolation via session context',
-    { tag: '@spec' },
-    async ({ startServerWithSchema }) => {
-      // GIVEN: Organization-scoped table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-            permissions: {
-              read: { type: 'authenticated' },
-            },
-          },
-        ],
-      })
-
-      // NOTE: Organization feature removed - test disabled
-      // Create two organizations
-      // await createAuthenticatedUser({ email: 'user1@example.com' })
-      // const org1 = await createOrganization({ name: 'Org 1' })
-
-      // await createAuthenticatedUser({ email: 'user2@example.com' })
-      // const org2 = await createOrganization({ name: 'Org 2' })
-
-      // NOTE: Organization feature removed - test logic disabled
-      // Insert projects for both organizations
-      // await executeQuery([
-      //   `INSERT INTO projects (id, name, organization_id) VALUES
-      //    (1, 'Org 1 Project', '${org1.organization.id}'),
-      //    (2, 'Org 2 Project', '${org2.organization.id}')`,
-      // ])
-
-      // WHEN: Setting session context for org1 and querying projects
-      // const projectsResult = await executeQuery([
-      //   `BEGIN`,
-      //   `SET LOCAL ROLE app_user`,
-      //   `SET LOCAL app.organization_id = '${org1.organization.id}'`,
-      //   `SELECT id, name FROM projects ORDER BY id`,
-      // ])
-
-      // THEN: User should only see org1 projects
-      // expect(projectsResult.rows).toHaveLength(1)
-      // expect(projectsResult.rows[0].name).toBe('Org 1 Project')
-    }
-  )
-
   test(
     'APP-TABLES-SESSION-CTX-004: should clear session context after transaction',
     { tag: '@spec' },
@@ -237,68 +179,9 @@ test.describe('Database Session Context Integration', () => {
     }
   )
 
-  test.fixme(
-    'APP-TABLES-SESSION-CTX-005: should handle users without organization membership',
-    { tag: '@spec' },
-    async ({ startServerWithSchema }) => {
-      // GIVEN: User without organization membership
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // NOTE: Organization feature removed - test logic disabled
-      // await createAuthenticatedUser({ email: 'user@example.com' })
-      // const org = await createOrganization({ name: 'Test Org' })
-
-      // Create another user who is NOT a member of the org
-      // const nonMember = await createAuthenticatedUser({ email: 'nonmember@example.com' })
-
-      // WHEN: Setting session context for non-member user
-      // Query members table to verify non-member has no role
-      // const memberResult = await executeQuery(`
-      //   SELECT role FROM auth.member
-      //   WHERE organization_id = '${org.organization.id}'
-      //   AND user_id = '${nonMember.user.id}'
-      // `)
-
-      // THEN: Non-member should have no record in members table
-      // expect(memberResult.rows).toHaveLength(0)
-
-      // WHEN: Setting session variables for non-member
-      // const contextResult = await executeQuery([
-      //   `BEGIN`,
-      //   `SET LOCAL app.user_id = '${nonMember.user.id}'`,
-      //   `SET LOCAL app.organization_id = '${org.organization.id}'`,
-      //   `SET LOCAL app.user_role = 'authenticated'`,
-      //   `SELECT
-      //     current_setting('app.user_id') as user_id,
-      //     current_setting('app.organization_id') as organization_id,
-      //     current_setting('app.user_role') as role`,
-      // ])
-
-      // THEN: Should default to 'authenticated' role for non-members
-      // expect(contextResult.rows[0].role).toBe('authenticated')
-      // expect(contextResult.rows[0].organization_id).toBe(org.organization.id)
-      // expect(contextResult.rows[0].user_id).toBe(nonMember.user.id)
-    }
-  )
-
   // ============================================================================
   // @regression test - OPTIMIZED workflow validation
-  // Generated from 5 @spec tests - covers session context integration workflow
+  // Generated from 3 @spec tests - covers session context integration workflow
   // ============================================================================
 
   test(
