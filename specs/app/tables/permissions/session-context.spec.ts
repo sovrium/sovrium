@@ -128,7 +128,7 @@ test.describe('Database Session Context Integration', () => {
   )
 
   test(
-    'APP-TABLES-SESSION-CTX-004: should clear session context after transaction',
+    'APP-TABLES-SESSION-CTX-003: should clear session context after transaction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth
@@ -267,9 +267,9 @@ test.describe('Database Session Context Integration', () => {
         expect(tasksResult.rows[0].title).toBe('User 1 Task')
       })
 
-      // NOTE: APP-TABLES-SESSION-CTX-003 (organization isolation) removed - organization feature removed
+      // NOTE: Old APP-TABLES-SESSION-CTX-003 (organization isolation) was removed - organization feature removed
 
-      await test.step('APP-TABLES-SESSION-CTX-004: Clear session context after transaction', async () => {
+      await test.step('APP-TABLES-SESSION-CTX-003: Clear session context after transaction', async () => {
         const user = await createAuthenticatedUser({ email: 'clear-test@example.com' })
 
         // Set session context
