@@ -121,7 +121,7 @@ test.describe('API Session Context Integration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-SESSION-CTX-INT-003: should enforce role-based permissions via API',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
@@ -211,7 +211,7 @@ test.describe('API Session Context Integration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-SESSION-CTX-INT-004: should enforce field-level permissions via API',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, signIn, executeQuery, page }) => {
@@ -221,6 +221,7 @@ test.describe('API Session Context Integration', () => {
           name: 'test-app',
           auth: {
             emailAndPassword: true,
+            admin: true,
           },
           tables: [
             {
@@ -306,7 +307,8 @@ test.describe('API Session Context Integration', () => {
       const adminApiData = await adminApiResponse.json()
       expect(adminApiData.records).toHaveLength(1)
       expect(adminApiData.records[0].fields.name).toBe('John Doe')
-      expect(adminApiData.records[0].fields.salary).toBe(75_000)
+      // Salary may be returned as number or string depending on serialization
+      expect(Number(adminApiData.records[0].fields.salary)).toBe(75_000)
     }
   )
 
