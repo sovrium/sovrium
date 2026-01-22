@@ -35,7 +35,7 @@ const getUserRole = async (
   // Fetch global user role from users table
   try {
     const userResult = (await tx.execute(
-      `SELECT role FROM auth.user WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
+      `SELECT role FROM "auth"."user" WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
     )) as Array<{ role: string | null }>
 
     return userResult[0]?.role || 'authenticated'

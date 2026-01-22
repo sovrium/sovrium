@@ -44,7 +44,7 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock users table for role lookup
-              if (sqlStr.includes('auth.user')) {
+              if (sqlStr.includes('"auth"."user"')) {
                 return [{ role: 'member' }]
               }
               return undefined
@@ -93,7 +93,7 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock users table for global role lookup
-              if (sqlStr.includes('auth.user')) {
+              if (sqlStr.includes('"auth"."user"')) {
                 return [{ role: null }]
               }
               return undefined
@@ -139,7 +139,7 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock users table for role lookup
-              if (sqlStr.includes('auth.user')) {
+              if (sqlStr.includes('"auth"."user"')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined
@@ -157,7 +157,7 @@ describe('with-session-context', () => {
       await Effect.runPromise(withSessionContext(mockSession, operation))
 
       // Verify SQL injection is escaped in all queries
-      const userQuery = executedSql.find((s) => s.includes('auth.user'))
+      const userQuery = executedSql.find((s) => s.includes('"auth"."user"'))
       const setLocalQueries = executedSql.filter((s) => s.includes('SET LOCAL'))
 
       // All queries should have escaped the injection attempt
@@ -190,7 +190,7 @@ describe('with-session-context', () => {
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               executedSql.push(sqlStr)
               // Mock users table for role lookup
-              if (sqlStr.includes('auth.user')) {
+              if (sqlStr.includes('"auth"."user"')) {
                 return [{ role: 'admin' }]
               }
               return undefined
@@ -232,7 +232,7 @@ describe('with-session-context', () => {
               // Extract SQL string from drizzle sql.raw() object
               const sqlStr: string = sql?.queryChunks?.[0]?.value?.[0] ?? String(sql)
               // Mock users table for global role lookup
-              if (sqlStr.includes('auth.user')) {
+              if (sqlStr.includes('"auth"."user"')) {
                 return [{ role: 'authenticated' }]
               }
               return undefined

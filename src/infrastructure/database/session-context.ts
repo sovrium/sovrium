@@ -71,12 +71,19 @@ const getGlobalUserRole = (
 ): Effect.Effect<string, SessionContextError> =>
   Effect.tryPromise({
     try: async () => {
+      console.log('[DEBUG getGlobalUserRole] Querying role for userId:', userId)
       const rows = (await tx.unsafe(
         `SELECT role FROM "auth.user" WHERE id = '${escapeSQL(userId)}' LIMIT 1`
       )) as Array<{ role: string | null }>
-      return rows[0]?.role || 'authenticated'
+      console.log('[DEBUG getGlobalUserRole] Query result:', rows)
+      const role = rows[0]?.role || 'authenticated'
+      console.log('[DEBUG getGlobalUserRole] Final role:', role)
+      return role
     },
-    catch: (error) => new SessionContextError('Failed to query user role from users table', error),
+    catch: (error) => {
+      console.log('[DEBUG getGlobalUserRole] Error querying role:', error)
+      return new SessionContextError('Failed to query user role from users table', error)
+    },
   })
 
 /**

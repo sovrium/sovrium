@@ -227,7 +227,7 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-004: owner can update their own records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -244,7 +244,7 @@ test.describe('API Record-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -280,7 +280,7 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-005: non-owner cannot update others records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -297,7 +297,7 @@ test.describe('API Record-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -308,11 +308,17 @@ test.describe('API Record-Level Permissions', () => {
         ],
       })
 
+      // Create the actual owner user first
+      const ownerResult = await createAuthenticatedUser({ email: 'owner@example.com' })
+      const ownerId = ownerResult.user.id
+
+      // Sign in as attacker (overwrites owner's session)
       await createAuthenticatedUser({ email: 'attacker@example.com' })
 
+      // Insert record owned by the owner user
       await executeQuery(`
         INSERT INTO personal_notes (id, content, owner_id) VALUES
-          (1, 'Original content', 'other-user-id')
+          (1, 'Original content', '${ownerId}')
       `)
 
       // WHEN: Non-owner tries to update
@@ -336,43 +342,65 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-006: admin can access all records via role-based read permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedAdmin, executeQuery }) => {
+    async ({ request, startServerWithSchema, signIn, executeQuery }) => {
       // GIVEN: Table with role-based read (admin can read all) but owner-based update
       // This demonstrates the pattern for "admin can see, but only owner can modify"
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'support_tickets',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'subject', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              // Admin can read all tickets, members only their own
-              read: { type: 'roles', roles: ['admin'] },
-              // Only owner can update their ticket
-              update: { type: 'owner', field: 'owner_id' },
-            },
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            admin: true,
           },
-        ],
-      })
+          tables: [
+            {
+              id: 1,
+              name: 'support_tickets',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'subject', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                // Admin can read all tickets, members only their own
+                read: { type: 'roles', roles: ['admin'] },
+                // Only owner can update their ticket
+                update: { type: 'owner', field: 'owner_id' },
+              },
+            },
+          ],
+        },
+        {
+          adminBootstrap: {
+            email: 'admin@example.com',
+            password: 'AdminPass123!',
+            name: 'Admin User',
+          },
+        }
+      )
 
-      await createAuthenticatedAdmin({ email: 'admin@example.com' })
+      // Create regular user first
+      const regularUserResponse = await request.post('/api/auth/sign-up/email', {
+        data: {
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Regular User',
+        },
+      })
+      const regularUserData = await regularUserResponse.json()
+      const regularUserId = regularUserData.user.id
+
+      // Sign in as admin (admin user was created by adminBootstrap)
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // Record owned by regular user
       await executeQuery(`
         INSERT INTO support_tickets (id, subject, owner_id) VALUES
-          (1, 'Help with billing', 'regular-user-id')
+          (1, 'Help with billing', '${regularUserId}')
       `)
 
       // WHEN: Admin reads the ticket
@@ -381,12 +409,12 @@ test.describe('API Record-Level Permissions', () => {
       // THEN: Admin can see the record (role-based read)
       expect(response.status()).toBe(200)
 
-      const data = await response.json()
-      expect(data.subject).toBe('Help with billing')
+      const responseData = await response.json()
+      expect(responseData.record.fields.subject).toBe('Help with billing')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-007: custom owner field (created_by instead of owner_id)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -403,7 +431,7 @@ test.describe('API Record-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'created_by', type: 'single-line-text' }, // Custom owner field
+              { id: 3, name: 'created_by', type: 'created-by' }, // Custom owner field with user type
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -417,10 +445,29 @@ test.describe('API Record-Level Permissions', () => {
 
       const user = await createAuthenticatedUser({ email: 'creator@example.com' })
 
+      // Create another user for the second document
+      const otherUserResponse = await request.post('/api/auth/sign-up/email', {
+        data: {
+          email: 'other-creator@example.com',
+          password: 'TestPassword123!',
+          name: 'Other Creator',
+        },
+      })
+      const otherUserData = await otherUserResponse.json()
+      const otherUserId = otherUserData.user.id
+
+      // Sign back in as the first user
+      await request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'creator@example.com',
+          password: 'TestPassword123!',
+        },
+      })
+
       await executeQuery(`
         INSERT INTO documents (id, title, created_by) VALUES
           (1, 'My Document', '${user.user.id}'),
-          (2, 'Other Document', 'other-user-id')
+          (2, 'Other Document', '${otherUserId}')
       `)
 
       // WHEN: User lists documents
@@ -440,11 +487,12 @@ test.describe('API Record-Level Permissions', () => {
   // Generated from 7 @spec tests - covers owner-based record access control
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-RECORD-REGRESSION: complete owner-based access workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, page }) => {
       let ownerUserId: string
+      let otherUserId: string
 
       await test.step('Setup: Create schema with owner-based permissions and users', async () => {
         await startServerWithSchema({
@@ -459,7 +507,7 @@ test.describe('API Record-Level Permissions', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'owner_id', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
@@ -475,7 +523,7 @@ test.describe('API Record-Level Permissions', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'subject', type: 'single-line-text' },
-                { id: 3, name: 'owner_id', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
@@ -489,7 +537,7 @@ test.describe('API Record-Level Permissions', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
@@ -504,7 +552,7 @@ test.describe('API Record-Level Permissions', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'owner_id', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
@@ -527,13 +575,15 @@ test.describe('API Record-Level Permissions', () => {
         ownerUserId = ownerData.user.id
 
         // Create other user via API
-        await page.request.post('/api/auth/sign-up/email', {
+        const otherResponse = await page.request.post('/api/auth/sign-up/email', {
           data: {
             email: 'other@example.com',
             password: 'TestPassword123!',
             name: 'Other User',
           },
         })
+        const otherData = await otherResponse.json()
+        otherUserId = otherData.user.id
       })
 
       await test.step('API-TABLES-PERMISSIONS-RECORD-003: Owner_id auto-set on create', async () => {
@@ -565,7 +615,7 @@ test.describe('API Record-Level Permissions', () => {
         await executeQuery(`
           INSERT INTO personal_notes (id, content, owner_id) VALUES
             (100, 'My private note', '${ownerUserId}'),
-            (101, 'Another user note', 'other-user-id')
+            (101, 'Another user note', '${otherUserId}')
         `)
 
         // WHEN: Owner requests their records
@@ -615,7 +665,7 @@ test.describe('API Record-Level Permissions', () => {
         // Setup: Create public note owned by other user (readable by all, updatable by owner only)
         await executeQuery(`
           INSERT INTO public_notes (id, content, owner_id) VALUES
-            (200, 'Original content', 'other-owner-id')
+            (200, 'Original content', '${otherUserId}')
         `)
 
         // Sign in as other user
@@ -675,11 +725,26 @@ test.describe('API Record-Level Permissions', () => {
         })
         const creatorData = await creatorResponse.json()
 
+        // Create another user for the second document
+        const otherCreatorResponse = await page.request.post('/api/auth/sign-up/email', {
+          data: {
+            email: 'other-creator-regression@example.com',
+            password: 'TestPassword123!',
+            name: 'Other Creator',
+          },
+        })
+        const otherCreatorData = await otherCreatorResponse.json()
+
+        // Sign back in as the first creator
+        await page.request.post('/api/auth/sign-in/email', {
+          data: { email: 'creator@example.com', password: 'TestPassword123!' },
+        })
+
         // Setup: Insert documents with created_by field
         await executeQuery(`
           INSERT INTO documents (id, title, created_by) VALUES
             (400, 'My Document', '${creatorData.user.id}'),
-            (401, 'Other Document', 'other-user-id')
+            (401, 'Other Document', '${otherCreatorData.user.id}')
         `)
 
         // WHEN: User lists documents
