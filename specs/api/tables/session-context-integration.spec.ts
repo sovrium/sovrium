@@ -66,10 +66,10 @@ test.describe('API Session Context Integration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-SESSION-CTX-INT-002: should enforce RLS owner filtering via API',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, signIn, executeQuery }) => {
       // GIVEN: Table with owner-based RLS policy
       await startServerWithSchema({
         name: 'test-app',
@@ -95,6 +95,10 @@ test.describe('API Session Context Integration', () => {
       // Create two users
       const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
       const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
+      // Re-authenticate as user1 to restore their session cookies
+      // (createAuthenticatedUser overwrites cookies, so we need to sign in again)
+      await signIn({ email: 'user1@example.com', password: 'TestPassword123!' })
 
       // Insert tasks for both users
       await executeQuery(`

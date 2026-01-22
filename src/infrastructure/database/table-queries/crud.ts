@@ -65,6 +65,7 @@ export function listRecords(
         const result = await tx.execute(
           sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}`
         )
+
         return result as readonly Record<string, unknown>[]
       },
       catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),
