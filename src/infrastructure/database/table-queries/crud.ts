@@ -118,115 +118,122 @@ export function getRecord(
  * @param fields - Record fields
  * @returns Effect resolving to created record
  */
-/* eslint-disable max-lines-per-function, complexity, max-statements -- Debugging code temporarily increases complexity */
+/* eslint-disable max-lines-per-function, max-statements -- Debugging code temporarily increases complexity */
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>
 ): Effect.Effect<Record<string, unknown>, SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        console.log('[DEBUG] createRecord called for table:', tableName, 'fields:', fields)
-        validateTableName(tableName)
+    Effect.gen(function* () {
+      yield* Effect.log('[DEBUG] createRecord called for table:', tableName, 'fields:', fields)
 
-        // Check if table has organization_id or owner_id columns
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('organization_id', 'owner_id')`
-        )) as readonly Record<string, unknown>[]
+      yield* Effect.sync(() => validateTableName(tableName))
 
-        console.log('[DEBUG] columnCheck result:', columnCheck)
+      // Check if table has organization_id or owner_id columns
+      const columnCheck = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(
+            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('organization_id', 'owner_id')`
+          ) as Promise<readonly Record<string, unknown>[]>,
+        catch: (error) => new SessionContextError('Failed to check table columns', error),
+      })
 
-        const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
-        const hasOwnerId = columnCheck.some((row) => row.column_name === 'owner_id')
+      yield* Effect.log('[DEBUG] columnCheck result:', columnCheck)
 
-        console.log('[DEBUG] hasOrgId:', hasOrgId, 'hasOwnerId:', hasOwnerId)
+      const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
+      const hasOwnerId = columnCheck.some((row) => row.column_name === 'owner_id')
 
-        // Security: Filter out any user-provided organization_id or owner_id if table has those columns
-        // This prevents malicious users from injecting data into other organizations or impersonating other users
-        const sanitizedFields = Object.fromEntries(
-          Object.entries(fields).filter(
-            ([key]) =>
-              !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
-          )
+      yield* Effect.log('[DEBUG] hasOrgId:', hasOrgId, 'hasOwnerId:', hasOwnerId)
+
+      // Security: Filter out any user-provided organization_id or owner_id if table has those columns
+      // This prevents malicious users from injecting data into other organizations or impersonating other users
+      const sanitizedFields = Object.fromEntries(
+        Object.entries(fields).filter(
+          ([key]) => !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
         )
+      )
 
-        console.log('[DEBUG] sanitizedFields:', sanitizedFields)
+      yield* Effect.log('[DEBUG] sanitizedFields:', sanitizedFields)
 
-        // Build base entries from sanitized user fields
-        const baseEntries = Object.entries(sanitizedFields)
-        if (baseEntries.length === 0 && !hasOrgId && !hasOwnerId) {
-          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
-          throw new Error('Cannot create record with no fields')
-        }
+      // Build base entries from sanitized user fields
+      const baseEntries = Object.entries(sanitizedFields)
+      if (baseEntries.length === 0 && !hasOrgId && !hasOwnerId) {
+        return yield* Effect.fail(
+          new SessionContextError('Cannot create record with no fields', undefined)
+        )
+      }
 
-        // Build column identifiers and values
-        const baseColumnIdentifiers = baseEntries.map(([key]) => {
-          validateColumnName(key)
-          return sql.identifier(key)
-        })
-        const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
+      // Build column identifiers and values
+      const baseColumnIdentifiers = baseEntries.map(([key]) => {
+        validateColumnName(key)
+        return sql.identifier(key)
+      })
+      const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
 
-        // Add organization_id column and value from session (immutable)
-        const withOrgColumn = hasOrgId
-          ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
-          : baseColumnIdentifiers
-        const withOrgValue = hasOrgId
-          ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
-          : baseValueParams
+      // Add organization_id column and value from session (immutable)
+      const withOrgColumn = hasOrgId
+        ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
+        : baseColumnIdentifiers
+      const withOrgValue = hasOrgId
+        ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
+        : baseValueParams
 
-        // Add owner_id column and value from session (immutable)
-        const columnIdentifiers = hasOwnerId
-          ? [...withOrgColumn, sql.identifier('owner_id')]
-          : withOrgColumn
-        const valueParams = hasOwnerId ? [...withOrgValue, sql`${session.userId}`] : withOrgValue
+      // Add owner_id column and value from session (immutable)
+      const columnIdentifiers = hasOwnerId
+        ? [...withOrgColumn, sql.identifier('owner_id')]
+        : withOrgColumn
+      const valueParams = hasOwnerId ? [...withOrgValue, sql`${session.userId}`] : withOrgValue
 
-        console.log('[DEBUG] columnIdentifiers count:', columnIdentifiers.length)
-        console.log('[DEBUG] valueParams count:', valueParams.length)
-        console.log('[DEBUG] session.userId:', session.userId)
+      yield* Effect.log('[DEBUG] columnIdentifiers count:', columnIdentifiers.length)
+      yield* Effect.log('[DEBUG] valueParams count:', valueParams.length)
+      yield* Effect.log('[DEBUG] session.userId:', session.userId)
 
-        // Build INSERT query using sql.join for columns and values
-        const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
-        const valuesClause = sql.join(valueParams, sql.raw(', '))
+      // Build INSERT query using sql.join for columns and values
+      const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
+      const valuesClause = sql.join(valueParams, sql.raw(', '))
 
-        console.log('[DEBUG] About to execute INSERT query')
+      yield* Effect.log('[DEBUG] About to execute INSERT query')
 
-        // Debug: Check session variables before INSERT
-        const sessionCheck = (await tx.execute(
-          sql.raw(
-            `SELECT current_setting('app.user_id', true) as user_id, current_setting('app.user_role', true) as role, current_role`
-          )
-        )) as readonly Record<string, unknown>[]
-        console.log('[DEBUG] Session variables before INSERT:', sessionCheck[0])
+      // Debug: Check session variables before INSERT
+      const sessionCheck = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(
+            sql.raw(
+              `SELECT current_setting('app.user_id', true) as user_id, current_setting('app.user_role', true) as role, current_role`
+            )
+          ) as Promise<readonly Record<string, unknown>[]>,
+        catch: (error) => new SessionContextError('Failed to check session variables', error),
+      })
+      yield* Effect.log('[DEBUG] Session variables before INSERT:', sessionCheck[0])
 
-        try {
-          const result = (await tx.execute(
+      const result = yield* Effect.tryPromise({
+        try: async () => {
+          const insertResult = (await tx.execute(
             sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
           )) as readonly Record<string, unknown>[]
+          return insertResult
+        },
+        catch: (error) => new SessionContextError(`Failed to create record in ${tableName}`, error),
+      })
 
-          console.log('[DEBUG] INSERT succeeded, result:', result)
+      yield* Effect.log('[DEBUG] INSERT succeeded, result:', result)
 
-          return result[0] ?? {}
-        } catch (insertError) {
-          console.log('[DEBUG] INSERT failed with error:', insertError)
-          console.log('[DEBUG] Error details:', {
-            name: insertError instanceof Error ? insertError.name : 'unknown',
-            message: insertError instanceof Error ? insertError.message : String(insertError),
-            stack: insertError instanceof Error ? insertError.stack : 'no stack',
-          })
-          // eslint-disable-next-line functional/no-throw-statements -- Re-throw for Effect.tryPromise to catch
-          throw insertError
-        }
-      },
-      catch: (error) => {
-        console.log('[DEBUG] createRecord catch handler, error:', error)
-        console.log(
-          '[DEBUG] error.cause:',
-          error && typeof error === 'object' && 'cause' in error ? error.cause : 'no cause'
-        )
-        return new SessionContextError(`Failed to create record in ${tableName}`, error)
-      },
-    })
+      return result[0] ?? {}
+    }).pipe(
+      Effect.catchAll((error) => {
+        return Effect.gen(function* () {
+          yield* Effect.log('[DEBUG] createRecord error:', error)
+          if (error instanceof SessionContextError) {
+            yield* Effect.log('[DEBUG] SessionContextError details:', {
+              message: error.message,
+              cause: error.cause,
+            })
+          }
+          return yield* Effect.fail(error)
+        })
+      })
+    )
   )
 }
 

@@ -109,16 +109,27 @@ function getServicesFromContext() {
 
 /**
  * Generate HTML files for single or multi-language apps
+ *
+ * @param app - Application configuration
+ * @param outputDir - Output directory path
+ * @param replaceAppTokens - Function to replace app tokens with language-specific values
+ * @param serverFactory - Server factory service from Effect Context
+ *                       Typed as `any` because Effect Context services are dynamically resolved
+ *                       at runtime and don't have static types until provided via Layer.
+ * @param pageRenderer - Page renderer service from Effect Context
+ *                      Typed as `any` for the same reason as serverFactory.
+ * @param staticSiteGenerator - Static site generator service from Effect Context
+ *                             Typed as `any` for the same reason as serverFactory.
  */
 function generateHtmlFiles(
   app: App,
   outputDir: string,
   replaceAppTokens: (app: App, lang: string) => App,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
   serverFactory: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
   pageRenderer: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
   staticSiteGenerator: any
 ) {
   return app.languages && app.pages
@@ -135,13 +146,20 @@ function generateHtmlFiles(
 
 /**
  * Generate and write CSS file
+ *
+ * @param outputDir - Output directory path
+ * @param app - Application configuration
+ * @param cssCompiler - CSS compiler service from Effect Context
+ *                     Typed as `any` because Effect Context services are runtime-resolved via Layer.
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 function generateCssFile(
   outputDir: string,
   app: App,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
   cssCompiler: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any
 ) {
   return Effect.gen(function* () {
@@ -153,12 +171,18 @@ function generateCssFile(
 
 /**
  * Optimize HTML files with formatting and transformations
+ *
+ * @param generatedFiles - List of generated file paths
+ * @param outputDir - Output directory path
+ * @param options - Static generation options
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 function optimizeHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any
 ) {
   return Effect.gen(function* () {

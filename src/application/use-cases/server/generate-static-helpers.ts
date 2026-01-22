@@ -79,11 +79,19 @@ export function importCopyDirectory() {
 
 /**
  * Write CSS file to output directory
+ *
+ * @param outputDir - Output directory path
+ * @param css - Compiled CSS content
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` because this function is runtime-agnostic and works with
+ *            dynamically imported fs modules that have compatible APIs but different types.
+ *            This enables static site generation to work across Node.js and Bun runtimes
+ *            without duplicating code.
  */
 export function writeCssFile(
   outputDir: string,
   css: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any
 ) {
   return Effect.gen(function* () {
@@ -113,11 +121,16 @@ export function writeCssFile(
 
 /**
  * Generate client-side hydration script if enabled
+ *
+ * @param outputDir - Output directory path
+ * @param enabled - Whether hydration is enabled
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 export function generateHydrationFiles(
   outputDir: string,
   enabled: boolean,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any
 ) {
   return Effect.if(enabled, {
@@ -156,13 +169,20 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
 
 /**
  * Format HTML files with Prettier
+ *
+ * @param generatedFiles - List of generated file paths
+ * @param outputDir - Output directory path
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` for runtime-agnostic compatibility.
+ * @param path - Path module (Node.js path or Bun's equivalent)
+ *             Typed as `any` for runtime-agnostic path operations across Node.js and Bun.
  */
 export function formatHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic path module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic path module import (Node.js path or Bun) - see JSDoc
   path: any
 ) {
   return Effect.gen(function* () {
@@ -205,14 +225,23 @@ export function formatHtmlFiles(
 
 /**
  * Apply optimizations to generated HTML files
+ *
+ * @param config - Configuration object
+ * @param config.generatedFiles - List of generated file paths
+ * @param config.outputDir - Output directory path
+ * @param config.options - Static generation options
+ * @param config.fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *                    Typed as `any` for runtime-agnostic compatibility.
+ * @param config.path - Path module (Node.js path or Bun's equivalent)
+ *                     Typed as `any` for runtime-agnostic path operations.
  */
 export function applyHtmlOptimizations(config: {
   readonly generatedFiles: readonly string[]
   readonly outputDir: string
   readonly options: GenerateStaticOptions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   readonly fs: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic path module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic path module import (Node.js path or Bun) - see JSDoc
   readonly path: any
 }) {
   return Effect.gen(function* () {
@@ -246,12 +275,18 @@ export function applyHtmlOptimizations(config: {
 
 /**
  * Generate sitemap.xml if enabled
+ *
+ * @param app - Application configuration
+ * @param outputDir - Output directory path
+ * @param options - Static generation options
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 export function generateSitemapFile(
   app: App,
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any
 ) {
   return Effect.if(options.generateSitemap ?? false, {
@@ -285,12 +320,18 @@ export function generateSitemapFile(
 
 /**
  * Generate robots.txt if enabled
+ *
+ * @param app - Application configuration
+ * @param outputDir - Output directory path
+ * @param options - Static generation options
+ * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
+ *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 export function generateRobotsFile(
   app: App,
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
   fs: any
 ) {
   return Effect.if(options.generateRobotsTxt ?? false, {

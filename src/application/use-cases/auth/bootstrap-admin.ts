@@ -149,6 +149,67 @@ const createAdminUser = (
   })
 
 /**
+ * Validate admin bootstrap configuration
+ * Returns Effect that succeeds if valid, fails with validation error otherwise
+ */
+const validateBootstrapConfig = (
+  config: AdminBootstrapConfig
+): Effect.Effect<void, InvalidEmailError | WeakPasswordError> =>
+  Effect.gen(function* () {
+    if (!isValidEmail(config.email)) {
+      yield* Console.log('[bootstrap-admin] Invalid email format:', config.email)
+      return yield* Effect.fail(new InvalidEmailError({ email: config.email }))
+    }
+
+    if (!isValidPassword(config.password)) {
+      yield* Console.log('[bootstrap-admin] Password too weak')
+      return yield* Effect.fail(
+        new WeakPasswordError({ message: 'Password must be at least 8 characters' })
+      )
+    }
+  })
+
+/**
+ * Check preconditions for admin bootstrap
+ * Returns Effect.void if preconditions met, Effect.void with early return if skipped
+ */
+const checkBootstrapPreconditions = (
+  app: App,
+  config: AdminBootstrapConfig | undefined
+): Effect.Effect<AdminBootstrapConfig, never> =>
+  Effect.gen(function* () {
+    if (!config) {
+      yield* Console.log('[bootstrap-admin] No admin bootstrap config found')
+      return yield* Effect.succeed(undefined as never)
+    }
+
+    yield* Console.log('[bootstrap-admin] Admin bootstrap config found:', config.email)
+
+    const adminPluginEnabled = Boolean(app.auth?.admin)
+    if (!adminPluginEnabled) {
+      yield* Console.log('[bootstrap-admin] Admin plugin not enabled, skipping')
+      return yield* Effect.succeed(undefined as never)
+    }
+
+    yield* Console.log('[bootstrap-admin] Admin plugin is enabled')
+    return config
+  })
+
+/**
+ * Handle post-creation logic (verification email)
+ */
+const handlePostCreation = (
+  requireEmailVerification: boolean,
+  userId: string | undefined
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    if (requireEmailVerification && userId) {
+      yield* Console.log('[bootstrap-admin] Sending verification email...')
+      yield* Console.log('📧 Verification email sent to admin')
+    }
+  })
+
+/**
  * Bootstrap admin account at application startup
  *
  * This use case creates an admin account if:
@@ -174,50 +235,19 @@ const createAdminUser = (
 export const bootstrapAdmin = (
   app: App
 ): Effect.Effect<void, InvalidEmailError | WeakPasswordError | DatabaseError, Auth | Database> =>
-  // eslint-disable-next-line max-statements, complexity
   Effect.gen(function* () {
-    // Parse admin bootstrap config from environment variables
-    const config = parseAdminBootstrapConfig()
+    const parsedConfig = parseAdminBootstrapConfig()
+    const config = yield* checkBootstrapPreconditions(app, parsedConfig).pipe(
+      Effect.catchAll(() => Effect.succeed(undefined))
+    )
 
-    // Skip if config not provided
-    if (!config) {
-      yield* Console.log('[bootstrap-admin] No admin bootstrap config found')
-      return
-    }
+    if (!config) return
 
-    yield* Console.log('[bootstrap-admin] Admin bootstrap config found:', config.email)
-
-    // Check if admin plugin is enabled
-    // The admin config can be boolean (true) or an object with configuration
-    const adminPluginEnabled = Boolean(app.auth?.admin)
-
-    if (!adminPluginEnabled) {
-      yield* Console.log('[bootstrap-admin] Admin plugin not enabled, skipping')
-      return
-    }
-
-    yield* Console.log('[bootstrap-admin] Admin plugin is enabled')
-
-    // Validate email format
-    if (!isValidEmail(config.email)) {
-      yield* Console.log('[bootstrap-admin] Invalid email format:', config.email)
-      return yield* Effect.fail(new InvalidEmailError({ email: config.email }))
-    }
-
-    // Validate password strength
-    if (!isValidPassword(config.password)) {
-      yield* Console.log('[bootstrap-admin] Password too weak')
-      return yield* Effect.fail(
-        new WeakPasswordError({ message: 'Password must be at least 8 characters' })
-      )
-    }
-
+    yield* validateBootstrapConfig(config)
     yield* Console.log('[bootstrap-admin] Email and password validated, proceeding to create user')
 
-    // Get Auth service from Effect Context
     const auth = yield* Auth
 
-    // Check if email verification is required
     const emailAndPasswordConfig =
       app.auth?.emailAndPassword && typeof app.auth.emailAndPassword === 'object'
         ? app.auth.emailAndPassword
@@ -228,7 +258,6 @@ export const bootstrapAdmin = (
       `[bootstrap-admin] requireEmailVerification=${requireEmailVerification}, will set emailVerified=${!requireEmailVerification}`
     )
 
-    // Create admin user via Better Auth API
     const { alreadyExists, userId } = yield* createAdminUser(auth, config, requireEmailVerification)
 
     if (alreadyExists) {
@@ -237,10 +266,5 @@ export const bootstrapAdmin = (
     }
 
     yield* Console.log(`✅ Admin account created: ${config.email}`)
-
-    // Send verification email if required
-    if (requireEmailVerification && userId) {
-      yield* Console.log('[bootstrap-admin] Sending verification email...')
-      yield* Console.log('📧 Verification email sent to admin')
-    }
+    yield* handlePostCreation(requireEmailVerification, userId)
   })

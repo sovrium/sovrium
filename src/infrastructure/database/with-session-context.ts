@@ -7,9 +7,15 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect, Runtime } from 'effect'
-import { db } from './drizzle/db'
+import { db, type DrizzleDB } from './drizzle/db'
 import type { SessionContextError } from './session-context'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+/**
+ * Type for Drizzle transaction callback parameter
+ * Extracts the transaction type from the db.transaction method
+ */
+type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0]
 
 /**
  * Escape SQL string values to prevent SQL injection
@@ -28,8 +34,7 @@ const escapeSQL = (value: string): string => value.replace(/'/g, "''")
  */
 
 const getUserRole = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   session: Readonly<Session>
 ): Promise<string> => {
   // Fetch global user role from users table
@@ -70,8 +75,7 @@ const getUserRole = async (
  */
 export const withSessionContext = <A, E>(
   session: Readonly<Session>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  operation: (tx: Readonly<any>) => Effect.Effect<A, E>
+  operation: (tx: Readonly<DrizzleTransaction>) => Effect.Effect<A, E>
 ): Effect.Effect<A, E | SessionContextError> =>
   Effect.gen(function* () {
     // Extract runtime to use in async callback (avoids Effect.runPromise inside Effect)
@@ -80,8 +84,7 @@ export const withSessionContext = <A, E>(
     // Execute operation within a transaction with session context
     const result = yield* Effect.tryPromise<A, E | SessionContextError>({
       try: () =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-        db.transaction(async (tx: any) => {
+        db.transaction(async (tx: Readonly<DrizzleTransaction>) => {
           // Get user's global role
           const userRole = await getUserRole(tx, session)
 
@@ -126,11 +129,9 @@ export const withSessionContext = <A, E>(
  */
 export const withSessionContextSimple = async <A>(
   session: Readonly<Session>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  operation: (tx: Readonly<any>) => Promise<A>
+  operation: (tx: Readonly<DrizzleTransaction>) => Promise<A>
 ): Promise<A> => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  return await db.transaction(async (tx: any) => {
+  return await db.transaction(async (tx: Readonly<DrizzleTransaction>) => {
     // Get user's global role
     const userRole = await getUserRole(tx, session)
 
