@@ -196,6 +196,10 @@ const _hasCustomFieldReadPermissions = (table: Table): boolean =>
  * When a table has authenticated permissions (e.g., read: { type: 'authenticated' }),
  * this generates RLS policies that check if the user is authenticated.
  *
+ * IMPORTANT: When INSERT permission is granted but SELECT is not explicitly defined,
+ * we automatically generate a SELECT policy to allow INSERT...RETURNING to work.
+ * PostgreSQL requires SELECT permission to read rows returned by INSERT...RETURNING.
+ *
  * @param table - Table definition with authenticated permissions
  * @returns Array of SQL statements to enable RLS and create authenticated policies
  */
@@ -209,11 +213,17 @@ const generateAuthenticatedBasedPolicies = (table: Table): readonly string[] => 
   const enableRLS = generateEnableRLS(tableName)
   const authenticatedChecks = generateAuthenticatedChecks(table.permissions)
 
+  // Special case: If INSERT is allowed but SELECT is not explicitly defined,
+  // generate a SELECT policy to allow INSERT...RETURNING to work
+  const effectiveReadCheck =
+    authenticatedChecks.read ??
+    (authenticatedChecks.create ? authenticatedChecks.create : undefined)
+
   const selectPolicies = generateAuthenticatedPolicyStatements(
     tableName,
     'read',
     'SELECT',
-    authenticatedChecks.read
+    effectiveReadCheck
   )
 
   const insertPolicies = generateAuthenticatedPolicyStatements(
@@ -622,9 +632,9 @@ export const generateRLSPolicyStatements = (table: Table): readonly string[] => 
   const statements = generator(table)
   console.log(`[RLS-GEN] Table: ${table.name}`)
   console.log(`[RLS-GEN] Policies count: ${statements.length}`)
-  console.log(`[RLS-GEN] First 3 policies:`)
-  statements.slice(0, 3).forEach((stmt, i) => {
-    console.log(`  [${i}] ${stmt.substring(0, 150)}...`)
+  console.log(`[RLS-GEN] ALL policies:`)
+  statements.forEach((stmt, i) => {
+    console.log(`  [${i}] ${stmt}`)
   })
   return statements
 }

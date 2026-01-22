@@ -25,15 +25,11 @@ interface ParseableSchema<T> {
  */
 function isNotFoundError(error: unknown): boolean {
   const errorMessage = error instanceof Error ? error.message : String(error)
-  const errorName = error instanceof Error ? error.name : ''
-  const errorString = String(error)
 
   return (
     errorMessage.includes('Record not found') ||
     errorMessage.includes('not found') ||
-    errorMessage.includes('access denied') ||
-    errorName.includes('SessionContextError') ||
-    errorString.includes('SessionContextError')
+    errorMessage.includes('access denied')
   )
 }
 
@@ -72,8 +68,14 @@ export async function runEffect<T, S>(
     const validated = schema.parse(result)
     return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
+    console.log('[DEBUG] runEffect caught error:', error)
+    console.log('[DEBUG] Error name:', error instanceof Error ? error.name : 'unknown')
+    console.log('[DEBUG] Error message:', error instanceof Error ? error.message : String(error))
+    console.log('[DEBUG] isNotFoundError check:', isNotFoundError(error))
+
     // Check if this is a SessionContextError indicating "not found" - return 404
     if (isNotFoundError(error)) {
+      console.log('[DEBUG] Returning 404 due to isNotFoundError check')
       return c.json({ error: 'Record not found' }, 404)
     }
 
@@ -84,6 +86,7 @@ export async function runEffect<T, S>(
         ? String(error.cause)
         : 'No cause details'
 
+    console.log('[DEBUG] Returning 500 with error details')
     return c.json(
       errorResponseSchema.parse({
         success: false,

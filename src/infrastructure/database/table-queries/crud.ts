@@ -118,6 +118,7 @@ export function getRecord(
  * @param fields - Record fields
  * @returns Effect resolving to created record
  */
+/* eslint-disable max-lines-per-function, complexity, max-statements -- Debugging code temporarily increases complexity */
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -126,6 +127,7 @@ export function createRecord(
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
+        console.log('[DEBUG] createRecord called for table:', tableName, 'fields:', fields)
         validateTableName(tableName)
 
         // Check if table has organization_id or owner_id columns
@@ -133,8 +135,12 @@ export function createRecord(
           sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('organization_id', 'owner_id')`
         )) as readonly Record<string, unknown>[]
 
+        console.log('[DEBUG] columnCheck result:', columnCheck)
+
         const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
         const hasOwnerId = columnCheck.some((row) => row.column_name === 'owner_id')
+
+        console.log('[DEBUG] hasOrgId:', hasOrgId, 'hasOwnerId:', hasOwnerId)
 
         // Security: Filter out any user-provided organization_id or owner_id if table has those columns
         // This prevents malicious users from injecting data into other organizations or impersonating other users
@@ -144,6 +150,8 @@ export function createRecord(
               !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
           )
         )
+
+        console.log('[DEBUG] sanitizedFields:', sanitizedFields)
 
         // Build base entries from sanitized user fields
         const baseEntries = Object.entries(sanitizedFields)
@@ -173,17 +181,51 @@ export function createRecord(
           : withOrgColumn
         const valueParams = hasOwnerId ? [...withOrgValue, sql`${session.userId}`] : withOrgValue
 
+        console.log('[DEBUG] columnIdentifiers count:', columnIdentifiers.length)
+        console.log('[DEBUG] valueParams count:', valueParams.length)
+        console.log('[DEBUG] session.userId:', session.userId)
+
         // Build INSERT query using sql.join for columns and values
         const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
         const valuesClause = sql.join(valueParams, sql.raw(', '))
 
-        const result = (await tx.execute(
-          sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-        )) as readonly Record<string, unknown>[]
+        console.log('[DEBUG] About to execute INSERT query')
 
-        return result[0] ?? {}
+        // Debug: Check session variables before INSERT
+        const sessionCheck = (await tx.execute(
+          sql.raw(
+            `SELECT current_setting('app.user_id', true) as user_id, current_setting('app.user_role', true) as role, current_role`
+          )
+        )) as readonly Record<string, unknown>[]
+        console.log('[DEBUG] Session variables before INSERT:', sessionCheck[0])
+
+        try {
+          const result = (await tx.execute(
+            sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+          )) as readonly Record<string, unknown>[]
+
+          console.log('[DEBUG] INSERT succeeded, result:', result)
+
+          return result[0] ?? {}
+        } catch (insertError) {
+          console.log('[DEBUG] INSERT failed with error:', insertError)
+          console.log('[DEBUG] Error details:', {
+            name: insertError instanceof Error ? insertError.name : 'unknown',
+            message: insertError instanceof Error ? insertError.message : String(insertError),
+            stack: insertError instanceof Error ? insertError.stack : 'no stack',
+          })
+          // eslint-disable-next-line functional/no-throw-statements -- Re-throw for Effect.tryPromise to catch
+          throw insertError
+        }
       },
-      catch: (error) => new SessionContextError(`Failed to create record in ${tableName}`, error),
+      catch: (error) => {
+        console.log('[DEBUG] createRecord catch handler, error:', error)
+        console.log(
+          '[DEBUG] error.cause:',
+          error && typeof error === 'object' && 'cause' in error ? error.cause : 'no cause'
+        )
+        return new SessionContextError(`Failed to create record in ${tableName}`, error)
+      },
     })
   )
 }

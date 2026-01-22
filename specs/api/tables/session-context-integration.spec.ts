@@ -345,7 +345,7 @@ test.describe('API Session Context Integration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-SESSION-CTX-INT-006: should handle create operations with session context',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -364,6 +364,7 @@ test.describe('API Session Context Integration', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'owner_id', type: 'user' },
             ],
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               create: { type: 'authenticated' },
             },
@@ -387,10 +388,12 @@ test.describe('API Session Context Integration', () => {
       })
 
       // THEN: Record should be created with correct owner_id (set by session context)
+      console.log('POST Response status:', response.status())
+      console.log('POST Response URL:', response.url())
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.record.fields.name).toBe('New Project')
+      expect(data.fields.name).toBe('New Project')
 
       // Verify in database that owner_id was set correctly
       const result = await executeQuery(`
