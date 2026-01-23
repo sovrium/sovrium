@@ -337,13 +337,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-008: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A user from organization A attempting to create in organization B's table
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -352,6 +353,9 @@ test.describe('Create new record', () => {
           },
         ],
       })
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User attempts to create record in different organization's table
       const response = await request.post('/api/tables/1/records', {
