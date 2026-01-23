@@ -25,7 +25,7 @@ describe('ServerFactory', () => {
   test('should create server instance successfully', async () => {
     const mockServerInstance: Partial<ServerInstance> = {
       url: 'http://localhost:3000',
-      stop: Effect.succeed(undefined),
+      stop: Effect.void,
     }
 
     const MockServerFactoryLive = Layer.succeed(ServerFactory, {

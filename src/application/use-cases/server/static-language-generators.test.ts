@@ -30,7 +30,7 @@ const createTestApp = (overrides: Record<string, unknown> = {}): App =>
 // Mock server instance
 const createMockServerInstance = (app: App) => ({
   app,
-  stop: Effect.succeed(undefined),
+  stop: Effect.void,
 })
 
 // Mock service factories - use any to bypass strict type checking

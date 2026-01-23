@@ -255,7 +255,7 @@ export function applyHtmlOptimizations(config: {
           config.options.baseUrl,
           config.fs
         ),
-      onFalse: () => Effect.succeed(undefined),
+      onFalse: () => Effect.void,
     })
 
     // Step 2: Inject hydration script into HTML if enabled
@@ -268,7 +268,7 @@ export function applyHtmlOptimizations(config: {
           config.fs,
           config.path
         ),
-      onFalse: () => Effect.succeed(undefined),
+      onFalse: () => Effect.void,
     })
   })
 }

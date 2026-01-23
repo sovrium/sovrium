@@ -135,7 +135,7 @@ const runMigrationsIfConfigured = (
   void,
   DatabaseConnectionError | MigrationError | SchemaInitializationError,
   never
-> => (databaseUrl ? runMigrations(databaseUrl) : Effect.succeed(undefined))
+> => (databaseUrl ? runMigrations(databaseUrl) : Effect.void)
 
 /**
  * Compile CSS and log results

@@ -158,29 +158,29 @@ const validateBootstrapConfig = (
   Effect.gen(function* () {
     if (!isValidEmail(config.email)) {
       yield* Console.log('[bootstrap-admin] Invalid email format:', config.email)
-      return yield* Effect.fail(new InvalidEmailError({ email: config.email }))
+      return yield* new InvalidEmailError({ email: config.email })
     }
 
     if (!isValidPassword(config.password)) {
       yield* Console.log('[bootstrap-admin] Password too weak')
-      return yield* Effect.fail(
-        new WeakPasswordError({ message: 'Password must be at least 8 characters' })
-      )
+      return yield* new WeakPasswordError({
+        message: 'Password must be at least 8 characters',
+      })
     }
   })
 
 /**
  * Check preconditions for admin bootstrap
- * Returns Effect.void if preconditions met, Effect.void with early return if skipped
+ * Returns config if preconditions met, undefined if skipped
  */
 const checkBootstrapPreconditions = (
   app: App,
   config: AdminBootstrapConfig | undefined
-): Effect.Effect<AdminBootstrapConfig, never> =>
+): Effect.Effect<AdminBootstrapConfig | undefined, never> =>
   Effect.gen(function* () {
     if (!config) {
       yield* Console.log('[bootstrap-admin] No admin bootstrap config found')
-      return yield* Effect.succeed(undefined as never)
+      return undefined
     }
 
     yield* Console.log('[bootstrap-admin] Admin bootstrap config found:', config.email)
@@ -188,7 +188,7 @@ const checkBootstrapPreconditions = (
     const adminPluginEnabled = Boolean(app.auth?.admin)
     if (!adminPluginEnabled) {
       yield* Console.log('[bootstrap-admin] Admin plugin not enabled, skipping')
-      return yield* Effect.succeed(undefined as never)
+      return undefined
     }
 
     yield* Console.log('[bootstrap-admin] Admin plugin is enabled')
@@ -237,9 +237,7 @@ export const bootstrapAdmin = (
 ): Effect.Effect<void, InvalidEmailError | WeakPasswordError | DatabaseError, Auth | Database> =>
   Effect.gen(function* () {
     const parsedConfig = parseAdminBootstrapConfig()
-    const config = yield* checkBootstrapPreconditions(app, parsedConfig).pipe(
-      Effect.catchAll(() => Effect.succeed(undefined))
-    )
+    const config = yield* checkBootstrapPreconditions(app, parsedConfig)
 
     if (!config) return
 

@@ -18,7 +18,7 @@ describe('ServerInstance interface', () => {
         fetch: () => new Response('OK'),
       }),
       url: 'http://localhost:3000',
-      stop: Effect.succeed(undefined),
+      stop: Effect.void,
       app: {
         fetch: () => Promise.resolve(new Response('OK')),
       } as unknown as ServerInstance['app'],
