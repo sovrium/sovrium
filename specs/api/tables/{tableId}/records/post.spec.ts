@@ -24,13 +24,14 @@ test.describe('Create new record', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-001: should return 201 Created with record data',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A running server with valid table
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -43,6 +44,9 @@ test.describe('Create new record', () => {
           },
         ],
       })
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User creates record with valid data
       const response = await request.post('/api/tables/1/records', {
