@@ -532,13 +532,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-012: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: User attempts to set system-managed readonly fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 11,
@@ -551,8 +552,11 @@ test.describe('Create new record', () => {
         ],
       })
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: Create request includes id or created_at fields
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/11/records', {
         headers: {
           'Content-Type': 'application/json',
         },
