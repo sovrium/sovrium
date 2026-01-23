@@ -639,7 +639,7 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-014: should auto-inject owner_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -667,7 +667,7 @@ test.describe('Create new record', () => {
       const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
 
       // WHEN: owner_id field exists in table
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/13/records', {
         headers: {
           'Content-Type': 'application/json',
         },
