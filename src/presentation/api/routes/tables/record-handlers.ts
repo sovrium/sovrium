@@ -125,14 +125,35 @@ export async function handleCreateRecord(c: Context, app: App) {
     )
   }
 
+  // Check field-level write permissions
+  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
+    app,
+    tableName,
+    userRole,
+    result.data.fields
+  )
+
+  // If user tried to write to forbidden fields, return 403 with specific error
+  if (forbiddenFields.length > 0) {
+    const firstForbiddenField = forbiddenFields[0]
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        field: firstForbiddenField,
+      },
+      403
+    )
+  }
+
   // Validate required fields
-  const validationError = validateRequiredFields(table, result.data.fields, c)
+  const validationError = validateRequiredFields(table, allowedData, c)
   if (validationError) return validationError
 
-  console.log('[DEBUG] About to call runEffect with fields:', result.data.fields)
+  console.log('[DEBUG] About to call runEffect with fields:', allowedData)
   return await runEffect(
     c,
-    createRecordProgram(session, tableName, result.data.fields),
+    createRecordProgram(session, tableName, allowedData),
     createRecordResponseSchema,
     201
   )

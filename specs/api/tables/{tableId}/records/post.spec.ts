@@ -425,13 +425,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A member user attempting to create with write-protected field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -441,12 +442,23 @@ test.describe('Create new record', () => {
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'decimal' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write salary
+                },
+              ],
+            },
           },
         ],
       })
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: Member includes salary field in create request
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/9/records', {
         headers: {
           'Content-Type': 'application/json',
         },
