@@ -140,7 +140,8 @@ export async function handleCreateRecord(c: Context, app: App) {
   }
 
   // Check if user is trying to set fields with default values (system-managed)
-  const fieldsWithDefaults = table?.fields?.filter((f) => f.default !== undefined) ?? []
+  const fieldsWithDefaults =
+    table?.fields?.filter((f) => 'default' in f && f.default !== undefined) ?? []
   const attemptedDefaultField = fieldsWithDefaults.find((f) => f.name in requestedFields)
 
   if (attemptedDefaultField) {
