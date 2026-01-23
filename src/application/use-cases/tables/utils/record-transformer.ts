@@ -53,7 +53,7 @@ const toISOString = (value: unknown): string => {
  * - Nests user-defined fields under `fields` property (Airtable-style)
  * - Keeps system fields (id, createdAt, updatedAt) at root level
  * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
- * - Converts Date objects to ISO 8601 strings for API compliance
+ * - Converts Date objects in field values to ISO 8601 strings for API compliance
  *
  * @param record - Raw database record
  * @returns Transformed record for API response
