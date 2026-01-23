@@ -65,24 +65,47 @@ export async function handleListRecords(c: Context, app: App) {
   )
 }
 
+/**
+ * Validate required fields for record creation
+ * Returns error response if required fields are missing, undefined otherwise
+ */
+function validateRequiredFields(
+  table:
+    | {
+        readonly name: string
+        readonly fields: ReadonlyArray<{
+          readonly name: string
+          readonly required?: boolean
+        }>
+      }
+    | undefined,
+  fields: Record<string, unknown>,
+  c: Context
+) {
+  if (!table) return undefined
+
+  const missingRequiredFields = table.fields
+    .filter((field) => field.required && !(field.name in fields))
+    .map((field) => field.name)
+
+  if (missingRequiredFields.length > 0) {
+    return c.json({ error: 'Validation error' }, 400)
+  }
+
+  return undefined
+}
+
 export async function handleCreateRecord(c: Context, app: App) {
   console.log('[DEBUG] handleCreateRecord called - method:', c.req.method, 'path:', c.req.path)
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
   console.log('[DEBUG] session:', session?.userId, 'tableName:', tableName, 'userRole:', userRole)
 
-  console.log('[DEBUG] About to validate request body')
   const result = await validateRequest(c, createRecordRequestSchema)
-  if (!result.success) {
-    console.log('[DEBUG] Validation failed, returning error response')
-    return result.response
-  }
-  console.log('[DEBUG] Validation passed, data:', result.data)
+  if (!result.success) return result.response
 
   const table = app.tables?.find((t) => t.name === tableName)
-  console.log('[DEBUG] Found table:', table?.name, 'checking permissions...')
   if (!hasCreatePermission(table, userRole)) {
-    console.log('[DEBUG] Permission denied for userRole:', userRole)
     return c.json(
       {
         error: 'Forbidden',
@@ -91,17 +114,18 @@ export async function handleCreateRecord(c: Context, app: App) {
       403
     )
   }
-  console.log('[DEBUG] Permission granted, calling runEffect...')
+
+  // Validate required fields
+  const validationError = validateRequiredFields(table, result.data.fields, c)
+  if (validationError) return validationError
 
   console.log('[DEBUG] About to call runEffect with fields:', result.data.fields)
-  const response = await runEffect(
+  return await runEffect(
     c,
     createRecordProgram(session, tableName, result.data.fields),
     createRecordResponseSchema,
     201
   )
-  console.log('[DEBUG] runEffect returned, status:', response.status)
-  return response
 }
 
 export async function handleGetRecord(c: Context, app: App) {
