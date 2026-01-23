@@ -164,13 +164,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-004: should return 409 Conflict',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A table with unique email constraint and existing record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -183,6 +184,9 @@ test.describe('Create new record', () => {
         ],
       })
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // Seed test data
       await executeQuery(`
         INSERT INTO users (email, first_name)
@@ -190,7 +194,7 @@ test.describe('Create new record', () => {
       `)
 
       // WHEN: User attempts to create record with duplicate email
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/3/records', {
         headers: {
           'Content-Type': 'application/json',
         },

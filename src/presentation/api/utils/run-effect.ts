@@ -68,29 +68,28 @@ export async function runEffect<T, S>(
     const validated = schema.parse(result)
     return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
-    console.log('[DEBUG] runEffect caught error:', error)
-    console.log('[DEBUG] Error name:', error instanceof Error ? error.name : 'unknown')
-    console.log('[DEBUG] Error message:', error instanceof Error ? error.message : String(error))
-    console.log('[DEBUG] isNotFoundError check:', isNotFoundError(error))
+    // Check if this is a unique constraint violation - return 409
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorName = error instanceof Error ? error.name : ''
+
+    if (
+      errorName === 'UniqueConstraintViolationError' ||
+      errorMessage.toLowerCase().includes('unique constraint')
+    ) {
+      return c.json({ error: 'Unique constraint violation' }, 409)
+    }
 
     // Check if this is a SessionContextError indicating "not found" - return 404
     if (isNotFoundError(error)) {
-      console.log('[DEBUG] Returning 404 due to isNotFoundError check')
       return c.json({ error: 'Record not found' }, 404)
     }
 
-    // Debug: Include full error details in response for debugging
+    // Return generic error for other cases
     const errorDetails = error instanceof Error ? error.message : 'Internal server error'
-    const causeDetails =
-      error && typeof error === 'object' && 'cause' in error
-        ? String(error.cause)
-        : 'No cause details'
-
-    console.log('[DEBUG] Returning 500 with error details')
     return c.json(
       errorResponseSchema.parse({
         success: false,
-        message: `${errorDetails} | Cause: ${causeDetails}`,
+        message: errorDetails,
         code: 'INTERNAL_ERROR',
       }),
       500
