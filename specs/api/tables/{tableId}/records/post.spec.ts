@@ -577,13 +577,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-013: should return 403 for first forbidden field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Multiple fields with different write permission levels
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,
@@ -595,12 +596,27 @@ test.describe('Create new record', () => {
               { id: 4, name: 'salary', type: 'decimal' },
               { id: 5, name: 'ssn', type: 'single-line-text' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write salary
+                },
+                {
+                  field: 'ssn',
+                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write ssn
+                },
+              ],
+            },
           },
         ],
       })
 
+      // Create authenticated user with default role (member)
+      await createAuthenticatedUser()
+
       // WHEN: User creates with mix of permitted and forbidden fields
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/12/records', {
         headers: {
           'Content-Type': 'application/json',
         },
