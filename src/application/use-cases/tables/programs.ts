@@ -333,7 +333,9 @@ export function createGetRecordProgram(
 export function createRecordProgram(
   session: Readonly<Session>,
   tableName: string,
-  fields: Readonly<Record<string, unknown>>
+  fields: Readonly<Record<string, unknown>>,
+  app?: App,
+  userRole?: string
 ) {
   return Effect.gen(function* () {
     // Create record with session context (owner_id set automatically)
@@ -345,12 +347,24 @@ export function createRecordProgram(
 
     const transformed = transformRecord(record)
 
+    // Apply field-level read permissions filtering
+    // If app and userRole are provided, filter fields based on permissions
+    let filteredFields = transformed.fields
+    if (app && userRole) {
+      const { userId } = session
+      const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
+
+      // Transform filtered record to get only user fields (exclude system fields)
+      const transformedFiltered = transformRecord(filteredRecord)
+      filteredFields = transformedFiltered.fields
+    }
+
     // Return in format expected by tests: system fields at root, user fields nested
     // owner_id needs to be at root level for API compatibility
     return {
       id: transformed.id,
       ...(ownerId !== undefined ? { owner_id: ownerId } : {}),
-      fields: transformed.fields,
+      fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
     }
