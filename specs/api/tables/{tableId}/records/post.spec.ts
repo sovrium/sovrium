@@ -420,7 +420,8 @@ test.describe('Create new record', () => {
       expect(data).toHaveProperty('id')
       expect(data.fields.name).toBe('John Doe')
       expect(data.fields.email).toBe('john@example.com')
-      expect(data.fields.salary).toBe(75_000)
+      // Decimal fields are returned as strings from PostgreSQL to preserve precision
+      expect(data.fields.salary).toBe('75000')
     }
   )
 
