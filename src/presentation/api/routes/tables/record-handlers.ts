@@ -125,6 +125,34 @@ export async function handleCreateRecord(c: Context, app: App) {
     )
   }
 
+  // Check for readonly system fields (id, fields with defaults)
+  const requestedFields = result.data.fields
+
+  // Check if user is trying to set 'id' field
+  if ('id' in requestedFields) {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: "Cannot write to readonly field 'id'",
+      },
+      403
+    )
+  }
+
+  // Check if user is trying to set fields with default values (system-managed)
+  const fieldsWithDefaults = table?.fields?.filter((f) => f.default !== undefined) ?? []
+  const attemptedDefaultField = fieldsWithDefaults.find((f) => f.name in requestedFields)
+
+  if (attemptedDefaultField) {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: `Cannot write to readonly field '${attemptedDefaultField.name}'`,
+      },
+      403
+    )
+  }
+
   // Check field-level write permissions
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
