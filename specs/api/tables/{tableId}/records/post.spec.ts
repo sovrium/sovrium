@@ -294,24 +294,31 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-007: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A viewer user without create permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
             name: 'tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+            permissions: {
+              create: { type: 'roles', roles: ['admin'] }, // Only admin can create
+            },
           },
         ],
       })
 
+      // Create authenticated user with default role (member/viewer)
+      await createAuthenticatedUser()
+
       // WHEN: Viewer attempts to create a record
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/6/records', {
         headers: {
           'Content-Type': 'application/json',
         },
