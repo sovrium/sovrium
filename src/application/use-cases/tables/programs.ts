@@ -349,15 +349,23 @@ export function createRecordProgram(
 
     // Apply field-level read permissions filtering
     // If app and userRole are provided, filter fields based on permissions
-    let filteredFields = transformed.fields
-    if (app && userRole) {
-      const { userId } = session
-      const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
+    const filteredFields =
+      app && userRole
+        ? (() => {
+            const { userId } = session
+            const filteredRecord = filterReadableFields({
+              app,
+              tableName,
+              userRole,
+              userId,
+              record,
+            })
 
-      // Transform filtered record to get only user fields (exclude system fields)
-      const transformedFiltered = transformRecord(filteredRecord)
-      filteredFields = transformedFiltered.fields
-    }
+            // Transform filtered record to get only user fields (exclude system fields)
+            const transformedFiltered = transformRecord(filteredRecord)
+            return transformedFiltered.fields
+          })()
+        : transformed.fields
 
     // Return in format expected by tests: system fields at root, user fields nested
     // owner_id needs to be at root level for API compatibility
