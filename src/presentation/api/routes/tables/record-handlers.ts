@@ -77,6 +77,11 @@ function validateRequiredFields(
           readonly name: string
           readonly required?: boolean
         }>
+        readonly primaryKey?: {
+          readonly type: string
+          readonly fields?: ReadonlyArray<string>
+          readonly field?: string
+        }
       }
     | undefined,
   fields: Record<string, unknown>,
@@ -84,8 +89,16 @@ function validateRequiredFields(
 ) {
   if (!table) return undefined
 
+  // Get primary key field names to exclude from validation
+  const primaryKeyFields = new Set(table.primaryKey?.fields ?? [])
+
   const missingRequiredFields = table.fields
-    .filter((field) => field.required && !(field.name in fields))
+    .filter(
+      (field) =>
+        field.required &&
+        !(field.name in fields) &&
+        !primaryKeyFields.has(field.name) // Skip primary key fields
+    )
     .map((field) => field.name)
 
   if (missingRequiredFields.length > 0) {
