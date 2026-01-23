@@ -81,11 +81,25 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A running server with no table ID 9999
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+      // GIVEN: A running server with valid table but attempting to access non-existent table
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
+          },
+        ],
+      })
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User attempts to create record in non-existent table
       const response = await request.post('/api/tables/9999/records', {
