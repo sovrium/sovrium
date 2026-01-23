@@ -92,9 +92,16 @@ function validateRequiredFields(
   // Get primary key field names to exclude from validation
   const primaryKeyFields = new Set(table.primaryKey?.fields ?? [])
 
+  // Auto-injected fields that should be excluded from required field validation
+  const autoInjectedFields = new Set(['owner_id', 'organization_id'])
+
   const missingRequiredFields = table.fields
     .filter(
-      (field) => field.required && !(field.name in fields) && !primaryKeyFields.has(field.name) // Skip primary key fields
+      (field) =>
+        field.required &&
+        !(field.name in fields) &&
+        !primaryKeyFields.has(field.name) && // Skip primary key fields
+        !autoInjectedFields.has(field.name) // Skip auto-injected fields
     )
     .map((field) => field.name)
 
