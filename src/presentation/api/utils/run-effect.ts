@@ -86,10 +86,15 @@ export async function runEffect<T, S>(
 
     // Return generic error for other cases
     const errorDetails = error instanceof Error ? error.message : 'Internal server error'
+    const causeDetails =
+      error && typeof error === 'object' && 'cause' in error
+        ? String(error.cause)
+        : 'No cause details'
+
     return c.json(
       errorResponseSchema.parse({
         success: false,
-        message: errorDetails,
+        message: `${errorDetails} | Cause: ${causeDetails}`,
         code: 'INTERNAL_ERROR',
       }),
       500

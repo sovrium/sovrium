@@ -94,10 +94,7 @@ function validateRequiredFields(
 
   const missingRequiredFields = table.fields
     .filter(
-      (field) =>
-        field.required &&
-        !(field.name in fields) &&
-        !primaryKeyFields.has(field.name) // Skip primary key fields
+      (field) => field.required && !(field.name in fields) && !primaryKeyFields.has(field.name) // Skip primary key fields
     )
     .map((field) => field.name)
 
