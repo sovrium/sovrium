@@ -153,6 +153,7 @@ export const recordMigration = (
     // - nextVersion is a number from database query, not user input
     // - checksum is a hex string from SHA-256 hash, safe
     // - schemaSnapshot is JSON-escaped to prevent SQL injection
+    // NOTE: JSON.stringify is appropriate here - serializing trusted data for storage, not validation
     const escapedSchema = escapeSqlString(JSON.stringify(schemaSnapshot))
     const insertSQL = `
       INSERT INTO ${MIGRATION_HISTORY_TABLE} (version, checksum, schema)
@@ -196,6 +197,7 @@ export const storeSchemaChecksum = (
     const schemaSnapshot = createSchemaSnapshot(app)
 
     // DEBUG: Log what we're hashing AND storing
+    // NOTE: JSON.stringify for pretty-printing debug output, not validation (Effect Schema not needed)
     const tablesJson = JSON.stringify(schemaSnapshot.tables, undefined, 2)
     const fullSchemaJson = JSON.stringify(schemaSnapshot, undefined, 2)
     logInfo(
@@ -348,7 +350,7 @@ export const validateStoredChecksum = (
     logInfo(`[validateStoredChecksum] Stored checksum: ${storedChecksum}`)
     logInfo(`[validateStoredChecksum] Recalculated checksum: ${recalculatedChecksum}`)
 
-    // DEBUG: Log the actual JSON being hashed
+    // DEBUG: Log the actual JSON being hashed (JSON.stringify for debug output, not validation)
     logInfo(
       `[validateStoredChecksum] DEBUG - Stored tables JSON: ${JSON.stringify(storedSchema.tables, undefined, 2).substring(0, 500)}`
     )

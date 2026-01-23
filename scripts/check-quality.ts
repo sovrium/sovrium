@@ -462,6 +462,7 @@ const runEffectDiagnostics = Effect.gen(function* () {
   yield* progress('Effect Diagnostics...')
 
   // Run Effect Language Service diagnostics CLI
+  // Filter to only errors and warnings (exclude informational 'message' level diagnostics)
   const result = yield* cmd
     .spawn(
       [
@@ -470,6 +471,8 @@ const runEffectDiagnostics = Effect.gen(function* () {
         'diagnostics',
         '--project',
         'tsconfig.json',
+        '--severity',
+        'error,warning',
       ],
       { timeout: 120_000, throwOnError: false }
     )
