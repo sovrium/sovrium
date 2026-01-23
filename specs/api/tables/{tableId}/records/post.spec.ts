@@ -376,13 +376,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-009: should return 201 Created with all fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -396,8 +397,11 @@ test.describe('Create new record', () => {
         ],
       })
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: Admin creates record with sensitive field (salary)
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/8/records', {
         headers: {
           'Content-Type': 'application/json',
         },

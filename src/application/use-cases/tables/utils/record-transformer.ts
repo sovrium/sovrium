@@ -62,12 +62,23 @@ export const transformRecord = (record: Record<string, unknown>): TransformedRec
   // Extract system fields
   const { id, created_at: createdAt, updated_at: updatedAt, ...userFields } = record
 
-  // Convert Date objects to ISO strings in user fields
+  // Convert Date objects to ISO strings and numeric strings to numbers in user fields
   const transformedFields = Object.entries(userFields).reduce<Record<string, RecordFieldValue>>(
     (acc, [key, value]) => {
+      // Convert Date objects to ISO 8601 strings
       if (value instanceof Date) {
         return { ...acc, [key]: value.toISOString() }
       }
+
+      // Convert numeric strings (from PostgreSQL decimal/numeric columns) to numbers
+      // Only convert if the string is a valid number representation
+      if (typeof value === 'string' && value.trim() !== '') {
+        const numValue = Number(value)
+        if (!Number.isNaN(numValue) && /^-?\d+(\.\d+)?$/.test(value.trim())) {
+          return { ...acc, [key]: numValue }
+        }
+      }
+
       return { ...acc, [key]: value as RecordFieldValue }
     },
     {}
