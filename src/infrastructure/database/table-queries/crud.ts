@@ -7,7 +7,11 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { withSessionContext, SessionContextError } from '@/infrastructure/database'
+import {
+  withSessionContext,
+  SessionContextError,
+  UniqueConstraintViolationError,
+} from '@/infrastructure/database'
 import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -118,16 +122,13 @@ export function getRecord(
  * @param fields - Record fields
  * @returns Effect resolving to created record
  */
-/* eslint-disable max-lines-per-function, max-statements -- Debugging code temporarily increases complexity */
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>
-): Effect.Effect<Record<string, unknown>, SessionContextError> {
+): Effect.Effect<Record<string, unknown>, SessionContextError | UniqueConstraintViolationError> {
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
-      yield* Effect.log('[DEBUG] createRecord called for table:', tableName, 'fields:', fields)
-
       yield* Effect.sync(() => validateTableName(tableName))
 
       // Check if table has organization_id or owner_id columns
@@ -139,12 +140,8 @@ export function createRecord(
         catch: (error) => new SessionContextError('Failed to check table columns', error),
       })
 
-      yield* Effect.log('[DEBUG] columnCheck result:', columnCheck)
-
       const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
       const hasOwnerId = columnCheck.some((row) => row.column_name === 'owner_id')
-
-      yield* Effect.log('[DEBUG] hasOrgId:', hasOrgId, 'hasOwnerId:', hasOwnerId)
 
       // Security: Filter out any user-provided organization_id or owner_id if table has those columns
       // This prevents malicious users from injecting data into other organizations or impersonating other users
@@ -153,8 +150,6 @@ export function createRecord(
           ([key]) => !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
         )
       )
-
-      yield* Effect.log('[DEBUG] sanitizedFields:', sanitizedFields)
 
       // Build base entries from sanitized user fields
       const baseEntries = Object.entries(sanitizedFields)
@@ -185,27 +180,9 @@ export function createRecord(
         : withOrgColumn
       const valueParams = hasOwnerId ? [...withOrgValue, sql`${session.userId}`] : withOrgValue
 
-      yield* Effect.log('[DEBUG] columnIdentifiers count:', columnIdentifiers.length)
-      yield* Effect.log('[DEBUG] valueParams count:', valueParams.length)
-      yield* Effect.log('[DEBUG] session.userId:', session.userId)
-
       // Build INSERT query using sql.join for columns and values
       const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
       const valuesClause = sql.join(valueParams, sql.raw(', '))
-
-      yield* Effect.log('[DEBUG] About to execute INSERT query')
-
-      // Debug: Check session variables before INSERT
-      const sessionCheck = yield* Effect.tryPromise({
-        try: () =>
-          tx.execute(
-            sql.raw(
-              `SELECT current_setting('app.user_id', true) as user_id, current_setting('app.user_role', true) as role, current_role`
-            )
-          ) as Promise<readonly Record<string, unknown>[]>,
-        catch: (error) => new SessionContextError('Failed to check session variables', error),
-      })
-      yield* Effect.log('[DEBUG] Session variables before INSERT:', sessionCheck[0])
 
       const result = yield* Effect.tryPromise({
         try: async () => {
@@ -214,26 +191,39 @@ export function createRecord(
           )) as readonly Record<string, unknown>[]
           return insertResult
         },
-        catch: (error) => new SessionContextError(`Failed to create record in ${tableName}`, error),
-      })
+        catch: (error) => {
+          // Check for PostgreSQL unique constraint violation
+          // The error is wrapped in DrizzleQueryError with the actual error in the cause
+          const cause =
+            error && typeof error === 'object' && 'cause' in error ? error.cause : undefined
+          const causeCode =
+            cause && typeof cause === 'object' && 'code' in cause ? cause.code : undefined
+          const causeConstraint =
+            cause && typeof cause === 'object' && 'constraint' in cause
+              ? cause.constraint
+              : undefined
 
-      yield* Effect.log('[DEBUG] INSERT succeeded, result:', result)
+          // Detect unique constraint violation:
+          // - Check for PostgreSQL error code 23505
+          // - Check for 'constraint' property (Bun SQL driver includes this)
+          // - Check for 'unique constraint' in error message
+          if (
+            causeCode === '23505' ||
+            (causeConstraint && typeof causeConstraint === 'string') ||
+            (cause &&
+              typeof cause === 'object' &&
+              'message' in cause &&
+              typeof cause.message === 'string' &&
+              cause.message.includes('unique constraint'))
+          ) {
+            return new UniqueConstraintViolationError('Unique constraint violation', error)
+          }
+          return new SessionContextError(`Failed to create record in ${tableName}`, error)
+        },
+      })
 
       return result[0] ?? {}
-    }).pipe(
-      Effect.catchAll((error) => {
-        return Effect.gen(function* () {
-          yield* Effect.log('[DEBUG] createRecord error:', error)
-          if (error instanceof SessionContextError) {
-            yield* Effect.log('[DEBUG] SessionContextError details:', {
-              message: error.message,
-              cause: error.cause,
-            })
-          }
-          return yield* Effect.fail(error)
-        })
-      })
-    )
+    })
   )
 }
 

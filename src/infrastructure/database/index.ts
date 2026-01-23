@@ -33,6 +33,7 @@ export {
   getCurrentSessionContext,
   SessionContextError,
   ForbiddenError,
+  UniqueConstraintViolationError,
   type DatabaseTransaction,
 } from './session-context'
 export { withSessionContext, withSessionContextSimple } from './with-session-context'

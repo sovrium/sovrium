@@ -38,6 +38,23 @@ export class ForbiddenError extends Error {
 }
 
 /**
+ * Unique constraint violation error
+ * Thrown when attempting to insert/update a record that violates a unique constraint
+ */
+export class UniqueConstraintViolationError extends Error {
+  readonly _tag = 'UniqueConstraintViolationError'
+  override readonly cause?: unknown
+
+  constructor(message: string, cause?: unknown) {
+    super(message)
+    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
+    this.name = 'UniqueConstraintViolationError'
+    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
+    this.cause = cause
+  }
+}
+
+/**
  * Database transaction interface supporting unsafe SQL execution
  */
 export interface DatabaseTransaction {
