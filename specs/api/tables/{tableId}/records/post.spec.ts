@@ -121,16 +121,17 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A table with required email field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
-            id: 2,
+            id: 1,
             name: 'users',
             fields: [
               { id: 1, name: 'email', type: 'email', required: true, unique: true },
@@ -139,6 +140,9 @@ test.describe('Create new record', () => {
           },
         ],
       })
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User creates record without required field
       const response = await request.post('/api/tables/1/records', {
