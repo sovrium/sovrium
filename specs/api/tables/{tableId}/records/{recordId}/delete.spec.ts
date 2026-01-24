@@ -291,10 +291,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-007: should return 204 for admin with full access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An admin user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -313,19 +313,24 @@ test.describe('Delete record', () => {
           },
         ],
       })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice Cooper', 'org_123')
-      `)
+      await createAuthenticatedUser()
+
+      // Create record via API so organization_id is set automatically
+      const createResponse = await request.post('/api/tables/7/records', {
+        headers: { 'Content-Type': 'application/json' },
+        data: { fields: { name: 'Alice Cooper' } },
+      })
+      expect(createResponse.status()).toBe(201)
+      const createdRecord = await createResponse.json()
 
       // WHEN: Admin deletes a record from their organization
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete(`/api/tables/7/records/${createdRecord.id}`, {})
 
       // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
 
       // THEN: Record is soft deleted (deleted_at is set)
-      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
+      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=${createdRecord.id}`)
       expect(result.deleted_at).toBeTruthy()
     }
   )
