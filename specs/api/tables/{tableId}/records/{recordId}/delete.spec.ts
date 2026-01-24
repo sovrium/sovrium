@@ -384,10 +384,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-009: should return 404 to prevent org enumeration',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A record with organization_id='org_456' and admin from org_123
       await startServerWithSchema({
         name: 'test-app',
@@ -407,13 +407,16 @@ test.describe('Delete record', () => {
           },
         ],
       })
+      // Create authenticated user from org_123 (default organization)
+      await createAuthenticatedUser()
+
       await executeQuery(`
         INSERT INTO employees (id, name, email, organization_id)
         VALUES (1, 'Bob Smith', 'bob@example.com', 'org_456')
       `)
 
       // WHEN: Admin attempts to delete record from different organization
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/9/records/1', {})
 
       // THEN: Returns 404 Not Found (not 403 - prevents org enumeration)
       expect(response.status()).toBe(404)

@@ -95,6 +95,9 @@ export const withSessionContext = <A, E>(
           // 3. Setting variables after role switch may not be visible to RLS evaluation
           await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
           await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
+          // TODO: Get organization_id from Better Auth organization plugin when implemented
+          // For now, use default organization 'org_123' for all users
+          await tx.execute(sql.raw(`SET LOCAL app.organization_id = 'org_123'`))
 
           // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
           // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
@@ -142,6 +145,9 @@ export const withSessionContextSimple = async <A>(
     // 3. Setting variables after role switch may not be visible to RLS evaluation
     await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
     await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
+    // TODO: Get organization_id from Better Auth organization plugin when implemented
+    // For now, use default organization 'org_123' for all users
+    await tx.execute(sql.raw(`SET LOCAL app.organization_id = 'org_123'`))
 
     // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
     // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
